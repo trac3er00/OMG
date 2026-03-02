@@ -355,10 +355,9 @@ if not route_lock and get_feature_flag('agent_registry') and budget_ok():
         if isinstance(matched_agent, dict):
             _agent_name = matched_agent.get('name', '')
             _preferred = matched_agent.get('preferred_model', 'claude')
-            _available = detect_available_models()
-            if _preferred == 'gemini-cli' and _available.get('gemini-cli'):
+            if _preferred == 'gemini-cli':
                 add(f'@agent: {_agent_name} → /OAL:escalate gemini "[task]" (visual/frontend domain)')
-            elif _preferred == 'codex-cli' and _available.get('codex-cli'):
+            elif _preferred == 'codex-cli':
                 add(f'@agent: {_agent_name} → /OAL:escalate codex "[task]" (backend/security domain)')
             elif _preferred in ('claude', 'domain-dependent'):
                 _desc = str(matched_agent.get('description', ''))[:80]
