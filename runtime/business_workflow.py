@@ -191,8 +191,9 @@ def build_business_workflow_result(
     verification: dict[str, Any],
 ) -> dict[str, Any]:
     plan_payload = build_business_task_plan(idea)
-    checks = verification.get("checks", []) if isinstance(verification, dict) else []
-    checks_ok = all(isinstance(check, dict) and bool(check.get("passed")) for check in checks)
+    checks_value = verification.get("checks") if isinstance(verification, dict) else None
+    checks = checks_value if isinstance(checks_value, list) else []
+    checks_ok = bool(checks) and all(isinstance(check, dict) and check.get("passed") is True for check in checks)
 
     stage_status = {
         "plan": "completed" if plan.get("status") == "planned" else "failed",

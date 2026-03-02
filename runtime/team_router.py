@@ -420,27 +420,32 @@ def execute_agents_parallel(
     project_dir: str,
     timeout_per_agent: int = 120,
 ) -> list[dict[str, Any]]:
-    sorted_tasks = sorted(agent_tasks, key=lambda x: x.get("order", 0))
+    indexed_tasks: list[tuple[int, int, dict[str, Any]]] = [
+        (idx, int(task.get("order", 0)), task) for idx, task in enumerate(agent_tasks)
+    ]
+    sorted_tasks = sorted(indexed_tasks, key=lambda x: (x[1], x[0]))
     if not sorted_tasks:
         return []
 
     max_workers = min(len(sorted_tasks), 5)
-    results_by_order: dict[int, dict[str, Any]] = {}
+    results_by_index: dict[int, dict[str, Any]] = {}
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_map = {
             pool.submit(
                 dispatch_to_model,
-                str(task.get("agent_name", "executor")),
-                str(task.get("prompt", "")),
+                str(task_info[2].get("agent_name", "executor")),
+                str(task_info[2].get("prompt", "")),
                 project_dir,
-            ): task
-            for task in sorted_tasks
+            ): task_info
+            for task_info in sorted_tasks
         }
 
         for future in as_completed(future_map):
-            task = future_map[future]
-            order = int(task.get("order", 0))
+            task_info = future_map[future]
+            task = task_info[2]
+            order = task_info[1]
+            task_index = task_info[0]
             agent_name = str(task.get("agent_name", "executor"))
 
             try:
@@ -455,14 +460,14 @@ def execute_agents_parallel(
             else:
                 status = "completed" if result.get("exit_code") == 0 else "failed"
 
-            results_by_order[order] = {
+            results_by_index[task_index] = {
                 "agent": agent_name,
                 "order": order,
                 "status": status,
                 **result,
             }
 
-    ordered_results = [results_by_order[int(task.get("order", 0))] for task in sorted_tasks]
+    ordered_results = [results_by_index[task_info[0]] for task_info in sorted_tasks]
     return ordered_results
 
 
