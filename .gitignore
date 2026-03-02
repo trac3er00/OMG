@@ -68,6 +68,3 @@ plugins/advanced/agents/
 plugins/advanced/skills/
 plugins/core/commands/
 plugins/core/skills/
-
-# vendor
-vendor/ecosystem/

@@ -77,20 +77,14 @@ def test_migration_legacy_wrapper_still_works(tmp_path: Path):
 def test_compliance_artifacts_exist():
     notices_path = ROOT / "THIRD_PARTY_NOTICES.md"
     upstream_path = ROOT / "UPSTREAM_DIFF.md"
-    vendor_license = ROOT / "vendor" / "omc" / "LICENSE"
 
     assert notices_path.exists()
     assert upstream_path.exists()
 
     notices = notices_path.read_text(encoding="utf-8")
     upstream = upstream_path.read_text(encoding="utf-8")
-    assert "Initial imported commit hash" in upstream
+    assert "research baseline commit hash" in upstream
     assert "oh-my-claudecode" in notices
-    assert "Repository:" in notices
+    assert "https://github.com/Yeachan-Heo/oh-my-claudecode" in notices
 
-    # Full repo may include vendored payload. Standalone bundle may omit it.
-    if (ROOT / "vendor" / "omc").exists():
-        assert "vendor/omc" in notices
-        assert vendor_license.exists()
-    else:
-        assert "optional in standalone distributions" in notices
+    assert "No third-party source trees are vendored in this repository." in notices

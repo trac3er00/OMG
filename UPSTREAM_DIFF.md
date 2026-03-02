@@ -1,16 +1,16 @@
-# OMC Upstream Integration Notes
+# Upstream Influence Notes
 
 - Upstream project: `oh-my-claudecode`
 - Source URL: `https://github.com/Yeachan-Heo/oh-my-claudecode`
-- Import strategy: `vendor/omc + adapter layer`
-- Initial imported commit hash: `8234e6d8fe346bb518e44cb9bf1f2c7cc0f1d716`
-- Imported at (UTC): `2026-02-27`
+- Integration strategy: `OAL-native adapters and compatibility layer (no vendored source trees)`
+- Initial research baseline commit hash: `8234e6d8fe346bb518e44cb9bf1f2c7cc0f1d716`
+- First influence capture (UTC): `2026-02-27`
 
 ## Local Policy
 
-1. Keep `vendor/omc` as close to upstream as possible.
-2. Apply OAL custom behavior in OAL-owned adapters/hooks/commands.
-3. Record all intentional divergence here.
+1. Keep OAL runtime and compatibility behavior implemented in OAL-owned code.
+2. Use upstream repositories as references only, not as vendored source payload.
+3. Record major intentional divergence here.
 
 ## Divergence Summary
 

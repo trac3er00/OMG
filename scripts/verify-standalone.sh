@@ -7,7 +7,7 @@ TMP_DIR="${1:-$(mktemp -d)}"
 echo "[verify-standalone] source: $ROOT_DIR"
 echo "[verify-standalone] workdir: $TMP_DIR"
 
-tar --exclude="./vendor/omc" --exclude="./.omc" --exclude="./.pytest_cache" -cf - -C "$ROOT_DIR" . | (cd "$TMP_DIR" && tar -xf -)
+tar --exclude="./.omc" --exclude="./.pytest_cache" -cf - -C "$ROOT_DIR" . | (cd "$TMP_DIR" && tar -xf -)
 
 cd "$TMP_DIR"
 python3 scripts/oal.py compat gate --max-bridge 0 --output .oal/evidence/oal-compat-gap.json

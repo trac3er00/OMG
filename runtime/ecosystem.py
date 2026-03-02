@@ -10,7 +10,7 @@ from typing import Any
 ECOSYSTEM_SCHEMA = "OalEcosystemCatalog"
 ECOSYSTEM_CATALOG_VERSION = "1.0.0"
 ECOSYSTEM_LOCK_SCHEMA = "OalEcosystemLock"
-DEFAULT_ECOSYSTEM_VENDOR_DIR = "vendor/ecosystem"
+DEFAULT_ECOSYSTEM_REPO_DIR = ".oal/ecosystem/repos"
 DEFAULT_ECOSYSTEM_LOCK_PATH = ".oal/state/ecosystem-lock.json"
 DEFAULT_ECOSYSTEM_PLAYBOOK_DIR = ".oal/knowledge/ecosystem"
 MAX_SELECTION = 32
@@ -232,7 +232,7 @@ def _clone_or_update_repo(
         "name": repo["name"],
         "repo": repo_url,
         "ref": ref,
-        "vendor_segments": ["vendor", "ecosystem", str(repo["name"])],
+        "repo_segments": [".oal", "ecosystem", "repos", str(repo["name"])],
         "action": action,
         "commit": commit,
         "branch": branch,
@@ -269,13 +269,13 @@ def sync_ecosystem_repos(
 ) -> dict[str, Any]:
     root = Path(project_dir)
     selected, unknown = resolve_ecosystem_selection(names)
-    vendor_root = root / DEFAULT_ECOSYSTEM_VENDOR_DIR
+    repo_root = root / DEFAULT_ECOSYSTEM_REPO_DIR
     lock_path = root / DEFAULT_ECOSYSTEM_LOCK_PATH
     lock_path.parent.mkdir(parents=True, exist_ok=True)
 
     entries: list[dict[str, Any]] = []
     for repo in selected:
-        target = vendor_root / str(repo["name"])
+        target = repo_root / str(repo["name"])
         try:
             synced = _clone_or_update_repo(repo=repo, target=target, update=update, depth=depth)
             synced["status"] = "ok"
@@ -286,7 +286,7 @@ def sync_ecosystem_repos(
                     "name": repo["name"],
                     "repo": repo["repo"],
                     "ref": repo.get("ref", "main"),
-                    "vendor_segments": ["vendor", "ecosystem", str(repo["name"])],
+                    "repo_segments": [".oal", "ecosystem", "repos", str(repo["name"])],
                     "status": "error",
                     "error": str(exc),
                 }
@@ -313,7 +313,7 @@ def sync_ecosystem_repos(
         "schema": ECOSYSTEM_LOCK_SCHEMA,
         "catalog_version": ECOSYSTEM_CATALOG_VERSION,
         "lock_path": str(lock_path),
-        "vendor_dir": str(vendor_root),
+        "repo_dir": str(repo_root),
         "selected": payload["selected"],
         "unknown": unknown,
         "entries": entries,
@@ -323,20 +323,20 @@ def sync_ecosystem_repos(
 
 def ecosystem_status(*, project_dir: str) -> dict[str, Any]:
     root = Path(project_dir)
-    vendor_root = root / DEFAULT_ECOSYSTEM_VENDOR_DIR
+    repo_root = root / DEFAULT_ECOSYSTEM_REPO_DIR
     lock_path = root / DEFAULT_ECOSYSTEM_LOCK_PATH
     lock = _read_lock(lock_path)
 
     repos = list_ecosystem_repos()
     statuses: list[dict[str, Any]] = []
     for repo in repos:
-        target = vendor_root / str(repo["name"])
+        target = repo_root / str(repo["name"])
         if not target.exists():
             statuses.append(
                 {
                     "name": repo["name"],
                     "installed": False,
-                    "vendor_segments": ["vendor", "ecosystem", str(repo["name"])],
+                    "repo_segments": [".oal", "ecosystem", "repos", str(repo["name"])],
                 }
             )
             continue
@@ -352,7 +352,7 @@ def ecosystem_status(*, project_dir: str) -> dict[str, Any]:
             {
                 "name": repo["name"],
                 "installed": True,
-                "vendor_segments": ["vendor", "ecosystem", str(repo["name"])],
+                "repo_segments": [".oal", "ecosystem", "repos", str(repo["name"])],
                 "commit": commit,
                 "branch": branch,
                 "error": error,
@@ -366,6 +366,6 @@ def ecosystem_status(*, project_dir: str) -> dict[str, Any]:
         "catalog_version": ECOSYSTEM_CATALOG_VERSION,
         "lock_exists": lock_path.exists(),
         "lock_generated_at": lock.get("generated_at", ""),
-        "vendor_dir": str(vendor_root),
+        "repo_dir": str(repo_root),
         "repos": statuses,
     }

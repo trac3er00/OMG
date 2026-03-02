@@ -4,7 +4,7 @@
 
 **Goal:** Ensure every OMC skill name can be invoked in OAL standalone mode without external OMC installation.
 
-**Architecture:** Add a runtime compatibility dispatcher that maps OMC skill names to OAL-native execution routes. Expose this dispatcher via `oal omc list` and `oal omc run`, and enforce coverage with tests that compare against `vendor/omc/skills`.
+**Architecture:** Add a runtime compatibility dispatcher that maps OMC skill names to OAL-native execution routes. Expose this dispatcher via `oal omc list` and `oal omc run`, and enforce coverage with tests that compare against OAL's internal legacy skill contract tables.
 
 **Tech Stack:** Python 3.12, pytest, existing OAL runtime/hooks modules.
 
@@ -17,7 +17,7 @@
 - Test: `/Users/cminseo/Documents/scripts/Shell/OAL/tests/runtime/test_omc_compat.py`
 
 **Step 1: Write failing test**
-- Assert all skill directories under `vendor/omc/skills` are listed by compat module.
+- Assert all legacy skills in OAL contract tables are listed by the compat module.
 
 **Step 2: Run failing test**
 - `PYENV_VERSION=3.12.7 python -m pytest -q tests/runtime/test_omc_compat.py`
@@ -76,7 +76,7 @@
 - Create: `/Users/cminseo/Documents/scripts/Shell/OAL/tests/e2e/test_omc_skill_coverage.py`
 
 **Step 1: Write failing coverage test**
-- For each skill in `vendor/omc/skills`, dispatch via compat and expect non-error.
+- For each skill in OAL legacy contract tables, dispatch via compat and expect non-error.
 
 **Step 2: Run failing tests**
 - `PYENV_VERSION=3.12.7 python -m pytest -q tests/e2e/test_omc_skill_coverage.py`
@@ -87,4 +87,3 @@
 **Step 4: Run full suite**
 - `PYENV_VERSION=3.12.7 python -m pytest -q`
 - Expect all green.
-
