@@ -1,4 +1,42 @@
-# OAL v1 — Standalone Orchestration Layer
+# OAL v1.0.0 — Standalone Orchestration Layer
+
+> **Multi-agent orchestration for Claude Code with automatic Codex/Gemini routing**
+
+**Version:** v1.0.0  
+**Author:** trac3er00  
+**Repository:** [github.com/trac3er00/OAL](https://github.com/trac3er00/OAL)
+
+---
+
+**19 Hooks · 5 Core Rules · 17 Contextual Rules · 14 Agents · 16 Commands**
+
+OAL (Orchestration Abstraction Layer) is a Claude Code plugin that enables intelligent multi-agent workflows. It automatically routes tasks to the right AI model (Claude, Codex, or Gemini) based on the problem domain, tracks failures with circuit-breaker patterns, and provides session persistence across conversations.
+
+## Key Features
+
+- **Crazy Mode**: Activate all agents in sequence for maximum problem-solving power
+- **Auto-Routing**: Automatically delegates to Codex (backend/debugging) or Gemini (UI/UX) based on context
+- **Plugin Updates**: Update directly from Claude Code via `/plugin` → OAL → Update
+- **Session Handoff**: Transfer context between Claude Code sessions with `/OAL:handoff`
+- **User-Journey Testing**: Validates tests catch real bugs, not just boilerplate
+
+## Quick Start
+
+```bash
+# Install
+./OAL-setup.sh install
+
+# Or install as plugin (supports in-Claude updates)
+./OAL-setup.sh install --install-as-plugin
+
+# Initialize a project
+/OAL:init
+
+# Check health
+/OAL:health-check
+```
+
+---
 
 **19 Hooks · 5 Core Rules · 17 Contextual Rules · 14 Agents · 16 Commands**
 **19 Hooks · 5 Core Rules · 17 Contextual Rules · 14 Agents · Core + Advanced Plugin Commands**

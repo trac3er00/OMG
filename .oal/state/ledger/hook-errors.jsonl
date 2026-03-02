@@ -115,3 +115,4 @@
 {"ts":"2026-03-02T01:09:29.454379+00:00","hook":"stop_dispatcher","error":"unsupported operand type(s) for |: 'type' and 'NoneType'"}
 {"ts":"2026-03-02T01:14:06.897515+00:00","hook":"stop_dispatcher","error":"unsupported operand type(s) for |: 'type' and 'NoneType'"}
 {"ts":"2026-03-02T01:14:38.142274+00:00","hook":"stop_dispatcher","error":"unsupported operand type(s) for |: 'type' and 'NoneType'"}
+{"ts":"2026-03-02T01:15:55.558703+00:00","hook":"stop_dispatcher","error":"unsupported operand type(s) for |: 'type' and 'NoneType'"}
