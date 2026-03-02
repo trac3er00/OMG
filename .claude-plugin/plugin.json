@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "OAL standalone orchestration layer for Claude Code - multi-agent coordination with Codex/Gemini",
   "author": {
-    "name": "OAL contributors"
+    "name": "trac3er00"
   },
-  "repository": "https://github.com/oal-dev/oal",
-  "homepage": "https://github.com/oal-dev/oal",
+  "repository": "git@github.com:trac3er00/OAL.git",
+  "homepage": "https://github.com/trac3er00/OAL",
   "bugs": {
-    "url": "https://github.com/oal-dev/oal/issues"
+    "url": "https://github.com/trac3er00/OAL/issues"
   },
   "license": "MIT",
   "keywords": [
