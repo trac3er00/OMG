@@ -1,0 +1,6 @@
+✓ backend-engineer model_version: gpt-5.3
+✓ frontend-designer model_version: gemini-3.1-pro-preview
+✓ testing-engineer model_version: claude-sonnet-4
+✓ research-mode model_version: claude-haiku-3.5
+
+All dispatch params tests PASSED

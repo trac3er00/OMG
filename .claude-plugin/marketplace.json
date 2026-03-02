@@ -1,0 +1,49 @@
+{
+  "name": "oh-advanced-layer",
+  "description": "Marketplace metadata for the OAL Claude plugin",
+  "owner": {
+    "name": "OAL contributors"
+  },
+  "metadata": {
+    "description": "OAL - Orchestration Abstraction Layer for Claude Code",
+    "version": "1.0.0",
+    "homepage": "https://github.com/oal-dev/oal",
+    "repository": "https://github.com/oal-dev/oal"
+  },
+  "plugins": [
+    {
+      "name": "oal",
+      "description": "OAL standalone orchestration layer for Claude Code",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "OAL contributors"
+      },
+      "homepage": "https://github.com/oal-dev/oal",
+      "repository": "https://github.com/oal-dev/oal",
+      "bugs": {
+        "url": "https://github.com/oal-dev/oal/issues"
+      },
+      "license": "MIT",
+      "category": "productivity",
+      "tags": [
+        "orchestration",
+        "automation",
+        "multi-agent",
+        "oal",
+        "codex",
+        "gemini",
+        "crazy-mode"
+      ],
+      "requirements": {
+        "claudeCode": ">=2.0.0"
+      },
+      "scripts": {
+        "install": ".claude-plugin/scripts/install.sh",
+        "update": ".claude-plugin/scripts/update.sh",
+        "uninstall": ".claude-plugin/scripts/uninstall.sh"
+      }
+    }
+  ],
+  "version": "1.0.0"
+}

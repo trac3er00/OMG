@@ -1,0 +1,35 @@
+Task 18 Evidence: Ralph True Loop (P1)
+Date: 2026-02-28
+
+Changed files:
+- hooks/stop_dispatcher.py
+- .oal/state/ralph-loop.json
+- tests/test_ralph.py
+
+Implementation details:
+- Imported atomic_json_write from hooks/_common.py in stop_dispatcher.
+- Implemented check_ralph_loop(project_dir, data):
+  - Feature-flag guard using get_feature_flag("ralph_loop").
+  - Reads .oal/state/ralph-loop.json from project directory.
+  - No-ops on missing/invalid/inactive state.
+  - Deactivates loop and emits advisory at max iterations.
+  - Increments iteration atomically and blocks with original prompt while active.
+- Wired P1 dispatcher stub to execute Ralph check before other checks:
+  - Calls check_ralph_loop(project_dir, data)
+  - Appends advisories to _stop_advisories
+  - Calls block_decision(...) on first block reason.
+- Added template state file:
+  - .oal/state/ralph-loop.json with active=false and default fields.
+
+Validation:
+1) LSP diagnostics (errors only):
+- hooks/stop_dispatcher.py: clean
+- tests/test_ralph.py: clean
+
+2) Targeted tests:
+- Command: python3 -m pytest tests/test_ralph.py tests/test_stop_dispatcher.py -x -q
+- Result: 15 passed
+
+3) Full test suite:
+- Command: python3 -m pytest tests/ -x -q --ignore=tests/e2e
+- Result: 287 passed

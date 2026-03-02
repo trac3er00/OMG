@@ -1,0 +1,30 @@
+# OAL Idea Contract
+# Single source of intent for Idea -> Evidence -> PR automation.
+
+goal: ""
+constraints:
+  - ""
+acceptance:
+  - ""
+risk:
+  security:
+    - ""
+  performance:
+    - ""
+  compatibility:
+    - ""
+evidence_required:
+  tests:
+    - ""
+  security_scans:
+    - ""
+  reproducibility:
+    - ""
+  artifacts:
+    - "diff"
+    - "summary"
+metadata:
+  owner: ""
+  priority: "medium"   # low | medium | high | critical
+  target_branch: ""
+  created_at: ""

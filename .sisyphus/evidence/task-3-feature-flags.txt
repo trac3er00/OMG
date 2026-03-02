@@ -1,0 +1,80 @@
+# Task 3: Feature Flags System — Evidence
+
+## Acceptance Criteria Results
+
+### Test 1: OAL_MEMORY_ENABLED=0 returns False
+Command: OAL_MEMORY_ENABLED=0 python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; result = get_feature_flag('memory'); print(f'OAL_MEMORY_ENABLED=0: {result}'); assert not result, 'Expected False'"
+Output: OAL_MEMORY_ENABLED=0: False
+Status: ✓ PASS
+
+### Test 2: Default (no env var) returns True
+Command: python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; result = get_feature_flag('memory'); print(f'Default (no env var): {result}'); assert result, 'Expected True'"
+Output: Default (no env var): True
+Status: ✓ PASS
+
+### Test 3: Full test suite
+Command: python3 tests/test_common.py
+Output:
+✓ test_log_hook_error passed
+✓ test_log_hook_error_rotation passed
+✓ test_atomic_json_write passed
+✓ test_atomic_json_write_no_tmp_leftover passed
+✓ test_atomic_json_write_silent_failure passed
+✓ test_feature_flags passed
+
+All tests passed!
+Status: ✓ PASS
+
+## Files Modified
+
+1. hooks/_common.py
+   - Added module-level cache: _FEATURE_CACHE = {}
+   - Added function: get_feature_flag(flag_name, default=True)
+   - Resolution order: env var (OAL_{FLAG_NAME}_ENABLED) → settings.json (_oal.features) → default
+   - Graceful error handling: returns default on any error
+
+2. settings.json
+   - Added _oal.features section with 7 feature flags:
+     * memory: true
+     * ralph_loop: true
+     * planning_enforcement: true
+     * compound_learning: true
+     * simplifier: true
+     * model_routing: true
+     * agent_registry: true
+
+3. tests/test_common.py
+   - Added test_feature_flags() function
+   - Tests cover: env var false/true values, defaults, settings.json reading, env override, malformed JSON, missing features section
+   - All 6 tests pass
+
+## Implementation Details
+
+### Resolution Order
+1. Environment variable: OAL_{FLAG_NAME.upper()}_ENABLED
+   - "0", "false", "no" → False
+   - "1", "true", "yes" → True
+2. settings.json: _oal.features.{flag_name}
+3. default parameter (default=True)
+
+### Caching Strategy
+- Module-level dict _FEATURE_CACHE populated on first call
+- Prevents repeated file I/O during hook execution
+- Cache cleared between test runs for isolation
+
+### Error Handling
+- Missing settings.json: returns default
+- Malformed JSON: returns default
+- Missing _oal section: returns default
+- Missing features section: returns default
+- No exceptions raised
+
+## Verification
+
+All acceptance criteria met:
+✓ get_feature_flag() function added to hooks/_common.py
+✓ _oal.features section added to settings.json with 7 flags
+✓ test_feature_flags test created and passing
+✓ OAL_MEMORY_ENABLED=0 test passes
+✓ Default test passes
+✓ Full test suite passes

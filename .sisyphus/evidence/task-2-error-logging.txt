@@ -1,0 +1,83 @@
+# Task 2: Hook Error Logging — Evidence
+
+## Acceptance Criteria Verification
+
+### 1. log_hook_error function test
+Command: python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import log_hook_error; log_hook_error('test','err'); import os; path = os.path.join(os.getcwd(), '.oal/state/ledger/hook-errors.jsonl'); print(f'File exists: {os.path.exists(path)}'); os.path.exists(path) and print(open(path).read())"
+
+Output:
+File exists: True
+{"ts":"2026-02-28T18:08:47.293311+00:00","hook":"test","error":"err"}
+
+✓ PASS: File created at .oal/state/ledger/hook-errors.jsonl
+✓ PASS: JSON format correct with ts, hook, error fields
+✓ PASS: ISO8601 timestamp present
+
+### 2. atomic_json_write function test
+Command: python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import atomic_json_write; atomic_json_write('/tmp/test.json', {'a':1}); import os; print(f'File exists: {os.path.exists(\"/tmp/test.json\")}'); print(f'Content: {open(\"/tmp/test.json\").read()}')"
+
+Output:
+File exists: True
+Content: {"a":1}
+
+✓ PASS: File created at /tmp/test.json
+✓ PASS: JSON content correct
+✓ PASS: Atomic write successful
+
+### 3. Unit tests
+Command: python3 tests/test_common.py
+
+Output:
+✓ test_log_hook_error passed
+✓ test_log_hook_error_rotation passed
+✓ test_atomic_json_write passed
+✓ test_atomic_json_write_no_tmp_leftover passed
+✓ test_atomic_json_write_silent_failure passed
+
+All tests passed!
+
+✓ PASS: All 5 unit tests pass
+✓ PASS: Rotation logic tested (>100KB)
+✓ PASS: Atomic write cleanup tested
+✓ PASS: Silent failure mode tested
+
+## Code Changes
+
+### File: hooks/_common.py
+- Added imports: fcntl, datetime, timezone
+- Added function: log_hook_error(hook_name, error, context=None)
+  - Logs to .oal/state/ledger/hook-errors.jsonl
+  - JSONL format with ts, hook, error, context fields
+  - File locking with fcntl.flock
+  - Rotation at 100KB
+  - Silent failure (crash isolation)
+- Added function: atomic_json_write(path, data)
+  - Atomic write via temp + rename
+  - Creates parent directories
+  - Silent failure
+- Updated: setup_crash_handler()
+  - Now calls log_hook_error() before exit
+  - Maintains fail_closed behavior
+
+### File: tests/test_common.py (NEW)
+- Created comprehensive test suite
+- 5 test functions covering:
+  - Basic logging functionality
+  - File rotation at 100KB
+  - Atomic write with correct JSON
+  - Temp file cleanup
+  - Silent failure mode
+
+## Verification Summary
+
+✓ hooks/_common.py modified correctly
+✓ tests/test_common.py created with passing tests
+✓ log_hook_error acceptance test passes
+✓ atomic_json_write acceptance test passes
+✓ All unit tests pass (5/5)
+✓ No external dependencies (pure stdlib)
+✓ Crash handler integration verified
+✓ File locking implemented
+✓ Rotation logic implemented
+✓ Silent failure mode implemented
+

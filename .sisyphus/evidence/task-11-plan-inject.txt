@@ -1,0 +1,39 @@
+Task 11: PreToolUse Plan Injection Hook
+========================================
+Date: 2026-02-28
+
+Files Created:
+  - hooks/pre-tool-inject.py (42 lines)
+  - tests/test_pre_tool_inject.py (133 lines, 6 tests)
+
+--- Acceptance Test 1: Plan exists → @plan-reminder injected ---
+$ echo '{"tool_name":"Write"}' | CLAUDE_PROJECT_DIR=/tmp/oal-test-plan OAL_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
+{"contextInjection": "@plan-reminder: # Test Plan\n- Step 1\n- Step 2\n"}
+✅ PASS — output contains @plan-reminder
+
+--- Acceptance Test 2: No plan → empty output, exit 0 ---
+$ echo '{"tool_name":"Write"}' | CLAUDE_PROJECT_DIR=/tmp/oal-test-noplan OAL_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py; echo "EXIT=$?"
+EXIT=0
+✅ PASS — empty output, exit code 0
+
+--- Unit Tests (6/6 passed) ---
+$ python3 -m pytest tests/test_pre_tool_inject.py -v
+tests/test_pre_tool_inject.py::test_injects_plan_when_exists PASSED
+tests/test_pre_tool_inject.py::test_no_injection_without_plan PASSED
+tests/test_pre_tool_inject.py::test_invalid_json_exits_zero PASSED
+tests/test_pre_tool_inject.py::test_feature_flag_disabled PASSED
+tests/test_pre_tool_inject.py::test_plan_truncated_to_200_chars PASSED
+tests/test_pre_tool_inject.py::test_legacy_omc_plan_fallback PASSED
+6 passed in 0.23s
+
+--- Regression Check ---
+$ python3 -m pytest --tb=short -q
+264 passed, 4 failed (pre-existing: hud baseline + stop_gate dispatcher) in 29.94s
+✅ No regression from this task
+
+--- Hook Behavior Summary ---
+- Uses `planning_enforcement` feature flag (env var or settings.json)
+- Reads _plan.md via resolve_state_file() (supports .oal/state/ and legacy .omc/)
+- Caps output: first 15 lines, max 200 chars
+- Outputs {"contextInjection": "@plan-reminder: <head>"} — injects context, never blocks
+- Crash isolation: exits 0 on all error paths

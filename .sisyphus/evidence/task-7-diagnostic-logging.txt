@@ -1,0 +1,111 @@
+TASK 7: Diagnostic Logging for Context-Limit Stop Detection
+============================================================
+
+OBJECTIVE:
+Add diagnostic logging to hooks/stop_dispatcher.py, hooks/_common.py, and hooks/test-validator.py
+to empirically validate which guard triggers during context-limit stops.
+
+CHANGES MADE:
+=============
+
+1. hooks/stop_dispatcher.py (main() entry point, lines 665-669)
+   ✓ Added: print(f"[OAL stop_dispatcher] payload keys: {list(data.keys())}", file=sys.stderr)
+   ✓ Added: print(f"[OAL stop_dispatcher] stop_hook_active={data.get('stop_hook_active')}", file=sys.stderr)
+   - Logs payload structure and stop_hook_active flag at entry
+
+2. hooks/_common.py (should_skip_stop_hooks() function)
+   ✓ Guard 1 (line 273): Added logging when stop_hook_active=True
+     "[OAL] Guard 1 triggered: stop_hook_active=True"
+   ✓ Guard 2 (line 319): Added logging for transcript feedback loop
+     "[OAL] Guard 2 triggered: stop-hook feedback loop"
+   ✓ Guard 4 (line 327): Already had logging (verified)
+     "[OAL] Guard 4 triggered: stop-block loop detected, skipping hooks"
+   ✓ Guard 5 (line 343): Already had logging (verified)
+     "[OAL] Guard 5 triggered: empty stop_reason + recent block, skipping hooks"
+   ✓ End of function (line 349): Added logging when all guards pass
+     "[OAL] All guards passed, hooks will run"
+
+3. hooks/test-validator.py (after should_skip_stop_hooks check, line 29)
+   ✓ Added: print(f"[OAL test-validator] running, stop_hook_active={data.get('stop_hook_active')}", file=sys.stderr)
+   - Logs that test-validator is running and the stop_hook_active value
+
+VERIFICATION:
+=============
+
+Syntax Check:
+  Command: python3 -m py_compile hooks/stop_dispatcher.py hooks/_common.py hooks/test-validator.py
+  Result: ✓ All files compiled successfully (exit 0)
+
+QA Scenario 1 (stop_hook_active=true):
+  Command: echo '{"stop_hook_active":true,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py 2>/tmp/oal-diag.txt
+  
+  Output (stderr):
+  [OAL stop_dispatcher] payload keys: ['stop_hook_active', 'transcript_path']
+  [OAL stop_dispatcher] stop_hook_active=True
+  [OAL debug] stop hook data: {'stop_hook_active': 'True'}
+  [OAL] Guard 1 triggered: stop_hook_active=True
+
+  Verification:
+  ✓ Payload keys logged correctly
+  ✓ stop_hook_active value logged correctly
+  ✓ Guard 1 triggered as expected (stop_hook_active=True)
+  ✓ All logging goes to stderr (not stdout)
+  ✓ No JSON output to stdout (clean channel)
+
+QA Scenario 2 (stop_hook_active=false, all guards pass):
+  Command: echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py 2>&1
+  
+  Output (stderr):
+  [OAL stop_dispatcher] payload keys: ['stop_hook_active', 'transcript_path']
+  [OAL stop_dispatcher] stop_hook_active=False
+  [OAL debug] stop hook data: {'stop_hook_active': 'False'}
+  [OAL] All guards passed, hooks will run
+
+  Verification:
+  ✓ All guards passed message logged
+  ✓ Hooks proceed to run (JSON decision output follows)
+  ✓ Diagnostic logging complete and accurate
+
+LOGGING PATTERN:
+================
+
+All diagnostic logging follows the established pattern:
+- Prefix: [OAL] or [OAL <module>]
+- Output: file=sys.stderr (never stdout)
+- Content: Guard name + trigger reason
+- No sensitive data logged (no transcript content, no file contents)
+- No performance impact (simple print statements)
+
+GUARDS DOCUMENTED:
+==================
+
+Guard 1: stop_hook_active=True (Claude Code re-entry prevention)
+Guard 2: Transcript feedback loop (agent tried and failed to respond)
+Guard 4: File-based loop breaker (multiple blocks in quick succession)
+Guard 5: Empty stop_reason + recent block (context-limit deadlock)
+
+All guards now emit diagnostic logging when triggered, enabling empirical
+validation of which guard activates during context-limit stops.
+
+STDOUT/STDERR SEPARATION:
+=========================
+
+✓ Diagnostic logging: stderr only (via file=sys.stderr)
+✓ JSON decisions: stdout only (via json.dump(sys.stdout))
+✓ No mixing of channels
+✓ Clean separation for log aggregation and analysis
+
+EVIDENCE SAVED:
+===============
+File: .sisyphus/evidence/task-7-diagnostic-logging.txt
+Date: 2026-03-01
+Status: COMPLETE ✓
+
+All requirements met:
+✓ Files modified: stop_dispatcher.py, _common.py, test-validator.py
+✓ stop_dispatcher.py logs payload keys and stop_hook_active
+✓ _common.py logs which guard triggered (or "all guards passed")
+✓ test-validator.py logs running status and stop_hook_active
+✓ NO logging to stdout (stdout is JSON decision channel)
+✓ python3 -m py_compile → exit 0
+✓ Evidence saved to .sisyphus/evidence/task-7-diagnostic-logging.txt

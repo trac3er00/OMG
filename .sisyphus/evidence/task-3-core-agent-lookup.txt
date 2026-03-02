@@ -1,0 +1,8 @@
+✓ architect model_version: gpt-5.2
+✓ executor model_version: claude-sonnet-4
+✓ critic model_version: gpt-5.3
+✓ qa-tester model_version: claude-sonnet-4
+✓ escalation-router model_version: claude-haiku-3.5
+✓ nonexistent agent returns None
+
+All core agent model lookup tests PASSED

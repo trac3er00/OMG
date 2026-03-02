@@ -1,0 +1,15 @@
+version: oal-v1
+mode: warn_and_run
+critical_always_block: true
+require_evidence_pack: true
+trust:
+  distrust_paths:
+    - ".claude/"
+    - ".omc/"
+    - ".oal/"
+  review_mcp_changes: true
+  review_hook_changes: true
+supply_chain:
+  require_signature: false
+  require_checksum: false
+  enforce_sandbox: true

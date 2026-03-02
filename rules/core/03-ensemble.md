@@ -1,0 +1,28 @@
+# Rule 03 — Ensemble Collaboration
+
+## Who Does What
+- **Claude:** Orchestration, synthesis, integration, user communication
+- **Codex:** Backend logic, security audit, root cause, algorithms, deep debugging
+- **Gemini:** UI/UX review, visual comparison, accessibility, responsive design
+
+## When to Delegate (DO IT, don't just think about it)
+- Backend bug persists after 2 attempts → /OAL:escalate codex
+- Security/auth/crypto involved → /OAL:escalate codex
+- UI/visual change made → /OAL:escalate gemini
+- Change spans frontend + backend → /OAL:ccg (tri-model)
+- Stuck on anything for 3+ attempts → /OAL:escalate to relevant model
+
+## Auto-Detection
+prompt-enhancer.py detects keywords and suggests the right model.
+circuit-breaker.py auto-suggests escalation after failures.
+
+## Plugins & MCPs
+- Installed plugins: USE them (they're installed for a reason)
+- Available MCPs: SUGGEST with reasoning, wait for user confirmation
+- Context7 (if available): Use for up-to-date library docs
+
+## Natural Communication
+Say: "This touches auth — let me get Codex to check the security."
+NOT: "Invoking cross-model review protocol for backend analysis."
+
+> Enforced: prompt-enhancer.py + session-start.py detect available tools.

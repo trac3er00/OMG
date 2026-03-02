@@ -1,0 +1,174 @@
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _run_dispatcher(tmp_path: Path, payload: dict[str, Any], extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    env["OAL_RALPH_LOOP_ENABLED"] = "1"
+    # Disable planning enforcement by default to isolate ralph tests
+    env.setdefault("OAL_PLANNING_ENFORCEMENT_ENABLED", "0")
+    if extra_env:
+        env.update(extra_env)
+    return subprocess.run(
+        [sys.executable, "hooks/stop_dispatcher.py"],
+        input=json.dumps(payload),
+        text=True,
+        capture_output=True,
+        cwd=str(ROOT),
+        env=env,
+        check=False,
+    )
+
+
+def _write_ralph_state(tmp_path: Path, state: dict[str, Any]) -> Path:
+    path = tmp_path / ".oal" / "state" / "ralph-loop.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state), encoding="utf-8")
+    return path
+
+
+def test_ralph_blocks_when_active(tmp_path: Path):
+    _ = _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 0,
+            "max_iterations": 50,
+            "original_prompt": "fix all tests",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert output["decision"] == "block"
+    assert "fix all tests" in output["reason"]
+
+
+def test_ralph_increments_iteration(tmp_path: Path):
+    path = _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 0,
+            "max_iterations": 50,
+            "original_prompt": "fix all tests",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    state = json.loads(path.read_text(encoding="utf-8"))
+    assert state["iteration"] == 1
+
+
+def test_ralph_stops_at_max(tmp_path: Path):
+    path = _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 50,
+            "max_iterations": 50,
+            "original_prompt": "fix all tests",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    assert "\"decision\"" not in result.stdout
+    state = json.loads(path.read_text(encoding="utf-8"))
+    assert state["active"] is False
+
+
+def test_ralph_inactive_allows_completion(tmp_path: Path):
+    _ = _write_ralph_state(
+        tmp_path,
+        {
+            "active": False,
+            "iteration": 1,
+            "max_iterations": 50,
+            "original_prompt": "fix all tests",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_ralph_missing_file_allows_completion(tmp_path: Path):
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_ralph_block_reason_includes_progress(tmp_path: Path):
+    """Reason includes checklist progress when checklist_path is set."""
+    # Create checklist with 2/4 done
+    checklist = tmp_path / ".oal" / "state" / "_checklist.md"
+    checklist.parent.mkdir(parents=True, exist_ok=True)
+    checklist.write_text(
+        "- [x] task one\n"
+        "- [x] task two\n"
+        "- [ ] task three\n"
+        "- [ ] task four\n",
+        encoding="utf-8",
+    )
+    _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 2,
+            "max_iterations": 50,
+            "original_prompt": "finish all tasks",
+            "checklist_path": ".oal/state/_checklist.md",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert "Progress: 2/4" in output["reason"]
+
+
+def test_ralph_block_reason_includes_original_prompt(tmp_path: Path):
+    """Reason includes the original_prompt text."""
+    _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 5,
+            "max_iterations": 50,
+            "original_prompt": "refactor the auth module",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert "refactor the auth module" in output["reason"]
+
+
+def test_ralph_block_reason_includes_stop_instruction(tmp_path: Path):
+    """Reason includes the /OAL:ralph-stop escape hatch instruction."""
+    _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 1,
+            "max_iterations": 50,
+            "original_prompt": "deploy feature",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert "/OAL:ralph-stop" in output["reason"]
+
+
+def test_ralph_commands_exist():
+    """Command files for ralph-start and ralph-stop exist."""
+    assert (ROOT / "commands" / "OAL:ralph-start.md").exists()
+    assert (ROOT / "commands" / "OAL:ralph-stop.md").exists()

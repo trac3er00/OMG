@@ -1,0 +1,15 @@
+# Task 19 Evidence: Session-End Memory Capture
+
+## Files Changed
+- hooks/session-end-capture.py
+- tests/test_memory_capture.py
+
+## Verification
+- python3 -m pytest tests/test_memory_capture.py tests/test_session_end_capture.py -x -v -> 8 passed
+- python3 -m pytest tests/ -x -q --ignore=tests/e2e -> 295 passed
+- lsp_diagnostics tests/test_memory_capture.py -> clean
+- lsp_diagnostics hooks/session-end-capture.py -> no errors
+
+## Notes
+- Memory capture now summarizes recent ledger entries and checklist progress when OAL_MEMORY_ENABLED is true.
+- Hook keeps fire-and-forget behavior and exits 0 in all tested scenarios.

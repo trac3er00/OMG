@@ -1,0 +1,77 @@
+TASK 12: Planning Gate Advisory on High Context Pressure
+=========================================================
+
+OBJECTIVE:
+Modify check_planning_gate() to demote from block to advisory when context pressure is high.
+
+IMPLEMENTATION:
+- File: hooks/stop_dispatcher.py
+- Function: check_planning_gate(project_dir) [lines 638-673]
+- Change: Added context pressure check before returning block
+
+LOGIC:
+1. Read .oal/state/.context-pressure.json
+2. If is_high: true, return advisory instead of block
+3. If is_high: false or file missing, return block (normal behavior)
+
+CODE CHANGE:
+Before: return [block_message], []
+After:  if high_pressure: return [], [advisory_message]
+        else: return [block_message], []
+
+VERIFICATION RESULTS:
+====================
+
+TEST 1: High Pressure (is_high: true)
+-------------------------------------
+Setup:
+  - .oal/state/_checklist.md: "- [ ] Pending task" (1 pending)
+  - .oal/state/.context-pressure.json: {"is_high": true}
+
+Result:
+  ✓ Exit code: 0 (no block)
+  ✓ Advisory in stderr: "[OAL advisory] Planning gate: 0/1 complete, 1 pending. (demoted: context pressure high)"
+  ✓ No block decision in stdout
+  ✓ Advisory count: 1
+
+TEST 2: Normal Pressure (is_high: false)
+----------------------------------------
+Setup:
+  - .oal/state/_checklist.md: "- [ ] Pending task" (1 pending)
+  - .oal/state/.context-pressure.json: {"is_high": false}
+
+Result:
+  ✓ Exit code: 0 (normal exit)
+  ✓ Block decision in stdout: "Planning gate: 0/1 complete, 1 pending. Complete checklist before finishing."
+  ✓ Blocks as expected (normal behavior preserved)
+
+SYNTAX VERIFICATION:
+====================
+python3 -m py_compile hooks/stop_dispatcher.py
+Result: ✓ Exit 0 (no syntax errors)
+
+REQUIREMENTS MET:
+=================
+✓ File modified: hooks/stop_dispatcher.py
+✓ Planning gate returns advisory when is_high: true
+✓ Planning gate still blocks on normal stops (is_high: false)
+✓ Advisory message in stderr (not stdout)
+✓ Python syntax valid (py_compile exit 0)
+✓ Evidence saved to .sisyphus/evidence/task-12-planning-gate-advisory.txt
+
+IMPLEMENTATION DETAILS:
+======================
+The check_planning_gate() function now:
+1. Checks if pending items exist
+2. If pending > 0:
+   a. Reads .oal/state/.context-pressure.json
+   b. Extracts is_high boolean (default: false)
+   c. If is_high: returns ([], [advisory_message])
+   d. If not high: returns ([block_message], [])
+3. If no pending: returns ([], [])
+
+The advisory message format:
+"[OAL advisory] Planning gate: {done}/{total} complete, {pending} pending. (demoted: context pressure high)"
+
+This allows the planning gate to be advisory-only when context is exhausted, preventing false blocks
+when the user is running out of tokens but still has pending checklist items.

@@ -1,0 +1,50 @@
+TASK 8: Ralph Loop in Handoff + Failure Tracker Enhancement
+============================================================
+
+OBJECTIVE:
+- Add ralph-loop.json to snapshot_files list
+- Include ralph loop state in handoff.md when active
+- Enhance failure tracker to show up to 5 entries (not 3)
+- Verify Python syntax
+
+CHANGES MADE:
+1. Added to snapshot_files list (line 52):
+   resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json")
+
+2. Added ralph_loop read after tracker (line 66):
+   ralph_loop = read_file(resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"))
+
+3. Enhanced failure tracker limit from 3 to 5 (line 91):
+   warns = [f"- {k}: {v['count']}x" for k, v in list(active.items())[:5]]
+
+4. Added ralph loop section in parts assembly (lines 95-104):
+   if ralph_loop:
+       try:
+           rl = json.loads(ralph_loop)
+           if rl.get("active"):
+               rl_iter = rl.get("iteration", 0)
+               rl_max = rl.get("max_iterations", 50)
+               rl_goal = rl.get("original_prompt", "")[:80]
+               parts.append(f"## Ralph Loop\nIteration: {rl_iter}/{rl_max} | Goal: {rl_goal}")
+       except Exception:
+           pass
+
+VERIFICATION RESULTS:
+✓ Python syntax check: exit 0
+✓ Ralph loop appears in handoff.md:
+  ## Ralph Loop
+  Iteration: 5/50 | Goal: fix all tests
+
+✓ Failure tracker shows 5 entries (not 3):
+  ## Failed Approaches
+  - approach_1: 5x
+  - approach_2: 4x
+  - approach_3: 3x
+  - approach_4: 2x
+  - approach_5: 2x
+
+✓ ralph-loop.json added to snapshots
+✓ No existing functionality broken
+✓ Graceful error handling for missing/invalid JSON
+
+STATUS: COMPLETE

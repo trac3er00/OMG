@@ -1,0 +1,89 @@
+F4 Scope Fidelity Check — OAL Remediation
+Date: 2026-02-28
+Plan: .sisyphus/plans/oal-remediation.md
+Mode: Read-only audit (no source modifications)
+
+Verification Commands Executed
+- grep -A5 'def setup_crash_handler' hooks/_common.py
+- grep -c 'sys.exit(1)' hooks/post-write.py hooks/stop_dispatcher.py hooks/config-guard.py hooks/_common.py
+- grep -n '"hooks/"\|"scripts/"' hooks/stop_dispatcher.py
+- grep -n 'utcnow' hooks/prompt-enhancer.py
+- grep -n 'secret-detected.json' hooks/post-write.py
+- grep -B2 'shutil.rmtree' hooks/pre-compact.py hooks/shadow_manager.py
+- grep -n '인증\|보안' hooks/prompt-enhancer.py
+- grep -R -n 'os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())' hooks/
+- python3 -m py_compile hooks/_common.py hooks/post-write.py hooks/stop_dispatcher.py hooks/config-guard.py hooks/prompt-enhancer.py hooks/pre-compact.py hooks/shadow_manager.py control_plane/server.py runtime/team_router.py
+
+Task-by-Task Scope Fidelity
+T1 (_resolve_project_dir in hooks/_common.py): NON-COMPLIANT
+- Added _resolve_project_dir and preserved get_project_dir raw env/cwd pattern.
+- setup_crash_handler function remains untouched.
+- Gap vs spec: helper warns when .oal missing but does not create .oal directory as specified.
+
+T2 (duplicate comment removal in hooks/post-write.py): COMPLIANT
+- Duplicate consecutive comment line removed; section now single-instance commentary.
+
+T3 (utcnow replacement in hooks/prompt-enhancer.py): COMPLIANT
+- utcnow removed (0 matches).
+- timezone-aware now() usage present.
+
+T4 (secret signal file mechanism in hooks/post-write.py): COMPLIANT
+- Writes .oal/state/secret-detected.json with timestamp/file/patterns/action.
+- Emits explicit stderr warning message.
+- sys.exit(0) preserved.
+
+T5 (NON_SOURCE_PATTERNS in hooks/stop_dispatcher.py): COMPLIANT
+- "hooks/" not present in NON_SOURCE_PATTERNS; only in INTERNAL_CONTROL_PATH_PATTERNS.
+- "scripts/" broad entry removed.
+- "test" and "config" broad patterns replaced by specific variants.
+
+T6 (audit logging before rmtree in pre-compact/shadow_manager): COMPLIANT
+- stderr audit log line appears within 2 lines before each targeted shutil.rmtree.
+
+T7 (post-write exception hardening): COMPLIANT
+- No `except Exception: pass` in post-write security paths.
+- Exception handlers now log to stderr.
+
+T8 (stop_dispatcher exception hardening): COMPLIANT
+- No `except Exception: pass` in stop_dispatcher security paths.
+- Security-path handlers log to stderr.
+
+T9 (config-guard exception hardening): COMPLIANT
+- No `except Exception: pass` in security-critical flow.
+- Exception handlers log to stderr where required.
+
+T10 (_common write-path exception hardening): COMPLIANT
+- Write-path handlers (json/file writes) log to stderr on exception.
+- setup_crash_handler unchanged.
+
+T11 (word-boundary + knowledge index validation in prompt-enhancer): COMPLIANT
+- Latin token matching uses word-boundary regex.
+- Korean tokens remain substring matching (no Korean \b wrapping).
+- knowledge/.index.json includes isinstance(index, dict) validation and rebuild path.
+
+T12 (control-plane host warning): COMPLIANT
+- Non-localhost binding warning added after argparse parse and before run_server().
+
+T13 (team_router shutil.which caching): COMPLIANT
+- _check_tool_available result cached in local variable and reused.
+
+T14 (OAL-setup rm -rf path assertions): NON-COMPLIANT
+- Assertions added before two targeted rm -rf zones (runtime subtree and oal-runtime cleanup region).
+- Gap vs spec: rm -rf "$CLAUDE_DIR/oal-runtime" executes at line 520 without a dedicated matching assertion for that target path.
+
+T15 (_resolve_project_dir sweep across hooks): COMPLIANT
+- Raw hooks-wide pattern `os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())` reduced to _common.py:get_project_dir only.
+- Remaining targeted hooks use _resolve_project_dir import/call pattern.
+
+Guardrail Checks
+- setup_crash_handler unchanged: PASS
+- sys.exit(1) in audited hooks/_common/post-write/stop_dispatcher/config-guard: PASS (all 0)
+- hooks/ path classification placement in stop_dispatcher: PASS (internal-control list only)
+- utcnow in prompt-enhancer: PASS (0)
+- Korean token handling regression (\b misuse): PASS (none detected)
+
+Scope Creep / Cross-Task Contamination
+- No cross-task contamination detected from reviewed files.
+- No out-of-scope refactor bundle detected in audited sections.
+
+Tasks [13/15 compliant] | Contamination [CLEAN/0 issues] | VERDICT: REJECT

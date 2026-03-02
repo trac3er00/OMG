@@ -1,0 +1,2 @@
+✓ Python syntax valid: hooks/post-write.py
+✓ No duplicate consecutive lines detected

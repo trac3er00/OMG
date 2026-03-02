@@ -1,0 +1,25 @@
+{
+  "version": "oal-v1",
+  "updated_at": "2026-03-01T18:42:08.133561+00:00",
+  "last_review": {
+    "ts": "2026-03-01T18:42:08.133190+00:00",
+    "changed_files": [
+      "/Users/cminseo/.claude/settings.json"
+    ],
+    "mcp_changes": [],
+    "hook_changes": {
+      "old_hook_count": 14,
+      "new_hook_count": 14,
+      "removed_events": [],
+      "added_events": [],
+      "modified_events": []
+    },
+    "env_changes": [],
+    "risk_score": 0,
+    "risk_level": "low",
+    "verdict": "allow",
+    "reasons": [],
+    "controls": []
+  },
+  "signature": "07a9a928573dc1f03f04e78df8c5c8ac22a7922d54ddc68935a80f35831e5fea"
+}

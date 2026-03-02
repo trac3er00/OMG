@@ -1,0 +1,41 @@
+Task 6: Single Stop Hook Group — Evidence
+==========================================
+Date: 2026-03-01
+
+## Scenario 1: Single Stop hook group in settings.json
+
+Command: python3 -c "import json,os;d=json.load(open(os.path.expanduser('~/.claude/settings.json')));print('Stop groups:', len(d['hooks']['Stop']))"
+Result:
+  Stop groups: 1
+  Timeout: 90
+  Command: python3 "$HOME/.claude/hooks/stop_dispatcher.py"
+
+Expected: 1 group — PASS ✓
+
+## quality-gate.py removed
+
+Command: ls ~/.claude/hooks/quality-gate.py
+Result: No such file or directory — PASS ✓
+
+## test-validator.py and quality-runner.py still exist
+
+Command: ls ~/.claude/hooks/test-validator.py ~/.claude/hooks/quality-runner.py
+Result: Both files present — PASS ✓
+
+## py_compile all 3 files
+
+Command: python3 -m py_compile hooks/stop_dispatcher.py hooks/test-validator.py hooks/quality-runner.py
+Result: exit 0 — PASS ✓
+
+## importlib imports from stop_dispatcher
+
+Command: python3 -c (import test-validator and quality-runner via importlib)
+Result:
+  test-validator: check_test_quality found
+  quality-runner: check_quality_runner found
+  ALL importlib imports OK — PASS ✓
+
+## repo settings.json also updated with Stop hook
+
+Command: python3 -c "import json; json.load(open('settings.json'))"
+Result: valid JSON with Stop hook section — PASS ✓

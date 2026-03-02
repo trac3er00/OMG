@@ -1,0 +1,29 @@
+Task 8 - Stop dispatcher evidence
+Date: 2026-02-28
+
+1) stop_dispatcher active guard
+$ echo '{"stop_hook_active":true}' | python3 hooks/stop_dispatcher.py; echo $?
+0
+
+2) stop-gate wrapper behavior
+$ echo '{}' | python3 hooks/stop-gate.py
+(no output)
+
+3) dedicated dispatcher tests
+$ python3 -m pytest tests/test_stop_dispatcher.py -x -q
+..........                                                               [100%]
+10 passed in 0.11s
+
+4) full regression suite (excluding e2e)
+$ python3 -m pytest tests/ -q --ignore=tests/e2e
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+..........................                                               [100%]
+242 passed in 7.10s
+
+5) LSP diagnostics (errors only) on changed files
+- hooks/stop_dispatcher.py: clean
+- hooks/stop-gate.py: clean
+- tests/test_stop_dispatcher.py: clean
+- tests/hooks/test_stop_gate.py: clean

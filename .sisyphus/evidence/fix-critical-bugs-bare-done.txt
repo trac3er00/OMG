@@ -1,0 +1,10 @@
+=== Fix Critical Bugs: Bare-Done Detection Test ===
+Date: 2026-03-01
+
+Test 1 - Bare "Done." blocked:
+Command: echo '{"stop_hook_active":false,"transcript_path":"/tmp/test-transcript.jsonl"}' | python3 hooks/stop_dispatcher.py
+Result: {"decision": "block", "reason": "Bare completion detected. Provide a structured report with: files modified, checks run, and confidence level."}
+
+Test 2 - Structured report NOT blocked:
+Command: echo '{"stop_hook_active":false,"transcript_path":"/tmp/test-transcript-good.jsonl"}' | python3 hooks/stop_dispatcher.py
+Result: exit 0, no output (correctly passed)

@@ -1,0 +1,76 @@
+TASK: Improve hooks/session-start.py handoff injection with .consumed idempotency
+DATE: 2026-03-01
+STATUS: ✓ COMPLETE
+
+═══════════════════════════════════════════════════════════════════════════════
+
+CHANGES MADE:
+
+File: hooks/session-start.py (Section 4, lines 148-173)
+
+1. Added consumed_path = handoff_path + ".consumed"
+2. Check if .consumed exists → skip injection (idempotent)
+3. Check if handoff.md exists and is fresh (< 48 hours) → inject with marker
+4. After successful injection, rename handoff.md to handoff.md.consumed
+5. Marker added: "[HANDOFF CONTEXT — Resume from previous session]"
+6. Kept existing freshness check (< 48 hours)
+7. Kept existing key_parts extraction logic (goal, next, fail, state, decision sections)
+8. Rename happens AFTER content is added to sections (not before)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+VERIFICATION:
+
+✓ Syntax Check:
+  python3 -m py_compile hooks/session-start.py → exit 0
+
+✓ QA Scenario - First Run (injection):
+  mkdir -p .oal/state
+  echo '## Resume\nTest handoff content for injection test' > .oal/state/handoff.md
+  echo '{}' | python3 hooks/session-start.py 2>/dev/null
+  
+  Result:
+  - Output contains: "[HANDOFF CONTEXT — Resume from previous session]"
+  - File renamed: .oal/state/handoff.md → .oal/state/handoff.md.consumed
+  - Original handoff.md no longer exists
+
+✓ QA Scenario - Second Run (idempotency):
+  echo '{}' | python3 hooks/session-start.py 2>/dev/null | grep "HANDOFF CONTEXT"
+  
+  Result:
+  - No "HANDOFF CONTEXT" in output (correctly skipped)
+  - Idempotency verified: .consumed file prevents re-injection
+
+═══════════════════════════════════════════════════════════════════════════════
+
+REQUIREMENTS MET:
+
+✓ File modified: hooks/session-start.py
+✓ Handoff.md content injected with "[HANDOFF CONTEXT — Resume from previous session]" marker
+✓ Handoff.md renamed to handoff.md.consumed after injection
+✓ Re-injection prevented if .consumed version already exists (idempotent)
+✓ Injection respects session_start_max_chars budget (2000 chars via BUDGET_SESSION_TOTAL)
+✓ python3 -m py_compile hooks/session-start.py → exit 0
+✓ Evidence saved to .sisyphus/evidence/task-10-handoff-consumed.txt
+
+═══════════════════════════════════════════════════════════════════════════════
+
+IMPLEMENTATION DETAILS:
+
+The modified section 4 now:
+
+1. Resolves handoff_path and consumed_path
+2. Checks if consumed_path exists → sets handoff_fresh = False (skip)
+3. Checks if handoff_path exists → tries portable version if not
+4. Checks freshness (< 48 hours) only if not already consumed
+5. Injects with marker "[HANDOFF CONTEXT — Resume from previous session]"
+6. Renames handoff_path to consumed_path after injection
+7. Gracefully handles rename failures (continues anyway)
+
+This ensures:
+- No duplicate injections across sessions
+- Debugging capability (consumed file preserved, not deleted)
+- Idempotency (safe to run multiple times)
+- Budget compliance (respects BUDGET_SESSION_TOTAL = 2000 chars)
+
+═══════════════════════════════════════════════════════════════════════════════

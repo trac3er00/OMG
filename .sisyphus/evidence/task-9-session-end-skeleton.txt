@@ -1,0 +1,61 @@
+TASK 9: Session-End Capture Hook Skeleton
+==========================================
+
+ACCEPTANCE CRITERIA VERIFICATION
+=================================
+
+1. File created: hooks/session-end-capture.py
+   ✓ File exists and contains skeleton with stubs
+   ✓ Imports: setup_crash_handler, json_input, get_feature_flag, log_hook_error
+   ✓ Stubs for memory capture (Task 19) and compound learning (Task 30)
+
+2. File created: tests/test_session_end_capture.py
+   ✓ Contains 4 tests (≥2 required)
+   ✓ test_exits_zero_with_valid_input
+   ✓ test_exits_zero_with_invalid_json
+   ✓ test_exits_zero_with_missing_session_id
+   ✓ test_exits_zero_with_empty_input
+
+3. Command: echo '{"session_id":"test"}' | python3 hooks/session-end-capture.py; echo $?
+   Exit code: 0
+   ✓ PASS
+
+4. Command: python3 -m pytest tests/test_session_end_capture.py -x
+   Result: 4 passed in 0.12s
+   ✓ PASS
+
+5. Syntax verification: python3 -m py_compile hooks/session-end-capture.py
+   Result: ✓ Syntax OK
+
+6. No test regressions:
+   - test_session_end_capture.py: 4 passed
+   - test_common.py: 8 passed
+   - test_circuit_breaker.py: 11 passed
+   Total: 23 passed in 0.67s
+   ✓ PASS
+
+IMPLEMENTATION DETAILS
+======================
+
+Hook Structure:
+- Shebang: #!/usr/bin/env python3
+- Docstring: Explains fire-and-forget nature and future tasks
+- Imports: sys, os, _common utilities
+- setup_crash_handler: Called with fail_closed=False (non-blocking)
+- json_input(): Parses stdin, exits 0 on parse failure
+- Feature flags: memory and compound_learning (both stubs)
+- Exit: sys.exit(0) always
+
+Test Coverage:
+- Valid input with session_id → exit 0
+- Invalid JSON → exit 0 (crash isolation)
+- Missing session_id → exit 0 (defaults to 'unknown')
+- Empty input → exit 0 (json_input handles gracefully)
+
+NOTES
+=====
+- setup_crash_handler signature: (hook_name, fail_closed=False)
+- fail_closed=False means: on crash, exit 0 (don't block session end)
+- Fire-and-forget semantics: no output, no blocking, just exit 0
+- Memory capture stub: will be implemented in Task 19
+- Compound learning stub: will be implemented in Task 30

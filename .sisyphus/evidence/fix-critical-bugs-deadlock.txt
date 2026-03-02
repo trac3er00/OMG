@@ -1,0 +1,10 @@
+=== Fix Critical Bugs: Deadlock Prevention Test ===
+Date: 2026-03-01
+
+Command: echo '{"stop_hook_active":true,"transcript_path":"/dev/null"}' | python3 hooks/test-validator.py
+Result: 
+  [OAL debug] stop hook data: {'stop_hook_active': 'True'}
+  [OAL] Guard 1 triggered: stop_hook_active=True
+  exit: 0
+
+Verified: test-validator.py now calls should_skip_stop_hooks() and exits cleanly on re-entry.

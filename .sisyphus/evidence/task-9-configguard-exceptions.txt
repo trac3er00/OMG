@@ -1,0 +1,50 @@
+Task 9: Harden exception handlers in hooks/config-guard.py
+==========================================================
+Date: 2026-02-28
+
+BEFORE: 5 `except Exception` handlers (grep -n count: 5)
+AFTER:  4 `except Exception` handlers (1 converted to contextlib.suppress)
+        0 bare `except Exception: pass` patterns remain
+
+Handler Classification & Changes:
+---------------------------------
+1. Line 28 (was 27) — trust_review import failure
+   Classification: SECURITY (entire guard bypassed on import fail)
+   Before: except Exception: sys.exit(0)
+   After:  except Exception as e: print(...stderr) + sys.exit(0)
+
+2. Line 43 (was 41) — JSON decode in _decode_json_object
+   Classification: UTILITY (parse fallback, callers handle None)
+   Before: except Exception: return None
+   After:  except Exception:  # intentional: decode fallback + return None
+
+3. Line 100 (was 98) — Config file read failure
+   Classification: SECURITY (can't read config = review bypassed)
+   Before: except Exception: sys.exit(0)
+   After:  except Exception as e: print(...stderr) + sys.exit(0)
+
+4. Line 123 (was 120) — Old snapshot read failure
+   Classification: SECURITY (no diff baseline for change detection)
+   Before: except Exception: old_config = {}
+   After:  except Exception as e: print(...stderr) + old_config = {}
+
+5. Line 139 (was 135-139) — Snapshot write for next run
+   Classification: CLEANUP (best-effort persistence)
+   Before: try/except Exception: pass
+   After:  contextlib.suppress(OSError)  # intentional: cleanup
+
+Verification:
+-------------
+[PASS] python3 -m py_compile hooks/config-guard.py → exit 0
+[PASS] grep -A1 'except Exception' | grep 'pass' → 0 matches
+[PASS] grep -c 'sys.exit(0)' → 7 (unchanged from original)
+[PASS] No bare `pass` in except blocks (only 'pass' in file is a comment on line 156)
+[PASS] import contextlib added at line 7 (stdlib, alphabetical order)
+[PASS] Exit codes remain 0 — crash isolation preserved
+
+Changes summary:
+- Added: import contextlib (line 7)
+- Security handlers (3): now log to stderr before exit/fallback
+- Utility handler (1): annotated with # intentional: decode fallback
+- Cleanup handler (1): converted try/except to contextlib.suppress(OSError)
+- File grew from 161 to 163 lines (+2 lines from stderr print statements)

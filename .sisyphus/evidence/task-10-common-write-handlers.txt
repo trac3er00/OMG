@@ -1,0 +1,31 @@
+Task 10: Harden write-path exception handlers in hooks/_common.py
+================================================================
+Date: 2026-02-28
+
+GUARDRAIL: setup_crash_handler() — NOT MODIFIED (verified)
+
+Classification of all 9 `except Exception` blocks:
+---------------------------------------------------
+Line 56  | setup_crash_handler._excepthook | deny_decision()       | DO NOT TOUCH ✓
+Line 70  | read_file_safe                  | open("r"), f.read()   | READ — kept silent
+Line 106 | log_hook_error rotation         | exists, getsize       | READ — kept silent
+Line 130 | log_hook_error fallback write   | open("a"), .write()   | WRITE — HARDENED ✓
+Line 133 | log_hook_error locking write    | open("a"), fd.write() | WRITE — HARDENED ✓
+Line 136 | log_hook_error outermost        | makedirs + all writes | WRITE — HARDENED ✓
+Line 163 | atomic_json_write               | open("w"), json.dump  | WRITE — HARDENED ✓
+Line 196 | get_feature_flag                | open("r"), json.load  | READ — kept silent
+Line 277 | should_skip_stop_hooks          | transcript read       | READ — kept silent
+
+Delta: 4 write-path handlers hardened, 5 handlers unchanged (1 guardrail + 4 read-path)
+
+Pattern applied to each write-path handler:
+  except Exception as e:
+      print(f"[OAL] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
+      pass
+
+Verification:
+  python3 -m py_compile hooks/_common.py → exit 0 ✓
+  setup_crash_handler body → UNCHANGED ✓
+  No new imports added (sys already imported) ✓
+  No function signatures changed ✓
+  No exit codes changed ✓

@@ -1,0 +1,39 @@
+Task 15: _resolve_project_dir() Sweep — F7 Fix
+================================================
+Date: 2026-02-28
+
+## What was done
+Replaced all remaining `os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())`
+with `_resolve_project_dir()` from `_common` across 8 hook files.
+
+## Files modified (8)
+1. hooks/pre-tool-inject.py  — added to existing _common import (L17), replaced L68
+2. hooks/session-start.py    — added to existing _common import (L17), replaced L25
+3. hooks/prompt-enhancer.py  — added to existing _common import (L23), replaced L36
+4. hooks/config-guard.py     — added to existing _common import (L16), replaced L90
+5. hooks/test-validator.py   — added HOOKS_DIR+sys.path + new _common import, replaced L18
+6. hooks/circuit-breaker.py  — added to existing _common import (L14), replaced L41
+7. hooks/post-write.py       — already had _resolve_project_dir import, replaced L23
+8. hooks/quality-runner.py   — added HOOKS_DIR+sys.path + new _common import, replaced L16
+
+## Verification: grep (0 matches excluding _common.py)
+$ grep -rn 'os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())' hooks/
+hooks/_common.py:18:    return os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+                  ^^^ This is get_project_dir() body — intentionally preserved.
+
+## Verification: py_compile (all 8 pass)
+$ python3 -m py_compile hooks/pre-tool-inject.py     → exit 0
+$ python3 -m py_compile hooks/session-start.py        → exit 0
+$ python3 -m py_compile hooks/prompt-enhancer.py      → exit 0
+$ python3 -m py_compile hooks/config-guard.py         → exit 0
+$ python3 -m py_compile hooks/test-validator.py       → exit 0
+$ python3 -m py_compile hooks/circuit-breaker.py      → exit 0
+$ python3 -m py_compile hooks/post-write.py           → exit 0
+$ python3 -m py_compile hooks/quality-runner.py       → exit 0
+
+## Notes
+- test-validator.py and quality-runner.py had no prior HOOKS_DIR/sys.path setup
+  or _common imports — added both for safety
+- post-write.py already imported _resolve_project_dir but still had the raw
+  pattern on L23 — only the pattern line was replaced
+- hooks/_common.py:18 left untouched (get_project_dir() body)

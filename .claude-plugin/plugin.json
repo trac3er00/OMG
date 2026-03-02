@@ -1,0 +1,32 @@
+{
+  "name": "oal",
+  "version": "1.0.0",
+  "description": "OAL standalone orchestration layer for Claude Code - multi-agent coordination with Codex/Gemini",
+  "author": {
+    "name": "OAL contributors"
+  },
+  "repository": "https://github.com/oal-dev/oal",
+  "homepage": "https://github.com/oal-dev/oal",
+  "bugs": {
+    "url": "https://github.com/oal-dev/oal/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "orchestration",
+    "multi-agent",
+    "oal",
+    "codex",
+    "gemini",
+    "crazy-mode",
+    "escalation"
+  ],
+  "category": "productivity",
+  "scripts": {
+    "install": ".claude-plugin/scripts/install.sh",
+    "update": ".claude-plugin/scripts/update.sh",
+    "uninstall": ".claude-plugin/scripts/uninstall.sh"
+  },
+  "mcpServers": "./.mcp.json"
+}

@@ -1,0 +1,19 @@
+=== Task 6: Audit logging for shadow_manager.py ===
+
+--- py_compile ---
+PASS: compiles clean
+
+--- grep -B2 shutil.rmtree ---
+240-    if os.path.isdir(run_dir):
+241-        print(f"[OAL] Deleting: {run_dir}", file=sys.stderr)
+242:        shutil.rmtree(run_dir, ignore_errors=True)
+
+--- _resolve_project_dir usage ---
+19:from _common import _resolve_project_dir
+23:    return _resolve_project_dir()
+
+--- _project_dir delegates to _resolve_project_dir ---
+def _project_dir() -> str:
+    return _resolve_project_dir()
+
+Date: 2026-03-01T02:32:38Z

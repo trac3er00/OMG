@@ -1,0 +1,51 @@
+TASK 4: PROTOCOLS DIRECTORY VERIFICATION
+==========================================
+Timestamp: 2026-02-27
+Task: Verify protocols/ directory is intact after reinstall, and remove any .bak files
+
+VERIFICATION RESULTS
+====================
+
+1. PROTOCOL FILE COUNT
+   Expected: 6 .md files
+   Actual: 6 .md files
+   Status: PASS ✓
+   
+   Files present:
+   - 01-doc-check.md
+   - 02-working-memory.md
+   - 03-quality-gate.md
+   - 04-structured-reports.md
+   - 05-infra-safety.md
+   - 06-cross-model.md
+
+2. BACKUP FILE CLEANUP
+   .bak files before cleanup: 1
+   .bak files after cleanup: 0
+   Status: PASS ✓
+   
+   Removed: 06-cross-model.md.bak.20260227_204849
+
+3. CLAUDE.md @IMPORT VERIFICATION
+   Expected: All @import references resolve (no MISSING output)
+   Actual: No MISSING output detected
+   Status: PASS ✓
+   
+   Verified imports:
+   - @protocols/01-doc-check.md ✓
+   - @protocols/02-working-memory.md ✓
+   - @protocols/03-quality-gate.md ✓
+   - @protocols/04-structured-reports.md ✓
+   - @protocols/05-infra-safety.md ✓
+   - @protocols/06-cross-model.md ✓
+
+OVERALL RESULT
+==============
+All checks PASSED ✓
+
+- Protocol directory intact: YES
+- All 6 expected files present: YES
+- Backup files cleaned: YES
+- CLAUDE.md imports resolve: YES
+
+Task completed successfully.

@@ -1,0 +1,25 @@
+# .omc/profile.yaml — Project identity (injected every session)
+# Keep under 20 lines. This is a quick-reference, not documentation.
+
+name: ""
+description: ""
+repo: ""
+
+language: ""
+framework: ""
+database: ""
+infra: ""
+key_deps: []
+
+conventions:
+  naming: ""        # camelCase / snake_case / etc
+  test_cmd: ""      # npm test / pytest / cargo test
+  lint_cmd: ""      # eslint / ruff / clippy
+  format_cmd: ""    # prettier / ruff format / rustfmt
+
+ai_behavior:
+  communication: "direct, bilingual OK"
+  locale_hint: "auto"    # auto | ko | en | ja | zh — helps keyword detection
+  when_stuck: "Ask user after 2 failed attempts, or /escalate"
+  testing: "User-journey focused. No boilerplate."
+  code_style: "Match existing patterns. Don't introduce new frameworks."

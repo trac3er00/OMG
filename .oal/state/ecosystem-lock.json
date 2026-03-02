@@ -1,0 +1,133 @@
+{
+  "schema": "OalEcosystemLock",
+  "catalog_schema": "OalEcosystemCatalog",
+  "catalog_version": "1.0.0",
+  "generated_at": "2026-02-27T21:37:51.091226+00:00",
+  "selected_count": 9,
+  "unknown_count": 0,
+  "selected": [
+    "superpowers",
+    "ralph-wiggum",
+    "claude-flow",
+    "claude-mem",
+    "memsearch",
+    "beads",
+    "planning-with-files",
+    "hooks-mastery",
+    "compound-engineering"
+  ],
+  "unknown": [],
+  "entries": [
+    {
+      "name": "superpowers",
+      "repo": "https://github.com/obra/superpowers.git",
+      "ref": "main",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/superpowers",
+      "action": "updated",
+      "commit": "e4a2375cb705ca5800f0833528ce36a3faf9017a",
+      "branch": "main",
+      "sparse_path": "",
+      "status": "ok"
+    },
+    {
+      "name": "ralph-wiggum",
+      "repo": "https://github.com/anthropics/claude-code.git",
+      "ref": "main",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/ralph-wiggum",
+      "action": "updated",
+      "commit": "1f48d799b9ef25a5c9cec36dd9a4c6f409b722f6",
+      "branch": "main",
+      "sparse_path": "plugins/ralph-wiggum",
+      "status": "ok"
+    },
+    {
+      "name": "claude-flow",
+      "repo": "https://github.com/ruvnet/claude-flow.git",
+      "ref": "main",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/claude-flow",
+      "action": "updated",
+      "commit": "f6c4f5c21ea493daa7e015ed8bbaa67fa26da305",
+      "branch": "main",
+      "sparse_path": "",
+      "status": "ok"
+    },
+    {
+      "name": "claude-mem",
+      "repo": "https://github.com/thedotmack/claude-mem.git",
+      "ref": "main",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/claude-mem",
+      "action": "updated",
+      "commit": "ecb09df42002db222a57e117abcec188393ef984",
+      "branch": "main",
+      "sparse_path": "",
+      "status": "ok"
+    },
+    {
+      "name": "memsearch",
+      "repo": "https://github.com/rjyo/memory-search.git",
+      "ref": "main",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/memsearch",
+      "action": "updated",
+      "commit": "570258cb6f1321fc9475ecf55bb5e30dbb00f98b",
+      "branch": "main",
+      "sparse_path": "",
+      "status": "ok"
+    },
+    {
+      "name": "beads",
+      "repo": "https://github.com/steveyegge/beads.git",
+      "ref": "main",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/beads",
+      "action": "updated",
+      "commit": "72b78474e6f153db3a4d8d23aa27c54e912f5c4d",
+      "branch": "main",
+      "sparse_path": "",
+      "status": "ok"
+    },
+    {
+      "name": "planning-with-files",
+      "repo": "https://github.com/OthmanAdi/planning-with-files.git",
+      "ref": "master",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/planning-with-files",
+      "action": "updated",
+      "commit": "5f41ac00fe6092bab07319465d397c0a2c3cb2f9",
+      "branch": "master",
+      "sparse_path": "",
+      "status": "ok"
+    },
+    {
+      "name": "hooks-mastery",
+      "repo": "https://github.com/disler/claude-code-hooks-mastery.git",
+      "ref": "main",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/hooks-mastery",
+      "action": "updated",
+      "commit": "052ad1cbd5aeb1ec4a1def22012d1293c6225625",
+      "branch": "main",
+      "sparse_path": "",
+      "status": "ok"
+    },
+    {
+      "name": "compound-engineering",
+      "repo": "https://github.com/EveryInc/compounding-engineering-plugin.git",
+      "ref": "main",
+      "target": "/Users/cminseo/Documents/scripts/Shell/OAL/vendor/ecosystem/compound-engineering",
+      "action": "updated",
+      "commit": "9196ed8ad80c1ecc9cc59720e7fc67e0768f907d",
+      "branch": "main",
+      "sparse_path": "",
+      "status": "ok"
+    }
+  ],
+  "playbook_files": [
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/superpowers.md",
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/ralph-wiggum.md",
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/claude-flow.md",
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/claude-mem.md",
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/memsearch.md",
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/beads.md",
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/planning-with-files.md",
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/hooks-mastery.md",
+    "/Users/cminseo/Documents/scripts/Shell/OAL/.oal/knowledge/ecosystem/compound-engineering.md"
+  ],
+  "previous_generated_at": "2026-02-27T21:36:10.926046+00:00"
+}

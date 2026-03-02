@@ -1,0 +1,201 @@
+═══════════════════════════════════════════════════════════════════════════════
+OAL INSTALLER EXECUTION - TASK 3
+═══════════════════════════════════════════════════════════════════════════════
+
+COMMAND EXECUTED:
+  cd /Users/cminseo/Documents/scripts/Shell/OAL && ./OAL-setup.sh reinstall --clear-omc --non-interactive --merge-policy=apply
+
+═══════════════════════════════════════════════════════════════════════════════
+INSTALLER OUTPUT
+═══════════════════════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════════════════════
+  OAL Setup Manager — reinstall
+═══════════════════════════════════════════════════════════════════════════════
+
+Pre-flight checks...
+  ✓ Python 3.13
+  ✓ Existing: oal-v5-20260227 → target oal-v5-20260227
+  ✓ Standalone mode: OAL does not require OMC
+
+⚠ OMC installation signals detected.
+  - legacy /omc-* command files present in ~/.claude/commands
+  - legacy compatibility command aliases detected (omc-teams/OAL:omc-compat)
+  - plugin entries referencing omc detected
+Possible outcomes:
+  1. OAL will install standalone hooks/rules/commands and may override overlapping legacy command names.
+  2. Existing project .omc state remains as legacy input and may be migrated into .oal/state on runtime access.
+  3. If behavior is unexpected, run ./OAL-setup.sh reinstall (clean install) or ./OAL-setup.sh uninstall.
+
+OMC handling options:
+  1. Keep detected OMC artifacts and continue (default)
+  2. Clear detected OMC artifacts, then continue
+  3. Cancel installation
+Clearing detected OMC artifacts...
+  - commands/omc-*.md
+  - commands/OAL:omc-compat.md
+  - plugins/marketplaces/omc
+  ✓ Cleared 3 OMC artifact group(s)
+  ✓ Sanitizing legacy OMC instruction hints (CLAUDE/rules/protocols) ...
+
+Fresh/reinstall mode: remove OAL files before install.
+  ✓ Backup: /Users/cminseo/.claude/.oal-backup-20260227_222836
+  ✓ Clean slate ready
+
+Step 1/6: Remove deprecated files...
+  ~ agents/qa-tester.md (kept — appears to be non-OAL/custom)
+  ✓ Removed 1 deprecated files
+
+Step 2/6: Core Rules → /Users/cminseo/.claude/rules/
+  ✓ 5 core rules
+
+Step 3/6: Hooks → /Users/cminseo/.claude/hooks/
+  ✓ _common.py
+  ✓ circuit-breaker.py
+  ✓ config-guard.py
+  ✓ firewall.py
+  ✓ policy_engine.py
+  ✓ post-write.py
+  ✓ pre-compact.py
+  ✓ prompt-enhancer.py
+  ✓ quality-runner.py
+  ✓ secret-guard.py
+  ✓ session-start.py
+  ✓ shadow_manager.py
+  ✓ state_migration.py
+  ✓ stop-gate.py
+  ✓ test-validator.py
+  ✓ tool-ledger.py
+  ✓ trust_review.py
+  ✓ 17 hooks (0 errors)
+
+Step 4/6: Agents → /Users/cminseo/.claude/agents/
+  ✓ oal-architect.md
+  ✓ oal-critic.md
+  ✓ oal-escalation-router.md
+  ✓ oal-executor.md
+  ✓ oal-qa-tester.md
+  ✓ 5 agents
+
+Step 5/6: Commands → /Users/cminseo/.claude/commands/
+  ✓ /ccg
+  ✓ /OAL:ccg
+  ✓ /OAL:code-review
+  ✓ /OAL:compat
+  ✓ /OAL:crazy
+  ✓ /OAL:deep-plan
+  ✓ /OAL:domain-init
+  ✓ /OAL:escalate
+  ✓ /OAL:handoff
+  ✓ /OAL:health-check
+  ✓ /OAL:init
+  ✓ /OAL:learn
+  ✓ /OAL:maintainer
+  ✓ /OAL:omc-compat
+  ✓ /OAL:project-init
+  ✓ /OAL:security-review
+  ✓ /OAL:ship
+  ✓ /OAL:teams
+  ✓ /omc-teams
+  ✓ 63 commands installed (static=19, auto-compat=44, pre-existing=2, reserved-skipped=1)
+
+Step 6/6: Settings + Templates...
+📦 Backed up: /Users/cminseo/.claude/settings.json.bak.20260227_222849
+✅ Merged into: /Users/cminseo/.claude/settings.json
+   Hooks: PreToolUse, PostToolUse, Stop, PreCompact, SessionStart, UserPromptSubmit, ConfigChange
+   Permissions: 118 allow, 47 deny, 88 ask
+  ✓ Settings merged (auto)
+  ✓ Templates + contextual rules
+  ✓ Portable runtime → /Users/cminseo/.claude/oal-runtime
+
+═══════════════════════════════════════════════════════════════════════════════
+  ✅ OAL v5 reinstall completed successfully
+═══════════════════════════════════════════════════════════════════════════════
+
+  Files: 5 rules, 17 hooks, 5 agents, 63 commands
+  Version: oal-v5-20260227
+  Mode: Fresh reinstall
+
+═══════════════════════════════════════════════════════════════════════════════
+POST-INSTALL QA VERIFICATION
+═══════════════════════════════════════════════════════════════════════════════
+
+1. EXIT CODE: 0 ✅ PASS
+   Installer exited successfully with code 0
+
+2. VERSION MARKER: ✅ PASS
+   File: ~/.claude/hooks/.oal-version
+   Content: oal-v5-20260227
+
+3. HOOK COUNT: ✅ PASS (18 >= 16)
+   Expected: >= 16
+   Actual: 18
+   Files:
+     - /Users/cminseo/.claude/hooks/_common.py
+     - /Users/cminseo/.claude/hooks/circuit-breaker.py
+     - /Users/cminseo/.claude/hooks/config-guard.py
+     - /Users/cminseo/.claude/hooks/firewall.py
+     - /Users/cminseo/.claude/hooks/policy_engine.py
+     - /Users/cminseo/.claude/hooks/post-write.py
+     - /Users/cminseo/.claude/hooks/pre-compact.py
+     - /Users/cminseo/.claude/hooks/prompt-enhancer.py
+     - /Users/cminseo/.claude/hooks/quality-gate.py
+     - /Users/cminseo/.claude/hooks/quality-runner.py
+     - /Users/cminseo/.claude/hooks/secret-guard.py
+     - /Users/cminseo/.claude/hooks/session-start.py
+     - /Users/cminseo/.claude/hooks/shadow_manager.py
+     - /Users/cminseo/.claude/hooks/state_migration.py
+     - /Users/cminseo/.claude/hooks/stop-gate.py
+     - /Users/cminseo/.claude/hooks/test-validator.py
+     - /Users/cminseo/.claude/hooks/tool-ledger.py
+     - /Users/cminseo/.claude/hooks/trust_review.py
+
+4. RULES COUNT: ✅ PASS (8 >= 5)
+   Expected: >= 5
+   Actual: 8
+   Files:
+     - /Users/cminseo/.claude/rules/00-truth.md
+     - /Users/cminseo/.claude/rules/01-surgical.md
+     - /Users/cminseo/.claude/rules/02-circuit-breaker.md
+     - /Users/cminseo/.claude/rules/03-ensemble.md
+     - /Users/cminseo/.claude/rules/04-testing.md
+     - /Users/cminseo/.claude/rules/05-infra-safety.md
+     - /Users/cminseo/.claude/rules/06-cross-model.md
+     - /Users/cminseo/.claude/rules/07-dependency-safety.md
+
+5. OAL AGENTS COUNT: ✅ PASS (5 = 5)
+   Expected: 5
+   Actual: 5
+   Files:
+     - /Users/cminseo/.claude/agents/oal-architect.md
+     - /Users/cminseo/.claude/agents/oal-critic.md
+     - /Users/cminseo/.claude/agents/oal-escalation-router.md
+     - /Users/cminseo/.claude/agents/oal-executor.md
+     - /Users/cminseo/.claude/agents/oal-qa-tester.md
+
+6. OMC CLEANUP: ✅ PASS
+   Installer output shows:
+     - "Clearing detected OMC artifacts..."
+     - "✓ Cleared 3 OMC artifact group(s)"
+     - "✓ Sanitizing legacy OMC instruction hints (CLAUDE/rules/protocols) ..."
+   
+   OMC artifacts cleared:
+     - commands/omc-*.md
+     - commands/OAL:omc-compat.md
+     - plugins/marketplaces/omc
+
+═══════════════════════════════════════════════════════════════════════════════
+SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ ALL REQUIREMENTS MET
+
+Installer Status:        ✅ SUCCESS (exit code 0)
+Version Marker:          ✅ CREATED (oal-v5-20260227)
+Hook Count:              ✅ PASS (18 >= 16)
+Rules Count:             ✅ PASS (8 >= 5)
+OAL Agents Count:        ✅ PASS (5 = 5)
+OMC Cleanup:             ✅ PASS (3 artifact groups cleared)
+
+Installation completed successfully with all QA checks passing.
+Timestamp: 2026-02-27 22:28:36 UTC

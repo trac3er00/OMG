@@ -1,0 +1,12 @@
+version: oal-v1
+runtime_order:
+  - claude
+  - gpt
+  - local
+parity:
+  enforce_common_output_schema: true
+  fail_on_schema_mismatch: true
+timeouts:
+  plan_sec: 60
+  execute_sec: 900
+  verify_sec: 600

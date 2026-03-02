@@ -1,0 +1,78 @@
+# Task 3: Tracker Fields Enhancement — Evidence Report
+
+## Files Modified
+- hooks/_common.py: record_stop_block() and is_stop_block_loop()
+- hooks/stop_dispatcher.py: 3 callers updated with reason strings
+
+## Changes Summary
+
+### 1. record_stop_block() Enhancement
+- Added parameters: reason: str = "unknown", session_id: str = ""
+- Writes to tracker: {"ts": ..., "count": ..., "session_id": "...", "reason": "..."}
+- Preserves session_id and reason from old state if not overridden
+- Backward compatible: old format files still work
+
+### 2. is_stop_block_loop() Enhancement
+- Added parameter: session_id: str = ""
+- Cross-session check: if tracker has session_id AND current session_id differs → returns False
+- Old format (no session_id): falls back to current behavior (returns True if count >= threshold)
+- Backward compatible: old tracker files don't crash
+
+### 3. stop_dispatcher.py Callers Updated
+- Line 684: record_stop_block(project_dir, reason="ralph_loop")
+- Line 690: record_stop_block(project_dir, reason="planning_gate")
+- Line 717: record_stop_block(project_dir, reason="quality_check")
+- Line 681 (block_decision call): kept as-is (no session_id context available)
+
+## QA Scenario Results
+
+### Scenario 1: Tracker includes session_id and reason after block
+✓ PASS
+  session_id: test-session-123
+  reason: planning_gate
+  ts: 2026-03-01T05:20:32...
+  count: 1
+
+### Scenario 2: Cross-session tracker doesn't trigger loop detection
+✓ PASS
+  Tracker session_id: old-session
+  Current session_id: new-session
+  is_stop_block_loop() returned: False
+  Expected: False (different session, not a loop)
+
+### Scenario 3: Backward compatibility (old format)
+✓ PASS
+  Tracker has no session_id field (old format)
+  is_stop_block_loop(session_id="any-session") returned: True
+  Expected: True (old format, count=5 >= threshold, within window)
+
+## Syntax Verification
+✓ python3 -m py_compile hooks/_common.py hooks/stop_dispatcher.py
+  Exit code: 0 (success)
+
+## Backward Compatibility
+✓ Old tracker format (without session_id/reason) gracefully falls back
+✓ No crashes on missing fields
+✓ Cross-session detection only activates when both tracker and current have session_id
+
+## Implementation Details
+
+### record_stop_block() Logic
+1. Create new state with ts, count=1, session_id, reason
+2. If tracker exists and elapsed < window:
+   - Increment count from old state
+   - Preserve session_id from old if not provided
+   - Preserve reason from old if reason="unknown"
+3. Write to tracker atomically
+
+### is_stop_block_loop() Logic
+1. Load tracker state
+2. Extract tracker_session_id = state.get("session_id", "")
+3. If tracker_session_id AND current session_id AND they differ → return False
+4. Otherwise: check elapsed < window AND count >= threshold
+
+## Status
+✓ All requirements met
+✓ All QA scenarios pass
+✓ Syntax verified
+✓ Backward compatible

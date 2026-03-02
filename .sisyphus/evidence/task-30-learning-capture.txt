@@ -1,0 +1,41 @@
+Task 30: Compound Learning Capture on SessionEnd
+=================================================
+
+## Files Modified
+- hooks/session-end-capture.py: Replaced Capture B stub (lines 82-84) with full learning capture implementation (lines 82-135)
+- tests/test_learning_capture.py: Created with 5 tests
+
+## Implementation
+- Reads last 100 entries from .oal/state/ledger/tool-ledger.jsonl
+- Counts tool usage and file modification frequency
+- Writes learning file to .oal/state/learnings/{date}-{session_short}.md
+- Caps content at 300 chars
+- Guarded by get_feature_flag('compound_learning')
+- Wrapped in try/except with log_hook_error fallback
+- No LLM API calls — purely statistical
+
+## Test Results (5/5 pass)
+
+$ python3 -m pytest tests/test_learning_capture.py -x -v
+tests/test_learning_capture.py::test_learning_file_created_from_ledger PASSED
+tests/test_learning_capture.py::test_learning_file_under_300_chars PASSED
+tests/test_learning_capture.py::test_learning_contains_sections PASSED
+tests/test_learning_capture.py::test_no_learning_file_for_empty_ledger PASSED
+tests/test_learning_capture.py::test_exits_zero_always PASSED
+5 passed in 0.18s
+
+## Full Suite Results
+
+$ python3 -m pytest tests/ -q --ignore=tests/e2e
+307 passed, 1 failed in 10.00s
+
+Pre-existing failure: test_ralph_block_reason_includes_progress (ralph+planning gate JSON concatenation issue, unrelated to this task)
+
+## Acceptance Criteria
+✓ hooks/session-end-capture.py — Capture B implemented under compound_learning flag
+✓ tests/test_learning_capture.py — 5 tests, all pass
+✓ Learning file created from ledger entries
+✓ Learning file ≤300 chars
+✓ Learning file contains "Most Used Tools" section
+✓ No learning file when ledger is missing
+✓ Always exits 0

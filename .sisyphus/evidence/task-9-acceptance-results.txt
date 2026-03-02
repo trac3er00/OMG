@@ -1,0 +1,63 @@
+Check 1: Core rules count = exactly 5
+  Command: ls ~/.claude/rules/*.md | wc -l
+  Expected: 5
+  Actual:        5
+  Status: PASS
+Check 2: No orphan rules (only 00-04 pattern)
+  Command: ls ~/.claude/rules/ | grep -v '^0[0-4]-' | wc -l
+  Expected: 0
+  Actual:        0
+  Status: PASS
+Check 3: Zero .bak/.backup files
+  Command: find ~/.claude -name '*.bak*' -o -name '*.backup*' | wc -l
+  Expected: 0
+  Actual:        5
+  Status: FAIL
+Check 4: Zero backup directories
+  Command: find ~/.claude -maxdepth 1 -name '.oal-backup-*' -type d | wc -l
+  Expected: 0
+  Actual:        0
+  Status: PASS
+Check 5: No .oal-backups directory
+  Command: test ! -d ~/.claude/.oal-backups && echo PASS || echo FAIL
+  Expected: PASS (directory does not exist)
+  Actual: directory does not exist
+  Status: PASS
+Check 6: No .omc directory
+  Command: test ! -d ~/.claude/.omc && echo PASS || echo FAIL
+  Expected: PASS (directory does not exist)
+  Actual: directory does not exist
+  Status: PASS
+Check 7: No .omc-config.json
+  Command: test ! -f ~/.claude/.omc-config.json && echo PASS || echo FAIL
+  Expected: PASS (file does not exist)
+  Actual: file does not exist
+  Status: PASS
+Check 8: No omc-hud.mjs
+  Command: test ! -f ~/.claude/hud/omc-hud.mjs && echo PASS || echo FAIL
+  Expected: PASS (file does not exist)
+  Actual: file does not exist
+  Status: PASS
+Check 9: HUD is current (matches source)
+  Command: diff ~/.claude/hud/oal-hud.mjs /Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs
+  Expected: PASS (no diff output)
+  Actual: files match (no diff)
+  Status: PASS
+Check 10: CLAUDE.md @imports all resolve
+  Command: grep '^@' ~/.claude/CLAUDE.md | sed 's/^@//' | while read f; do test -f "$HOME/.claude/$f" || echo "MISSING: $f"; done
+  Expected: no output (all resolve)
+  Actual: all imports resolve
+  Status: PASS
+Check 11: protocols/ intact (6 files, no .bak)
+  Command: ls ~/.claude/protocols/*.md | wc -l && find ~/.claude/protocols -name '*.bak*' | wc -l
+  Expected: 6 files, 0 .bak files
+  Actual:        6 files,        0 .bak files
+  Status: PASS
+Check 12: OAL version marker exists
+  Command: cat ~/.claude/hooks/.oal-version
+  Expected: oal-v5-20260227
+  Actual: oal-v5-20260227
+  Status: PASS
+
+
+TOTAL:       11/12 PASS

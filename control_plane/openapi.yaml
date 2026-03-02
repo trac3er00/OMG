@@ -1,0 +1,109 @@
+openapi: 3.1.0
+info:
+  title: OAL Control Plane API
+  version: 1.0.0
+  description: Policy/trust/evidence/runtime/registry/lab endpoints for OAL v1.
+servers:
+  - url: https://api.oal.local
+paths:
+  /v1/policy/evaluate:
+    post:
+      summary: Evaluate policy decision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PolicyInput'
+      responses:
+        '200':
+          description: Decision result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDecision'
+  /v1/trust/review:
+    post:
+      summary: Review trust-sensitive config changes
+      responses:
+        '200':
+          description: Trust review report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustReview'
+  /v1/evidence/ingest:
+    post:
+      summary: Ingest evidence pack
+      responses:
+        '202':
+          description: Accepted
+  /v1/runtime/dispatch:
+    post:
+      summary: Dispatch job to runtime adapter
+      responses:
+        '200':
+          description: Runtime dispatch result
+  /v1/registry/verify:
+    post:
+      summary: Verify supply-chain artifact
+      responses:
+        '200':
+          description: Verification decision
+  /v1/lab/jobs:
+    post:
+      summary: Create lab pipeline job
+      responses:
+        '201':
+          description: Created
+  /v1/scoreboard/baseline:
+    get:
+      summary: Return baseline scorecard
+      responses:
+        '200':
+          description: KPI baseline snapshot
+components:
+  schemas:
+    PolicyInput:
+      type: object
+      properties:
+        tool:
+          type: string
+        input:
+          type: object
+      additionalProperties: true
+    PolicyDecision:
+      type: object
+      required: [action, risk_level, reason, controls]
+      properties:
+        action:
+          type: string
+          enum: [allow, ask, deny]
+        risk_level:
+          type: string
+          enum: [low, med, high, critical]
+        reason:
+          type: string
+        controls:
+          type: array
+          items:
+            type: string
+    TrustReview:
+      type: object
+      required: [changed_files, mcp_changes, hook_changes, env_changes, risk_score, verdict]
+      properties:
+        changed_files:
+          type: array
+          items: { type: string }
+        mcp_changes:
+          type: array
+          items: { type: object }
+        hook_changes:
+          type: object
+        env_changes:
+          type: array
+          items: { type: object }
+        risk_score:
+          type: integer
+        verdict:
+          type: string

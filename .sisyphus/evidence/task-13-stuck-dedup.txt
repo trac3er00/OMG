@@ -1,0 +1,41 @@
+Task 13: Stuck Detection Dedup — Evidence
+==========================================
+Date: 2026-02-28
+
+## Changes Made
+
+### hooks/prompt-enhancer.py
+1. Added `time` to imports (line 17)
+2. Rewrote stuck detection block (lines 444-482):
+   - Added failure count threshold: @stuck only injects when failure-tracker.json
+     has entries with count >= 2 (not just keyword match)
+   - Added 60-second dedup via `.oal/state/.last-stuck-ts` timestamp file
+   - On inject: writes current time.time() to .last-stuck-ts
+   - On subsequent call within 60s: reads file, skips injection
+
+### tests/hooks/test_prompt_enhancer.py
+3. Added `test_stuck_dedup`: creates temp dir with failure-tracker (count=3),
+   runs enhancer twice within 1 second, asserts first has @stuck, second does not
+4. Added `test_stuck_no_inject_without_failures`: stuck signal without >=2
+   tracked failures should NOT inject @stuck
+
+## Test Results
+
+### Acceptance test: test_stuck_dedup
+$ python3 -m pytest tests/hooks/test_prompt_enhancer.py::test_stuck_dedup -xvs
+PASSED
+
+### Acceptance test: no inject without failures
+$ python3 -m pytest tests/hooks/test_prompt_enhancer.py::test_stuck_no_inject_without_failures -xvs
+PASSED
+
+### Full regression suite
+$ python3 -m pytest tests/ -q --ignore=tests/e2e
+250 passed in 7.47s
+
+## Dedup Logic Summary
+- File: `.oal/state/.last-stuck-ts` (contains float timestamp)
+- Reads timestamp, compares with time.time()
+- If delta < 60s → skip injection (return without @stuck)
+- If delta >= 60s or file missing/corrupt → inject + write new timestamp
+- Failure threshold: requires `active` dict to be non-empty (≥2 failures tracked)

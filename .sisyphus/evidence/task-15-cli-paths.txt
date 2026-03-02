@@ -1,0 +1,135 @@
+=== Task 15: CLI Path Resolution & Subprocess Timeouts ===
+Date: 2026-02-28T18:32:05Z
+
+--- AC1: python3 scripts/oal.py compat list ---
+{
+  "status": "ok",
+  "count": 47,
+  "skills": [
+    "analyze",
+    "autopilot",
+    "beads",
+    "build-fix",
+    "cancel",
+    "ccg",
+    "claude-flow",
+    "claude-mem",
+    "code-review",
+    "compound-engineering",
+    "compounding-engineering",
+    "configure-notifications",
+    "configure-openclaw",
+    "deepinit",
+    "external-context",
+    "hooks-mastery",
+    "hud",
+    "learn-about-omc",
+    "learner",
+    "mcp-setup",
+    "memsearch",
+    "note",
+    "omc-doctor",
+    "omc-help",
+    "omc-setup",
+    "omc-teams",
+    "pipeline",
+    "plan",
+    "planning-with-files",
+    "project-session-manager",
+    "ralph",
+    "ralph-init",
+    "ralph-wiggum",
+    "ralplan",
+    "release",
+    "review",
+    "sciomc",
+    "security-review",
+    "skill",
+    "superpowers",
+    "tdd",
+    "team",
+    "trace",
+    "ultrapilot",
+    "ultraqa",
+    "ultrawork",
+    "writer-memory"
+  ]
+}
+EXIT_CODE=0
+
+--- AC2: subprocess timeout verification ---
+subprocess.run calls with timeout: True
+92:def _run_tool(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+93:    """Run an external tool with a mandatory timeout.
+96:    to guarantee the ``timeout`` parameter is always set.
+103:        timeout=timeout,
+EXIT_CODE=0
+
+--- AC3: shutil.which availability detection ---
+86:    if shutil.which(tool_name) is not None:
+EXIT_CODE=0
+
+--- Teams command (codex route) ---
+{
+  "status": "ok",
+  "findings": [
+    "Target router selected: codex",
+    "Problem: debug auth"
+  ],
+  "actions": [
+    "Perform deep code-level analysis",
+    "Prioritize security and root-cause checks",
+    "Return fix strategy with verification commands"
+  ],
+  "evidence": {
+    "target": "codex",
+    "generated_at": "2026-02-28T18:32:06.316298+00:00",
+    "context_length": 0,
+    "file_count": 0,
+    "tool_available": true
+  },
+  "schema": "TeamDispatchResult"
+}
+EXIT_CODE=0
+
+--- Teams command (gemini route) ---
+{
+  "status": "ok",
+  "findings": [
+    "Target router selected: gemini",
+    "Problem: fix UI layout"
+  ],
+  "actions": [
+    "Perform UI/UX and visual structure review",
+    "Return accessibility and responsive design improvements",
+    "Return component-level edit suggestions"
+  ],
+  "evidence": {
+    "target": "gemini",
+    "generated_at": "2026-02-28T18:32:06.569510+00:00",
+    "context_length": 0,
+    "file_count": 0,
+    "tool_available": true
+  },
+  "schema": "TeamDispatchResult"
+}
+EXIT_CODE=0
+
+--- Existing team_router tests ---
+============================= test session starts ==============================
+platform darwin -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- /Users/cminseo/.pyenv/versions/3.13.12/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/cminseo/Documents/scripts/Shell/OAL
+configfile: pytest.ini
+collecting ... collected 2 items
+
+tests/runtime/test_team_router.py::test_auto_route_respects_explicit_model_keywords PASSED [ 50%]
+tests/runtime/test_team_router.py::test_auto_route_detects_full_stack_with_space_and_mixed_domain PASSED [100%]
+
+============================== 2 passed in 0.01s ===============================
+EXIT_CODE=0
+
+--- Path resolution check ---
+_ROUTER_DIR=/Users/cminseo/Documents/scripts/Shell/OAL/runtime
+_OAL_ROOT=/Users/cminseo/Documents/scripts/Shell/OAL
+EXIT_CODE=0
