@@ -232,7 +232,7 @@ def _clone_or_update_repo(
         "name": repo["name"],
         "repo": repo_url,
         "ref": ref,
-        "target": str(target),
+        "vendor_segments": ["vendor", "ecosystem", str(repo["name"])],
         "action": action,
         "commit": commit,
         "branch": branch,
@@ -286,7 +286,7 @@ def sync_ecosystem_repos(
                     "name": repo["name"],
                     "repo": repo["repo"],
                     "ref": repo.get("ref", "main"),
-                    "target": str(target),
+                    "vendor_segments": ["vendor", "ecosystem", str(repo["name"])],
                     "status": "error",
                     "error": str(exc),
                 }
@@ -332,7 +332,13 @@ def ecosystem_status(*, project_dir: str) -> dict[str, Any]:
     for repo in repos:
         target = vendor_root / str(repo["name"])
         if not target.exists():
-            statuses.append({"name": repo["name"], "installed": False, "target": str(target)})
+            statuses.append(
+                {
+                    "name": repo["name"],
+                    "installed": False,
+                    "vendor_segments": ["vendor", "ecosystem", str(repo["name"])],
+                }
+            )
             continue
         commit = ""
         branch = ""
@@ -346,7 +352,7 @@ def ecosystem_status(*, project_dir: str) -> dict[str, Any]:
             {
                 "name": repo["name"],
                 "installed": True,
-                "target": str(target),
+                "vendor_segments": ["vendor", "ecosystem", str(repo["name"])],
                 "commit": commit,
                 "branch": branch,
                 "error": error,
