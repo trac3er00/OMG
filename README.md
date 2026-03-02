@@ -1,12 +1,12 @@
-# OAL v1.0.0
+# OAL v1
 
 OAL (Orchestration Abstraction Layer) is a standalone orchestration layer for Claude Code.
 It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
 
-- Version: `v1.0.0`
+- Plugin manifest version: `1.0.1`
+- Runtime install stamp: `oal-v1-YYYYMMDD`
 - Maintainer: `trac3er00`
 - Repo: `git@github.com:trac3er00/OAL.git`
-- Release: `https://github.com/trac3er00/OAL/releases/tag/v1.0.0`
 
 ## What OAL Solves
 
@@ -27,11 +27,16 @@ OAL is built for teams and solo developers who want:
 
 ## At a Glance
 
-- Hooks: 19+
+- Hooks: 27 Python hooks
 - Core rules: 5
 - Contextual rules: 17
-- Agents: 14+
-- Commands: Core + Advanced plugin commands
+- Agents: 15
+- Commands: 10 core + 10 advanced (+ compatibility aliases)
+
+## Requirements
+
+- Python `3.8+`
+- Claude Code with write access to `~/.claude`
 
 ## Installation
 
@@ -60,14 +65,25 @@ chmod +x OAL-setup.sh
 ./OAL-setup.sh uninstall
 ```
 
+### Common flags
+
+Supported by `OAL-setup.sh`:
+
+- `--fresh` clean reinstall before install/update
+- `--symlink` development mode with live updates from repo source
+- `--install-as-plugin` install plugin bundle (plugin manifest + MCP + HUD)
+- `--dry-run` preview changes without writing files
+- `--non-interactive` skip prompts (CI/automation)
+- `--merge-policy=ask|apply|skip` control settings merge behavior
+
 ## Plugin Update Behavior
 
 If OAL is installed through Claude Code plugin flow (`/plugin`), update works like this:
 
-- Claude plugin menu triggers OAL update
-- OAL runs plugin update logic from `.claude-plugin/scripts/update.sh`
-- In git-backed installs, update pulls latest from `origin/main`
-- In copy-based installs, update runs `OAL-setup.sh update`
+- Claude plugin update triggers `.claude-plugin/scripts/update.sh`
+- In git-backed installs, update stashes local changes (if needed) and pulls from `origin/main`
+- When a git tag is available, plugin manifests are synced to the tagged version
+- In cache/copy installs, update delegates to `OAL-setup.sh update`
 
 If plugin update appears silent, check:
 
@@ -194,14 +210,16 @@ oal/
 
 ## Versioning and Releases
 
-Current version: `v1.0.0`
+Current plugin manifest version: `1.0.1`
+
+Install/update runtime version stamp: `oal-v1-YYYYMMDD`
 
 Recommended release flow:
 
 ```bash
-git tag -a v1.0.0 -m "OAL v1.0.0"
-git push origin v1.0.0
-gh release create v1.0.0 --title "OAL v1.0.0" --notes "Release notes"
+git tag -a v1.0.1 -m "OAL v1.0.1"
+git push origin v1.0.1
+gh release create v1.0.1 --title "OAL v1.0.1" --notes "Release notes"
 ```
 
 ## Compatibility Notes
@@ -227,7 +245,7 @@ If Claude reports plugin manifest schema errors:
 - Run update script manually once to confirm output:
 
 ```bash
-bash ~/.claude/plugins/cache/oh-advanced-layer/oal/1.0.0/.claude-plugin/scripts/update.sh
+bash ~/.claude/plugins/cache/oh-advanced-layer/oal/*/.claude-plugin/scripts/update.sh
 ```
 
 ## License
