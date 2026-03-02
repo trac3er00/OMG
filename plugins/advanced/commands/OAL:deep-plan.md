@@ -165,6 +165,36 @@ Then merge outputs into a single execution checklist before implementation.
 Convert the plan into `.oal/state/_checklist.md` with concrete steps.
 Each step should be completable in ONE tool interaction (not "implement the feature").
 
+## Step 5.5: Business Workflow Contract (MANDATORY)
+
+Deep-plan owns the business-style delivery workflow and task-plan contract.
+
+Always generate a normalized workflow path and task plan directly from user instructions:
+
+- canonical stages: `plan -> implement -> qa -> simulate -> final_test -> production`
+- accepted user path keys: `workflow`, `path`, `delivery_path`, `workflow_path`
+- accepted stage aliases:
+  - `planning -> plan`
+  - `implementation|build -> implement`
+  - `quality|quality_assurance -> qa`
+  - `testing|test -> final_test`
+  - `prod|deploy -> production`
+
+Rules:
+1. If user provides a partial path, keep user order and append missing canonical stages.
+2. If user provides no path, use the full canonical path.
+3. Build tasks from:
+   - `user_instructions[]` (source of truth for requested workflow)
+   - `constraints[]` (delivery boundaries)
+   - `acceptance[]` (final test criteria)
+4. Include stage readiness for production handoff:
+   - `production=ready` only when QA/simulation/final_test gates pass.
+
+Persist this contract into planning artifacts:
+- `.oal/state/_plan.md` (human-readable plan)
+- `.oal/state/_checklist.md` (atomic execution items)
+- include structured task metadata in the plan output (`stage`, `title`, `detail`, `source`).
+
 ## Integration with DDD
 
 If this is a new domain:
