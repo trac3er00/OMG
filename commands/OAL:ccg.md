@@ -8,6 +8,11 @@ argument-hint: "problem statement"
 
 Runs OAL internal tri-track routing and returns merged actions.
 
+CCG execution standard:
+- launch backend/frontend/architecture analysis in parallel sub-agents
+- collect all tracks with `background_output`
+- run `sequential-thinking` to merge tracks into one execution order
+
 ```bash
 OAL_CLI="${OAL_CLI_PATH:-$HOME/.claude/oal-runtime/scripts/oal.py}"
 if [ ! -f "$OAL_CLI" ] && [ -f "scripts/oal.py" ]; then OAL_CLI="scripts/oal.py"; fi

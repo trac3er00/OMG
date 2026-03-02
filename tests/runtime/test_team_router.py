@@ -80,7 +80,7 @@ def test_execute_crazy_mode_launches_five_workers(monkeypatch):
             out.append(row)
         return out
 
-    monkeypatch.setattr(team_router, "execute_agents_sequentially", _fake_execute)
+    monkeypatch.setattr(team_router, "execute_agents_parallel", _fake_execute)
 
     result = team_router.execute_crazy_mode(
         problem="stabilize auth and ui",
@@ -100,6 +100,8 @@ def test_execute_crazy_mode_launches_five_workers(monkeypatch):
     ]
     assert result["worker_count"] == 5
     assert result["target_worker_count"] == 5
+    assert result["parallel_execution"] is True
+    assert result["sequential_execution"] is False
     assert result["model_mix"]["gpt"] == ["backend-engineer", "security-auditor"]
     assert result["model_mix"]["gemini"] == ["frontend-designer"]
     assert result["model_mix"]["claude"] == ["architect-mode", "testing-engineer"]

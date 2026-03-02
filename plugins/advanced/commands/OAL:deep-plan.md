@@ -138,6 +138,21 @@ After validation, launch exactly 5 planning tracks with mixed-model intent using
 4. Security track (GPT/Codex)
 5. Verification track (Claude)
 
+Dispatch pattern is mandatory: all 5 tracks launch in parallel as background sub-agents.
+
+```python
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Architect planning track", prompt="...")
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Backend planning track", prompt="...")
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Frontend planning track", prompt="...")
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Security planning track", prompt="...")
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Verification planning track", prompt="...")
+```
+
+Collection and merge protocol:
+- collect every track using `background_output(task_id="...")`
+- run a `sequential-thinking` merge pass to resolve conflicts and ordering
+- emit one final executable checklist only after the merge pass
+
 Each track must return:
 - concrete plan steps
 - risk notes

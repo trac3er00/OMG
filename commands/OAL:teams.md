@@ -32,3 +32,8 @@ python3 "$OAL_CLI" teams --target codex --problem "[problem]"
 
 ## Output schema
 `TeamDispatchResult { status, findings[], actions[], evidence{} }`
+
+## Full-power sub-agent protocol
+- For non-trivial tasks, launch multiple sub-agents in parallel (`run_in_background=true`) for independent tracks.
+- Collect all task outputs before responding (`background_output` per task id).
+- Run a `sequential-thinking` merge step to produce one dependency-ordered execution plan.

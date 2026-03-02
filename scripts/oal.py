@@ -465,7 +465,7 @@ def build_parser() -> argparse.ArgumentParser:
     ccg.add_argument("--expected-outcome", default="")
     ccg.set_defaults(func=cmd_ccg)
 
-    crazy = sub.add_parser("crazy", help="OAL CRAZY mode - sequential multi-agent orchestration")
+    crazy = sub.add_parser("crazy", help="OAL CRAZY mode - parallel multi-agent orchestration")
     crazy.add_argument("--problem", required=True, help="Task description")
     crazy.add_argument("--context", default="", help="Additional context")
     crazy.add_argument("--files", default="", help="Comma-separated focus files")
