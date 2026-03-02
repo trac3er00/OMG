@@ -74,7 +74,7 @@ def test_sync_writes_lock_and_playbooks(tmp_path: Path, monkeypatch):
 
 
 def test_ecosystem_status_reports_installed_state(tmp_path: Path, monkeypatch):
-    target = tmp_path / eco.DEFAULT_ECOSYSTEM_VENDOR_DIR / "superpowers"
+    target = tmp_path / eco.DEFAULT_ECOSYSTEM_REPO_DIR / "superpowers"
     target.mkdir(parents=True, exist_ok=True)
 
     def fake_run_git(args, *, cwd=None):
@@ -94,4 +94,3 @@ def test_ecosystem_status_reports_installed_state(tmp_path: Path, monkeypatch):
     assert repos["superpowers"]["commit"] == "abc123"
     assert repos["superpowers"]["branch"] == "main"
     assert repos["claude-flow"]["installed"] is False
-

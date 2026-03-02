@@ -22,12 +22,9 @@ def test_list_compat_skills_meets_standalone_contract():
     assert "memsearch" in compat
 
 
-def test_list_compat_skills_cover_vendored_names_when_present():
+def test_list_compat_skills_has_broad_legacy_alias_coverage():
     compat = set(list_compat_skills())
-    vendor_skill_dir = ROOT / "vendor" / "omc" / "skills"
-    if vendor_skill_dir.exists():
-        vendor_skills = {p.name for p in vendor_skill_dir.iterdir() if p.is_dir()}
-        assert vendor_skills.issubset(compat)
+    assert len(compat) >= 30
 
 
 def test_dispatch_representative_skills(tmp_path: Path):

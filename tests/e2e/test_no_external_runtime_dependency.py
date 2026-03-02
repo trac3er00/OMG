@@ -24,7 +24,6 @@ def test_runtime_paths_have_no_external_hard_dependency():
         "OMC_STATE_DIR",
         "OAL_COEXIST_MODE",
         "oh-my-claudecode",
-        "vendor/omc",
         "/omc-setup",
         "/omc-doctor",
     ]

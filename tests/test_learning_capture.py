@@ -1,6 +1,8 @@
 import subprocess, json, os
+from pathlib import Path
 import pytest
 
+ROOT = Path(__file__).parent.parent.resolve()
 
 def run_session_end(tmp_path, env_overrides=None):
     """Run session-end-capture.py with given cwd."""
@@ -14,7 +16,7 @@ def run_session_end(tmp_path, env_overrides=None):
     result = subprocess.run(
         ['python3', 'hooks/session-end-capture.py'],
         input=input_data, capture_output=True, text=True, env=env,
-        cwd='/Users/cminseo/Documents/scripts/Shell/OAL'
+        cwd=str(ROOT)
     )
     return result
 

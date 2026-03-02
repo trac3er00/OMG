@@ -67,7 +67,7 @@ AGENT_REGISTRY = {
         'mcp_tools': ['puppeteer_navigate', 'puppeteer_screenshot'],
         'description': 'Testing specialist. Unit tests, integration tests, E2E with Playwright.',
         'agent_file': 'agents/oal-testing-engineer.md',
-        'model_version': 'claude-sonnet-4',
+        'model_version': 'claude-sonnet-4-5',
     },
     'infra-engineer': {
         'preferred_model': 'codex-cli',
@@ -89,7 +89,7 @@ AGENT_REGISTRY = {
         'mcp_tools': ['web_search_exa', 'google_search', 'context7_query-docs'],
         'description': 'Research mode. Web search, docs lookup, library exploration.',
         'agent_file': 'agents/oal-research-mode.md',
-        'model_version': 'claude-haiku-3.5',
+        'model_version': 'claude-haiku-3-5',
     },
     'architect-mode': {
         'preferred_model': 'claude',
@@ -100,7 +100,7 @@ AGENT_REGISTRY = {
         'mcp_tools': [],
         'description': 'Architecture mode. System design, trade-off analysis.',
         'agent_file': 'agents/oal-architect-mode.md',
-        'model_version': 'claude-sonnet-4',
+        'model_version': 'claude-sonnet-4-5',
     },
     'implement-mode': {
         'preferred_model': 'domain-dependent',
@@ -110,7 +110,7 @@ AGENT_REGISTRY = {
         'mcp_tools': [],
         'description': 'Implementation mode. Model chosen based on domain of task.',
         'agent_file': 'agents/oal-implement-mode.md',
-        'model_version': 'claude-sonnet-4',
+        'model_version': 'claude-sonnet-4-5',
     },
 }
 
@@ -132,21 +132,21 @@ CORE_AGENT_MODELS = {
     },
     'executor': {
         'preferred_model': 'claude',
-        'model_version': 'claude-sonnet-4',
+        'model_version': 'claude-sonnet-4-5',
         'task_category': 'deep',
         'description': 'Implements code with evidence, auto-escalates when stuck.',
         'agent_file': 'agents/oal-executor.md',
     },
     'qa-tester': {
         'preferred_model': 'claude',
-        'model_version': 'claude-sonnet-4',
+        'model_version': 'claude-sonnet-4-5',
         'task_category': 'unspecified-high',
         'description': 'User-journey test writer — no boilerplate.',
         'agent_file': 'agents/oal-qa-tester.md',
     },
     'escalation-router': {
         'preferred_model': 'claude',
-        'model_version': 'claude-haiku-3.5',
+        'model_version': 'claude-haiku-3-5',
         'task_category': None,
         'description': 'Routes problems to Codex/Gemini/CCG based on domain.',
         'agent_file': 'agents/oal-escalation-router.md',

@@ -55,19 +55,13 @@ desktop.ini
 .env
 .env.local
 
-# Claude plugin cache (when installed)
-~/.claude/plugins/cache/
-
-# vendor
-vendor/
+# Claude plugin cache (if present in repo workspace)
+.claude/plugins/cache/
 
 # dot-folders
 .oal/
 .omc/
 .sisyphus/
-
-# doc
-docs/
 
 # Plugin runtime directories (populated on install/use)
 plugins/advanced/agents/

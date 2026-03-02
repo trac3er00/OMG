@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "OAL v1.0.0 — project-level config with hook registrations and feature flags. Hooks also registered in ~/.claude/settings.json (user-level) to avoid double-execution.",
+  "_comment": "OAL v1.0.1 — project-level config with hook registrations and feature flags. Hooks also registered in ~/.claude/settings.json (user-level) to avoid double-execution.",
   "permissions": {
     "allow": [
       "Agent",
@@ -185,6 +185,28 @@
     "PreToolUse": [
       {"type": "command", "command": "python3 $HOME/.claude/hooks/pre-tool-inject.py"}
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/circuit-breaker.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/tool-ledger.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUseFailure": [
       {"type": "command", "command": "python3 $HOME/.claude/hooks/post-tool-failure.py"}
     ],
@@ -220,7 +242,7 @@
     }
   },
   "_oal": {
-    "_version": "1.0.0",
+    "_version": "1.0.1",
     "default_mode": "ulw+ralph",
     "vision_auto": true,
     "false_fix_detection": true,

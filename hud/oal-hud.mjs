@@ -6,8 +6,9 @@
  * and native options via `oalHud`.
  */
 
-import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { basename, join } from "node:path";
+import { readFileSync, existsSync, readdirSync, realpathSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import { execFileSync } from "node:child_process";
 
@@ -21,7 +22,37 @@ const red = (t) => `${ESC}31m${t}${ESC}0m`;
 const magenta = (t) => `${ESC}35m${t}${ESC}0m`;
 const cyan = (t) => `${ESC}36m${t}${ESC}0m`;
 
-const OAL_VERSION = "1.0.0";
+function readOalVersion() {
+  const scriptPath = realpathSync(fileURLToPath(import.meta.url));
+  const scriptDir = dirname(scriptPath);
+
+  try {
+    const pluginJsonPath = join(scriptDir, "..", ".claude-plugin", "plugin.json");
+    const pluginJson = JSON.parse(readFileSync(pluginJsonPath, "utf8"));
+    if (typeof pluginJson?.version === "string" && pluginJson.version.trim()) {
+      return pluginJson.version.trim();
+    }
+  } catch {
+    // fall through to git tag fallback
+  }
+
+  try {
+    const rootDir = join(scriptDir, "..");
+    const latestTag = execFileSync("git", ["describe", "--tags", "--abbrev=0"], {
+      cwd: rootDir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const normalized = latestTag.replace(/^v/, "").trim();
+    if (normalized) return normalized;
+  } catch {
+    // fall through to static fallback
+  }
+
+  return "1.0.1";
+}
+
+const OAL_VERSION = readOalVersion();
 
 const DEFAULT_HUD_CONFIG = {
   preset: "focused",
