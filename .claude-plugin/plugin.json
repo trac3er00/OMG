@@ -7,9 +7,6 @@
   },
   "repository": "git@github.com:trac3er00/OAL.git",
   "homepage": "https://github.com/trac3er00/OAL",
-  "bugs": {
-    "url": "https://github.com/trac3er00/OAL/issues"
-  },
   "license": "MIT",
   "keywords": [
     "claude-code",
@@ -22,11 +19,5 @@
     "crazy-mode",
     "escalation"
   ],
-  "category": "productivity",
-  "scripts": {
-    "install": ".claude-plugin/scripts/install.sh",
-    "update": ".claude-plugin/scripts/update.sh",
-    "uninstall": ".claude-plugin/scripts/uninstall.sh"
-  },
   "mcpServers": "./.mcp.json"
 }
