@@ -25,3 +25,4 @@ def test_plugin_mcp_config_includes_required_servers():
     assert "context7" in servers
     assert "filesystem" in servers
     assert "websearch" in servers
+    assert "chrome-devtools" in servers

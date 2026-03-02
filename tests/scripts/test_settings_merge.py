@@ -45,6 +45,7 @@ def test_merge_adds_missing_mcp_servers(tmp_path: Path):
         "mcpServers": {
             "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
             "websearch": {"command": "npx", "args": ["-y", "exa-mcp-server"]},
+            "chrome-devtools": {"command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"]},
         }
     }
     existing_path = tmp_path / "existing.json"
@@ -56,7 +57,7 @@ def test_merge_adds_missing_mcp_servers(tmp_path: Path):
     assert proc.returncode == 0, proc.stderr
 
     merged = json.loads(existing_path.read_text(encoding="utf-8"))
-    assert set(merged["mcpServers"].keys()) == {"filesystem", "context7", "websearch"}
+    assert set(merged["mcpServers"].keys()) == {"filesystem", "context7", "websearch", "chrome-devtools"}
 
 
 def test_merge_mcp_server_keeps_existing_and_unions_args_and_env(tmp_path: Path):

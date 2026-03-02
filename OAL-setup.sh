@@ -25,11 +25,6 @@ FRESH_INSTALL=false
 INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
 ERRORS=0
-NON_INTERACTIVE=false
-MERGE_POLICY="ask"
-FRESH_INSTALL=false
-INSTALL_AS_PLUGIN=false
-ERRORS=0
 OAL_MANIFEST="$CLAUDE_DIR/.oal-manifest"
 NEW_MANIFEST_ENTRIES=()
 
@@ -88,20 +83,6 @@ Options:
 Examples:
   ./OAL-setup.sh install
   ./OAL-setup.sh install --symlink              # Dev mode: live updates from repo
-  ./OAL-setup.sh install --install-as-plugin
-  ./OAL-setup.sh update --non-interactive --merge-policy=apply
-  ./OAL-setup.sh reinstall --dry-run
-  ./OAL-setup.sh uninstall --dry-run
-  --fresh            For install/update: clean reinstall before install
-  --install-as-plugin
-                     Install plugin bundle (plugin.json + MCP + HUD) together
-  --dry-run          Show what would happen without writing files
-  --non-interactive  Skip prompts (CI/automation mode)
-  --merge-policy=X   Settings merge: ask (default), apply, skip
-  -h, --help         Show this help
-
-Examples:
-  ./OAL-setup.sh install
   ./OAL-setup.sh install --install-as-plugin
   ./OAL-setup.sh update --non-interactive --merge-policy=apply
   ./OAL-setup.sh reinstall --dry-run
@@ -211,7 +192,6 @@ parse_args() {
         case "$arg" in
             --dry-run) DRY_RUN=true ;;
             --symlink) USE_SYMLINK=true ;;
-            --non-interactive) NON_INTERACTIVE=true ;;
             --non-interactive) NON_INTERACTIVE=true ;;
             --fresh) FRESH_INSTALL=true ;;
             --install-as-plugin) INSTALL_AS_PLUGIN=true ;;
@@ -407,7 +387,7 @@ if not isinstance(servers, dict):
     raise SystemExit(0)
 
 removed = 0
-for key in ("context7", "filesystem", "websearch"):
+for key in ("context7", "filesystem", "websearch", "chrome-devtools"):
     if key in servers:
         servers.pop(key, None)
         removed += 1
@@ -906,6 +886,7 @@ run_install_like() {
         name=$(basename "$f")
         target="$CLAUDE_DIR/hooks/$name"
         if ! $DRY_RUN; then
+            install_file "$f" "$target"
             if ! $USE_SYMLINK; then
                 chmod +x "$target"
             fi
@@ -1015,31 +996,12 @@ run_install_like() {
                 [ -f "$cr" ] && track_file "templates/oal/contextual-rules/$(basename "$cr")"
             done
         fi
-        cp "$SCRIPT_DIR"/templates/* "$CLAUDE_DIR/templates/oal/" 2>/dev/null || true
-        for t in "$SCRIPT_DIR"/templates/*; do
-            [ -f "$t" ] && track_file "templates/oal/$(basename "$t")"
-        done
-        mkdir -p "$CLAUDE_DIR/templates/oal/contextual-rules"
-        cp "$SCRIPT_DIR"/rules/contextual/*.md "$CLAUDE_DIR/templates/oal/contextual-rules/" 2>/dev/null || true
-        for cr in "$SCRIPT_DIR"/rules/contextual/*.md; do
-            [ -f "$cr" ] && track_file "templates/oal/contextual-rules/$(basename "$cr")"
-        done
         mkdir -p "$CLAUDE_DIR/templates/oal/state/memory"
         mkdir -p "$CLAUDE_DIR/templates/oal/state/learnings"
         mkdir -p "$CLAUDE_DIR/templates/oal/state/ledger"
         echo "  \u2713 State directory templates (memory, learnings, ledger)"
         echo "  \u2713 Templates + contextual rules"
 
-        mkdir -p "$CLAUDE_DIR/oal-runtime/scripts"
-        cp "$SCRIPT_DIR/scripts/oal.py" "$CLAUDE_DIR/oal-runtime/scripts/oal.py"
-        [[ "$CLAUDE_DIR/oal-runtime/runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/oal-runtime/runtime" >&2; exit 1; }
-        rm -rf "$CLAUDE_DIR/oal-runtime/runtime" "$CLAUDE_DIR/oal-runtime/hooks" "$CLAUDE_DIR/oal-runtime/lab"
-        cp -R "$SCRIPT_DIR/runtime" "$CLAUDE_DIR/oal-runtime/"
-        cp -R "$SCRIPT_DIR/hooks" "$CLAUDE_DIR/oal-runtime/"
-        cp -R "$SCRIPT_DIR/lab" "$CLAUDE_DIR/oal-runtime/"
-        [[ "$CLAUDE_DIR/oal-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/oal-runtime" >&2; exit 1; }
-        find "$CLAUDE_DIR/oal-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-        find "$CLAUDE_DIR/oal-runtime" -name "*.pyc" -delete 2>/dev/null || true
         if $USE_SYMLINK; then
             # In symlink mode, link runtime directories instead of copying
             mkdir -p "$CLAUDE_DIR/oal-runtime/scripts"

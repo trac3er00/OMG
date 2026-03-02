@@ -5,14 +5,26 @@
 2) Auto-generate handoff files in .oal/state
 """
 import json
+import importlib
 import os
 import shutil
 import subprocess
 import sys
 from datetime import datetime
 
-from state_migration import resolve_state_file, resolve_state_dir
-from _common import _resolve_project_dir
+try:
+    from hooks.state_migration import resolve_state_file, resolve_state_dir
+    from hooks._common import _resolve_project_dir
+except ImportError:
+    _state_migration = importlib.import_module("state_migration")
+    _common = importlib.import_module("_common")
+    resolve_state_file = _state_migration.resolve_state_file
+    resolve_state_dir = _state_migration.resolve_state_dir
+    _resolve_project_dir = _common._resolve_project_dir
+
+
+MAX_SNAPSHOT_BYTES = int(os.environ.get("OAL_PRECOMPACT_MAX_SNAPSHOT_BYTES", "262144"))
+GIT_DIFF_TIMEOUT_SEC = int(os.environ.get("OAL_PRECOMPACT_GIT_DIFF_TIMEOUT_SEC", "1"))
 
 
 try:
@@ -41,6 +53,43 @@ def read_file(path, max_lines=None):
         return None
 
 
+def read_cache(paths):
+    cache = {}
+    for path in paths:
+        cache[path] = read_file(path)
+    return cache
+
+
+def first_lines(text, max_lines):
+    if not text:
+        return None
+    if not max_lines:
+        return text
+    return "\n".join(text.splitlines()[:max_lines])
+
+
+def snapshot_file(src_path, dst_path, max_bytes):
+    os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+    try:
+        size = os.path.getsize(src_path)
+    except OSError:
+        return False
+
+    if max_bytes <= 0 or size <= max_bytes:
+        shutil.copy2(src_path, dst_path)
+        return True
+
+    with open(src_path, "rb") as src_f:
+        data = src_f.read(max_bytes)
+    note = (
+        f"\n\n[TRUNCATED by pre-compact: original_bytes={size}, kept_bytes={len(data)}]"
+    ).encode("utf-8")
+    with open(dst_path, "wb") as dst_f:
+        dst_f.write(data)
+        dst_f.write(note)
+    return True
+
+
 snapshot_files = [
     resolve_state_file(project_dir, "state/profile.yaml", "profile.yaml"),
     resolve_state_file(project_dir, "state/working-memory.md", "working-memory.md"),
@@ -51,19 +100,20 @@ snapshot_files = [
     resolve_state_file(project_dir, "state/ledger/failure-tracker.json", "ledger/failure-tracker.json"),
     resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"),
 ]
+cached = read_cache(snapshot_files)
 saved = []
 for src in snapshot_files:
-    if os.path.exists(src):
-        os.makedirs(snapshot_dir, exist_ok=True)
-        shutil.copy2(src, os.path.join(snapshot_dir, os.path.basename(src)))
-        saved.append(os.path.basename(src))
+    if cached.get(src) is not None:
+        dst = os.path.join(snapshot_dir, os.path.basename(src))
+        if snapshot_file(src, dst, MAX_SNAPSHOT_BYTES):
+            saved.append(os.path.basename(src))
 
-profile = read_file(resolve_state_file(project_dir, "state/profile.yaml", "profile.yaml"), max_lines=20)
-wm = read_file(resolve_state_file(project_dir, "state/working-memory.md", "working-memory.md"), max_lines=15)
-plan = read_file(resolve_state_file(project_dir, "state/_plan.md", "_plan.md"), max_lines=10)
-checklist = read_file(resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md"), max_lines=50)
-tracker = read_file(resolve_state_file(project_dir, "state/ledger/failure-tracker.json", "ledger/failure-tracker.json"))
-ralph_loop = read_file(resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"))
+profile = first_lines(cached.get(resolve_state_file(project_dir, "state/profile.yaml", "profile.yaml")), 20)
+wm = first_lines(cached.get(resolve_state_file(project_dir, "state/working-memory.md", "working-memory.md")), 15)
+plan = first_lines(cached.get(resolve_state_file(project_dir, "state/_plan.md", "_plan.md")), 10)
+checklist = first_lines(cached.get(resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")), 50)
+tracker = cached.get(resolve_state_file(project_dir, "state/ledger/failure-tracker.json", "ledger/failure-tracker.json"))
+ralph_loop = cached.get(resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"))
 
 parts = [
     f"# Handoff -- {datetime.now().strftime('%Y-%m-%d %H:%M')}",
@@ -110,7 +160,7 @@ try:
         ["git", "diff", "--name-only"],
         capture_output=True,
         text=True,
-        timeout=3,
+        timeout=GIT_DIFF_TIMEOUT_SEC,
         cwd=project_dir,
     )
     changed = [l for l in diff_names.stdout.strip().split("\n") if l]
@@ -146,7 +196,6 @@ try:
             [d for d in os.listdir(snapshots_parent) if os.path.isdir(os.path.join(snapshots_parent, d))]
         )
         for old in entries[:-5]:
-            print(f"[OAL] Deleting: {os.path.join(snapshots_parent, old)}", file=sys.stderr)
             shutil.rmtree(os.path.join(snapshots_parent, old), ignore_errors=True)
 except Exception:
     pass

@@ -20,6 +20,7 @@ Research mode cognitive agent. Gathers information, evaluates technologies, anal
 
 - `mcp_google_search`: Search for current library versions, comparisons, benchmarks
 - `mcp_websearch_web_search_exa`: Deep web search for technical articles and guides
+- `mcp_chrome-devtools`: Validate web_search findings against live browser pages when needed
 - `mcp_context7_query-docs`: Query official documentation for specific libraries
 - `mcp_context7_resolve-library-id`: Find correct library IDs for documentation queries
 - `mcp_grep_app_searchGitHub`: Find real-world usage examples on GitHub

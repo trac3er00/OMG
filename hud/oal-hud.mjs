@@ -39,7 +39,7 @@ const DEFAULT_HUD_CONFIG = {
     contextBar: true,
     activeSkills: true,
     lastSkill: true,
-    showCallCounts: true,
+    showCallCounts: false,
     ralph: true,
     autopilot: true,
     prdStory: true,
@@ -123,7 +123,7 @@ const PRESET_CONFIGS = {
     thinkingFormat: "text",
     permissionStatus: false,
     useBars: true,
-    showCallCounts: true,
+    showCallCounts: false,
     maxOutputLines: 4,
     safeMode: true,
     inventory: true,
@@ -153,7 +153,7 @@ const PRESET_CONFIGS = {
     thinkingFormat: "text",
     permissionStatus: false,
     useBars: true,
-    showCallCounts: true,
+    showCallCounts: false,
     maxOutputLines: 12,
     safeMode: true,
     inventory: true,
@@ -183,7 +183,7 @@ const PRESET_CONFIGS = {
     thinkingFormat: "text",
     permissionStatus: false,
     useBars: true,
-    showCallCounts: true,
+    showCallCounts: false,
     maxOutputLines: 6,
     safeMode: true,
     inventory: true,
@@ -213,7 +213,7 @@ const PRESET_CONFIGS = {
     thinkingFormat: "text",
     permissionStatus: false,
     useBars: false,
-    showCallCounts: true,
+    showCallCounts: false,
     maxOutputLines: 4,
     safeMode: true,
     inventory: true,
@@ -617,15 +617,23 @@ function parseTranscript(transcriptPath) {
     let pendingToolUse = null;
     const resolvedIds = new Set();
 
+    const parseEpochMs = (raw) => {
+      if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+      if (typeof raw !== "string" || raw.length === 0) return Date.now();
+      const t = Date.parse(raw);
+      return Number.isNaN(t) ? Date.now() : t;
+    };
+
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
+        const entryTs = parseEpochMs(entry.timestamp || entry.ts);
 
         if (entry.type === "assistant" && Array.isArray(entry.message?.content)) {
           for (const block of entry.message.content) {
             if (block.type === "thinking" || block.type === "reasoning") {
-              lastThinkingTs = Date.now();
+              lastThinkingTs = entryTs;
             }
 
             if (block.type === "tool_use") {
@@ -638,7 +646,7 @@ function parseTranscript(transcriptPath) {
                 agentMap.set(id, {
                   type: input.agent_type || input.type || "unknown",
                   description: input.description || "",
-                  startTime: Date.now(),
+                  startTime: entryTs,
                 });
               } else if (name === "Skill" || name === "proxy_Skill") {
                 result.skills++;
@@ -1138,16 +1146,6 @@ async function main() {
     if (cfg.elements.backgroundTasks) {
       const bgEl = renderBackgroundTasks(oalState.backgroundTasks);
       if (bgEl) els.push(bgEl);
-    }
-
-    // Call counts (emoji format)
-    if (cfg.elements.showCallCounts) {
-      const isWin = process.platform === "win32";
-      const countParts = [];
-      if (transcript.tools > 0) countParts.push(`${isWin ? "T:" : "\u{1F527}"}${transcript.tools}`);
-      if (transcript.agents > 0) countParts.push(`${isWin ? "A:" : "\u{1F916}"}${transcript.agents}`);
-      if (transcript.skills > 0) countParts.push(`${isWin ? "S:" : "\u26A1"}${transcript.skills}`);
-      if (countParts.length > 0) els.push(countParts.join(" "));
     }
 
     // Model name

@@ -93,6 +93,16 @@ def test_explicit_ccg_route_keyword():
     assert "ccg" in ctx.lower()
     assert "do not call plugin/skill routes" in ctx.lower()
 
+def test_explicit_deep_plan_route_keyword():
+    ctx = run_enhancer("use deep-plan for this migration strategy")
+    assert "@route-lock" in ctx
+    assert "deep-plan" in ctx.lower()
+    assert "execute /oal:deep-plan" in ctx.lower()
+
+def test_deep_plan_keyword_takes_priority_over_model_keywords():
+    ctx = run_enhancer("deep-plan then use codex and gemini for implementation")
+    assert "route=deep-plan" in ctx.lower()
+
 def test_both_codex_and_gemini_keywords_force_ccg_route_lock():
     ctx = run_enhancer("use codex and gemini together for this change")
     assert "@route-lock" in ctx

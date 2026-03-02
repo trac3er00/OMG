@@ -15,15 +15,32 @@ Inspired by oh-my-opencode's Sisyphus agent system. Key upgrades:
 No dependency on CLAUDE.md or AGENTS.md.
 """
 import json, sys, os, re, time
+import importlib
 
 HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, atomic_json_write, get_feature_flag, _resolve_project_dir
-from state_migration import resolve_state_dir
-from _budget import BUDGET_PROMPT_TOTAL
-from context_pressure import estimate_context_pressure
+try:
+    from hooks._common import setup_crash_handler, json_input, atomic_json_write, get_feature_flag, _resolve_project_dir
+    from hooks.state_migration import resolve_state_dir
+    from hooks._budget import BUDGET_PROMPT_TOTAL as budget_prompt_total
+    from hooks.context_pressure import estimate_context_pressure
+except ImportError:
+    _common = importlib.import_module("_common")
+    _state_migration = importlib.import_module("state_migration")
+    _budget = importlib.import_module("_budget")
+    _context_pressure = importlib.import_module("context_pressure")
+    setup_crash_handler = _common.setup_crash_handler
+    json_input = _common.json_input
+    atomic_json_write = _common.atomic_json_write
+    get_feature_flag = _common.get_feature_flag
+    _resolve_project_dir = _common._resolve_project_dir
+    resolve_state_dir = _state_migration.resolve_state_dir
+    budget_prompt_total = _budget.BUDGET_PROMPT_TOTAL
+    estimate_context_pressure = _context_pressure.estimate_context_pressure
+
+BUDGET_PROMPT_TOTAL = budget_prompt_total
 
 setup_crash_handler("prompt-enhancer", fail_closed=False)
 
@@ -282,16 +299,20 @@ CCG_SIGNALS = [
     "architecture review", "review everything", "cross-functional", "end-to-end", "e2e",
     "풀스택", "아키텍처 리뷰", "전체 리뷰",
 ]
+DEEP_PLAN_SIGNALS = ["deep-plan", "deep plan", "/oal:deep-plan"]
 EXPLICIT_GEMINI = ["gemini", "제미니"]
 EXPLICIT_CODEX = ["codex", "코덱스"]
 
 # Keyword-first model routing. If an explicit keyword exists, force OAL route first.
 has_ccg_signal = any(signal_matches_text(sig, prompt) for sig in CCG_SIGNALS)
+has_deep_plan_signal = any(signal_matches_text(sig, prompt) for sig in DEEP_PLAN_SIGNALS)
 has_gemini_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_GEMINI)
 has_codex_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_CODEX)
 
 route_lock = ""
-if has_ccg_signal or (has_gemini_signal and has_codex_signal):
+if has_deep_plan_signal:
+    route_lock = "deep-plan"
+elif has_ccg_signal or (has_gemini_signal and has_codex_signal):
     route_lock = "ccg"
 elif has_gemini_signal:
     route_lock = "gemini"
@@ -299,7 +320,12 @@ elif has_codex_signal:
     route_lock = "codex"
 
 if route_lock and budget_ok():
-    if route_lock == "ccg":
+    if route_lock == "deep-plan":
+        add(
+            '@route-lock: Explicit keyword route=deep-plan. Execute /OAL:deep-plan "[goal]" FIRST. '
+            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OAL route."
+        )
+    elif route_lock == "ccg":
         add(
             '@route-lock: Explicit keyword route=ccg. Execute /OAL:ccg "[problem]" FIRST. '
             "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OAL route."
@@ -317,7 +343,12 @@ if route_lock and budget_ok():
 
 if not route_lock and get_feature_flag('agent_registry') and budget_ok():
     try:
-        from _agent_registry import resolve_agent, detect_available_models
+        try:
+            from hooks._agent_registry import resolve_agent, detect_available_models
+        except ImportError:
+            _agent_registry = importlib.import_module("_agent_registry")
+            resolve_agent = _agent_registry.resolve_agent
+            detect_available_models = _agent_registry.detect_available_models
         _maybe_kws = locals().get("kws")
         _routing_kws = _maybe_kws if _maybe_kws else set(re.findall(r'\b[a-zA-Z]{3,}\b', prompt_lower))
         matched_agent = resolve_agent(_routing_kws)
@@ -545,7 +576,11 @@ if os.path.isdir(kd) and budget_ok() and (_word_count >= 15 or _has_code_signal)
 # ═══════════════════════════════════════════════════════════
 if get_feature_flag('memory') and budget_ok():
     try:
-        from _memory import search_memories
+        try:
+            from hooks._memory import search_memories
+        except ImportError:
+            _memory = importlib.import_module("_memory")
+            search_memories = _memory.search_memories
         # Reuse keywords already extracted for knowledge search
         _kws_local = locals().get("kws")
         _mem_kws = list(_kws_local) if _kws_local else []

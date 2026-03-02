@@ -395,18 +395,20 @@ def execute_agents_sequentially(
         # Dispatch to the appropriate model
         result = dispatch_to_model(agent_name, prompt, project_dir)
         
-        # If it's a fallback to Claude, we need to actually invoke it
         if result.get("fallback") == "claude":
             print(f"[CRAZY] {agent_name} using Claude (native)")
-            # Return the fallback info - the caller will handle task() dispatch
+            status = "fallback-claude"
         elif "error" in result:
             print(f"[CRAZY] {agent_name} error: {result['error']}")
+            status = "error"
         else:
             print(f"[CRAZY] {agent_name} completed (exit={result.get('exit_code', 'unknown')})")
+            status = "completed" if result.get("exit_code") == 0 else "failed"
         
         results.append({
             "agent": agent_name,
             "order": task.get("order", 0),
+            "status": status,
             **result
         })
     
@@ -419,22 +421,6 @@ def execute_crazy_mode(
     context: str | None = None,
     files: list[str] | None = None
 ) -> dict[str, Any]:
-    """Execute CRAZY mode: spawn agents sequentially, not in parallel.
-    
-    Phase 1: Claude (Orchestrator) - breaks down the problem
-    Phase 2: Codex (Deep Worker) - backend/security/analysis
-    Phase 3: Gemini (UI/UX) - frontend/design
-    Phase 4: Claude (Synthesis) - combines results
-    
-    Args:
-        problem: The task description
-        project_dir: Working directory
-        context: Additional context
-        files: Files to focus on
-        
-    Returns:
-        Dict with results from each phase
-    """
     print("[CRAZY] Starting sequential agent execution...")
     print(f"[CRAZY] Problem: {problem[:100]}...")
     
@@ -446,65 +432,99 @@ def execute_crazy_mode(
         context_parts.append(f"Focus files: {', '.join(files[:8])}")
     full_context = "\n\n".join(context_parts) if context_parts else ""
     
-    # Phase 1: Claude Orchestrator
-    phase1_prompt = f"""You are the orchestrator. Break down this problem into specific subtasks for Codex (backend/analysis) and Gemini (UI/design).
+    worker_tasks = [
+        {
+            "agent_name": "architect-mode",
+            "prompt": (
+                f"Plan decomposition for: {problem}\n\n"
+                f"Focus: scope, sequencing, dependency ordering, risk control.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 1,
+        },
+        {
+            "agent_name": "backend-engineer",
+            "prompt": (
+                f"Backend implementation strategy for: {problem}\n\n"
+                f"Focus: APIs, data flow, failure handling, performance.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 2,
+        },
+        {
+            "agent_name": "frontend-designer",
+            "prompt": (
+                f"Frontend/UI strategy for: {problem}\n\n"
+                f"Focus: UX, accessibility, responsive behavior, component structure.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 3,
+        },
+        {
+            "agent_name": "security-auditor",
+            "prompt": (
+                f"Security review strategy for: {problem}\n\n"
+                f"Focus: auth, secrets, input validation, abuse vectors.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 4,
+        },
+        {
+            "agent_name": "testing-engineer",
+            "prompt": (
+                f"Verification strategy for: {problem}\n\n"
+                f"Focus: unit/integration/e2e coverage and failure reproduction.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 5,
+        },
+    ]
 
-Problem: {problem}
-Context: {full_context}
+    results = execute_agents_sequentially(worker_tasks, project_dir)
 
-Return a JSON object with:
-- codex_task: specific task for Codex
-- gemini_task: specific task for Gemini
-- expected_outputs: what each should deliver
-"""
-    
-    # Phase 2: Codex Deep Worker
-    phase2_task = {
-        "agent_name": "codex-deep",
-        "prompt": f"Deep analysis task: {problem}\n\nFocus on: backend logic, security, performance, architecture.\n\nContext:\n{full_context}",
-        "order": 2
-    }
-    
-    # Phase 3: Gemini UI/UX
-    phase3_task = {
-        "agent_name": "gemini-ui",
-        "prompt": f"UI/UX task: {problem}\n\nFocus on: frontend components, styling, accessibility, responsive design.\n\nContext:\n{full_context}",
-        "order": 3
-    }
-    
-    # Execute sequentially
-    results = execute_agents_sequentially(
-        [phase2_task, phase3_task],
-        project_dir
+    result_blocks: list[str] = []
+    for r in results:
+        result_blocks.append(
+            f"**{r.get('agent', 'unknown')} [{r.get('status', 'unknown')}]:**\n"
+            f"{r.get('output', r.get('error', 'No output'))}"
+        )
+
+    synthesis_prompt = (
+        "Synthesize results from five specialized tracks:\n\n"
+        + "\n\n".join(result_blocks)
+        + "\n\nProvide a unified action plan with dependency ordering."
     )
-    
-    # Collect outputs
-    codex_output = next((r for r in results if r.get("agent") == "codex-deep"), {})
-    gemini_output = next((r for r in results if r.get("agent") == "gemini-ui"), {})
-    
-    # Phase 4: Claude Synthesis (handled by caller)
-    synthesis_prompt = f"""Synthesize results from Codex and Gemini:
 
-**Codex Findings:**
-{codex_output.get('output', 'No output')}
+    model_mix = {
+        "gpt": [r.get("agent") for r in results if r.get("model") == "codex-cli"],
+        "gemini": [r.get("agent") for r in results if r.get("model") == "gemini-cli"],
+        "claude": [r.get("agent") for r in results if r.get("fallback") == "claude"],
+    }
 
-**Gemini Findings:**
-{gemini_output.get('output', 'No output')}
-
-Provide a unified action plan with dependency ordering.
-"""
-    
     return {
         "status": "ok",
         "phases": [
             {"phase": 1, "agent": "claude-orchestrator", "status": "completed"},
-            {"phase": 2, "agent": "codex-deep", "status": codex_output.get("status", "unknown"), "output": codex_output.get("output", "")},
-            {"phase": 3, "agent": "gemini-ui", "status": gemini_output.get("status", "unknown"), "output": gemini_output.get("output", "")},
-            {"phase": 4, "agent": "claude-synthesis", "prompt": synthesis_prompt}
+            *[
+                {
+                    "phase": idx,
+                    "agent": r.get("agent"),
+                    "status": r.get("status", "unknown"),
+                    "model": r.get("model", r.get("fallback", "unknown")),
+                    "output": r.get("output", ""),
+                }
+                for idx, r in enumerate(results, start=2)
+            ],
+            {"phase": 7, "agent": "claude-synthesis", "prompt": synthesis_prompt},
         ],
         "sequential_execution": True,
+        "worker_count": len(results),
+        "target_worker_count": 5,
+        "model_mix": model_mix,
         "findings": [
-            f"Codex: {codex_output.get('status', 'unknown')}",
-            f"Gemini: {gemini_output.get('status', 'unknown')}",
-        ]
+            f"Workers launched: {len(results)}/5",
+            f"GPT tracks: {len(model_mix['gpt'])}",
+            f"Gemini tracks: {len(model_mix['gemini'])}",
+            f"Claude tracks: {len(model_mix['claude'])}",
+        ],
     }

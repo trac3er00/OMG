@@ -57,3 +57,49 @@ def test_dispatch_team_reports_live_connection_when_auth_ok(monkeypatch):
     assert gemini["available"] is True
     assert gemini["auth_ok"] is True
     assert gemini["live_connection"] is True
+
+
+def test_execute_crazy_mode_launches_five_workers(monkeypatch):
+    captured: list[dict[str, object]] = []
+
+    def _fake_execute(agent_tasks, _project_dir, timeout_per_agent=120):
+        captured.extend(agent_tasks)
+        out = []
+        for task in agent_tasks:
+            name = task.get("agent_name", "")
+            model = "codex-cli" if name in {"backend-engineer", "security-auditor"} else "gemini-cli" if name == "frontend-designer" else "claude"
+            row = {
+                "agent": name,
+                "status": "completed",
+                "output": f"ok:{name}",
+            }
+            if model == "claude":
+                row["fallback"] = "claude"
+            else:
+                row["model"] = model
+            out.append(row)
+        return out
+
+    monkeypatch.setattr(team_router, "execute_agents_sequentially", _fake_execute)
+
+    result = team_router.execute_crazy_mode(
+        problem="stabilize auth and ui",
+        project_dir="/tmp/project",
+        context="session context",
+        files=["auth.py", "ui.tsx"],
+    )
+
+    assert len(captured) == 5
+    names = [str(task.get("agent_name")) for task in captured]
+    assert names == [
+        "architect-mode",
+        "backend-engineer",
+        "frontend-designer",
+        "security-auditor",
+        "testing-engineer",
+    ]
+    assert result["worker_count"] == 5
+    assert result["target_worker_count"] == 5
+    assert result["model_mix"]["gpt"] == ["backend-engineer", "security-auditor"]
+    assert result["model_mix"]["gemini"] == ["frontend-designer"]
+    assert result["model_mix"]["claude"] == ["architect-mode", "testing-engineer"]

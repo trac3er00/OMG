@@ -73,6 +73,23 @@ def test_cli_teams_auto_routing_honors_explicit_and_ccg_keywords():
     assert ccg_out["evidence"]["target"] == "ccg"
 
 
+def test_cli_crazy_launches_five_worker_tracks():
+    crazy = _run(["crazy", "--problem", "stabilize auth and dashboard flows"])
+    assert crazy.returncode == 0
+    start = crazy.stdout.find("{")
+    assert start >= 0
+    out = json.loads(crazy.stdout[start:])
+    assert out["status"] == "ok"
+    assert out["worker_count"] == 5
+    assert out["target_worker_count"] == 5
+    phase_agents = [p.get("agent") for p in out["phases"] if isinstance(p, dict)]
+    assert "architect-mode" in phase_agents
+    assert "backend-engineer" in phase_agents
+    assert "frontend-designer" in phase_agents
+    assert "security-auditor" in phase_agents
+    assert "testing-engineer" in phase_agents
+
+
 def test_cli_compat_list_and_run():
     listed = _run(["compat", "list"])
     assert listed.returncode == 0

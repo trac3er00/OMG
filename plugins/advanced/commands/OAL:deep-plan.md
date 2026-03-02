@@ -10,12 +10,13 @@ argument-hint: "[feature or goal to plan]"
 Regular planning = "what steps to take."
 Deep planning = "understand WHY the user wants this, WHAT direction they're heading, and HOW it fits the bigger picture."
 
-## Step 1: Direction Discovery (MANDATORY — ASK BEFORE PLANNING)
+## Step 1: Direction Discovery (MANDATORY)
 
-**STOP. Do NOT generate any plan yet.**
-
-You MUST ask 2-3 focused clarifying questions and WAIT for the user's answers before proceeding to Step 2.
-Do NOT assume goals, constraints, or context. Ask first, plan second.
+Do not assume goals, constraints, or context. Extract direction from:
+- user prompt
+- `.oal/state/handoff.md`
+- `.oal/state/ledger/failure-tracker.json`
+- current repo structure and patterns
 
 Before planning anything, understand:
 1. **User's real goal** — Often the stated request is one step toward something bigger. Ask: "What's the end state you're imagining?"
@@ -23,8 +24,7 @@ Before planning anything, understand:
 3. **User's domain knowledge** — Are they expert in this domain (follow their lead) or exploring (guide them)?
 4. **What they've already tried** — Check .oal/state/handoff.md, failure-tracker.json, git log.
 
-Ask the user 2-3 focused questions. NOT generic questions. Specific to THEIR context.
-**Then STOP and WAIT for their response. Do not proceed to Step 2 until they answer.**
+If direction is still ambiguous after repo exploration, ask only minimal focused questions.
 
 Examples of BAD questions: "What framework do you want?" "What's your deadline?"
 Examples of GOOD questions:
@@ -127,6 +127,23 @@ Checklist for Codex validation:
 - missing verification steps
 
 Only after applying those corrections, continue to execution.
+
+## Step 4.6: Multi-Agent Bootstrap (MANDATORY)
+
+After validation, launch exactly 5 planning tracks with mixed-model intent using OAL-native routing (same planning discipline as superpowers/OMC):
+
+1. Architect track (Claude)
+2. Backend track (GPT/Codex)
+3. Frontend track (Gemini)
+4. Security track (GPT/Codex)
+5. Verification track (Claude)
+
+Each track must return:
+- concrete plan steps
+- risk notes
+- verification commands
+
+Then merge outputs into a single execution checklist before implementation.
 
 ## Step 5: Generate Checklist
 

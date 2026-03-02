@@ -237,13 +237,6 @@ def cmd_ccg(args: argparse.Namespace) -> int:
 
 
 def cmd_crazy(args: argparse.Namespace) -> int:
-    """CRAZY mode: sequential multi-agent orchestration.
-    
-    Launches agents sequentially (not in parallel):
-    1. Codex (deep analysis)
-    2. Gemini (UI/UX review)  
-    3. Claude synthesizes results
-    """
     files = [f.strip() for f in args.files.split(",") if f.strip()] if args.files else []
     result = execute_crazy_mode(
         problem=args.problem,
@@ -489,22 +482,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     return parser
 
-    compat = sub.add_parser("compat", help="OAL legacy compatibility bridge")
-    _add_compat_subcommands(compat, dest="compat_command")
-
-    compat = sub.add_parser("compat", help="OAL legacy compatibility bridge")
-
-    compat = sub.add_parser("compat", help="OAL legacy compatibility bridge")
-    _add_compat_subcommands(compat, dest="compat_command")
-
-    omc = sub.add_parser("omc", help="Alias of `compat` for legacy scripts")
-    _add_compat_subcommands(omc, dest="omc_command")
-
-    ecosystem = sub.add_parser("ecosystem", help="Upstream ecosystem sync and status")
-    _add_ecosystem_subcommands(ecosystem, dest="ecosystem_command")
-
-    return parser
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
@@ -514,4 +491,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
