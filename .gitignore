@@ -1,0 +1,58 @@
+# OAL - Orchestration Abstraction Layer
+# Gitignore for Claude Code plugin
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Test artifacts
+tests/__pycache__/
+tests/.pytest_cache/
+.coverage
+htmlcov/
+
+# Claude Code specific (local dev)
+.claude-local/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+
+# Node (if any JS tooling)
+node_modules/
+npm-debug.log*
+
+# OS files
+Thumbs.db
+desktop.ini
+
+# Local environment
+.env
+.env.local
+
+# Claude plugin cache (when installed)
+~/.claude/plugins/cache/
