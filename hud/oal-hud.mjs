@@ -820,6 +820,7 @@ function renderPrd(prd) {
 function readRateLimits() {
   const claudeDir = getClaudeConfigDir();
   const cachePaths = [
+    join(claudeDir, "oal-runtime", ".usage-cache.json"),
     join(claudeDir, "plugins", "oh-my-claudecode", ".usage-cache.json"),
     join(claudeDir, ".oal", "usage-cache.json"),
     join(homedir(), ".oal", "usage-cache.json"),
