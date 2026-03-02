@@ -18,6 +18,8 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install Python dependencies
+        run: pip install pytest
       - name: Prepare compatibility artifacts directory
         run: mkdir -p artifacts
 
@@ -53,6 +55,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install pytest
 
       - name: Validate standalone no-vendor behavior
         run: ./scripts/verify-standalone.sh
