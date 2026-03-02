@@ -23,9 +23,10 @@ const magenta = (t) => `${ESC}35m${t}${ESC}0m`;
 const cyan = (t) => `${ESC}36m${t}${ESC}0m`;
 
 function readOalVersion() {
+  const scriptPath = realpathSync(fileURLToPath(import.meta.url));
+  const scriptDir = dirname(scriptPath);
+
   try {
-    const scriptPath = realpathSync(fileURLToPath(import.meta.url));
-    const scriptDir = dirname(scriptPath);
     const pluginJsonPath = join(scriptDir, "..", ".claude-plugin", "plugin.json");
     const pluginJson = JSON.parse(readFileSync(pluginJsonPath, "utf8"));
     if (typeof pluginJson?.version === "string" && pluginJson.version.trim()) {
@@ -36,8 +37,6 @@ function readOalVersion() {
   }
 
   try {
-    const scriptPath = realpathSync(fileURLToPath(import.meta.url));
-    const scriptDir = dirname(scriptPath);
     const rootDir = join(scriptDir, "..");
     const latestTag = execFileSync("git", ["describe", "--tags", "--abbrev=0"], {
       cwd: rootDir,
@@ -50,7 +49,7 @@ function readOalVersion() {
     // fall through to static fallback
   }
 
-  return "1.0.0";
+  return "1.0.1";
 }
 
 const OAL_VERSION = readOalVersion();
