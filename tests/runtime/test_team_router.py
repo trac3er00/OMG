@@ -105,3 +105,25 @@ def test_execute_crazy_mode_launches_five_workers(monkeypatch):
     assert result["model_mix"]["gpt"] == ["backend-engineer", "security-auditor"]
     assert result["model_mix"]["gemini"] == ["frontend-designer"]
     assert result["model_mix"]["claude"] == ["architect-mode", "testing-engineer"]
+
+
+def test_execute_agents_parallel_preserves_all_results_when_orders_collide(monkeypatch):
+    def _fake_dispatch(agent_name: str, user_prompt: str, _project_dir: str):
+        return {
+            "model": "codex-cli",
+            "output": f"{agent_name}:{user_prompt}",
+            "exit_code": 0,
+        }
+
+    monkeypatch.setattr(team_router, "dispatch_to_model", _fake_dispatch)
+
+    tasks = [
+        {"agent_name": "a", "prompt": "one", "order": 0},
+        {"agent_name": "b", "prompt": "two", "order": 0},
+        {"agent_name": "c", "prompt": "three", "order": 0},
+    ]
+    results = team_router.execute_agents_parallel(tasks, "/tmp/project")
+
+    assert len(results) == 3
+    assert [row["agent"] for row in results] == ["a", "b", "c"]
+    assert [row["output"] for row in results] == ["a:one", "b:two", "c:three"]
