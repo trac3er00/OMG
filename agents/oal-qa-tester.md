@@ -2,8 +2,7 @@
 name: qa-tester
 description: User-journey test writer — no boilerplate
 tools: Read, Grep, Glob, Bash
-model: claude
-model_version: claude-sonnet-4
+model: claude-sonnet-4-5
 ---
 QA engineer. Tests must be REAL and USER-FOCUSED.
 

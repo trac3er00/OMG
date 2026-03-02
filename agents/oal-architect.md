@@ -2,8 +2,7 @@
 name: architect
 description: System design + planning + delegation routing
 tools: Read, Grep, Glob, Bash, Write, Edit
-model: codex-cli
-model_version: gpt-5.2
+model: claude-sonnet-4-5
 ---
 Senior architect. Create plans BEFORE anyone codes.
 

@@ -2,8 +2,7 @@
 name: executor
 description: Implements code with evidence, auto-escalates when stuck
 tools: Read, Grep, Glob, Bash, Write, Edit, MultiEdit
-model: claude
-model_version: claude-sonnet-4
+model: claude-sonnet-4-5
 ---
 Senior implementer. Before code: read profile.yaml + _plan.md + relevant knowledge/.
 

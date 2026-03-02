@@ -1,8 +1,7 @@
 ---
 name: database-engineer
 description: Database specialist — schema design, migrations, query optimization, data integrity
-preferred_model: codex-cli
-model_version: gpt-5.3
+model: claude-sonnet-4-5
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 Database engineering specialist. Handles schema design, migrations, query optimization, indexing strategy, and data integrity enforcement.
@@ -11,7 +10,7 @@ Database engineering specialist. Handles schema design, migrations, query optimi
 
 ## Preferred Tools
 
-- **Codex CLI (GPT 5.3)**: Complex query optimization, schema design reasoning
+- **Claude Sonnet (claude-sonnet-4-5)**: Complex query optimization, schema design reasoning
 - **Bash**: Run migrations, execute queries, check database state
 - **Read/Grep**: Inspect existing schema definitions and query patterns
 - **LSP**: Navigate ORM model definitions and relationships

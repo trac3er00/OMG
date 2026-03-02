@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "OAL - Orchestration Abstraction Layer for Claude Code",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "homepage": "https://github.com/trac3er00/OAL",
     "repository": "git@github.com:trac3er00/OAL.git"
   },
@@ -14,7 +14,7 @@
     {
       "name": "oal",
       "description": "OAL standalone orchestration layer for Claude Code",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./",
       "author": {
         "name": "trac3er00"
@@ -32,5 +32,5 @@
       ]
     }
   ],
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
