@@ -19,11 +19,6 @@
       "author": {
         "name": "trac3er00"
       },
-      "homepage": "https://github.com/trac3er00/OAL",
-      "repository": "git@github.com:trac3er00/OAL.git",
-      "bugs": {
-        "url": "https://github.com/trac3er00/OAL/issues"
-      },
       "license": "MIT",
       "category": "productivity",
       "tags": [
@@ -34,15 +29,7 @@
         "codex",
         "gemini",
         "crazy-mode"
-      ],
-      "requirements": {
-        "claudeCode": ">=2.0.0"
-      },
-      "scripts": {
-        "install": ".claude-plugin/scripts/install.sh",
-        "update": ".claude-plugin/scripts/update.sh",
-        "uninstall": ".claude-plugin/scripts/uninstall.sh"
-      }
+      ]
     }
   ],
   "version": "1.0.0"
