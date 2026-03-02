@@ -56,3 +56,14 @@ desktop.ini
 
 # Claude plugin cache (when installed)
 ~/.claude/plugins/cache/
+
+# vendor
+vendor/
+
+# dot-folders
+.oal/
+.omc/
+.sisyphus/
+
+# doc
+docs/
