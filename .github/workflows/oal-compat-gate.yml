@@ -1,9 +1,7 @@
 name: OAL Compat Gate
 
 on:
-  push:
-    branches:
-      - "**"
+  workflow_dispatch:
   pull_request:
 
 jobs:
