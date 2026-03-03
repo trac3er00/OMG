@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OAL v1 Policy Engine
+"""OMG v1 Policy Engine
 
 Centralized policy decision layer for tool access, file access, and supply-chain
 artifact verification.
@@ -186,19 +186,19 @@ BLOCKED_PATH_PATTERNS = [
 ]
 
 
-# OAL internal credential store paths (exempted from secret-file blocking)
-# Only these exact filenames inside .oal/state/ are allowed.
-_OAL_CREDENTIAL_STORE_ALLOWLIST = frozenset({
+# OMG internal credential store paths (exempted from secret-file blocking)
+# Only these exact filenames inside .omg/state/ are allowed.
+_OMG_CREDENTIAL_STORE_ALLOWLIST = frozenset({
     "credentials.enc",
     "credentials.meta",
 })
 
 
-def _is_oal_credential_path(normalized_path: str) -> bool:
-    """Return True if the path is an OAL credential store file.
+def _is_omg_credential_path(normalized_path: str) -> bool:
+    """Return True if the path is an OMG credential store file.
 
     Only exempts files that are:
-    1. Inside .oal/state/ directory
+    1. Inside .omg/state/ directory
     2. Named exactly 'credentials.enc' or 'credentials.meta'
     3. Feature flag MULTI_CREDENTIAL is enabled
 
@@ -212,13 +212,13 @@ def _is_oal_credential_path(normalized_path: str) -> bool:
         return False
 
     basename = os.path.basename(normalized_path).lower()
-    if basename not in _OAL_CREDENTIAL_STORE_ALLOWLIST:
+    if basename not in _OMG_CREDENTIAL_STORE_ALLOWLIST:
         return False
 
-    # Verify it's actually inside .oal/state/
+    # Verify it's actually inside .omg/state/
     parent = os.path.dirname(normalized_path)
-    return parent.endswith(os.sep + ".oal" + os.sep + "state") or \
-           parent.endswith("/.oal/state")
+    return parent.endswith(os.sep + ".omg" + os.sep + "state") or \
+           parent.endswith("/.omg/state")
 
 
 def evaluate_file_access(tool: str, file_path: str) -> PolicyDecision:
@@ -247,10 +247,10 @@ def evaluate_file_access(tool: str, file_path: str) -> PolicyDecision:
     if re.match(r"^\.env(\..+)?$", basename) and basename not in EXAMPLE_FILES:
         return deny(f"Environment file blocked: {file_path}", "critical", ["secret-access"])
 
-    # EXEMPTION: OAL credential store files within .oal/state/
+    # EXEMPTION: OMG credential store files within .omg/state/
     # These are managed by hooks/credential_store.py and must be accessible
-    if _is_oal_credential_path(normalized):
-        return allow("OAL credential store (managed path)")
+    if _is_omg_credential_path(normalized):
+        return allow("OMG credential store (managed path)")
 
     for pat in BLOCKED_PATH_PATTERNS:
         if re.search(pat, lowpath):

@@ -85,7 +85,7 @@ class TestLineHashId:
 class TestInjectHashlines:
     """Tests for hashline injection."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_adds_correct_line_numbers(self):
         content = "line one\nline two\nline three"
         result = inject_hashlines(content)
@@ -94,7 +94,7 @@ class TestInjectHashlines:
         assert lines[1].startswith("2#")
         assert lines[2].startswith("3#")
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_format_matches_spec(self):
         """Format: {line_num}#{hash_id}|{original_line}"""
         content = "hello world"
@@ -103,34 +103,34 @@ class TestInjectHashlines:
         import re
         assert re.match(r"^\d+#[A-Z]{2}\|hello world$", result)
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_preserves_original_content(self):
         content = "  indented\n\ttabbed\n\nempty above"
         result = inject_hashlines(content)
         stripped = strip_hashlines(result)
         assert stripped == content
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_single_line(self):
         content = "only line"
         result = inject_hashlines(content)
         assert result.startswith("1#")
         assert result.endswith("|only line")
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_empty_content(self):
         content = ""
         result = inject_hashlines(content)
         # Empty string split gives [""], so one "line"
         assert result.startswith("1#")
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_multiline_preserves_line_count(self):
         content = "a\nb\nc\nd\ne"
         result = inject_hashlines(content)
         assert len(result.split("\n")) == 5
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_hash_ids_are_valid_charset(self):
         content = "line1\nline2\nline3\nline4\nline5"
         result = inject_hashlines(content)
@@ -162,7 +162,7 @@ class TestStripHashlines:
     def test_roundtrip_inject_strip(self):
         """inject then strip should return original content."""
         original = "const x = 1;\nconst y = 2;\nreturn x + y;"
-        with patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"}):
+        with patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"}):
             injected = inject_hashlines(original)
         stripped = strip_hashlines(injected)
         assert stripped == original
@@ -175,7 +175,7 @@ class TestStripHashlines:
 
     def test_preserves_pipe_in_content(self):
         """Pipe characters in original content should not be affected."""
-        with patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"}):
+        with patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"}):
             original = "a | b | c"
             injected = inject_hashlines(original)
             stripped = strip_hashlines(injected)
@@ -192,28 +192,28 @@ class TestStripHashlines:
 
 
 class TestFeatureFlag:
-    """Tests for OAL_HASHLINE_ENABLED feature flag."""
+    """Tests for OMG_HASHLINE_ENABLED feature flag."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "0"})
     def test_disabled_returns_passthrough(self):
         content = "hello\nworld"
         result = inject_hashlines(content)
         assert result == content  # No modification
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "false"})
     def test_disabled_false_string(self):
         content = "test content"
         result = inject_hashlines(content)
         assert result == content
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_enabled_injects(self):
         content = "test content"
         result = inject_hashlines(content)
         assert result != content
         assert result.startswith("1#")
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "yes"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "yes"})
     def test_enabled_yes_string(self):
         content = "test"
         result = inject_hashlines(content)
@@ -224,7 +224,7 @@ class TestFeatureFlag:
         """Default should be False (disabled) per spec."""
         # Remove env var if set
         env = os.environ.copy()
-        env.pop("OAL_HASHLINE_ENABLED", None)
+        env.pop("OMG_HASHLINE_ENABLED", None)
         with patch.dict(os.environ, env, clear=True):
             # get_feature_flag with default=False should return False
             with patch.object(hashline_injector, "get_feature_flag", return_value=False):
@@ -235,9 +235,9 @@ class TestFeatureFlag:
 
 
 class TestSidecarCache:
-    """Tests for hashline sidecar cache (.oal/state/hashline_cache.json)."""
+    """Tests for hashline sidecar cache (.omg/state/hashline_cache.json)."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_cache_stores_on_inject(self):
         """When file_path provided, hashes should be cached."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -262,7 +262,7 @@ class TestSidecarCache:
         finally:
             os.unlink(tmp_path)
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_cache_retrieves_valid(self):
         """Cached hashes should be returned when mtime matches."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -286,7 +286,7 @@ class TestSidecarCache:
         finally:
             os.unlink(tmp_path)
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_cache_invalidation_on_mtime_change(self):
         """Cache should be invalidated when file mtime changes."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -327,7 +327,7 @@ class TestSidecarCache:
         finally:
             os.unlink(tmp_path)
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_cache_hashes_writes_correctly(self):
         """_cache_hashes should write correct structure via atomic_json_write."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
@@ -354,7 +354,7 @@ class TestSidecarCache:
 class TestPerformance:
     """Performance tests — injection must complete within budget."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_1000_lines_under_20ms(self):
         """1000-line file injection should complete in < 20ms."""
         content = "\n".join(f"line {i}: some typical code content here" for i in range(1000))
@@ -370,7 +370,7 @@ class TestPerformance:
 
         assert elapsed_ms < 20, f"Injection took {elapsed_ms:.1f}ms, budget is 20ms"
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_strip_1000_lines_under_20ms(self):
         """1000-line strip should complete in < 20ms."""
         content = "\n".join(f"line {i}: some code" for i in range(1000))
@@ -390,14 +390,14 @@ class TestPerformance:
 class TestHookEntryPoint:
     """Tests for the stdin/stdout hook entry point."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "0"})
     def test_disabled_exits_immediately(self):
         """When disabled, hook should exit 0 without processing."""
         with pytest.raises(SystemExit) as exc_info:
             hashline_injector.main()
         assert exc_info.value.code == 0
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_non_read_tool_exits(self):
         """Non-read tools should be ignored."""
         data = {"tool_name": "Write", "tool_input": {"content": "test"}}
@@ -406,7 +406,7 @@ class TestHookEntryPoint:
                 hashline_injector.main()
             assert exc_info.value.code == 0
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_read_tool_injects(self):
         """Read tool with content should inject hashlines."""
         data = {
@@ -427,7 +427,7 @@ class TestHookEntryPoint:
         output_content = captured["output"]["tool_input"]["content"]
         assert output_content.startswith("1#")
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_empty_content_exits(self):
         """Empty content should exit without injecting."""
         data = {"tool_name": "Read", "tool_input": {"content": ""}}
@@ -443,14 +443,14 @@ class TestHookEntryPoint:
 class TestEdgeCases:
     """Edge case tests."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_unicode_content(self):
         content = "안녕하세요\nこんにちは\n🎉"
         result = inject_hashlines(content)
         stripped = strip_hashlines(result)
         assert stripped == content
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_content_with_existing_hash_pattern(self):
         """Content that looks like a hashline should still be handled correctly."""
         content = "1#VK|already tagged"
@@ -461,7 +461,7 @@ class TestEdgeCases:
         # Strip should remove the OUTER prefix, leaving the original
         assert stripped == content
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_very_long_line(self):
         content = "x" * 10000
         result = inject_hashlines(content)
@@ -469,7 +469,7 @@ class TestEdgeCases:
         stripped = strip_hashlines(result)
         assert stripped == content
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_inject_without_file_path_no_cache(self):
         """Injecting without file_path should not attempt cache."""
         with patch.object(hashline_injector, "_cache_hashes") as mock_cache:

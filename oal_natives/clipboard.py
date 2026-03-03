@@ -1,16 +1,16 @@
-"""OAL Natives — clipboard: clipboard operation stubs.
+"""OMG Natives — clipboard: clipboard operation stubs.
 
 Pure-Python stubs for clipboard operations.
 No actual clipboard interaction — returns placeholder values.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 
 def clipboard(operation: str = "get", text: Optional[str] = None) -> str:
@@ -30,7 +30,7 @@ def clipboard(operation: str = "get", text: Optional[str] = None) -> str:
 # Self-register with the global binding registry
 bind_function(
     name="clipboard",
-    rust_symbol="oal_natives::clipboard::clipboard",
+    rust_symbol="omg_natives::clipboard::clipboard",
     python_fallback=clipboard,
     type_hints={"operation": "str", "text": "str"},
 )

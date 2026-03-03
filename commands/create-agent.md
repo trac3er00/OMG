@@ -1,10 +1,10 @@
 ---
-description: "Wizard command for creating new custom agents in ~/.oal/agents/ or .oal/agents/."
+description: "Wizard command for creating new custom agents in ~/.omg/agents/ or .omg/agents/."
 allowed-tools: Read, Write, Edit, Bash
 argument-hint: "[agent-name]"
 ---
 
-# /OAL:create-agent — Custom Agent Creation Wizard
+# /OMG:create-agent — Custom Agent Creation Wizard
 
 Create a custom agent for your project or user-level configuration.
 
@@ -13,14 +13,14 @@ Create a custom agent for your project or user-level configuration.
 Enable the custom agents feature:
 
 ```bash
-export OAL_CUSTOM_AGENTS_ENABLED=1
+export OMG_CUSTOM_AGENTS_ENABLED=1
 ```
 
 Or add to your project's `settings.json`:
 
 ```json
 {
-  "_oal": {
+  "_omg": {
     "features": {
       "CUSTOM_AGENTS": true
     }
@@ -30,8 +30,8 @@ Or add to your project's `settings.json`:
 
 ## Agent Locations
 
-- **User-level**: `~/.oal/agents/<name>.md` — available in all projects
-- **Project-level**: `.oal/agents/<name>.md` — available in this project only
+- **User-level**: `~/.omg/agents/<name>.md` — available in all projects
+- **Project-level**: `.omg/agents/<name>.md` — available in this project only
 
 Project-level agents override user-level agents with the same name.
 
@@ -41,13 +41,13 @@ Project-level agents override user-level agents with the same name.
 
 ```bash
 # For project-level agents:
-mkdir -p .oal/agents
+mkdir -p .omg/agents
 
 # For user-level agents:
-mkdir -p ~/.oal/agents
+mkdir -p ~/.omg/agents
 ```
 
-2. Create your agent file (e.g., `.oal/agents/my-agent.md`):
+2. Create your agent file (e.g., `.omg/agents/my-agent.md`):
 
 ```markdown
 ---
@@ -117,7 +117,7 @@ Custom agents are validated on load. Invalid agents (missing required sections) 
 To verify your agent is valid:
 
 ```bash
-export OAL_CUSTOM_AGENTS_ENABLED=1
+export OMG_CUSTOM_AGENTS_ENABLED=1
 python3 -c "
 from runtime.custom_agent_loader import load_custom_agents
 agents = load_custom_agents('.')

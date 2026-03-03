@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Stop Hook: Quality Gate Runner
-Reads .oal/state/quality-gate.json and runs configured QA commands.
+Reads .omg/state/quality-gate.json and runs configured QA commands.
 Blocks completion via JSON decision if any command fails.
 Skips silently if config does not exist.
 
@@ -174,13 +174,13 @@ if __name__ == "__main__":
     project_dir = _resolve_project_dir()
 
     # Short-circuit: skip subprocess if context pressure is high
-    _pressure_path = os.path.join(project_dir, ".oal", "state", ".context-pressure.json")
+    _pressure_path = os.path.join(project_dir, ".omg", "state", ".context-pressure.json")
     try:
         if os.path.exists(_pressure_path):
             with open(_pressure_path, "r") as _f:
                 _pressure = json.load(_f)
             if _pressure.get("is_high", False):
-                print("[OAL quality-runner] Skipping subprocess checks: context pressure high", file=sys.stderr)
+                print("[OMG quality-runner] Skipping subprocess checks: context pressure high", file=sys.stderr)
                 sys.exit(0)
     except Exception:
         pass  # fail open — run checks if pressure file unreadable

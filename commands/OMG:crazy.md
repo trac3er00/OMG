@@ -4,12 +4,12 @@ allowed-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task
 argument-hint: "[task description]"
 ---
 
-# /OAL:crazy — All-Agent Maximum Orchestration
+# /OMG:crazy — All-Agent Maximum Orchestration
 
 ## Phase 1: Intent Classification (BEFORE acting)
 
 STOP. Before doing ANYTHING, say out loud:
-"I understand you want me to [INTENT]: [specific goal]."
+"I understand you want me to [INTENT]: [specific gomg]."
 
 | Signal | Intent | Action |
 |--------|--------|--------|
@@ -58,7 +58,7 @@ Then:
 **Codex=deep-code: backend logic, security, debugging, algorithms, performance, root cause analysis**
 Use for: complex multi-file changes, security audits, root cause analysis, backend architecture
 ```
-/OAL:escalate codex "
+/OMG:escalate codex "
 Task: [specific implementation task]
 Context: [file paths, patterns to follow]
 Verify: [how to confirm correctness]
@@ -69,14 +69,14 @@ Verify: [how to confirm correctness]
 After any planning step inside CRAZY mode, run a Codex validation pass before implementation:
 
 ```bash
-/OAL:escalate codex "Validate this plan for gaps, ordering risks, hidden edge cases, and missing verification. Return only actionable corrections."
+/OMG:escalate codex "Validate this plan for gaps, ordering risks, hidden edge cases, and missing verification. Return only actionable corrections."
 ```
 
 ### Gemini — UI/UX + Visual Design
 **Gemini=UI/UX: frontend, visual, accessibility, responsive design, CSS, component styling**
 Use for: frontend components, styling, visual review, accessibility, responsive layouts
 ```
-/OAL:escalate gemini "
+/OMG:escalate gemini "
 Task: [UI/design task]
 Context: [component paths, design system]
 "
@@ -96,7 +96,7 @@ After EVERY implementation step:
 IF same_error >= 3:
     STOP. Do not retry.
     OPTIONS:
-    1. /OAL:escalate codex "debug: [error] in [file]"
+    1. /OMG:escalate codex "debug: [error] in [file]"
     2. Completely different approach
     3. Ask user for guidance
     NEVER retry the same thing a 4th time.

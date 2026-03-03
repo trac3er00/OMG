@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""OAL Migration Script — Migrate OMC settings to OAL.
+"""OMG Migration Script — Migrate OMC settings to OMG.
 
 Handles:
   1. Back up current ~/.claude/settings.json
-  2. Deploy OAL hooks to ~/.claude/hooks/
+  2. Deploy OMG hooks to ~/.claude/hooks/
   3. Deduplicate hooks in settings.json (remove double-registered entries)
   4. Fix common format bugs (ConfigChange wrapper, etc.)
-  5. Switch statusLine from OMC HUD to OAL HUD
+  5. Switch statusLine from OMC HUD to OMG HUD
   6. Remove dead/erroring plugins
-  7. Deploy OAL HUD to ~/.claude/hud/
+  7. Deploy OMG HUD to ~/.claude/hud/
 
 Idempotent — safe to run multiple times. Always creates a backup first.
 
@@ -31,17 +31,17 @@ from pathlib import Path
 from typing import Any
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-OAL_ROOT = Path(__file__).resolve().parents[1]
+OMG_ROOT = Path(__file__).resolve().parents[1]
 HOME = Path.home()
 CLAUDE_DIR = HOME / ".claude"
 SETTINGS_PATH = CLAUDE_DIR / "settings.json"
 HOOKS_DIR = CLAUDE_DIR / "hooks"
 HUD_DIR = CLAUDE_DIR / "hud"
-BACKUP_DIR = CLAUDE_DIR / ".oal-backups"
+BACKUP_DIR = CLAUDE_DIR / ".omg-backups"
 
-OAL_HOOKS_DIR = OAL_ROOT / "hooks"
-OAL_HUD_SRC = OAL_ROOT / "hud" / "oal-hud.mjs"
-OAL_VERSION_TAG = "oal-v1"
+OMG_HOOKS_DIR = OMG_ROOT / "hooks"
+OMG_HUD_SRC = OMG_ROOT / "hud" / "omg-hud.mjs"
+OMG_VERSION_TAG = "omg-v1"
 
 # ── Hook canonical definitions ───────────────────────────────────────────────
 # Single source of truth for which hooks run on which events.
@@ -146,11 +146,11 @@ def save_settings(settings: dict[str, Any]) -> None:
 # ── Migration steps ──────────────────────────────────────────────────────────
 
 def step_deploy_hooks(dry_run: bool) -> list[str]:
-    """Copy OAL hook files to ~/.claude/hooks/."""
+    """Copy OMG hook files to ~/.claude/hooks/."""
     changes: list[str] = []
     HOOKS_DIR.mkdir(parents=True, exist_ok=True)
 
-    hook_files = [f for f in OAL_HOOKS_DIR.iterdir() if f.suffix == ".py" and not f.name.startswith("__")]
+    hook_files = [f for f in OMG_HOOKS_DIR.iterdir() if f.suffix == ".py" and not f.name.startswith("__")]
     for src in sorted(hook_files):
         dest = HOOKS_DIR / src.name
         # Check if update needed
@@ -165,14 +165,14 @@ def step_deploy_hooks(dry_run: bool) -> list[str]:
             dest.chmod(0o755)
 
     # Write version marker
-    version_file = HOOKS_DIR / ".oal-version"
-    tag = f"{OAL_VERSION_TAG}-{timestamp()[:8]}"
+    version_file = HOOKS_DIR / ".omg-version"
+    tag = f"{OMG_VERSION_TAG}-{timestamp()[:8]}"
     if not dry_run:
         version_file.write_text(tag + "\n", encoding="utf-8")
-    changes.append(f"  .oal-version = {tag}")
+    changes.append(f"  .omg-version = {tag}")
 
     # Write coexist marker
-    coexist_file = HOOKS_DIR / ".oal-coexist"
+    coexist_file = HOOKS_DIR / ".omg-coexist"
     if not dry_run:
         coexist_file.write_text("omc-coexist\n", encoding="utf-8")
 
@@ -200,29 +200,29 @@ def step_deduplicate_hooks(settings: dict[str, Any], dry_run: bool) -> list[str]
 
 
 def step_switch_hud(settings: dict[str, Any], dry_run: bool) -> list[str]:
-    """Switch statusLine to OAL HUD."""
+    """Switch statusLine to OMG HUD."""
     changes: list[str] = []
 
-    # Deploy OAL HUD file
+    # Deploy OMG HUD file
     HUD_DIR.mkdir(parents=True, exist_ok=True)
-    hud_dest = HUD_DIR / "oal-hud.mjs"
-    if OAL_HUD_SRC.exists():
+    hud_dest = HUD_DIR / "omg-hud.mjs"
+    if OMG_HUD_SRC.exists():
         if hud_dest.exists():
-            if OAL_HUD_SRC.read_bytes() != hud_dest.read_bytes():
-                changes.append(f"  hud/oal-hud.mjs updated")
+            if OMG_HUD_SRC.read_bytes() != hud_dest.read_bytes():
+                changes.append(f"  hud/omg-hud.mjs updated")
                 if not dry_run:
-                    shutil.copy2(OAL_HUD_SRC, hud_dest)
+                    shutil.copy2(OMG_HUD_SRC, hud_dest)
         else:
-            changes.append(f"  hud/oal-hud.mjs deployed")
+            changes.append(f"  hud/omg-hud.mjs deployed")
             if not dry_run:
-                shutil.copy2(OAL_HUD_SRC, hud_dest)
+                shutil.copy2(OMG_HUD_SRC, hud_dest)
 
     # Update statusLine in settings
     old_sl = settings.get("statusLine", {})
-    new_sl = {"type": "command", "command": "node ~/.claude/hud/oal-hud.mjs"}
+    new_sl = {"type": "command", "command": "node ~/.claude/hud/omg-hud.mjs"}
     if old_sl != new_sl:
         old_cmd = old_sl.get("command", "(none)")
-        changes.append(f"  statusLine: {old_cmd} -> node ~/.claude/hud/oal-hud.mjs")
+        changes.append(f"  statusLine: {old_cmd} -> node ~/.claude/hud/omg-hud.mjs")
         if not dry_run:
             settings["statusLine"] = new_sl
 
@@ -269,11 +269,11 @@ def step_fix_plugin_manifests(dry_run: bool) -> list[str]:
 
 
 def step_add_comment(settings: dict[str, Any], dry_run: bool) -> list[str]:
-    """Add OAL migration marker comment."""
+    """Add OMG migration marker comment."""
     changes: list[str] = []
-    marker = f"OAL v1 migrated {timestamp()[:8]}. Hooks canonical. HUD standalone."
+    marker = f"OMG v1 migrated {timestamp()[:8]}. Hooks canonical. HUD standalone."
     old_comment = settings.get("_comment", "")
-    if "OAL" not in old_comment:
+    if "OMG" not in old_comment:
         changes.append(f"  _comment updated")
         if not dry_run:
             settings["_comment"] = marker
@@ -283,9 +283,9 @@ def step_add_comment(settings: dict[str, Any], dry_run: bool) -> list[str]:
 # ── Remove hooks from project settings.json ──────────────────────────────────
 
 def step_clean_project_settings(dry_run: bool) -> list[str]:
-    """Remove hooks from OAL project settings.json to prevent double-execution."""
+    """Remove hooks from OMG project settings.json to prevent double-execution."""
     changes: list[str] = []
-    project_settings = OAL_ROOT / "settings.json"
+    project_settings = OMG_ROOT / "settings.json"
     if not project_settings.exists():
         return changes
 
@@ -328,8 +328,8 @@ def run_migration(
     hooks_only: bool = False,
     hud_only: bool = False,
 ) -> int:
-    print(f"{'[DRY RUN] ' if dry_run else ''}OAL Migration v1")
-    print(f"  OAL root:  {OAL_ROOT}")
+    print(f"{'[DRY RUN] ' if dry_run else ''}OMG Migration v1")
+    print(f"  OMG root:  {OMG_ROOT}")
     print(f"  Claude:    {CLAUDE_DIR}")
     print()
 
@@ -367,13 +367,13 @@ def run_migration(
 
     # Step 3: Switch HUD
     if not hooks_only:
-        print("Step 3: Switch to OAL HUD")
+        print("Step 3: Switch to OMG HUD")
         changes = step_switch_hud(settings, dry_run)
         all_changes.extend(changes)
         for c in changes:
             print(c)
         if not changes:
-            print("  (already using OAL HUD)")
+            print("  (already using OMG HUD)")
         print()
 
     # Step 4: Clean plugins
@@ -436,7 +436,7 @@ def run_migration(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="migrate-omc",
-        description="Migrate OMC settings to OAL. Idempotent — safe to run multiple times.",
+        description="Migrate OMC settings to OMG. Idempotent — safe to run multiple times.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Preview changes without applying")
     parser.add_argument("--hooks-only", action="store_true", help="Only deploy hooks")

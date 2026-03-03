@@ -8,11 +8,11 @@ from runtime.compat import CONTRACT_SNAPSHOT_VERSION, build_contract_snapshot_pa
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SNAPSHOT = ROOT / "runtime" / "oal_compat_contract_snapshot.json"
+SNAPSHOT = ROOT / "runtime" / "omg_compat_contract_snapshot.json"
 
 
 def test_compat_contract_snapshot_exists():
-    assert SNAPSHOT.exists(), "Missing runtime/oal_compat_contract_snapshot.json"
+    assert SNAPSHOT.exists(), "Missing runtime/omg_compat_contract_snapshot.json"
 
 
 def test_compat_contract_snapshot_matches_runtime_contracts():

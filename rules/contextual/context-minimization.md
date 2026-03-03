@@ -9,7 +9,7 @@ and Lulla et al. (2026) "On the Impact of AGENTS.md Files" (arXiv:2601.20404)
   information the agent cannot discover by reading project files
 - Always-on rules that don't vary by task type cause unnecessary work
 
-## OAL Policy: Non-Discoverable Only
+## OMG Policy: Non-Discoverable Only
 
 ### INJECT (agent can't discover this from code):
 - Project conventions (naming, commit style, PR process)

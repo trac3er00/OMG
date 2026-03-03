@@ -6,4 +6,4 @@ When in architect mode:
 - Produce: diagrams (text-based), decision records, trade-off analysis
 - Do NOT write implementation code — write specs and interfaces only
 - Every decision must have: rationale, alternatives considered, trade-offs
-- Use /OAL:deep-plan for complex multi-phase work
+- Use /OMG:deep-plan for complex multi-phase work

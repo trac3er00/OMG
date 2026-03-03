@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Browser Consent Manager for OAL
+Browser Consent Manager for OMG
 
 Manages explicit user consent for browser stealth mode. Provides a ToS warning
 display, consent recording with timestamps, and persistent consent state.
 
-Consent file: .oal/state/browser_consent.json
+Consent file: .omg/state/browser_consent.json
 Format: {"consented": true/false, "acknowledged_at": "ISO timestamp", "version": "1.0"}
 
 IMPORTANT:
@@ -25,7 +25,7 @@ from typing import Any, Dict, Optional
 CONSENT_VERSION = "1.0"
 
 # --- Consent file relative path ---
-CONSENT_REL_PATH = os.path.join(".oal", "state", "browser_consent.json")
+CONSENT_REL_PATH = os.path.join(".omg", "state", "browser_consent.json")
 
 # --- Warning text ---
 _WARNING_TEXT = """\
@@ -45,7 +45,7 @@ _WARNING_TEXT = """\
 ║    1. You understand the stealth plugins alter browser behavior   ║
 ║    2. You accept responsibility for compliance with applicable    ║
 ║       Terms of Service and laws                                   ║
-║    3. OAL provides these tools as-is, without warranty            ║
+║    3. OMG provides these tools as-is, without warranty            ║
 ║    4. You may revoke consent at any time                          ║
 ║                                                                  ║
 ║  Consent is required before any stealth plugin can be applied.    ║
@@ -119,11 +119,11 @@ def _read_consent_file(path: str) -> Optional[Dict[str, Any]]:
 class ConsentManager:
     """Manages user consent for browser stealth mode.
 
-    All consent state is persisted to .oal/state/browser_consent.json.
+    All consent state is persisted to .omg/state/browser_consent.json.
     No consent is recorded without explicit calls to record_consent().
 
     Attributes:
-        project_dir: Root directory containing the .oal/ state folder.
+        project_dir: Root directory containing the .omg/ state folder.
     """
 
     def __init__(self, project_dir: Optional[str] = None):
@@ -150,7 +150,7 @@ class ConsentManager:
     def record_consent(self, acknowledged: bool = True) -> bool:
         """Record the user's consent decision.
 
-        Saves consent state to .oal/state/browser_consent.json with
+        Saves consent state to .omg/state/browser_consent.json with
         a timestamp and version identifier.
 
         Args:
@@ -169,7 +169,7 @@ class ConsentManager:
     def is_consented(self) -> bool:
         """Check if user has given explicit consent for stealth plugins.
 
-        Reads .oal/state/browser_consent.json and checks for
+        Reads .omg/state/browser_consent.json and checks for
         ``{"consented": true}``.
 
         Returns:
@@ -236,7 +236,7 @@ def _cli_main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="OAL Browser Consent — manage consent for browser stealth mode",
+        description="OMG Browser Consent — manage consent for browser stealth mode",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

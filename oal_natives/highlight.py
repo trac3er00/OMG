@@ -1,14 +1,14 @@
-"""OAL Natives — highlight: basic syntax highlighting.
+"""OMG Natives — highlight: basic syntax highlighting.
 
 Pure-Python fallback that returns code unchanged (no Pygments dependency).
 Optionally wraps code with a language comment header.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 # Known language comment prefixes
 _COMMENT_STYLES = {
@@ -48,7 +48,7 @@ def highlight(code: str, language: str = "") -> str:
 # Self-register with the global binding registry
 bind_function(
     name="highlight",
-    rust_symbol="oal_natives::highlight::highlight",
+    rust_symbol="omg_natives::highlight::highlight",
     python_fallback=highlight,
     type_hints={"code": "str", "language": "str"},
 )

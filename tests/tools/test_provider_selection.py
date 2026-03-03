@@ -16,7 +16,7 @@ from unittest.mock import patch
 import pytest
 
 # Enable feature flag for tests
-os.environ["OAL_WEB_SEARCH_ENABLED"] = "true"
+os.environ["OMG_WEB_SEARCH_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")

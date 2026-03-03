@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def _run_dispatcher(tmp_path: Path, payload: dict[str, Any]) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    env["OAL_PLANNING_ENFORCEMENT_ENABLED"] = "1"
+    env["OMG_PLANNING_ENFORCEMENT_ENABLED"] = "1"
     return subprocess.run(
         [sys.executable, "hooks/stop_dispatcher.py"],
         input=json.dumps(payload),
@@ -25,7 +25,7 @@ def _run_dispatcher(tmp_path: Path, payload: dict[str, Any]) -> subprocess.Compl
 
 
 def _write_checklist(tmp_path: Path, content: str) -> Path:
-    path = tmp_path / ".oal" / "state" / "_checklist.md"
+    path = tmp_path / ".omg" / "state" / "_checklist.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     _ = path.write_text(content, encoding="utf-8")
     return path

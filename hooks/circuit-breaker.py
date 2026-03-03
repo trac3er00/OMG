@@ -182,8 +182,8 @@ if is_failure:
             f"{recent_errs}\n\n"
             f"Domain hint: {domain_hint or 'none'}\n"
             f"ESCALATE NOW — pick one:\n"
-            f"  /OAL:escalate codex \"Debug: {pattern_key} fails with {entry['errors'][-1][:80]}\"\n"
-            f"  /OAL:escalate gemini \"Review: approach for {pattern_key}\"\n"
+            f"  /OMG:escalate codex \"Debug: {pattern_key} fails with {entry['errors'][-1][:80]}\"\n"
+            f"  /OMG:escalate gemini \"Review: approach for {pattern_key}\"\n"
             f"  Ask the user for a completely different approach\n"
             f"  Skip this step: mark [!] in checklist and move on",
             file=sys.stderr
@@ -199,7 +199,7 @@ if is_failure:
             f"Domain hint: {domain_hint or 'none'}\n"
             f"STOP auto-retrying. Try:\n"
             f"  1. Fundamentally different approach\n"
-            f"  2. /OAL:escalate codex \"Why does {pattern_key} keep failing?\"\n"
+            f"  2. /OMG:escalate codex \"Why does {pattern_key} keep failing?\"\n"
             f"  3. Ask the user",
             file=sys.stderr
         )

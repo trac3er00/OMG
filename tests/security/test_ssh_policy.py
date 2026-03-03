@@ -30,7 +30,7 @@ from tools.ssh_manager import (
 @pytest.fixture(autouse=True)
 def enable_ssh(monkeypatch):
     """Enable SSH feature for all tests."""
-    monkeypatch.setenv("OAL_SSH_ENABLED", "true")
+    monkeypatch.setenv("OMG_SSH_ENABLED", "true")
 
 
 @pytest.fixture

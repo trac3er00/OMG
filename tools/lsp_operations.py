@@ -3,9 +3,9 @@
 Built on top of ``tools.lsp_client.LSPClient``.  Each function:
 - Returns a graceful default (empty list / None / False / dict) when disabled or on error.
 - Never raises exceptions to callers.
-- Checks the ``OAL_LSP_TOOLS_ENABLED`` feature flag via env var or settings.json.
+- Checks the ``OMG_LSP_TOOLS_ENABLED`` feature flag via env var or settings.json.
 
-Feature flag: ``OAL_LSP_TOOLS_ENABLED`` (default: False / opt-in only).
+Feature flag: ``OMG_LSP_TOOLS_ENABLED`` (default: False / opt-in only).
 """
 
 from __future__ import annotations
@@ -53,9 +53,9 @@ def _is_enabled() -> bool:
     """Check whether the LSP tools feature flag is on.
 
     Resolution order mirrors ``hooks/_common.get_feature_flag``:
-    env var ``OAL_LSP_TOOLS_ENABLED`` → ``settings.json`` → default (False).
+    env var ``OMG_LSP_TOOLS_ENABLED`` → ``settings.json`` → default (False).
     """
-    env_val = os.environ.get("OAL_LSP_TOOLS_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_LSP_TOOLS_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -115,12 +115,12 @@ def _normalize_locations(result: Any) -> list[dict]:
 def get_client() -> LSPClient:
     """Return the module-level LSP client singleton (lazy-init).
 
-    Raises ``RuntimeError`` when ``OAL_LSP_TOOLS_ENABLED`` is False.
+    Raises ``RuntimeError`` when ``OMG_LSP_TOOLS_ENABLED`` is False.
     """
     global _client
     if not _is_enabled():
         raise RuntimeError(
-            "LSP tools are disabled — set OAL_LSP_TOOLS_ENABLED=1 to enable"
+            "LSP tools are disabled — set OMG_LSP_TOOLS_ENABLED=1 to enable"
         )
     if _client is None:
         _client = LSPClient()

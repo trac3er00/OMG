@@ -29,7 +29,7 @@ Frontend design specialist. Handles all UI/UX tasks: component design, responsiv
 - MUST NOT change server-side configuration or environment variables
 - MUST NOT install backend dependencies
 - MUST NOT modify database schemas or migrations
-- Defer backend concerns to `oal-backend-engineer`
+- Defer backend concerns to `omg-backend-engineer`
 
 ## Guardrails
 

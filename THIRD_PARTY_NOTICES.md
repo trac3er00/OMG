@@ -4,14 +4,14 @@
 
 No third-party source trees are vendored in this repository.
 
-OAL design and workflow ideas were informed by public projects, including:
+OMG design and workflow ideas were informed by public projects, including:
 
 - `oh-my-claudecode` — `https://github.com/Yeachan-Heo/oh-my-claudecode`
 
 ## Optional Ecosystem Sources
 
 These repositories are optional references that may be cloned with
-`oal ecosystem sync` into project-local OAL state:
+`omg ecosystem sync` into project-local OMG state:
 
 - `https://github.com/obra/superpowers`
 - `https://github.com/anthropics/claude-code` (sparse path: `plugins/ralph-wiggum`)

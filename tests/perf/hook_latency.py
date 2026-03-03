@@ -9,7 +9,7 @@ Usage:
     python3 tests/perf/hook_latency.py
 
 Output:
-    .oal/baselines/hook_performance.json
+    .omg/baselines/hook_performance.json
 """
 
 import json
@@ -162,8 +162,8 @@ def main():
         "hooks": results
     }
     
-    # Save to .oal/baselines/hook_performance.json
-    baseline_dir = os.path.join(project_dir, ".oal", "baselines")
+    # Save to .omg/baselines/hook_performance.json
+    baseline_dir = os.path.join(project_dir, ".omg", "baselines")
     os.makedirs(baseline_dir, exist_ok=True)
     
     baseline_path = os.path.join(baseline_dir, "hook_performance.json")

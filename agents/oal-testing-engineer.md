@@ -29,7 +29,7 @@ Testing engineering specialist. Designs test strategies, writes comprehensive te
 - MUST NOT skip or disable failing tests without documented justification
 - MUST NOT write tests that depend on execution order or global state
 - MUST NOT mock everything — integration points need real integration tests
-- Defer source code fixes to `oal-executor` or `oal-backend-engineer`
+- Defer source code fixes to `omg-executor` or `omg-backend-engineer`
 
 ## Guardrails
 

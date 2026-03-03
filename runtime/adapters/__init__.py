@@ -1,4 +1,4 @@
-"""Runtime adapters for OAL v1."""
+"""Runtime adapters for OMG v1."""
 
 from .claude import ClaudeAdapter
 from .gpt import GPTAdapter

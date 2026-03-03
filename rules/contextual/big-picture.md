@@ -3,7 +3,7 @@
 **When:** Task touches 2+ subsystems, you're unfamiliar with the area, or change could cascade.
 
 **Steps:**
-1. Write .oal/state/_context.md with:
+1. Write .omg/state/_context.md with:
    - Subsystems involved (names + responsibilities)
    - Data flow between them
    - Public interfaces affected

@@ -8,7 +8,7 @@ def run_quality_runner(quality_gate_config, use_legacy_omc=False):
             cfg_dir = os.path.join(tmpdir, ".omc")
             cfg_path = os.path.join(cfg_dir, "quality-gate.json")
         else:
-            cfg_dir = os.path.join(tmpdir, ".oal", "state")
+            cfg_dir = os.path.join(tmpdir, ".omg", "state")
             cfg_path = os.path.join(cfg_dir, "quality-gate.json")
 
         os.makedirs(cfg_dir, exist_ok=True)

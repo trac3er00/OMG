@@ -1,4 +1,4 @@
-"""Tests for OAL hardening: Phases 1-4 security and performance fixes."""
+"""Tests for OMG hardening: Phases 1-4 security and performance fixes."""
 import json
 import os
 from pathlib import Path
@@ -110,7 +110,7 @@ def test_policy_engine_allows_normal_symlink():
 def test_stop_gate_no_crash_without_git():
     """stop-gate.py must not crash with NameError if git diff fails."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        ledger_dir = os.path.join(tmpdir, ".oal", "state", "ledger")
+        ledger_dir = os.path.join(tmpdir, ".omg", "state", "ledger")
         os.makedirs(ledger_dir)
         entry = {
             "ts": "2099-01-01T00:00:00+00:00",

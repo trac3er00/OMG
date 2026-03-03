@@ -271,20 +271,20 @@ class TestFeatureFlag:
         with patch.dict(os.environ, {}, clear=False):
             # Remove the env var if set
             env = dict(os.environ)
-            env.pop("OAL_REPL_SANDBOX_ENABLED", None)
+            env.pop("OMG_REPL_SANDBOX_ENABLED", None)
             with patch.dict(os.environ, env, clear=True):
                 assert _is_sandbox_enabled() is False
 
     def test_flag_enabled_via_env(self):
         """Sandbox can be enabled via environment variable."""
         from tools.python_sandbox import _is_sandbox_enabled
-        with patch.dict(os.environ, {"OAL_REPL_SANDBOX_ENABLED": "true"}):
+        with patch.dict(os.environ, {"OMG_REPL_SANDBOX_ENABLED": "true"}):
             assert _is_sandbox_enabled() is True
 
     def test_flag_disabled_via_env(self):
         """Sandbox can be explicitly disabled via environment variable."""
         from tools.python_sandbox import _is_sandbox_enabled
-        with patch.dict(os.environ, {"OAL_REPL_SANDBOX_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_REPL_SANDBOX_ENABLED": "false"}):
             assert _is_sandbox_enabled() is False
 
 
@@ -315,8 +315,8 @@ class TestReplIntegration:
     def test_sandbox_routes_through_sandbox(self):
         """When sandbox enabled, execute_code uses sandboxed executor."""
         with patch.dict(os.environ, {
-            "OAL_PYTHON_REPL_ENABLED": "true",
-            "OAL_REPL_SANDBOX_ENABLED": "true",
+            "OMG_PYTHON_REPL_ENABLED": "true",
+            "OMG_REPL_SANDBOX_ENABLED": "true",
         }):
             session = self.python_repl.start_repl_session(session_id="sandbox-test")
             result = self.python_repl.execute_code("sandbox-test", "print('sandboxed')")
@@ -326,8 +326,8 @@ class TestReplIntegration:
     def test_sandbox_blocks_in_repl(self):
         """Sandbox blocks dangerous code when routed through REPL."""
         with patch.dict(os.environ, {
-            "OAL_PYTHON_REPL_ENABLED": "true",
-            "OAL_REPL_SANDBOX_ENABLED": "true",
+            "OMG_PYTHON_REPL_ENABLED": "true",
+            "OMG_REPL_SANDBOX_ENABLED": "true",
         }):
             session = self.python_repl.start_repl_session(session_id="sandbox-block")
             result = self.python_repl.execute_code("sandbox-block", "import subprocess")
@@ -336,8 +336,8 @@ class TestReplIntegration:
     def test_no_sandbox_without_flag(self):
         """Without sandbox flag, execute_code works normally (no 'blocked' key)."""
         with patch.dict(os.environ, {
-            "OAL_PYTHON_REPL_ENABLED": "true",
-            "OAL_REPL_SANDBOX_ENABLED": "false",
+            "OMG_PYTHON_REPL_ENABLED": "true",
+            "OMG_REPL_SANDBOX_ENABLED": "false",
         }):
             session = self.python_repl.start_repl_session(session_id="no-sandbox")
             result = self.python_repl.execute_code("no-sandbox", "x = 1 + 1")

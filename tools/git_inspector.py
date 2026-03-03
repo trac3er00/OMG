@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Git Inspection Tools for OAL
+Git Inspection Tools for OMG
 
 Read-only git inspection: status, log, and hunk-level diffs.
-Feature flag: OAL_GIT_TOOLS_ENABLED (default: False)
+Feature flag: OMG_GIT_TOOLS_ENABLED (default: False)
 """
 
 import json

@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'hooks'))
 
 @pytest.fixture
 def tmp_project(tmp_path):
-    """Creates a temp project dir with .oal/state/ledger/ structure."""
-    (tmp_path / '.oal' / 'state' / 'ledger').mkdir(parents=True)
-    (tmp_path / '.oal' / 'knowledge').mkdir(parents=True)
+    """Creates a temp project dir with .omg/state/ledger/ structure."""
+    (tmp_path / '.omg' / 'state' / 'ledger').mkdir(parents=True)
+    (tmp_path / '.omg' / 'knowledge').mkdir(parents=True)
     os.environ['CLAUDE_PROJECT_DIR'] = str(tmp_path)
     yield tmp_path
     os.environ.pop('CLAUDE_PROJECT_DIR', None)
@@ -30,7 +30,7 @@ def mock_stdin(monkeypatch):
 
 @pytest.fixture
 def clean_env(monkeypatch):
-    """Clears all OAL_ env vars."""
+    """Clears all OMG_ env vars."""
     for key in list(os.environ.keys()):
-        if key.startswith('OAL_'):
+        if key.startswith('OMG_'):
             monkeypatch.delenv(key, raising=False)

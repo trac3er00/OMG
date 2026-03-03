@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-SSH Connection Manager for OAL
+SSH Connection Manager for OMG
 
 Manages SSH connection specs without requiring actual SSH libraries.
 Functions are SPEC GENERATORS — they don't make real SSH connections.
 Connection pool tracks connection metadata for orchestration use.
 
-Feature flag: OAL_SSH_ENABLED (default: False)
+Feature flag: OMG_SSH_ENABLED (default: False)
 """
 
 import hashlib
@@ -47,7 +47,7 @@ def _ensure_imports():
 def _is_enabled() -> bool:
     """Check if SSH feature is enabled."""
     # Fast path: check env var directly
-    env_val = os.environ.get("OAL_SSH_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_SSH_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -73,7 +73,7 @@ def _error_response(error: str) -> Dict[str, Any]:
 
 def _disabled_response() -> Dict[str, Any]:
     """Create a response for when the feature flag is disabled."""
-    return _error_response("SSH feature is disabled (OAL_SSH_ENABLED=false)")
+    return _error_response("SSH feature is disabled (OMG_SSH_ENABLED=false)")
 
 
 # =============================================================================
@@ -578,13 +578,13 @@ def auto_mount_from_config(project_dir: str = ".") -> List[Dict[str, Any]]:
 
 
 # Default path for approved hosts state file
-_SSH_APPROVED_HOSTS_PATH = os.path.join(".oal", "state", "ssh_approved_hosts.json")
+_SSH_APPROVED_HOSTS_PATH = os.path.join(".omg", "state", "ssh_approved_hosts.json")
 
 
 class SSHPolicyManager:
     """Manages SSH host approval policy and fingerprint verification.
 
-    Reads/writes approved hosts from `.oal/state/ssh_approved_hosts.json`.
+    Reads/writes approved hosts from `.omg/state/ssh_approved_hosts.json`.
     Integrates with the policy_engine pattern for SSH-specific checks.
     """
 
@@ -784,7 +784,7 @@ def _cli_main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="OAL SSH Connection Manager — SSH connection spec management",
+        description="OMG SSH Connection Manager — SSH connection spec management",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -840,7 +840,7 @@ def _cli_main():
 
         if not enabled:
             print(json.dumps({
-                "error": "SSH feature is disabled (OAL_SSH_ENABLED=false)",
+                "error": "SSH feature is disabled (OMG_SSH_ENABLED=false)",
             }))
             sys.exit(1)
 
@@ -857,7 +857,7 @@ def _cli_main():
     if args.connect_host:
         if not enabled:
             print(json.dumps({
-                "error": "SSH feature is disabled (OAL_SSH_ENABLED=false)",
+                "error": "SSH feature is disabled (OMG_SSH_ENABLED=false)",
             }))
             sys.exit(1)
 
@@ -893,7 +893,7 @@ def _cli_main():
     if args.disconnect_host:
         if not enabled:
             print(json.dumps({
-                "error": "SSH feature is disabled (OAL_SSH_ENABLED=false)",
+                "error": "SSH feature is disabled (OMG_SSH_ENABLED=false)",
             }))
             sys.exit(1)
 

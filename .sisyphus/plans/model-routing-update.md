@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-> **Quick Summary**: Update OAL's 14-agent model routing to document and configure the correct latest model versions: GPT 5.3/5.2 for Codex agents, Gemini 3.1 Pro Preview for frontend, Claude Sonnet 4/Haiku 3.5 for native agents.
+> **Quick Summary**: Update OMG's 14-agent model routing to document and configure the correct latest model versions: GPT 5.3/5.2 for Codex agents, Gemini 3.1 Pro Preview for frontend, Claude Sonnet 4/Haiku 3.5 for native agents.
 > 
 > **Deliverables**:
 > - `_agent_registry.py` with `model_version` field on all 9 domain agents + new `CORE_AGENT_MODELS` dict for 5 core agents
@@ -20,7 +20,7 @@
 ## Context
 
 ### Original Request
-Update OAL agent-model routing to use the correct latest model versions for each agent, ensuring Claude Sonnet/Haiku, GPT 5.3/5.2, and Gemini 3.1 Pro Preview are properly mapped.
+Update OMG agent-model routing to use the correct latest model versions for each agent, ensuring Claude Sonnet/Haiku, GPT 5.3/5.2, and Gemini 3.1 Pro Preview are properly mapped.
 
 ### Interview Summary
 **Key Discussions**:
@@ -49,7 +49,7 @@ Update OAL agent-model routing to use the correct latest model versions for each
 ## Work Objectives
 
 ### Core Objective
-Accurately document and configure the latest model version for every OAL agent, ensuring the registry, agent definitions, documentation, and tests are consistent and correct.
+Accurately document and configure the latest model version for every OMG agent, ensuring the registry, agent definitions, documentation, and tests are consistent and correct.
 
 ### Concrete Deliverables
 - `hooks/_agent_registry.py` — `model_version` on 9 entries + `CORE_AGENT_MODELS` dict with 5 entries
@@ -145,20 +145,20 @@ Wave FINAL (After ALL tasks — independent review):
 
 | Agent | Provider | Model Version | Role |
 |-------|----------|--------------|------|
-| oal-frontend-designer | gemini-cli | `gemini-3.1-pro-preview` | Visual/UI |
-| oal-backend-engineer | codex-cli | `gpt-5.3` | Code: API/logic |
-| oal-security-auditor | codex-cli | `gpt-5.3` | Code: security |
-| oal-database-engineer | codex-cli | `gpt-5.3` | Code: SQL/schema |
-| oal-infra-engineer | codex-cli | `gpt-5.3` | Code: Docker/CI |
-| oal-testing-engineer | claude | `claude-sonnet-4` | Test design |
-| oal-research-mode | claude | `claude-haiku-3.5` | Info retrieval |
-| oal-architect-mode | claude | `claude-sonnet-4` | System design |
-| oal-implement-mode | claude | `claude-sonnet-4` | Code fallback |
-| oal-architect | codex-cli | `gpt-5.2` | Plan review |
-| oal-critic | codex-cli | `gpt-5.3` | Code review |
-| oal-executor | claude | `claude-sonnet-4` | Implementation |
-| oal-qa-tester | claude | `claude-sonnet-4` | QA test writing |
-| oal-escalation-router | claude | `claude-haiku-3.5` | Routing |
+| omg-frontend-designer | gemini-cli | `gemini-3.1-pro-preview` | Visual/UI |
+| omg-backend-engineer | codex-cli | `gpt-5.3` | Code: API/logic |
+| omg-security-auditor | codex-cli | `gpt-5.3` | Code: security |
+| omg-database-engineer | codex-cli | `gpt-5.3` | Code: SQL/schema |
+| omg-infra-engineer | codex-cli | `gpt-5.3` | Code: Docker/CI |
+| omg-testing-engineer | claude | `claude-sonnet-4` | Test design |
+| omg-research-mode | claude | `claude-haiku-3.5` | Info retrieval |
+| omg-architect-mode | claude | `claude-sonnet-4` | System design |
+| omg-implement-mode | claude | `claude-sonnet-4` | Code fallback |
+| omg-architect | codex-cli | `gpt-5.2` | Plan review |
+| omg-critic | codex-cli | `gpt-5.3` | Code review |
+| omg-executor | claude | `claude-sonnet-4` | Implementation |
+| omg-qa-tester | claude | `claude-sonnet-4` | QA test writing |
+| omg-escalation-router | claude | `claude-haiku-3.5` | Routing |
 
 ---
 
@@ -187,35 +187,35 @@ Wave FINAL (After ALL tasks — independent review):
             'model_version': 'gpt-5.2',
             'task_category': None,
             'description': 'System design + planning + delegation routing.',
-            'agent_file': 'agents/oal-architect.md',
+            'agent_file': 'agents/omg-architect.md',
         },
         'critic': {
             'preferred_model': 'codex-cli',
             'model_version': 'gpt-5.3',
             'task_category': None,
             'description': 'Code review — 3 perspectives, no LGTM allowed.',
-            'agent_file': 'agents/oal-critic.md',
+            'agent_file': 'agents/omg-critic.md',
         },
         'executor': {
             'preferred_model': 'claude',
             'model_version': 'claude-sonnet-4',
             'task_category': 'deep',
             'description': 'Implements code with evidence, auto-escalates when stuck.',
-            'agent_file': 'agents/oal-executor.md',
+            'agent_file': 'agents/omg-executor.md',
         },
         'qa-tester': {
             'preferred_model': 'claude',
             'model_version': 'claude-sonnet-4',
             'task_category': 'unspecified-high',
             'description': 'User-journey test writer — no boilerplate.',
-            'agent_file': 'agents/oal-qa-tester.md',
+            'agent_file': 'agents/omg-qa-tester.md',
         },
         'escalation-router': {
             'preferred_model': 'claude',
             'model_version': 'claude-haiku-3.5',
             'task_category': None,
             'description': 'Routes problems to Codex/Gemini/CCG based on domain.',
-            'agent_file': 'agents/oal-escalation-router.md',
+            'agent_file': 'agents/omg-escalation-router.md',
         },
     }
     ```
@@ -303,21 +303,21 @@ Wave FINAL (After ALL tasks — independent review):
     - `model:` field — the provider string (`codex-cli`, `gemini-cli`, `claude`)
     - `model_version:` field — the specific version string from the canonical mapping table
   - **5 core agents** (currently use `model: opus` or `model: sonnet`):
-    - `oal-architect.md`: `model: codex-cli` / `model_version: gpt-5.2`
-    - `oal-critic.md`: `model: codex-cli` / `model_version: gpt-5.3`
-    - `oal-executor.md`: `model: claude` / `model_version: claude-sonnet-4`
-    - `oal-qa-tester.md`: `model: claude` / `model_version: claude-sonnet-4`
-    - `oal-escalation-router.md`: `model: claude` / `model_version: claude-haiku-3.5`
+    - `omg-architect.md`: `model: codex-cli` / `model_version: gpt-5.2`
+    - `omg-critic.md`: `model: codex-cli` / `model_version: gpt-5.3`
+    - `omg-executor.md`: `model: claude` / `model_version: claude-sonnet-4`
+    - `omg-qa-tester.md`: `model: claude` / `model_version: claude-sonnet-4`
+    - `omg-escalation-router.md`: `model: claude` / `model_version: claude-haiku-3.5`
   - **9 domain agents** (currently use `preferred_model:` — keep that field name for backward compat, ADD `model_version:`):
-    - `oal-frontend-designer.md`: keep `preferred_model: gemini-cli`, add `model_version: gemini-3.1-pro-preview`
-    - `oal-backend-engineer.md`: keep `preferred_model: codex-cli`, add `model_version: gpt-5.3`
-    - `oal-security-auditor.md`: keep `preferred_model: codex-cli`, add `model_version: gpt-5.3`
-    - `oal-database-engineer.md`: keep `preferred_model: codex-cli`, add `model_version: gpt-5.3`
-    - `oal-testing-engineer.md`: keep `preferred_model: claude`, add `model_version: claude-sonnet-4`
-    - `oal-infra-engineer.md`: keep `preferred_model: codex-cli`, add `model_version: gpt-5.3`
-    - `oal-research-mode.md`: keep `preferred_model: claude`, add `model_version: claude-haiku-3.5`
-    - `oal-architect-mode.md`: keep `preferred_model: claude`, add `model_version: claude-sonnet-4`
-    - `oal-implement-mode.md`: keep `preferred_model: domain-dependent`, add `model_version: claude-sonnet-4` (Claude fallback)
+    - `omg-frontend-designer.md`: keep `preferred_model: gemini-cli`, add `model_version: gemini-3.1-pro-preview`
+    - `omg-backend-engineer.md`: keep `preferred_model: codex-cli`, add `model_version: gpt-5.3`
+    - `omg-security-auditor.md`: keep `preferred_model: codex-cli`, add `model_version: gpt-5.3`
+    - `omg-database-engineer.md`: keep `preferred_model: codex-cli`, add `model_version: gpt-5.3`
+    - `omg-testing-engineer.md`: keep `preferred_model: claude`, add `model_version: claude-sonnet-4`
+    - `omg-infra-engineer.md`: keep `preferred_model: codex-cli`, add `model_version: gpt-5.3`
+    - `omg-research-mode.md`: keep `preferred_model: claude`, add `model_version: claude-haiku-3.5`
+    - `omg-architect-mode.md`: keep `preferred_model: claude`, add `model_version: claude-sonnet-4`
+    - `omg-implement-mode.md`: keep `preferred_model: domain-dependent`, add `model_version: claude-sonnet-4` (Claude fallback)
   - In each file, also update the "Preferred Tools" section first bullet to reference the actual model version:
     - E.g., `**Codex CLI (GPT 5.3)**: Complex algorithmic reasoning...`
     - E.g., `**Gemini CLI (Gemini 3.1 Pro Preview)**: Complex visual reasoning...`
@@ -342,9 +342,9 @@ Wave FINAL (After ALL tasks — independent review):
   **References** (CRITICAL):
 
   **Pattern References**:
-  - `agents/oal-frontend-designer.md:1-6` — Domain agent frontmatter format: `name`, `description`, `preferred_model`, `tools` between `---` markers. Add `model_version:` after `preferred_model:`
-  - `agents/oal-architect.md:1-6` — Core agent frontmatter format: `name`, `description`, `tools`, `model` between `---` markers. Change `model: opus` to `model: codex-cli`, add `model_version: gpt-5.2`
-  - `agents/oal-qa-tester.md:1-6` — Already uses `model: sonnet`. Change to `model: claude`, add `model_version: claude-sonnet-4`
+  - `agents/omg-frontend-designer.md:1-6` — Domain agent frontmatter format: `name`, `description`, `preferred_model`, `tools` between `---` markers. Add `model_version:` after `preferred_model:`
+  - `agents/omg-architect.md:1-6` — Core agent frontmatter format: `name`, `description`, `tools`, `model` between `---` markers. Change `model: opus` to `model: codex-cli`, add `model_version: gpt-5.2`
+  - `agents/omg-qa-tester.md:1-6` — Already uses `model: sonnet`. Change to `model: claude`, add `model_version: claude-sonnet-4`
 
   **WHY Each Reference Matters**:
   - Frontmatter format varies between core and domain agents — must handle both patterns
@@ -376,15 +376,15 @@ Wave FINAL (After ALL tasks — independent review):
     Tool: Bash (grep)
     Preconditions: All files updated
     Steps:
-      1. Run: grep 'model_version:' agents/oal-frontend-designer.md
+      1. Run: grep 'model_version:' agents/omg-frontend-designer.md
       2. Assert contains `gemini-3.1-pro-preview`
-      3. Run: grep 'model_version:' agents/oal-backend-engineer.md
+      3. Run: grep 'model_version:' agents/omg-backend-engineer.md
       4. Assert contains `gpt-5.3`
-      5. Run: grep 'model_version:' agents/oal-architect.md
+      5. Run: grep 'model_version:' agents/omg-architect.md
       6. Assert contains `gpt-5.2`
-      7. Run: grep 'model_version:' agents/oal-executor.md
+      7. Run: grep 'model_version:' agents/omg-executor.md
       8. Assert contains `claude-sonnet-4`
-      9. Run: grep 'model_version:' agents/oal-research-mode.md
+      9. Run: grep 'model_version:' agents/omg-research-mode.md
       10. Assert contains `claude-haiku-3.5`
     Expected Result: Each agent has the correct specific model version
     Failure Indicators: Wrong version string in any agent file
@@ -488,30 +488,30 @@ Wave FINAL (After ALL tasks — independent review):
     ```markdown
     ## Agent-Model Routing
 
-    OAL assigns specific models to domain agents for optimal results:
+    OMG assigns specific models to domain agents for optimal results:
 
     | Agent | Provider | Model Version | Domain |
     |-------|----------|--------------|--------|
-    | oal-frontend-designer | gemini-cli | Gemini 3.1 Pro Preview | UI/UX, CSS, responsive design |
-    | oal-backend-engineer | codex-cli | GPT 5.3 | APIs, logic, algorithms |
-    | oal-security-auditor | codex-cli | GPT 5.3 | Auth, encryption, vulnerabilities |
-    | oal-database-engineer | codex-cli | GPT 5.3 | SQL, migrations, schema |
-    | oal-testing-engineer | claude | Claude Sonnet 4 | Unit, integration, E2E tests |
-    | oal-infra-engineer | codex-cli | GPT 5.3 | Docker, CI/CD, deployment |
-    | oal-research-mode | claude | Claude Haiku 3.5 | Web search, docs lookup |
-    | oal-architect-mode | claude | Claude Sonnet 4 | System design, trade-offs |
-    | oal-implement-mode | domain-dependent | Claude Sonnet 4 (fallback) | Coding with TDD |
-    | oal-architect | codex-cli | GPT 5.2 | Planning, delegation |
-    | oal-critic | codex-cli | GPT 5.3 | Code review (3 perspectives) |
-    | oal-executor | claude | Claude Sonnet 4 | Implementation with evidence |
-    | oal-qa-tester | claude | Claude Sonnet 4 | User-journey test writing |
-    | oal-escalation-router | claude | Claude Haiku 3.5 | Cross-model coordination |
+    | omg-frontend-designer | gemini-cli | Gemini 3.1 Pro Preview | UI/UX, CSS, responsive design |
+    | omg-backend-engineer | codex-cli | GPT 5.3 | APIs, logic, algorithms |
+    | omg-security-auditor | codex-cli | GPT 5.3 | Auth, encryption, vulnerabilities |
+    | omg-database-engineer | codex-cli | GPT 5.3 | SQL, migrations, schema |
+    | omg-testing-engineer | claude | Claude Sonnet 4 | Unit, integration, E2E tests |
+    | omg-infra-engineer | codex-cli | GPT 5.3 | Docker, CI/CD, deployment |
+    | omg-research-mode | claude | Claude Haiku 3.5 | Web search, docs lookup |
+    | omg-architect-mode | claude | Claude Sonnet 4 | System design, trade-offs |
+    | omg-implement-mode | domain-dependent | Claude Sonnet 4 (fallback) | Coding with TDD |
+    | omg-architect | codex-cli | GPT 5.2 | Planning, delegation |
+    | omg-critic | codex-cli | GPT 5.3 | Code review (3 perspectives) |
+    | omg-executor | claude | Claude Sonnet 4 | Implementation with evidence |
+    | omg-qa-tester | claude | Claude Sonnet 4 | User-journey test writing |
+    | omg-escalation-router | claude | Claude Haiku 3.5 | Cross-model coordination |
     ```
   - Update the "How it works" section below the table to mention model versions:
     - Codex agents use GPT 5.3 (code) or GPT 5.2 (planning)
     - Gemini agents use Gemini 3.1 Pro Preview
     - Claude agents use Sonnet 4 (deep) or Haiku 3.5 (fast)
-  - Update the introductory sentence: "OAL assigns specific models to **all 14** agents for optimal results:"
+  - Update the introductory sentence: "OMG assigns specific models to **all 14** agents for optimal results:"
 
   **Must NOT do**:
   - Do NOT change any other README sections (installation, commands, file structure, etc.)
@@ -538,7 +538,7 @@ Wave FINAL (After ALL tasks — independent review):
 
   **Acceptance Criteria**:
 
-  - [x] `grep -c '^| oal-' README.md` → output is `14`
+  - [x] `grep -c '^| omg-' README.md` → output is `14`
   - [x] `grep 'GPT 5.3' README.md | wc -l` → at least 5 (5 agents + explanatory text)
   - [x] `grep 'GPT 5.2' README.md | wc -l` → at least 1 (architect)
   - [x] `grep 'Gemini 3.1 Pro Preview' README.md | wc -l` → at least 1
@@ -550,7 +550,7 @@ Wave FINAL (After ALL tasks — independent review):
     Tool: Bash (grep)
     Preconditions: README.md updated
     Steps:
-      1. Run: grep -c '^| oal-' README.md
+      1. Run: grep -c '^| omg-' README.md
       2. Assert output is `14`
       3. Run: grep 'Model Version' README.md
       4. Assert output contains `Model Version` (column header exists)
@@ -696,7 +696,7 @@ Wave FINAL (After ALL tasks — independent review):
     - AC3: `python3 -c "import sys; sys.path.insert(0,'hooks'); from _agent_registry import AGENT_REGISTRY, CORE_AGENT_MODELS; GENERIC={'opus','sonnet','haiku','claude','codex','gemini','codex-cli','gemini-cli'}; all_a={**AGENT_REGISTRY,**CORE_AGENT_MODELS}; versions=[v.get('model_version','') for v in all_a.values()]; bad=[x for x in versions if x in GENERIC or not x]; assert not bad, f'Generic: {bad}'; print('AC3 PASS: all specific')"` 
     - AC4: `python3 -m pytest tests/test_agent_registry.py tests/test_team_router.py -v`
     - AC5: `python3 -c "import sys,re; sys.path.insert(0,'hooks'); from _agent_registry import AGENT_REGISTRY; [open(v['agent_file']).read() for v in AGENT_REGISTRY.values()]; print('AC5 PASS: all agent files exist and readable')"` 
-    - AC6: `grep -c '^| oal-' README.md` (expect 14)
+    - AC6: `grep -c '^| omg-' README.md` (expect 14)
   - If ANY check fails, report the failure with exact error — do NOT mark task complete
   - Save all outputs to evidence files
 
@@ -780,7 +780,7 @@ Wave FINAL (After ALL tasks — independent review):
 ```bash
 python3 -m pytest tests/test_agent_registry.py tests/test_team_router.py -v  # Expected: ALL PASS
 python3 -c "import sys; sys.path.insert(0,'hooks'); from _agent_registry import AGENT_REGISTRY, CORE_AGENT_MODELS; assert len(AGENT_REGISTRY)==9; assert len(CORE_AGENT_MODELS)==5; print('PASS')"
-grep -c "^| oal-" README.md  # Expected: 14
+grep -c "^| omg-" README.md  # Expected: 14
 ```
 
 ### Final Checklist

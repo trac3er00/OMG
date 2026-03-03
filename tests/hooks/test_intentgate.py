@@ -18,7 +18,7 @@ def run_intentgate(message, enabled=True):
     payload = json.dumps({"user_message": message})
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = ROOT
-    env["OAL_INTENTGATE_ENABLED"] = "1" if enabled else "0"
+    env["OMG_INTENTGATE_ENABLED"] = "1" if enabled else "0"
 
     proc = subprocess.run(
         ["python3", HOOK],
@@ -196,7 +196,7 @@ class TestWordBoundary:
 
 class TestFeatureFlag:
     def test_disabled_returns_empty(self):
-        """When OAL_INTENTGATE_ENABLED=0, returns {}."""
+        """When OMG_INTENTGATE_ENABLED=0, returns {}."""
         result = run_intentgate("ultrawork fix bugs", enabled=False)
         assert result == {}
 
@@ -298,7 +298,7 @@ class TestOutputFormat:
         """Invalid JSON stdin → exit 0, no crash."""
         env = os.environ.copy()
         env["CLAUDE_PROJECT_DIR"] = ROOT
-        env["OAL_INTENTGATE_ENABLED"] = "1"
+        env["OMG_INTENTGATE_ENABLED"] = "1"
         proc = subprocess.run(
             ["python3", HOOK],
             input="not json",

@@ -3,7 +3,7 @@
 Manages concurrent subagent jobs with isolation, artifact streaming,
 and a 100-job limit using stdlib ThreadPoolExecutor.
 
-Feature flag: OAL_PARALLEL_SUBAGENTS_ENABLED (default: False)
+Feature flag: OMG_PARALLEL_SUBAGENTS_ENABLED (default: False)
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from typing import Any
 
 # --- Path resolution (never relies on CWD) ---
 _DISPATCHER_DIR = os.path.dirname(os.path.abspath(__file__))
-_OAL_ROOT = os.path.dirname(_DISPATCHER_DIR)
+_OMG_ROOT = os.path.dirname(_DISPATCHER_DIR)
 
 # --- Constants ---
 MAX_JOBS = 100
@@ -31,7 +31,7 @@ _lock = threading.Lock()
 
 def _get_feature_flag() -> Any:
     """Lazy-import get_feature_flag from hooks/_common.py."""
-    hooks_dir = os.path.join(_OAL_ROOT, "hooks")
+    hooks_dir = os.path.join(_OMG_ROOT, "hooks")
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
@@ -43,7 +43,7 @@ def _get_feature_flag() -> Any:
 
 def _get_atomic_json_write() -> Any:
     """Lazy-import atomic_json_write from hooks/_common.py."""
-    hooks_dir = os.path.join(_OAL_ROOT, "hooks")
+    hooks_dir = os.path.join(_OMG_ROOT, "hooks")
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
@@ -56,10 +56,10 @@ def _get_atomic_json_write() -> Any:
 def _is_enabled() -> bool:
     """Check if parallel subagents feature is enabled.
 
-    Resolution: env var OAL_PARALLEL_SUBAGENTS_ENABLED → settings.json → default False.
+    Resolution: env var OMG_PARALLEL_SUBAGENTS_ENABLED → settings.json → default False.
     """
     # Fast path: check env var directly
-    env_val = os.environ.get("OAL_PARALLEL_SUBAGENTS_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_PARALLEL_SUBAGENTS_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -79,7 +79,7 @@ def _get_project_dir() -> str:
 
 def _jobs_dir() -> str:
     """Return the jobs state directory path."""
-    return os.path.join(_get_project_dir(), ".oal", "state", "jobs")
+    return os.path.join(_get_project_dir(), ".omg", "state", "jobs")
 
 
 def _job_path(job_id: str) -> str:
@@ -186,7 +186,7 @@ def _setup_worktree(job_id: str) -> str | None:
     import subprocess
 
     project_dir = _get_project_dir()
-    worktree_dir = os.path.join(project_dir, ".oal", "worktrees", job_id)
+    worktree_dir = os.path.join(project_dir, ".omg", "worktrees", job_id)
 
     try:
         os.makedirs(os.path.dirname(worktree_dir), exist_ok=True)

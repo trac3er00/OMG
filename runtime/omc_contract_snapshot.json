@@ -19,7 +19,7 @@
         "schema": "AnalysisCompatArtifact"
       },
       "side_effects": [
-        ".oal/evidence/analysis-analyze.json"
+        ".omg/evidence/analysis-analyze.json"
       ],
       "notes": "Writes structured analysis evidence artifact."
     },
@@ -39,7 +39,7 @@
         "schema": "RuntimeDispatchResult"
       },
       "side_effects": [
-        ".oal/state/persistent-mode.json"
+        ".omg/state/persistent-mode.json"
       ],
       "notes": ""
     },
@@ -59,7 +59,7 @@
         "schema": "MaintainerCompatArtifact"
       },
       "side_effects": [
-        ".oal/evidence/compat-beads.json"
+        ".omg/evidence/compat-beads.json"
       ],
       "notes": "Maps to maintainer route for context engineering artifacts."
     },
@@ -79,7 +79,7 @@
         "schema": "RuntimeDispatchResult"
       },
       "side_effects": [
-        ".oal/state/build-fix.md"
+        ".omg/state/build-fix.md"
       ],
       "notes": "Creates targeted fix checklist and routes execution to runtime."
     },
@@ -95,7 +95,7 @@
         "schema": "CancelResult"
       },
       "side_effects": [
-        ".oal/shadow/active-run (removed when exists)"
+        ".omg/shadow/active-run (removed when exists)"
       ],
       "notes": ""
     },
@@ -155,7 +155,7 @@
         "schema": "StateMutationResult"
       },
       "side_effects": [
-        ".oal/state/working-memory.md"
+        ".omg/state/working-memory.md"
       ],
       "notes": "Maps to memory route for durable working-context updates."
     },
@@ -264,10 +264,10 @@
         "schema": "BootstrapResult"
       },
       "side_effects": [
-        ".oal/state/*",
-        ".oal/idea.yml",
-        ".oal/policy.yaml",
-        ".oal/runtime.yaml"
+        ".omg/state/*",
+        ".omg/idea.yml",
+        ".omg/policy.yaml",
+        ".omg/runtime.yaml"
       ],
       "notes": ""
     },
@@ -339,7 +339,7 @@
         "schema": "LearningArtifact"
       },
       "side_effects": [
-        ".oal/knowledge/learning/learn-about-omc.md"
+        ".omg/knowledge/learning/learn-about-omc.md"
       ],
       "notes": ""
     },
@@ -359,9 +359,9 @@
         "schema": "LearningArtifact"
       },
       "side_effects": [
-        ".oal/knowledge/learning/learner.md"
+        ".omg/knowledge/learning/learner.md"
       ],
-      "notes": "Writes learning note into .oal/knowledge/learning."
+      "notes": "Writes learning note into .omg/knowledge/learning."
     },
     {
       "skill": "mcp-setup",
@@ -395,7 +395,7 @@
         "schema": "StateMutationResult"
       },
       "side_effects": [
-        ".oal/state/working-memory.md"
+        ".omg/state/working-memory.md"
       ],
       "notes": "Maps to memory route for retrieval-oriented context search workflow."
     },
@@ -415,7 +415,7 @@
         "schema": "StateMutationResult"
       },
       "side_effects": [
-        ".oal/knowledge/notes.md"
+        ".omg/knowledge/notes.md"
       ],
       "notes": ""
     },
@@ -433,7 +433,7 @@
         "schema": "HealthSnapshot"
       },
       "side_effects": [],
-      "notes": "Health checks run against OAL standalone layout."
+      "notes": "Health checks run against OMG standalone layout."
     },
     {
       "skill": "omc-help",
@@ -463,12 +463,12 @@
         "schema": "BootstrapResult"
       },
       "side_effects": [
-        ".oal/state/*",
-        ".oal/idea.yml",
-        ".oal/policy.yaml",
-        ".oal/runtime.yaml"
+        ".omg/state/*",
+        ".omg/idea.yml",
+        ".omg/policy.yaml",
+        ".omg/runtime.yaml"
       ],
-      "notes": "Bootstraps OAL standalone state and baseline config files."
+      "notes": "Bootstraps OMG standalone state and baseline config files."
     },
     {
       "skill": "omc-teams",
@@ -506,7 +506,7 @@
         "schema": "LabPipelineResult"
       },
       "side_effects": [],
-      "notes": "Routes to OAL lab policy+pipeline executor."
+      "notes": "Routes to OMG lab policy+pipeline executor."
     },
     {
       "skill": "plan",
@@ -524,9 +524,9 @@
         "schema": "PlanningArtifacts"
       },
       "side_effects": [
-        ".oal/state/_plan.md",
-        ".oal/state/_checklist.md",
-        ".oal/idea.yml"
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md",
+        ".omg/idea.yml"
       ],
       "notes": ""
     },
@@ -546,10 +546,10 @@
         "schema": "PlanningArtifacts"
       },
       "side_effects": [
-        ".oal/state/_plan.md",
-        ".oal/state/_checklist.md"
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md"
       ],
-      "notes": "Strengthens file-native planning artifacts in .oal/state."
+      "notes": "Strengthens file-native planning artifacts in .omg/state."
     },
     {
       "skill": "project-session-manager",
@@ -567,9 +567,9 @@
         "schema": "SessionState"
       },
       "side_effects": [
-        ".oal/state/session.json"
+        ".omg/state/session.json"
       ],
-      "notes": "Session metadata maintained in .oal/state/session.json."
+      "notes": "Session metadata maintained in .omg/state/session.json."
     },
     {
       "skill": "ralph",
@@ -587,7 +587,7 @@
         "schema": "RuntimeDispatchResult"
       },
       "side_effects": [
-        ".oal/state/persistent-mode.json"
+        ".omg/state/persistent-mode.json"
       ],
       "notes": ""
     },
@@ -605,10 +605,10 @@
         "schema": "BootstrapResult"
       },
       "side_effects": [
-        ".oal/state/*",
-        ".oal/idea.yml",
-        ".oal/policy.yaml",
-        ".oal/runtime.yaml"
+        ".omg/state/*",
+        ".omg/idea.yml",
+        ".omg/policy.yaml",
+        ".omg/runtime.yaml"
       ],
       "notes": ""
     },
@@ -628,7 +628,7 @@
         "schema": "RuntimeDispatchResult"
       },
       "side_effects": [
-        ".oal/state/persistent-mode.json"
+        ".omg/state/persistent-mode.json"
       ],
       "notes": "Persistent iteration loop via runtime persistent-mode state."
     },
@@ -648,9 +648,9 @@
         "schema": "PlanningArtifacts"
       },
       "side_effects": [
-        ".oal/state/_plan.md",
-        ".oal/state/_checklist.md",
-        ".oal/idea.yml"
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md",
+        ".omg/idea.yml"
       ],
       "notes": ""
     },
@@ -670,7 +670,7 @@
         "schema": "RuntimeDispatchResult"
       },
       "side_effects": [
-        ".oal/evidence/release-draft.md"
+        ".omg/evidence/release-draft.md"
       ],
       "notes": "Routes to runtime ship and emits release draft artifact."
     },
@@ -709,7 +709,7 @@
         "schema": "AnalysisCompatArtifact"
       },
       "side_effects": [
-        ".oal/evidence/analysis-sciomc.json"
+        ".omg/evidence/analysis-sciomc.json"
       ],
       "notes": ""
     },
@@ -745,7 +745,7 @@
         "schema": "LearningArtifact"
       },
       "side_effects": [
-        ".oal/knowledge/learning/skill.md"
+        ".omg/knowledge/learning/skill.md"
       ],
       "notes": ""
     },
@@ -765,10 +765,10 @@
         "schema": "PlanningArtifacts"
       },
       "side_effects": [
-        ".oal/state/_plan.md",
-        ".oal/state/_checklist.md"
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md"
       ],
-      "notes": "Imports TDD-first planning discipline into OAL plan route."
+      "notes": "Imports TDD-first planning discipline into OMG plan route."
     },
     {
       "skill": "tdd",
@@ -786,9 +786,9 @@
         "schema": "PlanningArtifacts"
       },
       "side_effects": [
-        ".oal/state/_plan.md",
-        ".oal/state/_checklist.md",
-        ".oal/idea.yml"
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md",
+        ".omg/idea.yml"
       ],
       "notes": "Generates plan/checklist scaffolding for red-green-refactor workflow."
     },
@@ -828,7 +828,7 @@
         "schema": "AnalysisCompatArtifact"
       },
       "side_effects": [
-        ".oal/evidence/analysis-trace.json"
+        ".omg/evidence/analysis-trace.json"
       ],
       "notes": "Writes trace evidence artifact for debugging chain."
     },
@@ -848,7 +848,7 @@
         "schema": "RuntimeDispatchResult"
       },
       "side_effects": [
-        ".oal/state/persistent-mode.json"
+        ".omg/state/persistent-mode.json"
       ],
       "notes": ""
     },
@@ -887,7 +887,7 @@
         "schema": "RuntimeDispatchResult"
       },
       "side_effects": [
-        ".oal/state/persistent-mode.json"
+        ".omg/state/persistent-mode.json"
       ],
       "notes": ""
     },
@@ -907,7 +907,7 @@
         "schema": "StateMutationResult"
       },
       "side_effects": [
-        ".oal/knowledge/writer-memory.md"
+        ".omg/knowledge/writer-memory.md"
       ],
       "notes": "Writes long-form memory artifact for writing workflows."
     }

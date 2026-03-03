@@ -1,4 +1,4 @@
-"""Tests for scripts/check-oal-standalone-clean.py."""
+"""Tests for scripts/check-omg-standalone-clean.py."""
 from __future__ import annotations
 
 import json
@@ -8,7 +8,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CHECKER = ROOT / "scripts" / "check-oal-standalone-clean.py"
+CHECKER = ROOT / "scripts" / "check-omg-standalone-clean.py"
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -32,7 +32,7 @@ def test_standalone_clean_check_detects_legacy_namespace_violation(tmp_path: Pat
     # Build a minimal fake root containing one violating file.
     (tmp_path / "runtime").mkdir(parents=True)
     bad = tmp_path / "runtime" / "bad.py"
-    bad.write_text('print("python3 scripts/oal.py omc list")\n', encoding="utf-8")
+    bad.write_text('print("python3 scripts/omg.py omc list")\n', encoding="utf-8")
 
     proc = _run(["--root", str(tmp_path)])
     assert proc.returncode != 0

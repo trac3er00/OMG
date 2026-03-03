@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Magic Keyword Router — OAL v1.2
+Magic Keyword Router — OMG v1.2
 
 PostToolUse hook that reads the LEADER_HINT produced by
 intentgate-keyword-detector, selects the appropriate agent based on intent,
-and writes a routing result to `.oal/state/routing_result.json`.
+and writes a routing result to `.omg/state/routing_result.json`.
 
 Decision only — no subprocess calls or agent execution.
 
 Input sources (checked in priority order):
   1. LEADER_HINT in stdin JSON (from hook pipeline)
-  2. `.oal/state/leader_hint.json` (persisted by future integrations)
+  2. `.omg/state/leader_hint.json` (persisted by future integrations)
 
-Feature flag: OAL_MAGIC_ROUTER_ENABLED (default off)
+Feature flag: OMG_MAGIC_ROUTER_ENABLED (default off)
 """
 import json
 import os
@@ -55,8 +55,8 @@ setup_crash_handler("magic-keyword-router", fail_closed=False)
 # ═══════════════════════════════════════════════════════════
 # CONSTANTS
 # ═══════════════════════════════════════════════════════════
-ROUTING_RESULT_PATH = ".oal/state/routing_result.json"
-LEADER_HINT_PATH = ".oal/state/leader_hint.json"
+ROUTING_RESULT_PATH = ".omg/state/routing_result.json"
+LEADER_HINT_PATH = ".omg/state/leader_hint.json"
 
 
 # ═══════════════════════════════════════════════════════════

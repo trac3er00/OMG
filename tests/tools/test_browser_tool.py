@@ -16,7 +16,7 @@ from unittest.mock import patch
 import pytest
 
 # Enable feature flag for tests
-os.environ["OAL_BROWSER_ENABLED"] = "true"
+os.environ["OMG_BROWSER_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
@@ -130,7 +130,7 @@ class TestBrowserNavigate:
 
     def test_returns_error_when_disabled(self):
         """browser_navigate returns error when feature flag is disabled."""
-        with patch.dict(os.environ, {"OAL_BROWSER_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_ENABLED": "false"}):
             result = browser_navigate("https://example.com")
             assert result["success"] is False
             assert "disabled" in result["error"].lower()
@@ -160,7 +160,7 @@ class TestBrowserClick:
 
     def test_returns_error_when_disabled(self):
         """browser_click returns error when feature flag is disabled."""
-        with patch.dict(os.environ, {"OAL_BROWSER_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_ENABLED": "false"}):
             result = browser_click("#btn")
             assert result["success"] is False
             assert "disabled" in result["error"].lower()
@@ -185,7 +185,7 @@ class TestBrowserType:
 
     def test_returns_error_when_disabled(self):
         """browser_type returns error when feature flag is disabled."""
-        with patch.dict(os.environ, {"OAL_BROWSER_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_ENABLED": "false"}):
             result = browser_type("#input", "text")
             assert result["success"] is False
             assert "disabled" in result["error"].lower()
@@ -216,7 +216,7 @@ class TestBrowserScreenshot:
 
     def test_returns_error_when_disabled(self):
         """browser_screenshot returns error when feature flag is disabled."""
-        with patch.dict(os.environ, {"OAL_BROWSER_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_ENABLED": "false"}):
             result = browser_screenshot("shot")
             assert result["success"] is False
             assert "disabled" in result["error"].lower()
@@ -245,7 +245,7 @@ class TestBrowserEvaluate:
 
     def test_returns_error_when_disabled(self):
         """browser_evaluate returns error when feature flag is disabled."""
-        with patch.dict(os.environ, {"OAL_BROWSER_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_ENABLED": "false"}):
             result = browser_evaluate("1+1")
             assert result["success"] is False
             assert "disabled" in result["error"].lower()
@@ -270,7 +270,7 @@ class TestCLI:
             capture_output=True,
             text=True,
             cwd=tools_dir,
-            env={**os.environ, "OAL_BROWSER_ENABLED": "true"},
+            env={**os.environ, "OMG_BROWSER_ENABLED": "true"},
         )
         assert result.returncode == 0
         output = json.loads(result.stdout)
@@ -289,7 +289,7 @@ class TestCLI:
             capture_output=True,
             text=True,
             cwd=tools_dir,
-            env={**os.environ, "OAL_BROWSER_ENABLED": "false"},
+            env={**os.environ, "OMG_BROWSER_ENABLED": "false"},
         )
         assert result.returncode != 0
         output = json.loads(result.stdout)

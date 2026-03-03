@@ -1,4 +1,4 @@
-"""Tests for oal_natives N-API binding registry and marshalling utilities.
+"""Tests for omg_natives N-API binding registry and marshalling utilities.
 
 Verifies:
 - BindingRegistry register / get / call / list_names / is_rust_available
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from oal_natives._bindings import (
+from omg_natives._bindings import (
     REGISTRY,
     BindingRegistry,
     BindingSpec,
@@ -50,13 +50,13 @@ class TestRegistryRegisterAndGet:
 
     def test_registry_register_and_get(self):
         reg = BindingRegistry()
-        reg.register("add", "oal_natives::math::add", _py_add, {"a": "int", "b": "int"})
+        reg.register("add", "omg_natives::math::add", _py_add, {"a": "int", "b": "int"})
 
         spec = reg.get("add")
         assert spec is not None
         assert isinstance(spec, BindingSpec)
         assert spec.name == "add"
-        assert spec.rust_symbol == "oal_natives::math::add"
+        assert spec.rust_symbol == "omg_natives::math::add"
         assert spec.python_fallback is _py_add
         assert spec.type_hints == {"a": "int", "b": "int"}
 
@@ -250,27 +250,27 @@ class TestBindingSpec:
 
 
 # ---------------------------------------------------------------------------
-# Integration: oal_natives re-exports
+# Integration: omg_natives re-exports
 # ---------------------------------------------------------------------------
 
 class TestOalNativesReExports:
-    """Verify oal_natives.__init__ re-exports the binding API."""
+    """Verify omg_natives.__init__ re-exports the binding API."""
 
-    def test_import_from_oal_natives(self):
-        import oal_natives
+    def test_import_from_omg_natives(self):
+        import omg_natives
 
-        assert hasattr(oal_natives, "REGISTRY")
-        assert hasattr(oal_natives, "bind_function")
-        assert hasattr(oal_natives, "get_binding")
-        assert hasattr(oal_natives, "call_binding")
-        assert hasattr(oal_natives, "marshal_to_rust")
-        assert hasattr(oal_natives, "marshal_from_rust")
-        assert hasattr(oal_natives, "BindingSpec")
-        assert hasattr(oal_natives, "BindingRegistry")
+        assert hasattr(omg_natives, "REGISTRY")
+        assert hasattr(omg_natives, "bind_function")
+        assert hasattr(omg_natives, "get_binding")
+        assert hasattr(omg_natives, "call_binding")
+        assert hasattr(omg_natives, "marshal_to_rust")
+        assert hasattr(omg_natives, "marshal_from_rust")
+        assert hasattr(omg_natives, "BindingSpec")
+        assert hasattr(omg_natives, "BindingRegistry")
 
     def test_all_includes_bindings(self):
-        import oal_natives
+        import omg_natives
 
         for name in ("REGISTRY", "bind_function", "get_binding", "call_binding",
                       "marshal_to_rust", "marshal_from_rust", "BindingSpec", "BindingRegistry"):
-            assert name in oal_natives.__all__, f"{name} missing from __all__"
+            assert name in omg_natives.__all__, f"{name} missing from __all__"

@@ -29,7 +29,7 @@ Backend engineering specialist. Handles all server-side tasks: API routes, middl
 - MUST NOT change UI component structure or visual elements
 - MUST NOT install frontend-only dependencies
 - MUST NOT modify client-side state management without coordination
-- Defer frontend concerns to `oal-frontend-designer`
+- Defer frontend concerns to `omg-frontend-designer`
 
 ## Guardrails
 

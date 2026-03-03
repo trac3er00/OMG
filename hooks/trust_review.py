@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OAL v1 Trust Review
+"""OMG v1 Trust Review
 
 Analyzes high-risk configuration changes (hooks/MCP/env/permissions) and emits
 structured trust review artifacts. Also integrates with config discovery to
@@ -261,12 +261,12 @@ def format_review_summary(review: dict[str, Any]) -> str:
 
 
 def write_trust_manifest(project_dir: str, review: dict[str, Any]) -> str:
-    trust_dir = os.path.join(project_dir, ".oal", "trust")
+    trust_dir = os.path.join(project_dir, ".omg", "trust")
     os.makedirs(trust_dir, exist_ok=True)
     manifest_path = os.path.join(trust_dir, "manifest.lock.json")
 
     payload = {
-        "version": "oal-v1",
+        "version": "omg-v1",
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "last_review": review,
     }
@@ -349,7 +349,7 @@ def _validate_config_security(config_path: str, content: str) -> Dict[str, Any]:
 
 
 def _log_config_import(config_path: str, tool: str, approved: bool, project_dir: str = ".") -> None:
-    """Log a config import decision to .oal/trust/config_imports.json.
+    """Log a config import decision to .omg/trust/config_imports.json.
 
     Uses atomic_json_write() from _common for safe writes.
     """
@@ -382,7 +382,7 @@ def _log_config_import(config_path: str, tool: str, approved: bool, project_dir:
     }
 
     # Load existing log, append, write back
-    log_path = os.path.join(project_dir, ".oal", "trust", "config_imports.json")
+    log_path = os.path.join(project_dir, ".omg", "trust", "config_imports.json")
     existing: List[Dict[str, Any]] = []
     try:
         if os.path.exists(log_path):
@@ -400,7 +400,7 @@ def _log_config_import(config_path: str, tool: str, approved: bool, project_dir:
 def review_discovered_configs(project_dir: str = ".") -> Dict[str, Any]:
     """Scan, validate, and review discovered AI tool configurations.
 
-    Feature flag: OAL_CONFIG_DISCOVERY_ENABLED (default: False)
+    Feature flag: OMG_CONFIG_DISCOVERY_ENABLED (default: False)
 
     Returns:
         {
@@ -420,7 +420,7 @@ def review_discovered_configs(project_dir: str = ".") -> Dict[str, Any]:
         from _common import get_feature_flag  # type: ignore[import-untyped]
         enabled = get_feature_flag("CONFIG_DISCOVERY", default=False)
     except ImportError:
-        enabled = os.getenv("OAL_CONFIG_DISCOVERY_ENABLED", "false").lower() in ("1", "true", "yes")
+        enabled = os.getenv("OMG_CONFIG_DISCOVERY_ENABLED", "false").lower() in ("1", "true", "yes")
 
     if not enabled:
         return {"skipped": True, "reason": "feature disabled"}

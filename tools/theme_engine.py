@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Theme Engine for OAL
+Theme Engine for OMG
 
 Provides terminal capability detection, theme definition format,
 color scheme application, and preference management.
 
-Feature flag: OAL_THEMES_ENABLED (default: False)
+Feature flag: OMG_THEMES_ENABLED (default: False)
 """
 
 import argparse
@@ -50,7 +50,7 @@ def is_themes_enabled() -> bool:
     if _get_feature_flag:
         return _get_feature_flag("THEMES", default=False)
     # Fallback if _common.py is not available
-    env_val = os.environ.get("OAL_THEMES_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_THEMES_ENABLED", "").lower()
     if env_val in ("1", "true", "yes"):
         return True
     return False
@@ -81,7 +81,7 @@ class ThemeEngine:
     def __init__(self, project_dir: Optional[str] = None):
         self.project_dir = project_dir or os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
         self.themes_dir = os.path.join(self.project_dir, "config", "themes")
-        self.state_file = os.path.join(self.project_dir, ".oal", "state", "theme.json")
+        self.state_file = os.path.join(self.project_dir, ".omg", "state", "theme.json")
 
     def detect_capabilities(self) -> Dict[str, bool]:
         """Detect terminal capabilities."""
@@ -206,7 +206,7 @@ class ThemeEngine:
         return sorted(themes)
 
     def save_preference(self, theme_name: str) -> bool:
-        """Save theme preference to .oal/state/theme.json."""
+        """Save theme preference to .omg/state/theme.json."""
         if not is_themes_enabled():
             return False
 
@@ -226,7 +226,7 @@ class ThemeEngine:
             return False
 
     def get_preference(self) -> Optional[str]:
-        """Read theme preference from .oal/state/theme.json."""
+        """Read theme preference from .omg/state/theme.json."""
         if not is_themes_enabled():
             return None
 
@@ -243,7 +243,7 @@ class ThemeEngine:
 
 def main():
     """CLI entry point."""
-    parser = argparse.ArgumentParser(description="OAL Theme Engine")
+    parser = argparse.ArgumentParser(description="OMG Theme Engine")
     parser.add_argument("--detect-capabilities", action="store_true", help="Detect terminal capabilities")
     parser.add_argument("--list", action="store_true", help="List available themes")
     parser.add_argument("--apply", metavar="THEME", help="Apply a theme and show colors")
@@ -253,7 +253,7 @@ def main():
     args = parser.parse_args()
     
     if not is_themes_enabled():
-        print("Themes are disabled. Set OAL_THEMES_ENABLED=true to enable.")
+        print("Themes are disabled. Set OMG_THEMES_ENABLED=true to enable.")
         sys.exit(1)
         
     engine = ThemeEngine()

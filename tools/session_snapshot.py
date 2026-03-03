@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Session State Snapshot System for OAL
+Session State Snapshot System for OMG
 
-Captures `.oal/state/` directory, compresses it, versions snapshots,
-and stores them in `.oal/state/snapshots/`.
+Captures `.omg/state/` directory, compresses it, versions snapshots,
+and stores them in `.omg/state/snapshots/`.
 
-Feature flag: OAL_SNAPSHOT_ENABLED (default: False)
+Feature flag: OMG_SNAPSHOT_ENABLED (default: False)
 """
 
 import json
@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 # Lazy import from hooks
 def _get_feature_flag_enabled() -> bool:
     """Check if snapshot feature is enabled."""
-    env_val = os.environ.get("OAL_SNAPSHOT_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_SNAPSHOT_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -52,13 +52,13 @@ def _get_atomic_json_write():
         return None
 
 
-def create_snapshot(name: Optional[str] = None, state_dir: str = ".oal/state") -> Dict[str, Any]:
+def create_snapshot(name: Optional[str] = None, state_dir: str = ".omg/state") -> Dict[str, Any]:
     """
-    Capture `.oal/state/` directory and create a compressed snapshot.
+    Capture `.omg/state/` directory and create a compressed snapshot.
 
     Args:
         name: Optional name suffix for the snapshot
-        state_dir: Path to the state directory (default: ".oal/state")
+        state_dir: Path to the state directory (default: ".omg/state")
 
     Returns:
         Snapshot metadata dict with keys: id, name, created_at, files_count, compressed_size, state_dir
@@ -106,7 +106,7 @@ def create_snapshot(name: Optional[str] = None, state_dir: str = ".oal/state") -
                     files_count += 1
 
     except Exception as e:
-        print(f"[OAL] Error creating snapshot: {e}", file=sys.stderr)
+        print(f"[OMG] Error creating snapshot: {e}", file=sys.stderr)
         return {"error": str(e)}
 
     # Get compressed size
@@ -132,17 +132,17 @@ def create_snapshot(name: Optional[str] = None, state_dir: str = ".oal/state") -
             with open(snapshot_meta_path, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, separators=(",", ":"))
         except Exception as e:
-            print(f"[OAL] Error writing metadata: {e}", file=sys.stderr)
+            print(f"[OMG] Error writing metadata: {e}", file=sys.stderr)
 
     return metadata
 
 
-def list_snapshots(state_dir: str = ".oal/state") -> List[Dict[str, Any]]:
+def list_snapshots(state_dir: str = ".omg/state") -> List[Dict[str, Any]]:
     """
     List all available snapshots.
 
     Args:
-        state_dir: Path to the state directory (default: ".oal/state")
+        state_dir: Path to the state directory (default: ".omg/state")
 
     Returns:
         List of snapshot metadata dicts, sorted by created_at descending (newest first)
@@ -170,13 +170,13 @@ def list_snapshots(state_dir: str = ".oal/state") -> List[Dict[str, Any]]:
     return snapshots
 
 
-def restore_snapshot(snapshot_id: str, state_dir: str = ".oal/state") -> bool:
+def restore_snapshot(snapshot_id: str, state_dir: str = ".omg/state") -> bool:
     """
     Restore a snapshot to the state directory.
 
     Args:
         snapshot_id: ID of the snapshot to restore
-        state_dir: Path to the state directory (default: ".oal/state")
+        state_dir: Path to the state directory (default: ".omg/state")
 
     Returns:
         True if restored successfully, False if snapshot not found
@@ -197,17 +197,17 @@ def restore_snapshot(snapshot_id: str, state_dir: str = ".oal/state") -> bool:
                 tar.extractall(path=state_dir)
         return True
     except Exception as e:
-        print(f"[OAL] Error restoring snapshot: {e}", file=sys.stderr)
+        print(f"[OMG] Error restoring snapshot: {e}", file=sys.stderr)
         return False
 
 
-def delete_snapshot(snapshot_id: str, state_dir: str = ".oal/state") -> bool:
+def delete_snapshot(snapshot_id: str, state_dir: str = ".omg/state") -> bool:
     """
     Delete a snapshot.
 
     Args:
         snapshot_id: ID of the snapshot to delete
-        state_dir: Path to the state directory (default: ".oal/state")
+        state_dir: Path to the state directory (default: ".omg/state")
 
     Returns:
         True if deleted successfully, False if snapshot not found
@@ -222,14 +222,14 @@ def delete_snapshot(snapshot_id: str, state_dir: str = ".oal/state") -> bool:
             os.remove(snapshot_tar_path)
             deleted = True
     except OSError as e:
-        print(f"[OAL] Error deleting snapshot tar: {e}", file=sys.stderr)
+        print(f"[OMG] Error deleting snapshot tar: {e}", file=sys.stderr)
 
     try:
         if os.path.exists(snapshot_meta_path):
             os.remove(snapshot_meta_path)
             deleted = True
     except OSError as e:
-        print(f"[OAL] Error deleting snapshot metadata: {e}", file=sys.stderr)
+        print(f"[OMG] Error deleting snapshot metadata: {e}", file=sys.stderr)
 
     return deleted
 
@@ -239,7 +239,7 @@ def delete_snapshot(snapshot_id: str, state_dir: str = ".oal/state") -> bool:
 
 def _get_branching_flag_enabled() -> bool:
     """Check if branching feature is enabled."""
-    env_val = os.environ.get("OAL_BRANCHING_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_BRANCHING_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -261,7 +261,7 @@ def _get_branching_flag_enabled() -> bool:
 def create_branch(
     name: str,
     from_snapshot_id: Optional[str] = None,
-    state_dir: str = ".oal/state",
+    state_dir: str = ".omg/state",
 ) -> Dict[str, Any]:
     """
     Create a named branch from a snapshot or the current state.
@@ -271,7 +271,7 @@ def create_branch(
         from_snapshot_id: Optional snapshot ID to branch from.
             If provided, restores that snapshot first.
             Otherwise, creates a new snapshot automatically.
-        state_dir: Path to the state directory (default: ".oal/state")
+        state_dir: Path to the state directory (default: ".omg/state")
 
     Returns:
         Branch metadata dict with keys: name, snapshot_id, created_at,
@@ -333,7 +333,7 @@ def create_branch(
             with open(branch_path, "w", encoding="utf-8") as f:
                 json.dump(metadata, f, separators=(",", ":"))
         except Exception as e:
-            print(f"[OAL] Error writing branch metadata: {e}", file=sys.stderr)
+            print(f"[OMG] Error writing branch metadata: {e}", file=sys.stderr)
             return {"error": str(e)}
 
     # Update current branch tracker
@@ -342,12 +342,12 @@ def create_branch(
     return metadata
 
 
-def list_branches(state_dir: str = ".oal/state") -> List[Dict[str, Any]]:
+def list_branches(state_dir: str = ".omg/state") -> List[Dict[str, Any]]:
     """
     List all branches with metadata.
 
     Args:
-        state_dir: Path to the state directory (default: ".oal/state")
+        state_dir: Path to the state directory (default: ".omg/state")
 
     Returns:
         List of branch metadata dicts, sorted by created_at descending (newest first)
@@ -375,13 +375,13 @@ def list_branches(state_dir: str = ".oal/state") -> List[Dict[str, Any]]:
     return branches
 
 
-def switch_branch(name: str, state_dir: str = ".oal/state") -> bool:
+def switch_branch(name: str, state_dir: str = ".omg/state") -> bool:
     """
     Switch to a named branch by restoring its snapshot.
 
     Args:
         name: Branch name to switch to
-        state_dir: Path to the state directory (default: ".oal/state")
+        state_dir: Path to the state directory (default: ".omg/state")
 
     Returns:
         True if switched successfully, False otherwise
@@ -409,7 +409,7 @@ def switch_branch(name: str, state_dir: str = ".oal/state") -> bool:
     return True
 
 
-def _update_current_branch(name: str, state_dir: str = ".oal/state") -> None:
+def _update_current_branch(name: str, state_dir: str = ".omg/state") -> None:
     """Update the current branch tracker file."""
     current_branch_path = os.path.join(state_dir, "current_branch.json")
     data = {"name": name, "switched_at": datetime.now().isoformat()}
@@ -421,7 +421,7 @@ def _update_current_branch(name: str, state_dir: str = ".oal/state") -> None:
             with open(current_branch_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, separators=(",", ":"))
         except Exception as e:
-            print(f"[OAL] Error updating current branch: {e}", file=sys.stderr)
+            print(f"[OMG] Error updating current branch: {e}", file=sys.stderr)
 
 
 # --- Merge API ---
@@ -429,7 +429,7 @@ def _update_current_branch(name: str, state_dir: str = ".oal/state") -> None:
 
 def _get_merge_flag_enabled() -> bool:
     """Check if merge feature is enabled."""
-    env_val = os.environ.get("OAL_MERGE_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_MERGE_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -448,7 +448,7 @@ def _get_merge_flag_enabled() -> bool:
         return False
 
 
-def _load_branch_state(branch_name: str, state_dir: str = ".oal/state") -> Optional[Dict[str, Any]]:
+def _load_branch_state(branch_name: str, state_dir: str = ".omg/state") -> Optional[Dict[str, Any]]:
     """Load a branch's metadata as a flat state dict.
 
     Args:
@@ -501,7 +501,7 @@ def detect_merge_conflicts(
 def preview_merge(
     source_branch: str,
     target_branch: str = "main",
-    state_dir: str = ".oal/state",
+    state_dir: str = ".omg/state",
 ) -> Dict[str, Any]:
     """Preview a merge without applying changes.
 
@@ -547,7 +547,7 @@ def preview_merge(
 def merge_branch(
     source_branch: str,
     target_branch: str = "main",
-    state_dir: str = ".oal/state",
+    state_dir: str = ".omg/state",
 ) -> Dict[str, Any]:
     """Merge source branch state into target branch.
 
@@ -620,7 +620,7 @@ def merge_branch(
                 with open(source_branch_path, "w", encoding="utf-8") as f:
                     json.dump(source_state, f, separators=(",", ":"))
             except Exception as e:
-                print(f"[OAL] Error updating source branch status: {e}", file=sys.stderr)
+                print(f"[OMG] Error updating source branch status: {e}", file=sys.stderr)
 
     # Update current_branch.json to reflect merged state
     _update_current_branch(target_branch, state_dir=state_dir)

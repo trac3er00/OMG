@@ -1,5 +1,5 @@
 #!/bin/bash
-# OAL Plugin Install Script
+# OMG Plugin Install Script
 # This script is called by Claude Code when user installs the plugin
 
 set -e
@@ -19,31 +19,31 @@ error() { echo -e "${RED}✗${NC} $1"; }
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║                                                               ║${NC}"
-echo -e "${BLUE}║              OAL Plugin Installer v1.0.0                     ║${NC}"
+echo -e "${BLUE}║              OMG Plugin Installer v1.0.0                     ║${NC}"
 echo -e "${BLUE}║                                                               ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(dirname "$SCRIPT_DIR")"
-OAL_ROOT="$(dirname "$PLUGIN_DIR")"
+OMG_ROOT="$(dirname "$PLUGIN_DIR")"
 
-# Check if OAL-setup.sh exists
-if [ -f "$OAL_ROOT/OAL-setup.sh" ]; then
-    info "Found OAL-setup.sh, running installation..."
+# Check if OMG-setup.sh exists
+if [ -f "$OMG_ROOT/OMG-setup.sh" ]; then
+    info "Found OMG-setup.sh, running installation..."
     echo ""
-    bash "$OAL_ROOT/OAL-setup.sh" install
+    bash "$OMG_ROOT/OMG-setup.sh" install
 else
-    error "OAL-setup.sh not found at: $OAL_ROOT/OAL-setup.sh"
-    error "Plugin installation requires the OAL setup script"
+    error "OMG-setup.sh not found at: $OMG_ROOT/OMG-setup.sh"
+    error "Plugin installation requires the OMG setup script"
     exit 1
 fi
 
 echo ""
-success "OAL Plugin installed successfully!"
+success "OMG Plugin installed successfully!"
 echo ""
 info "Getting started:"
-echo "  1. Run /OAL:init to initialize a project"
-echo "  2. Run /OAL:health-check to verify everything works"
-echo "  3. Try /OAL:escalate codex 'your task' for multi-agent help"
+echo "  1. Run /OMG:init to initialize a project"
+echo "  2. Run /OMG:health-check to verify everything works"
+echo "  3. Try /OMG:escalate codex 'your task' for multi-agent help"
 echo ""

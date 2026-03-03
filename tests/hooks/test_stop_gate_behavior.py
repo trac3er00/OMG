@@ -17,7 +17,7 @@ def _now_iso() -> str:
 
 
 def _write_ledger(project: Path, entries: list[dict]) -> Path:
-    ledger = project / ".oal" / "state" / "ledger" / "tool-ledger.jsonl"
+    ledger = project / ".omg" / "state" / "ledger" / "tool-ledger.jsonl"
     ledger.parent.mkdir(parents=True, exist_ok=True)
     with ledger.open("w", encoding="utf-8") as f:
         for entry in entries:
@@ -45,10 +45,10 @@ def _decision(proc: subprocess.CompletedProcess[str]) -> dict:
     return json.loads(out)
 
 
-def test_internal_oal_writes_do_not_trigger_evidence_block(tmp_path: Path):
+def test_internal_omg_writes_do_not_trigger_evidence_block(tmp_path: Path):
     project = tmp_path
-    (project / ".oal").mkdir(parents=True, exist_ok=True)
-    (project / ".oal" / "policy.yaml").write_text(
+    (project / ".omg").mkdir(parents=True, exist_ok=True)
+    (project / ".omg" / "policy.yaml").write_text(
         "mode: warn_and_run\nrequire_evidence_pack: true\n",
         encoding="utf-8",
     )
@@ -56,7 +56,7 @@ def test_internal_oal_writes_do_not_trigger_evidence_block(tmp_path: Path):
     _write_ledger(
         project,
         [
-            {"tool": "Write", "file": ".oal/state/_plan.md", "success": True},
+            {"tool": "Write", "file": ".omg/state/_plan.md", "success": True},
         ],
     )
 
@@ -67,8 +67,8 @@ def test_internal_oal_writes_do_not_trigger_evidence_block(tmp_path: Path):
 
 def test_source_writes_require_evidence_in_strict_mode(tmp_path: Path):
     project = tmp_path
-    (project / ".oal").mkdir(parents=True, exist_ok=True)
-    (project / ".oal" / "policy.yaml").write_text(
+    (project / ".omg").mkdir(parents=True, exist_ok=True)
+    (project / ".omg" / "policy.yaml").write_text(
         "mode: strict\nrequire_evidence_pack: true\n",
         encoding="utf-8",
     )
@@ -90,8 +90,8 @@ def test_source_writes_require_evidence_in_strict_mode(tmp_path: Path):
 
 def test_source_writes_warn_mode_emits_advisory_not_block(tmp_path: Path):
     project = tmp_path
-    (project / ".oal").mkdir(parents=True, exist_ok=True)
-    (project / ".oal" / "policy.yaml").write_text(
+    (project / ".omg").mkdir(parents=True, exist_ok=True)
+    (project / ".omg" / "policy.yaml").write_text(
         "mode: warn_and_run\nrequire_evidence_pack: true\n",
         encoding="utf-8",
     )
@@ -107,7 +107,7 @@ def test_source_writes_warn_mode_emits_advisory_not_block(tmp_path: Path):
     proc = _run_stop_gate(project)
     assert proc.returncode == 0
     assert proc.stdout.strip() == ""
-    assert "oal advisory" in proc.stderr.lower()
+    assert "omg advisory" in proc.stderr.lower()
 
 
 def test_write_failure_check_ignores_internal_and_unknown_status(tmp_path: Path):

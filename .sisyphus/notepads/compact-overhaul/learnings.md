@@ -37,7 +37,7 @@ In `_common.py` `should_skip_stop_hooks()`:
 - BUT: keep the `stop_reason` and `end_turn_reason` variable assignments (Guard 5 uses them)
 
 ### Stop Block Tracker Path
-`.oal/state/ledger/.stop-block-tracker.json`
+`.omg/state/ledger/.stop-block-tracker.json`
 
 ### Not a git repo
 Working directly in project dir. No git worktree isolation.

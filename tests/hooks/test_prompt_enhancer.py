@@ -1,4 +1,4 @@
-"""Tests for prompt-enhancer.py — OAL v1."""
+"""Tests for prompt-enhancer.py — OMG v1."""
 import json, subprocess, os, tempfile, shutil
 
 def run_enhancer(message, project_dir="."):
@@ -97,7 +97,7 @@ def test_explicit_deep_plan_route_keyword():
     ctx = run_enhancer("use deep-plan for this migration strategy")
     assert "@route-lock" in ctx
     assert "deep-plan" in ctx.lower()
-    assert "execute /oal:deep-plan" in ctx.lower()
+    assert "execute /omg:deep-plan" in ctx.lower()
 
 def test_deep_plan_keyword_takes_priority_over_model_keywords():
     ctx = run_enhancer("deep-plan then use codex and gemini for implementation")
@@ -215,10 +215,10 @@ def test_write_verify_not_triggered_normal():
 # === Stuck detection dedup ===
 def test_stuck_dedup():
     """Two rapid stuck signals should produce only ONE @stuck injection (dedup)."""
-    tmp = tempfile.mkdtemp(prefix="oal_test_stuck_")
+    tmp = tempfile.mkdtemp(prefix="omg_test_stuck_")
     try:
-        # Setup: create .oal/state/ledger/failure-tracker.json with ≥2 failures
-        ledger_dir = os.path.join(tmp, ".oal", "state", "ledger")
+        # Setup: create .omg/state/ledger/failure-tracker.json with ≥2 failures
+        ledger_dir = os.path.join(tmp, ".omg", "state", "ledger")
         os.makedirs(ledger_dir, exist_ok=True)
         tracker = {"npm test": {"count": 3, "last": "2026-01-01T00:00:00Z"}}
         with open(os.path.join(ledger_dir, "failure-tracker.json"), "w") as f:
@@ -237,10 +237,10 @@ def test_stuck_dedup():
 
 def test_stuck_no_inject_without_failures():
     """Stuck signal without ≥2 tracked failures should NOT inject @stuck."""
-    tmp = tempfile.mkdtemp(prefix="oal_test_stuck_")
+    tmp = tempfile.mkdtemp(prefix="omg_test_stuck_")
     try:
         # Setup: empty state (no failure tracker)
-        state_dir = os.path.join(tmp, ".oal", "state")
+        state_dir = os.path.join(tmp, ".omg", "state")
         os.makedirs(state_dir, exist_ok=True)
 
         ctx = run_enhancer("I'm stuck, same error keeps happening", project_dir=tmp)

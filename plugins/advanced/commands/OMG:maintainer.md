@@ -4,7 +4,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Grep, Glob, Bash(git:*), Bash(rg:*)
 argument-hint: "[triage|release|review|impact]"
 ---
 
-# /OAL:maintainer — OSS Maintainer Kit
+# /OMG:maintainer — OSS Maintainer Kit
 
 ## Modes
 1. `triage`: summarize new issues, propose labels/priority/owner.
@@ -13,7 +13,7 @@ argument-hint: "[triage|release|review|impact]"
 4. `impact`: generate Ecosystem Impact evidence draft.
 
 ## Ecosystem Impact Evidence Pack
-Create `.oal/evidence/oss-impact.json` with:
+Create `.omg/evidence/oss-impact.json` with:
 - `activity`: commits/reviews/releases in recent window
 - `dependents`: direct/transitive usage indicators (if available)
 - `stability`: test pass/fail trend and security findings

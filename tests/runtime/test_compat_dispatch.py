@@ -66,9 +66,9 @@ def test_contract_is_attached_and_has_core_fields(tmp_path: Path):
 def test_compat_setup_and_doctor_routes_create_bootstrap(tmp_path: Path):
     setup = dispatch_compat_skill(skill="omc-setup", problem="bootstrap", project_dir=str(tmp_path))
     assert setup["status"] == "ok"
-    assert (tmp_path / ".oal" / "state" / "profile.yaml").exists()
-    assert (tmp_path / ".oal" / "idea.yml").exists()
-    assert (tmp_path / ".oal" / "policy.yaml").exists()
+    assert (tmp_path / ".omg" / "state" / "profile.yaml").exists()
+    assert (tmp_path / ".omg" / "idea.yml").exists()
+    assert (tmp_path / ".omg" / "policy.yaml").exists()
 
     doctor = dispatch_compat_skill(skill="omc-doctor", project_dir=str(tmp_path))
     assert doctor["status"] == "ok"
@@ -80,7 +80,7 @@ def test_compat_setup_and_doctor_routes_create_bootstrap(tmp_path: Path):
 def test_project_session_manager_writes_session_state(tmp_path: Path):
     out = dispatch_compat_skill(skill="project-session-manager", problem="track session", project_dir=str(tmp_path))
     assert out["status"] == "ok"
-    session_path = tmp_path / ".oal" / "state" / "session.json"
+    session_path = tmp_path / ".omg" / "state" / "session.json"
     assert session_path.exists()
     payload = json.loads(session_path.read_text(encoding="utf-8"))
     assert isinstance(payload.get("entries"), list)
@@ -117,7 +117,7 @@ def test_promoted_skills_report_native_maturity(tmp_path: Path):
 def test_autopilot_creates_persistent_state(tmp_path: Path):
     out = dispatch_compat_skill(skill="autopilot", problem="keep iterating", project_dir=str(tmp_path))
     assert out["status"] == "ok"
-    state = tmp_path / ".oal" / "state" / "persistent-mode.json"
+    state = tmp_path / ".omg" / "state" / "persistent-mode.json"
     assert state.exists()
     payload = json.loads(state.read_text(encoding="utf-8"))
     assert payload["mode"] == "autopilot"
@@ -138,7 +138,7 @@ def test_review_route_returns_dual_track_synthesis(tmp_path: Path):
 def test_tdd_route_writes_red_green_refactor_checklist(tmp_path: Path):
     out = dispatch_compat_skill(skill="tdd", problem="tdd sample", project_dir=str(tmp_path))
     assert out["status"] == "ok"
-    checklist = tmp_path / ".oal" / "state" / "_checklist.md"
+    checklist = tmp_path / ".omg" / "state" / "_checklist.md"
     assert checklist.exists()
     content = checklist.read_text(encoding="utf-8").lower()
     assert "red" in content
@@ -149,23 +149,23 @@ def test_tdd_route_writes_red_green_refactor_checklist(tmp_path: Path):
 def test_native_bridge_batch_writes_expected_artifacts(tmp_path: Path):
     build_fix = dispatch_compat_skill(skill="build-fix", problem="fix failing build", project_dir=str(tmp_path))
     assert build_fix["status"] == "ok"
-    assert (tmp_path / ".oal" / "state" / "build-fix.md").exists()
+    assert (tmp_path / ".omg" / "state" / "build-fix.md").exists()
 
     analyze = dispatch_compat_skill(skill="analyze", problem="analyze crash", project_dir=str(tmp_path))
     assert analyze["status"] == "ok"
-    assert (tmp_path / ".oal" / "evidence" / "analysis-analyze.json").exists()
+    assert (tmp_path / ".omg" / "evidence" / "analysis-analyze.json").exists()
 
     learner = dispatch_compat_skill(skill="learner", problem="learn pattern", project_dir=str(tmp_path))
     assert learner["status"] == "ok"
-    assert (tmp_path / ".oal" / "knowledge" / "learning" / "learner.md").exists()
+    assert (tmp_path / ".omg" / "knowledge" / "learning" / "learner.md").exists()
 
     note = dispatch_compat_skill(skill="note", problem="remember this", project_dir=str(tmp_path))
     assert note["status"] == "ok"
-    assert (tmp_path / ".oal" / "knowledge" / "notes.md").exists()
+    assert (tmp_path / ".omg" / "knowledge" / "notes.md").exists()
 
     writer = dispatch_compat_skill(skill="writer-memory", problem="draft memory", project_dir=str(tmp_path))
     assert writer["status"] == "ok"
-    assert (tmp_path / ".oal" / "knowledge" / "writer-memory.md").exists()
+    assert (tmp_path / ".omg" / "knowledge" / "writer-memory.md").exists()
 
 
 def test_invalid_request_is_rejected_and_audited(tmp_path: Path):
@@ -178,11 +178,11 @@ def test_invalid_request_is_rejected_and_audited(tmp_path: Path):
     assert bad["status"] == "error"
     assert "Invalid request" in bad["findings"][0]
 
-    audit = tmp_path / ".oal" / "state" / "ledger" / "oal-compat-audit.jsonl"
+    audit = tmp_path / ".omg" / "state" / "ledger" / "omg-compat-audit.jsonl"
     assert audit.exists()
     lines = [ln for ln in audit.read_text(encoding="utf-8").splitlines() if ln.strip()]
     assert lines, "audit ledger should contain at least one event"
-    assert (tmp_path / ".oal" / "state" / "ledger" / "omc-compat-audit.jsonl").exists()
+    assert (tmp_path / ".omg" / "state" / "ledger" / "omc-compat-audit.jsonl").exists()
 
 
 def test_invalid_request_rejects_absolute_like_file_paths(tmp_path: Path):
@@ -200,7 +200,7 @@ def test_invalid_request_rejects_absolute_like_file_paths(tmp_path: Path):
 def test_valid_dispatch_writes_request_audit_event(tmp_path: Path):
     ok = dispatch_compat_skill(skill="omc-teams", problem="audit ok", project_dir=str(tmp_path))
     assert ok["status"] == "ok"
-    audit = tmp_path / ".oal" / "state" / "ledger" / "oal-compat-audit.jsonl"
+    audit = tmp_path / ".omg" / "state" / "ledger" / "omg-compat-audit.jsonl"
     assert audit.exists()
     events = [json.loads(ln) for ln in audit.read_text(encoding="utf-8").splitlines() if ln.strip()]
     assert any(ev.get("event") == "compat_dispatch_request" for ev in events)

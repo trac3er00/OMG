@@ -17,6 +17,6 @@
 - Task 7 incomplete: required stderr diagnostics missing in `hooks/stop_dispatcher.py` and `hooks/test-validator.py`.
 - Task 8 partial: failure tracker output in `hooks/pre-compact.py` lacks approach/last_error details; active plan section not implemented as spec.
 - Task 10 partial: `hooks/session-start.py` does not inject full handoff content (extracts/truncates sections).
-- Task 11 incomplete: no `.oal/state/.auto-handoff-requested` signal write.
+- Task 11 incomplete: no `.omg/state/.auto-handoff-requested` signal write.
 - Task 12 incomplete: planning gate demotion does not also check `is_stop_block_loop()`.
 - Task 13 incomplete: quality-runner skip lacks `is_stop_block_loop()` path and does not apply when invoked via dispatcher callable.

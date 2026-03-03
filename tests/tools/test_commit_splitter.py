@@ -98,7 +98,7 @@ class TestAnalyzeChanges:
     """Tests for analyze_changes() function."""
 
     def test_feature_flag_disabled_returns_empty(self):
-        """When OAL_AI_COMMIT_ENABLED is False, return empty list."""
+        """When OMG_AI_COMMIT_ENABLED is False, return empty list."""
         with patch("tools.commit_splitter._is_enabled", return_value=False):
             result = analyze_changes()
             assert result == []
@@ -276,7 +276,7 @@ class TestPreviewCommitPlan:
         """When disabled, show descriptive notice."""
         with patch("tools.commit_splitter._is_enabled", return_value=False):
             output = preview_commit_plan()
-            assert "disabled" in output.lower() or "OAL_AI_COMMIT_ENABLED" in output
+            assert "disabled" in output.lower() or "OMG_AI_COMMIT_ENABLED" in output
 
     def test_no_changes_shows_notice(self):
         """When no changes found, show appropriate message."""

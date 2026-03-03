@@ -1,19 +1,19 @@
 {
   "name": "oh-advanced-layer",
-  "description": "Marketplace metadata for the OAL Claude plugin",
+  "description": "Marketplace metadata for the OMG Claude plugin",
   "owner": {
     "name": "trac3er00"
   },
   "metadata": {
-    "description": "OAL - Orchestration Abstraction Layer for Claude Code",
+    "description": "OMG - Oh-My-God for Claude Code",
     "version": "1.0.1",
-    "homepage": "https://github.com/trac3er00/OAL",
-    "repository": "git@github.com:trac3er00/OAL.git"
+    "homepage": "https://github.com/trac3er00/OMG",
+    "repository": "git@github.com:trac3er00/OMG.git"
   },
   "plugins": [
     {
-      "name": "oal",
-      "description": "OAL standalone orchestration layer for Claude Code",
+      "name": "omg",
+      "description": "OMG standalone orchestration layer for Claude Code",
       "version": "1.0.1",
       "source": "./",
       "author": {
@@ -25,7 +25,7 @@
         "orchestration",
         "automation",
         "multi-agent",
-        "oal",
+        "omg",
         "codex",
         "gemini",
         "crazy-mode"

@@ -1,4 +1,4 @@
-"""Internal team router for OAL standalone operation."""
+"""Internal team router for OMG standalone operation."""
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
@@ -13,7 +13,7 @@ from typing import Any
 
 # --- Path resolution (never relies on CWD) ---
 _ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
-_OAL_ROOT = os.path.dirname(_ROUTER_DIR)
+_OMG_ROOT = os.path.dirname(_ROUTER_DIR)
 
 _logger = logging.getLogger(__name__)
 
@@ -588,7 +588,7 @@ def execute_crazy_mode(
 
 
 # =============================================================================
-# Round-Robin Credential Distribution (Feature: OAL_ROUND_ROBIN_ENABLED)
+# Round-Robin Credential Distribution (Feature: OMG_ROUND_ROBIN_ENABLED)
 # =============================================================================
 
 
@@ -613,7 +613,7 @@ def _get_hooks_imports():
     """
     import sys as _sys
 
-    _hooks_dir = os.path.join(_OAL_ROOT, "hooks")
+    _hooks_dir = os.path.join(_OMG_ROOT, "hooks")
     if _hooks_dir not in _sys.path:
         _sys.path.insert(0, _hooks_dir)
     try:
@@ -629,7 +629,7 @@ def get_active_credential(provider: str, session_id: str | None = None) -> str |
     """Get active API key for provider via round-robin.
 
     Returns key string or None if credential store disabled/unavailable.
-    Feature flag: OAL_ROUND_ROBIN_ENABLED
+    Feature flag: OMG_ROUND_ROBIN_ENABLED
 
     Args:
         provider: Provider name (e.g., 'anthropic', 'openai')
@@ -642,7 +642,7 @@ def get_active_credential(provider: str, session_id: str | None = None) -> str |
     if not get_flag("ROUND_ROBIN", default=False):
         return None
 
-    passphrase = os.environ.get("OAL_CREDENTIAL_PASSPHRASE")
+    passphrase = os.environ.get("OMG_CREDENTIAL_PASSPHRASE")
     if not passphrase:
         return None
 
@@ -702,7 +702,7 @@ def on_rate_limit(provider: str, session_id: str | None = None) -> str | None:
     if not get_flag("ROUND_ROBIN", default=False):
         return None
 
-    passphrase = os.environ.get("OAL_CREDENTIAL_PASSPHRASE")
+    passphrase = os.environ.get("OMG_CREDENTIAL_PASSPHRASE")
     if not passphrase:
         return None
 
@@ -738,17 +738,17 @@ def on_rate_limit(provider: str, session_id: str | None = None) -> str | None:
 
 
 # =============================================================================
-# Role-Based Routing (Feature: OAL_ROLE_ROUTING_ENABLED)
+# Role-Based Routing (Feature: OMG_ROLE_ROUTING_ENABLED)
 # =============================================================================
 
 
 def get_role_from_env() -> str | None:
-    """Read the active role from OAL_ACTIVE_ROLE environment variable.
+    """Read the active role from OMG_ACTIVE_ROLE environment variable.
 
     Returns:
         Role name string (e.g., 'smol', 'slow') or None if not set.
     """
-    val = os.environ.get("OAL_ACTIVE_ROLE", "").strip().lower()
+    val = os.environ.get("OMG_ACTIVE_ROLE", "").strip().lower()
     return val if val else None
 
 
@@ -757,11 +757,11 @@ def route_with_role(task_text: str, role: str | None = None) -> dict[str, Any]:
 
     Resolution order for role:
       1. Explicit `role` parameter
-      2. OAL_ACTIVE_ROLE env var (via get_role_from_env())
+      2. OMG_ACTIVE_ROLE env var (via get_role_from_env())
       3. CLI args (--smol, --slow, --plan, --commit) via parse_role_args()
       4. None → fall back to existing routing
 
-    Feature flag: OAL_ROLE_ROUTING_ENABLED (default: False)
+    Feature flag: OMG_ROLE_ROUTING_ENABLED (default: False)
     When disabled, returns a baseline dict from existing _infer_target().
 
     Args:
@@ -783,14 +783,14 @@ def route_with_role(task_text: str, role: str | None = None) -> dict[str, Any]:
     }
 
     # Check feature flag via lazy import
-    _hooks_dir = os.path.join(_OAL_ROOT, "hooks")
+    _hooks_dir = os.path.join(_OMG_ROOT, "hooks")
     if _hooks_dir not in _sys.path:
         _sys.path.insert(0, _hooks_dir)
     try:
         from _common import get_feature_flag  # pyright: ignore[reportMissingImports]
     except ImportError:
         # If _common unavailable, check env var directly
-        env_val = os.environ.get("OAL_ROLE_ROUTING_ENABLED", "").lower()
+        env_val = os.environ.get("OMG_ROLE_ROUTING_ENABLED", "").lower()
         if env_val not in ("1", "true", "yes"):
             return baseline
         get_feature_flag = None  # type: ignore[assignment]
@@ -804,7 +804,7 @@ def route_with_role(task_text: str, role: str | None = None) -> dict[str, Any]:
         resolved_role = get_role_from_env()
     if resolved_role is None:
         # Lazy import parse_role_args from agents.model_roles
-        _agents_dir = os.path.join(_OAL_ROOT, "agents")
+        _agents_dir = os.path.join(_OMG_ROOT, "agents")
         if _agents_dir not in _sys.path:
             _sys.path.insert(0, _agents_dir)
         try:
@@ -818,7 +818,7 @@ def route_with_role(task_text: str, role: str | None = None) -> dict[str, Any]:
         return baseline
 
     # Get role config via lazy import
-    _agents_dir = os.path.join(_OAL_ROOT, "agents")
+    _agents_dir = os.path.join(_OMG_ROOT, "agents")
     if _agents_dir not in _sys.path:
         _sys.path.insert(0, _agents_dir)
     try:

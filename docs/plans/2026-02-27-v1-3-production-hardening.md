@@ -1,8 +1,8 @@
-# OAL v1.3 Production Hardening Plan
+# OMG v1.3 Production Hardening Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Lock OMC compatibility as a production-grade contract with versioned snapshots, strict drift gates, and hardened request validation.
+**Gomg:** Lock OMC compatibility as a production-grade contract with versioned snapshots, strict drift gates, and hardened request validation.
 
 **Architecture:** Extend the OMC compatibility layer with explicit contract versioning + migration hooks, add runtime request validation/audit logging, and enforce these constraints via CI gates and no-vendor verification.
 
@@ -13,23 +13,23 @@
 ### Task 1: Contract Versioning + Migration Hooks
 
 **Files:**
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OAL/runtime/omc_compat.py`
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OAL/scripts/oal.py`
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OAL/runtime/omc_contract_snapshot.json`
-- Test: `/Users/cminseo/Documents/scripts/Shell/OAL/tests/runtime/test_omc_contract_snapshot.py`
+- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/runtime/omc_compat.py`
+- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/scripts/omg.py`
+- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/runtime/omc_contract_snapshot.json`
+- Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/runtime/test_omc_contract_snapshot.py`
 
 **Steps:**
 1. Add `contract_version` metadata to snapshot payload.
 2. Add migration utility stubs for older snapshot schema compatibility.
-3. Ensure `oal omc snapshot` emits deterministic payload.
+3. Ensure `omg omc snapshot` emits deterministic payload.
 4. Update snapshot test to verify version + schema.
 
 ### Task 2: Snapshot Drift Gate
 
 **Files:**
-- Create: `/Users/cminseo/Documents/scripts/Shell/OAL/scripts/check-omc-contract-snapshot.py`
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OAL/.github/workflows/omc-compat-gate.yml`
-- Test: `/Users/cminseo/Documents/scripts/Shell/OAL/tests/scripts/test_omc_snapshot_check.py`
+- Create: `/Users/cminseo/Documents/scripts/Shell/OMG/scripts/check-omc-contract-snapshot.py`
+- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/.github/workflows/omc-compat-gate.yml`
+- Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/scripts/test_omc_snapshot_check.py`
 
 **Steps:**
 1. Add a check script that compares runtime contracts to committed snapshot.
@@ -39,8 +39,8 @@
 ### Task 3: Request Validation + Audit Logging
 
 **Files:**
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OAL/runtime/omc_compat.py`
-- Test: `/Users/cminseo/Documents/scripts/Shell/OAL/tests/runtime/test_omc_compat.py`
+- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/runtime/omc_compat.py`
+- Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/runtime/test_omc_compat.py`
 
 **Steps:**
 1. Validate input length/count/path safety in `dispatch_omc_skill`.
@@ -50,7 +50,7 @@
 ### Task 4: Full Verification
 
 **Files:**
-- Modify docs if needed: `/Users/cminseo/Documents/scripts/Shell/OAL/README.md`
+- Modify docs if needed: `/Users/cminseo/Documents/scripts/Shell/OMG/README.md`
 
 **Steps:**
 1. Run targeted tests for compat/snapshot/CLI.

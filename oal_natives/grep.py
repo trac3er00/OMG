@@ -1,9 +1,9 @@
-"""OAL Natives — grep: regex search in files.
+"""OMG Natives — grep: regex search in files.
 
-Pure-Python fallback for the Rust ``oal_natives::grep::grep`` function.
+Pure-Python fallback for the Rust ``omg_natives::grep::grep`` function.
 Uses ``re`` and ``os.walk`` for recursive file searching.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import os
 import re
 from typing import List
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 
 def grep(pattern: str, path: str, recursive: bool = False) -> list[dict]:
@@ -55,7 +55,7 @@ def grep(pattern: str, path: str, recursive: bool = False) -> list[dict]:
 # Self-register with the global binding registry
 bind_function(
     name="grep",
-    rust_symbol="oal_natives::grep::grep",
+    rust_symbol="omg_natives::grep::grep",
     python_fallback=grep,
     type_hints={"pattern": "str", "path": "str", "recursive": "bool"},
 )

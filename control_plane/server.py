@@ -1,4 +1,4 @@
-"""Lightweight HTTP server for OAL control-plane APIs."""
+"""Lightweight HTTP server for OMG control-plane APIs."""
 from __future__ import annotations
 
 import argparse
@@ -90,7 +90,7 @@ def run_server(host: str = "127.0.0.1", port: int = 8787, project_dir: str | Non
 
 
 def _main() -> int:
-    parser = argparse.ArgumentParser(description="Run OAL control-plane API server")
+    parser = argparse.ArgumentParser(description="Run OMG control-plane API server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--project-dir", default=None)

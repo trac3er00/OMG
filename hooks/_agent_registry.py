@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agent Registry — Central dispatch table for OAL domain agents.
+"""Agent Registry — Central dispatch table for OMG domain agents.
 
 Maps domain keywords to agents with model preferences, skills, and MCP tools.
 """
@@ -16,7 +16,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'ui', 'ux', 'css', 'layout', 'responsive', 'visual', 'frontend', 'component', 'style', 'design', 'animation', 'color', 'theme'},
         'mcp_tools': ['puppeteer_screenshot', 'puppeteer_navigate'],
         'description': 'Frontend/UI specialist. Uses Gemini for visual tasks.',
-        'agent_file': 'agents/oal-frontend-designer.md',
+        'agent_file': 'agents/omg-frontend-designer.md',
         'model_version': 'gemini-3.1-pro-preview',
     },
     'backend-engineer': {
@@ -26,7 +26,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'api', 'server', 'database', 'logic', 'algorithm', 'backend', 'endpoint', 'route', 'middleware', 'service'},
         'mcp_tools': [],
         'description': 'Backend/logic specialist. Uses Codex for deep reasoning.',
-        'agent_file': 'agents/oal-backend-engineer.md',
+        'agent_file': 'agents/omg-backend-engineer.md',
         'model_version': 'gpt-5.3',
     },
     'api-builder': {
@@ -36,7 +36,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'openapi', 'swagger', 'rest', 'graphql', 'api-spec', 'schema', 'contract', 'endpoint-design'},
         'mcp_tools': ['context7_query-docs'],
         'description': 'API design/build specialist. Contracts, endpoint shape, and versioning.',
-        'agent_file': 'agents/oal-api-builder.md',
+        'agent_file': 'agents/omg-api-builder.md',
         'model_version': 'gpt-5.3',
     },
     'security-auditor': {
@@ -46,7 +46,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'auth', 'encrypt', 'cors', 'jwt', 'vulnerability', 'security', 'xss', 'csrf', 'injection', 'secret', 'password', 'token'},
         'mcp_tools': ['sentry_search_issues', 'sentry_get_issue_details'],
         'description': 'Security specialist. Uses Codex for deep security analysis.',
-        'agent_file': 'agents/oal-security-auditor.md',
+        'agent_file': 'agents/omg-security-auditor.md',
         'model_version': 'gpt-5.3',
     },
     'database-engineer': {
@@ -56,7 +56,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'sql', 'migration', 'schema', 'query', 'index', 'database', 'postgres', 'mongo', 'redis', 'orm'},
         'mcp_tools': [],
         'description': 'Database specialist. Schema design, query optimization, migrations.',
-        'agent_file': 'agents/oal-database-engineer.md',
+        'agent_file': 'agents/omg-database-engineer.md',
         'model_version': 'gpt-5.3',
     },
     'testing-engineer': {
@@ -66,7 +66,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'test', 'spec', 'coverage', 'fixture', 'mock', 'playwright', 'e2e', 'unit', 'integration', 'pytest', 'jest'},
         'mcp_tools': ['puppeteer_navigate', 'puppeteer_screenshot'],
         'description': 'Testing specialist. Unit tests, integration tests, E2E with Playwright.',
-        'agent_file': 'agents/oal-testing-engineer.md',
+        'agent_file': 'agents/omg-testing-engineer.md',
         'model_version': 'claude-sonnet-4-5',
     },
     'infra-engineer': {
@@ -76,7 +76,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'docker', 'ci', 'cd', 'deploy', 'terraform', 'k8s', 'kubernetes', 'nginx', 'pipeline', 'container', 'cloud'},
         'mcp_tools': [],
         'description': 'Infrastructure specialist. Docker, CI/CD, deployment, cloud.',
-        'agent_file': 'agents/oal-infra-engineer.md',
+        'agent_file': 'agents/omg-infra-engineer.md',
         'model_version': 'gpt-5.3',
     },
     # Cognitive modes
@@ -88,7 +88,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'research', 'find', 'how to', 'explain', 'documentation', 'docs', 'lookup'},
         'mcp_tools': ['web_search_exa', 'google_search', 'context7_query-docs'],
         'description': 'Research mode. Web search, docs lookup, library exploration.',
-        'agent_file': 'agents/oal-research-mode.md',
+        'agent_file': 'agents/omg-research-mode.md',
         'model_version': 'claude-haiku-3-5',
     },
     'architect-mode': {
@@ -99,7 +99,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'architect', 'design', 'plan', 'structure', 'system', 'architecture', 'tradeoff'},
         'mcp_tools': [],
         'description': 'Architecture mode. System design, trade-off analysis.',
-        'agent_file': 'agents/oal-architect-mode.md',
+        'agent_file': 'agents/omg-architect-mode.md',
         'model_version': 'claude-sonnet-4-5',
     },
     'implement-mode': {
@@ -109,7 +109,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'implement', 'build', 'create', 'add', 'develop', 'write', 'code'},
         'mcp_tools': [],
         'description': 'Implementation mode. Model chosen based on domain of task.',
-        'agent_file': 'agents/oal-implement-mode.md',
+        'agent_file': 'agents/omg-implement-mode.md',
         'model_version': 'claude-sonnet-4-5',
     },
     'implement-mode': {
@@ -119,7 +119,7 @@ AGENT_REGISTRY = {
         'trigger_keywords': {'implement', 'build', 'create', 'add', 'develop', 'write', 'code'},
         'mcp_tools': [],
         'description': 'Implementation mode. Model chosen based on domain of task.',
-        'agent_file': 'agents/oal-implement-mode.md',
+        'agent_file': 'agents/omg-implement-mode.md',
         'model_version': 'claude-sonnet-4-5',
     },
     # Bundled agents (Task 2.3)
@@ -224,35 +224,35 @@ CORE_AGENT_MODELS = {
         'model_version': 'gpt-5.2',
         'task_category': None,
         'description': 'System design + planning + delegation routing.',
-        'agent_file': 'agents/oal-architect.md',
+        'agent_file': 'agents/omg-architect.md',
     },
     'critic': {
         'preferred_model': 'codex-cli',
         'model_version': 'gpt-5.3',
         'task_category': None,
         'description': 'Code review — 3 perspectives, no LGTM allowed.',
-        'agent_file': 'agents/oal-critic.md',
+        'agent_file': 'agents/omg-critic.md',
     },
     'executor': {
         'preferred_model': 'claude',
         'model_version': 'claude-sonnet-4-5',
         'task_category': 'deep',
         'description': 'Implements code with evidence, auto-escalates when stuck.',
-        'agent_file': 'agents/oal-executor.md',
+        'agent_file': 'agents/omg-executor.md',
     },
     'qa-tester': {
         'preferred_model': 'claude',
         'model_version': 'claude-sonnet-4-5',
         'task_category': 'unspecified-high',
         'description': 'User-journey test writer — no boilerplate.',
-        'agent_file': 'agents/oal-qa-tester.md',
+        'agent_file': 'agents/omg-qa-tester.md',
     },
     'escalation-router': {
         'preferred_model': 'claude',
         'model_version': 'claude-haiku-3-5',
         'task_category': None,
         'description': 'Routes problems to Codex/Gemini/CCG based on domain.',
-        'agent_file': 'agents/oal-escalation-router.md',
+        'agent_file': 'agents/omg-escalation-router.md',
     },
 }
 
@@ -349,7 +349,7 @@ def discover_mcp_tools() -> list[str]:
 def load_custom_agents_into_registry(project_dir: str = ".") -> int:
     """Load custom agents from user/project dirs into AGENT_REGISTRY.
 
-    If OAL_CUSTOM_AGENTS_ENABLED is disabled, does nothing.
+    If OMG_CUSTOM_AGENTS_ENABLED is disabled, does nothing.
     Uses lazy import of runtime.custom_agent_loader to avoid circular deps.
 
     Args:
@@ -361,7 +361,7 @@ def load_custom_agents_into_registry(project_dir: str = ".") -> int:
     import sys as _sys
 
     # Check feature flag via env var first (fast path)
-    env_val = os.environ.get("OAL_CUSTOM_AGENTS_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_CUSTOM_AGENTS_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return 0
 

@@ -39,7 +39,7 @@ def _clear_mounts():
 class TestMountSshfs:
     """Tests for mount_sshfs()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_returns_mount_spec(self):
         """mount_sshfs() returns a valid mount spec dict."""
         result = mount_sshfs("server.com", "/home/user", "/mnt/remote")
@@ -49,7 +49,7 @@ class TestMountSshfs:
         assert result["mounted"] is True
         assert result["mount_id"] == "server.com:/home/user"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_registers_in_mounts(self):
         """mount_sshfs() adds mount to module-level _mounts."""
         assert len(_mounts) == 0
@@ -58,7 +58,7 @@ class TestMountSshfs:
         abs_path = os.path.abspath("/mnt/data")
         assert abs_path in _mounts
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_with_user_and_key(self):
         """mount_sshfs() includes user and expanded key_path."""
         result = mount_sshfs(
@@ -70,28 +70,28 @@ class TestMountSshfs:
         assert "key_path" in result
         assert "~" not in result["key_path"]  # expanded
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_disabled_returns_error(self):
         """mount_sshfs() returns error when flag disabled."""
         result = mount_sshfs("server.com", "/data", "/mnt/data")
         assert result["success"] is False
         assert "disabled" in result["error"]
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_empty_host_returns_error(self):
         """mount_sshfs() rejects empty host."""
         result = mount_sshfs("", "/data", "/mnt/data")
         assert result["success"] is False
         assert "Host" in result["error"]
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_empty_remote_path_returns_error(self):
         """mount_sshfs() rejects empty remote_path."""
         result = mount_sshfs("server.com", "", "/mnt/data")
         assert result["success"] is False
         assert "Remote path" in result["error"]
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_empty_local_path_returns_error(self):
         """mount_sshfs() rejects empty local_path."""
         result = mount_sshfs("server.com", "/data", "")
@@ -107,7 +107,7 @@ class TestMountSshfs:
 class TestUnmountSshfs:
     """Tests for unmount_sshfs()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_unmount_existing(self):
         """unmount_sshfs() removes a registered mount."""
         mount_sshfs("server.com", "/data", "/mnt/data")
@@ -118,14 +118,14 @@ class TestUnmountSshfs:
         assert result["mount_id"] == "server.com:/data"
         assert len(_mounts) == 0
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_unmount_nonexistent(self):
         """unmount_sshfs() returns error for unknown mount."""
         result = unmount_sshfs("/mnt/nonexistent")
         assert result["success"] is False
         assert "No mount found" in result["error"]
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_unmount_disabled(self):
         """unmount_sshfs() returns error when flag disabled."""
         result = unmount_sshfs("/mnt/data")
@@ -141,7 +141,7 @@ class TestUnmountSshfs:
 class TestGetMounts:
     """Tests for get_mounts()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_lists_all_mounts(self):
         """get_mounts() returns all registered mounts."""
         mount_sshfs("s1.com", "/path1", "/mnt/a")
@@ -152,7 +152,7 @@ class TestGetMounts:
         assert "s1.com" in hosts
         assert "s2.com" in hosts
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_get_mounts_disabled(self):
         """get_mounts() returns empty list when disabled."""
         _mounts["/fake"] = {"host": "x"}
@@ -167,7 +167,7 @@ class TestGetMounts:
 class TestCleanupMounts:
     """Tests for cleanup_mounts()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_cleanup_returns_count(self):
         """cleanup_mounts() returns number of mounts cleaned."""
         mount_sshfs("s1.com", "/p1", "/mnt/a")
@@ -177,13 +177,13 @@ class TestCleanupMounts:
         assert count == 3
         assert len(_mounts) == 0
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_cleanup_empty(self):
         """cleanup_mounts() returns 0 when no mounts."""
         count = cleanup_mounts()
         assert count == 0
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_cleanup_disabled(self):
         """cleanup_mounts() returns 0 when disabled."""
         _mounts["/fake"] = {"host": "x"}
@@ -199,7 +199,7 @@ class TestCleanupMounts:
 class TestAutoMountFromConfig:
     """Tests for auto_mount_from_config()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_reads_sshfs_mounts(self, tmp_path):
         """auto_mount_from_config() reads sshfs_mounts from ssh.json."""
         config = {
@@ -217,7 +217,7 @@ class TestAutoMountFromConfig:
         assert results[1]["port"] == 2222
         assert len(_mounts) == 2
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_reads_dot_ssh_json(self, tmp_path):
         """auto_mount_from_config() reads from .ssh.json fallback."""
         config = {
@@ -231,13 +231,13 @@ class TestAutoMountFromConfig:
         assert len(results) == 1
         assert results[0]["host"] == "hidden.com"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_no_config_file(self, tmp_path):
         """auto_mount_from_config() returns empty when no config."""
         results = auto_mount_from_config(str(tmp_path))
         assert results == []
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_skips_incomplete_entries(self, tmp_path):
         """auto_mount_from_config() skips entries missing required fields."""
         config = {
@@ -253,7 +253,7 @@ class TestAutoMountFromConfig:
         assert len(results) == 1
         assert results[0]["host"] == "good.com"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_disabled_returns_empty(self, tmp_path):
         """auto_mount_from_config() returns empty when flag disabled."""
         config = {
@@ -266,7 +266,7 @@ class TestAutoMountFromConfig:
         results = auto_mount_from_config(str(tmp_path))
         assert results == []
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_invalid_json_returns_empty(self, tmp_path):
         """auto_mount_from_config() handles invalid JSON gracefully."""
         (tmp_path / "ssh.json").write_text("{bad json!!!")
@@ -274,7 +274,7 @@ class TestAutoMountFromConfig:
         results = auto_mount_from_config(str(tmp_path))
         assert results == []
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_no_sshfs_mounts_key(self, tmp_path):
         """auto_mount_from_config() returns empty when key is missing."""
         config = {"hosts": [{"host": "x.com"}]}

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Web Search Provider Abstraction for OAL
+Web Search Provider Abstraction for OMG
 
 Clean provider interface for web search with credential integration.
 Providers register via the abstract base class; WebSearchManager dispatches
 search/fetch calls to the active provider.
 
-Feature flag: OAL_WEB_SEARCH_ENABLED (default: False)
+Feature flag: OMG_WEB_SEARCH_ENABLED (default: False)
 """
 
 import abc
@@ -71,7 +71,7 @@ def _check_credential_store() -> bool:
 def _is_enabled() -> bool:
     """Check if Web Search feature is enabled."""
     # Fast path: check env var directly
-    env_val = os.environ.get("OAL_WEB_SEARCH_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_WEB_SEARCH_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -349,7 +349,7 @@ def _stdlib_fetch(url: str, timeout: int = 15) -> str:
     try:
         req = urllib.request.Request(
             url,
-            headers={"User-Agent": "OAL-WebSearch/1.0"},
+            headers={"User-Agent": "OMG-WebSearch/1.0"},
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             encoding = resp.headers.get_content_charset() or "utf-8"
@@ -388,7 +388,7 @@ class ProviderSelector:
         if self._preference_path is None:
             repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             self._preference_path = os.path.join(
-                repo_root, ".oal", "state", "search_preference.json"
+                repo_root, ".omg", "state", "search_preference.json"
             )
         return self._preference_path
 
@@ -487,7 +487,7 @@ class ProviderSelector:
         return chain
 
     def set_preference(self, provider_name: str) -> None:
-        """Persist user preferred provider to .oal/state/search_preference.json.
+        """Persist user preferred provider to .omg/state/search_preference.json.
 
         Args:
             provider_name: The provider name to set as default.
@@ -543,7 +543,7 @@ def _cli_main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="OAL Web Search Tool — provider-based web search abstraction",
+        description="OMG Web Search Tool — provider-based web search abstraction",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--query", help="Search query string")
@@ -580,7 +580,7 @@ def _cli_main():
         return
 
     if not enabled:
-        print(json.dumps({"error": "Web search is disabled (OAL_WEB_SEARCH_ENABLED=false)"}))
+        print(json.dumps({"error": "Web search is disabled (OMG_WEB_SEARCH_ENABLED=false)"}))
         sys.exit(1)
 
     if args.fetch_url:

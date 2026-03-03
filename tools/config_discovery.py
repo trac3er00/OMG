@@ -5,7 +5,7 @@ Config Discovery Framework for AI Coding Tools
 Scans a project directory for configuration files from 8 AI coding tools
 and produces a JSON discovery report. Read-only operation.
 
-Feature flag: OAL_CONFIG_DISCOVERY_ENABLED (default: off)
+Feature flag: OMG_CONFIG_DISCOVERY_ENABLED (default: off)
 """
 
 import json
@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 # Feature flag
-OAL_CONFIG_DISCOVERY_ENABLED = os.getenv("OAL_CONFIG_DISCOVERY_ENABLED", "false").lower() == "true"
+OMG_CONFIG_DISCOVERY_ENABLED = os.getenv("OMG_CONFIG_DISCOVERY_ENABLED", "false").lower() == "true"
 
 # Tool detection patterns
 TOOL_PATTERNS = {

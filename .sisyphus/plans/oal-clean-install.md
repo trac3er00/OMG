@@ -1,14 +1,14 @@
-# OAL Clean Install to ~/.claude
+# OMG Clean Install to ~/.claude
 
 ## TL;DR
 
-> **Quick Summary**: Clean reinstall OAL into ~/.claude, removing all OMC artifacts, backup debris, and misplaced files. Result: a pristine ~/.claude with only OAL-managed components.
+> **Quick Summary**: Clean reinstall OMG into ~/.claude, removing all OMC artifacts, backup debris, and misplaced files. Result: a pristine ~/.claude with only OMG-managed components.
 > 
 > **Deliverables**:
-> - Clean OAL installation (16 hooks, 5 core rules, 5 agents, 19+ commands)
+> - Clean OMG installation (16 hooks, 5 core rules, 5 agents, 19+ commands)
 > - All backup debris removed (24 backup dirs, 50+ .bak files)
 > - All OMC artifacts removed (.omc/, .omc-config.json, omc-hud.mjs)
-> - HUD updated to latest version from OAL source
+> - HUD updated to latest version from OMG source
 > - protocols/ preserved with .bak files cleaned
 > - Extra rules (05-07) removed from core rules directory
 > 
@@ -21,7 +21,7 @@
 ## Context
 
 ### Original Request
-OAL (oh-my-claudecode 업그레이드)을 ~/.claude에 완벽하게 설치. 모든 설정이 정확하게 배치되도록 구성.
+OMG (oh-my-claudecode 업그레이드)을 ~/.claude에 완벽하게 설치. 모든 설정이 정확하게 배치되도록 구성.
 
 ### Interview Summary
 **Key Discussions**:
@@ -31,14 +31,14 @@ OAL (oh-my-claudecode 업그레이드)을 ~/.claude에 완벽하게 설치. 모�
 - 백업 잔재: 전부 삭제
 
 **Research Findings**:
-- OAL-setup.sh가 처리하는 것: hooks, rules/core, agents, commands, templates, oal-runtime, settings.json merge
-- OAL-setup.sh가 처리하지 않는 것: protocols/, HUD, rules 05-07 제거, .bak 정리, .omc/ 삭제, .oal-backups/ 삭제
+- OMG-setup.sh가 처리하는 것: hooks, rules/core, agents, commands, templates, omg-runtime, settings.json merge
+- OMG-setup.sh가 처리하지 않는 것: protocols/, HUD, rules 05-07 제거, .bak 정리, .omc/ 삭제, .omg-backups/ 삭제
 
 ### Metis Review
 **Identified Gaps** (addressed):
-- quality-gate.py: OAL 소스에 없지만 settings.json에 등록됨 → 기능적이므로 유지
+- quality-gate.py: OMG 소스에 없지만 settings.json에 등록됨 → 기능적이므로 유지
 - HUD: installer가 복사하지 않음 → 수동 복사 task 추가
-- `.oal-backups/` (하이픈 없음): `.oal-backup-*`와 별도 패턴 → 둘 다 삭제
+- `.omg-backups/` (하이픈 없음): `.omg-backup-*`와 별도 패턴 → 둘 다 삭제
 - `--non-interactive --merge-policy=apply` 플래그 필요 → 적용
 - agents/ 내 custom 파일 (frontend-design-validator.md): 유지
 - settings.json 내 권한 모순 (allow+ask 중복): merge가 처리, 수동 미개입
@@ -48,40 +48,40 @@ OAL (oh-my-claudecode 업그레이드)을 ~/.claude에 완벽하게 설치. 모�
 ## Work Objectives
 
 ### Core Objective
-OAL을 ~/.claude에 깨끗하게 재설치하여 모든 컴포넌트가 정확한 위치에 배치되고, 모든 잔재가 제거된 상태를 달성한다.
+OMG을 ~/.claude에 깨끗하게 재설치하여 모든 컴포넌트가 정확한 위치에 배치되고, 모든 잔재가 제거된 상태를 달성한다.
 
 ### Concrete Deliverables
-- `~/.claude/hooks/`: OAL 소스의 16개 hook + quality-gate.py (custom) + _common.py
+- `~/.claude/hooks/`: OMG 소스의 16개 hook + quality-gate.py (custom) + _common.py
 - `~/.claude/rules/`: 정확히 5개 core rule (00-04)
-- `~/.claude/agents/`: 5개 OAL agent + custom agents (frontend-design-validator.md)
-- `~/.claude/commands/`: 19 static OAL commands + legacy compat aliases
+- `~/.claude/agents/`: 5개 OMG agent + custom agents (frontend-design-validator.md)
+- `~/.claude/commands/`: 19 static OMG commands + legacy compat aliases
 - `~/.claude/protocols/`: 6개 protocol 파일 (.bak 없이)
-- `~/.claude/hud/oal-hud.mjs`: OAL 소스와 동일한 최신 버전
-- `~/.claude/settings.json`: OAL hook 등록 + permissions
-- `~/.claude/oal-runtime/`: 최신 runtime
-- `~/.claude/templates/oal/`: templates + contextual rules
+- `~/.claude/hud/omg-hud.mjs`: OMG 소스와 동일한 최신 버전
+- `~/.claude/settings.json`: OMG hook 등록 + permissions
+- `~/.claude/omg-runtime/`: 최신 runtime
+- `~/.claude/templates/omg/`: templates + contextual rules
 
 ### Definition of Done
 - [x] `ls ~/.claude/rules/*.md | wc -l` = 5
 - [x] `find ~/.claude -name "*.bak*" -o -name "*.backup*" | wc -l` = 0 (5 files in managed backups/ dir — intentional)
-- [x] `find ~/.claude -maxdepth 1 -name ".oal-backup-*" -type d | wc -l` = 0
+- [x] `find ~/.claude -maxdepth 1 -name ".omg-backup-*" -type d | wc -l` = 0
 - [x] `test ! -d ~/.claude/.omc && test ! -f ~/.claude/.omc-config.json` — PASS
-- [x] `/OAL:health-check` reports no errors — all hook files verified, @imports resolve, protocols intact
+- [x] `/OMG:health-check` reports no errors — all hook files verified, @imports resolve, protocols intact
 
 ### Must Have
-- 모든 OAL hook이 ~/.claude/hooks/에 설치되고 syntax-valid
+- 모든 OMG hook이 ~/.claude/hooks/에 설치되고 syntax-valid
 - settings.json의 모든 hook 참조가 실존 파일을 가리킴
 - CLAUDE.md의 @import가 모두 유효한 파일 참조
-- Zero .bak, .backup, .oal-backup-* 잔재
+- Zero .bak, .backup, .omg-backup-* 잔재
 
 ### Must NOT Have (Guardrails)
 - **DO NOT** touch `~/.claude/protocols/` 내용 (only remove .bak sibling)
 - **DO NOT** touch `.session-stats.json`, `cache/`, `backups/` (Claude Code 내부)
 - **DO NOT** modify `enabledPlugins` or permissions arrays manually
 - **DO NOT** use broad `rm -rf` patterns — all deletes must be targeted
-- **DO NOT** modify OAL-setup.sh or OAL source files
+- **DO NOT** modify OMG-setup.sh or OMG source files
 - **DO NOT** touch `~/.claude/skills/`, `~/.claude/plugins/`, `~/.claude/projects/`
-- **MUST NOT** delete `frontend-design-validator.md` (custom agent, not OAL-managed)
+- **MUST NOT** delete `frontend-design-validator.md` (custom agent, not OMG-managed)
 
 ---
 
@@ -109,10 +109,10 @@ Evidence saved to `.sisyphus/evidence/task-{N}-{scenario-slug}.{ext}`.
 ```
 Wave 1 (Pre-flight — foundation):
 ├── Task 1: Snapshot current state + save protocols/ [quick]
-└── Task 2: Verify OAL source integrity [quick]
+└── Task 2: Verify OMG source integrity [quick]
 
 Wave 2 (Core install — sequential, must complete alone):
-└── Task 3: Run OAL-setup.sh reinstall [quick]
+└── Task 3: Run OMG-setup.sh reinstall [quick]
 
 Wave 3 (Post-install fixes — MAX PARALLEL):
 ├── Task 4: Restore protocols/ + clean .bak (depends: 3) [quick]
@@ -174,7 +174,7 @@ Max Concurrent: 5 (Wave 3)
   - Run `ls ~/.claude/hooks/*.py | wc -l` and record current hook count
   - Run `ls ~/.claude/agents/*.md 2>/dev/null | wc -l` and record agent count (including .bak)
   - Run `ls ~/.claude/commands/*.md | wc -l` and record command count
-  - Copy `~/.claude/protocols/` to `/tmp/oal-protocols-backup/` as safety net
+  - Copy `~/.claude/protocols/` to `/tmp/omg-protocols-backup/` as safety net
   - Save all counts to `.sisyphus/evidence/task-1-pre-snapshot.txt`
 
   **Must NOT do**:
@@ -205,28 +205,28 @@ Max Concurrent: 5 (Wave 3)
     Steps:
       1. Run `cat .sisyphus/evidence/task-1-pre-snapshot.txt`
       2. Verify file contains counts for rules, hooks, agents, commands
-      3. Run `ls /tmp/oal-protocols-backup/*.md | wc -l`
+      3. Run `ls /tmp/omg-protocols-backup/*.md | wc -l`
     Expected Result: snapshot file exists with numeric counts; /tmp backup has 6 .md files
     Evidence: .sisyphus/evidence/task-1-pre-snapshot.txt
   ```
 
   **Commit**: NO
 
-- [x] 2. Verify OAL source integrity
+- [x] 2. Verify OMG source integrity
 
   **What to do**:
-  - Verify OAL source directory exists: `/Users/cminseo/Documents/scripts/Shell/OAL`
-  - Verify `OAL-setup.sh` exists and is executable
+  - Verify OMG source directory exists: `/Users/cminseo/Documents/scripts/Shell/OMG`
+  - Verify `OMG-setup.sh` exists and is executable
   - Verify key source directories exist: `hooks/`, `rules/core/`, `agents/`, `commands/`
-  - Run `python3 -c "import py_compile; py_compile.compile('/Users/cminseo/Documents/scripts/Shell/OAL/OAL-setup.sh')"` — no, that's for Python. Instead verify: `bash -n /Users/cminseo/Documents/scripts/Shell/OAL/OAL-setup.sh`
-  - Count source hooks: `ls /Users/cminseo/Documents/scripts/Shell/OAL/hooks/*.py | grep -v __pycache__ | wc -l`
-  - Count source rules: `ls /Users/cminseo/Documents/scripts/Shell/OAL/rules/core/*.md | wc -l`
-  - Count source agents: `ls /Users/cminseo/Documents/scripts/Shell/OAL/agents/*.md | wc -l`
-  - Count source commands: `ls /Users/cminseo/Documents/scripts/Shell/OAL/commands/*.md | wc -l`
-  - Verify HUD source exists: `/Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs`
+  - Run `python3 -c "import py_compile; py_compile.compile('/Users/cminseo/Documents/scripts/Shell/OMG/OMG-setup.sh')"` — no, that's for Python. Instead verify: `bash -n /Users/cminseo/Documents/scripts/Shell/OMG/OMG-setup.sh`
+  - Count source hooks: `ls /Users/cminseo/Documents/scripts/Shell/OMG/hooks/*.py | grep -v __pycache__ | wc -l`
+  - Count source rules: `ls /Users/cminseo/Documents/scripts/Shell/OMG/rules/core/*.md | wc -l`
+  - Count source agents: `ls /Users/cminseo/Documents/scripts/Shell/OMG/agents/*.md | wc -l`
+  - Count source commands: `ls /Users/cminseo/Documents/scripts/Shell/OMG/commands/*.md | wc -l`
+  - Verify HUD source exists: `/Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs`
 
   **Must NOT do**:
-  - Do NOT modify OAL source files
+  - Do NOT modify OMG source files
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -239,45 +239,45 @@ Max Concurrent: 5 (Wave 3)
   - **Blocked By**: None
 
   **References**:
-  - `/Users/cminseo/Documents/scripts/Shell/OAL/OAL-setup.sh` — main installer script
-  - `/Users/cminseo/Documents/scripts/Shell/OAL/hooks/` — 18 source files (16 hooks + _common.py + state_migration.py)
-  - `/Users/cminseo/Documents/scripts/Shell/OAL/rules/core/` — 5 core rule files
-  - `/Users/cminseo/Documents/scripts/Shell/OAL/agents/` — 5 agent files
-  - `/Users/cminseo/Documents/scripts/Shell/OAL/commands/` — 19 command files
-  - `/Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs` — HUD source (installer doesn't copy this)
+  - `/Users/cminseo/Documents/scripts/Shell/OMG/OMG-setup.sh` — main installer script
+  - `/Users/cminseo/Documents/scripts/Shell/OMG/hooks/` — 18 source files (16 hooks + _common.py + state_migration.py)
+  - `/Users/cminseo/Documents/scripts/Shell/OMG/rules/core/` — 5 core rule files
+  - `/Users/cminseo/Documents/scripts/Shell/OMG/agents/` — 5 agent files
+  - `/Users/cminseo/Documents/scripts/Shell/OMG/commands/` — 19 command files
+  - `/Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs` — HUD source (installer doesn't copy this)
 
   **Acceptance Criteria**:
 
   **QA Scenarios (MANDATORY):**
 
   ```
-  Scenario: OAL source is complete and valid
+  Scenario: OMG source is complete and valid
     Tool: Bash
     Steps:
-      1. Run `bash -n /Users/cminseo/Documents/scripts/Shell/OAL/OAL-setup.sh`
-      2. Run `ls /Users/cminseo/Documents/scripts/Shell/OAL/hooks/*.py | wc -l`
-      3. Run `ls /Users/cminseo/Documents/scripts/Shell/OAL/rules/core/*.md | wc -l`
-      4. Run `ls /Users/cminseo/Documents/scripts/Shell/OAL/agents/*.md | wc -l`
-      5. Run `test -f /Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs`
+      1. Run `bash -n /Users/cminseo/Documents/scripts/Shell/OMG/OMG-setup.sh`
+      2. Run `ls /Users/cminseo/Documents/scripts/Shell/OMG/hooks/*.py | wc -l`
+      3. Run `ls /Users/cminseo/Documents/scripts/Shell/OMG/rules/core/*.md | wc -l`
+      4. Run `ls /Users/cminseo/Documents/scripts/Shell/OMG/agents/*.md | wc -l`
+      5. Run `test -f /Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs`
     Expected Result: bash -n exits 0; hooks >= 16; rules = 5; agents = 5; HUD exists
     Evidence: .sisyphus/evidence/task-2-source-integrity.txt
   ```
 
   **Commit**: NO
 
-- [x] 3. Run OAL-setup.sh reinstall
+- [x] 3. Run OMG-setup.sh reinstall
 
   **What to do**:
-  - Change to OAL source directory: `/Users/cminseo/Documents/scripts/Shell/OAL`
-  - Run: `./OAL-setup.sh reinstall --clear-omc --non-interactive --merge-policy=apply`
+  - Change to OMG source directory: `/Users/cminseo/Documents/scripts/Shell/OMG`
+  - Run: `./OMG-setup.sh reinstall --clear-omc --non-interactive --merge-policy=apply`
   - Capture full output to `.sisyphus/evidence/task-3-install-output.txt`
   - Verify exit code is 0
-  - Verify `.oal-version` marker was created in `~/.claude/hooks/`
+  - Verify `.omg-version` marker was created in `~/.claude/hooks/`
 
   **Must NOT do**:
   - Do NOT run without `--non-interactive` (will hang on prompts)
   - Do NOT run with `--dry-run` (need actual install)
-  - Do NOT modify OAL-setup.sh before running
+  - Do NOT modify OMG-setup.sh before running
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -290,9 +290,9 @@ Max Concurrent: 5 (Wave 3)
   - **Blocked By**: Tasks 1, 2
 
   **References**:
-  - `/Users/cminseo/Documents/scripts/Shell/OAL/OAL-setup.sh` — installer script
+  - `/Users/cminseo/Documents/scripts/Shell/OMG/OMG-setup.sh` — installer script
     - Line 669 `run_install_like()` — main install function
-    - Line 490 `remove_oal_files()` — cleanup function (removes hooks, rules 00-04, agents, commands)
+    - Line 490 `remove_omg_files()` — cleanup function (removes hooks, rules 00-04, agents, commands)
     - Line 80 `detect_omc_signals()` — OMC detection
     - Line 155 `clear_omc_artifacts()` — OMC cleanup (commands, hooks, plugins, text references)
   - Flags: `--clear-omc` removes OMC command files + sanitizes text references
@@ -309,12 +309,12 @@ Max Concurrent: 5 (Wave 3)
     Steps:
       1. Run installer and capture output
       2. Check exit code = 0
-      3. Run `cat ~/.claude/hooks/.oal-version`
+      3. Run `cat ~/.claude/hooks/.omg-version`
       4. Run `ls ~/.claude/hooks/*.py | wc -l` (should be >= 16)
       5. Run `ls ~/.claude/rules/*.md | wc -l` (should be >= 5)
-      6. Run `ls ~/.claude/agents/oal-*.md | wc -l` (should be 5)
+      6. Run `ls ~/.claude/agents/omg-*.md | wc -l` (should be 5)
     Expected Result: exit 0; version marker exists; hook count >= 16; rules >= 5; agents = 5
-    Failure Indicators: non-zero exit, missing .oal-version, any "ERROR" in output
+    Failure Indicators: non-zero exit, missing .omg-version, any "ERROR" in output
     Evidence: .sisyphus/evidence/task-3-install-output.txt
 
   Scenario: OMC artifacts cleared by installer
@@ -334,7 +334,7 @@ Max Concurrent: 5 (Wave 3)
 
   **What to do**:
   - Verify `~/.claude/protocols/` still exists after reinstall (installer should not touch it)
-  - If protocols/ was destroyed (unlikely): restore from `/tmp/oal-protocols-backup/`
+  - If protocols/ was destroyed (unlikely): restore from `/tmp/omg-protocols-backup/`
   - Remove .bak file: `rm -f ~/.claude/protocols/*.bak*`
   - Verify 6 protocol files remain: 01-doc-check.md through 06-cross-model.md
   - Verify CLAUDE.md @import references all resolve:
@@ -381,10 +381,10 @@ Max Concurrent: 5 (Wave 3)
 
   **What to do**:
   - Create HUD directory if needed: `mkdir -p ~/.claude/hud`
-  - Copy latest HUD from OAL source:
-    `cp /Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs ~/.claude/hud/oal-hud.mjs`
+  - Copy latest HUD from OMG source:
+    `cp /Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs ~/.claude/hud/omg-hud.mjs`
   - Remove OMC HUD artifact: `rm -f ~/.claude/hud/omc-hud.mjs`
-  - Verify HUD matches source: `diff ~/.claude/hud/oal-hud.mjs /Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs`
+  - Verify HUD matches source: `diff ~/.claude/hud/omg-hud.mjs /Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs`
 
   **Must NOT do**:
   - Do NOT modify HUD content
@@ -401,10 +401,10 @@ Max Concurrent: 5 (Wave 3)
   - **Blocked By**: Task 3
 
   **References**:
-  - `/Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs` — source HUD file (15,893 bytes)
-  - `~/.claude/hud/oal-hud.mjs` — installed HUD (currently stale: 9,713 bytes)
+  - `/Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs` — source HUD file (15,893 bytes)
+  - `~/.claude/hud/omg-hud.mjs` — installed HUD (currently stale: 9,713 bytes)
   - `~/.claude/hud/omc-hud.mjs` — OMC artifact to remove
-  - `~/.claude/settings.json` line 407-408 — statusLine references `node ~/.claude/hud/oal-hud.mjs`
+  - `~/.claude/settings.json` line 407-408 — statusLine references `node ~/.claude/hud/omg-hud.mjs`
 
   **Acceptance Criteria**:
 
@@ -414,7 +414,7 @@ Max Concurrent: 5 (Wave 3)
   Scenario: HUD updated and OMC HUD removed
     Tool: Bash
     Steps:
-      1. Run `diff ~/.claude/hud/oal-hud.mjs /Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs`
+      1. Run `diff ~/.claude/hud/omg-hud.mjs /Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs`
       2. Run `test ! -f ~/.claude/hud/omc-hud.mjs`
     Expected Result: diff produces no output (files identical); omc-hud.mjs does not exist
     Evidence: .sisyphus/evidence/task-5-hud-check.txt
@@ -432,12 +432,12 @@ Max Concurrent: 5 (Wave 3)
     `rm -f ~/.claude/rules/07-dependency-safety.md`
   - Remove any other .bak files in rules/: `rm -f ~/.claude/rules/*.bak*`
   - Verify exactly 5 core rules remain (00-truth through 04-testing)
-  - Note: these contextual rules exist in `~/.claude/templates/oal/contextual-rules/` (correct location)
+  - Note: these contextual rules exist in `~/.claude/templates/omg/contextual-rules/` (correct location)
 
   **Must NOT do**:
   - Do NOT remove rules 00-04 (core rules)
   - Do NOT modify rule contents
-  - Do NOT touch templates/oal/contextual-rules/
+  - Do NOT touch templates/omg/contextual-rules/
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -454,7 +454,7 @@ Max Concurrent: 5 (Wave 3)
   - `~/.claude/rules/05-infra-safety.md` — contextual rule incorrectly in core rules dir
   - `~/.claude/rules/06-cross-model.md` — contextual rule incorrectly in core rules dir
   - `~/.claude/rules/07-dependency-safety.md` — contextual rule incorrectly in core rules dir
-  - `~/.claude/templates/oal/contextual-rules/` — correct location for contextual rules
+  - `~/.claude/templates/omg/contextual-rules/` — correct location for contextual rules
 
   **Acceptance Criteria**:
 
@@ -483,8 +483,8 @@ Max Concurrent: 5 (Wave 3)
     This task handles the remaining artifacts the installer does NOT remove.
 
   **Must NOT do**:
-  - Do NOT remove any OAL files
-  - Do NOT touch .oal/ directories in project roots
+  - Do NOT remove any OMG files
+  - Do NOT touch .omg/ directories in project roots
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -520,8 +520,8 @@ Max Concurrent: 5 (Wave 3)
 
   **What to do**:
   - Remove all backup directories (two naming patterns):
-    `find ~/.claude -maxdepth 1 -name '.oal-backup-*' -type d -exec rm -rf {} +`
-    `rm -rf ~/.claude/.oal-backups` (separate directory if exists)
+    `find ~/.claude -maxdepth 1 -name '.omg-backup-*' -type d -exec rm -rf {} +`
+    `rm -rf ~/.claude/.omg-backups` (separate directory if exists)
   - Remove all .bak files in agents/:
     `find ~/.claude/agents -name '*.bak*' -delete`
   - Remove all settings.json backup files:
@@ -553,8 +553,8 @@ Max Concurrent: 5 (Wave 3)
   - **Blocked By**: Task 3
 
   **References**:
-  - `~/.claude/.oal-backup-*` — 24+ timestamped backup directories (created by each install)
-  - `~/.claude/.oal-backups/` — separate backup storage directory
+  - `~/.claude/.omg-backup-*` — 24+ timestamped backup directories (created by each install)
+  - `~/.claude/.omg-backups/` — separate backup storage directory
   - `~/.claude/agents/*.bak.*` — 44+ agent backup files
   - `~/.claude/settings.json.bak.*` — 14+ settings backup files
   - `~/.claude/CLAUDE.md.backup.*` and `CLAUDE.md.bak.*` — 7+ CLAUDE.md backups
@@ -569,13 +569,13 @@ Max Concurrent: 5 (Wave 3)
   Scenario: All backup debris removed
     Tool: Bash
     Steps:
-      1. Run `find ~/.claude -maxdepth 1 -name '.oal-backup-*' -type d | wc -l`
-      2. Run `test ! -d ~/.claude/.oal-backups && echo 'PASS' || echo 'FAIL'`
+      1. Run `find ~/.claude -maxdepth 1 -name '.omg-backup-*' -type d | wc -l`
+      2. Run `test ! -d ~/.claude/.omg-backups && echo 'PASS' || echo 'FAIL'`
       3. Run `find ~/.claude -name '*.bak*' | wc -l`
       4. Run `find ~/.claude -name '*.backup*' | wc -l`
       5. Run `find ~/.claude/agents -name '*.bak*' | wc -l`
       6. Run `test ! -d ~/.claude/hooks/__pycache__ && echo 'PASS' || echo 'FAIL'`
-    Expected Result: 0 backup dirs; .oal-backups PASS; 0 .bak files; 0 .backup files; 0 agent baks; __pycache__ PASS
+    Expected Result: 0 backup dirs; .omg-backups PASS; 0 .bak files; 0 .backup files; 0 agent baks; __pycache__ PASS
     Evidence: .sisyphus/evidence/task-8-debris-check.txt
 
   Scenario: Protected files not touched
@@ -601,14 +601,14 @@ Max Concurrent: 5 (Wave 3)
     1. Core rules count = exactly 5
     2. No orphan rules (only 00-04 pattern)
     3. Zero .bak/.backup files anywhere in ~/.claude
-    4. Zero .oal-backup-* directories
-    5. No .oal-backups/ directory
+    4. Zero .omg-backup-* directories
+    5. No .omg-backups/ directory
     6. No OMC artifacts (.omc/, .omc-config.json, omc-hud.mjs)
     7. HUD matches source
     8. CLAUDE.md @imports all resolve
     9. protocols/ intact (6 files, no .bak)
     10. All settings.json hooks point to existing files
-    11. OAL version marker exists
+    11. OMG version marker exists
 
   **Must NOT do**:
   - Do NOT fix issues in this task — only report
@@ -673,7 +673,7 @@ Max Concurrent: 5 (Wave 3)
   **References**:
   - `~/.claude/settings.json` hooks section (lines 266-404) — all hook registrations
   - `~/.claude/hooks/` — all installed hook files
-  - `~/.claude/hooks/quality-gate.py` — custom hook (NOT from OAL source, documented as kept)
+  - `~/.claude/hooks/quality-gate.py` — custom hook (NOT from OMG source, documented as kept)
 
   **Acceptance Criteria**:
 
@@ -734,8 +734,8 @@ ls ~/.claude/rules/ | grep -v "^0[0-4]-"  # Expected: empty
 find ~/.claude -name "*.bak*" -o -name "*.backup*" | wc -l  # Expected: 0
 
 # Zero backup directories
-find ~/.claude -maxdepth 1 -name ".oal-backup-*" -type d | wc -l  # Expected: 0
-test ! -d ~/.claude/.oal-backups  # Expected: exit 0
+find ~/.claude -maxdepth 1 -name ".omg-backup-*" -type d | wc -l  # Expected: 0
+test ! -d ~/.claude/.omg-backups  # Expected: exit 0
 
 # No OMC artifacts
 test ! -d ~/.claude/.omc  # Expected: exit 0
@@ -743,7 +743,7 @@ test ! -f ~/.claude/.omc-config.json  # Expected: exit 0
 test ! -f ~/.claude/hud/omc-hud.mjs  # Expected: exit 0
 
 # HUD is current
-diff ~/.claude/hud/oal-hud.mjs /Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs  # Expected: no output
+diff ~/.claude/hud/omg-hud.mjs /Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs  # Expected: no output
 
 # CLAUDE.md @imports all resolve
 grep "^@" ~/.claude/CLAUDE.md | sed 's/^@//' | while read f; do test -f "$HOME/.claude/$f" || echo "MISSING: $f"; done  # Expected: no output
@@ -772,4 +772,4 @@ print('All hook files verified')
 - [x] All "Must Have" present — hooks installed, settings.json valid, CLAUDE.md @imports resolve, protocols intact
 - [x] All "Must NOT Have" absent — no OMC artifacts, no stray backups, no orphan rules, no omc-hud.mjs
 - [x] All 11 acceptance criteria pass — rules=5, protocols=6, HUD current, all hooks verified, @imports clean
-- [x] /OAL:health-check clean — all hook files verified via python3 check, all @imports resolve, no missing files
+- [x] /OMG:health-check clean — all hook files verified via python3 check, all @imports resolve, no missing files

@@ -13,7 +13,7 @@ import pytest
 # Project root for subprocess cwd
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HOOK = "hooks/magic-keyword-router.py"
-ROUTING_RESULT_REL = ".oal/state/routing_result.json"
+ROUTING_RESULT_REL = ".omg/state/routing_result.json"
 
 
 def _make_leader_hint(intents):
@@ -33,8 +33,8 @@ def _make_leader_hint(intents):
 
 @pytest.fixture
 def tmp_project(tmp_path):
-    """Create a temporary project directory with .oal/state."""
-    state_dir = tmp_path / ".oal" / "state"
+    """Create a temporary project directory with .omg/state."""
+    state_dir = tmp_path / ".omg" / "state"
     state_dir.mkdir(parents=True)
     return tmp_path
 
@@ -44,7 +44,7 @@ def run_router(payload, project_dir=None, enabled=True):
     stdin_data = json.dumps(payload)
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(project_dir) if project_dir else ROOT
-    env["OAL_MAGIC_ROUTER_ENABLED"] = "1" if enabled else "0"
+    env["OMG_MAGIC_ROUTER_ENABLED"] = "1" if enabled else "0"
 
     proc = subprocess.run(
         ["python3", os.path.join(ROOT, HOOK)],
@@ -158,9 +158,9 @@ class TestFallbackRouting:
         assert result["target_agent"] is None
 
     def test_no_stdin_reads_file(self, tmp_project):
-        """When stdin has no LEADER_HINT, reads from .oal/state/leader_hint.json."""
+        """When stdin has no LEADER_HINT, reads from .omg/state/leader_hint.json."""
         # Write leader_hint.json file
-        hint_path = tmp_project / ".oal" / "state" / "leader_hint.json"
+        hint_path = tmp_project / ".omg" / "state" / "leader_hint.json"
         hint_data = _make_leader_hint([("INTENT_PLAN", 0.90, "plan this")])
         with open(hint_path, "w") as f:
             json.dump(hint_data, f)
@@ -175,7 +175,7 @@ class TestFallbackRouting:
     def test_stdin_preferred_over_file(self, tmp_project):
         """Stdin LEADER_HINT takes precedence over file."""
         # Write file with INTENT_PLAN
-        hint_path = tmp_project / ".oal" / "state" / "leader_hint.json"
+        hint_path = tmp_project / ".omg" / "state" / "leader_hint.json"
         file_data = _make_leader_hint([("INTENT_PLAN", 0.90, "plan this")])
         with open(hint_path, "w") as f:
             json.dump(file_data, f)
@@ -194,7 +194,7 @@ class TestFallbackRouting:
 
 class TestFeatureFlag:
     def test_disabled_no_routing_written(self, tmp_project):
-        """When OAL_MAGIC_ROUTER_ENABLED=0, no routing_result.json is written."""
+        """When OMG_MAGIC_ROUTER_ENABLED=0, no routing_result.json is written."""
         payload = _make_leader_hint([("INTENT_MAX_EFFORT", 0.95, "ultrawork")])
         _, result = run_router(payload, project_dir=tmp_project, enabled=False)
         assert result is None, "routing_result.json should NOT be written when disabled"
@@ -282,7 +282,7 @@ class TestErrorHandling:
         """Invalid JSON stdin → exit 0, no crash."""
         env = os.environ.copy()
         env["CLAUDE_PROJECT_DIR"] = ROOT
-        env["OAL_MAGIC_ROUTER_ENABLED"] = "1"
+        env["OMG_MAGIC_ROUTER_ENABLED"] = "1"
         proc = subprocess.run(
             ["python3", os.path.join(ROOT, HOOK)],
             input="not json",
@@ -296,7 +296,7 @@ class TestErrorHandling:
 
     def test_corrupt_leader_hint_file_fallback(self, tmp_project):
         """Corrupt leader_hint.json → fallback routing (not crash)."""
-        hint_path = tmp_project / ".oal" / "state" / "leader_hint.json"
+        hint_path = tmp_project / ".omg" / "state" / "leader_hint.json"
         with open(hint_path, "w") as f:
             f.write("not valid json {{{")
 

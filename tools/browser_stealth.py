@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Browser Stealth Plugins for OAL
+Browser Stealth Plugins for OMG
 
 Provides 14 stealth plugin definitions that can be applied to a browser
 session to evade bot detection. Each plugin is a dict with `name`,
 `description`, and `js_snippet` fields.
 
-Feature flag: OAL_BROWSER_STEALTH_ENABLED (default: False)
-Requires SEPARATE consent: .oal/state/browser_consent.json -> {"consented": true}
+Feature flag: OMG_BROWSER_STEALTH_ENABLED (default: False)
+Requires SEPARATE consent: .omg/state/browser_consent.json -> {"consented": true}
 
 IMPORTANT: Stealth plugins are opt-in only. They require:
-  1. OAL_BROWSER_ENABLED=true (base browser feature)
-  2. OAL_BROWSER_STEALTH_ENABLED=true (stealth feature flag)
-  3. Explicit user consent in .oal/state/browser_consent.json
+  1. OMG_BROWSER_ENABLED=true (base browser feature)
+  2. OMG_BROWSER_STEALTH_ENABLED=true (stealth feature flag)
+  3. Explicit user consent in .omg/state/browser_consent.json
 """
 
 import json
@@ -49,10 +49,10 @@ def _ensure_imports():
 def _is_stealth_enabled() -> bool:
     """Check if Browser Stealth feature is enabled.
 
-    Requires BOTH OAL_BROWSER_ENABLED and OAL_BROWSER_STEALTH_ENABLED.
+    Requires BOTH OMG_BROWSER_ENABLED and OMG_BROWSER_STEALTH_ENABLED.
     """
     # Check browser base flag first
-    browser_env = os.environ.get("OAL_BROWSER_ENABLED", "").lower()
+    browser_env = os.environ.get("OMG_BROWSER_ENABLED", "").lower()
     if browser_env in ("0", "false", "no"):
         return False
     browser_on = browser_env in ("1", "true", "yes")
@@ -64,7 +64,7 @@ def _is_stealth_enabled() -> bool:
             return False
 
     # Check stealth flag
-    stealth_env = os.environ.get("OAL_BROWSER_STEALTH_ENABLED", "").lower()
+    stealth_env = os.environ.get("OMG_BROWSER_STEALTH_ENABLED", "").lower()
     if stealth_env in ("0", "false", "no"):
         return False
     if stealth_env in ("1", "true", "yes"):
@@ -91,7 +91,7 @@ def _disabled_response() -> Dict[str, Any]:
     """Response when stealth feature flag is disabled."""
     return _error_response(
         "Browser stealth feature is disabled "
-        "(requires OAL_BROWSER_ENABLED=true and OAL_BROWSER_STEALTH_ENABLED=true)"
+        "(requires OMG_BROWSER_ENABLED=true and OMG_BROWSER_STEALTH_ENABLED=true)"
     )
 
 
@@ -288,10 +288,10 @@ class StealthManager:
     """Manages browser stealth plugin definitions and application.
 
     All operations check the feature flag gate. Plugin application also
-    requires explicit user consent via .oal/state/browser_consent.json.
+    requires explicit user consent via .omg/state/browser_consent.json.
 
     Attributes:
-        project_dir: Root directory containing the .oal/ state folder.
+        project_dir: Root directory containing the .omg/ state folder.
     """
 
     def __init__(self, project_dir: Optional[str] = None):
@@ -336,7 +336,7 @@ class StealthManager:
         except ImportError:
             # Fallback: inline check if browser_consent not available
             consent_path = os.path.join(
-                self.project_dir, ".oal", "state", "browser_consent.json"
+                self.project_dir, ".omg", "state", "browser_consent.json"
             )
             try:
                 if not os.path.exists(consent_path):
@@ -376,7 +376,7 @@ class StealthManager:
         if not self.is_consented():
             return _error_response(
                 "Browser stealth requires explicit consent. "
-                "Write {\"consented\": true} to .oal/state/browser_consent.json",
+                "Write {\"consented\": true} to .omg/state/browser_consent.json",
                 requires_consent=True,
             )
 
@@ -414,7 +414,7 @@ def _cli_main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="OAL Browser Stealth — stealth plugin manager for bot detection evasion",
+        description="OMG Browser Stealth — stealth plugin manager for bot detection evasion",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

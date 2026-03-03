@@ -1,4 +1,4 @@
-# Learnings — oal-clean-install
+# Learnings — omg-clean-install
 
 ## 2026-02-28 Session 2 (ses_35d76f9acffenr5Pim4tChFrCe)
 
@@ -21,7 +21,7 @@
 - Only `settings.json.bak.*` at ~/.claude root level is safe to delete
 
 ### Installer Behavior
-- `OAL-setup.sh reinstall` ALWAYS creates `settings.json.bak.<timestamp>` during settings merge
+- `OMG-setup.sh reinstall` ALWAYS creates `settings.json.bak.<timestamp>` during settings merge
 - This backup is created even with `--non-interactive --merge-policy=apply`
 - Must be cleaned AFTER each installer run
 

@@ -1,7 +1,7 @@
 # Working Memory
 Last updated: [date]
 
-## Current Goal
+## Current Gomg
 [What we're trying to achieve right now]
 
 ## Progress

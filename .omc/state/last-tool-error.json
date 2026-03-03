@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"ls -la /Users/cminseo/Documents/scripts/Shell/OAL/tests/hooks/test_hardening.py 2>&1\",\"description\":\"Check if test file exists\"}",
-  "error": "Exit code 1\nls: /Users/cminseo/Documents/scripts/Shell/OAL/tests/hooks/test_hardening.py: No such file or directory\n\nls: /Users/cminseo/Documents/scripts/Shell/OAL/tests/hooks/test_hardening.py: No such file or directory",
+  "tool_input_preview": "{\"command\":\"ls -la /Users/cminseo/Documents/scripts/Shell/OMG/tests/hooks/test_hardening.py 2>&1\",\"description\":\"Check if test file exists\"}",
+  "error": "Exit code 1\nls: /Users/cminseo/Documents/scripts/Shell/OMG/tests/hooks/test_hardening.py: No such file or directory\n\nls: /Users/cminseo/Documents/scripts/Shell/OMG/tests/hooks/test_hardening.py: No such file or directory",
   "timestamp": "2026-02-27T22:25:56.958Z",
   "retry_count": 2
 }

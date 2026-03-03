@@ -1,9 +1,9 @@
-"""OAL Natives — task: concurrent.futures thread pool execution.
+"""OMG Natives — task: concurrent.futures thread pool execution.
 
 Pure-Python fallback using ``concurrent.futures.ThreadPoolExecutor``
 for running callables in a background thread with timeout support.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from typing import Any, Callable
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 
 def task_run(fn: Callable[..., Any], *args: Any, timeout: float = 30.0) -> dict:
@@ -35,7 +35,7 @@ def task_run(fn: Callable[..., Any], *args: Any, timeout: float = 30.0) -> dict:
 # Note: function is 'task_run' to avoid shadowing Python's 'task' concept
 bind_function(
     name="task_run",
-    rust_symbol="oal_natives::task::task_run",
+    rust_symbol="omg_natives::task::task_run",
     python_fallback=task_run,
     type_hints={"fn": "callable", "timeout": "float"},
 )

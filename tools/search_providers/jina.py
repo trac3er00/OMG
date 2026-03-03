@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Jina Reader Provider for OAL
+Jina Reader Provider for OMG
 
 Uses the Jina Reader API (https://r.jina.ai/) for URL-based content extraction.
 Jina Reader converts web pages to clean, readable text — it is primarily a
@@ -87,7 +87,7 @@ class JinaProvider(Provider):
 
         headers = {
             "Accept": "text/plain",
-            "User-Agent": "OAL-WebSearch/1.0",
+            "User-Agent": "OMG-WebSearch/1.0",
         }
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"

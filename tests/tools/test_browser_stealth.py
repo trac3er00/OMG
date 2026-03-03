@@ -16,8 +16,8 @@ from unittest.mock import patch
 import pytest
 
 # Enable both feature flags for tests
-os.environ["OAL_BROWSER_ENABLED"] = "true"
-os.environ["OAL_BROWSER_STEALTH_ENABLED"] = "true"
+os.environ["OMG_BROWSER_ENABLED"] = "true"
+os.environ["OMG_BROWSER_STEALTH_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
@@ -32,8 +32,8 @@ from browser_stealth import STEALTH_PLUGINS, StealthManager, _PLUGIN_INDEX
 
 @pytest.fixture
 def tmp_project(tmp_path):
-    """Create a temp project dir with .oal/state/ structure."""
-    state_dir = tmp_path / ".oal" / "state"
+    """Create a temp project dir with .omg/state/ structure."""
+    state_dir = tmp_path / ".omg" / "state"
     state_dir.mkdir(parents=True)
     return tmp_path
 
@@ -41,7 +41,7 @@ def tmp_project(tmp_path):
 @pytest.fixture
 def consented_project(tmp_project):
     """Project dir with consent granted."""
-    consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+    consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
     consent_path.write_text(json.dumps({"consented": True}))
     return tmp_project
 
@@ -153,13 +153,13 @@ class TestStealthManagerGetPlugins:
 
     def test_get_plugins_empty_when_disabled(self, manager_consented):
         """get_plugins returns empty list when stealth flag is disabled."""
-        with patch.dict(os.environ, {"OAL_BROWSER_STEALTH_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_STEALTH_ENABLED": "false"}):
             plugins = manager_consented.get_plugins()
             assert plugins == []
 
     def test_get_plugins_empty_when_browser_disabled(self, manager_consented):
         """get_plugins returns empty list when browser flag is disabled."""
-        with patch.dict(os.environ, {"OAL_BROWSER_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_ENABLED": "false"}):
             plugins = manager_consented.get_plugins()
             assert plugins == []
 
@@ -177,7 +177,7 @@ class TestStealthManagerGetPlugins:
 
     def test_get_plugin_none_when_disabled(self, manager_consented):
         """get_plugin returns None when stealth flag is disabled."""
-        with patch.dict(os.environ, {"OAL_BROWSER_STEALTH_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_STEALTH_ENABLED": "false"}):
             plugin = manager_consented.get_plugin("canvas_fingerprint")
             assert plugin is None
 
@@ -202,21 +202,21 @@ class TestConsent:
 
     def test_false_consent_returns_false(self, tmp_project):
         """is_consented returns False when consent file has consented: false."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text(json.dumps({"consented": False}))
         manager = StealthManager(project_dir=str(tmp_project))
         assert manager.is_consented() is False
 
     def test_malformed_consent_returns_false(self, tmp_project):
         """is_consented returns False on malformed JSON."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text("not valid json {{{")
         manager = StealthManager(project_dir=str(tmp_project))
         assert manager.is_consented() is False
 
     def test_empty_consent_returns_false(self, tmp_project):
         """is_consented returns False when consent file is empty dict."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text(json.dumps({}))
         manager = StealthManager(project_dir=str(tmp_project))
         assert manager.is_consented() is False
@@ -259,7 +259,7 @@ class TestApplyPlugins:
 
     def test_apply_fails_when_disabled(self, manager_consented, mock_session):
         """apply_plugins returns disabled response when flag is off."""
-        with patch.dict(os.environ, {"OAL_BROWSER_STEALTH_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_STEALTH_ENABLED": "false"}):
             result = manager_consented.apply_plugins(mock_session)
             assert result["success"] is False
             assert "disabled" in result["error"].lower()
@@ -305,12 +305,12 @@ class TestFeatureFlagGating:
 
     def test_browser_off_blocks_stealth(self, manager_consented, mock_session):
         """Disabling browser flag blocks stealth even with stealth flag on."""
-        with patch.dict(os.environ, {"OAL_BROWSER_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_ENABLED": "false"}):
             result = manager_consented.apply_plugins(mock_session)
             assert result["success"] is False
 
     def test_stealth_off_blocks_apply(self, manager_consented, mock_session):
         """Disabling stealth flag blocks apply even with browser on."""
-        with patch.dict(os.environ, {"OAL_BROWSER_STEALTH_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_BROWSER_STEALTH_ENABLED": "false"}):
             result = manager_consented.apply_plugins(mock_session)
             assert result["success"] is False

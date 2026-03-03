@@ -1,10 +1,10 @@
-"""OAL Natives — html: HTML→Markdown and HTML→text conversion.
+"""OMG Natives — html: HTML→Markdown and HTML→text conversion.
 
 Pure-Python fallback for HTML processing.
 Uses ``re`` only — avoids importing stdlib ``html`` to prevent circular
 import issues (this file is named ``html.py`` which shadows the stdlib).
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 # ---------------------------------------------------------------------------
 # Minimal HTML entity unescaping (avoids importing stdlib html module)
@@ -151,7 +151,7 @@ def html(content: str, operation: str = "to_text") -> str:
 # Self-register with the global binding registry
 bind_function(
     name="html",
-    rust_symbol="oal_natives::html::html",
+    rust_symbol="omg_natives::html::html",
     python_fallback=html,
     type_hints={"content": "str", "operation": "str"},
 )

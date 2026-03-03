@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PostToolUse Hook (*): Tool Execution Ledger (Enterprise)
-Logs every tool execution to .oal/state/ledger/tool-ledger.jsonl.
+Logs every tool execution to .omg/state/ledger/tool-ledger.jsonl.
 Evidence trail for stop-gate.py and claim verification.
 Includes log rotation to prevent unbounded growth.
 """
@@ -54,10 +54,10 @@ entry = {
     "tool": tool_name,
 }
 
-# Link ledger entries to OAL v1 run/evidence artifacts when available.
-run_id = os.environ.get("OAL_RUN_ID")
+# Link ledger entries to OMG v1 run/evidence artifacts when available.
+run_id = os.environ.get("OMG_RUN_ID")
 if not run_id:
-    active_run = os.path.join(project_dir, ".oal", "shadow", "active-run")
+    active_run = os.path.join(project_dir, ".omg", "shadow", "active-run")
     if os.path.exists(active_run):
         try:
             with open(active_run, "r", encoding="utf-8") as f:
@@ -103,7 +103,7 @@ elif tool_name == "Read":
 
 # Attach the latest evidence file path if one exists for this run.
 if run_id:
-    ev_path = os.path.join(project_dir, ".oal", "evidence", f"{run_id}.json")
+    ev_path = os.path.join(project_dir, ".omg", "evidence", f"{run_id}.json")
     if os.path.exists(ev_path):
         entry["evidence_path"] = os.path.relpath(ev_path, project_dir)
 

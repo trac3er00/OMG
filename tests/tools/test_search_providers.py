@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Enable feature flag for tests
-os.environ["OAL_WEB_SEARCH_ENABLED"] = "true"
+os.environ["OMG_WEB_SEARCH_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
@@ -361,8 +361,8 @@ class TestAutoRegistration:
             if not k.endswith("_API_KEY")
         }
         with patch.dict(os.environ, env_clean, clear=True):
-            # Also ensure OAL_WEB_SEARCH_ENABLED stays set
-            os.environ["OAL_WEB_SEARCH_ENABLED"] = "true"
+            # Also ensure OMG_WEB_SEARCH_ENABLED stays set
+            os.environ["OMG_WEB_SEARCH_ENABLED"] = "true"
             # Force credential store to be unavailable
             import web_search
             with patch.object(web_search, "_HAS_CREDENTIAL_STORE", False):

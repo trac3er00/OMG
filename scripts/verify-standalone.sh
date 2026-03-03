@@ -10,7 +10,7 @@ echo "[verify-standalone] workdir: $TMP_DIR"
 tar --exclude="./.omc" --exclude="./.pytest_cache" -cf - -C "$ROOT_DIR" . | (cd "$TMP_DIR" && tar -xf -)
 
 cd "$TMP_DIR"
-python3 scripts/oal.py compat gate --max-bridge 0 --output .oal/evidence/oal-compat-gap.json
+python3 scripts/omg.py compat gate --max-bridge 0 --output .omg/evidence/omg-compat-gap.json
 
 if command -v pyenv >/dev/null 2>&1 && pyenv prefix 3.12.7 >/dev/null 2>&1; then
   PYENV_VERSION=3.12.7 python -m pytest -q

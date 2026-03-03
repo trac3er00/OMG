@@ -5,7 +5,7 @@ When a post-write formatter (e.g. prettier, ruff format) modifies a file,
 the cached line hashes become stale.  This bridge detects the change and
 refreshes the sidecar cache so subsequent reads/edits use correct anchors.
 
-Feature flag: OAL_HASHLINE_ENABLED (default: False)
+Feature flag: OMG_HASHLINE_ENABLED (default: False)
 """
 import json
 import os
@@ -30,9 +30,9 @@ setup_crash_handler("hashline-formatter-bridge")
 def _is_enabled() -> bool:
     """Check if hashline features are enabled.
 
-    Resolution order: OAL_HASHLINE_ENABLED env var -> settings.json -> False
+    Resolution order: OMG_HASHLINE_ENABLED env var -> settings.json -> False
     """
-    env_val = os.environ.get("OAL_HASHLINE_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_HASHLINE_ENABLED", "").lower()
     if env_val in ("1", "true", "yes"):
         return True
     if env_val in ("0", "false", "no"):
@@ -186,7 +186,7 @@ def main():
 
         {"tool_name": "Write", "tool_input": {"file_path": "..."}}
 
-    If tool_name is a write tool and OAL_HASHLINE_ENABLED is set,
+    If tool_name is a write tool and OMG_HASHLINE_ENABLED is set,
     runs ``reconcile_post_format`` to refresh the hash cache after
     any post-write formatter may have modified the file.
 

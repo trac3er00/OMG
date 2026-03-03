@@ -193,24 +193,24 @@ class TestFeatureFlag:
 
     def test_disabled_returns_empty_list(self):
         """load_custom_agents returns empty list when feature disabled."""
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "0"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "0"}, clear=False):
             result = load_custom_agents(".")
             assert result == []
 
     def test_enabled_via_env(self):
         """_is_enabled returns True when env var is set to '1'."""
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             assert _is_enabled() is True
 
     def test_disabled_via_env_false(self):
         """_is_enabled returns False when env var is 'false'."""
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "false"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "false"}, clear=False):
             assert _is_enabled() is False
 
     def test_disabled_by_default(self):
         """_is_enabled returns False when env var not set (default)."""
         env = os.environ.copy()
-        env.pop("OAL_CUSTOM_AGENTS_ENABLED", None)
+        env.pop("OMG_CUSTOM_AGENTS_ENABLED", None)
         with patch.dict(os.environ, env, clear=True):
             # Mock get_feature_flag to return False (default)
             with patch("runtime.custom_agent_loader._get_feature_flag") as mock_flag:
@@ -283,7 +283,7 @@ class TestProjectOverride:
         user_dir = tmp_path / "user_agents"
         user_dir.mkdir()
         project_dir = tmp_path / "project"
-        project_agents = project_dir / ".oal" / "agents"
+        project_agents = project_dir / ".omg" / "agents"
         project_agents.mkdir(parents=True)
 
         # User agent
@@ -295,7 +295,7 @@ class TestProjectOverride:
             "# Agent: Shared\n\n## Role\n\nProject-level shared agent.\n"
         )
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("runtime.custom_agent_loader._get_user_agents_dir", return_value=str(user_dir)):
                 agents = load_custom_agents(str(project_dir))
 
@@ -313,7 +313,7 @@ class TestProjectOverride:
 
         (user_dir / "my-agent.md").write_text(MINIMAL_VALID_AGENT_MD)
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("runtime.custom_agent_loader._get_user_agents_dir", return_value=str(user_dir)):
                 agents = load_custom_agents(str(project_dir))
 
@@ -331,7 +331,7 @@ class TestGetAllAgents:
 
     def test_includes_builtin_agents(self):
         """Built-in agents are present in merged result."""
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "0"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "0"}, clear=False):
             result = get_all_agents(".")
             # Should have built-in agents
             assert "explore" in result
@@ -340,13 +340,13 @@ class TestGetAllAgents:
 
     def test_custom_agent_overrides_builtin(self, tmp_path):
         """Custom agent with same name overrides built-in."""
-        project_agents = tmp_path / ".oal" / "agents"
+        project_agents = tmp_path / ".omg" / "agents"
         project_agents.mkdir(parents=True)
         (project_agents / "explore.md").write_text(
             "# Agent: Explore\n\n## Role\n\nCustom explore agent.\n"
         )
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("runtime.custom_agent_loader._get_user_agents_dir", return_value=str(tmp_path / "no_user")):
                 result = get_all_agents(str(tmp_path))
 
@@ -355,13 +355,13 @@ class TestGetAllAgents:
 
     def test_custom_agents_added_alongside_builtin(self, tmp_path):
         """Custom agents are added alongside built-in agents."""
-        project_agents = tmp_path / ".oal" / "agents"
+        project_agents = tmp_path / ".omg" / "agents"
         project_agents.mkdir(parents=True)
         (project_agents / "my-custom.md").write_text(
             "# Agent: My Custom\n\n## Role\n\nA brand new custom agent.\n"
         )
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("runtime.custom_agent_loader._get_user_agents_dir", return_value=str(tmp_path / "no_user")):
                 result = get_all_agents(str(tmp_path))
 
@@ -371,11 +371,11 @@ class TestGetAllAgents:
 
     def test_invalid_custom_agents_excluded(self, tmp_path):
         """Invalid custom agents are not included in merged result."""
-        project_agents = tmp_path / ".oal" / "agents"
+        project_agents = tmp_path / ".omg" / "agents"
         project_agents.mkdir(parents=True)
         (project_agents / "bad.md").write_text(MISSING_ROLE_MD)
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("runtime.custom_agent_loader._get_user_agents_dir", return_value=str(tmp_path / "no_user")):
                 result = get_all_agents(str(tmp_path))
 
@@ -393,7 +393,7 @@ class TestWatchForChanges:
     def test_detects_new_file(self, tmp_path):
         """Detects when a new agent file is created."""
         project_dir = tmp_path / "project"
-        agents_dir = project_dir / ".oal" / "agents"
+        agents_dir = project_dir / ".omg" / "agents"
         agents_dir.mkdir(parents=True)
 
         callback = MagicMock()
@@ -403,7 +403,7 @@ class TestWatchForChanges:
             # Original sleep behavior but also create a file
             (agents_dir / "new-agent.md").write_text(MINIMAL_VALID_AGENT_MD)
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("runtime.custom_agent_loader._get_user_agents_dir", return_value=str(tmp_path / "no_user")):
                 with patch("time.sleep", side_effect=create_file_after_sleep):
                     watch_for_changes(str(project_dir), callback, poll_interval=0.01, max_iterations=1)
@@ -413,13 +413,13 @@ class TestWatchForChanges:
     def test_no_callback_when_no_changes(self, tmp_path):
         """No callback when nothing changes."""
         project_dir = tmp_path / "project"
-        agents_dir = project_dir / ".oal" / "agents"
+        agents_dir = project_dir / ".omg" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "stable.md").write_text(MINIMAL_VALID_AGENT_MD)
 
         callback = MagicMock()
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("runtime.custom_agent_loader._get_user_agents_dir", return_value=str(tmp_path / "no_user")):
                 with patch("time.sleep"):
                     watch_for_changes(str(project_dir), callback, poll_interval=0.01, max_iterations=1)
@@ -461,7 +461,7 @@ class TestRegistryIntegration:
     def test_disabled_returns_zero(self):
         """Returns 0 when feature disabled."""
         from _agent_registry import load_custom_agents_into_registry
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "0"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "0"}, clear=False):
             count = load_custom_agents_into_registry(".")
             assert count == 0
 
@@ -469,13 +469,13 @@ class TestRegistryIntegration:
         """Loads valid custom agents into AGENT_REGISTRY."""
         from _agent_registry import load_custom_agents_into_registry, AGENT_REGISTRY
 
-        project_agents = tmp_path / ".oal" / "agents"
+        project_agents = tmp_path / ".omg" / "agents"
         project_agents.mkdir(parents=True)
         (project_agents / "custom-test.md").write_text(
             "# Agent: Custom Test\n\n## Role\n\nA test custom agent.\n"
         )
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("custom_agent_loader._get_user_agents_dir", return_value=str(tmp_path / "no_user")):
                 count = load_custom_agents_into_registry(str(tmp_path))
 
@@ -490,13 +490,13 @@ class TestRegistryIntegration:
         """Skips invalid agents (missing required sections)."""
         from _agent_registry import load_custom_agents_into_registry, AGENT_REGISTRY
 
-        project_agents = tmp_path / ".oal" / "agents"
+        project_agents = tmp_path / ".omg" / "agents"
         project_agents.mkdir(parents=True)
         (project_agents / "invalid.md").write_text(MISSING_ROLE_MD)
 
         original_keys = set(AGENT_REGISTRY.keys())
 
-        with patch.dict(os.environ, {"OAL_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
+        with patch.dict(os.environ, {"OMG_CUSTOM_AGENTS_ENABLED": "1"}, clear=False):
             with patch("custom_agent_loader._get_user_agents_dir", return_value=str(tmp_path / "no_user")):
                 count = load_custom_agents_into_registry(str(tmp_path))
 

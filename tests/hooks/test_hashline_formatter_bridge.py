@@ -69,13 +69,13 @@ class TestDetectFormatterChange:
 class TestRefreshCacheAfterFormat:
     """Tests for refresh_cache_after_format()."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "false"})
     def test_disabled_returns_true(self):
         """When feature is disabled, returns True (skip)."""
         # Force re-evaluation
         assert refresh_cache_after_format("f.py", "x=1") is True
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_enabled_caches_hashes(self):
         """When enabled, computes hashes and caches them."""
         mock_cache = MagicMock()
@@ -93,7 +93,7 @@ class TestRefreshCacheAfterFormat:
         assert args[0][0] == "f.py"
         assert args[0][1] == {"1": "VK", "2": "VK", "3": "VK"}
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_enabled_injector_import_failure(self):
         """Returns False when injector cannot be loaded."""
         with patch.object(hashline_formatter_bridge, "_injector", None):
@@ -101,7 +101,7 @@ class TestRefreshCacheAfterFormat:
                 result = refresh_cache_after_format("f.py", "x=1")
         assert result is False
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_enabled_cache_write_failure(self):
         """Returns False when _cache_hashes raises."""
         mock_injector = MagicMock()
@@ -112,7 +112,7 @@ class TestRefreshCacheAfterFormat:
             result = refresh_cache_after_format("f.py", "x=1")
         assert result is False
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_single_line_content(self):
         """Single line gets hash at key '1'."""
         mock_cache = MagicMock()
@@ -127,7 +127,7 @@ class TestRefreshCacheAfterFormat:
         args = mock_cache.call_args[0]
         assert args[1] == {"1": "BH"}
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_empty_content(self):
         """Empty string still has one empty line."""
         mock_cache = MagicMock()
@@ -148,12 +148,12 @@ class TestRefreshCacheAfterFormat:
 class TestReconcilePostFormat:
     """Tests for reconcile_post_format()."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "false"})
     def test_disabled_returns_skipped(self):
         result = reconcile_post_format("f.py")
         assert result == {"skipped": True}
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_file_not_found(self):
         """Non-existent file returns refreshed=False."""
         mock_injector = MagicMock()
@@ -167,7 +167,7 @@ class TestReconcilePostFormat:
         assert result["refreshed"] is False
         assert result["lines_updated"] == 0
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_cache_valid_no_refresh(self):
         """When cache is valid (mtime matches), no refresh needed."""
         mock_injector = MagicMock()
@@ -186,7 +186,7 @@ class TestReconcilePostFormat:
         finally:
             os.unlink(tmp_path)
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_cache_stale_triggers_refresh(self):
         """When cache returns None (stale mtime), refresh happens."""
         mock_cache = MagicMock()
@@ -210,7 +210,7 @@ class TestReconcilePostFormat:
         finally:
             os.unlink(tmp_path)
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_injector_import_failure(self):
         """Returns refreshed=False when injector cannot be loaded."""
         with patch.object(hashline_formatter_bridge, "_injector", None):
@@ -226,19 +226,19 @@ class TestReconcilePostFormat:
 class TestIsEnabled:
     """Tests for the _is_enabled feature flag."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_env_true(self):
         assert _is_enabled() is True
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "false"})
     def test_env_false(self):
         assert _is_enabled() is False
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_env_one(self):
         assert _is_enabled() is True
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "0"})
     def test_env_zero(self):
         assert _is_enabled() is False
 
@@ -246,7 +246,7 @@ class TestIsEnabled:
     def test_default_false(self):
         """When env not set, falls back to get_feature_flag (default False)."""
         env = os.environ.copy()
-        env.pop("OAL_HASHLINE_ENABLED", None)
+        env.pop("OMG_HASHLINE_ENABLED", None)
         with patch.dict(os.environ, env, clear=True):
             with patch.object(hashline_formatter_bridge, "get_feature_flag", return_value=False):
                 assert _is_enabled() is False
@@ -258,13 +258,13 @@ class TestIsEnabled:
 class TestMainHook:
     """Tests for the hook stdin/stdout entry point."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "false"})
     def test_disabled_exits_zero(self):
         with pytest.raises(SystemExit) as exc_info:
             hashline_formatter_bridge.main()
         assert exc_info.value.code == 0
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_non_write_tool_exits_zero(self):
         """Non-write tools are ignored."""
         input_data = {"tool_name": "Read", "tool_input": {"file_path": "f.py"}}
@@ -273,7 +273,7 @@ class TestMainHook:
                 hashline_formatter_bridge.main()
         assert exc_info.value.code == 0
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_write_tool_triggers_reconcile(self):
         """Write tool triggers reconcile_post_format."""
         input_data = {"tool_name": "Write", "tool_input": {"file_path": "test.py"}}
@@ -287,7 +287,7 @@ class TestMainHook:
         assert exc_info.value.code == 0
         mock_reconcile.assert_called_once_with("test.py")
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_edit_tool_triggers_reconcile(self):
         """Edit tool also triggers reconcile."""
         input_data = {"tool_name": "Edit", "tool_input": {"file_path": "e.py"}}
@@ -301,7 +301,7 @@ class TestMainHook:
         assert exc_info.value.code == 0
         mock_reconcile.assert_called_once_with("e.py")
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_missing_file_path_exits_zero(self):
         """Missing file_path is gracefully handled."""
         input_data = {"tool_name": "Write", "tool_input": {}}
@@ -310,7 +310,7 @@ class TestMainHook:
                 hashline_formatter_bridge.main()
         assert exc_info.value.code == 0
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_invalid_input_exits_zero(self):
         """Non-dict input is gracefully handled."""
         with patch.object(hashline_formatter_bridge, "json_input", return_value="garbage"):
@@ -318,7 +318,7 @@ class TestMainHook:
                 hashline_formatter_bridge.main()
         assert exc_info.value.code == 0
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_filePath_camelcase_key(self):
         """Supports camelCase 'filePath' key too."""
         input_data = {"tool_name": "Write", "tool_input": {"filePath": "camel.py"}}
@@ -332,7 +332,7 @@ class TestMainHook:
         assert exc_info.value.code == 0
         mock_reconcile.assert_called_once_with("camel.py")
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "true"})
     def test_multiedit_tool_triggers_reconcile(self):
         """MultiEdit tool also triggers reconcile."""
         input_data = {"tool_name": "MultiEdit", "tool_input": {"file_path": "m.py"}}

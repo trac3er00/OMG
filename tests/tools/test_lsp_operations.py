@@ -29,8 +29,8 @@ from tools.lsp_operations import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-_ENABLE_ENV = {"OAL_LSP_TOOLS_ENABLED": "1"}
-_DISABLE_ENV = {"OAL_LSP_TOOLS_ENABLED": "0"}
+_ENABLE_ENV = {"OMG_LSP_TOOLS_ENABLED": "1"}
+_DISABLE_ENV = {"OMG_LSP_TOOLS_ENABLED": "0"}
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ class TestIsEnabled:
     @patch.dict(os.environ, {}, clear=False)
     def test_default_disabled(self):
         # Remove key if present
-        os.environ.pop("OAL_LSP_TOOLS_ENABLED", None)
+        os.environ.pop("OMG_LSP_TOOLS_ENABLED", None)
         assert _is_enabled() is False
 
 

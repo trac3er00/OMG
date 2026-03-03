@@ -11,7 +11,7 @@ def is_themes_enabled() -> bool:
         from hooks._common import get_feature_flag
         return get_feature_flag("THEMES", default=False)
     except ImportError:
-        return os.environ.get("OAL_THEMES_ENABLED", "").lower() in ("1", "true", "yes")
+        return os.environ.get("OMG_THEMES_ENABLED", "").lower() in ("1", "true", "yes")
 
 try:
     from tools.theme_engine import ThemeEngine, Theme
@@ -73,7 +73,7 @@ class ThemeSelector:
         }
 
     def get_current_theme(self) -> Union[Optional[str], Dict[str, str]]:
-        """Reads current theme from .oal/state/theme.json."""
+        """Reads current theme from .omg/state/theme.json."""
         if not is_themes_enabled():
             return {"error": "Themes are disabled"}
         return self.engine.get_preference()
@@ -90,7 +90,7 @@ class ThemeSelector:
             return "catppuccin-latte"
 
 def main():
-    parser = argparse.ArgumentParser(description="OAL Theme Selector")
+    parser = argparse.ArgumentParser(description="OMG Theme Selector")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--list", action="store_true", help="List available themes")
     group.add_argument("--preview", type=str, metavar="NAME", help="Preview a theme")

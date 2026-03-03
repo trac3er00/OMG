@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Puppeteer Browser Integration for OAL
+Puppeteer Browser Integration for OMG
 
 Wrapper around Puppeteer MCP tools that generates tool call specifications
 for browser automation. Functions produce spec dicts — actual execution is
 done by Claude Code when it dispatches the MCP call.
 
-Feature flag: OAL_BROWSER_ENABLED (default: False)
+Feature flag: OMG_BROWSER_ENABLED (default: False)
 """
 
 import json
@@ -42,7 +42,7 @@ def _ensure_imports():
 def _is_enabled() -> bool:
     """Check if Browser feature is enabled."""
     # Fast path: check env var directly
-    env_val = os.environ.get("OAL_BROWSER_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_BROWSER_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -68,7 +68,7 @@ def _error_response(error: str) -> Dict[str, Any]:
 
 def _disabled_response() -> Dict[str, Any]:
     """Create a response for when the feature flag is disabled."""
-    return _error_response("Browser feature is disabled (OAL_BROWSER_ENABLED=false)")
+    return _error_response("Browser feature is disabled (OMG_BROWSER_ENABLED=false)")
 
 
 # =============================================================================
@@ -308,7 +308,7 @@ def _cli_main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="OAL Browser Tool — Puppeteer MCP wrapper for browser automation",
+        description="OMG Browser Tool — Puppeteer MCP wrapper for browser automation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--navigate", dest="navigate_url", help="Navigate to URL")
@@ -411,7 +411,7 @@ def _cli_main():
     # Non-dry-run: check feature flag
     if not enabled:
         print(json.dumps({
-            "error": "Browser feature is disabled (OAL_BROWSER_ENABLED=false)",
+            "error": "Browser feature is disabled (OMG_BROWSER_ENABLED=false)",
         }))
         sys.exit(1)
 

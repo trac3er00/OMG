@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Enable feature flag for tests
-os.environ["OAL_WEB_SEARCH_ENABLED"] = "true"
+os.environ["OMG_WEB_SEARCH_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
@@ -206,7 +206,7 @@ class TestWebSearchManager:
         mgr.register_provider("mock", MockProvider(results=[
             {"title": "R", "url": "U", "snippet": "S"},
         ]))
-        with patch.dict(os.environ, {"OAL_WEB_SEARCH_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_WEB_SEARCH_ENABLED": "false"}):
             results = mgr.search("test")
             assert results == []
 
@@ -249,7 +249,7 @@ class TestWebSearchManager:
         """fetch() returns empty string when feature flag disabled."""
         mgr = WebSearchManager()
         mgr.register_provider("fp", MockProvider(fetch_content="content"))
-        with patch.dict(os.environ, {"OAL_WEB_SEARCH_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_WEB_SEARCH_ENABLED": "false"}):
             assert mgr.fetch("https://example.com") == ""
 
 
@@ -312,7 +312,7 @@ class TestCLI:
             capture_output=True,
             text=True,
             cwd=tools_dir,
-            env={**os.environ, "OAL_WEB_SEARCH_ENABLED": "true"},
+            env={**os.environ, "OMG_WEB_SEARCH_ENABLED": "true"},
         )
         assert result.returncode == 0
         output = json.loads(result.stdout)
@@ -330,7 +330,7 @@ class TestCLI:
             capture_output=True,
             text=True,
             cwd=tools_dir,
-            env={**os.environ, "OAL_WEB_SEARCH_ENABLED": "false"},
+            env={**os.environ, "OMG_WEB_SEARCH_ENABLED": "false"},
         )
         assert result.returncode != 0
         output = json.loads(result.stdout)

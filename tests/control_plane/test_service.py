@@ -48,7 +48,7 @@ def test_evidence_ingest_writes_file(tmp_path: Path):
 
 def test_runtime_dispatch_unknown_runtime():
     service = ControlPlaneService(project_dir=".")
-    status, out = service.runtime_dispatch({"runtime": "unknown", "idea": {"goal": "x"}})
+    status, out = service.runtime_dispatch({"runtime": "unknown", "idea": {"gomg": "x"}})
     assert status == 400
     assert out["error_code"] == "RUNTIME_NOT_FOUND"
 

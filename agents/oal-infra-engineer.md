@@ -29,7 +29,7 @@ Infrastructure engineering specialist. Handles deployment pipelines, Docker/cont
 - MUST NOT change database schemas or run migrations
 - MUST NOT modify frontend components or styling
 - MUST NOT commit secrets, credentials, or tokens to version control
-- Defer application code changes to `oal-executor` or domain-specific agents
+- Defer application code changes to `omg-executor` or domain-specific agents
 
 ## Guardrails
 

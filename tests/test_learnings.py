@@ -41,7 +41,7 @@ def _create_learning_file(learn_dir, name, write_count=3, read_count=2, bash_cou
 
 def test_aggregate_learnings_top_tools(tmp_path):
     """Create 3 learning files with Write: 5x, 3x, 2x. Assert total ≥10x."""
-    learn_dir = tmp_path / '.oal' / 'state' / 'learnings'
+    learn_dir = tmp_path / '.omg' / 'state' / 'learnings'
     learn_dir.mkdir(parents=True)
 
     _create_learning_file(str(learn_dir), 'session-001', write_count=5, read_count=1, bash_count=1, file_count=1)
@@ -56,7 +56,7 @@ def test_aggregate_learnings_top_tools(tmp_path):
 
 def test_aggregate_learnings_under_500_chars(tmp_path):
     """Assert aggregated result is ≤500 chars even with many files."""
-    learn_dir = tmp_path / '.oal' / 'state' / 'learnings'
+    learn_dir = tmp_path / '.omg' / 'state' / 'learnings'
     learn_dir.mkdir(parents=True)
 
     # Create 20 learning files with varied tool names to stress the length
@@ -83,7 +83,7 @@ def test_aggregate_learnings_empty_dir(tmp_path):
 
 def test_rotate_learnings_keeps_30(tmp_path):
     """Create 35 files, rotate with max_files=30, assert 30 remain."""
-    learn_dir = tmp_path / '.oal' / 'state' / 'learnings'
+    learn_dir = tmp_path / '.omg' / 'state' / 'learnings'
     learn_dir.mkdir(parents=True)
 
     for i in range(35):
@@ -103,8 +103,8 @@ def test_format_critical_patterns_empty():
 
 
 def test_save_critical_patterns(tmp_path):
-    """Creates .oal/knowledge/critical-patterns.md with content."""
-    learn_dir = tmp_path / '.oal' / 'state' / 'learnings'
+    """Creates .omg/knowledge/critical-patterns.md with content."""
+    learn_dir = tmp_path / '.omg' / 'state' / 'learnings'
     learn_dir.mkdir(parents=True)
 
     _create_learning_file(str(learn_dir), 'session-001', write_count=5, read_count=3, bash_count=2, file_count=4)

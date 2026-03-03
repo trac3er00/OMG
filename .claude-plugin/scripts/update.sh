@@ -1,20 +1,20 @@
 #!/bin/bash
-# OAL Plugin Update Script
+# OMG Plugin Update Script
 # Simplified version for Claude Code plugin system
 
 set -e
 
-echo "Updating OAL plugin..."
+echo "Updating OMG plugin..."
 
-# Find OAL root - prioritize git repo if we're in one
+# Find OMG root - prioritize git repo if we're in one
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(dirname "$SCRIPT_DIR")"
-OAL_ROOT="$(dirname "$PLUGIN_DIR")"
+OMG_ROOT="$(dirname "$PLUGIN_DIR")"
 
 # Check if running from source git repo
-if [ -d "$OAL_ROOT/.git" ]; then
-    echo "Found git repository at: $OAL_ROOT"
-    cd "$OAL_ROOT"
+if [ -d "$OMG_ROOT/.git" ]; then
+    echo "Found git repository at: $OMG_ROOT"
+    cd "$OMG_ROOT"
     
     # Check for local changes
     if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
@@ -60,16 +60,16 @@ PY
     echo ""
     echo "Note: Changes are immediately active (symlinked installation)"
 else
-    # Running from cache - run OAL-setup.sh
-    if [ -f "$OAL_ROOT/OAL-setup.sh" ]; then
-        echo "Running OAL-setup.sh update..."
-        bash "$OAL_ROOT/OAL-setup.sh" update
+    # Running from cache - run OMG-setup.sh
+    if [ -f "$OMG_ROOT/OMG-setup.sh" ]; then
+        echo "Running OMG-setup.sh update..."
+        bash "$OMG_ROOT/OMG-setup.sh" update
     else
-        echo "ERROR: Could not find OAL-setup.sh"
+        echo "ERROR: Could not find OMG-setup.sh"
         exit 1
     fi
 fi
 
 echo ""
-echo "✓ OAL updated successfully"
+echo "✓ OMG updated successfully"
 echo "  Restart Claude Code if you see new commands"

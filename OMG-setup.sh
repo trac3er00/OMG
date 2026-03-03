@@ -4,17 +4,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
-BACKUP_DIR="$CLAUDE_DIR/.oal-backup-$BACKUP_TS"
-VERSION="oal-v1-$(date +%Y%m%d)"
+BACKUP_DIR="$CLAUDE_DIR/.omg-backup-$BACKUP_TS"
+VERSION="omg-v1-$(date +%Y%m%d)"
 
-PLUGIN_NAME="oal"
+PLUGIN_NAME="omg"
 PLUGIN_MARKETPLACE="oh-advanced-layer"
-LEGACY_PLUGIN_MARKETPLACE="oal"
+LEGACY_PLUGIN_MARKETPLACE="omg"
 PLUGIN_REF="${PLUGIN_NAME}@${PLUGIN_MARKETPLACE}"
 LEGACY_PLUGIN_REF="${PLUGIN_NAME}@${LEGACY_PLUGIN_MARKETPLACE}"
 PLUGIN_CACHE_DIR="$CLAUDE_DIR/plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME"
 LEGACY_PLUGIN_CACHE_DIR="$CLAUDE_DIR/plugins/cache/$LEGACY_PLUGIN_MARKETPLACE/$PLUGIN_NAME"
-PLUGIN_BUNDLE_MARKER_FILE=".oal-plugin-bundle"
+PLUGIN_BUNDLE_MARKER_FILE=".omg-plugin-bundle"
 
 ACTION="install"
 ACTION_EXPLICIT=false
@@ -25,7 +25,7 @@ FRESH_INSTALL=false
 INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
 ERRORS=0
-OAL_MANIFEST="$CLAUDE_DIR/.oal-manifest"
+OMG_MANIFEST="$CLAUDE_DIR/.omg-manifest"
 NEW_MANIFEST_ENTRIES=()
 
 V3_RULES=(
@@ -39,7 +39,7 @@ V3_RULES=(
     "21-verified-claims.md" "22-auto-plugin-mcp.md"
 )
 V3_AGENTS_REMOVE=(cross-validator.md dependency-guardian.md infra-guardian.md perf-analyst.md ui-reviewer.md)
-OLD_OAL_AGENTS=(architect.md critic.md executor.md qa-tester.md escalation-router.md)
+OLD_OMG_AGENTS=(architect.md critic.md executor.md qa-tester.md escalation-router.md)
 V3_COMMANDS_REMOVE=(cross-review.md simplify.md)
 V4_COMMANDS_REMOVE=(
     code-review.md deep-plan.md domain-init.md escalate.md handoff.md
@@ -47,28 +47,28 @@ V4_COMMANDS_REMOVE=(
 )
 
 # Dynamic hook discovery — no hardcoded list.
-# Used by remove_oal_files() as fallback when manifest is absent.
-build_oal_hooks_list() {
-    OAL_HOOKS=()
+# Used by remove_omg_files() as fallback when manifest is absent.
+build_omg_hooks_list() {
+    OMG_HOOKS=()
     for f in "$SCRIPT_DIR"/hooks/*.py; do
-        [ -f "$f" ] && OAL_HOOKS+=("$(basename "$f")")
+        [ -f "$f" ] && OMG_HOOKS+=("$(basename "$f")")
     done
 }
 
 usage() {
     cat <<EOF
-OAL Setup Manager
+OMG Setup Manager
 
 Usage:
-  ./OAL-setup.sh <action> [OPTIONS]
-  ./OAL-setup.sh [OPTIONS]             # defaults to install
-  ./OAL-setup.sh                       # interactive menu in terminal mode
+  ./OMG-setup.sh <action> [OPTIONS]
+  ./OMG-setup.sh [OPTIONS]             # defaults to install
+  ./OMG-setup.sh                       # interactive menu in terminal mode
 
 Actions:
-  install      Install or upgrade OAL components
+  install      Install or upgrade OMG components
   update       Alias of install (explicit update mode)
-  reinstall    Clean reinstall (remove OAL files, then install)
-  uninstall    Remove OAL-managed files from ~/.claude
+  reinstall    Clean reinstall (remove OMG files, then install)
+  uninstall    Remove OMG-managed files from ~/.claude
 
 Options:
   --fresh            For install/update: clean reinstall before install
@@ -81,17 +81,17 @@ Options:
   -h, --help         Show this help
 
 Examples:
-  ./OAL-setup.sh install
-  ./OAL-setup.sh install --symlink              # Dev mode: live updates from repo
-  ./OAL-setup.sh install --install-as-plugin
-  ./OAL-setup.sh update --non-interactive --merge-policy=apply
-  ./OAL-setup.sh reinstall --dry-run
-  ./OAL-setup.sh uninstall --dry-run
+  ./OMG-setup.sh install
+  ./OMG-setup.sh install --symlink              # Dev mode: live updates from repo
+  ./OMG-setup.sh install --install-as-plugin
+  ./OMG-setup.sh update --non-interactive --merge-policy=apply
+  ./OMG-setup.sh reinstall --dry-run
+  ./OMG-setup.sh uninstall --dry-run
 EOF
 }
 
 is_standalone_installed() {
-    [ -f "$CLAUDE_DIR/hooks/.oal-version" ] || [ -d "$CLAUDE_DIR/oal-runtime" ]
+    [ -f "$CLAUDE_DIR/hooks/.omg-version" ] || [ -d "$CLAUDE_DIR/omg-runtime" ]
 }
 
 is_plugin_installed() {
@@ -118,7 +118,7 @@ prompt_start_action() {
     is_plugin_installed && plugin_installed=true
 
     echo ""
-    echo "Select OAL setup action:"
+    echo "Select OMG setup action:"
     echo "  1. Install standalone"
     if $standalone_installed; then
         echo "  2. Update standalone"
@@ -246,7 +246,7 @@ prune_old_backups() {
     local backups=()
     while IFS= read -r path; do
         backups+=("$path")
-    done < <(find "$CLAUDE_DIR" -maxdepth 1 -type d -name ".oal-backup-*" | sort)
+    done < <(find "$CLAUDE_DIR" -maxdepth 1 -type d -name ".omg-backup-*" | sort)
 
     local total=${#backups[@]}
     if [ "$total" -le 2 ]; then
@@ -263,34 +263,34 @@ prune_old_backups() {
     done
 }
 
-is_oal_managed_command_file() {
+is_omg_managed_command_file() {
     local file="$1"
     if [ ! -f "$file" ]; then
         return 1
     fi
 
-    if grep -q "OAL-AUTO-COMPAT-ALIAS" "$file" 2>/dev/null; then
+    if grep -q "OMG-AUTO-COMPAT-ALIAS" "$file" 2>/dev/null; then
         return 0
     fi
-    if grep -q "OAL-MANAGED-COMMAND" "$file" 2>/dev/null; then
+    if grep -q "OMG-MANAGED-COMMAND" "$file" 2>/dev/null; then
         return 0
     fi
 
     local base
     base="$(basename "$file")"
-    if [[ "$base" == OAL:* ]] && grep -q "/OAL:" "$file" 2>/dev/null; then
+    if [[ "$base" == OMG:* ]] && grep -q "/OMG:" "$file" 2>/dev/null; then
         return 0
     fi
     return 1
 }
 
-mark_oal_managed_command_file() {
+mark_omg_managed_command_file() {
     local file="$1"
     if [ ! -f "$file" ]; then
         return 0
     fi
-    if ! grep -q "OAL-MANAGED-COMMAND" "$file" 2>/dev/null; then
-        printf "\n<!-- OAL-MANAGED-COMMAND -->\n" >> "$file"
+    if ! grep -q "OMG-MANAGED-COMMAND" "$file" 2>/dev/null; then
+        printf "\n<!-- OMG-MANAGED-COMMAND -->\n" >> "$file"
     fi
 }
 
@@ -323,7 +323,7 @@ track_file() {
 }
 
 reconcile_stale_files() {
-    if [ ! -f "$OAL_MANIFEST" ]; then
+    if [ ! -f "$OMG_MANIFEST" ]; then
         echo "  (no previous manifest — first install, skipping reconciliation)"
         return 0
     fi
@@ -348,7 +348,7 @@ reconcile_stale_files() {
                 stale=$((stale + 1))
             fi
         fi
-    done < "$OAL_MANIFEST"
+    done < "$OMG_MANIFEST"
     if [ $stale -eq 0 ]; then
         echo "  (no stale files)"
     elif $DRY_RUN; then
@@ -358,9 +358,9 @@ reconcile_stale_files() {
     fi
 }
 
-write_oal_manifest() {
+write_omg_manifest() {
     if ! $DRY_RUN; then
-        printf '%s\n' "${NEW_MANIFEST_ENTRIES[@]}" | sort > "$OAL_MANIFEST"
+        printf '%s\n' "${NEW_MANIFEST_ENTRIES[@]}" | sort > "$OMG_MANIFEST"
     fi
 }
 
@@ -570,7 +570,7 @@ if installed_plugins_path.exists():
 PY
 }
 
-remove_oal_files() {
+remove_omg_files() {
     if ! $DRY_RUN; then
         local plugin_bundle_marker="$PLUGIN_CACHE_DIR/$PLUGIN_BUNDLE_MARKER_FILE"
         local plugin_bundle_marker_legacy="$LEGACY_PLUGIN_CACHE_DIR/$PLUGIN_BUNDLE_MARKER_FILE"
@@ -580,23 +580,23 @@ remove_oal_files() {
         fi
 
         # Use manifest for precise removal if available.
-        if [ -f "$OAL_MANIFEST" ]; then
+        if [ -f "$OMG_MANIFEST" ]; then
             while IFS= read -r entry; do
                 [ -n "$entry" ] || continue
                 [[ "$entry" == "#"* ]] && continue
                 rm -f "$CLAUDE_DIR/$entry"
-            done < "$OAL_MANIFEST"
-            rm -f "$OAL_MANIFEST"
+            done < "$OMG_MANIFEST"
+            rm -f "$OMG_MANIFEST"
         fi
 
         # Also remove by pattern (covers pre-manifest installs + compat aliases).
-        build_oal_hooks_list
-        for h in "${OAL_HOOKS[@]}"; do
+        build_omg_hooks_list
+        for h in "${OMG_HOOKS[@]}"; do
             rm -f "$CLAUDE_DIR/hooks/$h"
         done
-        rm -f "$CLAUDE_DIR/hooks/.oal-version" "$CLAUDE_DIR/hooks/.oal-coexist"
+        rm -f "$CLAUDE_DIR/hooks/.omg-version" "$CLAUDE_DIR/hooks/.omg-coexist"
 
-        # Remove OAL rules and old v3 rule set.
+        # Remove OMG rules and old v3 rule set.
         for r in "$CLAUDE_DIR"/rules/0[0-4]-*.md; do
             [ -f "$r" ] && rm "$r"
         done
@@ -604,25 +604,25 @@ remove_oal_files() {
             rm -f "$CLAUDE_DIR/rules/$rule"
         done
 
-        # Remove OAL agents, commands, templates.
-        rm -f "$CLAUDE_DIR"/agents/oal-*.md
+        # Remove OMG agents, commands, templates.
+        rm -f "$CLAUDE_DIR"/agents/omg-*.md
         if [ -d "$CLAUDE_DIR/commands" ]; then
             while IFS= read -r cmd_path; do
-                if [ -n "$cmd_path" ] && is_oal_managed_command_file "$cmd_path"; then
+                if [ -n "$cmd_path" ] && is_omg_managed_command_file "$cmd_path"; then
                     rm -f "$cmd_path"
                 fi
             done < <(find "$CLAUDE_DIR/commands" -maxdepth 1 -type f -name "*.md" 2>/dev/null | sort)
         fi
-        [[ "$CLAUDE_DIR/templates/oal" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/templates/oal" >&2; exit 1; }
-        rm -rf "$CLAUDE_DIR/templates/oal"
-        [[ "$CLAUDE_DIR/oal-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/oal-runtime" >&2; exit 1; }
-        rm -rf "$CLAUDE_DIR/oal-runtime"
+        [[ "$CLAUDE_DIR/templates/omg" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/templates/omg" >&2; exit 1; }
+        rm -rf "$CLAUDE_DIR/templates/omg"
+        [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
+        rm -rf "$CLAUDE_DIR/omg-runtime"
 
         [[ "$PLUGIN_CACHE_DIR" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $PLUGIN_CACHE_DIR" >&2; exit 1; }
         rm -rf "$PLUGIN_CACHE_DIR"
         [[ "$LEGACY_PLUGIN_CACHE_DIR" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $LEGACY_PLUGIN_CACHE_DIR" >&2; exit 1; }
         rm -rf "$LEGACY_PLUGIN_CACHE_DIR"
-        rm -f "$CLAUDE_DIR/hud/oal-hud.mjs"
+        rm -f "$CLAUDE_DIR/hud/omg-hud.mjs"
         unregister_plugin_from_registry "$PLUGIN_REF"
         unregister_plugin_from_registry "$LEGACY_PLUGIN_REF"
 
@@ -642,8 +642,8 @@ install_plugin_bundle() {
     local plugin_manifest_src="$SCRIPT_DIR/.claude-plugin/plugin.json"
     local plugin_manifest_target="$plugin_root/.claude-plugin/plugin.json"
     local plugin_mcp_target="$plugin_root/.mcp.json"
-    local hud_src="$SCRIPT_DIR/hud/oal-hud.mjs"
-    local hud_target="$CLAUDE_DIR/hud/oal-hud.mjs"
+    local hud_src="$SCRIPT_DIR/hud/omg-hud.mjs"
+    local hud_target="$CLAUDE_DIR/hud/omg-hud.mjs"
 
     echo "  Plugin bundle mode enabled: install plugin + MCP + HUD together"
     if $DRY_RUN; then
@@ -659,7 +659,7 @@ install_plugin_bundle() {
     write_plugin_mcp_file "$plugin_mcp_target" >/dev/null
     cp "$hud_src" "$hud_target"
     mkdir -p "$PLUGIN_CACHE_DIR"
-    printf '%s\n' "oal-plugin-bundle-v1" > "$PLUGIN_CACHE_DIR/$PLUGIN_BUNDLE_MARKER_FILE"
+    printf '%s\n' "omg-plugin-bundle-v1" > "$PLUGIN_CACHE_DIR/$PLUGIN_BUNDLE_MARKER_FILE"
 
     unregister_plugin_from_registry "$LEGACY_PLUGIN_REF"
     register_plugin_in_registry "$plugin_ref" "$plugin_root" "$VERSION"
@@ -668,13 +668,13 @@ install_plugin_bundle() {
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.claude-plugin/plugin.json"
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.mcp.json"
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$PLUGIN_BUNDLE_MARKER_FILE"
-    track_file "hud/oal-hud.mjs"
+    track_file "hud/omg-hud.mjs"
     echo "  ✓ Plugin bundle installed and registered in Claude plugin settings"
 }
 
 run_uninstall() {
     echo "═══════════════════════════════════════════════════════════════"
-    echo "  OAL Setup Manager — uninstall"
+    echo "  OMG Setup Manager — uninstall"
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
 
@@ -686,13 +686,13 @@ run_uninstall() {
     preflight
 
     local existing_ver=""
-    if [ -f "$CLAUDE_DIR/hooks/.oal-version" ]; then
-        existing_ver=$(cat "$CLAUDE_DIR/hooks/.oal-version" 2>/dev/null || echo "")
+    if [ -f "$CLAUDE_DIR/hooks/.omg-version" ]; then
+        existing_ver=$(cat "$CLAUDE_DIR/hooks/.omg-version" 2>/dev/null || echo "")
     fi
     if [ -n "$existing_ver" ]; then
-        echo "  ✓ Existing OAL install: $existing_ver"
+        echo "  ✓ Existing OMG install: $existing_ver"
     else
-        echo "  ~ No .oal-version marker found; uninstall will still remove known OAL files."
+        echo "  ~ No .omg-version marker found; uninstall will still remove known OMG files."
     fi
 
     if ! $NON_INTERACTIVE && ! $DRY_RUN; then
@@ -705,18 +705,18 @@ run_uninstall() {
     fi
 
     echo ""
-    echo "Uninstall: removing OAL-managed files from $CLAUDE_DIR"
+    echo "Uninstall: removing OMG-managed files from $CLAUDE_DIR"
     ensure_backup
     if ! $DRY_RUN; then
         echo "  ✓ Backup: $BACKUP_DIR"
     else
         echo "  (would backup to $BACKUP_DIR)"
     fi
-    remove_oal_files
+    remove_omg_files
     if $DRY_RUN; then
-        echo "  (would remove OAL hooks/rules/agents/commands/templates)"
+        echo "  (would remove OMG hooks/rules/agents/commands/templates)"
     else
-        echo "  ✓ Removed OAL hooks/rules/agents/commands/templates"
+        echo "  ✓ Removed OMG hooks/rules/agents/commands/templates"
     fi
 
     echo ""
@@ -724,8 +724,8 @@ run_uninstall() {
     echo "  ✓ If plugin bundle was installed, plugin + MCP + HUD were removed together"
     echo "Preserved:"
     echo "  - $CLAUDE_DIR/settings.json"
-    echo "  - project .oal/ data"
-    echo "  - non-OAL custom files"
+    echo "  - project .omg/ data"
+    echo "  - non-OMG custom files"
 }
 
 run_install_like() {
@@ -738,7 +738,7 @@ run_install_like() {
     local installed_cmds=0
 
     echo "═══════════════════════════════════════════════════════════════"
-    echo "  OAL Setup Manager — $ACTION"
+    echo "  OMG Setup Manager — $ACTION"
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
 
@@ -749,12 +749,12 @@ run_install_like() {
 
     preflight
 
-    if [ -f "$CLAUDE_DIR/hooks/.oal-version" ]; then
-        existing_ver=$(cat "$CLAUDE_DIR/hooks/.oal-version" 2>/dev/null || echo "")
+    if [ -f "$CLAUDE_DIR/hooks/.omg-version" ]; then
+        existing_ver=$(cat "$CLAUDE_DIR/hooks/.omg-version" 2>/dev/null || echo "")
     fi
 
     if [ "$ACTION" = "update" ] && [ -z "$existing_ver" ]; then
-        echo "  ~ No existing OAL install detected. update will proceed as install."
+        echo "  ~ No existing OMG install detected. update will proceed as install."
     fi
 
     if [ -n "$existing_ver" ]; then
@@ -762,11 +762,11 @@ run_install_like() {
     else
         echo "  ✓ Fresh install"
     fi
-    echo "  ✓ Standalone mode: OAL-only command surface (no OMC aliases)"
+    echo "  ✓ Standalone mode: OMG-only command surface (no OMC aliases)"
 
     if $FRESH_INSTALL; then
         echo ""
-        echo "Fresh/reinstall mode: remove OAL files before install."
+        echo "Fresh/reinstall mode: remove OMG files before install."
         if ! $NON_INTERACTIVE && ! $DRY_RUN; then
             read -p "Proceed with fresh cleanup? [y/N] " -n 1 -r
             echo ""
@@ -782,9 +782,9 @@ run_install_like() {
         else
             echo "  (would backup to $BACKUP_DIR)"
         fi
-        remove_oal_files
+        remove_omg_files
         if $DRY_RUN; then
-            echo "  (would remove OAL hooks/rules/agents/commands/templates)"
+            echo "  (would remove OMG hooks/rules/agents/commands/templates)"
         else
             echo "  ✓ Clean slate ready"
         fi
@@ -823,15 +823,15 @@ run_install_like() {
         fi
     done
 
-    for agent in "${OLD_OAL_AGENTS[@]}"; do
+    for agent in "${OLD_OMG_AGENTS[@]}"; do
         target="$CLAUDE_DIR/agents/$agent"
         if [ -f "$target" ]; then
-            if grep -q "OAL\|oal\|circuit.breaker\|escalat" "$target" 2>/dev/null; then
+            if grep -q "OMG\|omg\|circuit.breaker\|escalat" "$target" 2>/dev/null; then
                 ! $DRY_RUN && rm "$target"
-                echo "  - agents/$agent (renamed to oal-$agent)"
+                echo "  - agents/$agent (renamed to omg-$agent)"
                 removed=$((removed + 1))
             else
-                echo "  ~ agents/$agent (kept — appears to be non-OAL/custom)"
+                echo "  ~ agents/$agent (kept — appears to be non-OMG/custom)"
             fi
         fi
     done
@@ -839,12 +839,12 @@ run_install_like() {
     for cmd in "${V3_COMMANDS_REMOVE[@]}" "${V4_COMMANDS_REMOVE[@]}"; do
         target="$CLAUDE_DIR/commands/$cmd"
         if [ -f "$target" ]; then
-            if is_oal_managed_command_file "$target"; then
+            if is_omg_managed_command_file "$target"; then
                 ! $DRY_RUN && rm "$target"
-                echo "  - commands/$cmd (v4 → OAL:$cmd)"
+                echo "  - commands/$cmd (v4 → OMG:$cmd)"
                 removed=$((removed + 1))
             else
-                echo "  ~ commands/$cmd (kept — appears to be non-OAL/custom)"
+                echo "  ~ commands/$cmd (kept — appears to be non-OMG/custom)"
             fi
         fi
     done
@@ -852,7 +852,7 @@ run_install_like() {
     if compgen -G "$CLAUDE_DIR/commands/*omc*.md" > /dev/null; then
         for cmd in "$CLAUDE_DIR"/commands/*omc*.md; do
             [ -f "$cmd" ] || continue
-            if is_oal_managed_command_file "$cmd"; then
+            if is_omg_managed_command_file "$cmd"; then
                 ! $DRY_RUN && rm "$cmd"
                 echo "  - commands/$(basename "$cmd") (removed OMC command alias)"
                 removed=$((removed + 1))
@@ -901,7 +901,7 @@ run_install_like() {
         installed_hooks=$((installed_hooks + 1))
         track_file "hooks/$name"
     done
-    ! $DRY_RUN && echo "$VERSION" > "$CLAUDE_DIR/hooks/.oal-version"
+    ! $DRY_RUN && echo "$VERSION" > "$CLAUDE_DIR/hooks/.omg-version"
     echo "  ✓ $installed_hooks hooks ($hook_errors errors)"
 
     echo ""
@@ -929,14 +929,14 @@ run_install_like() {
             continue
         fi
         target="$CLAUDE_DIR/commands/$name"
-        if [ -f "$target" ] && ! is_oal_managed_command_file "$target"; then
+        if [ -f "$target" ] && ! is_omg_managed_command_file "$target"; then
             echo "  ~ /$(basename "$name" .md) (kept existing custom command)"
             continue
         fi
         if ! $DRY_RUN; then
             install_file "$f" "$target"
             if ! $USE_SYMLINK; then
-                mark_oal_managed_command_file "$target"
+                mark_omg_managed_command_file "$target"
             fi
         fi
         echo "  ✓ /$(basename "$name" .md)"
@@ -975,63 +975,63 @@ run_install_like() {
 
         if $USE_SYMLINK; then
             # In symlink mode, link entire directories for templates
-            if [ -e "$CLAUDE_DIR/templates/oal" ] || [ -L "$CLAUDE_DIR/templates/oal" ]; then
-                rm -rf "$CLAUDE_DIR/templates/oal"
+            if [ -e "$CLAUDE_DIR/templates/omg" ] || [ -L "$CLAUDE_DIR/templates/omg" ]; then
+                rm -rf "$CLAUDE_DIR/templates/omg"
             fi
-            ln -s "$SCRIPT_DIR/templates" "$CLAUDE_DIR/templates/oal"
+            ln -s "$SCRIPT_DIR/templates" "$CLAUDE_DIR/templates/omg"
             # Also link contextual rules
-            mkdir -p "$CLAUDE_DIR/templates/oal/contextual-rules"
+            mkdir -p "$CLAUDE_DIR/templates/omg/contextual-rules"
             for cr in "$SCRIPT_DIR"/rules/contextual/*.md; do
-                [ -f "$cr" ] && track_file "templates/oal/contextual-rules/$(basename "$cr")"
+                [ -f "$cr" ] && track_file "templates/omg/contextual-rules/$(basename "$cr")"
             done
         else
-            mkdir -p "$CLAUDE_DIR/templates/oal"
-            cp "$SCRIPT_DIR"/templates/* "$CLAUDE_DIR/templates/oal/" 2>/dev/null || true
+            mkdir -p "$CLAUDE_DIR/templates/omg"
+            cp "$SCRIPT_DIR"/templates/* "$CLAUDE_DIR/templates/omg/" 2>/dev/null || true
             for t in "$SCRIPT_DIR"/templates/*; do
-                [ -f "$t" ] && track_file "templates/oal/$(basename "$t")"
+                [ -f "$t" ] && track_file "templates/omg/$(basename "$t")"
             done
-            mkdir -p "$CLAUDE_DIR/templates/oal/contextual-rules"
-            cp "$SCRIPT_DIR"/rules/contextual/*.md "$CLAUDE_DIR/templates/oal/contextual-rules/" 2>/dev/null || true
+            mkdir -p "$CLAUDE_DIR/templates/omg/contextual-rules"
+            cp "$SCRIPT_DIR"/rules/contextual/*.md "$CLAUDE_DIR/templates/omg/contextual-rules/" 2>/dev/null || true
             for cr in "$SCRIPT_DIR"/rules/contextual/*.md; do
-                [ -f "$cr" ] && track_file "templates/oal/contextual-rules/$(basename "$cr")"
+                [ -f "$cr" ] && track_file "templates/omg/contextual-rules/$(basename "$cr")"
             done
         fi
-        mkdir -p "$CLAUDE_DIR/templates/oal/state/memory"
-        mkdir -p "$CLAUDE_DIR/templates/oal/state/learnings"
-        mkdir -p "$CLAUDE_DIR/templates/oal/state/ledger"
+        mkdir -p "$CLAUDE_DIR/templates/omg/state/memory"
+        mkdir -p "$CLAUDE_DIR/templates/omg/state/learnings"
+        mkdir -p "$CLAUDE_DIR/templates/omg/state/ledger"
         echo "  \u2713 State directory templates (memory, learnings, ledger)"
         echo "  \u2713 Templates + contextual rules"
 
         if $USE_SYMLINK; then
             # In symlink mode, link runtime directories instead of copying
-            mkdir -p "$CLAUDE_DIR/oal-runtime/scripts"
-            install_file "$SCRIPT_DIR/scripts/oal.py" "$CLAUDE_DIR/oal-runtime/scripts/oal.py"
+            mkdir -p "$CLAUDE_DIR/omg-runtime/scripts"
+            install_file "$SCRIPT_DIR/scripts/omg.py" "$CLAUDE_DIR/omg-runtime/scripts/omg.py"
             
-            [[ "$CLAUDE_DIR/oal-runtime/runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/oal-runtime/runtime" >&2; exit 1; }
-            [[ "$CLAUDE_DIR/oal-runtime/hooks" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/oal-runtime/hooks" >&2; exit 1; }
-            [[ "$CLAUDE_DIR/oal-runtime/lab" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/oal-runtime/lab" >&2; exit 1; }
+            [[ "$CLAUDE_DIR/omg-runtime/runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/runtime" >&2; exit 1; }
+            [[ "$CLAUDE_DIR/omg-runtime/hooks" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/hooks" >&2; exit 1; }
+            [[ "$CLAUDE_DIR/omg-runtime/lab" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/lab" >&2; exit 1; }
             
-            rm -rf "$CLAUDE_DIR/oal-runtime/runtime" "$CLAUDE_DIR/oal-runtime/hooks" "$CLAUDE_DIR/oal-runtime/lab"
-            ln -s "$SCRIPT_DIR/runtime" "$CLAUDE_DIR/oal-runtime/runtime"
-            ln -s "$SCRIPT_DIR/hooks" "$CLAUDE_DIR/oal-runtime/hooks"
-            ln -s "$SCRIPT_DIR/lab" "$CLAUDE_DIR/oal-runtime/lab"
+            rm -rf "$CLAUDE_DIR/omg-runtime/runtime" "$CLAUDE_DIR/omg-runtime/hooks" "$CLAUDE_DIR/omg-runtime/lab"
+            ln -s "$SCRIPT_DIR/runtime" "$CLAUDE_DIR/omg-runtime/runtime"
+            ln -s "$SCRIPT_DIR/hooks" "$CLAUDE_DIR/omg-runtime/hooks"
+            ln -s "$SCRIPT_DIR/lab" "$CLAUDE_DIR/omg-runtime/lab"
             
-            [[ "$CLAUDE_DIR/oal-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/oal-runtime" >&2; exit 1; }
-            find "$CLAUDE_DIR/oal-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-            find "$CLAUDE_DIR/oal-runtime" -name "*.pyc" -delete 2>/dev/null || true
-            echo "  ✓ Portable runtime → $CLAUDE_DIR/oal-runtime (symlinked to $SCRIPT_DIR)"
+            [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
+            find "$CLAUDE_DIR/omg-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+            find "$CLAUDE_DIR/omg-runtime" -name "*.pyc" -delete 2>/dev/null || true
+            echo "  ✓ Portable runtime → $CLAUDE_DIR/omg-runtime (symlinked to $SCRIPT_DIR)"
         else
-            mkdir -p "$CLAUDE_DIR/oal-runtime/scripts"
-            cp "$SCRIPT_DIR/scripts/oal.py" "$CLAUDE_DIR/oal-runtime/scripts/oal.py"
-            [[ "$CLAUDE_DIR/oal-runtime/runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/oal-runtime/runtime" >&2; exit 1; }
-            rm -rf "$CLAUDE_DIR/oal-runtime/runtime" "$CLAUDE_DIR/oal-runtime/hooks" "$CLAUDE_DIR/oal-runtime/lab"
-            cp -R "$SCRIPT_DIR/runtime" "$CLAUDE_DIR/oal-runtime/"
-            cp -R "$SCRIPT_DIR/hooks" "$CLAUDE_DIR/oal-runtime/"
-            cp -R "$SCRIPT_DIR/lab" "$CLAUDE_DIR/oal-runtime/"
-            [[ "$CLAUDE_DIR/oal-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/oal-runtime" >&2; exit 1; }
-            find "$CLAUDE_DIR/oal-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-            find "$CLAUDE_DIR/oal-runtime" -name "*.pyc" -delete 2>/dev/null || true
-            echo "  ✓ Portable runtime → $CLAUDE_DIR/oal-runtime"
+            mkdir -p "$CLAUDE_DIR/omg-runtime/scripts"
+            cp "$SCRIPT_DIR/scripts/omg.py" "$CLAUDE_DIR/omg-runtime/scripts/omg.py"
+            [[ "$CLAUDE_DIR/omg-runtime/runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime/runtime" >&2; exit 1; }
+            rm -rf "$CLAUDE_DIR/omg-runtime/runtime" "$CLAUDE_DIR/omg-runtime/hooks" "$CLAUDE_DIR/omg-runtime/lab"
+            cp -R "$SCRIPT_DIR/runtime" "$CLAUDE_DIR/omg-runtime/"
+            cp -R "$SCRIPT_DIR/hooks" "$CLAUDE_DIR/omg-runtime/"
+            cp -R "$SCRIPT_DIR/lab" "$CLAUDE_DIR/omg-runtime/"
+            [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
+            find "$CLAUDE_DIR/omg-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+            find "$CLAUDE_DIR/omg-runtime" -name "*.pyc" -delete 2>/dev/null || true
+            echo "  ✓ Portable runtime → $CLAUDE_DIR/omg-runtime"
         fi
         if $INSTALL_AS_PLUGIN; then
             install_plugin_bundle
@@ -1047,14 +1047,14 @@ run_install_like() {
     echo ""
     echo "Step 7/7: Reconcile stale files..."
     reconcile_stale_files
-    write_oal_manifest
+    write_omg_manifest
 
     echo ""
     echo "═══════════════════════════════════════════════════════════════"
     if [ $ERRORS -eq 0 ]; then
-        echo "  ✅ OAL v1 ${ACTION} completed successfully"
+        echo "  ✅ OMG v1 ${ACTION} completed successfully"
     else
-        echo "  ⚠  OAL v1 ${ACTION} completed with $ERRORS error(s)"
+        echo "  ⚠  OMG v1 ${ACTION} completed with $ERRORS error(s)"
     fi
     echo "═══════════════════════════════════════════════════════════════"
     echo ""

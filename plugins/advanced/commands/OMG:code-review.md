@@ -4,7 +4,7 @@ allowed-tools: Read, Bash(cat:*), Bash(grep:*), Bash(wc:*), Bash(head:*), Bash(f
 argument-hint: "[file path or 'recent' for git-changed files]"
 ---
 
-# /OAL:code-review — Line-by-Line + Structural Review
+# /OMG:code-review — Line-by-Line + Structural Review
 
 ## Philosophy
 Two passes: LINE-BY-LINE precision, then WHOLE-FILE understanding.
@@ -59,7 +59,7 @@ After line-by-line:
 - Does the file do ONE thing well, or is it a dumping ground?
 - Are functions ordered logically? (public first, helpers after, or lifecycle order)
 - Is naming consistent? (camelCase throughout? PascalCase for classes?)
-- Does it follow the project's domain pattern? (check .oal/knowledge/domain-patterns/)
+- Does it follow the project's domain pattern? (check .omg/knowledge/domain-patterns/)
 - Any circular dependencies?
 - Is error handling consistent across all functions?
 
@@ -98,7 +98,7 @@ Recommendation: [summary of what to fix, in priority order]
 
 If the file touches auth, payment, or database:
 ```
-/OAL:escalate codex "Line-by-line security review of [file]. Check:
+/OMG:escalate codex "Line-by-line security review of [file]. Check:
 1. Every input validation point
 2. Every database query for injection
 3. Every auth check for bypass

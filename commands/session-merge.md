@@ -1,23 +1,23 @@
 ---
-description: "Merge OAL state branches together with conflict detection."
+description: "Merge OMG state branches together with conflict detection."
 allowed-tools: Read, Write, Edit, Bash
 argument-hint: "--from <source-branch> [--into <target-branch>] [--preview]"
 ---
 
-# /OAL:merge — Merge OAL State Branches
+# /OMG:merge — Merge OMG State Branches
 
-Merge one OAL state branch into another with automatic conflict detection.
+Merge one OMG state branch into another with automatic conflict detection.
 
 ## Important
 
-Merging is **OAL state only** — it merges branch metadata (`.oal/state/branches/<name>.json`). It does **not** merge conversations, context windows, or file system state. Think of it as combining the tracked state from two named branches.
+Merging is **OMG state only** — it merges branch metadata (`.omg/state/branches/<name>.json`). It does **not** merge conversations, context windows, or file system state. Think of it as combining the tracked state from two named branches.
 
 ## Usage
 
 ```
-/OAL:merge --from "experiment"
-/OAL:merge --from "experiment" --into "main"
-/OAL:merge --from "experiment" --preview
+/OMG:merge --from "experiment"
+/OMG:merge --from "experiment" --into "main"
+/OMG:merge --from "experiment" --preview
 ```
 
 ## What It Does
@@ -27,7 +27,7 @@ Merging is **OAL state only** — it merges branch metadata (`.oal/state/branche
 3. If `--preview`: returns conflict report without applying changes
 4. If no conflicts: applies source changes on top of target (last-write-wins)
 5. Marks the source branch as `status: "merged"` in its metadata file
-6. Updates `.oal/state/current_branch.json` to the target branch
+6. Updates `.omg/state/current_branch.json` to the target branch
 
 ## Conflict Detection
 
@@ -79,17 +79,17 @@ python3 tools/session_snapshot.py merge experiment
 
 ## Feature Flag
 
-Merging is gated behind `OAL_MERGE_ENABLED` (default: `False`).
+Merging is gated behind `OMG_MERGE_ENABLED` (default: `False`).
 
 Enable via environment variable:
 ```bash
-export OAL_MERGE_ENABLED=true
+export OMG_MERGE_ENABLED=true
 ```
 
 Or in `settings.json`:
 ```json
 {
-  "_oal": {
+  "_omg": {
     "features": {
       "MERGE": true
     }
@@ -118,16 +118,16 @@ Or in `settings.json`:
 
 ```
 # 1. Create branches
-/OAL:branch --name "main"
-/OAL:branch --name "experiment"
+/OMG:branch --name "main"
+/OMG:branch --name "experiment"
 
 # 2. Do experimental work on "experiment" branch...
 
 # 3. Preview the merge
-/OAL:merge --from "experiment" --preview
+/OMG:merge --from "experiment" --preview
 
 # 4. If no conflicts, apply the merge
-/OAL:merge --from "experiment" --into "main"
+/OMG:merge --from "experiment" --into "main"
 
 # 5. Verify merge
 python3 tools/session_snapshot.py branches

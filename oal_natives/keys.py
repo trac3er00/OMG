@@ -1,16 +1,16 @@
-"""OAL Natives — keys: keyboard protocol stubs.
+"""OMG Natives — keys: keyboard protocol stubs.
 
 Pure-Python stub for keyboard key listing and encoding.
 No actual keyboard interaction — returns static data.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
 
 from typing import List
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 # Common key names for the stub
 _COMMON_KEYS: List[str] = [
@@ -40,7 +40,7 @@ def keys(operation: str = "list") -> list[str]:
 # Self-register with the global binding registry
 bind_function(
     name="keys",
-    rust_symbol="oal_natives::keys::keys",
+    rust_symbol="omg_natives::keys::keys",
     python_fallback=keys,
     type_hints={"operation": "str"},
 )

@@ -4,11 +4,11 @@
 
 **Behavior:**
 - Do NOT stop after one subtask. Work through the ENTIRE task list.
-- If a checklist exists (.oal/state/_checklist.md), complete ALL items.
+- If a checklist exists (.omg/state/_checklist.md), complete ALL items.
 - If blocked on one item, SKIP it (mark [!]) and continue to the next.
 - Return to skipped items after completing others.
-- Use /OAL:escalate codex for complex code tasks in parallel.
-- Use /OAL:escalate gemini for UI/visual tasks.
+- Use /OMG:escalate codex for complex code tasks in parallel.
+- Use /OMG:escalate gemini for UI/visual tasks.
 - Verify each completed item before moving on (run tests, show output).
 
 **Completion:**

@@ -67,7 +67,7 @@ Eliminate the context-limit deadlock in the stop hook system and make compaction
 - `hooks/pre-compact.py` — enhanced state capture (ralph-loop.json, richer handoff)
 - `hooks/prompt-enhancer.py` — proactive context pressure detection + auto-handoff injection
 - `hooks/quality-runner.py` — short-circuits subprocess when context pressure detected
-- `OAL-setup.sh` — updated stop hook consolidation logic
+- `OMG-setup.sh` — updated stop hook consolidation logic
 
 ### Definition of Done
 - [x] No deadlock when context is full and stop hooks fire
@@ -301,7 +301,7 @@ Max Concurrent: 7 (Wave 1)
   ```
   Scenario: Guards 1,2,4,5 still work after Guard 3 removal
     Tool: Bash
-    Preconditions: _common.py modified, .oal/state/ledger/ exists
+    Preconditions: _common.py modified, .omg/state/ledger/ exists
     Steps:
       1. Run: python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import should_skip_stop_hooks; print(should_skip_stop_hooks({'stop_hook_active':True}))"
       2. Assert output is: True (Guard 1 works)
@@ -384,13 +384,13 @@ Max Concurrent: 7 (Wave 1)
   ```
   Scenario: Tracker includes session_id and reason after block
     Tool: Bash
-    Preconditions: Clean .oal/state/ledger/ directory
+    Preconditions: Clean .omg/state/ledger/ directory
     Steps:
       1. Run: python3 -c "
          import sys; sys.path.insert(0,'hooks')
          from _common import record_stop_block
          record_stop_block(reason='planning_gate', session_id='test-session-123')
-         import json; d=json.load(open('.oal/state/ledger/.stop-block-tracker.json'))
+         import json; d=json.load(open('.omg/state/ledger/.stop-block-tracker.json'))
          print(d.get('session_id'), d.get('reason'))"
       2. Assert output contains: test-session-123 planning_gate
     Expected Result: Both session_id and reason are persisted in tracker JSON
@@ -403,9 +403,9 @@ Max Concurrent: 7 (Wave 1)
     Steps:
       1. Write tracker with session_id='old-session': python3 -c "
          import json,os;from datetime import datetime,timezone
-         os.makedirs('.oal/state/ledger',exist_ok=True)
+         os.makedirs('.omg/state/ledger',exist_ok=True)
          json.dump({'ts':datetime.now(timezone.utc).isoformat(),'count':5,'session_id':'old-session','reason':'loop'},
-                   open('.oal/state/ledger/.stop-block-tracker.json','w'))"
+                   open('.omg/state/ledger/.stop-block-tracker.json','w'))"
       2. Run: python3 -c "
          import sys; sys.path.insert(0,'hooks')
          from _common import is_stop_block_loop
@@ -425,13 +425,13 @@ Max Concurrent: 7 (Wave 1)
 
   **What to do**:
   - In `hooks/stop_dispatcher.py` `main()` function (after line ~672), log the FULL hook payload to stderr:
-    - `print(f"[OAL stop_dispatcher] payload keys: {list(data.keys())}", file=sys.stderr)`
-    - `print(f"[OAL stop_dispatcher] stop_hook_active={data.get('stop_hook_active')}", file=sys.stderr)`
+    - `print(f"[OMG stop_dispatcher] payload keys: {list(data.keys())}", file=sys.stderr)`
+    - `print(f"[OMG stop_dispatcher] stop_hook_active={data.get('stop_hook_active')}", file=sys.stderr)`
   - In `hooks/_common.py` `should_skip_stop_hooks()`, enhance existing diagnostic (line ~260-266):
-    - Log which guard triggered: `print(f"[OAL] Guard N triggered: {reason}", file=sys.stderr)` for each guard
-    - Log when NO guard triggers: `print(f"[OAL] All guards passed, hooks will run", file=sys.stderr)`
+    - Log which guard triggered: `print(f"[OMG] Guard N triggered: {reason}", file=sys.stderr)` for each guard
+    - Log when NO guard triggers: `print(f"[OMG] All guards passed, hooks will run", file=sys.stderr)`
   - In `hooks/test-validator.py`, add similar diagnostic after should_skip check:
-    - `print(f"[OAL test-validator] running, stop_hook_active={data.get('stop_hook_active')}", file=sys.stderr)`
+    - `print(f"[OMG test-validator] running, stop_hook_active={data.get('stop_hook_active')}", file=sys.stderr)`
 
   **Must NOT do**:
   - Do NOT log to stdout (that's the JSON decision channel)
@@ -452,11 +452,11 @@ Max Concurrent: 7 (Wave 1)
   **References**:
   **Pattern References**:
   - `hooks/_common.py:259-266` — Existing diagnostic logging block to enhance
-  - `hooks/_common.py:339` — Guard 4 logging pattern: `print(f"[OAL] Guard 4 triggered: ...", file=sys.stderr)`
+  - `hooks/_common.py:339` — Guard 4 logging pattern: `print(f"[OMG] Guard 4 triggered: ...", file=sys.stderr)`
   - `hooks/stop_dispatcher.py:668-672` — Entry point where payload logging goes
 
   **WHY Each Reference Matters**:
-  - Existing diagnostic pattern shows the format to follow (stderr, [OAL] prefix)
+  - Existing diagnostic pattern shows the format to follow (stderr, [OMG] prefix)
   - Entry point in stop_dispatcher shows WHERE to add payload logging
 
   **Acceptance Criteria**:
@@ -472,9 +472,9 @@ Max Concurrent: 7 (Wave 1)
     Tool: Bash
     Preconditions: Modified hooks in place
     Steps:
-      1. Run: echo '{"stop_hook_active":true,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py 2>/tmp/oal-diag.txt
-      2. Read: cat /tmp/oal-diag.txt
-      3. Assert contains: "[OAL" and "stop_hook_active"
+      1. Run: echo '{"stop_hook_active":true,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py 2>/tmp/omg-diag.txt
+      2. Read: cat /tmp/omg-diag.txt
+      3. Assert contains: "[OMG" and "stop_hook_active"
     Expected Result: Diagnostic messages appear in stderr, nothing in stdout
     Failure Indicators: No output in stderr, or output appears in stdout
     Evidence: .sisyphus/evidence/task-7-diagnostic-logging.txt
@@ -492,7 +492,7 @@ Max Concurrent: 7 (Wave 1)
     - `resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json")`
   - Read ralph-loop state and include it in handoff parts (after line ~65):
     - Read `ralph-loop.json`, extract `active`, `iteration`, `max_iterations`, `original_prompt`
-    - Add to parts: `## Ralph Loop\nIteration: {iter}/{max} | Goal: {original_prompt}`
+    - Add to parts: `## Ralph Loop\nIteration: {iter}/{max} | Gomg: {original_prompt}`
   - Enhance failure tracker section (lines ~85-93):
     - Include the actual approach description, not just count
     - Format: `- {approach}: tried {count}x — {last_error_summary}` (up to 5 entries)
@@ -543,13 +543,13 @@ Max Concurrent: 7 (Wave 1)
     Steps:
       1. Setup: python3 -c "
          import json,os
-         os.makedirs('.oal/state',exist_ok=True)
+         os.makedirs('.omg/state',exist_ok=True)
          json.dump({'active':True,'iteration':5,'max_iterations':50,'original_prompt':'fix all tests'},
-                   open('.oal/state/ralph-loop.json','w'))"
+                   open('.omg/state/ralph-loop.json','w'))"
       2. Run: echo '{}' | python3 hooks/pre-compact.py 2>/dev/null
-      3. Read: cat .oal/state/handoff.md
+      3. Read: cat .omg/state/handoff.md
       4. Assert contains: 'Ralph' and 'iteration' and 'fix all tests'
-    Expected Result: Handoff includes Ralph loop state with iteration count and goal
+    Expected Result: Handoff includes Ralph loop state with iteration count and gomg
     Failure Indicators: No Ralph section in handoff, or missing iteration details
     Evidence: .sisyphus/evidence/task-8-ralph-in-handoff.txt
   ```
@@ -565,14 +565,14 @@ Max Concurrent: 7 (Wave 1)
   - In `hooks/pre-compact.py`, raise the handoff truncation limit from 60 lines to 120 lines (line ~112-113)
   - Raise the portable handoff limit from 100 lines to 150 lines (line ~121-122)
   - Restructure the handoff format for better post-compaction parsing:
-    - Add a structured header: `## Resume Instructions\nRead .oal/state/profile.yaml + this file.`
+    - Add a structured header: `## Resume Instructions\nRead .omg/state/profile.yaml + this file.`
     - Add section markers: `<!-- section: working-state -->`, `<!-- section: progress -->`
     - These markers help session-start.py parse the handoff more reliably
   - Keep the handoff as markdown (not JSON) for human readability
 
   **Must NOT do**:
   - Do NOT make handoff exceed 200 lines (context budget)
-  - Do NOT change the handoff file path (`.oal/state/handoff.md`)
+  - Do NOT change the handoff file path (`.omg/state/handoff.md`)
   - Do NOT change the portable handoff path
 
   **Recommended Agent Profile**:
@@ -607,7 +607,7 @@ Max Concurrent: 7 (Wave 1)
     Steps:
       1. Setup: Create a large _checklist.md with 40 items
       2. Run: echo '{}' | python3 hooks/pre-compact.py 2>/dev/null
-      3. Count lines: wc -l < .oal/state/handoff.md
+      3. Count lines: wc -l < .omg/state/handoff.md
       4. Assert: line count > 60 (would have been truncated before)
     Expected Result: Handoff has more than 60 lines when content warrants it
     Failure Indicators: Still truncated at 60 lines
@@ -623,7 +623,7 @@ Max Concurrent: 7 (Wave 1)
 
   **What to do**:
   - In `hooks/session-start.py`, enhance the handoff detection and injection:
-    - Check for `.oal/state/handoff.md` existence (current behavior — verify it works)
+    - Check for `.omg/state/handoff.md` existence (current behavior — verify it works)
     - If handoff exists, inject its FULL content (not truncated) into the session start context
     - Add clear marker: `[HANDOFF CONTEXT — Resume from previous session]`
     - After injection, rename handoff.md to handoff.md.consumed (prevent re-injection)
@@ -669,10 +669,10 @@ Max Concurrent: 7 (Wave 1)
     Tool: Bash
     Preconditions: handoff.md exists from pre-compact
     Steps:
-      1. Setup: echo '## Resume\nTest handoff content' > .oal/state/handoff.md
+      1. Setup: echo '## Resume\nTest handoff content' > .omg/state/handoff.md
       2. Run: echo '{}' | python3 hooks/session-start.py 2>/dev/null
-      3. Assert: .oal/state/handoff.md.consumed exists
-      4. Assert: .oal/state/handoff.md does NOT exist
+      3. Assert: .omg/state/handoff.md.consumed exists
+      4. Assert: .omg/state/handoff.md does NOT exist
     Expected Result: Handoff consumed after injection
     Failure Indicators: Both files exist, or neither consumed
     Evidence: .sisyphus/evidence/task-10-handoff-consumed.txt
@@ -735,9 +735,9 @@ Max Concurrent: 7 (Wave 1)
     Steps:
       1. Setup tracker: python3 -c "
          import json,os;from datetime import datetime,timezone
-         os.makedirs('.oal/state/ledger',exist_ok=True)
+         os.makedirs('.omg/state/ledger',exist_ok=True)
          json.dump({'ts':datetime.now(timezone.utc).isoformat(),'count':1,'reason':'planning_gate','session_id':'test'},
-                   open('.oal/state/ledger/.stop-block-tracker.json','w'))"
+                   open('.omg/state/ledger/.stop-block-tracker.json','w'))"
       2. Run: python3 -c "
          import sys; sys.path.insert(0,'hooks')
          from _common import should_skip_stop_hooks
@@ -814,7 +814,7 @@ Max Concurrent: 7 (Wave 1)
          import json
          with open('/tmp/test-transcript.jsonl','w') as f:
            f.write(json.dumps({'type':'assistant','message':{'content':[{'type':'text','text':'Done.'}]}})+'\n')"
-      2. Clean tracker: rm -f .oal/state/ledger/.stop-block-tracker.json
+      2. Clean tracker: rm -f .omg/state/ledger/.stop-block-tracker.json
       3. Run: echo '{"stop_hook_active":false,"transcript_path":"/tmp/test-transcript.jsonl"}' | python3 hooks/stop_dispatcher.py
       4. Assert stdout contains: '"decision":"block"' or '"decision": "block"'
     Expected Result: Block decision with reason about structured report
@@ -829,7 +829,7 @@ Max Concurrent: 7 (Wave 1)
          import json
          with open('/tmp/test-transcript-good.jsonl','w') as f:
            f.write(json.dumps({'type':'assistant','message':{'content':[{'type':'text','text':'## Files Modified\n- src/auth.ts: Added JWT validation\n\n**Checks Run**: tsc exit 0, jest 42 passed\n\n**Confidence**: High'}]}})+'\n')"
-      2. Clean tracker: rm -f .oal/state/ledger/.stop-block-tracker.json
+      2. Clean tracker: rm -f .omg/state/ledger/.stop-block-tracker.json
       3. Run: echo '{"stop_hook_active":false,"transcript_path":"/tmp/test-transcript-good.jsonl"}' | python3 hooks/stop_dispatcher.py
       4. Assert stdout is empty OR doesn't contain 'bare' or 'done' block reason
     Expected Result: No block from bare-done check (proper report detected)
@@ -845,7 +845,7 @@ Max Concurrent: 7 (Wave 1)
 - [x] 6. Consolidate 3 Stop hook groups into 1 in `~/.claude/settings.json`
 
   **What to do**:
-  - Modify `OAL-setup.sh` (or create a migration script) to consolidate Stop hooks:
+  - Modify `OMG-setup.sh` (or create a migration script) to consolidate Stop hooks:
     - Current 3 groups: quality-gate.py (group 1), test-validator.py + quality-runner.py (group 2), stop_dispatcher.py (group 3)
     - Target 1 group: ONLY stop_dispatcher.py (which now absorbs quality-gate logic from Task 5)
     - test-validator.py and quality-runner.py remain as separate files but are called FROM stop_dispatcher.py
@@ -860,11 +860,11 @@ Max Concurrent: 7 (Wave 1)
   - Remove `quality-gate.py` from `~/.claude/hooks/` (logic absorbed in Task 5)
   - Update `settings.json` Stop section to single entry: `[{"hooks": [{"type": "command", "command": "python3 $HOME/.claude/hooks/stop_dispatcher.py", "timeout": 90}]}]`
   - Timeout raised to 90s to accommodate quality-runner's subprocess execution
-  - Update `OAL-setup.sh` to handle this consolidation during install/update
+  - Update `OMG-setup.sh` to handle this consolidation during install/update
 
   **Must NOT do**:
   - Do NOT delete test-validator.py or quality-runner.py source files (keep as importable modules)
-  - Do NOT remove user-custom Stop hooks that aren't OAL hooks
+  - Do NOT remove user-custom Stop hooks that aren't OMG hooks
   - Do NOT change the Stop hook timeout below 90s (quality-runner needs 60s for subprocess)
 
   **Recommended Agent Profile**:
@@ -884,13 +884,13 @@ Max Concurrent: 7 (Wave 1)
   - `hooks/stop_dispatcher.py:693-700` — Check function list where test-validator and quality-runner checks go
   - `hooks/test-validator.py:48-119` — Core validation logic to expose as importable function
   - `hooks/quality-runner.py:32-162` — Quality runner logic to expose as importable function
-  - `OAL-setup.sh` — Installer that writes settings.json Stop hooks
+  - `OMG-setup.sh` — Installer that writes settings.json Stop hooks
 
   **WHY Each Reference Matters**:
   - Settings.json is the TARGET — 3 groups become 1
   - stop_dispatcher check list is where imported functions get registered
   - test-validator and quality-runner need to be refactored to expose callable functions
-  - OAL-setup.sh must be updated to write the new consolidated structure
+  - OMG-setup.sh must be updated to write the new consolidated structure
 
   **Acceptance Criteria**:
   - [x] `~/.claude/settings.json` has exactly 1 Stop hook group
@@ -917,8 +917,8 @@ Max Concurrent: 7 (Wave 1)
     Tool: Bash
     Preconditions: Pending checklist, clean tracker
     Steps:
-      1. Setup: echo '- [x] Pending task' > .oal/state/_checklist.md
-      2. Clean: rm -f .oal/state/ledger/.stop-block-tracker.json
+      1. Setup: echo '- [x] Pending task' > .omg/state/_checklist.md
+      2. Clean: rm -f .omg/state/ledger/.stop-block-tracker.json
       3. Run: echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py
       4. Assert stdout contains: '"decision"' (some check should block)
     Expected Result: Planning gate blocks because of pending checklist
@@ -928,7 +928,7 @@ Max Concurrent: 7 (Wave 1)
 
   **Commit**: YES
   - Message: `refactor(hooks): consolidate 3 stop hook groups into single dispatcher`
-  - Files: `hooks/stop_dispatcher.py`, `hooks/test-validator.py`, `hooks/quality-runner.py`, `~/.claude/settings.json`, `OAL-setup.sh`
+  - Files: `hooks/stop_dispatcher.py`, `hooks/test-validator.py`, `hooks/quality-runner.py`, `~/.claude/settings.json`, `OMG-setup.sh`
   - Pre-commit: `python3 -m py_compile hooks/stop_dispatcher.py hooks/test-validator.py hooks/quality-runner.py`
 
 - [x] 11. Add context pressure estimation to `prompt-enhancer.py`
@@ -939,17 +939,17 @@ Max Concurrent: 7 (Wave 1)
     - Define threshold: `_CONTEXT_PRESSURE_THRESHOLD = 150` (tool calls)
     - When tool call count exceeds threshold, inject auto-handoff suggestion:
       - `@context-pressure: High context usage detected ({count} tool calls). Auto-saving state...`
-    - Trigger auto-handoff: write a signal file `.oal/state/.auto-handoff-requested`
+    - Trigger auto-handoff: write a signal file `.omg/state/.auto-handoff-requested`
     - The signal file triggers stop_dispatcher to demote all blocking checks to advisory
   - Add a helper function `estimate_context_pressure(project_dir)` that returns `(tool_count, threshold, is_high)`
   - **IMPORTANT**: Since `prompt-enhancer.py` has a hyphen in the name, this function should be placed in a NEW file `hooks/context_pressure.py` (underscore name, importable) that both prompt-enhancer.py and stop_dispatcher.py can import from
-  - Save the estimation to `.oal/state/.context-pressure.json`:
+  - Save the estimation to `.omg/state/.context-pressure.json`:
     - `{"tool_count": N, "threshold": 150, "is_high": true/false, "ts": "..."}`
 
   **Must NOT do**:
   - Do NOT auto-run `/compact` (can't invoke CLI commands from hooks)
   - Do NOT block user prompts based on pressure (advisory only)
-  - Do NOT make the threshold non-configurable (read from settings.json `_oal.context_budget.pressure_threshold` if set)
+  - Do NOT make the threshold non-configurable (read from settings.json `_omg.context_budget.pressure_threshold` if set)
 
   **Recommended Agent Profile**:
   - **Category**: `deep`
@@ -991,8 +991,8 @@ Max Concurrent: 7 (Wave 1)
     Steps:
       1. Setup: Generate 160 ledger entries: python3 -c "
          import json,os; from datetime import datetime,timezone
-         os.makedirs('.oal/state/ledger',exist_ok=True)
-         with open('.oal/state/ledger/tool-ledger.jsonl','w') as f:
+         os.makedirs('.omg/state/ledger',exist_ok=True)
+         with open('.omg/state/ledger/tool-ledger.jsonl','w') as f:
            for i in range(160):
              f.write(json.dumps({'ts':datetime.now(timezone.utc).isoformat(),'tool':'Bash','command':'echo test'})+'\n')"
       2. Run: python3 -c "
@@ -1015,7 +1015,7 @@ Max Concurrent: 7 (Wave 1)
 
   **What to do**:
   - In `hooks/stop_dispatcher.py`, modify `check_planning_gate()` (line ~616-635):
-    - Before blocking, check context pressure: read `.oal/state/.context-pressure.json`
+    - Before blocking, check context pressure: read `.omg/state/.context-pressure.json`
     - If `is_high` is True, demote from block to advisory:
       - Instead of returning `[block_message]`, append to `data["_stop_advisories"]`
       - Return `[]` (no blocks)
@@ -1056,14 +1056,14 @@ Max Concurrent: 7 (Wave 1)
     Tool: Bash
     Preconditions: Pending checklist + high context pressure
     Steps:
-      1. Setup checklist: echo '- [x] Pending task' > .oal/state/_checklist.md
+      1. Setup checklist: echo '- [x] Pending task' > .omg/state/_checklist.md
       2. Setup pressure: python3 -c "
-         import json,os; os.makedirs('.oal/state',exist_ok=True)
-         json.dump({'tool_count':200,'threshold':150,'is_high':True},open('.oal/state/.context-pressure.json','w'))"
-      3. Clean tracker: rm -f .oal/state/ledger/.stop-block-tracker.json
-      4. Run: echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py 2>/tmp/oal-advisory.txt
+         import json,os; os.makedirs('.omg/state',exist_ok=True)
+         json.dump({'tool_count':200,'threshold':150,'is_high':True},open('.omg/state/.context-pressure.json','w'))"
+      3. Clean tracker: rm -f .omg/state/ledger/.stop-block-tracker.json
+      4. Run: echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py 2>/tmp/omg-advisory.txt
       5. Check stdout: should be empty (no block)
-      6. Check stderr: cat /tmp/oal-advisory.txt | grep -c 'Planning gate'
+      6. Check stderr: cat /tmp/omg-advisory.txt | grep -c 'Planning gate'
     Expected Result: No block in stdout, advisory in stderr mentioning planning gate
     Failure Indicators: Block decision in stdout despite high pressure
     Evidence: .sisyphus/evidence/task-12-planning-gate-advisory.txt
@@ -1078,9 +1078,9 @@ Max Concurrent: 7 (Wave 1)
 
   **What to do**:
   - In `hooks/quality-runner.py`, after the `should_skip_stop_hooks()` check (line ~24):
-    - Read `.oal/state/.context-pressure.json`
+    - Read `.omg/state/.context-pressure.json`
     - If `is_high` is True, skip all subprocess execution (format/lint/typecheck/test)
-    - Log to stderr: `[OAL quality-runner] Skipping subprocess checks: context pressure high`
+    - Log to stderr: `[OMG quality-runner] Skipping subprocess checks: context pressure high`
     - Still allow the hook to exit cleanly (exit 0)
   - Also check `is_stop_block_loop()` as an additional skip signal
   - This prevents wasting 60s on test suite execution when the system is trying to compact
@@ -1119,12 +1119,12 @@ Max Concurrent: 7 (Wave 1)
     Tool: Bash
     Preconditions: quality-gate.json with test command + high pressure
     Steps:
-      1. Setup: echo '{"test":"echo pass"}' > .oal/state/quality-gate.json
+      1. Setup: echo '{"test":"echo pass"}' > .omg/state/quality-gate.json
       2. Setup pressure: python3 -c "
-         import json,os; os.makedirs('.oal/state',exist_ok=True)
-         json.dump({'tool_count':200,'threshold':150,'is_high':True},open('.oal/state/.context-pressure.json','w'))"
-      3. Run: echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/quality-runner.py 2>/tmp/oal-qr.txt
-      4. Check stderr: cat /tmp/oal-qr.txt
+         import json,os; os.makedirs('.omg/state',exist_ok=True)
+         json.dump({'tool_count':200,'threshold':150,'is_high':True},open('.omg/state/.context-pressure.json','w'))"
+      3. Run: echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/quality-runner.py 2>/tmp/omg-qr.txt
+      4. Check stderr: cat /tmp/omg-qr.txt
       5. Assert contains: 'context pressure' or 'Skipping'
     Expected Result: Subprocess skipped with log message, clean exit
     Failure Indicators: Subprocess actually executed (no skip log)
@@ -1184,7 +1184,7 @@ echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/
 # Expected: JSON with "decision":"block" if checklist has pending items
 
 # Guard 4 loop breaker
-python3 -c "import json,os;from datetime import datetime,timezone;os.makedirs('.oal/state/ledger',exist_ok=True);json.dump({'ts':datetime.now(timezone.utc).isoformat(),'count':3,'session_id':'test','reason':'loop'},open('.oal/state/ledger/.stop-block-tracker.json','w'))"
+python3 -c "import json,os;from datetime import datetime,timezone;os.makedirs('.omg/state/ledger',exist_ok=True);json.dump({'ts':datetime.now(timezone.utc).isoformat(),'count':3,'session_id':'test','reason':'loop'},open('.omg/state/ledger/.stop-block-tracker.json','w'))"
 echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py; echo "exit: $?"
 # Expected: exit: 0 (Guard 4 triggered)
 

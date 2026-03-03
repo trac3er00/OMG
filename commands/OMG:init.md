@@ -1,31 +1,31 @@
 ---
-description: "Unified initializer — auto-detects: project setup (if no .oal/state), domain scaffolding (if argument given), or health check."
+description: "Unified initializer — auto-detects: project setup (if no .omg/state), domain scaffolding (if argument given), or health check."
 allowed-tools: Read, Write, Edit, MultiEdit, Bash(mkdir:*), Bash(cat:*), Bash(find:*), Bash(ls:*), Bash(head:*), Bash(grep:*), Bash(tree:*), Bash(node:*), Bash(python*:*), Bash(tee:*), Grep, Glob
 argument-hint: "[optional: domain name like 'payment', or 'check' for health check]"
 ---
 
-# /OAL:init — Unified Project & Domain Initializer
+# /OMG:init — Unified Project & Domain Initializer
 
 ## Auto-Detection Logic
 
 ```
 if argument is a domain name (e.g. "payment", "user-profile"):
   → DOMAIN INIT (create new domain from existing patterns)
-elif .oal/state directory does not exist:
+elif .omg/state directory does not exist:
   → PROJECT INIT (first-time project setup)
-elif .oal/state/profile.yaml exists:
+elif .omg/state/profile.yaml exists:
   → HEALTH CHECK (verify everything works, offer upgrades)
 ```
 
 ---
 
-## MODE A: PROJECT INIT (no .oal/state found)
+## MODE A: PROJECT INIT (no .omg/state found)
 
-### Step 1: Create .oal/state/profile.yaml (MOST IMPORTANT)
+### Step 1: Create .omg/state/profile.yaml (MOST IMPORTANT)
 Detect from code. Ask user for anything undetectable.
 
 ```yaml
-# .oal/state/profile.yaml — injected every session (keep under 20 lines)
+# .omg/state/profile.yaml — injected every session (keep under 20 lines)
 name: "[from package.json/Cargo.toml/pyproject.toml]"
 description: "[1 sentence]"
 repo: "[from git remote -v]"
@@ -47,20 +47,20 @@ ai_behavior:
   testing: "User-journey focused, not boilerplate"
 ```
 
-### Step 2: Create knowledge structure + OAL v1 contract dirs
+### Step 2: Create knowledge structure + OMG v1 contract dirs
 ```
-mkdir -p .oal/state/ledger .oal/knowledge/decisions .oal/knowledge/patterns .oal/knowledge/rules
-mkdir -p .oal/trust .oal/evidence .oal/shadow .oal/migrations
+mkdir -p .omg/state/ledger .omg/knowledge/decisions .omg/knowledge/patterns .omg/knowledge/rules
+mkdir -p .omg/trust .omg/evidence .omg/shadow .omg/migrations
 ```
 
-Copy OAL v1 templates when missing:
-- `.oal/idea.yml`
-- `.oal/policy.yaml`
-- `.oal/runtime.yaml`
+Copy OMG v1 templates when missing:
+- `.omg/idea.yml`
+- `.omg/policy.yaml`
+- `.omg/runtime.yaml`
 
 ### Step 3: Auto-detect quality gate
 ```json
-// .oal/state/quality-gate.json — only include commands that exist
+// .omg/state/quality-gate.json — only include commands that exist
 {
   "format": "[detect: prettier/black/gofmt or null]",
   "lint": "[detect: eslint/ruff/clippy or null]",
@@ -76,7 +76,7 @@ Based on detected project type, copy relevant rules from templates:
 - DDD project → ddd-sdd.md, outside-in.md
 
 ### Step 5: Verify
-Run `/OAL:health-check` to confirm setup.
+Run `/OMG:health-check` to confirm setup.
 
 ---
 
@@ -111,13 +111,13 @@ src/[domain]/
 ```
 
 ### Step 4: Document the Pattern
-Save to `.oal/knowledge/patterns/[domain]-pattern.md`
+Save to `.omg/knowledge/patterns/[domain]-pattern.md`
 
 ---
 
 ## MODE C: HEALTH CHECK (already initialized)
 
-Run `/OAL:health-check` and additionally:
+Run `/OMG:health-check` and additionally:
 - Verify profile.yaml is up-to-date with current project state
 - Check if new contextual rules should be added
 - Offer to update quality-gate.json if tools changed
@@ -127,7 +127,7 @@ Run `/OAL:health-check` and additionally:
 ## File Write Method
 Use `Write` tool first. If it fails (file exists), fall back to:
 ```bash
-cat > .oal/state/profile.yaml << 'EOF'
+cat > .omg/state/profile.yaml << 'EOF'
 [content]
 EOF
 ```

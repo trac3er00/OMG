@@ -1,10 +1,10 @@
 ---
-description: Auto-route to Codex or Gemini using OAL standalone internal router.
+description: Auto-route to Codex or Gemini using OMG standalone internal router.
 allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(rg:*), Bash(find:*), Bash(cat:*), Bash(python3:*)
 argument-hint: "[codex|gemini|ccg|auto] 'task description' or just 'problem'"
 ---
 
-# /OAL:escalate — Standalone Smart Escalation
+# /OMG:escalate — Standalone Smart Escalation
 
 ## Auto-Routing
 If no model specified:
@@ -13,29 +13,29 @@ If no model specified:
 - full-stack/architecture/review-all → `ccg`
 
 ## Context package
-Build from OAL canonical state:
-- `.oal/state/profile.yaml`
-- `.oal/state/ledger/failure-tracker.json`
+Build from OMG canonical state:
+- `.omg/state/profile.yaml`
+- `.omg/state/ledger/failure-tracker.json`
 - relevant files (`git diff --name-only`)
 
 ## Runtime entrypoint
-Use the portable runtime installed by `OAL-setup.sh` (`~/.claude/oal-runtime/scripts/oal.py`).
+Use the portable runtime installed by `OMG-setup.sh` (`~/.claude/omg-runtime/scripts/omg.py`).
 
 ```bash
-OAL_CLI="${OAL_CLI_PATH:-$HOME/.claude/oal-runtime/scripts/oal.py}"
-if [ ! -f "$OAL_CLI" ] && [ -f "scripts/oal.py" ]; then OAL_CLI="scripts/oal.py"; fi
+OMG_CLI="${OMG_CLI_PATH:-$HOME/.claude/omg-runtime/scripts/omg.py}"
+if [ ! -f "$OMG_CLI" ] && [ -f "scripts/omg.py" ]; then OMG_CLI="scripts/omg.py"; fi
 ```
 
 ## Execute
 ```bash
-python3 "$OAL_CLI" teams --target auto --problem "[problem]"
+python3 "$OMG_CLI" teams --target auto --problem "[problem]"
 ```
 
 Explicit target:
 ```bash
-python3 "$OAL_CLI" teams --target codex --problem "[problem]"
-python3 "$OAL_CLI" teams --target gemini --problem "[problem]"
-python3 "$OAL_CLI" ccg --problem "[problem]"
+python3 "$OMG_CLI" teams --target codex --problem "[problem]"
+python3 "$OMG_CLI" teams --target gemini --problem "[problem]"
+python3 "$OMG_CLI" ccg --problem "[problem]"
 ```
 
 ## Output

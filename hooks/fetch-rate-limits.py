@@ -6,7 +6,7 @@ Reads OAuth credentials from:
 - macOS: Keychain "Claude Code-credentials" (format: {claudeAiOauth: {...}})
 - Linux/fallback: ~/.claude/.credentials.json
 
-Caches to: ~/.claude/oal-runtime/.usage-cache.json
+Caches to: ~/.claude/omg-runtime/.usage-cache.json
 """
 
 import json
@@ -27,7 +27,7 @@ def get_claude_config_dir():
 
 def get_cache_path():
     """Get cache file path."""
-    return get_claude_config_dir() / "oal-runtime" / ".usage-cache.json"
+    return get_claude_config_dir() / "omg-runtime" / ".usage-cache.json"
 
 
 def read_credentials_from_keychain():
@@ -203,7 +203,7 @@ def main():
     
     # Write cache
     if write_cache(rate_limits):
-        print(f"[OAL] Rate limits updated: daily={rate_limits.get('fiveHourPercent', 'N/A')}%, weekly={rate_limits.get('weeklyPercent', 'N/A')}%")
+        print(f"[OMG] Rate limits updated: daily={rate_limits.get('fiveHourPercent', 'N/A')}%, weekly={rate_limits.get('weeklyPercent', 'N/A')}%")
     
     sys.exit(0)
 

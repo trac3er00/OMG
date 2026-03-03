@@ -1,4 +1,4 @@
-"""Smoke tests for scripts/oal.py CLI."""
+"""Smoke tests for scripts/omg.py CLI."""
 from __future__ import annotations
 
 import json
@@ -9,7 +9,7 @@ import sys
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "oal.py"
+SCRIPT = ROOT / "scripts" / "omg.py"
 
 
 def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -28,7 +28,7 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
 
 
 def test_cli_runtime_dispatch_inline_json():
-    proc = _run(["runtime", "dispatch", "--runtime", "claude", "--idea-json", '{"goal":"x"}'])
+    proc = _run(["runtime", "dispatch", "--runtime", "claude", "--idea-json", '{"gomg":"x"}'])
     assert proc.returncode == 0
     out = json.loads(proc.stdout)
     assert out["status"] == "ok"

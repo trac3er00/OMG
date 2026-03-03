@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PostToolUse Hook (Write/Edit/MultiEdit): Auto-Format + Secret Scan (Enterprise)
-1. Auto-format written files if opted-in via .oal/state/quality-gate.json (non-blocking)
+1. Auto-format written files if opted-in via .omg/state/quality-gate.json (non-blocking)
 2. Scan written content for hardcoded secrets (blocking: exit 2)
 """
 import json, sys, os, re, subprocess
@@ -71,7 +71,7 @@ try:
     with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
 except Exception as e:
-    print(f"[OAL] post-write.py: {type(e).__name__}: {e}", file=sys.stderr)
+    print(f"[OMG] post-write.py: {type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(0)
 
 # Skip known non-secret file types
@@ -154,7 +154,7 @@ for i, line in enumerate(content.split("\n"), 1):
 if findings:
     try:
         proj_dir = _resolve_project_dir()
-        state_dir = os.path.join(proj_dir, ".oal", "state")
+        state_dir = os.path.join(proj_dir, ".omg", "state")
         os.makedirs(state_dir, exist_ok=True)
         signal_path = os.path.join(state_dir, "secret-detected.json")
         signal_payload = {
@@ -166,9 +166,9 @@ if findings:
         with open(signal_path, "w", encoding="utf-8") as f:
             json.dump(signal_payload, f)
     except Exception as e:
-        print(f"[OAL] post-write.py: {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"[OMG] post-write.py: {type(e).__name__}: {e}", file=sys.stderr)
     print(
-        f"⚠ SECRET DETECTED in {file_path}. Signal written to .oal/state/secret-detected.json",
+        f"⚠ SECRET DETECTED in {file_path}. Signal written to .omg/state/secret-detected.json",
         file=sys.stderr,
     )
     msg = f"SECRET DETECTED in {file_path}:\n" + "\n".join(findings[:10])
@@ -193,7 +193,7 @@ for i, line in enumerate(content.split("\n"), 1):
 
 if sec_warnings:
     msg = f"SECURITY WARNINGS in {file_path}:\n" + "\n".join(sec_warnings[:5])
-    msg += "\n\nConsider running /OAL:security-review for a full audit."
+    msg += "\n\nConsider running /OMG:security-review for a full audit."
     print(msg, file=sys.stderr)
 
 sys.exit(0)

@@ -23,7 +23,7 @@
 - DO NOT touch Ralph loop iteration counter when `should_skip` fires
 - DO NOT add dependencies on Claude Code internals we can't control
 - Do NOT delete test-validator.py or quality-runner.py source files
-- Do NOT remove user-custom Stop hooks that aren't OAL hooks
+- Do NOT remove user-custom Stop hooks that aren't OMG hooks
 - Do NOT change the Stop hook timeout below 90s
 
 

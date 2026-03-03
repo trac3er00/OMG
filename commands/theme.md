@@ -1,19 +1,19 @@
 ---
 description: "Interactive theme selection, preview, and auto-detection."
-usage: "/OAL:theme [--list|--set <name>|--preview <name>|--auto]"
+usage: "/OMG:theme [--list|--set <name>|--preview <name>|--auto]"
 ---
 
-# /OAL:theme — Theme Selector
+# /OMG:theme — Theme Selector
 
-Interactive theme selection, preview, and auto-detection for OAL.
+Interactive theme selection, preview, and auto-detection for OMG.
 
 ## Usage
 
 ```
-/OAL:theme --list
-/OAL:theme --preview catppuccin-mocha
-/OAL:theme --set catppuccin-mocha
-/OAL:theme --auto
+/OMG:theme --list
+/OMG:theme --preview catppuccin-mocha
+/OMG:theme --set catppuccin-mocha
+/OMG:theme --auto
 ```
 
 ## What It Does
@@ -25,17 +25,17 @@ Interactive theme selection, preview, and auto-detection for OAL.
 
 ## Feature Flag
 
-Themes are gated behind `OAL_THEMES_ENABLED` (default: `False`).
+Themes are gated behind `OMG_THEMES_ENABLED` (default: `False`).
 
 Enable via environment variable:
 ```bash
-export OAL_THEMES_ENABLED=true
+export OMG_THEMES_ENABLED=true
 ```
 
 Or in `settings.json`:
 ```json
 {
-  "_oal": {
+  "_omg": {
     "features": {
       "THEMES": true
     }

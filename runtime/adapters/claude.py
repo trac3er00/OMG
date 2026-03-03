@@ -9,14 +9,14 @@ class ClaudeAdapter:
     runtime = "claude"
 
     def plan(self, idea: dict[str, Any]) -> dict[str, Any]:
-        goal = str(idea.get("goal", "")).strip() or "unspecified-goal"
+        gomg = str(idea.get("gomg", "")).strip() or "unspecified-gomg"
         return {
             "runtime": self.runtime,
             "phase": "plan",
             "status": "planned",
-            "goal": goal,
+            "gomg": gomg,
             "steps": [
-                "analyze-goal",
+                "analyze-gomg",
                 "generate-plan",
                 "emit-checklist",
             ],

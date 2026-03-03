@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IntentGate Keyword Detection Hook — OAL v1.2
+IntentGate Keyword Detection Hook — OMG v1.2
 
 UserPromptSubmit hook that detects magic keywords in user prompts,
 maps them to intents with confidence scoring, and injects a LEADER_HINT
