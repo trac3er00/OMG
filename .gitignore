@@ -60,6 +60,9 @@ desktop.ini
 
 # dot-folders
 .oal/
+# Explicit credential store protection (belt-and-suspenders with .oal/)
+credentials.enc
+credentials.meta
 .omc/
 .sisyphus/
 

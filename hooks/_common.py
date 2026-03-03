@@ -14,6 +14,11 @@ _BLOCK_LOOP_THRESHOLD = 2
 # Block reasons that indicate a loop scenario (Guard 5 skip-eligible)
 _LOOP_BLOCK_REASONS = {"planning_gate", "ralph_loop", "quality_check", "block_decision", "unknown"}
 
+# --- Performance Budget Constants ---
+PRE_TOOL_INJECT_MAX_MS = 100
+STOP_CHECK_MAX_MS = 15000
+STOP_DISPATCHER_TOTAL_MAX_MS = 90000
+
 def json_input():
     """Parse JSON from stdin. Returns dict or exits 0 on parse failure."""
     try:
@@ -447,3 +452,25 @@ def reset_stop_block_tracker(project_dir=None):
             os.remove(path)
     except Exception:
         pass  # intentional: never crash on cleanup
+
+
+def check_performance_budget(hook_name: str, elapsed_ms: float, budget_ms: float) -> bool:
+    """Check if hook execution is within performance budget.
+    
+    Args:
+        hook_name: Name of the hook being checked
+        elapsed_ms: Elapsed time in milliseconds
+        budget_ms: Budget threshold in milliseconds
+    
+    Returns:
+        True if within budget, False if over budget (with warning logged)
+    """
+    if elapsed_ms <= budget_ms:
+        return True
+    # Log warning for budget overrun
+    log_hook_error(
+        hook_name,
+        f"Performance budget exceeded: {elapsed_ms:.1f}ms > {budget_ms}ms",
+        context={"elapsed_ms": elapsed_ms, "budget_ms": budget_ms}
+    )
+    return False

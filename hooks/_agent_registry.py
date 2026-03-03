@@ -112,6 +112,109 @@ AGENT_REGISTRY = {
         'agent_file': 'agents/oal-implement-mode.md',
         'model_version': 'claude-sonnet-4-5',
     },
+    'implement-mode': {
+        'preferred_model': 'domain-dependent',
+        'task_category': 'deep',
+        'skills': [],
+        'trigger_keywords': {'implement', 'build', 'create', 'add', 'develop', 'write', 'code'},
+        'mcp_tools': [],
+        'description': 'Implementation mode. Model chosen based on domain of task.',
+        'agent_file': 'agents/oal-implement-mode.md',
+        'model_version': 'claude-sonnet-4-5',
+    },
+    # Bundled agents (Task 2.3)
+    'explore': {
+        'preferred_model': 'claude',
+        'task_category': 'quick',
+        'skills': [],
+        'trigger_keywords': {'find', 'search', 'grep', 'locate', 'where', 'which', 'lookup', 'explore', 'discover'},
+        'mcp_tools': [],
+        'description': 'Fast codebase search agent. Read-only: grep, glob, file reading, pattern matching.',
+        'agent_file': 'agents/explore.md',
+        'model_version': 'claude-haiku-4-5',
+        'model_role': 'smol',
+        'bundled': True,
+    },
+    'plan': {
+        'preferred_model': 'claude',
+        'task_category': 'unspecified-high',
+        'skills': [],
+        'trigger_keywords': {'plan', 'architect', 'design', 'decompose', 'strategy', 'roadmap', 'breakdown', 'structure'},
+        'mcp_tools': [],
+        'description': 'Strategic planning agent. Architecture design, task decomposition, risk analysis.',
+        'agent_file': 'agents/plan.md',
+        'model_version': 'claude-opus-4-5',
+        'model_role': 'slow',
+        'bundled': True,
+    },
+    'designer': {
+        'preferred_model': 'gemini-cli',
+        'task_category': 'visual-engineering',
+        'skills': ['frontend-design', 'frontend-ui-ux'],
+        'trigger_keywords': {'component', 'layout', 'accessibility', 'responsive', 'tailwind', 'css', 'aria', 'wcag', 'breakpoint'},
+        'mcp_tools': ['puppeteer_screenshot', 'puppeteer_navigate'],
+        'description': 'UI/UX design agent. Component design, layout, accessibility, responsive design.',
+        'agent_file': 'agents/designer.md',
+        'model_version': 'claude-opus-4-5',
+        'model_role': 'default',
+        'bundled': True,
+    },
+    'reviewer': {
+        'preferred_model': 'codex-cli',
+        'task_category': 'deep',
+        'skills': ['security-review'],
+        'trigger_keywords': {'review', 'audit', 'check', 'inspect', 'critique', 'feedback', 'pr', 'pull-request', 'quality'},
+        'mcp_tools': ['sentry_search_issues', 'sentry_get_issue_details'],
+        'description': 'Code review agent. Security, performance, quality, best practices, test coverage.',
+        'agent_file': 'agents/reviewer.md',
+        'model_version': 'claude-opus-4-5',
+        'model_role': 'slow',
+        'bundled': True,
+    },
+    'task': {
+        'preferred_model': 'claude',
+        'task_category': 'unspecified-high',
+        'skills': [],
+        'trigger_keywords': {'fix', 'implement', 'feature', 'bug', 'patch', 'update', 'change', 'modify', 'refactor'},
+        'mcp_tools': [],
+        'description': 'General task execution agent. Implement features, fix bugs, write tests.',
+        'agent_file': 'agents/task.md',
+        'model_version': 'claude-opus-4-5',
+        'model_role': 'default',
+        'bundled': True,
+    },
+    'quick_task': {
+        'preferred_model': 'claude',
+        'task_category': 'quick',
+        'skills': [],
+        'trigger_keywords': {'typo', 'rename', 'label', 'caption', 'spelling', 'minor', 'small', 'quick', 'simple'},
+        'mcp_tools': [],
+        'description': 'Fast task execution agent. Simple fixes, typo corrections, single-file changes.',
+        'agent_file': 'agents/quick_task.md',
+        'model_version': 'claude-haiku-4-5',
+        'model_role': 'smol',
+        'bundled': True,
+    },
+}
+
+# ═══════════════════════════════════════════════════════════
+# Intent-to-Agent Routing Table (Magic Keyword Router)
+# Maps LEADER_HINT intents from intentgate-keyword-detector
+# to target agent names. None = halt (no agent dispatch).
+# ═══════════════════════════════════════════════════════════
+INTENT_ROUTING = {
+    "INTENT_MAX_EFFORT":  "sisyphus",     # ultrawork → full-effort agent
+    "INTENT_AUTONOMOUS":  "sisyphus",     # autopilot → autonomous agent
+    "INTENT_LOOP":        "sisyphus",     # ralph → loop agent
+    "INTENT_PLAN":        "prometheus",   # plan this → planning agent
+    "INTENT_TEST_DRIVEN": "sisyphus",     # tdd → TDD agent
+    "INTENT_SEARCH":      "librarian",    # search → search agent
+    "INTENT_STOP":        None,           # stop → halt (no agent)
+    "INTENT_CRAZY":       "sisyphus",     # crazy → aggressive agent
+    # Bundled agent intents (Task 2.3)
+    "INTENT_EXPLORE":     "explore",      # explore/find → fast search agent
+    "INTENT_REVIEW":      "reviewer",     # review/audit → code review agent
+    "INTENT_QUICK":       "quick_task",   # quick/simple → fast task agent
 }
 
 # Core agent model preferences. NOT keyword-matched — used by orchestration pipeline only. model_version is informational (not passed to CLI).
@@ -238,3 +341,72 @@ def discover_mcp_tools() -> list[str]:
         return list(mcp_servers.keys())
     except (json.JSONDecodeError, OSError, KeyError):
         return []
+
+
+# --- Custom Agent Loading (Task 2.4) ---
+
+
+def load_custom_agents_into_registry(project_dir: str = ".") -> int:
+    """Load custom agents from user/project dirs into AGENT_REGISTRY.
+
+    If OAL_CUSTOM_AGENTS_ENABLED is disabled, does nothing.
+    Uses lazy import of runtime.custom_agent_loader to avoid circular deps.
+
+    Args:
+        project_dir: Project directory path.
+
+    Returns:
+        Number of custom agents loaded.
+    """
+    import sys as _sys
+
+    # Check feature flag via env var first (fast path)
+    env_val = os.environ.get("OAL_CUSTOM_AGENTS_ENABLED", "").lower()
+    if env_val in ("0", "false", "no"):
+        return 0
+
+    # If not explicitly enabled via env, check via _common
+    if env_val not in ("1", "true", "yes"):
+        try:
+            from _common import get_feature_flag  # pyright: ignore[reportMissingImports]
+            if not get_feature_flag("CUSTOM_AGENTS", default=False):
+                return 0
+        except ImportError:
+            return 0  # Can't check flag → disabled
+
+    # Lazy import custom_agent_loader from runtime/
+    _runtime_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'runtime')
+    _runtime_dir = os.path.normpath(_runtime_dir)
+    if _runtime_dir not in _sys.path:
+        _sys.path.insert(0, _runtime_dir)
+
+    try:
+        from custom_agent_loader import load_custom_agents  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        return 0
+
+    custom_agents = load_custom_agents(project_dir)
+    count = 0
+
+    for agent in custom_agents:
+        if not agent.get("validated", False):
+            continue  # Skip invalid agents
+
+        name = agent["name"]
+        AGENT_REGISTRY[name] = {
+            'preferred_model': 'claude',
+            'task_category': 'unspecified-high',
+            'skills': [],
+            'trigger_keywords': set(),
+            'mcp_tools': [],
+            'description': agent.get('description', ''),
+            'agent_file': agent.get('file', ''),
+            'model_version': 'claude-sonnet-4-5',
+            'model_role': agent.get('model_role'),
+            'source': 'custom',
+            'level': agent.get('level', 'unknown'),
+            'validated': True,
+        }
+        count += 1
+
+    return count
