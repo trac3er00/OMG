@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Changelog Generator for OAL
+Changelog Generator for OMG
 
 Parses conventional commits from git log and generates/updates CHANGELOG.md
 in Keep-a-Changelog format.
 
-Feature flag: OAL_CHANGELOG_ENABLED (default: False)
+Feature flag: OMG_CHANGELOG_ENABLED (default: False)
 """
 
 import os
@@ -73,7 +73,7 @@ def parse_commit_log(cwd: str = ".") -> List[Dict[str, Any]]:
 
     Returns:
         List of dicts with keys: type, scope, description, hash, author, date, breaking
-        Returns empty list if OAL_CHANGELOG_ENABLED is False or no conventional commits found.
+        Returns empty list if OMG_CHANGELOG_ENABLED is False or no conventional commits found.
     """
     if not _is_enabled():
         return []
@@ -232,7 +232,7 @@ def _dry_run(cwd: str = ".", version: str = None) -> str:
     """Return the changelog entry that would be written, without modifying any file."""
     commits = parse_commit_log(cwd)
     if not commits:
-        return "[OAL Changelog] No conventional commits found (or feature flag disabled)."
+        return "[OMG Changelog] No conventional commits found (or feature flag disabled)."
     return generate_changelog_entry(commits, version=version or "Unreleased")
 
 
@@ -241,7 +241,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="OAL Changelog Generator — parses conventional commits and updates CHANGELOG.md"
+        description="OMG Changelog Generator — parses conventional commits and updates CHANGELOG.md"
     )
     parser.add_argument("--cwd", default=".", help="Working directory (default: .)")
     parser.add_argument("--version", default=None, help="Version label (default: Unreleased)")
@@ -258,9 +258,9 @@ def main():
 
     success = update_changelog(cwd=args.cwd, version=args.version)
     if success:
-        print("[OAL Changelog] CHANGELOG.md updated successfully.")
+        print("[OMG Changelog] CHANGELOG.md updated successfully.")
     else:
-        print("[OAL Changelog] No changes written (no commits or feature flag disabled).")
+        print("[OMG Changelog] No changes written (no commits or feature flag disabled).")
         sys.exit(1)
 
 

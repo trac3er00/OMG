@@ -26,7 +26,7 @@ class LSPClient:
 
     When ``server_cmd`` is None the client operates in **stub mode**:
     ``start()`` returns False, ``is_connected()`` returns False, and
-    ``send_request()`` returns None.  This allows OAL to instantiate
+    ``send_request()`` returns None.  This allows OMG to instantiate
     the client unconditionally — LSP is always optional.
     """
 

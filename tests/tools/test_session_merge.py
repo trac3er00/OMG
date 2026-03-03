@@ -15,9 +15,9 @@ from pathlib import Path
 import pytest
 
 # Enable snapshot, branching, and merge features for tests
-os.environ["OAL_SNAPSHOT_ENABLED"] = "true"
-os.environ["OAL_BRANCHING_ENABLED"] = "true"
-os.environ["OAL_MERGE_ENABLED"] = "true"
+os.environ["OMG_SNAPSHOT_ENABLED"] = "true"
+os.environ["OMG_BRANCHING_ENABLED"] = "true"
+os.environ["OMG_MERGE_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
@@ -37,8 +37,8 @@ from session_snapshot import (
 
 @pytest.fixture
 def mock_state_dir(tmp_path):
-    """Create a mock .oal/state directory with test files."""
-    state_dir = tmp_path / ".oal" / "state"
+    """Create a mock .omg/state directory with test files."""
+    state_dir = tmp_path / ".omg" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
 
     # Create some test files
@@ -159,7 +159,7 @@ class TestPreviewMerge:
 
     def test_preview_feature_flag_disabled(self, mock_state_dir, monkeypatch):
         """Preview returns skipped when merge flag is disabled."""
-        monkeypatch.setenv("OAL_MERGE_ENABLED", "false")
+        monkeypatch.setenv("OMG_MERGE_ENABLED", "false")
         result = preview_merge("source", "target", state_dir=mock_state_dir)
         assert result.get("skipped") is True
 
@@ -216,7 +216,7 @@ class TestMergeBranch:
 
     def test_merge_feature_flag_disabled(self, mock_state_dir, monkeypatch):
         """Merge returns skipped when flag is disabled."""
-        monkeypatch.setenv("OAL_MERGE_ENABLED", "false")
+        monkeypatch.setenv("OMG_MERGE_ENABLED", "false")
         result = merge_branch("source", "target", state_dir=mock_state_dir)
         assert result.get("skipped") is True
 

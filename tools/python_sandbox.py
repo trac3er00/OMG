@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Security Sandbox for OAL Python REPL
+Security Sandbox for OMG Python REPL
 
 Provides a restricted execution environment that blocks dangerous operations:
 - Dangerous imports (subprocess, socket, ctypes, etc.)
@@ -9,7 +9,7 @@ Provides a restricted execution environment that blocks dangerous operations:
 - Sandbox escape patterns (__class__.__mro__, __subclasses__, etc.)
 - Dangerous builtins (__import__, eval, exec, compile, etc.)
 
-Feature flag: OAL_REPL_SANDBOX_ENABLED (default: False)
+Feature flag: OMG_REPL_SANDBOX_ENABLED (default: False)
 
 Usage:
     from tools.python_sandbox import execute_sandboxed, is_safe_code, create_sandbox
@@ -53,7 +53,7 @@ def _ensure_imports():
 def _is_sandbox_enabled() -> bool:
     """Check if sandbox feature is enabled."""
     # Fast path: check env var directly
-    env_val = os.environ.get("OAL_REPL_SANDBOX_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_REPL_SANDBOX_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -88,7 +88,7 @@ _DEFAULT_BLOCKED_IMPORTS: frozenset = frozenset({
 
 def _get_blocked_imports() -> Set[str]:
     """Get the set of blocked import names, configurable via env var."""
-    env_val = os.environ.get("OAL_SANDBOX_BLOCKED_IMPORTS", "").strip()
+    env_val = os.environ.get("OMG_SANDBOX_BLOCKED_IMPORTS", "").strip()
     if env_val:
         custom = frozenset(name.strip() for name in env_val.split(",") if name.strip())
         return _DEFAULT_BLOCKED_IMPORTS | custom
@@ -562,7 +562,7 @@ def _cli_main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="OAL Python Sandbox — restricted execution environment",
+        description="OMG Python Sandbox — restricted execution environment",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--exec", dest="code", help="Execute Python code in sandbox")

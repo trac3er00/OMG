@@ -1,8 +1,8 @@
-//! OAL Natives — Rust acceleration for OAL hot paths.
+//! OMG Natives — Rust acceleration for OMG hot paths.
 //!
 //! This crate provides high-performance implementations of CPU-intensive
-//! operations used by OAL hooks and tools. When compiled and installed,
-//! the Python `oal_natives` package will automatically use these native
+//! operations used by OMG hooks and tools. When compiled and installed,
+//! the Python `omg_natives` package will automatically use these native
 //! implementations instead of the pure-Python fallbacks.
 
 use pyo3::prelude::*;
@@ -23,7 +23,7 @@ pub mod html;
 /// The main Python module entry point.
 ///
 /// When built with `maturin develop` or `maturin build`, this creates
-/// the `oal_natives._native` extension module.
+/// the `omg_natives._native` extension module.
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

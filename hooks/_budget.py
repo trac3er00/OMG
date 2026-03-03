@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Budget Constants — OAL Context & Prompt Budgets
+Budget Constants — OMG Context & Prompt Budgets
 
-Named constants for token/character budgets across OAL hooks.
+Named constants for token/character budgets across OMG hooks.
 Replaces magic numbers with semantic names for maintainability.
 """
 

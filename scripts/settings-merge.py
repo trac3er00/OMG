@@ -2,7 +2,7 @@
 """
 settings-merge.py
 Merges v2 hooks + permissions INTO existing ~/.claude/settings.json
-without destroying existing non-OAL configuration.
+without destroying existing non-OMG configuration.
 
 Strategy:
 - hooks{}: APPEND our matchers to each event (never replace existing)

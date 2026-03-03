@@ -1,4 +1,4 @@
-"""Tests for OAL HUD compatibility behavior."""
+"""Tests for OMG HUD compatibility behavior."""
 from __future__ import annotations
 
 import json
@@ -10,7 +10,7 @@ from typing import cast
 
 
 ROOT = Path(__file__).resolve().parents[2]
-HUD = ROOT / "hud" / "oal-hud.mjs"
+HUD = ROOT / "hud" / "omg-hud.mjs"
 
 
 def _run_hud(payload: dict[str, object], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
@@ -70,7 +70,7 @@ def test_hud_honors_legacy_omc_hud_toggle_for_label(tmp_path: Path):
     payload = _stdin_payload(project)
     out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
     assert out.returncode == 0
-    assert "[oal#" not in out.stdout.lower()
+    assert "[omg#" not in out.stdout.lower()
 
 
 def test_hud_defaults_follow_omc_baseline(tmp_path: Path):
@@ -79,7 +79,7 @@ def test_hud_defaults_follow_omc_baseline(tmp_path: Path):
     claude.mkdir(parents=True)
 
     project = tmp_path / "project"
-    ledger = project / ".oal" / "state" / "ledger"
+    ledger = project / ".omg" / "state" / "ledger"
     ledger.mkdir(parents=True)
     _ = (ledger / "tool-ledger.jsonl").write_text("x" * 800, encoding="utf-8")
 
@@ -108,7 +108,7 @@ def test_hud_reads_legacy_omc_hud_config_file(tmp_path: Path):
     out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
     assert out.returncode == 0
     assert "sonnet" in out.stdout.lower()
-    assert "[oal#" not in out.stdout.lower()
+    assert "[omg#" not in out.stdout.lower()
 
 
 def test_hud_applies_legacy_preset_overrides(tmp_path: Path):
@@ -121,7 +121,7 @@ def test_hud_applies_legacy_preset_overrides(tmp_path: Path):
     )
 
     project = tmp_path / "project"
-    state = project / ".oal" / "state"
+    state = project / ".omg" / "state"
     state.mkdir(parents=True)
     _ = (state / "hud-state.json").write_text(
         json.dumps({"lastPromptTimestamp": "2026-02-27T21:13:00.000Z"}),

@@ -4,7 +4,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Bash(git:*), Bash(cat:*), Bash(find
 argument-hint: "[skill name] or 'auto' to detect from recent work"
 ---
 
-# /OAL:learn — Auto-Skill Creator
+# /OMG:learn — Auto-Skill Creator
 
 ## What This Does
 Takes something you just did (test pattern, implementation approach, debugging method)
@@ -12,16 +12,16 @@ and turns it into a reusable Claude Code skill that activates automatically next
 
 ## Usage
 
-### Manual: /OAL:learn [skill-name]
+### Manual: /OMG:learn [skill-name]
 Claude asks you what the pattern is and creates a skill.
 
-### Auto: /OAL:learn auto
+### Auto: /OMG:learn auto
 Claude analyzes recent tool-ledger entries to detect repetitive patterns.
 
 ## Step 1: Detect Pattern
 
 ### If "auto":
-Read .oal/state/ledger/tool-ledger.jsonl (last 50 entries).
+Read .omg/state/ledger/tool-ledger.jsonl (last 50 entries).
 Look for:
 - Same file types being created repeatedly (e.g., always creating .test.ts with same structure)
 - Same command sequences repeated (e.g., lint → typecheck → test → format)
@@ -35,10 +35,10 @@ Ask: "Describe the pattern you want to save. What triggers it? What should happe
 
 ## Step 2: Create Skill
 
-Skills live in: ~/.config/oal/skills/ (personal) or .oal/skills/ (project)
+Skills live in: ~/.config/omg/skills/ (personal) or .omg/skills/ (project)
 
 ```
-~/.config/oal/skills/[skill-name]/
+~/.config/omg/skills/[skill-name]/
 ├── SKILL.md          # Instructions Claude follows
 ├── templates/        # Template files (optional)
 └── scripts/          # Helper scripts (optional)
@@ -68,14 +68,14 @@ Skills live in: ~/.config/oal/skills/ (personal) or .oal/skills/ (project)
 
 ## Step 3: Register
 
-Add skill to .oal/skills-index.json:
+Add skill to .omg/skills-index.json:
 ```json
 {
   "skills": [
     {
       "name": "api-test-pattern",
       "trigger": ["test", "api", "endpoint"],
-      "path": "~/.config/oal/skills/api-test-pattern/SKILL.md",
+      "path": "~/.config/omg/skills/api-test-pattern/SKILL.md",
       "description": "Creates API endpoint tests with auth, validation, edge cases"
     }
   ]
@@ -97,7 +97,7 @@ When detecting patterns, especially look for:
 - **Debug patterns**: Project-specific debugging steps (log locations, common fixes)
 
 ## Aggregated Patterns (Auto)
-When you run `/OAL:learn auto`, OAL reads all learning files from `.oal/state/learnings/` and generates `.oal/knowledge/critical-patterns.md` with your top tool and file patterns.
+When you run `/OMG:learn auto`, OMG reads all learning files from `.omg/state/learnings/` and generates `.omg/knowledge/critical-patterns.md` with your top tool and file patterns.
 
 Run: `python3 -c "import sys; sys.path.insert(0,'hooks'); from _learnings import save_critical_patterns; save_critical_patterns('.')"`
 ## File Write Fallback

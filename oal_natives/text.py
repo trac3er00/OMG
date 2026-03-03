@@ -1,16 +1,16 @@
-"""OAL Natives — text: ANSI-aware text operations.
+"""OMG Natives — text: ANSI-aware text operations.
 
 Pure-Python fallback for text normalization, ANSI stripping, and counting.
 Uses ``re`` for ANSI escape code removal.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
 
 import re
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 # ANSI escape code pattern (covers CSI sequences, OSC, etc.)
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07|\x1b[^[\]()]")
@@ -44,7 +44,7 @@ def text(content: str, operation: str = "normalize") -> str:
 # Self-register with the global binding registry
 bind_function(
     name="text",
-    rust_symbol="oal_natives::text::text",
+    rust_symbol="omg_natives::text::text",
     python_fallback=text,
     type_hints={"content": "str", "operation": "str"},
 )

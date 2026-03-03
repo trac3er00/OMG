@@ -1,4 +1,4 @@
-"""OAL v1 supply-chain verification with Warn-and-Run semantics."""
+"""OMG v1 supply-chain verification with Warn-and-Run semantics."""
 from __future__ import annotations
 
 from dataclasses import dataclass

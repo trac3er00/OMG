@@ -9,7 +9,7 @@ SCRIPT = ROOT / "hooks" / "pre-compact.py"
 
 
 def test_pre_compact_truncates_large_snapshot_file(tmp_path):
-    state = tmp_path / ".oal" / "state"
+    state = tmp_path / ".omg" / "state"
     ledger = state / "ledger"
     ledger.mkdir(parents=True)
 
@@ -18,7 +18,7 @@ def test_pre_compact_truncates_large_snapshot_file(tmp_path):
 
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    env["OAL_PRECOMPACT_MAX_SNAPSHOT_BYTES"] = "128"
+    env["OMG_PRECOMPACT_MAX_SNAPSHOT_BYTES"] = "128"
 
     proc = subprocess.run(
         ["python3", str(SCRIPT)],

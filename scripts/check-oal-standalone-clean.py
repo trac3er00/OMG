@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that standalone/OAL-first naming rules are preserved."""
+"""Check that standalone/OMG-first naming rules are preserved."""
 from __future__ import annotations
 
 import argparse
@@ -11,32 +11,32 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Paths where legacy aliases are explicitly allowed.
 ALLOW_OMC_CLI = {
-    ROOT / "commands" / "OAL:omc-compat.md",
-    ROOT / "tests" / "scripts" / "test_oal_cli.py",
+    ROOT / "commands" / "OMG:omc-compat.md",
+    ROOT / "tests" / "scripts" / "test_omg_cli.py",
     ROOT / "tests" / "scripts" / "test_standalone_clean_check.py",
-    ROOT / "scripts" / "check-oal-standalone-clean.py",
+    ROOT / "scripts" / "check-omg-standalone-clean.py",
 }
 
 ALLOW_LEGACY_MIGRATOR = {
-    ROOT / "scripts" / "omc_to_oal_migrate.py",
+    ROOT / "scripts" / "omc_to_omg_migrate.py",
     ROOT / "tests" / "e2e" / "test_standalone_ga.py",
-    ROOT / "scripts" / "check-oal-standalone-clean.py",
+    ROOT / "scripts" / "check-omg-standalone-clean.py",
 }
 
 ALLOW_LEGACY_SNAPSHOT_CHECKER = {
     ROOT / "scripts" / "check-omc-contract-snapshot.py",
     ROOT / "tests" / "scripts" / "test_compat_snapshot_check.py",
-    ROOT / "scripts" / "check-oal-standalone-clean.py",
+    ROOT / "scripts" / "check-omg-standalone-clean.py",
 }
 
 ALLOW_LEGACY_RUNTIME_IMPORT = {
     ROOT / "tests" / "scripts" / "test_standalone_clean_check.py",
-    ROOT / "scripts" / "check-oal-standalone-clean.py",
+    ROOT / "scripts" / "check-omg-standalone-clean.py",
 }
 
 SCAN_GLOBS = [
     "README.md",
-    "OAL-setup.sh",
+    "OMG-setup.sh",
     "install.sh",
     "runtime/**/*.py",
     "hooks/**/*.py",
@@ -60,7 +60,7 @@ def _contains(path: Path, token: str) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check OAL standalone naming hygiene")
+    parser = argparse.ArgumentParser(description="Check OMG standalone naming hygiene")
     parser.add_argument("--root", default=str(ROOT))
     args = parser.parse_args()
     root = Path(args.root).resolve()
@@ -74,11 +74,11 @@ def main() -> int:
     for path in _iter_files(root):
         rel = path.relative_to(root)
 
-        if _contains(path, "python3 scripts/oal.py omc "):
+        if _contains(path, "python3 scripts/omg.py omc "):
             if path not in ALLOW_OMC_CLI:
                 violations.append(f"{rel}: legacy CLI namespace used outside allowlist")
 
-        if _contains(path, "omc_to_oal_migrate.py"):
+        if _contains(path, "omc_to_omg_migrate.py"):
             if path not in ALLOW_LEGACY_MIGRATOR:
                 violations.append(f"{rel}: legacy migrator path reference outside allowlist")
 

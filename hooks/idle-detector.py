@@ -3,12 +3,12 @@
 Stop Hook: Idle Detector (v1)
 
 Detects when an agent has gone idle with incomplete todos.
-Reads .oal/state/todo_progress.json (from todo-state-tracker)
-and writes continuation signal to .oal/state/idle_signal.json.
+Reads .omg/state/todo_progress.json (from todo-state-tracker)
+and writes continuation signal to .omg/state/idle_signal.json.
 
 Detection only — does not block the stop.
 
-Feature flag: OAL_IDLE_DETECTION_ENABLED (default: False)
+Feature flag: OMG_IDLE_DETECTION_ENABLED (default: False)
 """
 import json
 import sys
@@ -37,8 +37,8 @@ if not get_feature_flag("IDLE_DETECTION", default=False):
 _data = json_input()
 
 project_dir = get_project_dir()
-todo_path = os.path.join(project_dir, ".oal", "state", "todo_progress.json")
-signal_path = os.path.join(project_dir, ".oal", "state", "idle_signal.json")
+todo_path = os.path.join(project_dir, ".omg", "state", "todo_progress.json")
+signal_path = os.path.join(project_dir, ".omg", "state", "idle_signal.json")
 
 
 def _write_signal(idle: bool, incomplete: list | None = None, call_count: int = 0):

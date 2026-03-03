@@ -1,9 +1,9 @@
 """Custom Agent Loader — scans user/project agent dirs, hot-reloads on change.
 
-Scans ~/.oal/agents/ (user-level) and <project>/.oal/agents/ (project-level)
+Scans ~/.omg/agents/ (user-level) and <project>/.omg/agents/ (project-level)
 for custom agent markdown files. Project-level agents override user-level.
 
-Feature flag: OAL_CUSTOM_AGENTS_ENABLED (default: False)
+Feature flag: OMG_CUSTOM_AGENTS_ENABLED (default: False)
 """
 from __future__ import annotations
 
@@ -15,12 +15,12 @@ from pathlib import Path
 from typing import Any, Callable
 
 # --- Lazy import helpers ---
-_OAL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_OMG_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _get_feature_flag() -> Any:
     """Lazy-import get_feature_flag from hooks/_common.py."""
-    hooks_dir = os.path.join(_OAL_ROOT, "hooks")
+    hooks_dir = os.path.join(_OMG_ROOT, "hooks")
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
@@ -33,10 +33,10 @@ def _get_feature_flag() -> Any:
 def _is_enabled() -> bool:
     """Check if custom agents feature is enabled.
 
-    Resolution: env var OAL_CUSTOM_AGENTS_ENABLED → settings.json → default False.
+    Resolution: env var OMG_CUSTOM_AGENTS_ENABLED → settings.json → default False.
     """
     # Fast path: check env var directly
-    env_val = os.environ.get("OAL_CUSTOM_AGENTS_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_CUSTOM_AGENTS_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -146,13 +146,13 @@ def _extract_model_role(content: str) -> str | None:
 # --- Agent scanning ---
 
 def _get_user_agents_dir() -> str:
-    """Get user-level agents directory: ~/.oal/agents/"""
-    return os.path.join(os.path.expanduser("~"), ".oal", "agents")
+    """Get user-level agents directory: ~/.omg/agents/"""
+    return os.path.join(os.path.expanduser("~"), ".omg", "agents")
 
 
 def _get_project_agents_dir(project_dir: str) -> str:
-    """Get project-level agents directory: <project>/.oal/agents/"""
-    return os.path.join(project_dir, ".oal", "agents")
+    """Get project-level agents directory: <project>/.omg/agents/"""
+    return os.path.join(project_dir, ".omg", "agents")
 
 
 def _scan_agents_dir(agents_dir: str, level: str) -> list[dict[str, Any]]:
@@ -205,8 +205,8 @@ def _scan_agents_dir(agents_dir: str, level: str) -> list[dict[str, Any]]:
 def load_custom_agents(project_dir: str = ".") -> list[dict[str, Any]]:
     """Load custom agents from user and project directories.
 
-    If OAL_CUSTOM_AGENTS_ENABLED is False, returns empty list.
-    Scans ~/.oal/agents/*.md (user-level) and <project_dir>/.oal/agents/*.md (project-level).
+    If OMG_CUSTOM_AGENTS_ENABLED is False, returns empty list.
+    Scans ~/.omg/agents/*.md (user-level) and <project_dir>/.omg/agents/*.md (project-level).
     Project-level agents override user-level agents with the same name.
 
     Args:
@@ -326,7 +326,7 @@ def get_all_agents(project_dir: str = ".") -> dict[str, dict[str, Any]]:
         validated, preferred_model, task_category, trigger_keywords, etc.
     """
     # Get built-in agents via lazy import
-    hooks_dir = os.path.join(_OAL_ROOT, "hooks")
+    hooks_dir = os.path.join(_OMG_ROOT, "hooks")
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
 

@@ -29,7 +29,7 @@ Database engineering specialist. Handles schema design, migrations, query optimi
 - MUST NOT change API route handlers (only query/model layer)
 - MUST NOT bypass ORM for raw SQL without documented justification
 - MUST NOT modify application-level auth logic
-- Defer API changes to `oal-backend-engineer`
+- Defer API changes to `omg-backend-engineer`
 
 ## Guardrails
 

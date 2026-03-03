@@ -13,8 +13,8 @@ def _read(path: Path) -> str:
 
 def test_runtime_paths_have_no_external_hard_dependency():
     targets = [
-        ROOT / "scripts" / "oal.py",
-        ROOT / "OAL-setup.sh",
+        ROOT / "scripts" / "omg.py",
+        ROOT / "OMG-setup.sh",
         ROOT / "install.sh",
     ]
     targets.extend((ROOT / "hooks").glob("*.py"))
@@ -22,7 +22,7 @@ def test_runtime_paths_have_no_external_hard_dependency():
 
     banned = [
         "OMC_STATE_DIR",
-        "OAL_COEXIST_MODE",
+        "OMG_COEXIST_MODE",
         "oh-my-claudecode",
         "/omc-setup",
         "/omc-doctor",

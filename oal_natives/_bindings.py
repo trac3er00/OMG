@@ -22,7 +22,7 @@ class BindingSpec:
 
     Attributes:
         name: Logical name of the binding (e.g. ``"grep"``).
-        rust_symbol: Rust symbol path (e.g. ``"oal_natives::grep::grep"``).
+        rust_symbol: Rust symbol path (e.g. ``"omg_natives::grep::grep"``).
         python_fallback: Callable Python implementation used when Rust is unavailable.
         type_hints: Optional mapping of parameter names to type strings for
             documentation and marshalling guidance.
@@ -78,7 +78,7 @@ class BindingRegistry:
     Usage::
 
         registry = BindingRegistry()
-        registry.register("grep", "oal_natives::grep::grep", _py_grep)
+        registry.register("grep", "omg_natives::grep::grep", _py_grep)
         result = registry.call("grep", pattern, path)
     """
 

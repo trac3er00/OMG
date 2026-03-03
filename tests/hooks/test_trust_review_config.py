@@ -145,7 +145,7 @@ class TestLogConfigImport:
 
         assert mock_write.called
         log_path, data = mock_write.call_args[0]
-        assert ".oal/trust/config_imports.json" in log_path
+        assert ".omg/trust/config_imports.json" in log_path
         assert len(data) == 1
         entry = data[0]
         assert entry["tool"] == "claude_code"
@@ -168,7 +168,7 @@ class TestLogConfigImport:
     @patch("_common.atomic_json_write")
     def test_log_appends_to_existing(self, mock_write, tmp_path: Path):
         """New entries append to existing log file."""
-        log_dir = tmp_path / ".oal" / "trust"
+        log_dir = tmp_path / ".omg" / "trust"
         log_dir.mkdir(parents=True)
         log_file = log_dir / "config_imports.json"
         existing = [{"timestamp": "2026-01-01T00:00:00", "config_path": "old.md", "tool": "cursor", "approved": True, "sha256_hash": "abc"}]
@@ -204,20 +204,20 @@ class TestLogConfigImport:
 class TestReviewDiscoveredConfigs:
     """Tests for the main review_discovered_configs function."""
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "false"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "false"}, clear=False)
     def test_feature_flag_disabled_returns_skipped(self):
         """When feature flag is disabled, returns skipped result."""
         result = review_discovered_configs(".")
         assert result["skipped"] is True
         assert result["reason"] == "feature disabled"
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "0"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "0"}, clear=False)
     def test_feature_flag_zero_returns_skipped(self):
         """Env var '0' means disabled."""
         result = review_discovered_configs(".")
         assert result["skipped"] is True
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_clean_configs_approved(self, mock_log, tmp_path: Path):
         """Clean discovered configs are approved."""
@@ -243,7 +243,7 @@ class TestReviewDiscoveredConfigs:
         assert result["approved"][0]["tool"] == "claude_code"
         assert len(result["rejected"]) == 0
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_dangerous_config_rejected(self, mock_log, tmp_path: Path):
         """Config with eval( is rejected."""
@@ -267,7 +267,7 @@ class TestReviewDiscoveredConfigs:
         assert "eval" in result["rejected"][0]["reason"]
         assert len(result["approved"]) == 0
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_credential_warning_still_approved(self, mock_log, tmp_path: Path):
         """Config with credential patterns gets warnings but is still approved."""
@@ -290,7 +290,7 @@ class TestReviewDiscoveredConfigs:
         assert len(result["warnings"]) >= 1
         assert any("api_key" in w for w in result["warnings"])
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_mixed_configs_sorted(self, mock_log, tmp_path: Path):
         """Mix of clean and dangerous configs are properly sorted."""
@@ -316,7 +316,7 @@ class TestReviewDiscoveredConfigs:
         assert result["approved"][0]["tool"] == "claude_code"
         assert result["rejected"][0]["tool"] == "cursor"
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_no_discovered_configs(self, mock_log, tmp_path: Path):
         """Empty discovery result returns empty lists."""
@@ -334,7 +334,7 @@ class TestReviewDiscoveredConfigs:
         assert result["rejected"] == []
         assert result["warnings"] == []
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_unreadable_config_handled(self, mock_log, tmp_path: Path):
         """Unreadable config (readable=False) is handled gracefully."""
@@ -353,7 +353,7 @@ class TestReviewDiscoveredConfigs:
         assert result["skipped"] is False
         assert len(result["approved"]) == 1
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_import_logging_called(self, mock_log, tmp_path: Path):
         """Import logging is called for each discovered config."""
@@ -378,7 +378,7 @@ class TestReviewDiscoveredConfigs:
         assert call_args[0][1] == "claude_code"  # tool
         assert call_args[1]["approved"] is True  # approved (keyword arg)
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_result_includes_scan_metadata(self, mock_log, tmp_path: Path):
         """Result includes scan_dir and timestamp from discovery."""
@@ -394,7 +394,7 @@ class TestReviewDiscoveredConfigs:
         assert result["scan_dir"] == "/some/project"
         assert result["timestamp"] == "2026-03-02T12:00:00"
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"}, clear=False)
     @patch("hooks.trust_review._log_config_import")
     def test_config_with_empty_paths_skipped(self, mock_log, tmp_path: Path):
         """Config entry with empty paths list is skipped."""
@@ -437,7 +437,7 @@ class TestExistingTrustReviewUnchanged:
         path = write_trust_manifest(str(tmp_path), review)
         assert Path(path).exists()
         data = json.loads(Path(path).read_text())
-        assert data["version"] == "oal-v1"
+        assert data["version"] == "omg-v1"
 
     def test_format_review_summary_still_works(self):
         """Original format_review_summary function is unbroken."""

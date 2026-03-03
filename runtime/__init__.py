@@ -1,4 +1,4 @@
-"""Runtime package for OAL."""
+"""Runtime package for OMG."""
 
 from .compat import (
     build_compat_gap_report,

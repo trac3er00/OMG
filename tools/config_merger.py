@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-Config Merging Framework for OAL
+Config Merging Framework for OMG
 
-Merges discovered AI tool configurations into a unified OAL config with
+Merges discovered AI tool configurations into a unified OMG config with
 priority-based conflict resolution.
 
 Priority order (highest to lowest):
-  1. OAL config (.oal/state/oal_config.json)
+  1. OMG config (.omg/state/omg_config.json)
   2. Project-level configs (discovered in project directory)
   3. User-level configs (discovered in home directory)
   4. Tool defaults
 
-Feature flag: OAL_CONFIG_DISCOVERY_ENABLED (default: off)
+Feature flag: OMG_CONFIG_DISCOVERY_ENABLED (default: off)
 """
 
 import json
@@ -22,13 +22,13 @@ from typing import Any, Dict, List, Tuple
 
 
 # Priority levels — lower number = higher priority
-PRIORITY_OAL = 0
+PRIORITY_OMG = 0
 PRIORITY_PROJECT = 10
 PRIORITY_USER = 20
 PRIORITY_DEFAULT = 30
 
 # Source type labels
-SOURCE_OAL = "oal_config"
+SOURCE_OMG = "omg_config"
 SOURCE_PROJECT = "project"
 SOURCE_USER = "user"
 SOURCE_DEFAULT = "default"
@@ -39,7 +39,7 @@ def _get_feature_flag_enabled() -> bool:
 
     Resolution: env var → _common.get_feature_flag() → False.
     """
-    env_val = os.environ.get("OAL_CONFIG_DISCOVERY_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_CONFIG_DISCOVERY_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -203,7 +203,7 @@ def _classify_source(config: Dict[str, Any]) -> str:
 def _get_priority(source_type: str) -> int:
     """Get numeric priority for a source type. Lower = higher priority."""
     return {
-        SOURCE_OAL: PRIORITY_OAL,
+        SOURCE_OMG: PRIORITY_OMG,
         SOURCE_PROJECT: PRIORITY_PROJECT,
         SOURCE_USER: PRIORITY_USER,
         SOURCE_DEFAULT: PRIORITY_DEFAULT,
@@ -255,12 +255,12 @@ def _resolve_conflict(
         return new_val, conflict_record
 
 
-def _load_oal_config(oal_config_path: str) -> Dict[str, Any]:
-    """Load OAL config from disk. Returns empty dict on any error."""
-    if not oal_config_path or not os.path.isfile(oal_config_path):
+def _load_omg_config(omg_config_path: str) -> Dict[str, Any]:
+    """Load OMG config from disk. Returns empty dict on any error."""
+    if not omg_config_path or not os.path.isfile(omg_config_path):
         return {}
     try:
-        with open(oal_config_path, "r", encoding="utf-8") as f:
+        with open(omg_config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data if isinstance(data, dict) else {}
     except (json.JSONDecodeError, OSError, IOError):
@@ -269,14 +269,14 @@ def _load_oal_config(oal_config_path: str) -> Dict[str, Any]:
 
 def merge_configs(
     discovered_configs: List[Dict[str, Any]],
-    oal_config_path: str = ".oal/state/oal_config.json",
+    omg_config_path: str = ".omg/state/omg_config.json",
 ) -> Dict[str, Any]:
-    """Merge discovered AI tool configs into a unified OAL config.
+    """Merge discovered AI tool configs into a unified OMG config.
 
     Args:
         discovered_configs: List of config dicts from discover_configs()["discovered"].
             Each dict has: tool, paths, format, size_bytes, readable.
-        oal_config_path: Path to existing OAL config (highest priority).
+        omg_config_path: Path to existing OMG config (highest priority).
 
     Returns:
         {
@@ -295,17 +295,17 @@ def merge_configs(
     sources: List[Dict[str, Any]] = []
     source_map: Dict[str, str] = {}  # key → source label for conflict tracking
 
-    # Phase 1: Load OAL config (highest priority)
-    oal_values = _load_oal_config(oal_config_path)
-    if oal_values:
+    # Phase 1: Load OMG config (highest priority)
+    omg_values = _load_omg_config(omg_config_path)
+    if omg_values:
         sources.append({
-            "type": SOURCE_OAL,
-            "path": oal_config_path,
-            "keys_count": len(oal_values),
+            "type": SOURCE_OMG,
+            "path": omg_config_path,
+            "keys_count": len(omg_values),
         })
-        for key, val in oal_values.items():
+        for key, val in omg_values.items():
             merged[key] = val
-            source_map[key] = SOURCE_OAL
+            source_map[key] = SOURCE_OMG
 
     # Phase 2: Process discovered configs by priority
     # Sort: project-level first, then user-level
@@ -376,24 +376,24 @@ def merge_configs(
 
 
 def _persist_merged_config(result: Dict[str, Any]) -> None:
-    """Persist merged config to .oal/state/merged_config.json."""
+    """Persist merged config to .omg/state/merged_config.json."""
     writer = _get_atomic_json_write()
     if writer is None:
         return
     try:
-        merged_path = os.path.join(".oal", "state", "merged_config.json")
+        merged_path = os.path.join(".omg", "state", "merged_config.json")
         writer(merged_path, result)
     except Exception:
         pass  # Never crash on persistence
 
 
 def _persist_conflicts(conflicts: List[Dict[str, Any]]) -> None:
-    """Persist conflict log to .oal/state/config_conflicts.json."""
+    """Persist conflict log to .omg/state/config_conflicts.json."""
     writer = _get_atomic_json_write()
     if writer is None:
         return
     try:
-        conflicts_path = os.path.join(".oal", "state", "config_conflicts.json")
+        conflicts_path = os.path.join(".omg", "state", "config_conflicts.json")
         writer(conflicts_path, conflicts)
     except Exception:
         pass  # Never crash on persistence
@@ -402,10 +402,10 @@ def _persist_conflicts(conflicts: List[Dict[str, Any]]) -> None:
 def get_merged_config() -> Dict[str, Any]:
     """Load and return the persisted merged config.
 
-    Returns the full merged config dict from .oal/state/merged_config.json,
+    Returns the full merged config dict from .omg/state/merged_config.json,
     or an empty dict if the file doesn't exist or is unreadable.
     """
-    merged_path = os.path.join(".oal", "state", "merged_config.json")
+    merged_path = os.path.join(".omg", "state", "merged_config.json")
     if not os.path.isfile(merged_path):
         return {}
     try:
@@ -440,8 +440,8 @@ def main():
     discovery = discover_configs(project_dir)
     discovered = discovery.get("discovered", [])
 
-    oal_config_path = os.path.join(project_dir, ".oal", "state", "oal_config.json")
-    result = merge_configs(discovered, oal_config_path)
+    omg_config_path = os.path.join(project_dir, ".omg", "state", "omg_config.json")
+    result = merge_configs(discovered, omg_config_path)
     print(json.dumps(result, indent=2))
 
 

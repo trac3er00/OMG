@@ -36,7 +36,7 @@ if get_feature_flag('memory'):
 
         summary_parts = [f"# Session: {datetime.now().strftime('%Y-%m-%d')} ({session_id[:8]})"]
 
-        ledger_path = os.path.join(cwd, '.oal', 'state', 'ledger', 'tool-ledger.jsonl')
+        ledger_path = os.path.join(cwd, '.omg', 'state', 'ledger', 'tool-ledger.jsonl')
         if os.path.exists(ledger_path):
             try:
                 with open(ledger_path) as file_obj:
@@ -61,7 +61,7 @@ if get_feature_flag('memory'):
             except OSError:
                 pass
 
-        checklist_path = os.path.join(cwd, '.oal', 'state', '_checklist.md')
+        checklist_path = os.path.join(cwd, '.omg', 'state', '_checklist.md')
         if os.path.exists(checklist_path):
             try:
                 with open(checklist_path) as file_obj:
@@ -83,7 +83,7 @@ if get_feature_flag('memory'):
 if get_feature_flag('compound_learning'):
     try:
         def capture_learnings(project_dir, session_id):
-            ledger_path = os.path.join(project_dir, '.oal', 'state', 'ledger', 'tool-ledger.jsonl')
+            ledger_path = os.path.join(project_dir, '.omg', 'state', 'ledger', 'tool-ledger.jsonl')
             if not os.path.exists(ledger_path):
                 return
 
@@ -113,7 +113,7 @@ if get_feature_flag('compound_learning'):
             # Write learning file
             date_str = datetime.now().strftime('%Y-%m-%d')
             session_short = session_id[:8] if len(session_id) > 8 else session_id
-            learn_dir = os.path.join(project_dir, '.oal', 'state', 'learnings')
+            learn_dir = os.path.join(project_dir, '.omg', 'state', 'learnings')
             os.makedirs(learn_dir, exist_ok=True)
             learn_path = os.path.join(learn_dir, f'{date_str}-{session_short}.md')
 

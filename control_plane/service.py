@@ -1,4 +1,4 @@
-"""Control plane service handlers for OAL v1."""
+"""Control plane service handlers for OMG v1."""
 from __future__ import annotations
 
 from datetime import datetime, timezone

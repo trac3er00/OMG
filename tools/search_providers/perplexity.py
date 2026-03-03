@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Perplexity Search Provider for OAL
+Perplexity Search Provider for OMG
 
 Uses the Perplexity AI chat completions API
 (https://api.perplexity.ai/chat/completions) for AI-powered web search.
@@ -75,7 +75,7 @@ class PerplexityProvider(Provider):
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self._api_key}",
-                "User-Agent": "OAL-WebSearch/1.0",
+                "User-Agent": "OMG-WebSearch/1.0",
             },
             method="POST",
         )
@@ -128,7 +128,7 @@ class PerplexityProvider(Provider):
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "OAL-WebSearch/1.0"},
+                headers={"User-Agent": "OMG-WebSearch/1.0"},
             )
             with urllib.request.urlopen(req, timeout=15) as resp:
                 encoding = resp.headers.get_content_charset() or "utf-8"

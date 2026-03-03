@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Brave Search Provider for OAL
+Brave Search Provider for OMG
 
 Uses the Brave Search API (https://api.search.brave.com/res/v1/web/search).
 """
@@ -69,7 +69,7 @@ class BraveProvider(Provider):
                 "Accept": "application/json",
                 "Accept-Encoding": "gzip",
                 "X-Subscription-Token": self._api_key,
-                "User-Agent": "OAL-WebSearch/1.0",
+                "User-Agent": "OMG-WebSearch/1.0",
             },
         )
 
@@ -104,7 +104,7 @@ class BraveProvider(Provider):
         try:
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "OAL-WebSearch/1.0"},
+                headers={"User-Agent": "OMG-WebSearch/1.0"},
             )
             with urllib.request.urlopen(req, timeout=15) as resp:
                 encoding = resp.headers.get_content_charset() or "utf-8"

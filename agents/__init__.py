@@ -1,1 +1,1 @@
-"""OAL agents module."""
+"""OMG agents module."""

@@ -65,7 +65,7 @@ def _resolve_workflow_path(idea: dict[str, Any]) -> list[str]:
 
 
 def build_business_task_plan(idea: dict[str, Any]) -> dict[str, Any]:
-    goal = str(idea.get("goal", "")).strip() or "unspecified-goal"
+    gomg = str(idea.get("gomg", "")).strip() or "unspecified-gomg"
     constraints = _as_string_list(idea.get("constraints", []))
     acceptance = _as_string_list(idea.get("acceptance", []))
     user_instructions = _as_string_list(idea.get("user_instructions", []))
@@ -170,7 +170,7 @@ def build_business_task_plan(idea: dict[str, Any]) -> dict[str, Any]:
         )
 
     return {
-        "goal": goal,
+        "gomg": gomg,
         "requested_path": _as_string_list(
             idea.get("workflow") or idea.get("path") or idea.get("delivery_path") or idea.get("workflow_path")
         ),
@@ -205,7 +205,7 @@ def build_business_workflow_result(
     }
 
     return {
-        "goal": plan_payload["goal"],
+        "gomg": plan_payload["gomg"],
         "workflow_path": plan_payload["resolved_path"],
         "requested_workflow_path": plan_payload["requested_path"],
         "task_plan": plan_payload,

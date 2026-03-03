@@ -23,7 +23,7 @@ def test_trust_review_manifest_written(tmp_path: Path):
     path = write_trust_manifest(str(tmp_path), review)
     assert Path(path).exists()
     data = json.loads(Path(path).read_text())
-    assert data["version"] == "oal-v1"
+    assert data["version"] == "omg-v1"
     assert "signature" in data
     assert "last_review" in data
 

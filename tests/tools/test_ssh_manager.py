@@ -107,7 +107,7 @@ class TestSSHConnection:
 class TestDiscoverHosts:
     """Tests for discover_hosts()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_reads_ssh_json(self, tmp_path):
         """Discovers hosts from ssh.json file."""
         config = {
@@ -128,7 +128,7 @@ class TestDiscoverHosts:
         # key_path should be expanded
         assert hosts[1].key_path is not None
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_reads_dot_ssh_json(self, tmp_path):
         """Discovers hosts from .ssh.json when ssh.json is absent."""
         config = {
@@ -144,13 +144,13 @@ class TestDiscoverHosts:
         assert hosts[0].host == "hidden-server.com"
         assert hosts[0].user == "root"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_handles_missing_file(self, tmp_path):
         """Returns empty list when no config file exists."""
         hosts = discover_hosts(str(tmp_path))
         assert hosts == []
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_disabled_returns_empty(self, tmp_path):
         """Returns empty list when feature flag is disabled."""
         config_file = tmp_path / "ssh.json"
@@ -168,7 +168,7 @@ class TestDiscoverHosts:
 class TestConnect:
     """Tests for connect()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_returns_spec(self):
         """connect() returns connection spec dict."""
         result = connect("myhost.com", port=22, user="admin")
@@ -181,21 +181,21 @@ class TestConnect:
         assert "session_id" in spec
         assert len(spec["session_id"]) == 12
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_adds_to_pool(self):
         """connect() adds connection to the module-level pool."""
         assert len(_connections) == 0
         connect("poolhost.com", port=2222)
         assert "poolhost.com:2222" in _connections
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_disabled_returns_error(self):
         """connect() returns error when flag disabled."""
         result = connect("myhost.com")
         assert result["success"] is False
         assert "disabled" in result["error"]
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_password_never_stored(self):
         """connect() never stores actual password in spec."""
         result = connect("secure.com", password="s3cret!")
@@ -203,7 +203,7 @@ class TestConnect:
         assert spec["password_set"] is True
         assert "s3cret!" not in json.dumps(spec)
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_empty_host_returns_error(self):
         """connect() rejects empty host."""
         result = connect("")
@@ -219,49 +219,49 @@ class TestConnect:
 class TestDetectOsShell:
     """Tests for detect_os() and detect_shell()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_detect_os_returns_string(self):
         """detect_os() returns a valid OS string."""
         result = detect_os({"host": "myserver.com"})
         assert result in ("linux", "macos", "windows")
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_detect_os_with_metadata(self):
         """detect_os() uses os_type from connection metadata."""
         result = detect_os({"host": "mac-server", "os_type": "macos"})
         assert result == "macos"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_detect_os_heuristic_windows(self):
         """detect_os() infers windows from hostname."""
         result = detect_os({"host": "win-server-01"})
         assert result == "windows"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_detect_shell_returns_string(self):
         """detect_shell() returns a valid shell string."""
         result = detect_shell({"host": "myserver.com"})
         assert result in ("bash", "zsh", "sh", "powershell", "fish")
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_detect_shell_from_os(self):
         """detect_shell() infers shell from OS type."""
         result = detect_shell({"host": "win-box", "os_type": "windows"})
         assert result == "powershell"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_detect_shell_macos(self):
         """detect_shell() returns zsh for macos."""
         result = detect_shell({"host": "mac", "os_type": "macos"})
         assert result == "zsh"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_detect_os_disabled(self):
         """detect_os() returns 'unknown' when disabled."""
         result = detect_os({"host": "x"})
         assert result == "unknown"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_detect_shell_disabled(self):
         """detect_shell() returns 'unknown' when disabled."""
         result = detect_shell({"host": "x"})
@@ -276,7 +276,7 @@ class TestDetectOsShell:
 class TestGetDisconnect:
     """Tests for get_connections() and disconnect()."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_get_connections_lists(self):
         """get_connections() returns all pool entries."""
         connect("host1.com")
@@ -287,7 +287,7 @@ class TestGetDisconnect:
         assert "host1.com" in hosts
         assert "host2.com" in hosts
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_disconnect_removes(self):
         """disconnect() removes a connection from the pool."""
         connect("removeme.com")
@@ -296,13 +296,13 @@ class TestGetDisconnect:
         assert removed is True
         assert len(_connections) == 0
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_disconnect_nonexistent(self):
         """disconnect() returns False for non-existent connection."""
         removed = disconnect("nohost.com")
         assert removed is False
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_get_connections_disabled(self):
         """get_connections() returns empty when disabled."""
         # Manually insert to pool to test flag check
@@ -319,22 +319,22 @@ class TestGetDisconnect:
 class TestFeatureFlag:
     """Tests for feature flag behavior."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_enabled_true(self):
         """Feature flag enabled via env var."""
         assert _is_enabled() is True
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "false"})
     def test_enabled_false(self):
         """Feature flag disabled via env var."""
         assert _is_enabled() is False
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "1"})
     def test_enabled_numeric(self):
         """Feature flag enabled via '1'."""
         assert _is_enabled() is True
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "0"})
     def test_disabled_numeric(self):
         """Feature flag disabled via '0'."""
         assert _is_enabled() is False
@@ -365,7 +365,7 @@ class TestPoolKey:
 class TestCLI:
     """Tests for CLI entry point."""
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_discover_cli(self, tmp_path, capsys):
         """CLI --discover outputs JSON."""
         config = {"hosts": [{"host": "cli-test.com", "user": "tester"}]}
@@ -379,7 +379,7 @@ class TestCLI:
         assert output["count"] == 1
         assert output["hosts"][0]["host"] == "cli-test.com"
 
-    @patch.dict(os.environ, {"OAL_SSH_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_SSH_ENABLED": "true"})
     def test_discover_dry_run(self, tmp_path, capsys):
         """CLI --discover --dry-run outputs dry run info."""
         with patch("sys.argv", ["ssh_manager.py", "--discover", "--dry-run", "--project-dir", str(tmp_path)]):

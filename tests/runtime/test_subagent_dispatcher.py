@@ -62,29 +62,29 @@ def clean_jobs():
 
 
 class TestFeatureFlag:
-    """Tests for OAL_PARALLEL_SUBAGENTS_ENABLED feature flag."""
+    """Tests for OMG_PARALLEL_SUBAGENTS_ENABLED feature flag."""
 
     def test_disabled_by_default(self):
         """Feature should be disabled when env var is not set."""
         with patch.dict(os.environ, {}, clear=False):
             # Remove the env var if it exists
-            os.environ.pop("OAL_PARALLEL_SUBAGENTS_ENABLED", None)
+            os.environ.pop("OMG_PARALLEL_SUBAGENTS_ENABLED", None)
             with patch("runtime.subagent_dispatcher._get_feature_flag", return_value=None):
                 assert _is_enabled() is False
 
     def test_enabled_via_env_var(self):
         """Feature enabled when env var is '1'."""
-        with patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"}):
+        with patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"}):
             assert _is_enabled() is True
 
     def test_disabled_via_env_var_false(self):
         """Feature disabled when env var is 'false'."""
-        with patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "false"}):
             assert _is_enabled() is False
 
     def test_submit_raises_when_disabled(self):
         """submit_job should raise RuntimeError when feature is disabled."""
-        with patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "0"}):
+        with patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "0"}):
             with pytest.raises(RuntimeError, match="feature disabled"):
                 submit_job("test-agent", "do something")
 
@@ -112,7 +112,7 @@ class TestSubmitJob:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_returns_job_id(self, mock_executor, mock_persist):
         """submit_job should return an 8-char hex job_id."""
         mock_pool = MagicMock()
@@ -127,7 +127,7 @@ class TestSubmitJob:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_job_record_created(self, mock_executor, mock_persist):
         """submit_job should create a job record in _jobs."""
         mock_pool = MagicMock()
@@ -146,7 +146,7 @@ class TestSubmitJob:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_job_persisted_to_disk(self, mock_executor, mock_persist):
         """submit_job should call _persist_job with the record."""
         mock_pool = MagicMock()
@@ -160,7 +160,7 @@ class TestSubmitJob:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_submit_with_worktree_isolation(self, mock_executor, mock_persist):
         """submit_job should accept isolation='worktree'."""
         mock_pool = MagicMock()
@@ -173,7 +173,7 @@ class TestSubmitJob:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_executor_submit_called(self, mock_executor, mock_persist):
         """submit_job should submit _run_job to the executor."""
         mock_pool = MagicMock()
@@ -197,7 +197,7 @@ class TestJobLimit:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_limit_enforced(self, mock_executor, mock_persist):
         """submit_job should raise when 100 running jobs exist."""
         mock_pool = MagicMock()
@@ -212,7 +212,7 @@ class TestJobLimit:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_completed_jobs_dont_count(self, mock_executor, mock_persist):
         """Completed jobs should not count toward the limit."""
         mock_pool = MagicMock()
@@ -228,7 +228,7 @@ class TestJobLimit:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_limit_counts_only_running(self, mock_executor, mock_persist):
         """Only running jobs count toward the limit."""
         mock_pool = MagicMock()
@@ -260,7 +260,7 @@ class TestGetJobStatus:
 
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher.get_executor")
-    @patch.dict(os.environ, {"OAL_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
     def test_returns_job_record(self, mock_executor, mock_persist):
         """get_job_status should return the job record from memory."""
         mock_pool = MagicMock()
@@ -277,7 +277,7 @@ class TestGetJobStatus:
         """get_job_status should fall back to disk when not in memory."""
         # Create a job file on disk
         job_id = "abc12345"
-        jobs_dir = tmp_path / ".oal" / "state" / "jobs"
+        jobs_dir = tmp_path / ".omg" / "state" / "jobs"
         jobs_dir.mkdir(parents=True)
         job_file = jobs_dir / f"{job_id}.json"
         record = {"job_id": job_id, "status": "completed", "agent_name": "disk-agent"}
@@ -514,7 +514,7 @@ class TestGitCheck:
 
 
 class TestArtifactStreaming:
-    """Tests for artifact persistence to .oal/state/jobs/<job_id>.json."""
+    """Tests for artifact persistence to .omg/state/jobs/<job_id>.json."""
 
     def test_persist_calls_atomic_write(self):
         """_persist_job should call atomic_json_write with correct path."""
@@ -525,7 +525,7 @@ class TestArtifactStreaming:
                 _persist_job("x1", record)
 
                 mock_writer.assert_called_once_with(
-                    "/proj/.oal/state/jobs/x1.json",
+                    "/proj/.omg/state/jobs/x1.json",
                     record,
                 )
 
@@ -537,7 +537,7 @@ class TestArtifactStreaming:
 
     def test_load_from_disk(self, tmp_path):
         """_load_job_from_disk should read job file from disk."""
-        jobs_dir = tmp_path / ".oal" / "state" / "jobs"
+        jobs_dir = tmp_path / ".omg" / "state" / "jobs"
         jobs_dir.mkdir(parents=True)
         job_file = jobs_dir / "disk01.json"
         record = {"job_id": "disk01", "status": "completed"}

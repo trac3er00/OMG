@@ -18,12 +18,12 @@ from tools.config_merger import (
     _get_priority,
     _parse_json,
     _parse_markdown_frontmatter,
-    _load_oal_config,
-    PRIORITY_OAL,
+    _load_omg_config,
+    PRIORITY_OMG,
     PRIORITY_PROJECT,
     PRIORITY_USER,
     PRIORITY_DEFAULT,
-    SOURCE_OAL,
+    SOURCE_OMG,
     SOURCE_PROJECT,
     SOURCE_USER,
     SOURCE_DEFAULT,
@@ -33,25 +33,25 @@ from tools.config_merger import (
 class TestFeatureFlag:
     """Feature flag disabled → skipped result."""
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "false"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_feature_disabled_returns_skipped(self, mock_writer):
         result = merge_configs([])
         assert result == {"skipped": True}
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "0"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_feature_disabled_zero_returns_skipped(self, mock_writer):
         result = merge_configs([])
         assert result == {"skipped": True}
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "no"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "no"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_feature_disabled_no_returns_skipped(self, mock_writer):
         result = merge_configs([])
         assert result == {"skipped": True}
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_feature_enabled_returns_merged_structure(self, mock_writer):
         result = merge_configs([])
@@ -185,12 +185,12 @@ class TestParseHelpers:
 class TestResolveConflict:
     """_resolve_conflict applies priority rules correctly."""
 
-    def test_oal_wins_over_project(self):
+    def test_omg_wins_over_project(self):
         val, record = _resolve_conflict(
-            "key", "oal_val", "proj_val", SOURCE_OAL, f"{SOURCE_PROJECT}:tool:path"
+            "key", "omg_val", "proj_val", SOURCE_OMG, f"{SOURCE_PROJECT}:tool:path"
         )
-        assert val == "oal_val"
-        assert record["winner"] == SOURCE_OAL
+        assert val == "omg_val"
+        assert record["winner"] == SOURCE_OMG
         assert record["resolution"] == "higher_priority"
 
     def test_project_wins_over_user(self):
@@ -215,13 +215,13 @@ class TestResolveConflict:
 
     def test_higher_priority_new_source_wins(self):
         val, record = _resolve_conflict(
-            "key", "default_val", "oal_val", SOURCE_DEFAULT, SOURCE_OAL
+            "key", "default_val", "omg_val", SOURCE_DEFAULT, SOURCE_OMG
         )
-        assert val == "oal_val"
-        assert record["winner"] == SOURCE_OAL
+        assert val == "omg_val"
+        assert record["winner"] == SOURCE_OMG
 
     def test_conflict_record_has_required_fields(self):
-        _, record = _resolve_conflict("k", "a", "b", SOURCE_OAL, SOURCE_PROJECT)
+        _, record = _resolve_conflict("k", "a", "b", SOURCE_OMG, SOURCE_PROJECT)
         assert "key" in record
         assert "existing_value" in record
         assert "new_value" in record
@@ -251,10 +251,10 @@ class TestClassifySource:
 class TestPriority:
     """Priority ordering tests."""
 
-    def test_oal_highest_priority(self):
-        assert _get_priority(SOURCE_OAL) < _get_priority(SOURCE_PROJECT)
-        assert _get_priority(SOURCE_OAL) < _get_priority(SOURCE_USER)
-        assert _get_priority(SOURCE_OAL) < _get_priority(SOURCE_DEFAULT)
+    def test_omg_highest_priority(self):
+        assert _get_priority(SOURCE_OMG) < _get_priority(SOURCE_PROJECT)
+        assert _get_priority(SOURCE_OMG) < _get_priority(SOURCE_USER)
+        assert _get_priority(SOURCE_OMG) < _get_priority(SOURCE_DEFAULT)
 
     def test_project_higher_than_user(self):
         assert _get_priority(SOURCE_PROJECT) < _get_priority(SOURCE_USER)
@@ -269,7 +269,7 @@ class TestPriority:
 class TestMergeConfigsIntegration:
     """Integration tests for merge_configs with mocked writes."""
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_empty_configs_returns_empty_merged(self, mock_writer):
         result = merge_configs([])
@@ -277,35 +277,35 @@ class TestMergeConfigsIntegration:
         assert result["conflicts"] == []
         assert result["sources"] == []
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
-    def test_oal_config_loaded_as_highest_priority(self, mock_writer):
+    def test_omg_config_loaded_as_highest_priority(self, mock_writer):
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False
         ) as f:
             json.dump({"theme": "dark", "debug": True}, f)
             f.flush()
-            oal_path = f.name
+            omg_path = f.name
         try:
-            result = merge_configs([], oal_config_path=oal_path)
+            result = merge_configs([], omg_config_path=omg_path)
             assert result["merged"]["theme"] == "dark"
             assert result["merged"]["debug"] is True
             assert len(result["sources"]) == 1
-            assert result["sources"][0]["type"] == SOURCE_OAL
+            assert result["sources"][0]["type"] == SOURCE_OMG
         finally:
-            os.unlink(oal_path)
+            os.unlink(omg_path)
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
-    def test_oal_config_wins_conflict_over_discovered(self, mock_writer):
-        """OAL config should win over discovered project configs."""
-        # Create OAL config
+    def test_omg_config_wins_conflict_over_discovered(self, mock_writer):
+        """OMG config should win over discovered project configs."""
+        # Create OMG config
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False
         ) as f:
             json.dump({"theme": "dark"}, f)
             f.flush()
-            oal_path = f.name
+            omg_path = f.name
 
         # Create discovered config with conflicting value
         with tempfile.NamedTemporaryFile(
@@ -323,8 +323,8 @@ class TestMergeConfigsIntegration:
                 "size_bytes": 100,
                 "readable": True,
             }]
-            result = merge_configs(discovered, oal_config_path=oal_path)
-            # OAL wins on "theme"
+            result = merge_configs(discovered, omg_config_path=omg_path)
+            # OMG wins on "theme"
             assert result["merged"]["theme"] == "dark"
             # "extra" from discovered is added (no conflict)
             assert result["merged"]["extra"] == "val"
@@ -332,10 +332,10 @@ class TestMergeConfigsIntegration:
             assert len(result["conflicts"]) == 1
             assert result["conflicts"][0]["key"] == "theme"
         finally:
-            os.unlink(oal_path)
+            os.unlink(omg_path)
             os.unlink(disc_path)
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_conflict_logging(self, mock_writer):
         """Conflicts should be logged with all required fields."""
@@ -380,7 +380,7 @@ class TestMergeConfigsIntegration:
             os.unlink(path1)
             os.unlink(path2)
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_unreadable_configs_skipped(self, mock_writer):
         """Configs marked as not readable should be skipped."""
@@ -395,7 +395,7 @@ class TestMergeConfigsIntegration:
         assert result["merged"] == {}
         assert result["sources"] == []
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_empty_paths_skipped(self, mock_writer):
         """Configs with no paths should be skipped."""
@@ -409,7 +409,7 @@ class TestMergeConfigsIntegration:
         result = merge_configs(discovered)
         assert result["merged"] == {}
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_persist_calls_atomic_write(self, mock_writer):
         """merge_configs should persist merged result via atomic_json_write."""
@@ -417,7 +417,7 @@ class TestMergeConfigsIntegration:
         # atomic_json_write should be called for merged_config.json
         mock_writer.assert_called()
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_multiple_configs_merge_all_keys(self, mock_writer):
         """Multiple non-conflicting configs should all be merged."""
@@ -460,7 +460,7 @@ class TestMergeConfigsIntegration:
             os.unlink(path1)
             os.unlink(path2)
 
-    @patch.dict(os.environ, {"OAL_CONFIG_DISCOVERY_ENABLED": "true"})
+    @patch.dict(os.environ, {"OMG_CONFIG_DISCOVERY_ENABLED": "true"})
     @patch("tools.config_merger._get_atomic_json_write", return_value=MagicMock())
     def test_sources_tracked_correctly(self, mock_writer):
         """Each config source should be tracked in the sources list."""
@@ -549,7 +549,7 @@ class TestGetMergedConfig:
 
 
 class TestLoadOalConfig:
-    """_load_oal_config file loading tests."""
+    """_load_omg_config file loading tests."""
 
     def test_loads_valid_json(self):
         with tempfile.NamedTemporaryFile(
@@ -559,15 +559,15 @@ class TestLoadOalConfig:
             f.flush()
             path = f.name
         try:
-            assert _load_oal_config(path) == {"key": "value"}
+            assert _load_omg_config(path) == {"key": "value"}
         finally:
             os.unlink(path)
 
     def test_empty_path_returns_empty(self):
-        assert _load_oal_config("") == {}
+        assert _load_omg_config("") == {}
 
     def test_nonexistent_returns_empty(self):
-        assert _load_oal_config("/no/such/file.json") == {}
+        assert _load_omg_config("/no/such/file.json") == {}
 
     def test_invalid_json_returns_empty(self):
         with tempfile.NamedTemporaryFile(
@@ -577,7 +577,7 @@ class TestLoadOalConfig:
             f.flush()
             path = f.name
         try:
-            assert _load_oal_config(path) == {}
+            assert _load_omg_config(path) == {}
         finally:
             os.unlink(path)
 
@@ -589,6 +589,6 @@ class TestLoadOalConfig:
             f.flush()
             path = f.name
         try:
-            assert _load_oal_config(path) == {}
+            assert _load_omg_config(path) == {}
         finally:
             os.unlink(path)

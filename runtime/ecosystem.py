@@ -1,4 +1,4 @@
-"""Optional upstream ecosystem sync and integration helpers for OAL."""
+"""Optional upstream ecosystem sync and integration helpers for OMG."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -10,9 +10,9 @@ from typing import Any
 ECOSYSTEM_SCHEMA = "OalEcosystemCatalog"
 ECOSYSTEM_CATALOG_VERSION = "1.0.0"
 ECOSYSTEM_LOCK_SCHEMA = "OalEcosystemLock"
-DEFAULT_ECOSYSTEM_REPO_DIR = ".oal/ecosystem/repos"
-DEFAULT_ECOSYSTEM_LOCK_PATH = ".oal/state/ecosystem-lock.json"
-DEFAULT_ECOSYSTEM_PLAYBOOK_DIR = ".oal/knowledge/ecosystem"
+DEFAULT_ECOSYSTEM_REPO_DIR = ".omg/ecosystem/repos"
+DEFAULT_ECOSYSTEM_LOCK_PATH = ".omg/state/ecosystem-lock.json"
+DEFAULT_ECOSYSTEM_PLAYBOOK_DIR = ".omg/knowledge/ecosystem"
 MAX_SELECTION = 32
 
 
@@ -56,7 +56,7 @@ ECOSYSTEM_REPOS: tuple[dict[str, Any], ...] = (
         "route": "memory",
         "category": "memory",
         "capabilities": ("session-memory", "knowledge-capture", "recall"),
-        "notes": "Complements OAL knowledge/state artifacts with memory-centric workflows.",
+        "notes": "Complements OMG knowledge/state artifacts with memory-centric workflows.",
     },
     {
         "name": "memsearch",
@@ -232,7 +232,7 @@ def _clone_or_update_repo(
         "name": repo["name"],
         "repo": repo_url,
         "ref": ref,
-        "repo_segments": [".oal", "ecosystem", "repos", str(repo["name"])],
+        "repo_segments": [".omg", "ecosystem", "repos", str(repo["name"])],
         "action": action,
         "commit": commit,
         "branch": branch,
@@ -286,7 +286,7 @@ def sync_ecosystem_repos(
                     "name": repo["name"],
                     "repo": repo["repo"],
                     "ref": repo.get("ref", "main"),
-                    "repo_segments": [".oal", "ecosystem", "repos", str(repo["name"])],
+                    "repo_segments": [".omg", "ecosystem", "repos", str(repo["name"])],
                     "status": "error",
                     "error": str(exc),
                 }
@@ -336,7 +336,7 @@ def ecosystem_status(*, project_dir: str) -> dict[str, Any]:
                 {
                     "name": repo["name"],
                     "installed": False,
-                    "repo_segments": [".oal", "ecosystem", "repos", str(repo["name"])],
+                    "repo_segments": [".omg", "ecosystem", "repos", str(repo["name"])],
                 }
             )
             continue
@@ -352,7 +352,7 @@ def ecosystem_status(*, project_dir: str) -> dict[str, Any]:
             {
                 "name": repo["name"],
                 "installed": True,
-                "repo_segments": [".oal", "ecosystem", "repos", str(repo["name"])],
+                "repo_segments": [".omg", "ecosystem", "repos", str(repo["name"])],
                 "commit": commit,
                 "branch": branch,
                 "error": error,

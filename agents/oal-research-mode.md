@@ -30,7 +30,7 @@ Research mode cognitive agent. Gathers information, evaluates technologies, anal
 - MUST NOT make architectural decisions — present options with trade-offs
 - MUST NOT install packages or dependencies
 - MUST NOT modify configuration files
-- Defer implementation to `oal-executor` or domain-specific agents after research concludes
+- Defer implementation to `omg-executor` or domain-specific agents after research concludes
 
 ## Guardrails
 

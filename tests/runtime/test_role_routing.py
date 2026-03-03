@@ -29,34 +29,34 @@ class TestGetRoleFromEnv:
     """Tests for get_role_from_env() helper."""
 
     def test_returns_none_when_not_set(self):
-        """Returns None when OAL_ACTIVE_ROLE is not set."""
+        """Returns None when OMG_ACTIVE_ROLE is not set."""
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("OAL_ACTIVE_ROLE", None)
+            os.environ.pop("OMG_ACTIVE_ROLE", None)
             assert get_role_from_env() is None
 
     def test_returns_role_when_set(self):
-        """Returns role name when OAL_ACTIVE_ROLE is set."""
-        with patch.dict(os.environ, {"OAL_ACTIVE_ROLE": "smol"}):
+        """Returns role name when OMG_ACTIVE_ROLE is set."""
+        with patch.dict(os.environ, {"OMG_ACTIVE_ROLE": "smol"}):
             assert get_role_from_env() == "smol"
 
     def test_lowercases_value(self):
         """Lowercases the env var value."""
-        with patch.dict(os.environ, {"OAL_ACTIVE_ROLE": "SLOW"}):
+        with patch.dict(os.environ, {"OMG_ACTIVE_ROLE": "SLOW"}):
             assert get_role_from_env() == "slow"
 
     def test_strips_whitespace(self):
         """Strips whitespace from value."""
-        with patch.dict(os.environ, {"OAL_ACTIVE_ROLE": "  plan  "}):
+        with patch.dict(os.environ, {"OMG_ACTIVE_ROLE": "  plan  "}):
             assert get_role_from_env() == "plan"
 
     def test_empty_string_returns_none(self):
         """Empty string returns None."""
-        with patch.dict(os.environ, {"OAL_ACTIVE_ROLE": ""}):
+        with patch.dict(os.environ, {"OMG_ACTIVE_ROLE": ""}):
             assert get_role_from_env() is None
 
     def test_whitespace_only_returns_none(self):
         """Whitespace-only string returns None."""
-        with patch.dict(os.environ, {"OAL_ACTIVE_ROLE": "   "}):
+        with patch.dict(os.environ, {"OMG_ACTIVE_ROLE": "   "}):
             assert get_role_from_env() is None
 
 
@@ -68,7 +68,7 @@ class TestGetRoleFromEnv:
 class TestRouteWithRoleDisabled:
     """Tests for route_with_role() when feature flag is disabled."""
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "0"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "0"}, clear=False)
     def test_feature_flag_disabled_returns_baseline(self):
         """When ROLE_ROUTING disabled, returns baseline routing unchanged."""
         result = route_with_role("fix typo in README")
@@ -76,7 +76,7 @@ class TestRouteWithRoleDisabled:
         assert result["model"] is None
         assert "intent-based" in result["reason"]
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "false"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "false"}, clear=False)
     def test_feature_flag_false_returns_baseline(self):
         """String 'false' also disables."""
         result = route_with_role("fix auth middleware", role="slow")
@@ -86,11 +86,11 @@ class TestRouteWithRoleDisabled:
     @patch.dict(os.environ, {}, clear=False)
     def test_feature_flag_not_set_returns_baseline(self):
         """Default (no env var) returns baseline since default=False."""
-        os.environ.pop("OAL_ROLE_ROUTING_ENABLED", None)
+        os.environ.pop("OMG_ROLE_ROUTING_ENABLED", None)
         result = route_with_role("debug performance issue")
         assert result["role"] is None
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "0"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "0"}, clear=False)
     def test_disabled_preserves_provider_from_infer_target(self):
         """Disabled flag still uses _infer_target for provider field."""
         result = route_with_role("fix auth security issue")
@@ -106,7 +106,7 @@ class TestRouteWithRoleDisabled:
 class TestRouteWithRoleEnabled:
     """Tests for route_with_role() with feature flag enabled and explicit role."""
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_smol_role_routes_to_haiku(self):
         """smol role routes to cheapest model (haiku-class)."""
         result = route_with_role("fix typo", role="smol")
@@ -114,35 +114,35 @@ class TestRouteWithRoleEnabled:
         assert "haiku" in result["model"].lower()
         assert "role-based" in result["reason"]
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_slow_role_routes_to_opus(self):
         """slow role routes to most capable model (opus-class)."""
         result = route_with_role("complex architectural decision", role="slow")
         assert result["role"] == "slow"
         assert "opus" in result["model"].lower()
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_plan_role_routes_to_sonnet(self):
         """plan role routes to planning model (sonnet-class)."""
         result = route_with_role("plan the migration", role="plan")
         assert result["role"] == "plan"
         assert "sonnet" in result["model"].lower()
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_commit_role_routes_to_haiku(self):
         """commit role routes to concise model (haiku-class)."""
         result = route_with_role("write commit message", role="commit")
         assert result["role"] == "commit"
         assert "haiku" in result["model"].lower()
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_default_role_routes_to_opus(self):
         """default role routes to standard model."""
         result = route_with_role("general task", role="default")
         assert result["role"] == "default"
         assert result["model"] is not None
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_unknown_role_falls_back_to_default(self):
         """Unknown role falls back to default role config."""
         result = route_with_role("something", role="nonexistent_role_xyz")
@@ -150,7 +150,7 @@ class TestRouteWithRoleEnabled:
         assert result["role"] == "nonexistent_role_xyz"
         assert result["model"] is not None  # gets default role's model
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_result_has_required_keys(self):
         """Result dict always has model, provider, role, reason keys."""
         result = route_with_role("anything", role="smol")
@@ -169,8 +169,8 @@ class TestRoleResolutionPriority:
     """Tests for role resolution: explicit > env var > CLI args."""
 
     @patch.dict(os.environ, {
-        "OAL_ROLE_ROUTING_ENABLED": "1",
-        "OAL_ACTIVE_ROLE": "slow",
+        "OMG_ROLE_ROUTING_ENABLED": "1",
+        "OMG_ACTIVE_ROLE": "slow",
     }, clear=False)
     def test_explicit_role_overrides_env_var(self):
         """Explicit role parameter takes priority over env var."""
@@ -179,8 +179,8 @@ class TestRoleResolutionPriority:
         assert "haiku" in result["model"].lower()
 
     @patch.dict(os.environ, {
-        "OAL_ROLE_ROUTING_ENABLED": "1",
-        "OAL_ACTIVE_ROLE": "plan",
+        "OMG_ROLE_ROUTING_ENABLED": "1",
+        "OMG_ACTIVE_ROLE": "plan",
     }, clear=False)
     def test_env_var_used_when_no_explicit_role(self):
         """Env var is used when no explicit role parameter."""
@@ -189,19 +189,19 @@ class TestRoleResolutionPriority:
         assert result["role"] == "plan"
         assert "sonnet" in result["model"].lower()
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_cli_args_used_when_no_role_or_env(self):
         """CLI args used when no explicit role and no env var."""
-        os.environ.pop("OAL_ACTIVE_ROLE", None)
+        os.environ.pop("OMG_ACTIVE_ROLE", None)
         with patch("sys.argv", ["program", "--slow"]):
             result = route_with_role("task")
         assert result["role"] == "slow"
         assert "opus" in result["model"].lower()
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_no_role_anywhere_returns_baseline(self):
         """No role from any source returns baseline routing."""
-        os.environ.pop("OAL_ACTIVE_ROLE", None)
+        os.environ.pop("OMG_ACTIVE_ROLE", None)
         with patch("sys.argv", ["program"]):
             result = route_with_role("fix auth middleware")
         assert result["role"] is None
@@ -217,19 +217,19 @@ class TestRoleResolutionPriority:
 class TestCostOptimization:
     """Verify cost-aware routing: smol=cheapest, slow=most capable."""
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_smol_is_cheapest_model(self):
         """smol role uses the cheapest model (haiku-class)."""
         result = route_with_role("trivial fix", role="smol")
         assert "haiku" in result["model"].lower()
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_slow_is_most_capable(self):
         """slow role uses the most capable model (opus-class)."""
         result = route_with_role("complex reasoning task", role="slow")
         assert "opus" in result["model"].lower()
 
-    @patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
     def test_commit_is_cheap_and_concise(self):
         """commit role uses cheap model with low token limit."""
         result = route_with_role("generate commit msg", role="commit")
@@ -261,7 +261,7 @@ class TestExistingRoutingUnchanged:
 
     def test_route_with_role_baseline_matches_infer_target(self):
         """Baseline (no role) uses _infer_target result as provider."""
-        with patch.dict(os.environ, {"OAL_ROLE_ROUTING_ENABLED": "0"}, clear=False):
+        with patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "0"}, clear=False):
             result = route_with_role("fix ui layout issue")
         from runtime.team_router import _infer_target
         expected = _infer_target("fix ui layout issue")

@@ -1,29 +1,29 @@
 ---
-description: "Create or manage OAL state branches for experimental workflows."
+description: "Create or manage OMG state branches for experimental workflows."
 allowed-tools: Read, Write, Edit, Bash
 argument-hint: "--name <branch-name> [--from <snapshot_id>]"
 ---
 
-# /OAL:branch — Branch OAL State
+# /OMG:branch — Branch OMG State
 
-Create a named branch of the current OAL state for experimentation or parallel exploration.
+Create a named branch of the current OMG state for experimentation or parallel exploration.
 
 ## Important
 
-Branching is **OAL state only** — it captures and restores `.oal/state/` directory contents. It does **not** fork the conversation, context window, or Claude session. Think of it as a checkpoint you can name and switch between.
+Branching is **OMG state only** — it captures and restores `.omg/state/` directory contents. It does **not** fork the conversation, context window, or Claude session. Think of it as a checkpoint you can name and switch between.
 
 ## Usage
 
 ```
-/OAL:branch --name "experiment"
-/OAL:branch --name "refactor-v2" --from 20260302_143000_baseline
+/OMG:branch --name "experiment"
+/OMG:branch --name "refactor-v2" --from 20260302_143000_baseline
 ```
 
 ## What It Does
 
-1. Creates a snapshot of the current `.oal/state/` directory (or restores a specified snapshot)
-2. Writes branch metadata to `.oal/state/branches/<name>.json`
-3. Updates `.oal/state/current_branch.json` to track the active branch
+1. Creates a snapshot of the current `.omg/state/` directory (or restores a specified snapshot)
+2. Writes branch metadata to `.omg/state/branches/<name>.json`
+3. Updates `.omg/state/current_branch.json` to track the active branch
 
 ## Branch Metadata
 
@@ -52,17 +52,17 @@ python3 tools/session_snapshot.py branch my-branch --from 20260302_143000_baseli
 
 ## Feature Flag
 
-Branching is gated behind `OAL_BRANCHING_ENABLED` (default: `False`).
+Branching is gated behind `OMG_BRANCHING_ENABLED` (default: `False`).
 
 Enable via environment variable:
 ```bash
-export OAL_BRANCHING_ENABLED=true
+export OMG_BRANCHING_ENABLED=true
 ```
 
 Or in `settings.json`:
 ```json
 {
-  "_oal": {
+  "_omg": {
     "features": {
       "BRANCHING": true
     }
@@ -74,11 +74,11 @@ Or in `settings.json`:
 
 ```
 # 1. Create a baseline branch
-/OAL:branch --name "baseline"
+/OMG:branch --name "baseline"
 
 # 2. Do some experimental work...
 # 3. Create experiment branch to save progress
-/OAL:branch --name "experiment-auth"
+/OMG:branch --name "experiment-auth"
 
 # 4. Switch back to baseline if experiment didn't work
 python3 tools/session_snapshot.py switch baseline

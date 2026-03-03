@@ -1,4 +1,4 @@
-"""Shared utilities for OAL hooks. Pure stdlib — no external deps."""
+"""Shared utilities for OMG hooks. Pure stdlib — no external deps."""
 import json
 import os
 import sys
@@ -6,7 +6,7 @@ import fcntl
 from datetime import datetime, timezone
 
 # --- Stop-Block Loop Breaker ---
-_STOP_BLOCK_TRACKER = ".oal/state/ledger/.stop-block-tracker.json"
+_STOP_BLOCK_TRACKER = ".omg/state/ledger/.stop-block-tracker.json"
 # Max seconds between blocks to consider it a loop
 _BLOCK_LOOP_WINDOW_SECS = 30
 # How many consecutive blocks before we skip
@@ -33,10 +33,10 @@ def get_project_dir():
 
 
 def _resolve_project_dir():
-    """Get and validate project directory; warns if .oal/ missing."""
+    """Get and validate project directory; warns if .omg/ missing."""
     path = get_project_dir()
-    if not os.path.isdir(os.path.join(path, ".oal")):
-        print(f"[OAL] Warning: .oal/ not found in {path}", file=sys.stderr)
+    if not os.path.isdir(os.path.join(path, ".omg")):
+        print(f"[OMG] Warning: .omg/ not found in {path}", file=sys.stderr)
     return path
 
 def deny_decision(reason):
@@ -73,11 +73,11 @@ def setup_crash_handler(hook_name, fail_closed=False):
     fail_closed=False: silently exit 0 (for non-security hooks)
     """
     def _excepthook(exc_type, exc_val, exc_tb):
-        print(f"OAL hook error ({hook_name}): {exc_val}", file=sys.stderr)
+        print(f"OMG hook error ({hook_name}): {exc_val}", file=sys.stderr)
         log_hook_error(hook_name, exc_val)
         if fail_closed:
             try:
-                deny_decision(f"OAL {hook_name} crash: {exc_val}. Denying for safety.")
+                deny_decision(f"OMG {hook_name} crash: {exc_val}. Denying for safety.")
             except Exception:
                 pass
         os._exit(0)
@@ -97,7 +97,7 @@ def read_file_safe(path, max_bytes=2000):
 
 
 def log_hook_error(hook_name, error, context=None):
-    """Log hook error to .oal/state/ledger/hook-errors.jsonl with file locking.
+    """Log hook error to .omg/state/ledger/hook-errors.jsonl with file locking.
     
     Args:
         hook_name: Name of the hook that errored
@@ -108,7 +108,7 @@ def log_hook_error(hook_name, error, context=None):
     """
     try:
         project_dir = get_project_dir()
-        ledger_dir = os.path.join(project_dir, ".oal", "state", "ledger")
+        ledger_dir = os.path.join(project_dir, ".omg", "state", "ledger")
         os.makedirs(ledger_dir, exist_ok=True)
         
         ledger_path = os.path.join(ledger_dir, "hook-errors.jsonl")
@@ -153,13 +153,13 @@ def log_hook_error(hook_name, error, context=None):
                 with open(ledger_path, "a") as f:
                     f.write(json.dumps(entry, separators=(",", ":")) + "\n")
             except Exception as e:
-                print(f"[OAL] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
+                print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
                 pass
         except Exception as e:
-            print(f"[OAL] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
             pass
     except Exception as e:
-        print(f"[OAL] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
         pass
 
 
@@ -186,7 +186,7 @@ def atomic_json_write(path, data):
         # Atomic rename
         os.rename(tmp_path, path)
     except Exception as e:
-        print(f"[OAL] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
         pass
 
 
@@ -197,13 +197,13 @@ _FEATURE_CACHE = {}
 def get_feature_flag(flag_name, default=True):
     """Get feature flag value with resolution order: env var → settings.json → default.
     
-    Env var format: OAL_{FLAG_NAME.upper()}_ENABLED
+    Env var format: OMG_{FLAG_NAME.upper()}_ENABLED
     Values: "0"/"false"/"no" → False, "1"/"true"/"yes" → True
     
     Returns default on any error (missing settings.json, malformed JSON, etc).
     """
     # Check environment variable first
-    env_key = f"OAL_{flag_name.upper()}_ENABLED"
+    env_key = f"OMG_{flag_name.upper()}_ENABLED"
     env_val = os.environ.get(env_key, "").lower()
     if env_val in ("0", "false", "no"):
         return False
@@ -217,7 +217,7 @@ def get_feature_flag(flag_name, default=True):
             if os.path.exists(settings_path):
                 with open(settings_path, "r", encoding="utf-8") as f:
                     settings = json.load(f)
-                    _FEATURE_CACHE.update(settings.get("_oal", {}).get("features", {}))
+                    _FEATURE_CACHE.update(settings.get("_omg", {}).get("features", {}))
         except Exception:
             pass  # Return default on any error
     
@@ -295,8 +295,8 @@ def should_skip_stop_hooks(data):
     )
     if any(marker in signal_text for marker in context_limit_markers):
         print(
-            "[OAL] Context limit detected: allowing stop so compaction can proceed. "
-            "If this repeats, run /OAL:handoff and resume from .oal/state/handoff.md.",
+            "[OMG] Context limit detected: allowing stop so compaction can proceed. "
+            "If this repeats, run /OMG:handoff and resume from .omg/state/handoff.md.",
             file=sys.stderr,
         )
         return True
@@ -331,7 +331,7 @@ def should_skip_stop_hooks(data):
                                     last_user_text = block
             # If last user message is stop hook feedback, we're in a loop
             if last_user_text.startswith(_STOP_HOOK_FEEDBACK_PREFIX):
-                print("[OAL] Guard 2 triggered: stop-hook feedback loop", file=sys.stderr)
+                print("[OMG] Guard 2 triggered: stop-hook feedback loop", file=sys.stderr)
                 return True
         except Exception:
             pass  # Fail open — don't skip hooks on read errors
@@ -341,7 +341,7 @@ def should_skip_stop_hooks(data):
     #   the agent cannot meaningfully resolve the issue (likely context-limited).
     #   This is the last-resort safety net when Guards 1-3 all fail to detect the loop.
     if is_stop_block_loop():
-        print("[OAL] Guard 4 triggered: stop-block loop detected, skipping hooks", file=sys.stderr)
+        print("[OMG] Guard 4 triggered: stop-block loop detected, skipping hooks", file=sys.stderr)
         return True
 
     # Guard 5: Empty stop_reason + recent block = likely context-limit deadlock
@@ -360,9 +360,9 @@ def should_skip_stop_hooks(data):
                     _reason = _state.get("reason", "unknown")
                     if _reason in _LOOP_BLOCK_REASONS:
                         print(
-                            "[OAL] Guard 5 triggered: context may be exhausted and stop hooks recently blocked. "
+                            "[OMG] Guard 5 triggered: context may be exhausted and stop hooks recently blocked. "
                             "Skipping stop-hook blocks so compaction can run. "
-                            "Tip: /OAL:handoff then continue in a fresh session.",
+                            "Tip: /OMG:handoff then continue in a fresh session.",
                             file=sys.stderr,
                         )
                         return True

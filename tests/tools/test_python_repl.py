@@ -14,7 +14,7 @@ from unittest.mock import patch
 import pytest
 
 # Enable feature flag for tests
-os.environ["OAL_PYTHON_REPL_ENABLED"] = "true"
+os.environ["OMG_PYTHON_REPL_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
@@ -72,7 +72,7 @@ class TestStartReplSession:
 
     def test_flag_disabled(self):
         """Returns error dict when feature flag is disabled."""
-        with patch.dict(os.environ, {"OAL_PYTHON_REPL_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_PYTHON_REPL_ENABLED": "false"}):
             result = start_repl_session()
             assert "error" in result
             assert "disabled" in result["error"].lower()
@@ -122,7 +122,7 @@ class TestExecuteCode:
 
     def test_flag_disabled(self):
         """Returns error dict when feature flag is disabled."""
-        with patch.dict(os.environ, {"OAL_PYTHON_REPL_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_PYTHON_REPL_ENABLED": "false"}):
             result = execute_code("any-id", "print('hi')")
             assert "error" in result
 
@@ -183,7 +183,7 @@ class TestStreamExecute:
 
     def test_flag_disabled(self):
         """Yields error chunk when feature flag is disabled."""
-        with patch.dict(os.environ, {"OAL_PYTHON_REPL_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_PYTHON_REPL_ENABLED": "false"}):
             chunks = list(stream_execute("any-id", "print('hi')"))
             assert len(chunks) > 0
             assert chunks[0]["type"] == "error"

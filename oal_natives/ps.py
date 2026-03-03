@@ -1,10 +1,10 @@
-"""OAL Natives — ps: process listing.
+"""OMG Natives — ps: process listing.
 
 Pure-Python fallback for process listing.
 Uses ``os`` module — reads ``/proc`` on Linux, falls back to
 ``os.getpid()`` / ``os.getppid()`` on other platforms.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import os
 import sys
 from typing import List
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 
 def ps() -> list[dict]:
@@ -88,6 +88,6 @@ def _get_current_process_name() -> str:
 # Self-register with the global binding registry
 bind_function(
     name="ps",
-    rust_symbol="oal_natives::ps::ps",
+    rust_symbol="omg_natives::ps::ps",
     python_fallback=ps,
 )

@@ -38,5 +38,5 @@ def test_gap_report_is_emitted(tmp_path: Path):
     assert report["total_skills"] >= 30
     assert report["maturity_counts"].get("native", 0) == report["total_skills"]
     assert report["maturity_counts"].get("bridge", 0) == 0
-    assert (tmp_path / ".oal" / "evidence" / "oal-compat-gap.json").exists()
-    assert (tmp_path / ".oal" / "evidence" / "omc-compat-gap.json").exists()
+    assert (tmp_path / ".omg" / "evidence" / "omg-compat-gap.json").exists()
+    assert (tmp_path / ".omg" / "evidence" / "omc-compat-gap.json").exists()

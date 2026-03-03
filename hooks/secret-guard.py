@@ -19,8 +19,8 @@ setup_crash_handler("secret-guard", fail_closed=True)
 try:
     from policy_engine import evaluate_file_access, to_pretool_hook_output
 except Exception as _import_err:
-    print(f"OAL secret-guard: policy_engine import failed: {_import_err}", file=sys.stderr)
-    deny_decision(f"OAL secret-guard crash: policy_engine import failed: {_import_err}. Denying for safety.")
+    print(f"OMG secret-guard: policy_engine import failed: {_import_err}", file=sys.stderr)
+    deny_decision(f"OMG secret-guard crash: policy_engine import failed: {_import_err}. Denying for safety.")
     sys.exit(0)
 
 data = json_input()

@@ -80,22 +80,22 @@ class TestFnv1aHash:
 class TestGetActiveCredential:
     """Tests for get_active_credential()."""
 
-    @patch.dict(os.environ, {"OAL_ROUND_ROBIN_ENABLED": "0"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROUND_ROBIN_ENABLED": "0"}, clear=False)
     def test_feature_flag_disabled_returns_none(self):
         """Returns None when ROUND_ROBIN flag is disabled."""
         result = get_active_credential("openai")
         assert result is None
 
-    @patch.dict(os.environ, {"OAL_ROUND_ROBIN_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROUND_ROBIN_ENABLED": "1"}, clear=False)
     def test_no_passphrase_returns_none(self):
-        """Returns None when OAL_CREDENTIAL_PASSPHRASE is not set."""
-        os.environ.pop("OAL_CREDENTIAL_PASSPHRASE", None)
+        """Returns None when OMG_CREDENTIAL_PASSPHRASE is not set."""
+        os.environ.pop("OMG_CREDENTIAL_PASSPHRASE", None)
         result = get_active_credential("openai")
         assert result is None
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -106,8 +106,8 @@ class TestGetActiveCredential:
         assert result == "sk-test-key-0"
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -123,8 +123,8 @@ class TestGetActiveCredential:
         assert saved_store["providers"]["openai"]["keys"][0]["last_used"] is not None
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -138,8 +138,8 @@ class TestGetActiveCredential:
         assert saved_store["providers"]["openai"]["active_index"] == 1
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -154,8 +154,8 @@ class TestGetActiveCredential:
         assert saved_store["providers"]["openai"]["active_index"] == 0
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -174,8 +174,8 @@ class TestGetActiveCredential:
         assert r1 is not None
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -190,8 +190,8 @@ class TestGetActiveCredential:
         assert saved_store["providers"]["openai"]["active_index"] == 0
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -202,8 +202,8 @@ class TestGetActiveCredential:
         assert result is None
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.load_store", side_effect=ValueError("bad passphrase"))
     def test_store_load_error_returns_none(self, mock_load):
@@ -212,8 +212,8 @@ class TestGetActiveCredential:
         assert result is None
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -224,8 +224,8 @@ class TestGetActiveCredential:
         assert result is None
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -245,20 +245,20 @@ class TestGetActiveCredential:
 class TestOnRateLimit:
     """Tests for on_rate_limit()."""
 
-    @patch.dict(os.environ, {"OAL_ROUND_ROBIN_ENABLED": "0"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROUND_ROBIN_ENABLED": "0"}, clear=False)
     def test_disabled_returns_none(self):
         """Returns None when ROUND_ROBIN flag is disabled."""
         assert on_rate_limit("openai") is None
 
-    @patch.dict(os.environ, {"OAL_ROUND_ROBIN_ENABLED": "1"}, clear=False)
+    @patch.dict(os.environ, {"OMG_ROUND_ROBIN_ENABLED": "1"}, clear=False)
     def test_no_passphrase_returns_none(self):
         """Returns None when passphrase not set."""
-        os.environ.pop("OAL_CREDENTIAL_PASSPHRASE", None)
+        os.environ.pop("OMG_CREDENTIAL_PASSPHRASE", None)
         assert on_rate_limit("openai") is None
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -269,8 +269,8 @@ class TestOnRateLimit:
         assert result == "sk-test-key-1"
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -281,8 +281,8 @@ class TestOnRateLimit:
         assert result == "sk-test-key-0"
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
@@ -295,8 +295,8 @@ class TestOnRateLimit:
         assert saved_store["providers"]["openai"]["active_index"] == 2
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.load_store", side_effect=OSError("no store"))
     def test_store_error_returns_none(self, mock_load):
@@ -304,8 +304,8 @@ class TestOnRateLimit:
         assert on_rate_limit("openai") is None
 
     @patch.dict(os.environ, {
-        "OAL_ROUND_ROBIN_ENABLED": "1",
-        "OAL_CREDENTIAL_PASSPHRASE": "test-pass",
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")

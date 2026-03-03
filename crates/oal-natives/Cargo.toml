@@ -1,12 +1,12 @@
 [package]
-name = "oal-natives"
+name = "omg-natives"
 version = "0.1.0"
 edition = "2021"
-description = "Native Rust acceleration for OAL hot paths"
+description = "Native Rust acceleration for OMG hot paths"
 license = "MIT"
 
 [lib]
-name = "oal_natives"
+name = "omg_natives"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

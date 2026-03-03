@@ -6,7 +6,7 @@ from tools.theme_engine import ThemeEngine
 
 @pytest.fixture
 def enable_themes():
-    with patch.dict(os.environ, {"OAL_THEMES_ENABLED": "true"}):
+    with patch.dict(os.environ, {"OMG_THEMES_ENABLED": "true"}):
         yield
 
 @pytest.fixture

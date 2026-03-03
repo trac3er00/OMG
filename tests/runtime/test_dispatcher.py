@@ -4,7 +4,7 @@ from runtime.dispatcher import dispatch_runtime
 
 
 def test_dispatch_runtime_ok():
-    result = dispatch_runtime("claude", {"goal": "ship feature"})
+    result = dispatch_runtime("claude", {"gomg": "ship feature"})
     assert result["status"] == "ok"
     assert result["runtime"] == "claude"
     assert "plan" in result
@@ -24,14 +24,14 @@ def test_dispatch_runtime_ok():
 
 
 def test_dispatch_runtime_not_found():
-    result = dispatch_runtime("does-not-exist", {"goal": "x"})
+    result = dispatch_runtime("does-not-exist", {"gomg": "x"})
     assert result["status"] == "error"
     assert result["error_code"] == "RUNTIME_NOT_FOUND"
 
 
 def test_dispatch_runtime_respects_user_workflow_path_and_instructions():
     idea = {
-        "goal": "deliver release",
+        "gomg": "deliver release",
         "workflow": ["plan", "qa", "simulate"],
         "user_instructions": ["prioritize checkout stability", "keep deployment under 30 minutes"],
         "constraints": ["no schema migration"],

@@ -20,8 +20,8 @@ setup_crash_handler("firewall", fail_closed=True)
 try:
     from policy_engine import evaluate_bash_command, to_pretool_hook_output
 except Exception as _import_err:
-    print(f"OAL firewall: policy_engine import failed: {_import_err}", file=sys.stderr)
-    deny_decision(f"OAL firewall crash: policy_engine import failed: {_import_err}. Denying for safety.")
+    print(f"OMG firewall: policy_engine import failed: {_import_err}", file=sys.stderr)
+    deny_decision(f"OMG firewall crash: policy_engine import failed: {_import_err}. Denying for safety.")
     sys.exit(0)
 
 data = json_input()

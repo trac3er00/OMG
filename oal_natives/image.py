@@ -1,9 +1,9 @@
-"""OAL Natives — image: image file info via stdlib.
+"""OMG Natives — image: image file info via stdlib.
 
 Pure-Python fallback for image file metadata retrieval.
 Uses ``os.path`` and ``pathlib`` — no PIL/Pillow dependency.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 
 def image(path: str, operation: str = "info") -> dict:
@@ -45,7 +45,7 @@ def image(path: str, operation: str = "info") -> dict:
 # Self-register with the global binding registry
 bind_function(
     name="image",
-    rust_symbol="oal_natives::image::image",
+    rust_symbol="omg_natives::image::image",
     python_fallback=image,
     type_hints={"path": "str", "operation": "str"},
 )

@@ -83,9 +83,9 @@ class TestParseCommitLog:
     """Tests for parse_commit_log()."""
 
     def test_returns_empty_when_flag_disabled(self):
-        """Returns [] when OAL_CHANGELOG_ENABLED is False (default)."""
+        """Returns [] when OMG_CHANGELOG_ENABLED is False (default)."""
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("OAL_CHANGELOG_ENABLED", None)
+            os.environ.pop("OMG_CHANGELOG_ENABLED", None)
             from tools import changelog_generator
             # Reset lazy import cache so flag is re-evaluated
             changelog_generator._get_feature_flag = None

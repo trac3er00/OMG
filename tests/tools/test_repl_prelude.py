@@ -13,8 +13,8 @@ from unittest.mock import patch
 import pytest
 
 # Enable both feature flags for tests
-os.environ["OAL_PYTHON_REPL_ENABLED"] = "true"
-os.environ["OAL_REPL_HELPERS_ENABLED"] = "true"
+os.environ["OMG_PYTHON_REPL_ENABLED"] = "true"
+os.environ["OMG_REPL_HELPERS_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
@@ -67,7 +67,7 @@ class TestBuildPreludeNamespace:
 
     def test_flag_disabled_skips_injection(self):
         """When helpers flag is disabled, session namespace has no prelude helpers."""
-        with patch.dict(os.environ, {"OAL_REPL_HELPERS_ENABLED": "false"}):
+        with patch.dict(os.environ, {"OMG_REPL_HELPERS_ENABLED": "false"}):
             session = start_repl_session(session_id="no-helpers")
             sid = session["session_id"]
             result = execute_code(sid, "'read_file' in dir()")
@@ -208,7 +208,7 @@ class TestWriteFile:
         """write_file returns False when sandbox is enabled."""
         target = tmp_path / "blocked.txt"
         ns = _build_prelude_namespace()
-        with patch.dict(os.environ, {"OAL_REPL_SANDBOX_ENABLED": "true"}):
+        with patch.dict(os.environ, {"OMG_REPL_SANDBOX_ENABLED": "true"}):
             result = ns["write_file"](str(target), "bad content")
         assert result is False
         assert not target.exists()
@@ -221,8 +221,8 @@ class TestPreludeIntegration:
     """Test that prelude is injected into session namespace."""
 
     @patch.dict(os.environ, {
-        "OAL_PYTHON_REPL_ENABLED": "true",
-        "OAL_REPL_HELPERS_ENABLED": "true",
+        "OMG_PYTHON_REPL_ENABLED": "true",
+        "OMG_REPL_HELPERS_ENABLED": "true",
     })
     def test_helpers_available_in_session(self):
         """When helpers flag is enabled, helpers are callable in session."""

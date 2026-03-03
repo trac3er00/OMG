@@ -28,7 +28,7 @@ try:
 except ImportError:
     # Fallback if _common is not available
     def get_feature_flag(flag_name, default=True):
-        env_key = f"OAL_{flag_name.upper()}_ENABLED"
+        env_key = f"OMG_{flag_name.upper()}_ENABLED"
         env_val = os.environ.get(env_key, "").lower()
         if env_val in ("0", "false", "no"):
             return False
@@ -69,7 +69,7 @@ def _load_roles() -> dict:
                 if data and "roles" in data:
                     return data["roles"]
     except Exception as e:
-        print(f"[OAL] Warning: Failed to load roles from {roles_file}: {e}", file=sys.stderr)
+        print(f"[OMG] Warning: Failed to load roles from {roles_file}: {e}", file=sys.stderr)
     
     return _get_default_roles()
 

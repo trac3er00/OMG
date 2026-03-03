@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate committed OAL compatibility snapshot against runtime contracts."""
+"""Validate committed OMG compatibility snapshot against runtime contracts."""
 from __future__ import annotations
 
 import argparse
@@ -30,7 +30,7 @@ def _load_snapshot(path: Path) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check OAL compatibility contract snapshot drift")
+    parser = argparse.ArgumentParser(description="Check OMG compatibility contract snapshot drift")
     parser.add_argument("--snapshot", default="")
     parser.add_argument("--strict-version", action="store_true")
     args = parser.parse_args()

@@ -1,7 +1,7 @@
-# OAL Idea Contract
+# OMG Idea Contract
 # Single source of intent for Idea -> Evidence -> PR automation.
 
-goal: ""
+gomg: ""
 constraints:
   - ""
 acceptance:

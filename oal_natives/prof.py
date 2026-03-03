@@ -1,9 +1,9 @@
-"""OAL Natives — prof: profiling wrapper.
+"""OMG Natives — prof: profiling wrapper.
 
 Pure-Python fallback for simple function profiling.
 Uses ``time.perf_counter`` for high-resolution timing.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 from typing import Any, Callable
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 
 def prof(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> dict:
@@ -33,7 +33,7 @@ def prof(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> dict:
 # Self-register with the global binding registry
 bind_function(
     name="prof",
-    rust_symbol="oal_natives::prof::prof",
+    rust_symbol="omg_natives::prof::prof",
     python_fallback=prof,
     type_hints={"fn": "callable"},
 )

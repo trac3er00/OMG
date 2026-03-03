@@ -1,9 +1,9 @@
-"""OAL Natives — glob: file path matching.
+"""OMG Natives — glob: file path matching.
 
-Pure-Python fallback for the Rust ``oal_natives::glob::glob_match`` function.
+Pure-Python fallback for the Rust ``omg_natives::glob::glob_match`` function.
 Uses ``pathlib.Path.glob`` for pattern matching.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 
 def glob(pattern: str, base: str = ".") -> list[str]:
@@ -36,7 +36,7 @@ def glob(pattern: str, base: str = ".") -> list[str]:
 # Self-register with the global binding registry
 bind_function(
     name="glob",
-    rust_symbol="oal_natives::glob::glob_match",
+    rust_symbol="omg_natives::glob::glob_match",
     python_fallback=glob,
     type_hints={"pattern": "str", "base": "str"},
 )

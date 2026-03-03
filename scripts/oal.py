@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""OAL v1 CLI entrypoint.
+"""OMG v1 CLI entrypoint.
 
 Implements practical command-line flows for:
-- oal ship
-- oal fix --issue
-- oal secure
-- oal maintainer
-- oal trust review
-- oal runtime dispatch
-- oal lab train / oal lab eval
+- omg ship
+- omg fix --issue
+- omg secure
+- omg maintainer
+- omg trust review
+- omg runtime dispatch
+- omg lab train / omg lab eval
 """
 from __future__ import annotations
 
@@ -50,9 +50,9 @@ def _now_run_id() -> str:
 
 
 def _parse_simple_idea_yaml(path: str) -> dict[str, Any]:
-    """Minimal parser for `.oal/idea.yml` template shape."""
+    """Minimal parser for `.omg/idea.yml` template shape."""
     idea: dict[str, Any] = {
-        "goal": "",
+        "gomg": "",
         "constraints": [],
         "acceptance": [],
         "risk": {"security": [], "performance": [], "compatibility": []},
@@ -68,8 +68,8 @@ def _parse_simple_idea_yaml(path: str) -> dict[str, Any]:
             if not stripped or stripped.startswith("#"):
                 continue
 
-            if stripped.startswith("goal:"):
-                idea["goal"] = stripped.split(":", 1)[1].strip().strip("\"'")
+            if stripped.startswith("gomg:"):
+                idea["gomg"] = stripped.split(":", 1)[1].strip().strip("\"'")
                 section = None
                 subsection = None
                 continue
@@ -124,8 +124,8 @@ def cmd_ship(args: argparse.Namespace) -> int:
         run_id,
         tests=checks if isinstance(checks, list) else [],
         security_scans=[],
-        diff_summary={"runtime": runtime, "goal": idea.get("goal", "")},
-        reproducibility={"command": f"oal ship --runtime {runtime} --idea {idea_path}"},
+        diff_summary={"runtime": runtime, "gomg": idea.get("gomg", "")},
+        reproducibility={"command": f"omg ship --runtime {runtime} --idea {idea_path}"},
         unresolved_risks=[],
     )
 
@@ -134,7 +134,7 @@ def cmd_ship(args: argparse.Namespace) -> int:
         "command": "ship",
         "runtime": runtime,
         "run_id": run_id,
-        "goal": idea.get("goal", ""),
+        "gomg": idea.get("gomg", ""),
         "evidence_path": os.path.relpath(evidence_path, project_dir),
     }
     print(json.dumps(out, indent=2))
@@ -142,8 +142,8 @@ def cmd_ship(args: argparse.Namespace) -> int:
 
 
 def cmd_fix(args: argparse.Namespace) -> int:
-    goal = f"Fix issue {args.issue}"
-    dispatched = dispatch_runtime(args.runtime, {"goal": goal, "acceptance": [f"issue-{args.issue}-resolved"]})
+    gomg = f"Fix issue {args.issue}"
+    dispatched = dispatch_runtime(args.runtime, {"gomg": gomg, "acceptance": [f"issue-{args.issue}-resolved"]})
     print(json.dumps(dispatched, indent=2))
     return 0 if dispatched.get("status") == "ok" else 2
 
@@ -156,7 +156,7 @@ def cmd_secure(args: argparse.Namespace) -> int:
 
 def cmd_maintainer(args: argparse.Namespace) -> int:
     project_dir = _ensure_project_dir()
-    out_dir = Path(project_dir) / ".oal" / "evidence"
+    out_dir = Path(project_dir) / ".omg" / "evidence"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file = out_dir / "oss-impact.json"
     payload = {
@@ -188,7 +188,7 @@ def cmd_runtime_dispatch(args: argparse.Namespace) -> int:
     elif args.idea:
         idea = _load_json(args.idea)
     else:
-        idea = {"goal": "unspecified"}
+        idea = {"gomg": "unspecified"}
     result = dispatch_runtime(args.runtime, idea)
     print(json.dumps(result, indent=2))
     return 0 if result.get("status") == "ok" else 2
@@ -299,7 +299,7 @@ def cmd_compat_gate(args: argparse.Namespace) -> int:
             json.dumps(
                 {
                     "status": "error",
-                    "message": f"OAL compat gate failed: bridge={bridge_count} > max_bridge={args.max_bridge}",
+                    "message": f"OMG compat gate failed: bridge={bridge_count} > max_bridge={args.max_bridge}",
                     "report": report,
                 },
                 indent=2,
@@ -310,7 +310,7 @@ def cmd_compat_gate(args: argparse.Namespace) -> int:
         json.dumps(
             {
                 "status": "ok",
-                "message": f"OAL compat gate passed: bridge={bridge_count} <= max_bridge={args.max_bridge}",
+                "message": f"OMG compat gate passed: bridge={bridge_count} <= max_bridge={args.max_bridge}",
                 "report": report,
             },
             indent=2,
@@ -376,7 +376,7 @@ def _add_compat_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> No
     compat_gate.add_argument("--max-bridge", type=int, default=0)
     compat_gate.add_argument("--output", default=DEFAULT_GAP_REPORT_PATH)
     compat_gate.set_defaults(func=cmd_compat_gate)
-    compat_run = compat_sub.add_parser("run", help="Run a legacy skill through OAL router")
+    compat_run = compat_sub.add_parser("run", help="Run a legacy skill through OMG router")
     compat_run.add_argument("--skill", required=True)
     compat_run.add_argument("--problem", default="")
     compat_run.add_argument("--context", default="")
@@ -387,7 +387,7 @@ def _add_compat_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> No
 
 def _add_ecosystem_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     ecosystem_sub = parent.add_subparsers(dest=dest, required=True)
-    ecosystem_list = ecosystem_sub.add_parser("list", help="List OAL ecosystem integration targets")
+    ecosystem_list = ecosystem_sub.add_parser("list", help="List OMG ecosystem integration targets")
     ecosystem_list.set_defaults(func=cmd_ecosystem_list)
 
     ecosystem_status_cmd = ecosystem_sub.add_parser("status", help="Show current ecosystem install status")
@@ -401,11 +401,11 @@ def _add_ecosystem_subcommands(parent: argparse.ArgumentParser, *, dest: str) ->
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="oal", description="OAL v1 CLI")
+    parser = argparse.ArgumentParser(prog="omg", description="OMG v1 CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     ship = sub.add_parser("ship", help="Idea -> Evidence -> PR flow")
-    ship.add_argument("--idea", default=".oal/idea.yml")
+    ship.add_argument("--idea", default=".omg/idea.yml")
     ship.add_argument("--runtime", default="claude", choices=["claude", "gpt", "local"])
     ship.add_argument("--run-id", default="")
     ship.set_defaults(func=cmd_ship)
@@ -450,7 +450,7 @@ def build_parser() -> argparse.ArgumentParser:
     lab_eval.add_argument("--result-json", default="", help="Inline result json")
     lab_eval.set_defaults(func=cmd_lab_eval)
 
-    teams = sub.add_parser("teams", help="Internal OAL team routing")
+    teams = sub.add_parser("teams", help="Internal OMG team routing")
     teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "ccg"])
     teams.add_argument("--problem", required=True)
     teams.add_argument("--context", default="")
@@ -458,20 +458,20 @@ def build_parser() -> argparse.ArgumentParser:
     teams.add_argument("--expected-outcome", default="")
     teams.set_defaults(func=cmd_teams)
 
-    ccg = sub.add_parser("ccg", help="OAL CCG (tri-track) routing")
+    ccg = sub.add_parser("ccg", help="OMG CCG (tri-track) routing")
     ccg.add_argument("--problem", required=True)
     ccg.add_argument("--context", default="")
     ccg.add_argument("--files", default="")
     ccg.add_argument("--expected-outcome", default="")
     ccg.set_defaults(func=cmd_ccg)
 
-    crazy = sub.add_parser("crazy", help="OAL CRAZY mode - parallel multi-agent orchestration")
+    crazy = sub.add_parser("crazy", help="OMG CRAZY mode - parallel multi-agent orchestration")
     crazy.add_argument("--problem", required=True, help="Task description")
     crazy.add_argument("--context", default="", help="Additional context")
     crazy.add_argument("--files", default="", help="Comma-separated focus files")
     crazy.set_defaults(func=cmd_crazy)
 
-    compat = sub.add_parser("compat", help="OAL legacy compatibility bridge")
+    compat = sub.add_parser("compat", help="OMG legacy compatibility bridge")
     _add_compat_subcommands(compat, dest="compat_command")
 
     omc = sub.add_parser("omc", help="Alias of `compat` for legacy scripts")

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""OAL Multi-Credential Encrypted Store
+"""OMG Multi-Credential Encrypted Store
 
 Fernet-based encrypted credential storage with PBKDF2HMAC key derivation.
-Stores encrypted credentials at .oal/state/credentials.enc with metadata
-at .oal/state/credentials.meta.
+Stores encrypted credentials at .omg/state/credentials.enc with metadata
+at .omg/state/credentials.meta.
 
 CLI: python hooks/credential_store.py {add,list,remove,rotate} [options]
 
-Feature flag: OAL_MULTI_CREDENTIAL_ENABLED (default off)
+Feature flag: OMG_MULTI_CREDENTIAL_ENABLED (default off)
 Design ref: .sisyphus/credential-store-design.md
 """
 from __future__ import annotations
@@ -67,7 +67,7 @@ def _ensure_crypto():
 # --- Constants ---
 CREDENTIALS_ENC = "credentials.enc"
 CREDENTIALS_META = "credentials.meta"
-STATE_DIR = os.path.join(".oal", "state")
+STATE_DIR = os.path.join(".omg", "state")
 KDF_ITERATIONS = 600_000
 SALT_BYTES = 16
 MIN_PASSPHRASE_LEN = 8
@@ -558,7 +558,7 @@ def get_active_key(provider: str, project_dir: str | None = None) -> str | None:
     if not get_feature_flag("MULTI_CREDENTIAL", default=False):
         return None
 
-    passphrase = os.environ.get("OAL_CREDENTIAL_PASSPHRASE")
+    passphrase = os.environ.get("OMG_CREDENTIAL_PASSPHRASE")
     if not passphrase:
         return None
 
@@ -593,7 +593,7 @@ def advance_key(provider: str, project_dir: str | None = None) -> None:
     if not get_feature_flag("MULTI_CREDENTIAL", default=False):
         return
 
-    passphrase = os.environ.get("OAL_CREDENTIAL_PASSPHRASE")
+    passphrase = os.environ.get("OMG_CREDENTIAL_PASSPHRASE")
     if not passphrase:
         return
 
@@ -639,16 +639,16 @@ def _get_passphrase() -> str:
     """Get passphrase from env var or interactive prompt.
 
     Resolution order:
-    1. OAL_CREDENTIAL_PASSPHRASE env var
+    1. OMG_CREDENTIAL_PASSPHRASE env var
     2. getpass.getpass() interactive prompt (if TTY)
     """
-    env_passphrase = os.environ.get("OAL_CREDENTIAL_PASSPHRASE")
+    env_passphrase = os.environ.get("OMG_CREDENTIAL_PASSPHRASE")
     if env_passphrase:
         return env_passphrase
 
     if not sys.stdin.isatty():
         print(
-            "Error: No passphrase available. Set OAL_CREDENTIAL_PASSPHRASE env var "
+            "Error: No passphrase available. Set OMG_CREDENTIAL_PASSPHRASE env var "
             "for non-interactive use.",
             file=sys.stderr,
         )
@@ -674,7 +674,7 @@ def _check_feature_flag() -> None:
     if not get_feature_flag("MULTI_CREDENTIAL", default=False):
         print(
             "Error: Multi-credential store is disabled.\n"
-            "Set OAL_MULTI_CREDENTIAL_ENABLED=1 to enable.",
+            "Set OMG_MULTI_CREDENTIAL_ENABLED=1 to enable.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -688,12 +688,12 @@ def _check_feature_flag() -> None:
 def _build_parser() -> argparse.ArgumentParser:
     """Build the CLI argument parser."""
     parser = argparse.ArgumentParser(
-        prog="oal-creds",
-        description="Multi-credential encrypted store for OAL.",
+        prog="omg-creds",
+        description="Multi-credential encrypted store for OMG.",
         epilog=(
             "environment:\n"
-            "  OAL_MULTI_CREDENTIAL_ENABLED=1  Required to enable credential store\n"
-            "  OAL_CREDENTIAL_PASSPHRASE        Passphrase for non-interactive use\n"
+            "  OMG_MULTI_CREDENTIAL_ENABLED=1  Required to enable credential store\n"
+            "  OMG_CREDENTIAL_PASSPHRASE        Passphrase for non-interactive use\n"
             "\n"
             "examples:\n"
             "  %(prog)s add --provider anthropic --key sk-ant-xxx\n"

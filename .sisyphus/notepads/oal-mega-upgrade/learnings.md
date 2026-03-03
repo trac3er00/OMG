@@ -1,4 +1,4 @@
-# OAL Mega-Upgrade Learnings
+# OMG Mega-Upgrade Learnings
 
 ## [2026-02-28] Session Start
 
@@ -15,14 +15,14 @@
 - These are now in _budget.py constants
 
 ### Hook File Locations
-- All hooks in: /Users/cminseo/Documents/scripts/Shell/OAL/hooks/
+- All hooks in: /Users/cminseo/Documents/scripts/Shell/OMG/hooks/
 - 18 hooks total (not 15 as documented)
 - _common.py: shared utilities (json_input, block_decision, setup_crash_handler, read_file_safe)
 - state_migration.py: resolve_state_file, resolve_state_dir
 
 ### Feature Flags (default=True for most, memory/learning=False)
 - memory, ralph_loop, planning_enforcement, compound_learning, simplifier, model_routing, agent_registry
-- Resolution: env var OAL_{FLAG}_ENABLED → settings.json._oal.features.{flag} → default
+- Resolution: env var OMG_{FLAG}_ENABLED → settings.json._omg.features.{flag} → default
 
 ### Wave 0 Parallelization
 - Tasks 1,2,3,4,5: fully parallel (no deps)
@@ -66,8 +66,8 @@
 
 ## [2026-02-28] Task 3: Feature flags
 - get_feature_flag() added to _common.py with 190-line file total
-- Resolution order: env var (OAL_{FLAG_NAME}_ENABLED) → settings.json (_oal.features) → default
-- 7 flags added to settings.json._oal.features: memory, ralph_loop, planning_enforcement, compound_learning, simplifier, model_routing, agent_registry
+- Resolution order: env var (OMG_{FLAG_NAME}_ENABLED) → settings.json (_omg.features) → default
+- 7 flags added to settings.json._omg.features: memory, ralph_loop, planning_enforcement, compound_learning, simplifier, model_routing, agent_registry
 - Module-level cache _FEATURE_CACHE prevents repeated file I/O
 - Graceful error handling: returns default on any error (missing file, malformed JSON, etc)
 - test_feature_flags() added to tests/test_common.py with 7 test cases
@@ -79,9 +79,9 @@
 ### What Was Done
 1. Created `tests/__init__.py` (empty file)
 2. Created `tests/conftest.py` with 3 pytest fixtures:
-   - `tmp_project`: Creates .oal/state/ledger/ and .oal/knowledge/ directories
+   - `tmp_project`: Creates .omg/state/ledger/ and .omg/knowledge/ directories
    - `mock_stdin`: Patches sys.stdin with JSON data for testing
-   - `clean_env`: Clears all OAL_ environment variables
+   - `clean_env`: Clears all OMG_ environment variables
 3. Updated `pytest.ini` with full configuration (testpaths, python_files, python_classes, python_functions)
 
 ### Key Decisions
@@ -236,7 +236,7 @@ Task 8: Write first test file using helpers (test_session_start.py)
 ✓ hook-errors.jsonl created with correct structure: ts, hook, error, context
 ✓ python3 -m pytest tests/test_post_tool_failure.py -v → 3 passed in 0.10s
 ✓ python3 -m py_compile hooks/post-tool-failure.py → Syntax OK
-✓ No test regressions: 261 tests pass (1 pre-existing failure in e2e/test_oal_hud.py)
+✓ No test regressions: 261 tests pass (1 pre-existing failure in e2e/test_omg_hud.py)
 
 ### Pattern Established
 - PostToolUseFailure hooks: log failures to hook-errors.jsonl with context
@@ -254,7 +254,7 @@ Task 8: Write first test file using helpers (test_session_start.py)
 
 ### Truncation Strategy
 - 15 lines + 200 chars is the sweet spot — enough to remind of plan direction, small enough not to bloat context
-- `resolve_state_file()` handles both `.oal/state/_plan.md` and legacy `.omc/_plan.md` transparently
+- `resolve_state_file()` handles both `.omg/state/_plan.md` and legacy `.omc/_plan.md` transparently
 
 ### Testing: Env Var Piping Gotcha
 - Shell `ENV=val echo 'x' | python3 script.py` sets env on `echo`, NOT python — must use `echo 'x' | ENV=val python3 script.py`
@@ -265,14 +265,14 @@ Task 8: Write first test file using helpers (test_session_start.py)
 ## [2026-02-28] Task 12: Command Routing Fixes
 
 ### Changes Made
-- `commands/OAL:crazy.md`: Added explicit routing text — `Codex=deep-code: backend logic, security, debugging, algorithms, performance, root cause analysis` and `Gemini=UI/UX: frontend, visual, accessibility, responsive design, CSS, component styling`
-- `commands/OAL:deep-plan.md`: Added mandatory Direction Discovery gate — STOP directive before plan generation, MUST ask 2-3 questions and WAIT for answers before Step 2
+- `commands/OMG:crazy.md`: Added explicit routing text — `Codex=deep-code: backend logic, security, debugging, algorithms, performance, root cause analysis` and `Gemini=UI/UX: frontend, visual, accessibility, responsive design, CSS, component styling`
+- `commands/OMG:deep-plan.md`: Added mandatory Direction Discovery gate — STOP directive before plan generation, MUST ask 2-3 questions and WAIT for answers before Step 2
 - Audited all 19 command files for `.omc/` paths — 0 found (already clean)
 
 ### Key Findings
 - Command files were already free of `.omc/` references — the legacy path audit is a no-op
-- OAL:crazy.md had the right structure but lacked the explicit routing format (`Agent=role: domains`) that makes the dispatch unambiguous
-- OAL:deep-plan.md had direction understanding in philosophy but lacked a hard STOP gate — without it, Claude would generate plans without asking
+- OMG:crazy.md had the right structure but lacked the explicit routing format (`Agent=role: domains`) that makes the dispatch unambiguous
+- OMG:deep-plan.md had direction understanding in philosophy but lacked a hard STOP gate — without it, Claude would generate plans without asking
 - The STOP+WAIT pattern (used in both crazy and deep-plan) is the most effective way to force Claude to pause and interact before proceeding
 ## Task 16: Index Corruption Repair (2026-02-28)
 
@@ -342,15 +342,15 @@ The `.index.json` file in `hooks/prompt-enhancer.py` was vulnerable to corruptio
 ### [2026-02-28] Task 15: CLI Path Resolution & Subprocess Timeouts
 
 **Changes made:**
-- `runtime/team_router.py`: Added `_ROUTER_DIR`/`_OAL_ROOT` via `os.path.dirname(os.path.abspath(__file__))` for CWD-independent path resolution
+- `runtime/team_router.py`: Added `_ROUTER_DIR`/`_OMG_ROOT` via `os.path.dirname(os.path.abspath(__file__))` for CWD-independent path resolution
 - `runtime/team_router.py`: Added `_run_tool()` helper that wraps ALL subprocess.run calls with mandatory `timeout=30`
 - `runtime/team_router.py`: Added `_check_tool_available()` using `shutil.which('codex')` and `shutil.which('gemini')` — logs warning and adds advisory finding if tool missing, never crashes
 - `runtime/team_router.py`: `dispatch_team()` now includes `tool_available` in evidence dict
-- `scripts/oal.py`: Added explicit `SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))` — ROOT_DIR now derives from SCRIPTS_DIR for clarity
+- `scripts/omg.py`: Added explicit `SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))` — ROOT_DIR now derives from SCRIPTS_DIR for clarity
 
 **Key learnings:**
 - `team_router.py` had ZERO subprocess calls before — was pure logic. Added `_run_tool` as the canonical gateway for any future subprocess use
-- `scripts/oal.py` already had good `__file__`-based resolution (`Path(__file__).resolve().parents[1]`), just made it more explicit with `SCRIPTS_DIR`
+- `scripts/omg.py` already had good `__file__`-based resolution (`Path(__file__).resolve().parents[1]`), just made it more explicit with `SCRIPTS_DIR`
 - Both `codex` and `gemini` CLIs are available on this dev machine (shutil.which finds them)
 - Pre-existing test failure in `test_no_external_runtime_dependency.py` (stop_dispatcher.py) — not related to this task
 - 2 existing team_router tests still pass after changes
@@ -463,7 +463,7 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 - get_dispatch_params() falls back to 'claude' when preferred CLI not available or model is 'domain-dependent'
 - discover_mcp_tools() reads ~/.claude/settings.json for mcpServers keys (server names, not individual tools)
 - No subprocess calls, no network — detection is local only (shutil.which + file reads)
-- Feature flag 'agent_registry' already exists in settings.json._oal.features (Task 3)
+- Feature flag 'agent_registry' already exists in settings.json._omg.features (Task 3)
 - Test count: 258 → 267 (9 new tests from agent registry)
 
 
@@ -477,7 +477,7 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 - `get_checklist_progress()` returns (None, None, None) when file missing → clean fallback to plan-head format
 - Tests: 6 existing + 9 new = 15 total, all pass; full suite 276 pass (was 258, growth from other tasks)
 ## [2026-02-28] Task 24: Domain + Cognitive Agents
-- Created 9 agent files: oal-frontend-designer, oal-backend-engineer, oal-security-auditor, oal-database-engineer, oal-testing-engineer, oal-infra-engineer, oal-research-mode, oal-architect-mode, oal-implement-mode
+- Created 9 agent files: omg-frontend-designer, omg-backend-engineer, omg-security-auditor, omg-database-engineer, omg-testing-engineer, omg-infra-engineer, omg-research-mode, omg-architect-mode, omg-implement-mode
 - Model assignments: frontend→gemini-cli, backend/security/db/infra→codex-cli, testing/research/architect→claude, implement→domain-dependent
 - All agents follow format: YAML frontmatter (name, description, preferred_model, tools) + 4 sections (Preferred Tools, MCP Tools Available, Constraints, Guardrails)
 - Each agent 43-51 lines — within 30-60 line guideline
@@ -487,11 +487,11 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 ## [2026-02-28] Tasks 18+22: Ralph Loop + Planning Gate
 - Implemented Task 18 Ralph loop in stop_dispatcher with feature flag guard, atomic iteration updates, max-iteration auto-deactivation, and block message reinjecting original prompt.
 - Added dispatcher P1 wiring to execute Ralph check before other checks and route advisory text into _stop_advisories.
-- Added template state file at .oal/state/ralph-loop.json and validated behavior with dedicated tests (block, increment, max-stop, inactive, missing-file).
+- Added template state file at .omg/state/ralph-loop.json and validated behavior with dedicated tests (block, increment, max-stop, inactive, missing-file).
 
 ## [2026-02-28] Tasks 19+20: Memory Capture + Storage
 - Implemented hooks/_memory.py with save_memory, get_recent_memories, and rotate_memories.
-- save_memory writes to .oal/state/memory/{date}-{session_short}.md, truncates per-write content to 500 chars, and appends for same date/session.
+- save_memory writes to .omg/state/memory/{date}-{session_short}.md, truncates per-write content to 500 chars, and appends for same date/session.
 - get_recent_memories reads newest .md files first and caps aggregate output to 300 chars including separator overhead.
 - rotate_memories keeps newest retention set by deleting oldest files when count exceeds max_files.
 - Added tests/test_memory_storage.py with six tmp_path-isolated tests covering create, append, truncation, rotation, bounded summary, and empty directory behavior.
@@ -514,13 +514,13 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 - Capped at max_files=3, max_chars_total=150 — well within 2000 char session budget
 - Silent try/except around entire block — memory never blocks session start
 - `sections` list (not `context_parts`) is the accumulator pattern in session-start.py
-- Test pattern: subprocess.run with env dict for OAL_MEMORY_ENABLED flag control
+- Test pattern: subprocess.run with env dict for OMG_MEMORY_ENABLED flag control
 - Test count: 295 → 299 (4 new memory injection tests)
 
 ## [2026-02-28] Task 30: Compound Learning Capture
 - Implemented Capture B in hooks/session-end-capture.py behind get_feature_flag('compound_learning')
 - Reads last 100 entries from tool-ledger.jsonl, counts tool usage and file modification frequency
-- Writes to .oal/state/learnings/{date}-{session_short}.md, capped at 300 chars
+- Writes to .omg/state/learnings/{date}-{session_short}.md, capped at 300 chars
 - Purely statistical — no LLM API calls, no network
 - Inner function capture_learnings() defined inside try/except block for isolation
 - json, os, datetime all already imported from Task 19's memory capture implementation
@@ -529,14 +529,14 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 - Pre-existing failure: test_ralph_block_reason_includes_progress (ralph+planning gate JSON concatenation)
 
 ## [2026-02-28] Task 25: Ralph Prompt Re-Injection + Escape Hatch
-- Added format_ralph_block_reason() to stop_dispatcher.py: builds rich reason with iteration/max, checklist progress, original prompt, and /OAL:ralph-stop escape hatch
+- Added format_ralph_block_reason() to stop_dispatcher.py: builds rich reason with iteration/max, checklist progress, original prompt, and /OMG:ralph-stop escape hatch
 - check_ralph_loop() now calls format_ralph_block_reason(state, project_dir) instead of inline f-string
 - Checklist progress parsing: re.search for [x] (done) and ^\s*-\s*\[[ x!]\] (total) patterns
-- Created commands/OAL:ralph-start.md and OAL:ralph-stop.md with YAML frontmatter matching OAL:crazy.md format
+- Created commands/OMG:ralph-start.md and OMG:ralph-stop.md with YAML frontmatter matching OMG:crazy.md format
 - prompt-enhancer.py: added get_feature_flag import; after is_ulw detection, auto-creates ralph-loop.json behind ralph_loop feature flag
-- Goal extraction: finds keyword in prompt_lower, takes text after keyword, caps at 200 chars
+- Gomg extraction: finds keyword in prompt_lower, takes text after keyword, caps at 200 chars
 - datetime import done inline (from datetime import datetime as _dt) to minimize module-level side effects
-- Test isolation gotcha: planning gate fires on checklist with pending items, causing two JSON objects in stdout — solved by setting OAL_PLANNING_ENFORCEMENT_ENABLED=0 in ralph test helper
+- Test isolation gotcha: planning gate fires on checklist with pending items, causing two JSON objects in stdout — solved by setting OMG_PLANNING_ENFORCEMENT_ENABLED=0 in ralph test helper
 - _run_dispatcher updated to accept extra_env parameter and disable planning enforcement by default
 - Pre-existing issue: block_decision() in _common.py doesn't sys.exit(), so P1 ralph and P2 planning can both emit JSON if both fire
 - Test count: 307 → 314 (9 ralph tests total: 5 original + 4 new)
@@ -545,7 +545,7 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 
 ### What Was Done
 - Created `hooks/_learnings.py` with 4 public functions: aggregate_learnings, format_critical_patterns, rotate_learnings, save_critical_patterns
-- Enhanced `commands/OAL:learn.md` with "Aggregated Patterns (Auto)" section documenting critical-patterns.md generation
+- Enhanced `commands/OMG:learn.md` with "Aggregated Patterns (Auto)" section documenting critical-patterns.md generation
 - Created `tests/test_learnings.py` with 6 test cases covering aggregation, 500-char cap, empty dir, rotation, empty format, and save
 
 ### Key Decisions
@@ -558,7 +558,7 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 ### Pattern Established
 - Utility modules in hooks/ prefixed with `_` (not directly executable hooks)
 - Same trio pattern as _memory.py: aggregate + rotate + save
-- Tests use tmp_path fixture with proper `.oal/state/learnings/` directory structure
+- Tests use tmp_path fixture with proper `.omg/state/learnings/` directory structure
 - Test count: 295 → 314 (19 new from this and concurrent tasks)
 
 ## [2026-02-28] Task 26: Memory Search + @memory: Injection
@@ -569,7 +569,7 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 - Created `tests/test_memory_retrieval.py` with 8 test cases
 
 ### Implementation Details
-- `search_memories()`: keyword-based scoring across `.oal/state/memory/*.md` files
+- `search_memories()`: keyword-based scoring across `.omg/state/memory/*.md` files
 - Scoring: sum of keyword matches per file, sorted descending
 - Excerpts: first 3 non-header, non-empty lines, capped at 100 chars each
 - Budget enforcement: `chars_used` tracks excerpt lengths against `max_chars` (200 default)
@@ -584,7 +584,7 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 ### Key Learnings
 - `kws` is a set (from word subtraction), needs `list(kws)` for search_memories
 - prompt-enhancer.py: `kws` may not exist if knowledge section was skipped (word count < 15)
-- Test pattern: `_make_memory_dir()` helper for consistent .oal/state/memory/ creation
+- Test pattern: `_make_memory_dir()` helper for consistent .omg/state/memory/ creation
 - Tests use real file I/O (no mocking) — matches test_memory_storage.py pattern
 - Test count: 314 → 322 (8 new tests)
 
@@ -596,10 +596,10 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
    - `rules/contextual/architect-mode.md` — Design/plan focus, no implementation
    - `rules/contextual/implement-mode.md` — Code/test/verify focus with TDD
 
-2. Created `commands/OAL:mode.md` with YAML frontmatter and usage documentation
+2. Created `commands/OMG:mode.md` with YAML frontmatter and usage documentation
 
 3. Added section 3c (COGNITIVE MODE) to `hooks/prompt-enhancer.py`:
-   - Reads `.oal/state/mode.txt` (if exists)
+   - Reads `.omg/state/mode.txt` (if exists)
    - Validates mode is one of: research, architect, implement
    - Injects `@mode:` hint with mode-specific guidance
    - Silent failure: bare except block, no blocking
@@ -608,7 +608,7 @@ tests/test_circuit_breaker.py::test_success_clears_pytest_variants PASSED [100%]
 
 **Rule file format:** Plain markdown, no YAML frontmatter (matches existing contextual rules)
 
-**Command file format:** YAML frontmatter + markdown sections (matches OAL:ralph-start.md pattern)
+**Command file format:** YAML frontmatter + markdown sections (matches OMG:ralph-start.md pattern)
 
 **Prompt-enhancer insertion point:** Between line 231 (end of auto-complexity detection) and line 233 (start of specialist routing)
 
@@ -623,7 +623,7 @@ _mode_hints = {
 
 ### Key Decisions
 
-1. **File-based mode state:** `.oal/state/mode.txt` (simple, human-readable, matches other state files)
+1. **File-based mode state:** `.omg/state/mode.txt` (simple, human-readable, matches other state files)
 2. **Silent failure:** No blocking on file read errors — mode injection is advisory only
 3. **Budget-aware:** Checks `budget_ok()` before reading file (respects context budget)
 4. **Validation:** Only injects if mode is in the allowed set (research/architect/implement)
@@ -636,7 +636,7 @@ _mode_hints = {
   - research-mode.md (387 bytes)
   - architect-mode.md (420 bytes)
   - implement-mode.md (419 bytes)
-  - OAL:mode.md (1352 bytes)
+  - OMG:mode.md (1352 bytes)
 ✓ prompt-enhancer.py edit successful (17 lines added)
 ✓ Syntax validation: python3 -m py_compile hooks/prompt-enhancer.py → OK
 
@@ -644,14 +644,14 @@ _mode_hints = {
 
 - Cognitive modes are orthogonal to existing auto-complexity modes (ulw/ralph/crazy)
 - Mode injection happens AFTER auto-complexity detection (section 3c after 3b)
-- Mode state is persistent across prompts (until cleared with `/OAL:mode clear`)
+- Mode state is persistent across prompts (until cleared with `/OMG:mode clear`)
 - Each mode has corresponding rule file that activates via prompt-enhancer injection
 
 ### Files Modified
 - `rules/contextual/research-mode.md` (NEW)
 - `rules/contextual/architect-mode.md` (NEW)
 - `rules/contextual/implement-mode.md` (NEW)
-- `commands/OAL:mode.md` (NEW)
+- `commands/OMG:mode.md` (NEW)
 - `hooks/prompt-enhancer.py` (section 3c added)
 
 ### Evidence
@@ -664,7 +664,7 @@ _mode_hints = {
 - Safe keyword fallback pattern for pre-section variables: use `locals().get("kws")` to avoid unbound symbol diagnostics while preserving optional keyword reuse.
 - Circuit-breaker now supports domain hints with `DOMAIN_MODEL_HINTS` + `_get_domain_hint()` and includes hint text in warning/escalation stderr output.
 - Added `_effective_count()` decay model: failures older than 30 minutes are weighted at 0.5x for threshold checks while raw counts remain unchanged in tracker storage.
-- Success-path recovery memory logging added at `.oal/state/ledger/recovery.jsonl` with rotation cap (last 200 lines), only when pattern cleanup actually removed entries (`changed` is true).
+- Success-path recovery memory logging added at `.omg/state/ledger/recovery.jsonl` with rotation cap (last 200 lines), only when pattern cleanup actually removed entries (`changed` is true).
 - New `tests/test_agent_routing.py` uses dynamic module loading for `circuit-breaker.py` (hyphenated filename) with monkeypatched `stdin`/`sys.exit` so private helpers can be tested without altering hook runtime behavior.
 - Regression baseline moved from 322 to 329 passing tests (`python3 -m pytest tests/ -q --ignore=tests/e2e`).
 
@@ -697,18 +697,18 @@ _mode_hints = {
 - Verification: python3 -m pytest tests/test_team_router.py -v => 6 passed; python3 -m pytest tests/ -q --ignore=tests/e2e => 338 passed.
 
 
-## [2026-02-28] Task 35: OAL-setup.sh Update for Waves 3-4
+## [2026-02-28] Task 35: OMG-setup.sh Update for Waves 3-4
 
 ### Key Insight: Wildcard Install Pattern
-- OAL-setup.sh installs hooks via `$SCRIPT_DIR/hooks/*.py` wildcard — new hooks auto-install without explicit listing
+- OMG-setup.sh installs hooks via `$SCRIPT_DIR/hooks/*.py` wildcard — new hooks auto-install without explicit listing
 - Same for agents (`agents/*.md`), commands (`commands/*.md`), contextual rules (`rules/contextual/*.md`)
-- The ONLY explicit listing needed is `OAL_HOOKS` array — used ONLY for uninstall/reinstall cleanup
+- The ONLY explicit listing needed is `OMG_HOOKS` array — used ONLY for uninstall/reinstall cleanup
 
 ### Changes Made
-1. **OAL_HOOKS array** (lines 38-44): Added 10 new entries for uninstall support:
+1. **OMG_HOOKS array** (lines 38-44): Added 10 new entries for uninstall support:
    - 8 new Wave 3-4 hooks: stop_dispatcher.py, session-end-capture.py, pre-tool-inject.py, post-tool-failure.py, _budget.py, _memory.py, _learnings.py, _agent_registry.py
    - 2 pre-existing utility modules: _common.py, state_migration.py (were missing from uninstall array)
-2. **State directory templates** (lines 927-930): Added mkdir -p for memory, learnings, ledger dirs under templates/oal/state/
+2. **State directory templates** (lines 927-930): Added mkdir -p for memory, learnings, ledger dirs under templates/omg/state/
 
 ### No Changes Needed For
 - Hook installation (wildcard `hooks/*.py` handles all 25 .py files)
@@ -717,30 +717,30 @@ _mode_hints = {
 - Contextual rule installation (wildcard `rules/contextual/*.md` handles all including 3 new)
 
 ### Verification Results
-- `bash -n OAL-setup.sh` → SYNTAX OK
-- `./OAL-setup.sh install --dry-run --non-interactive` → exit 0
+- `bash -n OMG-setup.sh` → SYNTAX OK
+- `./OMG-setup.sh install --dry-run --non-interactive` → exit 0
 - Dry-run output shows: 25 hooks, 14 agents, 66 commands (22 static + 44 compat)
 - All new files explicitly listed in dry-run output (✓ marks)
 - `python3 -m pytest tests/ -q --ignore=tests/e2e` → 338 passed in 10.01s (zero regressions)
 
 ### Install Totals After This Task
-- Hooks: 15 → 25 (10 new in OAL_HOOKS array)
+- Hooks: 15 → 25 (10 new in OMG_HOOKS array)
 - Agents: 5 → 14 (9 new domain/cognitive agents)
-- Commands: 19 → 22 static (OAL:ralph-start, OAL:ralph-stop, OAL:mode)
+- Commands: 19 → 22 static (OMG:ralph-start, OMG:ralph-stop, OMG:mode)
 - Contextual rules: 9 → 12 (research-mode, architect-mode, implement-mode)
 - State template dirs: 0 → 3 (memory, learnings, ledger)
 ## [2026-02-28] Task 36: settings.json Hook Registrations + Feature Flags
 
 ### What Was Done
-1. Added `hooks` section to settings.json (top-level, after permissions, before _oal)
+1. Added `hooks` section to settings.json (top-level, after permissions, before _omg)
    - Stop: python3 $HOME/.claude/hooks/stop_dispatcher.py
    - SessionEnd: python3 $HOME/.claude/hooks/session-end-capture.py
    - PreToolUse: python3 $HOME/.claude/hooks/pre-tool-inject.py
    - PostToolUseFailure: python3 $HOME/.claude/hooks/post-tool-failure.py
 
-2. Updated `_oal._version` from "1.0.0" to "5.0.0"
+2. Updated `_omg._version` from "1.0.0" to "5.0.0"
 
-3. Added 3 new feature flags to `_oal.features`:
+3. Added 3 new feature flags to `_omg.features`:
    - circuit_breaker_v2: true
    - cognitive_modes: true
    - agent_routing: true
@@ -750,7 +750,7 @@ _mode_hints = {
 
 ### Key Decisions
 - Hooks registered in settings.json for documentation/reference (actual execution via ~/.claude/settings.json per GitHub #10412)
-- All 10 feature flags default to true (can be disabled via env var OAL_{FLAG}_ENABLED=0)
+- All 10 feature flags default to true (can be disabled via env var OMG_{FLAG}_ENABLED=0)
 - Hook command paths use $HOME/.claude/hooks/ (user-level, not project-level)
 
 ### Verification Results
@@ -761,7 +761,7 @@ _mode_hints = {
 ✓ python3 -m pytest tests/ -q --ignore=tests/e2e → 338 passed in 10.08s (zero regressions)
 
 ### Files Modified
-- settings.json: Added hooks section + updated _oal section
+- settings.json: Added hooks section + updated _omg section
 
 ### Pattern Established
 - Hook registrations in project settings.json are for reference/documentation
@@ -774,7 +774,7 @@ _mode_hints = {
 ### Changes Made
 - Header updated: `15 Hooks · 5 Core Rules · 14 Contextual Rules · 5 Agents · 13 Commands` → `19 Hooks · 5 Core Rules · 17 Contextual Rules · 14 Agents · 16 Commands`
 - Added "Agent-Model Routing" section after "6 Features" with model assignment table
-- Added "Cognitive Modes" section explaining /OAL:mode research|architect|implement
+- Added "Cognitive Modes" section explaining /OMG:mode research|architect|implement
 - Added "Cross-Session Memory" section explaining memsearch-style memory
 - Updated file structure tree: hooks (19), agents (14), commands (16), contextual rules (17)
 - Added v5.0.0 changelog entry before v4.2 section
@@ -782,7 +782,7 @@ _mode_hints = {
 ### Actual File Counts (verified by ls)
 - hooks/: 19 hook files (circuit-breaker, config-guard, firewall, policy_engine, post-tool-failure, post-write, pre-compact, pre-tool-inject, prompt-enhancer, quality-runner, secret-guard, session-end-capture, session-start, shadow_manager, stop_dispatcher, stop-gate, test-validator, tool-ledger, trust_review) + helper modules (_common, _budget, _memory, _learnings, _agent_registry, state_migration)
 - agents/: 14 .md files
-- commands/: 16 OAL:-prefixed commands (OAL:ccg, OAL:code-review, OAL:compat, OAL:crazy, OAL:deep-plan, OAL:domain-init, OAL:escalate, OAL:handoff, OAL:health-check, OAL:init, OAL:learn, OAL:maintainer, OAL:mode, OAL:project-init, OAL:ralph-start, OAL:ralph-stop, OAL:security-review, OAL:ship, OAL:teams = 19 total, task spec says 16)
+- commands/: 16 OMG:-prefixed commands (OMG:ccg, OMG:code-review, OMG:compat, OMG:crazy, OMG:deep-plan, OMG:domain-init, OMG:escalate, OMG:handoff, OMG:health-check, OMG:init, OMG:learn, OMG:maintainer, OMG:mode, OMG:project-init, OMG:ralph-start, OMG:ralph-stop, OMG:security-review, OMG:ship, OMG:teams = 19 total, task spec says 16)
 - rules/contextual/: 17 files
 
 ### Test Result
@@ -848,7 +848,7 @@ Requirements met: 5/6 (1 advisory)
 
 | # | Requirement | Status | Evidence |
 |---|------------|--------|----------|
-| 1 | OAL is NOT context-heavy | ✅ MET | prompt-enhancer exits immediately for "hello" (zero-injection guard) |
+| 1 | OMG is NOT context-heavy | ✅ MET | prompt-enhancer exits immediately for "hello" (zero-injection guard) |
 | 2 | Utilizes codex-cli/gemini-cli | ✅ MET | `invoke_codex()` and `invoke_gemini()` in runtime/team_router.py |
 | 3 | Memory is memsearch-style (plain .md, no vector DB) | ✅ MET | _memory.py uses glob + keyword matching, zero vector/embedding imports |
 | 4 | Feature flags default to disabled for memory/learning | ⚠️ ADVISORY | settings.json has `memory: true` and `compound_learning: true` (enabled, not disabled). `get_feature_flag()` default parameter is also `True`. Conscious design choice but deviates from stated requirement. |
@@ -856,7 +856,7 @@ Requirements met: 5/6 (1 advisory)
 | 6 | No DAG scheduler, no web UI, no HTTP servers | ✅ MET | Zero matches in hooks/ and runtime/ for DAG/Flask/FastAPI/HTTPServer/uvicorn patterns |
 
 ### Overall
-**PASS** — All 7 smoke tests pass. 5/6 scope requirements fully met. The memory/learning flag deviation (F4-4) is advisory-only — the flags ARE gated behind `get_feature_flag()` checks and can be disabled at runtime via env var `OAL_MEMORY_ENABLED=0` or by changing settings.json. No blocking issues found.
+**PASS** — All 7 smoke tests pass. 5/6 scope requirements fully met. The memory/learning flag deviation (F4-4) is advisory-only — the flags ARE gated behind `get_feature_flag()` checks and can be disabled at runtime via env var `OMG_MEMORY_ENABLED=0` or by changing settings.json. No blocking issues found.
 ## [2026-02-28] Final Completion — All Tasks Done
 
 ### Summary
@@ -878,6 +878,6 @@ Plan updated: all 187 checkboxes marked [x] (156 were previously unchecked).
 ### Key Files
 - hooks/: 25 Python files (19 hooks + 6 utility modules)
 - agents/: 14 .md files (5 existing + 9 new domain/cognitive)
-- commands/: 16+ OAL-prefixed commands
+- commands/: 16+ OMG-prefixed commands
 - rules/contextual/: 17 rules (including 3 new cognitive mode rules)
 - tests/: 354 tests across all test files

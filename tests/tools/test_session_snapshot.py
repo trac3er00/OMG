@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 # Enable snapshot feature for tests
-os.environ["OAL_SNAPSHOT_ENABLED"] = "true"
+os.environ["OMG_SNAPSHOT_ENABLED"] = "true"
 
 # Add tools directory to path
 tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
@@ -32,8 +32,8 @@ from session_snapshot import (
 
 @pytest.fixture
 def mock_state_dir(tmp_path):
-    """Create a mock .oal/state directory with test files."""
-    state_dir = tmp_path / ".oal" / "state"
+    """Create a mock .omg/state directory with test files."""
+    state_dir = tmp_path / ".omg" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
 
     # Create some test files
@@ -52,7 +52,7 @@ def mock_state_dir(tmp_path):
 @pytest.fixture
 def mock_state_with_sensitive(tmp_path):
     """Create a mock state directory with sensitive files."""
-    state_dir = tmp_path / ".oal" / "state"
+    state_dir = tmp_path / ".omg" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
 
     # Create regular files
@@ -157,7 +157,7 @@ class TestCreateSnapshot:
 
     def test_snapshot_feature_flag_disabled(self, mock_state_dir, monkeypatch):
         """Test that snapshot returns skipped when feature flag is disabled."""
-        monkeypatch.setenv("OAL_SNAPSHOT_ENABLED", "false")
+        monkeypatch.setenv("OMG_SNAPSHOT_ENABLED", "false")
         result = create_snapshot(state_dir=mock_state_dir)
         assert result.get("skipped") is True
 
@@ -207,7 +207,7 @@ class TestListSnapshots:
 
     def test_list_nonexistent_snapshots_dir(self, tmp_path):
         """Test listing when snapshots directory doesn't exist."""
-        state_dir = str(tmp_path / ".oal" / "state")
+        state_dir = str(tmp_path / ".omg" / "state")
         snapshots = list_snapshots(state_dir=state_dir)
         assert snapshots == []
 

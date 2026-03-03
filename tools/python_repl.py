@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-IPython Kernel Integration for OAL
+IPython Kernel Integration for OMG
 
 Provides persistent REPL sessions with IPython kernel support (optional)
 and stdlib fallback via code.InteractiveConsole.
 
-Feature flag: OAL_PYTHON_REPL_ENABLED (default: False)
+Feature flag: OMG_PYTHON_REPL_ENABLED (default: False)
 """
 
 import ast
@@ -68,7 +68,7 @@ def _check_jupyter() -> bool:
 def _is_enabled() -> bool:
     """Check if Python REPL feature is enabled."""
     # Fast path: check env var directly
-    env_val = os.environ.get("OAL_PYTHON_REPL_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_PYTHON_REPL_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -82,7 +82,7 @@ def _is_enabled() -> bool:
 
 def _get_sandbox_flag() -> bool:
     """Check if sandbox mode is enabled for the REPL."""
-    env_val = os.environ.get("OAL_REPL_SANDBOX_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_REPL_SANDBOX_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -95,7 +95,7 @@ def _get_sandbox_flag() -> bool:
 
 def _get_helpers_flag() -> bool:
     """Check if REPL prelude helpers are enabled."""
-    env_val = os.environ.get("OAL_REPL_HELPERS_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_REPL_HELPERS_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -110,7 +110,7 @@ def _build_prelude_namespace() -> dict:
     """Build the prelude namespace with helper functions for REPL sessions.
 
     Returns a dict of helper functions injected into every session when
-    OAL_REPL_HELPERS_ENABLED=true. All helpers use stdlib only and handle
+    OMG_REPL_HELPERS_ENABLED=true. All helpers use stdlib only and handle
     exceptions gracefully.
     """
     import re as _re
@@ -203,13 +203,13 @@ def _build_prelude_namespace() -> dict:
         "delete_lines": delete_lines,
     }
 
-_DISABLED_MSG = "Python REPL feature is disabled. Set OAL_PYTHON_REPL_ENABLED=true"
+_DISABLED_MSG = "Python REPL feature is disabled. Set OMG_PYTHON_REPL_ENABLED=true"
 
 
 # --- Session storage ---
 
 _sessions: Dict[str, Dict[str, Any]] = {}
-_STATE_DIR = ".oal/state/repl_sessions"
+_STATE_DIR = ".omg/state/repl_sessions"
 
 
 def _now_iso() -> str:
@@ -606,7 +606,7 @@ def _cli_main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="OAL Python REPL Tool — persistent sessions with IPython or stdlib",
+        description="OMG Python REPL Tool — persistent sessions with IPython or stdlib",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--exec", dest="code", help="Execute Python code")

@@ -4,7 +4,7 @@ allowed-tools: sequential-thinking_sequentialthinking, Read, Grep, Glob
 argument-hint: "[problem statement to reason through]"
 ---
 
-# /OAL:sequential-thinking
+# /OMG:sequential-thinking
 
 Use the sequential-thinking tool when the task needs explicit step-by-step reasoning,
 branching, and hypothesis verification.

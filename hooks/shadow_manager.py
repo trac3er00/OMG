@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OAL v1 Shadow Manager
+"""OMG v1 Shadow Manager
 
 Maintains overlay-style shadow writes and evidence artifacts.
 """
@@ -24,11 +24,11 @@ def _project_dir() -> str:
 
 
 def _shadow_root(project_dir: str) -> str:
-    return os.path.join(project_dir, ".oal", "shadow")
+    return os.path.join(project_dir, ".omg", "shadow")
 
 
 def _evidence_root(project_dir: str) -> str:
-    return os.path.join(project_dir, ".oal", "evidence")
+    return os.path.join(project_dir, ".omg", "evidence")
 
 
 def _active_run_path(project_dir: str) -> str:
@@ -66,7 +66,7 @@ def set_active_run_id(project_dir: str, run_id: str) -> None:
 
 
 def get_active_run_id(project_dir: str) -> str | None:
-    env_id = os.environ.get("OAL_RUN_ID")
+    env_id = os.environ.get("OMG_RUN_ID")
     if env_id:
         return env_id
     path = _active_run_path(project_dir)
@@ -238,7 +238,7 @@ def apply_shadow(project_dir: str, run_id: str) -> dict[str, Any]:
 def drop_shadow(project_dir: str, run_id: str) -> dict[str, Any]:
     run_dir = os.path.join(_shadow_root(project_dir), run_id)
     if os.path.isdir(run_dir):
-        print(f"[OAL] Deleting: {run_dir}", file=sys.stderr)
+        print(f"[OMG] Deleting: {run_dir}", file=sys.stderr)
         shutil.rmtree(run_dir, ignore_errors=True)
 
     active = get_active_run_id(project_dir)
@@ -277,8 +277,8 @@ def _handle_post_tool_use(payload: dict[str, Any]) -> None:
 def _main() -> int:
     # Early-exit: skip all work if shadow/evidence mode is not enabled
     project_dir = _project_dir()
-    policy_path = os.path.join(project_dir, ".oal", "policy.yaml")
-    if not os.path.exists(policy_path) and os.environ.get("OAL_EVIDENCE_REQUIRED", "0") != "1":
+    policy_path = os.path.join(project_dir, ".omg", "policy.yaml")
+    if not os.path.exists(policy_path) and os.environ.get("OMG_EVIDENCE_REQUIRED", "0") != "1":
         return 0
 
     try:

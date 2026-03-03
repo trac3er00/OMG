@@ -67,9 +67,9 @@ class TestBudgetHardCap:
 
     def test_keyword_prompt_within_budget(self, tmp_path):
         """A prompt with coding keywords produces output <= 1000 chars."""
-        # Create minimal .oal structure
-        (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
-        (tmp_path / ".oal" / "knowledge").mkdir(parents=True)
+        # Create minimal .omg structure
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
 
         prompt = "fix the bug in the auth module and implement error handling"
         output = _run_enhancer(prompt, project_dir=str(tmp_path))
@@ -82,8 +82,8 @@ class TestBudgetHardCap:
 
     def test_complex_prompt_capped_at_budget(self, tmp_path):
         """Even with many keywords, output never exceeds BUDGET_PROMPT_TOTAL."""
-        (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
-        (tmp_path / ".oal" / "knowledge").mkdir(parents=True)
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
 
         # Trigger as many signals as possible
         prompt = (
@@ -121,8 +121,8 @@ class TestKeywordDetection:
     ])
     def test_keyword_prompt_produces_output(self, prompt, tmp_path):
         """Prompts with coding keywords should produce non-empty output."""
-        (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
-        (tmp_path / ".oal" / "knowledge").mkdir(parents=True)
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
 
         output = _run_enhancer(prompt, project_dir=str(tmp_path))
         assert output != "", f"Expected non-empty output for '{prompt}'"

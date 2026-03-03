@@ -5,10 +5,10 @@ Each line gets a tag: `{line_number}#{2-char-id}|{original line}`
 where the 2-char ID is derived from SHA-256 of the line content mapped to
 the charset ZPMQVRWSNKTXJBYH (16 chars, 4-bit nibbles of first hash byte).
 
-Uses a sidecar cache at `.oal/state/hashline_cache.json` to avoid
+Uses a sidecar cache at `.omg/state/hashline_cache.json` to avoid
 regenerating hashes for unchanged files. Never modifies original files.
 
-Feature flag: OAL_HASHLINE_ENABLED (default: False)
+Feature flag: OMG_HASHLINE_ENABLED (default: False)
 """
 import hashlib
 import json
@@ -40,7 +40,7 @@ HASH_CHARSET = "ZPMQVRWSNKTXJBYH"
 _HASHLINE_RE = re.compile(r"^\d+#[A-Z]{2}\|")
 
 # Sidecar cache path (relative to project dir)
-_CACHE_REL_PATH = os.path.join(".oal", "state", "hashline_cache.json")
+_CACHE_REL_PATH = os.path.join(".omg", "state", "hashline_cache.json")
 
 
 # --- Core Functions ---
@@ -67,11 +67,11 @@ def inject_hashlines(content: str, file_path: str = None) -> str:
     Args:
         content: File content string
         file_path: Optional file path for caching. If provided and the file
-                   exists, hashes are cached to `.oal/state/hashline_cache.json`.
+                   exists, hashes are cached to `.omg/state/hashline_cache.json`.
 
     Returns:
         Content with hash anchors prepended to each line.
-        Returns content unchanged if OAL_HASHLINE_ENABLED is False.
+        Returns content unchanged if OMG_HASHLINE_ENABLED is False.
     """
     if not _is_enabled():
         return content
@@ -211,10 +211,10 @@ def _cache_hashes(file_path: str, line_hashes: dict) -> None:
 def _is_enabled() -> bool:
     """Check if hashline injection is enabled.
 
-    Resolution order: OAL_HASHLINE_ENABLED env var → settings.json → False
+    Resolution order: OMG_HASHLINE_ENABLED env var → settings.json → False
     """
     # Fast path: check env var directly
-    env_val = os.environ.get("OAL_HASHLINE_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_HASHLINE_ENABLED", "").lower()
     if env_val in ("1", "true", "yes"):
         return True
     if env_val in ("0", "false", "no"):

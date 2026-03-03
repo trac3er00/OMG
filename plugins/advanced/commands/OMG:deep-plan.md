@@ -1,10 +1,10 @@
 ---
 description: Deep strategic planning — understands user direction, asks smart questions, creates comprehensive plan with domain awareness
 allowed-tools: Read, Write, Edit, MultiEdit, Bash(find:*), Bash(cat:*), Bash(git:*), Bash(wc:*), Bash(tree:*), Bash(mkdir:*), Bash(tee:*), Grep, Glob
-argument-hint: "[feature or goal to plan]"
+argument-hint: "[feature or gomg to plan]"
 ---
 
-# /OAL:deep-plan — Strategic Planning with Direction Understanding
+# /OMG:deep-plan — Strategic Planning with Direction Understanding
 
 ## Philosophy
 Regular planning = "what steps to take."
@@ -12,17 +12,17 @@ Deep planning = "understand WHY the user wants this, WHAT direction they're head
 
 ## Step 1: Direction Discovery (MANDATORY)
 
-Do not assume goals, constraints, or context. Extract direction from:
+Do not assume gomgs, constraints, or context. Extract direction from:
 - user prompt
-- `.oal/state/handoff.md`
-- `.oal/state/ledger/failure-tracker.json`
+- `.omg/state/handoff.md`
+- `.omg/state/ledger/failure-tracker.json`
 - current repo structure and patterns
 
 Before planning anything, understand:
-1. **User's real goal** — Often the stated request is one step toward something bigger. Ask: "What's the end state you're imagining?"
+1. **User's real gomg** — Often the stated request is one step toward something bigger. Ask: "What's the end state you're imagining?"
 2. **User's constraints** — Time, budget, existing code, team preferences, tech stack decisions already made.
 3. **User's domain knowledge** — Are they expert in this domain (follow their lead) or exploring (guide them)?
-4. **What they've already tried** — Check .oal/state/handoff.md, failure-tracker.json, git log.
+4. **What they've already tried** — Check .omg/state/handoff.md, failure-tracker.json, git log.
 
 If direction is still ambiguous after repo exploration, ask only minimal focused questions.
 
@@ -49,14 +49,14 @@ ls -la src/*/  # or app/*/ or packages/*/
 grep -rn "import.*from\|require(" src/ --include="*.{ts,js}" | head -20
 ```
 
-If DDD reference patterns exist (see .oal/knowledge/ or existing domain modules):
+If DDD reference patterns exist (see .omg/knowledge/ or existing domain modules):
 - Read the reference domain FIRST
 - Plan the new feature to MATCH the pattern
 - Note any intentional deviations with WHY
 
 ## Step 3: Create the Deep Plan
 
-Use Bash heredoc to write `.oal/state/_plan.md` (and `.oal/idea.yml`). Do NOT use the `Write` tool — it requires a prior Read which is unnecessary for fresh plan creation:
+Use Bash heredoc to write `.omg/state/_plan.md` (and `.omg/idea.yml`). Do NOT use the `Write` tool — it requires a prior Read which is unnecessary for fresh plan creation:
 
 ```markdown
 # Deep Plan: [Feature Name]
@@ -87,7 +87,7 @@ Key interfaces: [list the interfaces/types this touches]
 
 ### Phase 3: Integration + Security [N files, ~M lines]
 5. [ ] [specific action]
-6. [ ] Security review: /OAL:security-review [affected files]
+6. [ ] Security review: /OMG:security-review [affected files]
 
 ### Phase 4: Verification
 7. [ ] Tests: [what to test, how]
@@ -111,7 +111,7 @@ Key interfaces: [list the interfaces/types this touches]
 
 Show the plan to the user. Ask:
 - "Does this match the direction you're thinking?"
-- "Anything I'm missing about your goals?"
+- "Anything I'm missing about your gomgs?"
 - "Should I adjust the scope or priority?"
 
 Update the plan based on feedback BEFORE starting implementation.
@@ -130,7 +130,7 @@ Only after applying those corrections, continue to execution.
 
 ## Step 4.6: Multi-Agent Bootstrap (MANDATORY)
 
-After validation, launch exactly 5 planning tracks with mixed-model intent using OAL-native routing (same planning discipline as superpowers/OMC):
+After validation, launch exactly 5 planning tracks with mixed-model intent using OMG-native routing (same planning discipline as superpowers/OMC):
 
 1. Architect track (Claude)
 2. Backend track (GPT/Codex)
@@ -162,7 +162,7 @@ Then merge outputs into a single execution checklist before implementation.
 
 ## Step 5: Generate Checklist
 
-Convert the plan into `.oal/state/_checklist.md` with concrete steps.
+Convert the plan into `.omg/state/_checklist.md` with concrete steps.
 Each step should be completable in ONE tool interaction (not "implement the feature").
 
 ## Step 5.5: Business Workflow Contract (MANDATORY)
@@ -191,8 +191,8 @@ Rules:
    - `production=ready` only when QA/simulation/final_test gates pass.
 
 Persist this contract into planning artifacts:
-- `.oal/state/_plan.md` (human-readable plan)
-- `.oal/state/_checklist.md` (atomic execution items)
+- `.omg/state/_plan.md` (human-readable plan)
+- `.omg/state/_checklist.md` (atomic execution items)
 - include structured task metadata in the plan output (`stage`, `title`, `detail`, `source`).
 
 ## Integration with DDD
@@ -200,13 +200,13 @@ Persist this contract into planning artifacts:
 If this is a new domain:
 1. Ask the user to write (or help write) the first domain reference
 2. Extract the pattern: naming convention, data flow, error handling style
-3. Document the pattern in .oal/knowledge/domain-patterns/[name].md
+3. Document the pattern in .omg/knowledge/domain-patterns/[name].md
 4. Use the pattern for ALL subsequent domains
 
 ## Idea-as-Code Contract (required)
 
-Before leaving planning, ensure `.oal/idea.yml` exists with:
-- `goal`
+Before leaving planning, ensure `.omg/idea.yml` exists with:
+- `gomg`
 - `constraints[]`
 - `acceptance[]`
 - `risk.security[]|risk.performance[]|risk.compatibility[]`

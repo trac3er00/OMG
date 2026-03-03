@@ -4,14 +4,14 @@ allowed-tools: Read, Bash(python*:*), Grep, Glob
 argument-hint: "[optional: working directory path]"
 ---
 
-# /OAL:ai-commit — AI Commit Splitter
+# /OMG:ai-commit — AI Commit Splitter
 
 Analyze uncommitted git changes and propose logical atomic commits grouped by concern.
 
 ## Usage
 
 ```
-/OAL:ai-commit
+/OMG:ai-commit
 ```
 
 ## What It Does
@@ -24,15 +24,15 @@ Analyze uncommitted git changes and propose logical atomic commits grouped by co
 
 ## Feature Flag
 
-- **Flag name**: `OAL_AI_COMMIT_ENABLED`
+- **Flag name**: `OMG_AI_COMMIT_ENABLED`
 - **Default**: `False` (disabled)
-- **Enable**: `export OAL_AI_COMMIT_ENABLED=1`
+- **Enable**: `export OMG_AI_COMMIT_ENABLED=1`
 
 Or set in `settings.json`:
 
 ```json
 {
-  "_oal": {
+  "_omg": {
     "features": {
       "ai_commit": true
     }
@@ -44,7 +44,7 @@ Or set in `settings.json`:
 
 ```
 ============================================================
-  OAL AI Commit Splitter — Proposed Commit Plan
+  OMG AI Commit Splitter — Proposed Commit Plan
 ============================================================
 
   Total proposed commits: 3

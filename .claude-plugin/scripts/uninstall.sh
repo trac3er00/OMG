@@ -1,5 +1,5 @@
 #!/bin/bash
-# OAL Plugin Uninstall Script
+# OMG Plugin Uninstall Script
 # This script is called by Claude Code when user uninstalls the plugin
 
 set -e
@@ -19,29 +19,29 @@ error() { echo -e "${RED}✗${NC} $1"; }
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║                                                               ║${NC}"
-echo -e "${BLUE}║              OAL Plugin Uninstaller v1.0.0                   ║${NC}"
+echo -e "${BLUE}║              OMG Plugin Uninstaller v1.0.0                   ║${NC}"
 echo -e "${BLUE}║                                                               ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(dirname "$SCRIPT_DIR")"
-OAL_ROOT="$(dirname "$PLUGIN_DIR")"
+OMG_ROOT="$(dirname "$PLUGIN_DIR")"
 
-# Check if OAL-setup.sh exists
-if [ -f "$OAL_ROOT/OAL-setup.sh" ]; then
-    info "Running uninstall via OAL-setup.sh..."
+# Check if OMG-setup.sh exists
+if [ -f "$OMG_ROOT/OMG-setup.sh" ]; then
+    info "Running uninstall via OMG-setup.sh..."
     echo ""
-    bash "$OAL_ROOT/OAL-setup.sh" uninstall
+    bash "$OMG_ROOT/OMG-setup.sh" uninstall
 else
-    warning "OAL-setup.sh not found, performing manual cleanup..."
+    warning "OMG-setup.sh not found, performing manual cleanup..."
     
     CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
     
-    # Remove OAL files manually
-    rm -f "$CLAUDE_DIR"/commands/OAL:*.md 2>/dev/null || true
-    rm -f "$CLAUDE_DIR"/agents/oal-*.md 2>/dev/null || true
-    rm -f "$CLAUDE_DIR"/hooks/.oal-version 2>/dev/null || true
+    # Remove OMG files manually
+    rm -f "$CLAUDE_DIR"/commands/OMG:*.md 2>/dev/null || true
+    rm -f "$CLAUDE_DIR"/agents/omg-*.md 2>/dev/null || true
+    rm -f "$CLAUDE_DIR"/hooks/.omg-version 2>/dev/null || true
     rm -f "$CLAUDE_DIR"/hooks/session-start.py 2>/dev/null || true
     rm -f "$CLAUDE_DIR"/hooks/session-end-capture.py 2>/dev/null || true
     rm -f "$CLAUDE_DIR"/hooks/prompt-enhancer.py 2>/dev/null || true
@@ -69,12 +69,12 @@ else
     rm -f "$CLAUDE_DIR"/hooks/_agent_registry.py 2>/dev/null || true
     rm -f "$CLAUDE_DIR"/hooks/state_migration.py 2>/dev/null || true
     rm -f "$CLAUDE_DIR"/hooks/fetch-rate-limits.py 2>/dev/null || true
-    rm -f "$CLAUDE_DIR"/.oal-manifest 2>/dev/null || true
-    rm -rf "$CLAUDE_DIR"/oal-runtime 2>/dev/null || true
-    rm -rf "$CLAUDE_DIR"/templates/oal 2>/dev/null || true
+    rm -f "$CLAUDE_DIR"/.omg-manifest 2>/dev/null || true
+    rm -rf "$CLAUDE_DIR"/omg-runtime 2>/dev/null || true
+    rm -rf "$CLAUDE_DIR"/templates/omg 2>/dev/null || true
     rm -f "$CLAUDE_DIR"/rules/0[0-4]-*.md 2>/dev/null || true
 fi
 
 echo ""
-success "OAL Plugin uninstalled successfully!"
+success "OMG Plugin uninstalled successfully!"
 echo ""

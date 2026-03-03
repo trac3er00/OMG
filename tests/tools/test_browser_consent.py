@@ -31,8 +31,8 @@ from browser_consent import (
 
 @pytest.fixture
 def tmp_project(tmp_path):
-    """Create a temp project dir with .oal/state/ structure."""
-    state_dir = tmp_path / ".oal" / "state"
+    """Create a temp project dir with .omg/state/ structure."""
+    state_dir = tmp_path / ".omg" / "state"
     state_dir.mkdir(parents=True)
     return tmp_path
 
@@ -46,7 +46,7 @@ def manager(tmp_project):
 @pytest.fixture
 def consented_manager(tmp_project):
     """ConsentManager with consent already granted."""
-    consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+    consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
     consent_path.write_text(json.dumps({
         "consented": True,
         "acknowledged_at": "2025-01-01T00:00:00+00:00",
@@ -94,7 +94,7 @@ class TestRecordConsent:
 
     def test_record_consent_creates_file(self, manager, tmp_project):
         """record_consent creates the consent file."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         assert not consent_path.exists()
 
         result = manager.record_consent(acknowledged=True)
@@ -106,7 +106,7 @@ class TestRecordConsent:
         """record_consent writes consented, acknowledged_at, and version."""
         manager.record_consent(acknowledged=True)
 
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         data = json.loads(consent_path.read_text())
 
         assert data["consented"] is True
@@ -117,7 +117,7 @@ class TestRecordConsent:
         """record_consent(acknowledged=False) writes consented: false."""
         manager.record_consent(acknowledged=False)
 
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         data = json.loads(consent_path.read_text())
 
         assert data["consented"] is False
@@ -141,28 +141,28 @@ class TestIsConsented:
 
     def test_consented_false_returns_false(self, tmp_project):
         """is_consented returns False when consented is False."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text(json.dumps({"consented": False}))
         mgr = ConsentManager(project_dir=str(tmp_project))
         assert mgr.is_consented() is False
 
     def test_malformed_json_returns_false(self, tmp_project):
         """is_consented returns False on malformed JSON."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text("{{{not valid json")
         mgr = ConsentManager(project_dir=str(tmp_project))
         assert mgr.is_consented() is False
 
     def test_empty_dict_returns_false(self, tmp_project):
         """is_consented returns False when consent file is empty dict."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text(json.dumps({}))
         mgr = ConsentManager(project_dir=str(tmp_project))
         assert mgr.is_consented() is False
 
     def test_consented_string_true_returns_false(self, tmp_project):
         """is_consented returns False when consented is string 'true' (not bool)."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text(json.dumps({"consented": "true"}))
         mgr = ConsentManager(project_dir=str(tmp_project))
         assert mgr.is_consented() is False
@@ -189,7 +189,7 @@ class TestRevokeConsent:
         """revoke_consent writes version field."""
         consented_manager.revoke_consent()
 
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         data = json.loads(consent_path.read_text())
         assert data["version"] == CONSENT_VERSION
         assert "acknowledged_at" in data
@@ -230,7 +230,7 @@ class TestModuleLevelConvenience:
 
     def test_module_is_consented_true(self, tmp_project):
         """Module-level is_consented returns True when consented."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text(json.dumps({"consented": True}))
         assert is_consented(project_dir=str(tmp_project)) is True
 
@@ -259,7 +259,7 @@ class TestCLI:
 
     def test_cli_status_with_consent(self, tmp_project):
         """CLI --status shows consented: true after granting."""
-        consent_path = tmp_project / ".oal" / "state" / "browser_consent.json"
+        consent_path = tmp_project / ".omg" / "state" / "browser_consent.json"
         consent_path.write_text(json.dumps({
             "consented": True,
             "acknowledged_at": "2025-01-01T00:00:00+00:00",

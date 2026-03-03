@@ -4,7 +4,7 @@ allowed-tools: Read, Bash(grep:*), Bash(find:*), Bash(cat:*), Bash(git:*), Bash(
 argument-hint: "[file or directory to review, or 'all' for full scan]"
 ---
 
-# /OAL:security-review — Vulnerability Scanner + Deep Review
+# /OMG:security-review — Vulnerability Scanner + Deep Review
 
 ## Step 1: Scope Detection
 
@@ -74,7 +74,7 @@ grep -rn "log\\.info.*password\|logger.*token\|print.*secret" [files]
 For files with auth, payment, or database logic:
 
 ```
-/OAL:escalate codex "Security deep review of [file]:
+/OMG:escalate codex "Security deep review of [file]:
 1. Read every line. Flag any: hardcoded secrets, SQL injection, XSS, CSRF, auth bypass, privilege escalation, insecure deserialization, SSRF.
 2. Check auth flow completeness: does every protected route validate the token? Are permissions checked?
 3. Check payment flow: is card data handled safely? Are amounts validated server-side?

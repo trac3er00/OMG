@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-AI Commit Splitter for OAL
+AI Commit Splitter for OMG
 
 Analyzes git changes and groups them into logical atomic commits
 with hunk-level staging support. Read-only analysis — never runs git commit.
 
-Feature flag: OAL_AI_COMMIT_ENABLED (default: False)
+Feature flag: OMG_AI_COMMIT_ENABLED (default: False)
 """
 
 import json
@@ -207,7 +207,7 @@ def analyze_changes(cwd: str = ".") -> List[Dict[str, Any]]:
 
     Groups changes by file type/category, always separating test files
     from source code. Returns an empty list when the feature flag
-    ``OAL_AI_COMMIT_ENABLED`` is ``False``.
+    ``OMG_AI_COMMIT_ENABLED`` is ``False``.
 
     Args:
         cwd: Working directory (default: current directory).
@@ -315,12 +315,12 @@ def preview_commit_plan(cwd: str = ".") -> str:
 
     if plan["total_commits"] == 0:
         if not _is_enabled():
-            return "[OAL] AI Commit Splitter is disabled. Set OAL_AI_COMMIT_ENABLED=1 to enable."
-        return "[OAL] No uncommitted changes found."
+            return "[OMG] AI Commit Splitter is disabled. Set OMG_AI_COMMIT_ENABLED=1 to enable."
+        return "[OMG] No uncommitted changes found."
 
     lines: List[str] = []
     lines.append("=" * 60)
-    lines.append("  OAL AI Commit Splitter — Proposed Commit Plan")
+    lines.append("  OMG AI Commit Splitter — Proposed Commit Plan")
     lines.append("=" * 60)
     lines.append("")
     lines.append(f"  Total proposed commits: {plan['total_commits']}")

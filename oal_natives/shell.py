@@ -1,16 +1,16 @@
-"""OAL Natives — shell: subprocess execution.
+"""OMG Natives — shell: subprocess execution.
 
 Pure-Python fallback for subprocess execution.
 Uses ``subprocess.run`` with capture and timeout support.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
 
 import subprocess
 
-from oal_natives._bindings import bind_function
+from omg_natives._bindings import bind_function
 
 
 def shell(cmd: str, timeout: int = 30) -> dict:
@@ -52,7 +52,7 @@ def shell(cmd: str, timeout: int = 30) -> dict:
 # Self-register with the global binding registry
 bind_function(
     name="shell",
-    rust_symbol="oal_natives::shell::shell",
+    rust_symbol="omg_natives::shell::shell",
     python_fallback=shell,
     type_hints={"cmd": "str", "timeout": "int"},
 )

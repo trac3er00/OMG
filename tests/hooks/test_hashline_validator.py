@@ -87,12 +87,12 @@ class TestValidateLineRefFormat:
 class TestValidateEditDisabled:
     """Tests for validate_edit when feature flag is disabled."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "0"})
     def test_disabled_returns_skipped(self):
         result = validate_edit("any_file.py", "11#VK", "some content")
         assert result == {"valid": True, "skipped": True}
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "false"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "false"})
     def test_disabled_false_string(self):
         result = validate_edit("any.py", "1#ZP", "x")
         assert result["valid"] is True
@@ -105,7 +105,7 @@ class TestValidateEditDisabled:
 class TestValidateEditEnabled:
     """Tests for validate_edit with feature flag enabled."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_valid_hash_match(self):
         """Hash match returns {valid: True, line: N}."""
         abs_path = os.path.abspath("test_file.py")
@@ -121,7 +121,7 @@ class TestValidateEditEnabled:
         assert result["valid"] is True
         assert result["line"] == 11
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_hash_mismatch(self):
         """Hash mismatch returns {valid: False, error: 'HASH_MISMATCH'}."""
         cached = {"11": "PH", "12": "VK"}
@@ -138,7 +138,7 @@ class TestValidateEditEnabled:
         assert result["expected"] == "VK"
         assert result["actual"] == "PH"
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_no_cache_returns_uncached(self):
         """When no cache exists for the file, return {valid: True, uncached: True}."""
         mock_injector = MagicMock()
@@ -150,7 +150,7 @@ class TestValidateEditEnabled:
         assert result["valid"] is True
         assert result["uncached"] is True
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_line_not_in_cache_returns_uncached(self):
         """When line number is not in cache (file grew), return uncached."""
         cached = {"1": "VK", "2": "PH"}
@@ -164,7 +164,7 @@ class TestValidateEditEnabled:
         assert result["valid"] is True
         assert result["uncached"] is True
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_invalid_line_ref_format(self):
         """Invalid line_ref format returns error without cache lookup."""
         result = validate_edit("test.py", "bad_ref", "content")
@@ -172,14 +172,14 @@ class TestValidateEditEnabled:
         assert result["error"] == "INVALID_LINE_REF"
         assert result["line_ref"] == "bad_ref"
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_invalid_line_ref_wrong_charset(self):
         """line_ref with non-charset chars is rejected."""
         result = validate_edit("test.py", "11#AB", "content")
         assert result["valid"] is False
         assert result["error"] == "INVALID_LINE_REF"
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_injector_import_failure_returns_uncached(self):
         """If injector can't be loaded, treat as uncached (fail open)."""
         with patch.object(hashline_validator, "_get_injector", side_effect=ImportError("nope")):
@@ -195,11 +195,11 @@ class TestValidateEditEnabled:
 class TestUpdateHashesAfterEdit:
     """Tests for updating cache after an edit."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "0"})
     def test_disabled_returns_true(self):
         assert update_hashes_after_edit("any.py", "content") is True
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_refreshes_cache_successfully(self):
         """After edit, cache should be updated with new hashes."""
         mock_injector = MagicMock()
@@ -215,7 +215,7 @@ class TestUpdateHashesAfterEdit:
         assert call_args[0] == "test.py"
         assert call_args[1] == {"1": "VK", "2": "VK", "3": "VK"}
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_correct_line_count_in_cache(self):
         """Cache should have correct number of lines."""
         mock_injector = MagicMock()
@@ -230,13 +230,13 @@ class TestUpdateHashesAfterEdit:
         assert len(line_hashes) == 5
         assert set(line_hashes.keys()) == {"1", "2", "3", "4", "5"}
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_injector_unavailable_returns_false(self):
         """If injector can't be loaded, return False."""
         with patch.object(hashline_validator, "_get_injector", side_effect=ImportError("nope")):
             assert update_hashes_after_edit("test.py", "content") is False
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_cache_write_error_returns_false(self):
         """If cache write raises, return False."""
         mock_injector = MagicMock()
@@ -246,7 +246,7 @@ class TestUpdateHashesAfterEdit:
         with patch.object(hashline_validator, "_get_injector", return_value=mock_injector):
             assert update_hashes_after_edit("test.py", "content") is False
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_empty_content(self):
         """Empty string split gives [''], so one line."""
         mock_injector = MagicMock()
@@ -267,26 +267,26 @@ class TestUpdateHashesAfterEdit:
 class TestFeatureFlag:
     """Tests for _is_enabled resolution."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_enabled_env_var(self):
         assert _is_enabled() is True
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "0"})
     def test_disabled_env_var(self):
         assert _is_enabled() is False
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "yes"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "yes"})
     def test_enabled_yes(self):
         assert _is_enabled() is True
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "no"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "no"})
     def test_disabled_no(self):
         assert _is_enabled() is False
 
     def test_default_disabled(self):
         """Default should be False per spec."""
         env = os.environ.copy()
-        env.pop("OAL_HASHLINE_ENABLED", None)
+        env.pop("OMG_HASHLINE_ENABLED", None)
         with patch.dict(os.environ, env, clear=True):
             with patch.object(hashline_validator, "get_feature_flag", return_value=False):
                 assert _is_enabled() is False
@@ -298,7 +298,7 @@ class TestFeatureFlag:
 class TestHookEntryPoint:
     """Tests for the stdin/stdout hook entry point."""
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "0"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "0"})
     def test_disabled_outputs_skipped(self):
         """When disabled, hook outputs {valid: True, skipped: True}."""
         import io
@@ -310,7 +310,7 @@ class TestHookEntryPoint:
         output = json.loads(captured.getvalue())
         assert output == {"valid": True, "skipped": True}
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_valid_input_returns_result(self):
         """Valid input returns validate_edit result."""
         data = {"file_path": "test.py", "line_ref": "1#VK", "expected_line": "hello"}
@@ -330,7 +330,7 @@ class TestHookEntryPoint:
         assert output["valid"] is True
         assert output["line"] == 1
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_non_dict_input(self):
         """Non-dict input returns INVALID_INPUT error."""
         import io
@@ -344,7 +344,7 @@ class TestHookEntryPoint:
         assert output["valid"] is False
         assert output["error"] == "INVALID_INPUT"
 
-    @patch.dict(os.environ, {"OAL_HASHLINE_ENABLED": "1"})
+    @patch.dict(os.environ, {"OMG_HASHLINE_ENABLED": "1"})
     def test_always_exits_zero(self):
         """Hook always exits 0 even on errors."""
         data = {"file_path": "", "line_ref": "bad", "expected_line": ""}

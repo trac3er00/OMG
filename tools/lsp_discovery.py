@@ -3,7 +3,7 @@
 Scans for available LSP servers based on language configurations.
 Searches in: node_modules/.bin/, .venv/bin/, system PATH
 
-Feature flag: OAL_LSP_TOOLS_ENABLED (default: False)
+Feature flag: OMG_LSP_TOOLS_ENABLED (default: False)
 """
 
 from __future__ import annotations
@@ -162,10 +162,10 @@ def discover_lsp_servers(project_dir: str = ".") -> list[dict[str, Any]]:
 def _is_enabled() -> bool:
     """Check if LSP discovery is enabled via feature flag.
     
-    Checks env var first (OAL_LSP_TOOLS_ENABLED), then settings.json.
+    Checks env var first (OMG_LSP_TOOLS_ENABLED), then settings.json.
     """
     # Check environment variable
-    env_val = os.environ.get("OAL_LSP_TOOLS_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_LSP_TOOLS_ENABLED", "").lower()
     if env_val in ("0", "false", "no"):
         return False
     if env_val in ("1", "true", "yes"):
@@ -178,7 +178,7 @@ def _is_enabled() -> bool:
         if os.path.exists(settings_path):
             with open(settings_path, "r", encoding="utf-8") as f:
                 settings = json.load(f)
-                features = settings.get("_oal", {}).get("features", {})
+                features = settings.get("_omg", {}).get("features", {})
                 if "LSP_TOOLS" in features:
                     return features["LSP_TOOLS"]
     except Exception:

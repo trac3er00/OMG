@@ -1,1 +1,1 @@
-"""Lab package for OAL."""
+"""Lab package for OMG."""

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Synthetic Search Provider for OAL
+Synthetic Search Provider for OMG
 
 Returns mock/fake results without making any API calls.
 Useful for testing, dry-run mode, and offline development.

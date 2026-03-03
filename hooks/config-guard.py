@@ -2,7 +2,7 @@
 """ConfigChange Hook: Settings Tamper Detection + Trust Review
 
 Monitors Claude settings changes and writes Trust Review artifacts to
-.oal/trust/manifest.lock.json.
+.omg/trust/manifest.lock.json.
 """
 import contextlib
 import json
@@ -26,7 +26,7 @@ setup_crash_handler("config-guard", fail_closed=False)
 try:
     from trust_review import review_config_change, write_trust_manifest, format_review_summary
 except Exception as e:
-    print(f"[OAL] config-guard: trust_review import failed: {type(e).__name__}: {e}", file=sys.stderr)
+    print(f"[OMG] config-guard: trust_review import failed: {type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(0)
 
 data = json_input()
@@ -98,11 +98,11 @@ try:
         if not isinstance(new_config, dict):
             sys.exit(0)
 except Exception as e:
-    print(f"[OAL] config-guard: config read failed: {type(e).__name__}: {e}", file=sys.stderr)
+    print(f"[OMG] config-guard: config read failed: {type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(0)
 
 # Load previous settings snapshot for diff-based trust review.
-snapshot_dir = os.path.join(project_dir, ".oal", "trust")
+snapshot_dir = os.path.join(project_dir, ".omg", "trust")
 os.makedirs(snapshot_dir, exist_ok=True)
 snapshot_path = os.path.join(snapshot_dir, "last-settings.json")
 
@@ -121,7 +121,7 @@ elif os.path.exists(snapshot_path):
             if not isinstance(old_config, dict):
                 old_config = {}
     except Exception as e:
-        print(f"[OAL] config-guard: snapshot read failed: {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"[OMG] config-guard: snapshot read failed: {type(e).__name__}: {e}", file=sys.stderr)
         old_config = {}
 
 # Prefer explicit new config when the payload provides it.

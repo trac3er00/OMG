@@ -1,4 +1,4 @@
-name: OAL Compat Gate
+name: OMG Compat Gate
 
 on:
   workflow_dispatch:
@@ -21,17 +21,17 @@ jobs:
       - name: Prepare compatibility artifacts directory
         run: mkdir -p artifacts
 
-      - name: OAL compatibility GA gate
-        run: python3 scripts/oal.py compat gate --max-bridge 0 --output artifacts/oal-compat-gap.json
+      - name: OMG compatibility GA gate
+        run: python3 scripts/omg.py compat gate --max-bridge 0 --output artifacts/omg-compat-gap.json
 
       - name: Export contract snapshot
-        run: python3 scripts/oal.py compat snapshot --output artifacts/oal-compat-contracts.json
+        run: python3 scripts/omg.py compat snapshot --output artifacts/omg-compat-contracts.json
 
       - name: Check committed snapshot drift
-        run: python3 scripts/check-oal-compat-contract-snapshot.py --strict-version
+        run: python3 scripts/check-omg-compat-contract-snapshot.py --strict-version
 
       - name: Check standalone naming hygiene
-        run: python3 scripts/check-oal-standalone-clean.py
+        run: python3 scripts/check-omg-standalone-clean.py
 
       - name: Run regression tests
         run: python3 -m pytest -q
@@ -39,7 +39,7 @@ jobs:
       - name: Upload compatibility artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: oal-compat-artifacts
+          name: omg-compat-artifacts
           path: artifacts/
           if-no-files-found: error
 

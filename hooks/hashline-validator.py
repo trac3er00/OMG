@@ -5,7 +5,7 @@ Validates that ``line_ref`` (e.g. ``"11#VK"``) matches the cached hash for
 that line before allowing an edit.  Rejects mismatched edits with a clear
 error dict.  Updates cache after successful edits.
 
-Feature flag: OAL_HASHLINE_ENABLED (default: False)
+Feature flag: OMG_HASHLINE_ENABLED (default: False)
 """
 import json
 import os
@@ -36,9 +36,9 @@ _LINE_REF_RE = re.compile(r"^\d+#[ZPMQVRWSNKTXJBYH]{2}$")
 def _is_enabled() -> bool:
     """Check if hashline validation is enabled.
 
-    Resolution order: OAL_HASHLINE_ENABLED env var → settings.json → False
+    Resolution order: OMG_HASHLINE_ENABLED env var → settings.json → False
     """
-    env_val = os.environ.get("OAL_HASHLINE_ENABLED", "").lower()
+    env_val = os.environ.get("OMG_HASHLINE_ENABLED", "").lower()
     if env_val in ("1", "true", "yes"):
         return True
     if env_val in ("0", "false", "no"):

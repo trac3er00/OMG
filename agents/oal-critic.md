@@ -12,5 +12,5 @@ Review from 3 perspectives:
 - Code: Is implementation correct, tested, minimal?
 
 Check tests are REAL (behavior, not types/existence).
-For security code: recommend /OAL:escalate codex.
+For security code: recommend /OMG:escalate codex.
 Report: Findings (file:line, severity) → Recommendations → Risk Assessment.

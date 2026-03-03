@@ -1,4 +1,4 @@
-"""Tests for oal_natives 12 core Rust module Python fallbacks.
+"""Tests for omg_natives 12 core Rust module Python fallbacks.
 
 Verifies each of the 12 module fallback implementations and their
 registration with the global REGISTRY via bind_function().
@@ -11,19 +11,19 @@ import time
 
 import pytest
 
-from oal_natives._bindings import REGISTRY, get_binding
-from oal_natives.grep import grep
-from oal_natives.glob import glob
-from oal_natives.shell import shell
-from oal_natives.text import text
-from oal_natives.keys import keys
-from oal_natives.highlight import highlight
-from oal_natives.task import task_run
-from oal_natives.ps import ps
-from oal_natives.prof import prof
-from oal_natives.image import image
-from oal_natives.clipboard import clipboard
-from oal_natives.html import html
+from omg_natives._bindings import REGISTRY, get_binding
+from omg_natives.grep import grep
+from omg_natives.glob import glob
+from omg_natives.shell import shell
+from omg_natives.text import text
+from omg_natives.keys import keys
+from omg_natives.highlight import highlight
+from omg_natives.task import task_run
+from omg_natives.ps import ps
+from omg_natives.prof import prof
+from omg_natives.image import image
+from omg_natives.clipboard import clipboard
+from omg_natives.html import html
 
 
 # ---------------------------------------------------------------------------

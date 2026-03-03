@@ -60,9 +60,9 @@ NON_SOURCE_PATTERNS = [
     "jest.",
     "vitest.",
     "setup.",
-    ".oal/",
+    ".omg/",
     ".omc/",
-    "oal-",
+    "omg-",
     "CLAUDE.md",
     "AGENTS.md",
     "readme",
@@ -79,7 +79,7 @@ NON_SOURCE_PATTERNS = [
 ]
 
 INTERNAL_CONTROL_PATH_PATTERNS = [
-    ".oal/",
+    ".omg/",
     ".omc/",
     "hooks/",
     "CLAUDE.md",
@@ -101,7 +101,7 @@ def _to_bool(value: str | None, default: bool) -> bool:
 def _read_policy_flags(project_root: str) -> tuple[str, bool]:
     mode = "warn_and_run"
     require_evidence_pack = False
-    policy_path = os.path.join(project_root, ".oal", "policy.yaml")
+    policy_path = os.path.join(project_root, ".omg", "policy.yaml")
     if not os.path.exists(policy_path):
         return mode, require_evidence_pack
 
@@ -117,7 +117,7 @@ def _read_policy_flags(project_root: str) -> tuple[str, bool]:
                     value = line.split(":", 1)[1].strip().strip("'\"")
                     require_evidence_pack = _to_bool(value, require_evidence_pack)
     except Exception as e:  # security: policy enforcement
-        print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
     return mode, require_evidence_pack
 
 
@@ -178,7 +178,7 @@ def _build_context(project_dir: str) -> dict[str, object]:
                     except json.JSONDecodeError:
                         pass  # intentional: skip malformed ledger lines
         except Exception as e:  # security: dispatch context building
-            print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
 
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
     recent_entries = []
@@ -264,7 +264,7 @@ def check_verification(data, project_dir):
                 if isinstance(cmd, str) and cmd.strip():
                     expected_checks.append(step)
         except Exception as e:  # security: quality gate loading
-            print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
 
     if has_source_writes and not has_any_verification:
         if expected_checks:
@@ -278,12 +278,12 @@ def check_verification(data, project_dir):
             blocks.append(
                 "Code was modified but NO verification commands were run.\n"
                 "No quality-gate.json configured, but at minimum run lint/test/build.\n"
-                "Run /OAL:init to configure quality gates, or explicitly state\n"
+                "Run /OMG:init to configure quality gates, or explicitly state\n"
                 "what is **Unverified** and why."
             )
 
     policy_mode, policy_require_evidence = _read_policy_flags(project_dir)
-    env_evidence_required = os.environ.get("OAL_EVIDENCE_REQUIRED")
+    env_evidence_required = os.environ.get("OMG_EVIDENCE_REQUIRED")
     evidence_required = _to_bool(env_evidence_required, policy_require_evidence)
     strict_evidence_gate = policy_mode.strip().lower() not in {
         "warn_and_run",
@@ -298,23 +298,23 @@ def check_verification(data, project_dir):
             try:
                 has_ev = bool(has_recent_evidence(project_dir, hours=24))
             except Exception as e:  # security: evidence verification
-                print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+                print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
                 has_ev = False
         else:
-            ev_dir = os.path.join(project_dir, ".oal", "evidence")
+            ev_dir = os.path.join(project_dir, ".omg", "evidence")
             has_ev = os.path.isdir(ev_dir) and any(n.endswith(".json") for n in os.listdir(ev_dir))
 
         if not has_ev:
             message = (
-                "OAL v1 evidence gate: source code was modified but no EvidencePack was found.\n"
-                "Create .oal/evidence/<run-id>.json before completing.\n"
+                "OMG v1 evidence gate: source code was modified but no EvidencePack was found.\n"
+                "Create .omg/evidence/<run-id>.json before completing.\n"
                 "Required fields: tests, security_scans, diff_summary, reproducibility, unresolved_risks."
             )
             if strict_evidence_gate:
                 blocks.append(message)
             else:
                 advisories.append(
-                    f"[OAL advisory] {message} (policy mode: {policy_mode or 'warn_and_run'})"
+                    f"[OMG advisory] {message} (policy mode: {policy_mode or 'warn_and_run'})"
                 )
 
     return blocks
@@ -369,10 +369,10 @@ def check_diff_budget(data, project_dir):
             blocks.append(
                 f"Diff exceeds budget: {files_changed} files / {total_loc} LOC "
                 f"(limit: {max_files} / {max_loc}).\n"
-                "Reduce scope OR set CHANGE_BUDGET=medium/large in .oal/state/_plan.md."
+                "Reduce scope OR set CHANGE_BUDGET=medium/large in .omg/state/_plan.md."
             )
     except Exception as e:  # security: diff budget enforcement
-        print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
 
     data["_changed_files"] = changed_files
     return blocks
@@ -427,7 +427,7 @@ def check_test_execution(data, project_dir):
                     test_files_modified = True
                     break
         except Exception as e:  # security: test execution check
-            print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
 
         if test_files_modified and not has_test:
             blocks.append(
@@ -499,7 +499,7 @@ def check_false_fix(data, project_dir):
                     non_source_only = False
                     break
         except Exception as e:  # security: false fix detection
-            print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+            print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
             non_source_only = False
 
         if non_source_only and has_material_writes and len(changed_files) > 0:
@@ -722,7 +722,7 @@ def format_ralph_block_reason(state, project_dir):
     return (
         f"Ralph loop iteration {iteration}/{max_iter}{progress}. "
         f"Continue working on: {original}\n"
-        f"If truly done, run: /OAL:ralph-stop"
+        f"If truly done, run: /OMG:ralph-stop"
     )
 
 def check_ralph_loop(project_dir, data):
@@ -730,7 +730,7 @@ def check_ralph_loop(project_dir, data):
 
     if not get_feature_flag("ralph_loop"):
         return [], []
-    ralph_path = os.path.join(project_dir, ".oal", "state", "ralph-loop.json")
+    ralph_path = os.path.join(project_dir, ".omg", "state", "ralph-loop.json")
     if not os.path.exists(ralph_path):
         return [], []
     try:
@@ -769,7 +769,7 @@ def check_planning_gate(project_dir):
     pending = total - done - blocked
     if pending > 0:
         # Check context pressure — demote to advisory if high
-        _pressure_path = os.path.join(project_dir, ".oal", "state", ".context-pressure.json")
+        _pressure_path = os.path.join(project_dir, ".omg", "state", ".context-pressure.json")
         _is_high_pressure = False
         try:
             if os.path.exists(_pressure_path):
@@ -781,7 +781,7 @@ def check_planning_gate(project_dir):
         
         if _is_high_pressure:
             # Demote to advisory — don't block when context is exhausted
-            return [], [f"[OAL advisory] Planning gate: {done}/{total} complete, {pending} pending. (demoted: context pressure high)"]
+            return [], [f"[OMG advisory] Planning gate: {done}/{total} complete, {pending} pending. (demoted: context pressure high)"]
         
         return [
             f"Planning gate: {done}/{total} complete, {pending} pending. Complete checklist before finishing."
@@ -811,7 +811,7 @@ def check_scope_drift(project_dir):
         if changed_files and (outside / len(changed_files)) > 0.3:
             return [f"Scope drift: {outside}/{len(changed_files)} changed files not in plan."]
     except Exception as e:  # security: scope drift detection
-        print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+        print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
     return []
 
 
@@ -820,13 +820,13 @@ def check_todo_continuation(data: dict) -> dict | None:
     """Check if agent should continue due to incomplete todos.
     Returns a dict with continuation response if idle, None otherwise.
     Budget: STOP_CHECK_MAX_MS (15s)
-    Feature flag: OAL_TODO_ENFORCEMENT_ENABLED
+    Feature flag: OMG_TODO_ENFORCEMENT_ENABLED
     """
     if not get_feature_flag("TODO_ENFORCEMENT", default=False):
         return None
 
     project_dir = get_project_dir()
-    signal_path = os.path.join(project_dir, ".oal", "state", "idle_signal.json")
+    signal_path = os.path.join(project_dir, ".omg", "state", "idle_signal.json")
 
     if not os.path.exists(signal_path):
         return None

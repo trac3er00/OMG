@@ -1,11 +1,11 @@
-"""OAL Natives — Rust-accelerated hot paths with pure-Python fallbacks.
+"""OMG Natives — Rust-accelerated hot paths with pure-Python fallbacks.
 
 When the Rust binary is built and installed (via ``maturin develop``),
-this package delegates to the compiled ``oal_natives._native`` extension.
+this package delegates to the compiled ``omg_natives._native`` extension.
 Otherwise, every public function falls back to a pure-Python implementation
-so that OAL works identically — just slower on CPU-intensive paths.
+so that OMG works identically — just slower on CPU-intensive paths.
 
-Feature flag: ``OAL_RUST_ENGINE_ENABLED`` (default: False)
+Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def _get_feature_flag(flag_name: str, default: bool = False) -> bool:
     Mirrors the resolution logic of ``hooks/_common.get_feature_flag`` but
     avoids importing hooks internals so this package stays self-contained.
     """
-    env_key = f"OAL_{flag_name.upper()}_ENABLED"
+    env_key = f"OMG_{flag_name.upper()}_ENABLED"
     env_val = _os.environ.get(env_key, "").lower()
     if env_val in ("0", "false", "no"):
         return False
@@ -42,7 +42,7 @@ def _get_feature_flag(flag_name: str, default: bool = False) -> bool:
         return default
 
 
-OAL_RUST_ENABLED: bool = _get_feature_flag("RUST_ENGINE", default=False)
+OMG_RUST_ENABLED: bool = _get_feature_flag("RUST_ENGINE", default=False)
 
 # ---------------------------------------------------------------------------
 # Try importing compiled Rust extension
@@ -50,9 +50,9 @@ OAL_RUST_ENABLED: bool = _get_feature_flag("RUST_ENGINE", default=False)
 
 RUST_AVAILABLE: bool = False
 
-if OAL_RUST_ENABLED:
+if OMG_RUST_ENABLED:
     try:
-        from oal_natives._native import *  # noqa: F401, F403
+        from omg_natives._native import *  # noqa: F401, F403
         RUST_AVAILABLE = True
     except ImportError:
         RUST_AVAILABLE = False
@@ -114,7 +114,7 @@ if not RUST_AVAILABLE:
 # N-API Binding Registry (Task 5.2)
 # ---------------------------------------------------------------------------
 
-from oal_natives._bindings import (  # noqa: E402
+from omg_natives._bindings import (  # noqa: E402
     REGISTRY,
     BindingRegistry,
     BindingSpec,
@@ -134,18 +134,18 @@ from oal_natives._bindings import (  # noqa: E402
 # Save legacy functions that module imports would shadow
 _legacy_grep = grep  # type: ignore[possibly-undefined]  # noqa: E402
 
-import oal_natives.grep as _grep_mod  # noqa: E402, F401
-from oal_natives.glob import glob as glob  # noqa: E402
-from oal_natives.shell import shell  # noqa: E402
-from oal_natives.text import text as text  # noqa: E402
-from oal_natives.keys import keys  # noqa: E402
-from oal_natives.highlight import highlight  # noqa: E402
-from oal_natives.task import task_run  # noqa: E402
-from oal_natives.ps import ps  # noqa: E402
-from oal_natives.prof import prof  # noqa: E402
-from oal_natives.image import image  # noqa: E402
-from oal_natives.clipboard import clipboard  # noqa: E402
-from oal_natives.html import html  # noqa: E402
+import omg_natives.grep as _grep_mod  # noqa: E402, F401
+from omg_natives.glob import glob as glob  # noqa: E402
+from omg_natives.shell import shell  # noqa: E402
+from omg_natives.text import text as text  # noqa: E402
+from omg_natives.keys import keys  # noqa: E402
+from omg_natives.highlight import highlight  # noqa: E402
+from omg_natives.task import task_run  # noqa: E402
+from omg_natives.ps import ps  # noqa: E402
+from omg_natives.prof import prof  # noqa: E402
+from omg_natives.image import image  # noqa: E402
+from omg_natives.clipboard import clipboard  # noqa: E402
+from omg_natives.html import html  # noqa: E402
 
 # Restore legacy grep (returns List[str] for backward compat)
 grep = _legacy_grep  # type: ignore[assignment]  # noqa: E402
@@ -155,7 +155,7 @@ grep = _legacy_grep  # type: ignore[assignment]  # noqa: E402
 # ---------------------------------------------------------------------------
 
 __all__ = [
-    "OAL_RUST_ENABLED",
+    "OMG_RUST_ENABLED",
     "RUST_AVAILABLE",
     "grep",
     "glob_match",

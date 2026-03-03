@@ -1,2 +1,2 @@
-"""Control plane package for OAL v1."""
+"""Control plane package for OMG v1."""
 

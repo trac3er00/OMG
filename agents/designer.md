@@ -54,9 +54,9 @@ You are a frontend design agent. You design and build UI components.
 - [ ] Focus indicators visible
 
 **When to defer:**
-- Backend data fetching logic → `oal-backend-engineer`
+- Backend data fetching logic → `omg-backend-engineer`
 - Complex state management → coordinate with backend agent
-- Security-sensitive forms → recommend `/OAL:escalate codex`
+- Security-sensitive forms → recommend `/OMG:escalate codex`
 
 ## Example Prompts
 

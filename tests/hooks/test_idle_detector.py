@@ -20,9 +20,9 @@ def _run_idle_detector(
     """Run idle-detector.py as a subprocess."""
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(project)}
     if enabled:
-        env["OAL_IDLE_DETECTION_ENABLED"] = "1"
+        env["OMG_IDLE_DETECTION_ENABLED"] = "1"
     else:
-        env["OAL_IDLE_DETECTION_ENABLED"] = "0"
+        env["OMG_IDLE_DETECTION_ENABLED"] = "0"
     return subprocess.run(
         ["python3", str(IDLE_DETECTOR)],
         input=stdin_data,
@@ -36,7 +36,7 @@ def _run_idle_detector(
 
 def _write_todo_progress(project: Path, state: dict) -> Path:
     """Write a todo_progress.json file."""
-    state_dir = project / ".oal" / "state"
+    state_dir = project / ".omg" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     path = state_dir / "todo_progress.json"
     path.write_text(json.dumps(state), encoding="utf-8")
@@ -45,7 +45,7 @@ def _write_todo_progress(project: Path, state: dict) -> Path:
 
 def _write_idle_signal(project: Path, signal: dict) -> Path:
     """Write an existing idle_signal.json (to simulate prior calls)."""
-    state_dir = project / ".oal" / "state"
+    state_dir = project / ".omg" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     path = state_dir / "idle_signal.json"
     path.write_text(json.dumps(signal), encoding="utf-8")
@@ -54,7 +54,7 @@ def _write_idle_signal(project: Path, signal: dict) -> Path:
 
 def _read_idle_signal(project: Path) -> dict | None:
     """Read idle_signal.json if it exists."""
-    path = project / ".oal" / "state" / "idle_signal.json"
+    path = project / ".omg" / "state" / "idle_signal.json"
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
@@ -65,7 +65,7 @@ def _read_idle_signal(project: Path) -> dict | None:
 def test_no_todo_file_not_idle(tmp_path: Path):
     """When no todo_progress.json exists, signal should be not-idle."""
     project = tmp_path
-    (project / ".oal" / "state").mkdir(parents=True, exist_ok=True)
+    (project / ".omg" / "state").mkdir(parents=True, exist_ok=True)
 
     proc = _run_idle_detector(project)
     assert proc.returncode == 0
@@ -263,7 +263,7 @@ def test_always_exits_zero(tmp_path: Path):
 def test_malformed_todo_file_graceful(tmp_path: Path):
     """Malformed todo_progress.json should result in not-idle, not crash."""
     project = tmp_path
-    state_dir = project / ".oal" / "state"
+    state_dir = project / ".omg" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / "todo_progress.json").write_text("not valid json{{{", encoding="utf-8")
 

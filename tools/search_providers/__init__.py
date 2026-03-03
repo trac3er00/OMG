@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OAL Search Providers Package
+OMG Search Providers Package
 
 Auto-registers all bundled providers with the module-level WebSearchManager
 from tools.web_search when this package is imported.

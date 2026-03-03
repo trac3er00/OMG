@@ -3,9 +3,9 @@
 PostToolUse Hook: Todo State Tracker (v1)
 
 Parses todo lists from agent responses and tracks completion status.
-Persists state to .oal/state/todo_progress.json for cross-turn tracking.
+Persists state to .omg/state/todo_progress.json for cross-turn tracking.
 
-Feature flag: OAL_TODO_TRACKING_ENABLED (default: False)
+Feature flag: OMG_TODO_TRACKING_ENABLED (default: False)
 """
 import json
 import sys
@@ -71,7 +71,7 @@ for status, task_text in matches:
 
 # Load existing state
 project_dir = get_project_dir()
-state_path = os.path.join(project_dir, ".oal", "state", "todo_progress.json")
+state_path = os.path.join(project_dir, ".omg", "state", "todo_progress.json")
 
 existing_state = {}
 if os.path.exists(state_path):

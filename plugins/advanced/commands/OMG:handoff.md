@@ -4,7 +4,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Bash(git:*), Bash(cat:*), Bash(wc:*
 argument-hint: "[optional: --portable for cross-platform, or reason for handoff]"
 ---
 
-# /OAL:handoff — Intelligent Session Transfer
+# /OMG:handoff — Intelligent Session Transfer
 
 ## Size Budget (CRITICAL)
 - handoff.md: **≤ 60 lines** (briefing, not data dump)
@@ -14,7 +14,7 @@ argument-hint: "[optional: --portable for cross-platform, or reason for handoff]
 ## Philosophy
 A handoff is NOT a data dump. It's a **briefing** for the next session.
 The next Claude (in ANY platform) should read this and know EXACTLY:
-1. What was the goal
+1. What was the gomg
 2. What was accomplished (with evidence)
 3. What decisions were made and WHY
 4. What failed and WHY (so it doesn't repeat)
@@ -23,20 +23,20 @@ The next Claude (in ANY platform) should read this and know EXACTLY:
 ## Step 1: Gather Intelligence
 
 Read these (silently, don't dump to user):
-- .oal/state/profile.yaml or project.md (project identity)
-- .oal/state/working-memory.md or _plan.md + _checklist.md (task state)
-- .oal/state/ledger/failure-tracker.json (what failed)
-- .oal/state/ledger/tool-ledger.jsonl (last 20 entries for activity summary)
+- .omg/state/profile.yaml or project.md (project identity)
+- .omg/state/working-memory.md or _plan.md + _checklist.md (task state)
+- .omg/state/ledger/failure-tracker.json (what failed)
+- .omg/state/ledger/tool-ledger.jsonl (last 20 entries for activity summary)
 - git diff --stat + git log --oneline -5 (what changed)
 
-## Step 2: Synthesize — Write .oal/state/handoff.md
+## Step 2: Synthesize — Write .omg/state/handoff.md
 
 DO NOT copy-paste raw data. SYNTHESIZE into this structure (≤ 60 lines total):
 
 ```markdown
 # Handoff — [date]
 
-## Goal
+## Gomg
 [1 sentence: what we're trying to achieve]
 
 ## What Was Done (with evidence)
@@ -58,14 +58,14 @@ Checklist: [done]/[total] steps
 Read [specific file] first, then [specific action]
 
 ## Files to Read on Resume
-1. .oal/state/profile.yaml (project identity)
-2. .oal/state/handoff.md (this file)
+1. .omg/state/profile.yaml (project identity)
+2. .omg/state/handoff.md (this file)
 3. [specific file relevant to next step]
 ```
 
 ## Step 3: Generate Portable Version (≤ 100 lines)
 
-ALWAYS also generate `.oal/state/handoff-portable.md` — a **self-contained** version that works
+ALWAYS also generate `.omg/state/handoff-portable.md` — a **self-contained** version that works
 when pasted into Claude.ai, ChatGPT, or any AI chat without file access.
 
 Portable version differences:
@@ -80,12 +80,12 @@ Portable version differences:
 
 First ensure directory exists:
 ```
-mkdir -p .oal/state
+mkdir -p .omg/state
 ```
 
 Then write with `Write` tool. **If Write fails** (file already exists), use Bash heredoc:
 ```bash
-cat > .oal/state/handoff.md << 'HANDOFF_EOF'
+cat > .omg/state/handoff.md << 'HANDOFF_EOF'
 [content here]
 HANDOFF_EOF
 ```
@@ -96,11 +96,11 @@ Do the same for handoff-portable.md.
 
 ```
 Handoff ready:
-  📁 .oal/state/handoff.md ([N] lines) — for Claude Code sessions
-  📋 .oal/state/handoff-portable.md ([N] lines) — for Claude.ai / other platforms
+  📁 .omg/state/handoff.md ([N] lines) — for Claude Code sessions
+  📋 .omg/state/handoff-portable.md ([N] lines) — for Claude.ai / other platforms
 
 To continue in Claude Code:
-  "Read .oal/state/profile.yaml and .oal/state/handoff.md, continue where I left off."
+  "Read .omg/state/profile.yaml and .omg/state/handoff.md, continue where I left off."
 
 To continue in Claude.ai (copy-paste the portable version):
   [Show the user the full content of handoff-portable.md so they can copy it]
