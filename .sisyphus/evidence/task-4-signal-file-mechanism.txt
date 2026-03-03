@@ -9,7 +9,7 @@ Output:
 2) grep -n 'secret-detected.json' hooks/post-write.py
 Output:
 159:        signal_path = os.path.join(state_dir, "secret-detected.json")
-171:        f"⚠ SECRET DETECTED in {file_path}. Signal written to .oal/state/secret-detected.json",
+171:        f"⚠ SECRET DETECTED in {file_path}. Signal written to .omg/state/secret-detected.json",
 
 3) grep -c 'sys.exit(1)' hooks/post-write.py
 Output:

@@ -1,7 +1,7 @@
 === Task 15: CLI Path Resolution & Subprocess Timeouts ===
 Date: 2026-02-28T18:32:05Z
 
---- AC1: python3 scripts/oal.py compat list ---
+--- AC1: python3 scripts/omg.py compat list ---
 {
   "status": "ok",
   "count": 47,
@@ -119,7 +119,7 @@ EXIT_CODE=0
 ============================= test session starts ==============================
 platform darwin -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- /Users/cminseo/.pyenv/versions/3.13.12/bin/python3
 cachedir: .pytest_cache
-rootdir: /Users/cminseo/Documents/scripts/Shell/OAL
+rootdir: /Users/cminseo/Documents/scripts/Shell/OMG
 configfile: pytest.ini
 collecting ... collected 2 items
 
@@ -130,6 +130,6 @@ tests/runtime/test_team_router.py::test_auto_route_detects_full_stack_with_space
 EXIT_CODE=0
 
 --- Path resolution check ---
-_ROUTER_DIR=/Users/cminseo/Documents/scripts/Shell/OAL/runtime
-_OAL_ROOT=/Users/cminseo/Documents/scripts/Shell/OAL
+_ROUTER_DIR=/Users/cminseo/Documents/scripts/Shell/OMG/runtime
+_OMG_ROOT=/Users/cminseo/Documents/scripts/Shell/OMG
 EXIT_CODE=0

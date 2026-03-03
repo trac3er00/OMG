@@ -6,7 +6,7 @@ Task 27: Memory Integration into session-start.py
 ### hooks/session-start.py
 - Added `get_feature_flag` to `_common` import (line 17)
 - Added section 6: Recent memory injection (lines 189-197)
-- Gated by `get_feature_flag('memory')` — only runs when OAL_MEMORY_ENABLED=true
+- Gated by `get_feature_flag('memory')` — only runs when OMG_MEMORY_ENABLED=true
 - Uses `from _memory import get_recent_memories` (HOOKS_DIR already on sys.path)
 - Caps at max_files=3, max_chars_total=150
 - Silent failure on any exception — never blocks session start
@@ -22,7 +22,7 @@ Task 27: Memory Integration into session-start.py
 
 ### Session-start tests (14 pass):
 ```
-tests/hooks/test_session_start.py::test_session_start_uses_oal_state_paths PASSED
+tests/hooks/test_session_start.py::test_session_start_uses_omg_state_paths PASSED
 tests/hooks/test_session_start.py::test_handoff_filename_contract PASSED
 tests/hooks/test_session_start.py::test_context_budget_uses_constant PASSED
 tests/hooks/test_session_start.py::test_handoff_staleness_check PASSED

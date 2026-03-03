@@ -17,7 +17,7 @@ def test_compat_contract_snapshot_exists():
 
 def test_compat_contract_snapshot_matches_runtime_contracts():
     payload = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
-    assert payload["schema"] == "OalCompatContractSnapshot"
+    assert payload["schema"] == "OmgCompatContractSnapshot"
     assert payload["contract_version"] == CONTRACT_SNAPSHOT_VERSION
 
     contracts = list_compat_skill_contracts()
@@ -27,6 +27,6 @@ def test_compat_contract_snapshot_matches_runtime_contracts():
 
 def test_runtime_snapshot_payload_shape():
     payload = build_contract_snapshot_payload(include_generated_at=False)
-    assert payload["schema"] == "OalCompatContractSnapshot"
+    assert payload["schema"] == "OmgCompatContractSnapshot"
     assert payload["contract_version"] == CONTRACT_SNAPSHOT_VERSION
     assert payload["count"] == len(payload["contracts"])

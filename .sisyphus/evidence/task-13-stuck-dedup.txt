@@ -9,7 +9,7 @@ Date: 2026-02-28
 2. Rewrote stuck detection block (lines 444-482):
    - Added failure count threshold: @stuck only injects when failure-tracker.json
      has entries with count >= 2 (not just keyword match)
-   - Added 60-second dedup via `.oal/state/.last-stuck-ts` timestamp file
+   - Added 60-second dedup via `.omg/state/.last-stuck-ts` timestamp file
    - On inject: writes current time.time() to .last-stuck-ts
    - On subsequent call within 60s: reads file, skips injection
 
@@ -34,7 +34,7 @@ $ python3 -m pytest tests/ -q --ignore=tests/e2e
 250 passed in 7.47s
 
 ## Dedup Logic Summary
-- File: `.oal/state/.last-stuck-ts` (contains float timestamp)
+- File: `.omg/state/.last-stuck-ts` (contains float timestamp)
 - Reads timestamp, compares with time.time()
 - If delta < 60s → skip injection (return without @stuck)
 - If delta >= 60s or file missing/corrupt → inject + write new timestamp

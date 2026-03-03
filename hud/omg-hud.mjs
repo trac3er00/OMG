@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * OAL HUD — Standalone statusline for Claude Code.
+ * OMG HUD — Standalone statusline for Claude Code.
  *
  * Supports legacy OMC HUD options from ~/.claude/settings.json via `omcHud`
- * and native options via `oalHud`.
+ * and native options via `omgHud`.
  */
 
 import { readFileSync, existsSync, readdirSync, realpathSync } from "node:fs";
@@ -22,7 +22,7 @@ const red = (t) => `${ESC}31m${t}${ESC}0m`;
 const magenta = (t) => `${ESC}35m${t}${ESC}0m`;
 const cyan = (t) => `${ESC}36m${t}${ESC}0m`;
 
-function readOalVersion() {
+function readOmgVersion() {
   const scriptPath = realpathSync(fileURLToPath(import.meta.url));
   const scriptDir = dirname(scriptPath);
 
@@ -52,7 +52,7 @@ function readOalVersion() {
   return "1.0.2";
 }
 
-const OAL_VERSION = readOalVersion();
+const OMG_VERSION = readOmgVersion();
 
 const DEFAULT_HUD_CONFIG = {
   preset: "focused",
@@ -363,7 +363,7 @@ function readRawHudConfig() {
   const claudeDir = getClaudeConfigDir();
   const settingsPath = join(claudeDir, "settings.json");
   const settings = readJsonSafe(settingsPath) || {};
-  if (settings.oalHud) return settings.oalHud;
+  if (settings.omgHud) return settings.omgHud;
   if (settings.omcHud) return settings.omcHud;
 
   // OMC legacy HUD config fallback.
@@ -512,7 +512,7 @@ function renderBar(percent, width = 10) {
 
 function getLastPromptTime(cwd) {
   const candidates = [
-    join(cwd, ".oal", "state", "hud-state.json"),
+    join(cwd, ".omg", "state", "hud-state.json"),
     join(cwd, ".omc", "state", "hud-state.json"),
     join(cwd, ".omc", "hud-state.json"),
   ];
@@ -526,8 +526,8 @@ function getLastPromptTime(cwd) {
   return null;
 }
 
-function readOalState(cwd) {
-  const stateDir = join(cwd, ".oal", "state");
+function readOmgState(cwd) {
+  const stateDir = join(cwd, ".omg", "state");
   const result = {
     modes: [],
     hookCount: 0,
@@ -851,10 +851,10 @@ function renderPrd(prd) {
 function readRateLimits() {
   const claudeDir = getClaudeConfigDir();
   const cachePaths = [
-    join(claudeDir, "oal-runtime", ".usage-cache.json"),
+    join(claudeDir, "omg-runtime", ".usage-cache.json"),
     join(claudeDir, "plugins", "oh-my-claudecode", ".usage-cache.json"),
-    join(claudeDir, ".oal", "usage-cache.json"),
-    join(homedir(), ".oal", "usage-cache.json"),
+    join(claudeDir, ".omg", "usage-cache.json"),
+    join(homedir(), ".omg", "usage-cache.json"),
   ];
   for (const p of cachePaths) {
     const raw = readJsonSafe(p);
@@ -1041,7 +1041,7 @@ async function main() {
   try {
     const stdin = await readStdin();
     if (!stdin) {
-      console.log(`${bold("[OAL]")} waiting...`);
+      console.log(`${bold("[OMG]")} waiting...`);
       return;
     }
 
@@ -1050,7 +1050,7 @@ async function main() {
     const ctxPct = getContextPercent(stdin);
     const model = getModelShort(stdin, cfg.elements.modelFormat || "short");
     const duration = sessionDuration(stdin.transcript_path);
-    const oalState = readOalState(cwd);
+    const omgState = readOmgState(cwd);
     const transcript = parseTranscript(stdin.transcript_path);
     const rateLimits = readRateLimits();
     const sessionTokenTotal = getSessionTokenTotal(stdin);
@@ -1068,7 +1068,7 @@ async function main() {
 
     const els = [];
 
-    // Git info (optional, on same line in OAL)
+    // Git info (optional, on same line in OMG)
     if (cfg.elements.cwd) {
       const cwdText = renderCwd(cwd, cfg.elements.cwdFormat || "relative");
       if (cwdText) els.push(`\u{1F4C1}${dim("dir:")}${dim(cwdText)}`);
@@ -1080,9 +1080,9 @@ async function main() {
       els.push(dim(git.branch));
     }
 
-    // [OAL#X.Y.Z] label
+    // [OMG#X.Y.Z] label
     if (cfg.elements.omcLabel !== false) {
-      els.push(bold(`[OAL#${OAL_VERSION}]`));
+      els.push(bold(`[OMG#${OMG_VERSION}]`));
     }
 
     // Rate limits
@@ -1117,34 +1117,34 @@ async function main() {
     }
 
     // Ralph (rich format)
-    if (cfg.elements.ralph !== false && oalState.ralph) {
-      const ralphEl = renderRalph(oalState.ralph, cfg.thresholds);
+    if (cfg.elements.ralph !== false && omgState.ralph) {
+      const ralphEl = renderRalph(omgState.ralph, cfg.thresholds);
       if (ralphEl) els.push(ralphEl);
     }
 
     // Autopilot (rich format)
-    if (cfg.elements.autopilot !== false && oalState.autopilot) {
-      const apEl = renderAutopilot(oalState.autopilot);
+    if (cfg.elements.autopilot !== false && omgState.autopilot) {
+      const apEl = renderAutopilot(omgState.autopilot);
       if (apEl) els.push(apEl);
     }
 
     // PRD story
-    if (cfg.elements.prdStory && oalState.prd) {
-      const prdEl = renderPrd(oalState.prd);
+    if (cfg.elements.prdStory && omgState.prd) {
+      const prdEl = renderPrd(omgState.prd);
       if (prdEl) els.push(prdEl);
     }
 
     // Active skills (modes) + last skill
     if (cfg.elements.activeSkills !== false) {
-      const modeBadges = renderModeBadges(oalState.modes, {
-        hideRalph: !!oalState.ralph,
-        hideAutopilot: !!oalState.autopilot,
+      const modeBadges = renderModeBadges(omgState.modes, {
+        hideRalph: !!omgState.ralph,
+        hideAutopilot: !!omgState.autopilot,
       });
       if (modeBadges) els.push(modeBadges);
       // Last skill from transcript
       if (cfg.elements.lastSkill !== false && transcript.lastSkill) {
         // Don't show if skill name matches an active mode
-        if (!oalState.modes.some((m) => m.startsWith(transcript.lastSkill))) {
+        if (!omgState.modes.some((m) => m.startsWith(transcript.lastSkill))) {
           const skillEl = renderLastSkill(transcript.lastSkill);
           if (skillEl) els.push(skillEl);
         }
@@ -1177,7 +1177,7 @@ async function main() {
 
     // Background tasks
     if (cfg.elements.backgroundTasks) {
-      const bgEl = renderBackgroundTasks(oalState.backgroundTasks);
+      const bgEl = renderBackgroundTasks(omgState.backgroundTasks);
       if (bgEl) els.push(bgEl);
     }
 
@@ -1204,8 +1204,8 @@ async function main() {
     );
     console.log(finalLines.join("\n"));
   } catch (err) {
-    console.log(`${bold("[OAL]")} HUD error`);
-    console.error("[OAL HUD Error]", err instanceof Error ? err.message : err);
+    console.log(`${bold("[OMG]")} HUD error`);
+    console.error("[OMG HUD Error]", err instanceof Error ? err.message : err);
   }
 }
 

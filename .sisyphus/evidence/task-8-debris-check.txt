@@ -5,8 +5,8 @@ EXECUTION TIMESTAMP: $(date)
 
 ITEMS REMOVED
 =============
-1. Backup directories (.oal-backup-*): 24 removed
-2. Backup directory (.oal-backups): 1 removed
+1. Backup directories (.omg-backup-*): 24 removed
+2. Backup directory (.omg-backups): 1 removed
 3. Agent .bak files: 44 removed
 4. Settings.json.bak.* files: 14 removed
 5. CLAUDE.md.backup.* files: 3 removed
@@ -18,8 +18,8 @@ TOTAL ITEMS REMOVED: 96
 
 POST-REMOVAL VERIFICATION
 ==========================
-✓ PASS: find ~/.claude -maxdepth 1 -name '.oal-backup-*' -type d | wc -l = 0
-✓ PASS: test ! -d ~/.claude/.oal-backups && echo 'PASS' || echo 'FAIL'
+✓ PASS: find ~/.claude -maxdepth 1 -name '.omg-backup-*' -type d | wc -l = 0
+✓ PASS: test ! -d ~/.claude/.omg-backups && echo 'PASS' || echo 'FAIL'
 ✓ PASS: find ~/.claude/agents -name '*.bak*' | wc -l = 0
 ✓ PASS: find ~/.claude -maxdepth 1 -name 'settings.json.bak.*' | wc -l = 0
 ✓ PASS: find ~/.claude -maxdepth 1 -name 'CLAUDE.md.backup.*' | wc -l = 0

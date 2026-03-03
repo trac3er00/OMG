@@ -18,13 +18,13 @@ from lab.pipeline import run_pipeline
 from runtime.dispatcher import dispatch_runtime
 from runtime.team_router import TeamDispatchRequest, dispatch_team
 
-CONTRACT_SNAPSHOT_SCHEMA = "OalCompatContractSnapshot"
+CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
 LEGACY_CONTRACT_SNAPSHOT_SCHEMA = "OmcCompatContractSnapshot"
 CONTRACT_SNAPSHOT_VERSION = "1.0.0"
 LEGACY_SNAPSHOT_VERSION = "0.9.0"
-GAP_REPORT_SCHEMA = "OalCompatGapReport"
+GAP_REPORT_SCHEMA = "OmgCompatGapReport"
 LEGACY_GAP_REPORT_SCHEMA = "OmcCompatGapReport"
-RESULT_SCHEMA = "OalCompatResult"
+RESULT_SCHEMA = "OmgCompatResult"
 LEGACY_RESULT_SCHEMA = "OmcCompatResult"
 DEFAULT_CONTRACT_SNAPSHOT_PATH = "runtime/omg_compat_contract_snapshot.json"
 LEGACY_CONTRACT_SNAPSHOT_PATH = "runtime/omc_contract_snapshot.json"

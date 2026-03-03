@@ -1,7 +1,7 @@
 ============================= test session starts ==============================
 platform darwin -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- /Users/cminseo/.pyenv/versions/3.13.12/bin/python3
 cachedir: .pytest_cache
-rootdir: /Users/cminseo/Documents/scripts/Shell/OAL
+rootdir: /Users/cminseo/Documents/scripts/Shell/OMG
 configfile: pytest.ini
 collecting ... collected 20 items
 

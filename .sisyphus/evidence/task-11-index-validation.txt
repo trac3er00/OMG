@@ -11,7 +11,7 @@ Verification commands and outputs:
 
 3) grep -n "isinstance(index, dict)\|index.json is not a dict\|os.remove(index_path)" hooks/prompt-enhancer.py
    - 449:                if not isinstance(index, dict):
-   - 450:                    print(f"[OAL] prompt-enhancer: index.json is not a dict ({type(index).__name__}), rebuilding", file=sys.stderr)
+   - 450:                    print(f"[OMG] prompt-enhancer: index.json is not a dict ({type(index).__name__}), rebuilding", file=sys.stderr)
    - 452:                        os.remove(index_path)
 
 Behavior summary:

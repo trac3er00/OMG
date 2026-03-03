@@ -16,7 +16,7 @@ Keywords present: ['noise comment', 'generic name', 'clean', 'minimal']
 ============================= test session starts ==============================
 platform darwin -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- /Users/cminseo/.pyenv/versions/3.13.12/bin/python3
 cachedir: .pytest_cache
-rootdir: /Users/cminseo/Documents/scripts/Shell/OAL
+rootdir: /Users/cminseo/Documents/scripts/Shell/OMG
 configfile: pytest.ini
 collecting ... collected 1 item
 
@@ -29,7 +29,7 @@ tests/test_simplifier.py::test_check7_detects_high_comment_ratio PASSED  [100%]
 ============================= test session starts ==============================
 platform darwin -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- /Users/cminseo/.pyenv/versions/3.13.12/bin/python3
 cachedir: .pytest_cache
-rootdir: /Users/cminseo/Documents/scripts/Shell/OAL
+rootdir: /Users/cminseo/Documents/scripts/Shell/OMG
 configfile: pytest.ini
 collecting ... collected 1 item
 
@@ -42,7 +42,7 @@ tests/test_simplifier.py::test_check7_does_not_block PASSED              [100%]
 ============================= test session starts ==============================
 platform darwin -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- /Users/cminseo/.pyenv/versions/3.13.12/bin/python3
 cachedir: .pytest_cache
-rootdir: /Users/cminseo/Documents/scripts/Shell/OAL
+rootdir: /Users/cminseo/Documents/scripts/Shell/OMG
 configfile: pytest.ini
 collecting ... collected 8 items
 

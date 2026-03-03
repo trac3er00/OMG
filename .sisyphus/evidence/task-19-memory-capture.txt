@@ -11,5 +11,5 @@
 - lsp_diagnostics hooks/session-end-capture.py -> no errors
 
 ## Notes
-- Memory capture now summarizes recent ledger entries and checklist progress when OAL_MEMORY_ENABLED is true.
+- Memory capture now summarizes recent ledger entries and checklist progress when OMG_MEMORY_ENABLED is true.
 - Hook keeps fire-and-forget behavior and exits 0 in all tested scenarios.

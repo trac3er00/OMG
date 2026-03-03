@@ -19,7 +19,7 @@ SECURITY-RELEVANT — now log to stderr (8 handlers):
   L655  check_scope_drift()        except Exception as e → logs  # scope drift detection
 
   Pattern: except Exception as e:  # security: <description>
-           print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+           print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
 
 CLEANUP/OPTIONAL — annotated with intent (5 handlers):
   L126  module-level import        except Exception:  # intentional: optional feature — shadow_manager

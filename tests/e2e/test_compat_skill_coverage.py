@@ -28,13 +28,13 @@ def test_all_legacy_skills_run_in_standalone_mode(tmp_path: Path):
             problem=f"standalone coverage {skill}",
             project_dir=str(tmp_path),
         )
-        assert result["schema"] == "OalCompatResult"
+        assert result["schema"] == "OmgCompatResult"
         assert result["status"] == "ok", f"{skill} failed with {result}"
 
 
 def test_gap_report_is_emitted(tmp_path: Path):
     report = build_compat_gap_report(str(tmp_path))
-    assert report["schema"] == "OalCompatGapReport"
+    assert report["schema"] == "OmgCompatGapReport"
     assert report["total_skills"] >= 30
     assert report["maturity_counts"].get("native", 0) == report["total_skills"]
     assert report["maturity_counts"].get("bridge", 0) == 0

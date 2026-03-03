@@ -1,4 +1,4 @@
-TASK 14: Path-Prefix Assertions for rm -rf in OAL-setup.sh
+TASK 14: Path-Prefix Assertions for rm -rf in OMG-setup.sh
 ===========================================================
 
 OBJECTIVE:
@@ -9,21 +9,21 @@ IMPLEMENTATION:
 ===============
 
 Line 518 (now 519):
-  ASSERTION: [[ "$CLAUDE_DIR/templates/oal" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/templates/oal" >&2; exit 1; }
-  TARGET: rm -rf "$CLAUDE_DIR/templates/oal"
+  ASSERTION: [[ "$CLAUDE_DIR/templates/omg" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/templates/omg" >&2; exit 1; }
+  TARGET: rm -rf "$CLAUDE_DIR/templates/omg"
 
 Line 935 (now 937):
-  ASSERTION: [[ "$CLAUDE_DIR/oal-runtime/runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/oal-runtime/runtime" >&2; exit 1; }
-  TARGET: rm -rf "$CLAUDE_DIR/oal-runtime/runtime" "$CLAUDE_DIR/oal-runtime/hooks" "$CLAUDE_DIR/oal-runtime/lab"
+  ASSERTION: [[ "$CLAUDE_DIR/omg-runtime/runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime/runtime" >&2; exit 1; }
+  TARGET: rm -rf "$CLAUDE_DIR/omg-runtime/runtime" "$CLAUDE_DIR/omg-runtime/hooks" "$CLAUDE_DIR/omg-runtime/lab"
 
 Line 939 (now 942):
-  ASSERTION: [[ "$CLAUDE_DIR/oal-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/oal-runtime" >&2; exit 1; }
-  TARGET: find "$CLAUDE_DIR/oal-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+  ASSERTION: [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
+  TARGET: find "$CLAUDE_DIR/omg-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 VERIFICATION:
 =============
 
-✓ bash -n OAL-setup.sh → exit 0 (syntax valid)
+✓ bash -n OMG-setup.sh → exit 0 (syntax valid)
 ✓ All three rm -rf operations have preceding path assertions within 1 line
 ✓ Assertions use bash prefix check: [[ "$VAR" == "$PARENT"* ]]
 ✓ Assertions exit with code 1 on failure (safety guard)

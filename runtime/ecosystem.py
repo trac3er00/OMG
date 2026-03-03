@@ -7,9 +7,9 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
-ECOSYSTEM_SCHEMA = "OalEcosystemCatalog"
+ECOSYSTEM_SCHEMA = "OmgEcosystemCatalog"
 ECOSYSTEM_CATALOG_VERSION = "1.0.0"
-ECOSYSTEM_LOCK_SCHEMA = "OalEcosystemLock"
+ECOSYSTEM_LOCK_SCHEMA = "OmgEcosystemLock"
 DEFAULT_ECOSYSTEM_REPO_DIR = ".omg/ecosystem/repos"
 DEFAULT_ECOSYSTEM_LOCK_PATH = ".omg/state/ecosystem-lock.json"
 DEFAULT_ECOSYSTEM_PLAYBOOK_DIR = ".omg/knowledge/ecosystem"

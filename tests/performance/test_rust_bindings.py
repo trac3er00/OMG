@@ -21,7 +21,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
-class TestOalNativesImport:
+class TestOmgNativesImport:
     """Verify the omg_natives package loads and exposes expected attrs."""
 
     def test_module_importable(self):

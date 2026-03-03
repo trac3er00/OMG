@@ -20,7 +20,7 @@ Delta: 4 write-path handlers hardened, 5 handlers unchanged (1 guardrail + 4 rea
 
 Pattern applied to each write-path handler:
   except Exception as e:
-      print(f"[OAL] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
+      print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
       pass
 
 Verification:

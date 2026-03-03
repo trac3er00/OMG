@@ -5,7 +5,7 @@ PASS: compiles clean
 
 --- grep -B2 shutil.rmtree ---
 240-    if os.path.isdir(run_dir):
-241-        print(f"[OAL] Deleting: {run_dir}", file=sys.stderr)
+241-        print(f"[OMG] Deleting: {run_dir}", file=sys.stderr)
 242:        shutil.rmtree(run_dir, ignore_errors=True)
 
 --- _resolve_project_dir usage ---

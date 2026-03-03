@@ -1,30 +1,30 @@
 # Task 24: Agent Files Evidence
 
 ## File count
-$ ls agents/oal-*.md | wc -l
+$ ls agents/omg-*.md | wc -l
 14
 
 ## Frontmatter check
-$ for f in agents/oal-*.md; do head -1 "$f" | grep -q '^---$' && echo "OK: $f" || echo "FAIL: $f"; done
-OK: agents/oal-architect-mode.md
-OK: agents/oal-architect.md
-OK: agents/oal-backend-engineer.md
-OK: agents/oal-critic.md
-OK: agents/oal-database-engineer.md
-OK: agents/oal-escalation-router.md
-OK: agents/oal-executor.md
-OK: agents/oal-frontend-designer.md
-OK: agents/oal-implement-mode.md
-OK: agents/oal-infra-engineer.md
-OK: agents/oal-qa-tester.md
-OK: agents/oal-research-mode.md
-OK: agents/oal-security-auditor.md
-OK: agents/oal-testing-engineer.md
+$ for f in agents/omg-*.md; do head -1 "$f" | grep -q '^---$' && echo "OK: $f" || echo "FAIL: $f"; done
+OK: agents/omg-architect-mode.md
+OK: agents/omg-architect.md
+OK: agents/omg-backend-engineer.md
+OK: agents/omg-critic.md
+OK: agents/omg-database-engineer.md
+OK: agents/omg-escalation-router.md
+OK: agents/omg-executor.md
+OK: agents/omg-frontend-designer.md
+OK: agents/omg-implement-mode.md
+OK: agents/omg-infra-engineer.md
+OK: agents/omg-qa-tester.md
+OK: agents/omg-research-mode.md
+OK: agents/omg-security-auditor.md
+OK: agents/omg-testing-engineer.md
 
 ## preferred_model check
-$ grep -l 'preferred_model:' agents/oal-*.md | wc -l
+$ grep -l 'preferred_model:' agents/omg-*.md | wc -l
 9
 
 ## Security guardrails check
-$ grep -i 'security-review' agents/oal-security-auditor.md | wc -l
+$ grep -i 'security-review' agents/omg-security-auditor.md | wc -l
 1
