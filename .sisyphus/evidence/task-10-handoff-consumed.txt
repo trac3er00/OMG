@@ -14,7 +14,7 @@ File: hooks/session-start.py (Section 4, lines 148-173)
 4. After successful injection, rename handoff.md to handoff.md.consumed
 5. Marker added: "[HANDOFF CONTEXT — Resume from previous session]"
 6. Kept existing freshness check (< 48 hours)
-7. Kept existing key_parts extraction logic (goal, next, fail, state, decision sections)
+7. Kept existing key_parts extraction logic (gomg, next, fail, state, decision sections)
 8. Rename happens AFTER content is added to sections (not before)
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -25,13 +25,13 @@ VERIFICATION:
   python3 -m py_compile hooks/session-start.py → exit 0
 
 ✓ QA Scenario - First Run (injection):
-  mkdir -p .oal/state
-  echo '## Resume\nTest handoff content for injection test' > .oal/state/handoff.md
+  mkdir -p .omg/state
+  echo '## Resume\nTest handoff content for injection test' > .omg/state/handoff.md
   echo '{}' | python3 hooks/session-start.py 2>/dev/null
   
   Result:
   - Output contains: "[HANDOFF CONTEXT — Resume from previous session]"
-  - File renamed: .oal/state/handoff.md → .oal/state/handoff.md.consumed
+  - File renamed: .omg/state/handoff.md → .omg/state/handoff.md.consumed
   - Original handoff.md no longer exists
 
 ✓ QA Scenario - Second Run (idempotency):

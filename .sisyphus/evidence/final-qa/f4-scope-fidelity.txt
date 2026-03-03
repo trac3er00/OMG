@@ -1,6 +1,6 @@
-F4 Scope Fidelity Check — OAL Remediation
+F4 Scope Fidelity Check — OMG Remediation
 Date: 2026-02-28
-Plan: .sisyphus/plans/oal-remediation.md
+Plan: .sisyphus/plans/omg-remediation.md
 Mode: Read-only audit (no source modifications)
 
 Verification Commands Executed
@@ -18,7 +18,7 @@ Task-by-Task Scope Fidelity
 T1 (_resolve_project_dir in hooks/_common.py): NON-COMPLIANT
 - Added _resolve_project_dir and preserved get_project_dir raw env/cwd pattern.
 - setup_crash_handler function remains untouched.
-- Gap vs spec: helper warns when .oal missing but does not create .oal directory as specified.
+- Gap vs spec: helper warns when .omg missing but does not create .omg directory as specified.
 
 T2 (duplicate comment removal in hooks/post-write.py): COMPLIANT
 - Duplicate consecutive comment line removed; section now single-instance commentary.
@@ -28,7 +28,7 @@ T3 (utcnow replacement in hooks/prompt-enhancer.py): COMPLIANT
 - timezone-aware now() usage present.
 
 T4 (secret signal file mechanism in hooks/post-write.py): COMPLIANT
-- Writes .oal/state/secret-detected.json with timestamp/file/patterns/action.
+- Writes .omg/state/secret-detected.json with timestamp/file/patterns/action.
 - Emits explicit stderr warning message.
 - sys.exit(0) preserved.
 
@@ -67,9 +67,9 @@ T12 (control-plane host warning): COMPLIANT
 T13 (team_router shutil.which caching): COMPLIANT
 - _check_tool_available result cached in local variable and reused.
 
-T14 (OAL-setup rm -rf path assertions): NON-COMPLIANT
-- Assertions added before two targeted rm -rf zones (runtime subtree and oal-runtime cleanup region).
-- Gap vs spec: rm -rf "$CLAUDE_DIR/oal-runtime" executes at line 520 without a dedicated matching assertion for that target path.
+T14 (OMG-setup rm -rf path assertions): NON-COMPLIANT
+- Assertions added before two targeted rm -rf zones (runtime subtree and omg-runtime cleanup region).
+- Gap vs spec: rm -rf "$CLAUDE_DIR/omg-runtime" executes at line 520 without a dedicated matching assertion for that target path.
 
 T15 (_resolve_project_dir sweep across hooks): COMPLIANT
 - Raw hooks-wide pattern `os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())` reduced to _common.py:get_project_dir only.

@@ -1,19 +1,19 @@
 # Task 21: Planning Enforcement Evidence
 
 ## Test: Write tool gets injection (mutation tool)
-$ echo '{"tool_name":"Write"}' | CLAUDE_PROJECT_DIR=$TMPDIR OAL_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
+$ echo '{"tool_name":"Write"}' | CLAUDE_PROJECT_DIR=$TMPDIR OMG_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
 {"contextInjection": "@plan-reminder: # Test Plan\n"}
 
 ## Test: Read tool gets NO injection (read-only tool)
-$ echo '{"tool_name":"Read"}' | CLAUDE_PROJECT_DIR=$TMPDIR OAL_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
+$ echo '{"tool_name":"Read"}' | CLAUDE_PROJECT_DIR=$TMPDIR OMG_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
 (empty output — correctly skipped)
 
 ## Test: Edit tool with checklist progress (2/4 done)
-$ echo '{"tool_name":"Edit"}' | CLAUDE_PROJECT_DIR=$TMPDIR OAL_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
+$ echo '{"tool_name":"Edit"}' | CLAUDE_PROJECT_DIR=$TMPDIR OMG_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
 {"contextInjection": "@plan-reminder: 2/4 done | Next: Pending 1"}
 
 ## Test: Unknown tool gets injection (safe default)
-$ echo '{"tool_name":"UnknownTool"}' | CLAUDE_PROJECT_DIR=$TMPDIR OAL_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
+$ echo '{"tool_name":"UnknownTool"}' | CLAUDE_PROJECT_DIR=$TMPDIR OMG_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
 {"contextInjection": "@plan-reminder: # Test Plan\n"}
 
 ## Test suite: pre-tool-inject tests (15/15 pass)

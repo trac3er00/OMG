@@ -17,11 +17,11 @@ VERIFICATION:
 =============
 
 ✅ Python syntax check: PASSED
-   Command: python3 -m py_compile /Users/cminseo/Documents/scripts/Shell/OAL/hooks/prompt-enhancer.py
+   Command: python3 -m py_compile /Users/cminseo/Documents/scripts/Shell/OMG/hooks/prompt-enhancer.py
    Result: No errors
 
 ✅ utcnow removal verification: PASSED
-   Command: grep -c 'utcnow' /Users/cminseo/Documents/scripts/Shell/OAL/hooks/prompt-enhancer.py
+   Command: grep -c 'utcnow' /Users/cminseo/Documents/scripts/Shell/OMG/hooks/prompt-enhancer.py
    Result: 0 (no occurrences found)
 
 CONTEXT:

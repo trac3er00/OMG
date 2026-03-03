@@ -108,7 +108,7 @@ def test_cli_compat_list_and_run():
     run = _run(["compat", "run", "--skill", "omc-teams", "--problem", "compat smoke"])
     assert run.returncode == 0
     run_out = json.loads(run.stdout)
-    assert run_out["schema"] == "OalCompatResult"
+    assert run_out["schema"] == "OmgCompatResult"
     assert run_out["status"] == "ok"
 
 
@@ -134,7 +134,7 @@ def test_cli_compat_contract_and_gap_report():
     assert gap.returncode == 0
     gap_out = json.loads(gap.stdout)
     assert gap_out["status"] == "ok"
-    assert gap_out["report"]["schema"] == "OalCompatGapReport"
+    assert gap_out["report"]["schema"] == "OmgCompatGapReport"
     assert gap_out["report"]["maturity_counts"]["native"] == gap_out["report"]["total_skills"]
     assert gap_out["report"]["maturity_counts"].get("bridge", 0) == 0
 
@@ -165,7 +165,7 @@ def test_cli_compat_snapshot_and_gate_output(tmp_path: Path):
     assert gate.returncode == 0
     assert gate_out.exists()
     gap_payload = json.loads(gate_out.read_text(encoding="utf-8"))
-    assert gap_payload["schema"] == "OalCompatGapReport"
+    assert gap_payload["schema"] == "OmgCompatGapReport"
 
 
 def test_cli_omc_alias_routes_to_compat():

@@ -3,14 +3,14 @@ Date: 2026-02-28
 
 Changed files:
 - hooks/stop_dispatcher.py
-- .oal/state/ralph-loop.json
+- .omg/state/ralph-loop.json
 - tests/test_ralph.py
 
 Implementation details:
 - Imported atomic_json_write from hooks/_common.py in stop_dispatcher.
 - Implemented check_ralph_loop(project_dir, data):
   - Feature-flag guard using get_feature_flag("ralph_loop").
-  - Reads .oal/state/ralph-loop.json from project directory.
+  - Reads .omg/state/ralph-loop.json from project directory.
   - No-ops on missing/invalid/inactive state.
   - Deactivates loop and emits advisory at max iterations.
   - Increments iteration atomically and blocks with original prompt while active.
@@ -19,7 +19,7 @@ Implementation details:
   - Appends advisories to _stop_advisories
   - Calls block_decision(...) on first block reason.
 - Added template state file:
-  - .oal/state/ralph-loop.json with active=false and default fields.
+  - .omg/state/ralph-loop.json with active=false and default fields.
 
 Validation:
 1) LSP diagnostics (errors only):

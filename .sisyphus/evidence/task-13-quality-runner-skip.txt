@@ -10,13 +10,13 @@ Location: After project_dir resolution (line 174), before check_quality_runner()
 Added code:
 ```python
 # Short-circuit: skip subprocess if context pressure is high
-_pressure_path = os.path.join(project_dir, ".oal", "state", ".context-pressure.json")
+_pressure_path = os.path.join(project_dir, ".omg", "state", ".context-pressure.json")
 try:
     if os.path.exists(_pressure_path):
         with open(_pressure_path, "r") as _f:
             _pressure = json.load(_f)
         if _pressure.get("is_high", False):
-            print("[OAL quality-runner] Skipping subprocess checks: context pressure high", file=sys.stderr)
+            print("[OMG quality-runner] Skipping subprocess checks: context pressure high", file=sys.stderr)
             sys.exit(0)
 except Exception:
     pass  # fail open — run checks if pressure file unreadable
@@ -30,20 +30,20 @@ Result: ✓ PASS (exit 0)
 
 ### 2. High Pressure Scenario
 Setup:
-- .oal/state/.context-pressure.json: {"tool_count": 200, "threshold": 150, "is_high": true}
-- .oal/state/quality-gate.json: {"test":"echo pass"}
+- .omg/state/.context-pressure.json: {"tool_count": 200, "threshold": 150, "is_high": true}
+- .omg/state/quality-gate.json: {"test":"echo pass"}
 
 Command: echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/quality-runner.py 2>&1
 Result: ✓ PASS
-Output: [OAL quality-runner] Skipping subprocess checks: context pressure high
+Output: [OMG quality-runner] Skipping subprocess checks: context pressure high
 - Subprocess execution was skipped
 - No quality gate checks ran
 - Exit code: 0
 
 ### 3. Normal Pressure Scenario (Subprocess Still Runs)
 Setup:
-- .oal/state/.context-pressure.json: {"tool_count": 100, "threshold": 150, "is_high": false}
-- .oal/state/quality-gate.json: {"test":"echo pass"}
+- .omg/state/.context-pressure.json: {"tool_count": 100, "threshold": 150, "is_high": false}
+- .omg/state/quality-gate.json: {"test":"echo pass"}
 
 Command: echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/quality-runner.py 2>&1
 Result: ✓ PASS
@@ -56,6 +56,6 @@ Output: Subprocess ran and executed quality gate checks (failed as expected due 
 ✓ Context pressure check implemented
 ✓ Subprocess skipped when is_high=true
 ✓ Subprocess runs normally when is_high=false
-✓ Log message matches spec: "[OAL quality-runner] Skipping subprocess checks: context pressure high"
+✓ Log message matches spec: "[OMG quality-runner] Skipping subprocess checks: context pressure high"
 ✓ Python syntax valid
 ✓ Fail-open behavior: if pressure file unreadable, subprocess runs

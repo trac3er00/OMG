@@ -5,7 +5,7 @@ PASS: compiles clean
 
 --- grep -B2 shutil.rmtree ---
 133-        for old in entries[:-5]:
-134-            print(f"[OAL] Deleting: {os.path.join(snapshots_parent, old)}", file=sys.stderr)
+134-            print(f"[OMG] Deleting: {os.path.join(snapshots_parent, old)}", file=sys.stderr)
 135:            shutil.rmtree(os.path.join(snapshots_parent, old), ignore_errors=True)
 
 --- _resolve_project_dir usage ---

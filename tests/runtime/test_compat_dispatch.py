@@ -42,7 +42,7 @@ def test_dispatch_representative_skills(tmp_path: Path):
         "ralph-wiggum",
     ]:
         result = dispatch_compat_skill(skill=skill, problem=f"compat smoke {skill}", project_dir=str(tmp_path))
-        assert result["schema"] == "OalCompatResult"
+        assert result["schema"] == "OmgCompatResult"
         assert result["status"] == "ok", f"{skill} failed: {result}"
 
 

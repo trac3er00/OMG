@@ -253,7 +253,7 @@ class TestBindingSpec:
 # Integration: omg_natives re-exports
 # ---------------------------------------------------------------------------
 
-class TestOalNativesReExports:
+class TestOmgNativesReExports:
     """Verify omg_natives.__init__ re-exports the binding API."""
 
     def test_import_from_omg_natives(self):

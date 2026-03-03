@@ -548,7 +548,7 @@ class TestGetMergedConfig:
             os.unlink(path)
 
 
-class TestLoadOalConfig:
+class TestLoadOmgConfig:
     """_load_omg_config file loading tests."""
 
     def test_loads_valid_json(self):

@@ -6,9 +6,9 @@ Task 30: Compound Learning Capture on SessionEnd
 - tests/test_learning_capture.py: Created with 5 tests
 
 ## Implementation
-- Reads last 100 entries from .oal/state/ledger/tool-ledger.jsonl
+- Reads last 100 entries from .omg/state/ledger/tool-ledger.jsonl
 - Counts tool usage and file modification frequency
-- Writes learning file to .oal/state/learnings/{date}-{session_short}.md
+- Writes learning file to .omg/state/learnings/{date}-{session_short}.md
 - Caps content at 300 chars
 - Guarded by get_feature_flag('compound_learning')
 - Wrapped in try/except with log_hook_error fallback

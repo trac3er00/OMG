@@ -6,7 +6,7 @@
 ============================= test session starts ==============================
 platform darwin -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0 -- /Users/cminseo/.pyenv/versions/3.13.12/bin/python3
 cachedir: .pytest_cache
-rootdir: /Users/cminseo/Documents/scripts/Shell/OAL
+rootdir: /Users/cminseo/Documents/scripts/Shell/OMG
 configfile: pytest.ini
 collecting ... collected 63 items
 
@@ -28,7 +28,7 @@ tests/test_stop_gate.py::test_stop_hook_active_false_normal_flow PASSED  [ 23%]
 tests/test_stop_gate.py::test_stop_hook_active_missing_defaults_to_false PASSED [ 25%]
 tests/test_stop_gate.py::test_stop_gate_invalid_json_exits_zero PASSED   [ 26%]
 tests/test_stop_gate.py::test_stop_gate_no_crash_without_git PASSED      [ 28%]
-tests/hooks/test_session_start.py::test_session_start_uses_oal_state_paths PASSED [ 30%]
+tests/hooks/test_session_start.py::test_session_start_uses_omg_state_paths PASSED [ 30%]
 tests/hooks/test_session_start.py::test_handoff_filename_contract PASSED [ 31%]
 tests/hooks/test_session_start.py::test_context_budget_uses_constant PASSED [ 33%]
 tests/hooks/test_session_start.py::test_handoff_staleness_check PASSED   [ 34%]

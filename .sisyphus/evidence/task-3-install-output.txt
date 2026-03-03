@@ -1,31 +1,31 @@
 ═══════════════════════════════════════════════════════════════════════════════
-OAL INSTALLER EXECUTION - TASK 3
+OMG INSTALLER EXECUTION - TASK 3
 ═══════════════════════════════════════════════════════════════════════════════
 
 COMMAND EXECUTED:
-  cd /Users/cminseo/Documents/scripts/Shell/OAL && ./OAL-setup.sh reinstall --clear-omc --non-interactive --merge-policy=apply
+  cd /Users/cminseo/Documents/scripts/Shell/OMG && ./OMG-setup.sh reinstall --clear-omc --non-interactive --merge-policy=apply
 
 ═══════════════════════════════════════════════════════════════════════════════
 INSTALLER OUTPUT
 ═══════════════════════════════════════════════════════════════════════════════
 
 ═══════════════════════════════════════════════════════════════════════════════
-  OAL Setup Manager — reinstall
+  OMG Setup Manager — reinstall
 ═══════════════════════════════════════════════════════════════════════════════
 
 Pre-flight checks...
   ✓ Python 3.13
-  ✓ Existing: oal-v5-20260227 → target oal-v5-20260227
-  ✓ Standalone mode: OAL does not require OMC
+  ✓ Existing: omg-v5-20260227 → target omg-v5-20260227
+  ✓ Standalone mode: OMG does not require OMC
 
 ⚠ OMC installation signals detected.
   - legacy /omc-* command files present in ~/.claude/commands
-  - legacy compatibility command aliases detected (omc-teams/OAL:omc-compat)
+  - legacy compatibility command aliases detected (omc-teams/OMG:omc-compat)
   - plugin entries referencing omc detected
 Possible outcomes:
-  1. OAL will install standalone hooks/rules/commands and may override overlapping legacy command names.
-  2. Existing project .omc state remains as legacy input and may be migrated into .oal/state on runtime access.
-  3. If behavior is unexpected, run ./OAL-setup.sh reinstall (clean install) or ./OAL-setup.sh uninstall.
+  1. OMG will install standalone hooks/rules/commands and may override overlapping legacy command names.
+  2. Existing project .omc state remains as legacy input and may be migrated into .omg/state on runtime access.
+  3. If behavior is unexpected, run ./OMG-setup.sh reinstall (clean install) or ./OMG-setup.sh uninstall.
 
 OMC handling options:
   1. Keep detected OMC artifacts and continue (default)
@@ -33,17 +33,17 @@ OMC handling options:
   3. Cancel installation
 Clearing detected OMC artifacts...
   - commands/omc-*.md
-  - commands/OAL:omc-compat.md
+  - commands/OMG:omc-compat.md
   - plugins/marketplaces/omc
   ✓ Cleared 3 OMC artifact group(s)
   ✓ Sanitizing legacy OMC instruction hints (CLAUDE/rules/protocols) ...
 
-Fresh/reinstall mode: remove OAL files before install.
-  ✓ Backup: /Users/cminseo/.claude/.oal-backup-20260227_222836
+Fresh/reinstall mode: remove OMG files before install.
+  ✓ Backup: /Users/cminseo/.claude/.omg-backup-20260227_222836
   ✓ Clean slate ready
 
 Step 1/6: Remove deprecated files...
-  ~ agents/qa-tester.md (kept — appears to be non-OAL/custom)
+  ~ agents/qa-tester.md (kept — appears to be non-OMG/custom)
   ✓ Removed 1 deprecated files
 
 Step 2/6: Core Rules → /Users/cminseo/.claude/rules/
@@ -70,32 +70,32 @@ Step 3/6: Hooks → /Users/cminseo/.claude/hooks/
   ✓ 17 hooks (0 errors)
 
 Step 4/6: Agents → /Users/cminseo/.claude/agents/
-  ✓ oal-architect.md
-  ✓ oal-critic.md
-  ✓ oal-escalation-router.md
-  ✓ oal-executor.md
-  ✓ oal-qa-tester.md
+  ✓ omg-architect.md
+  ✓ omg-critic.md
+  ✓ omg-escalation-router.md
+  ✓ omg-executor.md
+  ✓ omg-qa-tester.md
   ✓ 5 agents
 
 Step 5/6: Commands → /Users/cminseo/.claude/commands/
   ✓ /ccg
-  ✓ /OAL:ccg
-  ✓ /OAL:code-review
-  ✓ /OAL:compat
-  ✓ /OAL:crazy
-  ✓ /OAL:deep-plan
-  ✓ /OAL:domain-init
-  ✓ /OAL:escalate
-  ✓ /OAL:handoff
-  ✓ /OAL:health-check
-  ✓ /OAL:init
-  ✓ /OAL:learn
-  ✓ /OAL:maintainer
-  ✓ /OAL:omc-compat
-  ✓ /OAL:project-init
-  ✓ /OAL:security-review
-  ✓ /OAL:ship
-  ✓ /OAL:teams
+  ✓ /OMG:ccg
+  ✓ /OMG:code-review
+  ✓ /OMG:compat
+  ✓ /OMG:crazy
+  ✓ /OMG:deep-plan
+  ✓ /OMG:domain-init
+  ✓ /OMG:escalate
+  ✓ /OMG:handoff
+  ✓ /OMG:health-check
+  ✓ /OMG:init
+  ✓ /OMG:learn
+  ✓ /OMG:maintainer
+  ✓ /OMG:omc-compat
+  ✓ /OMG:project-init
+  ✓ /OMG:security-review
+  ✓ /OMG:ship
+  ✓ /OMG:teams
   ✓ /omc-teams
   ✓ 63 commands installed (static=19, auto-compat=44, pre-existing=2, reserved-skipped=1)
 
@@ -106,14 +106,14 @@ Step 6/6: Settings + Templates...
    Permissions: 118 allow, 47 deny, 88 ask
   ✓ Settings merged (auto)
   ✓ Templates + contextual rules
-  ✓ Portable runtime → /Users/cminseo/.claude/oal-runtime
+  ✓ Portable runtime → /Users/cminseo/.claude/omg-runtime
 
 ═══════════════════════════════════════════════════════════════════════════════
-  ✅ OAL v5 reinstall completed successfully
+  ✅ OMG v5 reinstall completed successfully
 ═══════════════════════════════════════════════════════════════════════════════
 
   Files: 5 rules, 17 hooks, 5 agents, 63 commands
-  Version: oal-v5-20260227
+  Version: omg-v5-20260227
   Mode: Fresh reinstall
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -124,8 +124,8 @@ POST-INSTALL QA VERIFICATION
    Installer exited successfully with code 0
 
 2. VERSION MARKER: ✅ PASS
-   File: ~/.claude/hooks/.oal-version
-   Content: oal-v5-20260227
+   File: ~/.claude/hooks/.omg-version
+   Content: omg-v5-20260227
 
 3. HOOK COUNT: ✅ PASS (18 >= 16)
    Expected: >= 16
@@ -163,15 +163,15 @@ POST-INSTALL QA VERIFICATION
      - /Users/cminseo/.claude/rules/06-cross-model.md
      - /Users/cminseo/.claude/rules/07-dependency-safety.md
 
-5. OAL AGENTS COUNT: ✅ PASS (5 = 5)
+5. OMG AGENTS COUNT: ✅ PASS (5 = 5)
    Expected: 5
    Actual: 5
    Files:
-     - /Users/cminseo/.claude/agents/oal-architect.md
-     - /Users/cminseo/.claude/agents/oal-critic.md
-     - /Users/cminseo/.claude/agents/oal-escalation-router.md
-     - /Users/cminseo/.claude/agents/oal-executor.md
-     - /Users/cminseo/.claude/agents/oal-qa-tester.md
+     - /Users/cminseo/.claude/agents/omg-architect.md
+     - /Users/cminseo/.claude/agents/omg-critic.md
+     - /Users/cminseo/.claude/agents/omg-escalation-router.md
+     - /Users/cminseo/.claude/agents/omg-executor.md
+     - /Users/cminseo/.claude/agents/omg-qa-tester.md
 
 6. OMC CLEANUP: ✅ PASS
    Installer output shows:
@@ -181,7 +181,7 @@ POST-INSTALL QA VERIFICATION
    
    OMC artifacts cleared:
      - commands/omc-*.md
-     - commands/OAL:omc-compat.md
+     - commands/OMG:omc-compat.md
      - plugins/marketplaces/omc
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -191,10 +191,10 @@ SUMMARY
 ✅ ALL REQUIREMENTS MET
 
 Installer Status:        ✅ SUCCESS (exit code 0)
-Version Marker:          ✅ CREATED (oal-v5-20260227)
+Version Marker:          ✅ CREATED (omg-v5-20260227)
 Hook Count:              ✅ PASS (18 >= 16)
 Rules Count:             ✅ PASS (8 >= 5)
-OAL Agents Count:        ✅ PASS (5 = 5)
+OMG Agents Count:        ✅ PASS (5 = 5)
 OMC Cleanup:             ✅ PASS (3 artifact groups cleared)
 
 Installation completed successfully with all QA checks passing.
