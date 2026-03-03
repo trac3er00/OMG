@@ -1,0 +1,14 @@
+name: "Catppuccin Mocha"
+variant: "dark"
+colors:
+  background: "#1e1e2e"
+  foreground: "#cdd6f4"
+  primary: "#cba6f7"
+  secondary: "#89b4fa"
+  accent: "#f38ba8"
+  error: "#f38ba8"
+  warning: "#f9e2af"
+  success: "#a6e3a1"
+metadata:
+  author: "Catppuccin"
+  url: "https://github.com/catppuccin/catppuccin"

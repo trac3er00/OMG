@@ -1,0 +1,14 @@
+name: "Tokyo Night"
+variant: "dark"
+colors:
+  background: "#1a1b26"
+  foreground: "#a9b1d6"
+  primary: "#7aa2f7"
+  secondary: "#565f89"
+  accent: "#bb9af7"
+  error: "#f7768e"
+  warning: "#e0af68"
+  success: "#9ece6a"
+metadata:
+  author: "Enkia"
+  url: "https://github.com/enkia/tokyo-night-vscode-theme"

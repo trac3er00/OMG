@@ -1,0 +1,324 @@
+# LSP Language Configuration
+# 40+ language server configurations for auto-discovery
+# Each entry specifies server command, discovery paths, and capabilities
+
+languages:
+  - name: python
+    extensions: [.py]
+    server_command: [pylsp]
+    server_name: pylsp
+    discovery_paths: [.venv/bin/pylsp, ~/.local/bin/pylsp, /usr/local/bin/pylsp]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: typescript
+    extensions: [.ts]
+    server_command: [typescript-language-server, --stdio]
+    server_name: typescript-language-server
+    discovery_paths: [node_modules/.bin/typescript-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: javascript
+    extensions: [.js]
+    server_command: [typescript-language-server, --stdio]
+    server_name: typescript-language-server
+    discovery_paths: [node_modules/.bin/typescript-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: tsx
+    extensions: [.tsx]
+    server_command: [typescript-language-server, --stdio]
+    server_name: typescript-language-server
+    discovery_paths: [node_modules/.bin/typescript-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: jsx
+    extensions: [.jsx]
+    server_command: [typescript-language-server, --stdio]
+    server_name: typescript-language-server
+    discovery_paths: [node_modules/.bin/typescript-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: rust
+    extensions: [.rs]
+    server_command: [rust-analyzer]
+    server_name: rust-analyzer
+    discovery_paths: [~/.cargo/bin/rust-analyzer, /usr/local/bin/rust-analyzer]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: go
+    extensions: [.go]
+    server_command: [gopls]
+    server_name: gopls
+    discovery_paths: [~/go/bin/gopls, /usr/local/bin/gopls]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: java
+    extensions: [.java]
+    server_command: [java, -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005, -jar, eclipse.jdt.ls.jar]
+    server_name: eclipse-jdt-ls
+    discovery_paths: [~/.local/share/eclipse.jdt.ls/eclipse.jdt.ls.jar]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: c
+    extensions: [.c]
+    server_command: [clangd]
+    server_name: clangd
+    discovery_paths: [/usr/local/bin/clangd, /usr/bin/clangd]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: cpp
+    extensions: [.cpp, .cc, .cxx, .h, .hpp]
+    server_command: [clangd]
+    server_name: clangd
+    discovery_paths: [/usr/local/bin/clangd, /usr/bin/clangd]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: csharp
+    extensions: [.cs]
+    server_command: [omnisharp, -lsp]
+    server_name: omnisharp
+    discovery_paths: [~/.local/bin/omnisharp, /usr/local/bin/omnisharp]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: ruby
+    extensions: [.rb]
+    server_command: [ruby-lsp]
+    server_name: ruby-lsp
+    discovery_paths: [~/.local/bin/ruby-lsp, /usr/local/bin/ruby-lsp]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: php
+    extensions: [.php]
+    server_command: [php, -S, localhost:8000]
+    server_name: intelephense
+    discovery_paths: [node_modules/.bin/intelephense]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: swift
+    extensions: [.swift]
+    server_command: [sourcekit-lsp]
+    server_name: sourcekit-lsp
+    discovery_paths: [/usr/bin/sourcekit-lsp]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: kotlin
+    extensions: [.kt, .kts]
+    server_command: [kotlin-language-server]
+    server_name: kotlin-language-server
+    discovery_paths: [~/.local/bin/kotlin-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: scala
+    extensions: [.scala]
+    server_command: [metals]
+    server_name: metals
+    discovery_paths: [~/.local/bin/metals, /usr/local/bin/metals]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: haskell
+    extensions: [.hs]
+    server_command: [haskell-language-server, --lsp]
+    server_name: haskell-language-server
+    discovery_paths: [~/.cabal/bin/haskell-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: elixir
+    extensions: [.ex, .exs]
+    server_command: [elixir-ls]
+    server_name: elixir-ls
+    discovery_paths: [~/.local/bin/elixir-ls]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: erlang
+    extensions: [.erl]
+    server_command: [erlang-ls]
+    server_name: erlang-ls
+    discovery_paths: [~/.local/bin/erlang-ls]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: lua
+    extensions: [.lua]
+    server_command: [lua-language-server]
+    server_name: lua-language-server
+    discovery_paths: [~/.local/bin/lua-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: r
+    extensions: [.r, .R]
+    server_command: [R, --slave, -e, languageserver::run()]
+    server_name: r-language-server
+    discovery_paths: []
+    format_on_write: false
+    diagnostics_on_edit: true
+
+  - name: julia
+    extensions: [.jl]
+    server_command: [julia, --project=@., -e, using LanguageServer; run_server()]
+    server_name: julia-language-server
+    discovery_paths: []
+    format_on_write: false
+    diagnostics_on_edit: true
+
+  - name: dart
+    extensions: [.dart]
+    server_command: [dart, language-server]
+    server_name: dart-language-server
+    discovery_paths: [~/.pub-cache/bin/dart]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: vue
+    extensions: [.vue]
+    server_command: [vue-language-server, --stdio]
+    server_name: vue-language-server
+    discovery_paths: [node_modules/.bin/vue-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: svelte
+    extensions: [.svelte]
+    server_command: [svelteserver, --stdio]
+    server_name: svelte-language-server
+    discovery_paths: [node_modules/.bin/svelteserver]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: html
+    extensions: [.html, .htm]
+    server_command: [html-languageserver, --stdio]
+    server_name: html-languageserver
+    discovery_paths: [node_modules/.bin/html-languageserver]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: css
+    extensions: [.css]
+    server_command: [css-languageserver, --stdio]
+    server_name: css-languageserver
+    discovery_paths: [node_modules/.bin/css-languageserver]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: scss
+    extensions: [.scss]
+    server_command: [css-languageserver, --stdio]
+    server_name: css-languageserver
+    discovery_paths: [node_modules/.bin/css-languageserver]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: less
+    extensions: [.less]
+    server_command: [css-languageserver, --stdio]
+    server_name: css-languageserver
+    discovery_paths: [node_modules/.bin/css-languageserver]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: json
+    extensions: [.json]
+    server_command: [json-languageserver, --stdio]
+    server_name: json-languageserver
+    discovery_paths: [node_modules/.bin/json-languageserver]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: yaml
+    extensions: [.yaml, .yml]
+    server_command: [yaml-language-server, --stdio]
+    server_name: yaml-language-server
+    discovery_paths: [node_modules/.bin/yaml-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: toml
+    extensions: [.toml]
+    server_command: [taplo, lsp, stdio]
+    server_name: taplo
+    discovery_paths: [~/.cargo/bin/taplo]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: markdown
+    extensions: [.md, .markdown]
+    server_command: [marksman]
+    server_name: marksman
+    discovery_paths: [~/.local/bin/marksman, /usr/local/bin/marksman]
+    format_on_write: false
+    diagnostics_on_edit: true
+
+  - name: bash
+    extensions: [.sh, .bash]
+    server_command: [bash-language-server, start]
+    server_name: bash-language-server
+    discovery_paths: [node_modules/.bin/bash-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: dockerfile
+    extensions: [Dockerfile]
+    server_command: [docker-langserver, --stdio]
+    server_name: docker-langserver
+    discovery_paths: [node_modules/.bin/docker-langserver]
+    format_on_write: false
+    diagnostics_on_edit: true
+
+  - name: terraform
+    extensions: [.tf]
+    server_command: [terraform-ls, serve]
+    server_name: terraform-ls
+    discovery_paths: [~/.local/bin/terraform-ls, /usr/local/bin/terraform-ls]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: sql
+    extensions: [.sql]
+    server_command: [sql-language-server, up, --method, stdio]
+    server_name: sql-language-server
+    discovery_paths: [node_modules/.bin/sql-language-server]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: graphql
+    extensions: [.graphql, .gql]
+    server_command: [graphql-language-service, server]
+    server_name: graphql-language-service
+    discovery_paths: [node_modules/.bin/graphql-language-service]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: proto
+    extensions: [.proto]
+    server_command: [buf, beta, lsp]
+    server_name: buf-lsp
+    discovery_paths: [~/.local/bin/buf, /usr/local/bin/buf]
+    format_on_write: true
+    diagnostics_on_edit: true
+
+  - name: xml
+    extensions: [.xml]
+    server_command: [lemminx]
+    server_name: lemminx
+    discovery_paths: [~/.local/bin/lemminx]
+    format_on_write: true
+    diagnostics_on_edit: true

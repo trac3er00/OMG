@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -14,7 +15,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 from _common import (  # noqa: E402
     atomic_json_write,
     block_decision,
+    check_performance_budget,
     get_feature_flag,
+    get_project_dir,
     json_input,
     log_hook_error,
     record_stop_block,
@@ -22,6 +25,7 @@ from _common import (  # noqa: E402
     _resolve_project_dir,
     setup_crash_handler,
     should_skip_stop_hooks,
+    STOP_CHECK_MAX_MS,
 )
 from state_migration import resolve_state_file  # noqa: E402
 
@@ -811,6 +815,43 @@ def check_scope_drift(project_dir):
     return []
 
 
+
+def check_todo_continuation(data: dict) -> dict | None:
+    """Check if agent should continue due to incomplete todos.
+    Returns a dict with continuation response if idle, None otherwise.
+    Budget: STOP_CHECK_MAX_MS (15s)
+    Feature flag: OAL_TODO_ENFORCEMENT_ENABLED
+    """
+    if not get_feature_flag("TODO_ENFORCEMENT", default=False):
+        return None
+
+    project_dir = get_project_dir()
+    signal_path = os.path.join(project_dir, ".oal", "state", "idle_signal.json")
+
+    if not os.path.exists(signal_path):
+        return None
+
+    try:
+        with open(signal_path, "r", encoding="utf-8") as f:
+            idle_signal = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    if not isinstance(idle_signal, dict):
+        return None
+
+    if not idle_signal.get("idle_detected", False):
+        return None
+
+    incomplete_count = idle_signal.get("incomplete_count", 0)
+    incomplete_items = idle_signal.get("incomplete_items", [])
+
+    return {
+        "decision": "block",
+        "reason": f"Incomplete todos detected ({incomplete_count} items). Please complete: {', '.join(incomplete_items[:3])}"
+    }
+
+
 def main():
     data = json_input()
 
@@ -838,6 +879,15 @@ def main():
     advisories.extend(check_scope_drift(project_dir))
     if advisories:
         data["_stop_advisories"].extend(advisories)
+
+    # P3: Todo continuation enforcement (Task 1.6)
+    _p3_start = time.monotonic()
+    todo_result = check_todo_continuation(data)
+    _p3_elapsed = (time.monotonic() - _p3_start) * 1000
+    check_performance_budget("check_todo_continuation", _p3_elapsed, STOP_CHECK_MAX_MS)
+    if todo_result and todo_result.get("decision") == "block":
+        record_stop_block(project_dir, reason="todo_continuation")
+        block_decision(todo_result["reason"])
 
     blocks = []
     for check_fn in [

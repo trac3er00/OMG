@@ -186,6 +186,41 @@ BLOCKED_PATH_PATTERNS = [
 ]
 
 
+# OAL internal credential store paths (exempted from secret-file blocking)
+# Only these exact filenames inside .oal/state/ are allowed.
+_OAL_CREDENTIAL_STORE_ALLOWLIST = frozenset({
+    "credentials.enc",
+    "credentials.meta",
+})
+
+
+def _is_oal_credential_path(normalized_path: str) -> bool:
+    """Return True if the path is an OAL credential store file.
+
+    Only exempts files that are:
+    1. Inside .oal/state/ directory
+    2. Named exactly 'credentials.enc' or 'credentials.meta'
+    3. Feature flag MULTI_CREDENTIAL is enabled
+
+    This is deliberately narrow to prevent path traversal attacks.
+    """
+    # Import here to avoid circular dependency at module level
+    from _common import get_feature_flag
+
+    # Only exempt if feature is enabled
+    if not get_feature_flag("MULTI_CREDENTIAL", default=False):
+        return False
+
+    basename = os.path.basename(normalized_path).lower()
+    if basename not in _OAL_CREDENTIAL_STORE_ALLOWLIST:
+        return False
+
+    # Verify it's actually inside .oal/state/
+    parent = os.path.dirname(normalized_path)
+    return parent.endswith(os.sep + ".oal" + os.sep + "state") or \
+           parent.endswith("/.oal/state")
+
+
 def evaluate_file_access(tool: str, file_path: str) -> PolicyDecision:
     if not file_path:
         return allow("no file")
@@ -211,6 +246,11 @@ def evaluate_file_access(tool: str, file_path: str) -> PolicyDecision:
 
     if re.match(r"^\.env(\..+)?$", basename) and basename not in EXAMPLE_FILES:
         return deny(f"Environment file blocked: {file_path}", "critical", ["secret-access"])
+
+    # EXEMPTION: OAL credential store files within .oal/state/
+    # These are managed by hooks/credential_store.py and must be accessible
+    if _is_oal_credential_path(normalized):
+        return allow("OAL credential store (managed path)")
 
     for pat in BLOCKED_PATH_PATTERNS:
         if re.search(pat, lowpath):
