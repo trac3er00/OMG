@@ -740,6 +740,22 @@ def check_ralph_loop(project_dir, data):
         return [], []
     if not state.get("active"):
         return [], []
+    
+    # Check if Ralph loop has expired
+    timeout_minutes = int(os.environ.get("OMG_RALPH_TIMEOUT_MINUTES", "30"))
+    started_at_str = state.get("started_at")
+    if started_at_str:
+        try:
+            started_at = datetime.fromisoformat(started_at_str.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            elapsed = now - started_at
+            if elapsed.total_seconds() > timeout_minutes * 60:
+                state["active"] = False
+                atomic_json_write(ralph_path, state)
+                return [], [f"Ralph loop expired after {timeout_minutes} minutes. Stopping."]
+        except (ValueError, TypeError):
+            pass
+    
     iteration = state.get("iteration", 0)
     max_iter = state.get("max_iterations", 50)
     if iteration >= max_iter:

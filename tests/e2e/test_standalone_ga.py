@@ -38,9 +38,14 @@ def test_standalone_commands_work_without_omc_install(tmp_path: Path):
 
     ccg = _run([str(CLI), "ccg", "--problem", "review full-stack reliability"], ROOT, env=env)
     assert ccg.returncode == 0
-    ccg_out = json.loads(ccg.stdout)
+    start = ccg.stdout.find("{")
+    assert start >= 0
+    ccg_out = json.loads(ccg.stdout[start:])
     assert ccg_out["status"] == "ok"
-    assert ccg_out["evidence"]["target"] == "ccg"
+    assert ccg_out["worker_count"] == 2
+    phase_agents = [p.get("agent") for p in ccg_out["phases"] if isinstance(p, dict)]
+    assert "backend-engineer" in phase_agents
+    assert "frontend-designer" in phase_agents
 
 
 def test_standalone_ship_generates_evidence_without_omc(tmp_path: Path):

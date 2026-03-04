@@ -172,3 +172,82 @@ def test_ralph_commands_exist():
     """Command files for ralph-start and ralph-stop exist."""
     assert (ROOT / "commands" / "OMG:ralph-start.md").exists()
     assert (ROOT / "commands" / "OMG:ralph-stop.md").exists()
+
+
+def test_ralph_expires_after_timeout(tmp_path: Path):
+    """Ralph state expires after 30 minutes (configurable via OMG_RALPH_TIMEOUT_MINUTES)."""
+    from datetime import datetime, timedelta, timezone
+    
+    # Create state with started_at = 31 minutes ago
+    now = datetime.now(timezone.utc)
+    started_at = (now - timedelta(minutes=31)).isoformat()
+    
+    _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 5,
+            "max_iterations": 50,
+            "original_prompt": "fix all tests",
+            "started_at": started_at,
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    # Should not block (expired)
+    assert result.stdout == ""
+
+
+def test_ralph_active_within_timeout(tmp_path: Path):
+    """Ralph state remains active within 30-minute timeout."""
+    from datetime import datetime, timedelta, timezone
+    
+    # Create state with started_at = 5 minutes ago
+    now = datetime.now(timezone.utc)
+    started_at = (now - timedelta(minutes=5)).isoformat()
+    
+    _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 5,
+            "max_iterations": 50,
+            "original_prompt": "fix all tests",
+            "started_at": started_at,
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    # Should block (still active)
+    output = json.loads(result.stdout)
+    assert output["decision"] == "block"
+    assert "fix all tests" in output["reason"]
+
+
+def test_ralph_timeout_configurable(tmp_path: Path):
+    """Ralph timeout is configurable via OMG_RALPH_TIMEOUT_MINUTES env var."""
+    from datetime import datetime, timedelta, timezone
+    
+    # Create state with started_at = 15 minutes ago
+    now = datetime.now(timezone.utc)
+    started_at = (now - timedelta(minutes=15)).isoformat()
+    
+    _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 5,
+            "max_iterations": 50,
+            "original_prompt": "fix all tests",
+            "started_at": started_at,
+        },
+    )
+    # Set timeout to 10 minutes (should expire)
+    result = _run_dispatcher(
+        tmp_path,
+        {"stop_hook_active": False},
+        extra_env={"OMG_RALPH_TIMEOUT_MINUTES": "10"},
+    )
+    assert result.returncode == 0
+    # Should not block (expired with 10-min timeout)
+    assert result.stdout == ""
