@@ -60,6 +60,11 @@
       "path": "commands/OMG:cost.md",
       "description": "Display session cost tracking, budget status, and usage history",
       "category": "observability"
+    },
+    "stats": {
+      "path": "commands/OMG:stats.md",
+      "description": "Display session analytics, tool usage trends, file heatmaps, and failure patterns",
+      "category": "observability"
     }
   },
   "categories": {
@@ -85,7 +90,7 @@
     },
     "observability": {
       "description": "Cost tracking and session observability",
-      "commands": ["cost"]
+      "commands": ["cost", "stats"]
     }
   }
 }

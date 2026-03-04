@@ -258,6 +258,10 @@
       "prompt_enhancer_max_chars": 800,
       "prompt_enhancer_max_injections": 10
     },
+    "credentials": {
+      "rotation_schedule_days": 90,
+      "expiry_warning_days": 14
+    },
     "features": {
       "memory": false,
       "ralph_loop": true,
