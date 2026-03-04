@@ -65,6 +65,11 @@
       "path": "commands/OMG:stats.md",
       "description": "Display session analytics, tool usage trends, file heatmaps, and failure patterns",
       "category": "observability"
+    },
+    "deps": {
+      "path": "commands/OMG:deps.md",
+      "description": "Scan project dependencies for CVEs, license issues, and outdated packages",
+      "category": "observability"
     }
   },
   "categories": {
@@ -90,7 +95,7 @@
     },
     "observability": {
       "description": "Cost tracking and session observability",
-      "commands": ["cost", "stats"]
+      "commands": ["cost", "stats", "deps"]
     }
   }
 }
