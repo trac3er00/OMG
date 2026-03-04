@@ -17,14 +17,23 @@ if [ -d "$OMG_ROOT/.git" ]; then
     cd "$OMG_ROOT"
     
     # Check for local changes
+    STASHED=false
     if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
         echo "Stashing local changes..."
-        git stash push -m "Auto-stash before update" || true
+        if git stash push -m "Auto-stash before update"; then
+            STASHED=true
+        fi
     fi
     
     # Pull latest
     echo "Pulling latest changes..."
     git pull origin main
+    
+    # Restore stashed changes
+    if $STASHED; then
+        echo "Restoring stashed changes..."
+        git stash pop || echo "Warning: Could not restore stashed changes. Run 'git stash pop' manually."
+    fi
 
     NEW_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "")
     if [ -n "$NEW_VERSION" ]; then

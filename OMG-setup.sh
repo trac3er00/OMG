@@ -912,6 +912,7 @@ run_install_like() {
         target="$CLAUDE_DIR/agents/$name"
         if ! $DRY_RUN; then
             [ -f "$target" ] && [ -z "$existing_ver" ] && cp "$target" "$target.bak.$BACKUP_TS"
+            install_file "$f" "$target"
         fi
         echo "  ✓ $name"
         installed_agents=$((installed_agents + 1))

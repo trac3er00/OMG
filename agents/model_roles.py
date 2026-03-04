@@ -62,14 +62,9 @@ def _load_roles() -> dict:
                 data = yaml.safe_load(f)
                 if data and "roles" in data:
                     return data["roles"]
-        else:
-            # Fallback: try to parse as JSON
-            with open(roles_file, "r") as f:
-                data = json.load(f)
-                if data and "roles" in data:
-                    return data["roles"]
     except Exception as e:
         print(f"[OMG] Warning: Failed to load roles from {roles_file}: {e}", file=sys.stderr)
+
     
     return _get_default_roles()
 
