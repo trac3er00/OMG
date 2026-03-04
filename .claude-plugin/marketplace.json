@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "OMG - Oh-My-God for Claude Code",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "homepage": "https://github.com/trac3er00/OMG",
     "repository": "git@github.com:trac3er00/OMG.git"
   },
@@ -14,7 +14,7 @@
     {
       "name": "omg",
       "description": "OMG standalone orchestration layer for Claude Code",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "source": "./",
       "author": {
         "name": "trac3er00"
@@ -32,5 +32,5 @@
       ]
     }
   ],
-  "version": "1.0.1"
+  "version": "1.0.2"
 }
