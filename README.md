@@ -36,7 +36,7 @@ OMG is built for teams and solo developers who want:
 
 ## Requirements
 
-- Python `3.8+`
+- Python `3.10+`
 - Claude Code with write access to `~/.claude`
 
 ## Installation
