@@ -213,7 +213,7 @@ parse_args() {
         FRESH_INSTALL=true
     fi
 
-    if [ ! -t 0 ]; then
+    if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ]; then
         NON_INTERACTIVE=true
     fi
 }
@@ -965,16 +965,22 @@ run_install_like() {
                 echo "  ✓ Settings merged (auto)"
             else
                 echo "  Merging settings.json..."
-                dry_run_preview="$(python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1)"
-                printf '%s\n' "$dry_run_preview" | sed -n '1,5p' | sed 's/^/      /'
-                echo ""
-                read -p "  Apply merge? [Y/n] " -n 1 -r
-                echo ""
-                if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-                    python3 "$MERGE" "$TARGET" "$SOURCE"
-                    echo "  ✓ Settings merged"
+                if dry_run_preview="$(python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1)"; then
+                    echo "$dry_run_preview" | head -5 | sed 's/^/      /'
+                    echo ""
+                fi
+                if read -p "  Apply merge? [Y/n] " -n 1 -r 2>/dev/null; then
+                    echo ""
+                    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                        python3 "$MERGE" "$TARGET" "$SOURCE"
+                        echo "  ✓ Settings merged"
+                    else
+                        echo "  ⊘ Skipped (manual merge needed)"
+                    fi
                 else
-                    echo "  ⊘ Skipped (manual merge needed)"
+                    # read failed (non-interactive context missed by -t check) — auto-apply
+                    python3 "$MERGE" "$TARGET" "$SOURCE"
+                    echo "  ✓ Settings merged (auto — non-interactive fallback)"
                 fi
             fi
         fi
