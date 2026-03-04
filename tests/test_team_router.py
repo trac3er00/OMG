@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shlex
 import subprocess
 import sys
 import types
@@ -152,13 +153,86 @@ def test_should_use_tmux_false_in_thread_pool() -> None:
 
 
 def test_invoke_codex_tmux_falls_back_when_tmux_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
-    called: list[str] = []
+    class _FakeMgr:
+        def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
+            return "omg-codex-123"
 
-    def mock_invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, str]:
-        called.append(prompt)
-        return {"error": "codex-cli not found", "fallback": "claude"}
+        def get_or_create_session(self, name: str) -> str:
+            return name
+
+        def send_command(self, name: str, command: str, timeout: int = 120) -> str:
+            return "output without marker"
+
+        def kill_session(self, name: str) -> bool:
+            return True
+
+    monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: _FakeMgr())
+
+    def mock_invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
+        return {"model": "codex-cli", "output": "fallback", "exit_code": 9}
 
     monkeypatch.setattr(team_router, "invoke_codex", mock_invoke_codex)
     result = team_router.invoke_codex_tmux("test prompt", "/tmp")
-    assert "fallback" in result or "output" in result or "error" in result
+    assert result == {"model": "codex-cli", "output": "fallback", "exit_code": 9}
+
+
+def test_invoke_codex_tmux_quotes_prompt_and_reports_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeMgr:
+        def __init__(self) -> None:
+            self.last_command = ""
+            self.killed: list[str] = []
+
+        def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
+            return "omg-codex-xyz"
+
+        def get_or_create_session(self, name: str) -> str:
+            return name
+
+        def send_command(self, name: str, command: str, timeout: int = 120) -> str:
+            self.last_command = command
+            return "ok-json\n__OMG_TMUX_EXIT_CODE__:7"
+
+        def kill_session(self, name: str) -> bool:
+            self.killed.append(name)
+            return True
+
+    fake_mgr = _FakeMgr()
+    prompt = "don't break"
+
+    monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: fake_mgr)
+
+    result = team_router.invoke_codex_tmux(prompt, "/tmp")
+
+    assert shlex.quote(prompt) in fake_mgr.last_command
+    assert result == {"model": "codex-cli", "output": "ok-json", "exit_code": 7}
+    assert fake_mgr.killed == ["omg-codex-xyz"]
+
+
+def test_invoke_gemini_tmux_reports_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeMgr:
+        def __init__(self) -> None:
+            self.killed: list[str] = []
+
+        def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
+            return "omg-gemini-xyz"
+
+        def get_or_create_session(self, name: str) -> str:
+            return name
+
+        def send_command(self, name: str, command: str, timeout: int = 120) -> str:
+            return "gemini-output\n__OMG_TMUX_EXIT_CODE__:3"
+
+        def kill_session(self, name: str) -> bool:
+            self.killed.append(name)
+            return True
+
+    fake_mgr = _FakeMgr()
+    monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: fake_mgr)
+
+    result = team_router.invoke_gemini_tmux("hello", "/tmp")
+
+    assert result == {"model": "gemini-cli", "output": "gemini-output", "exit_code": 3}
+    assert fake_mgr.killed == ["omg-gemini-xyz"]
