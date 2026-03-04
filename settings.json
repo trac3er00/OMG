@@ -232,7 +232,7 @@
     ]
   },
   "_omg": {
-    "_version": "1.0.5",
+    "_version": "2.0.0-alpha",
     "default_mode": "ulw+ralph",
     "vision_auto": true,
     "false_fix_detection": true,
@@ -251,7 +251,13 @@
       "agent_registry": true,
       "circuit_breaker_v2": true,
       "cognitive_modes": true,
-      "agent_routing": true
+      "agent_routing": true,
+      "COST_TRACKING": false,
+      "GIT_WORKFLOW": false,
+      "SESSION_ANALYTICS": false,
+      "TEST_GENERATION": false,
+      "DEP_HEALTH": false,
+      "CODEBASE_VIZ": false
     }
   }
 }
