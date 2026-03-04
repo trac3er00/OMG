@@ -24,7 +24,6 @@ pytest.ini
 
 # Development and internal tooling
 docs/
-hud/
 
 # Rust crates (optional native extensions, not needed for npm)
 crates/
@@ -38,7 +37,6 @@ registry/
 
 # Runtime config (not distributable)
 settings.json.bak.*
-.mcp.json
 .mcp.json.bak.*
 .claude/
 
