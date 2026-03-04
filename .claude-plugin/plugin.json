@@ -1,6 +1,6 @@
 {
   "name": "omg",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "OMG standalone orchestration layer for Claude Code - multi-agent coordination with Codex/Gemini",
   "author": {
     "name": "trac3er00"

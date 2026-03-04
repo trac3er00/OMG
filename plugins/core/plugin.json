@@ -1,6 +1,6 @@
 {
   "name": "omg-core",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Core OMG commands - essential functionality for routing, initialization, and multi-agent orchestration",
   "type": "omg-plugin",
   "commands": {
