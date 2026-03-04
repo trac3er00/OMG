@@ -978,9 +978,15 @@ run_install_like() {
                         echo "  ⊘ Skipped (manual merge needed)"
                     fi
                 else
-                    # read failed (non-interactive context missed by -t check) — auto-apply
-                    python3 "$MERGE" "$TARGET" "$SOURCE"
-                    echo "  ✓ Settings merged (auto — non-interactive fallback)"
+                    # read failed — only auto-apply if we can confirm non-interactive context
+                    # non-interactive fallback: check for clear non-interactive indicators
+                    if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ]; then
+                        python3 "$MERGE" "$TARGET" "$SOURCE"
+                        echo "  ✓ Settings merged (auto — non-interactive fallback)"
+                    else
+                        echo "  ⚠ Could not read input. Skipping merge to be safe."
+                        echo "    Run manually: ./OMG-setup.sh update --merge-policy=apply"
+                    fi
                 fi
             fi
         fi
