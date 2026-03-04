@@ -1,7 +1,7 @@
 ---
 description: Deep strategic planning — understands user direction, asks smart questions, creates comprehensive plan with domain awareness
 allowed-tools: Read, Write, Edit, MultiEdit, Bash(find:*), Bash(cat:*), Bash(git:*), Bash(wc:*), Bash(tree:*), Bash(mkdir:*), Bash(tee:*), Grep, Glob
-argument-hint: "[feature or gomg to plan]"
+argument-hint: "[feature or goal to plan]"
 ---
 
 # /OMG:deep-plan — Strategic Planning with Direction Understanding
@@ -12,14 +12,14 @@ Deep planning = "understand WHY the user wants this, WHAT direction they're head
 
 ## Step 1: Direction Discovery (MANDATORY)
 
-Do not assume gomgs, constraints, or context. Extract direction from:
+Do not assume goals, constraints, or context. Extract direction from:
 - user prompt
 - `.omg/state/handoff.md`
 - `.omg/state/ledger/failure-tracker.json`
 - current repo structure and patterns
 
 Before planning anything, understand:
-1. **User's real gomg** — Often the stated request is one step toward something bigger. Ask: "What's the end state you're imagining?"
+1. **User's real goal** — Often the stated request is one step toward something bigger. Ask: "What's the end state you're imagining?"
 2. **User's constraints** — Time, budget, existing code, team preferences, tech stack decisions already made.
 3. **User's domain knowledge** — Are they expert in this domain (follow their lead) or exploring (guide them)?
 4. **What they've already tried** — Check .omg/state/handoff.md, failure-tracker.json, git log.
@@ -111,7 +111,7 @@ Key interfaces: [list the interfaces/types this touches]
 
 Show the plan to the user. Ask:
 - "Does this match the direction you're thinking?"
-- "Anything I'm missing about your gomgs?"
+- "Anything I'm missing about your goals?"
 - "Should I adjust the scope or priority?"
 
 Update the plan based on feedback BEFORE starting implementation.
@@ -206,7 +206,7 @@ If this is a new domain:
 ## Idea-as-Code Contract (required)
 
 Before leaving planning, ensure `.omg/idea.yml` exists with:
-- `gomg`
+- `goal`
 - `constraints[]`
 - `acceptance[]`
 - `risk.security[]|risk.performance[]|risk.compatibility[]`

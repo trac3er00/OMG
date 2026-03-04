@@ -28,7 +28,7 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
 
 
 def test_cli_runtime_dispatch_inline_json():
-    proc = _run(["runtime", "dispatch", "--runtime", "claude", "--idea-json", '{"gomg":"x"}'])
+    proc = _run(["runtime", "dispatch", "--runtime", "claude", "--idea-json", '{"goal":"x"}'])
     assert proc.returncode == 0
     out = json.loads(proc.stdout)
     assert out["status"] == "ok"

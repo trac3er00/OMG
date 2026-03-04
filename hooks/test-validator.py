@@ -5,7 +5,7 @@ Catches not just fake tests, but MEANINGLESS tests.
 
 v4 additions:
   - Detects "boilerplate-only" test files (only testing existence/types)
-  - Checks if tests align with user stories / working-memory gomgs
+  - Checks if tests align with user stories / working-memory goals
   - Warns when tests only cover happy path
 
 Callable API:

@@ -150,8 +150,8 @@ if ralph_loop:
         if rl.get("active"):
             rl_iter = rl.get("iteration", 0)
             rl_max = rl.get("max_iterations", 50)
-            rl_gomg = rl.get("original_prompt", "")[:80]
-            parts.append(f"## Ralph Loop\nIteration: {rl_iter}/{rl_max} | Gomg: {rl_gomg}")
+            rl_goal = rl.get("original_prompt", "")[:80]
+            parts.append(f"## Ralph Loop\nIteration: {rl_iter}/{rl_max} | Goal: {rl_goal}")
     except Exception:
         pass
 

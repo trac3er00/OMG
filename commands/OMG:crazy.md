@@ -9,7 +9,7 @@ argument-hint: "[task description]"
 ## Phase 1: Intent Classification (BEFORE acting)
 
 STOP. Before doing ANYTHING, say out loud:
-"I understand you want me to [INTENT]: [specific gomg]."
+"I understand you want me to [INTENT]: [specific goal]."
 
 | Signal | Intent | Action |
 |--------|--------|--------|

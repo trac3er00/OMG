@@ -199,7 +199,7 @@ if handoff_fresh and os.path.exists(handoff_path):
 
             header = section.split("\n")[0].lower()
 
-            if any(k in header for k in ("gomg", "next", "fail", "state", "decision")):
+            if any(k in header for k in ("goal", "next", "fail", "state", "decision")):
 
                 key_parts.append("## " + section[:300])
 

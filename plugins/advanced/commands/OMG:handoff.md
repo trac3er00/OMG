@@ -14,7 +14,7 @@ argument-hint: "[optional: --portable for cross-platform, or reason for handoff]
 ## Philosophy
 A handoff is NOT a data dump. It's a **briefing** for the next session.
 The next Claude (in ANY platform) should read this and know EXACTLY:
-1. What was the gomg
+1. What was the goal
 2. What was accomplished (with evidence)
 3. What decisions were made and WHY
 4. What failed and WHY (so it doesn't repeat)
@@ -36,7 +36,7 @@ DO NOT copy-paste raw data. SYNTHESIZE into this structure (≤ 60 lines total):
 ```markdown
 # Handoff — [date]
 
-## Gomg
+## Goal
 [1 sentence: what we're trying to achieve]
 
 ## What Was Done (with evidence)

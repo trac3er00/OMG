@@ -9,13 +9,13 @@ class GPTAdapter:
     runtime = "gpt"
 
     def plan(self, idea: dict[str, Any]) -> dict[str, Any]:
-        gomg = str(idea.get("gomg", "")).strip() or "unspecified-gomg"
+        goal = str(idea.get("goal", "")).strip() or "unspecified-goal"
         return {
             "runtime": self.runtime,
             "phase": "plan",
             "status": "planned",
-            "gomg": gomg,
-            "steps": ["analyze-gomg", "generate-plan", "emit-checklist"],
+            "goal": goal,
+            "steps": ["analyze-goal", "generate-plan", "emit-checklist"],
         }
 
     def execute(self, plan: dict[str, Any]) -> dict[str, Any]:

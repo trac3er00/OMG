@@ -5,7 +5,7 @@ from runtime.adapters import get_adapters
 
 def test_adapter_parity_schema_keys():
     adapters = get_adapters()
-    idea = {"gomg": "Implement auth middleware"}
+    idea = {"goal": "Implement auth middleware"}
 
     baseline = None
     for name, adapter in adapters.items():

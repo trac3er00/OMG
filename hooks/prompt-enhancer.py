@@ -188,21 +188,21 @@ elif is_ulw and budget_ok():
 if is_ulw and get_feature_flag('ralph_loop'):
     ralph_path = os.path.join(project_dir, '.omg', 'state', 'ralph-loop.json')
     if not os.path.exists(ralph_path):
-        # Extract the gomg from the prompt (everything after the keyword)
-        gomg = prompt.strip()
+        # Extract the goal from the prompt (everything after the keyword)
+        goal = prompt.strip()
         for kw in ('ralph', 'ulw', 'ultrawork'):
             if kw in prompt_lower:
                 idx = prompt_lower.find(kw) + len(kw)
                 extracted = prompt[idx:].strip()
                 if extracted:
-                    gomg = extracted
+                    goal = extracted
                 break
         from datetime import datetime as _dt, timezone
         state = {
             'active': True,
             'iteration': 0,
             'max_iterations': 50,
-            'original_prompt': gomg[:200],
+            'original_prompt': goal[:200],
             'started_at': _dt.now(timezone.utc).isoformat(),
             'checklist_path': '.omg/state/_checklist.md'
         }
@@ -322,7 +322,7 @@ elif has_codex_signal:
 if route_lock and budget_ok():
     if route_lock == "deep-plan":
         add(
-            '@route-lock: Explicit keyword route=deep-plan. Execute /OMG:deep-plan "[gomg]" FIRST. '
+            '@route-lock: Explicit keyword route=deep-plan. Execute /OMG:deep-plan "[goal]" FIRST. '
             "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
         )
     elif route_lock == "ccg":
