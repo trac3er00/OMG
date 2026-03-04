@@ -26,3 +26,14 @@ def test_plugin_mcp_config_includes_required_servers():
     assert "filesystem" in servers
     assert "websearch" in servers
     assert "chrome-devtools" in servers
+
+
+def test_plugin_manifest_mcp_servers_reference_exists():
+    manifest = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert isinstance(manifest, dict), "plugin.json must be a JSON object"
+    if "mcpServers" in manifest:
+        mcp_ref = manifest["mcpServers"]
+        if isinstance(mcp_ref, str):
+            assert (ROOT / ".mcp.json").exists(), f"mcpServers path reference {mcp_ref!r} target missing"
+        else:
+            assert isinstance(mcp_ref, dict), "mcpServers must be a string path or dict"
