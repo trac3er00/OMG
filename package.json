@@ -1,0 +1,26 @@
+{
+  "name": "oh-my-god",
+  "version": "1.0.2",
+  "description": "OAL (Orchestration Abstraction Layer) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code",
+  "main": "OMG-setup.sh",
+  "scripts": {
+    "install": "./OMG-setup.sh install",
+    "update": "./OMG-setup.sh update",
+    "uninstall": "./OMG-setup.sh uninstall",
+    "test": "python3 -m pytest tests/ -x -q"
+  },
+  "keywords": ["claude", "claude-code", "orchestration", "multi-agent", "ai", "llm", "codex", "gemini"],
+  "author": "trac3er00",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/trac3er00/OAL.git"
+  },
+  "bugs": {
+    "url": "https://github.com/trac3er00/OAL/issues"
+  },
+  "homepage": "https://github.com/trac3er00/OAL#readme",
+  "engines": {
+    "node": ">=14"
+  }
+}
