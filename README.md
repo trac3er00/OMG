@@ -1,12 +1,13 @@
-# OMG v1.0.2
+# OMG v1.0.3
 
 OMG (Oh My God) is a standalone orchestration layer for Claude Code.
 It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
 
-- Version: `v1.0.2`
+- Version: `v1.0.3`
+- npm: `npm install @trac3er/oh-my-god`
 - Maintainer: `trac3er00`
 - Repo: `git@github.com:trac3er00/OMG.git`
-- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.2`
+- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.3`
 
 ## What OMG Solves
 
@@ -30,8 +31,8 @@ OMG is built for teams and solo developers who want:
 - Hooks: 27 Python hooks
 - Core rules: 5
 - Contextual rules: 17
-- Agents: 15
-- Commands: 10 core + 10 advanced (+ compatibility aliases)
+- Agents: 21
+- Commands: 18 (`/OMG:*` namespace)
 
 ## Requirements
 
@@ -40,14 +41,28 @@ OMG is built for teams and solo developers who want:
 
 ## Installation
 
-### Standard install
+### Via npm (recommended)
 
 ```bash
+npm install @trac3er/oh-my-god
+```
+
+Or install the latest version explicitly:
+
+```bash
+npm install @trac3er/oh-my-god@latest
+```
+
+### Via git
+
+```bash
+git clone git@github.com:trac3er00/OMG.git
+cd OMG
 chmod +x OMG-setup.sh
 ./OMG-setup.sh install
 ```
 
-### Plugin-oriented install (recommended)
+### Plugin-oriented install
 
 ```bash
 ./OMG-setup.sh install --install-as-plugin
@@ -211,14 +226,21 @@ omg/
 
 ## Versioning and Releases
 
-Current version: `v1.0.2`
+Current version: `v1.0.3`
 
-Recommended release flow:
+Releases are automated via GitHub Actions. When a version tag is pushed, the `publish-npm.yml` workflow automatically publishes to npm:
 
 ```bash
-git tag -a v1.0.2 -m "OMG v1.0.2"
-git push origin v1.0.2
-gh release create v1.0.2 --title "OMG v1.0.2" --notes "Release notes"
+# bump version in package.json, then:
+git tag v1.0.3
+git push origin v1.0.3
+# → GitHub Actions auto-publishes @trac3er/oh-my-god@1.0.3 to npm
+```
+
+Manual release (if needed):
+
+```bash
+gh release create v1.0.3 --title "OMG v1.0.3" --notes "Release notes"
 ```
 
 ## Compatibility Notes

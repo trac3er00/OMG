@@ -1,5 +1,5 @@
 # OMG - Oh My God
-# Gitignore for Claude Code plugin
+# Gitignore for Claude Code orchestration plugin
 
 # Python
 __pycache__/
@@ -29,8 +29,6 @@ pip-log.txt
 logs/
 
 # Test artifacts
-tests/__pycache__/
-tests/.pytest_cache/
 .pytest_cache/
 .coverage
 htmlcov/
@@ -43,9 +41,10 @@ htmlcov/
 *.bak
 *.backup
 
-# Node (if any JS tooling)
+# Node
 node_modules/
 npm-debug.log*
+package-lock.json
 
 # OS files
 Thumbs.db
@@ -58,14 +57,15 @@ desktop.ini
 # Claude plugin cache (if present in repo workspace)
 .claude/plugins/cache/
 
-# dot-folders
+# Runtime state directories
 .oal/
 .omg/
-# Explicit credential store protection (belt-and-suspenders with .oal/)
-credentials.enc
-credentials.meta
 .omc/
 .sisyphus/
+
+# Credential store
+credentials.enc
+credentials.meta
 
 # Plugin runtime directories (populated on install/use)
 plugins/advanced/agents/
