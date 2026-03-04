@@ -1,6 +1,6 @@
 ---
 description: Deep strategic planning — understands user direction, asks smart questions, creates comprehensive plan with domain awareness
-allowed-tools: Read, Write, Edit, MultiEdit, Bash(find:*), Bash(cat:*), Bash(git:*), Bash(wc:*), Bash(tree:*), Bash(mkdir:*), Bash(tee:*), Grep, Glob
+allowed-tools: Read, Write, Edit, MultiEdit, Bash(find:*), Bash(cat:*), Bash(git:*), Bash(wc:*), Bash(tree:*), Bash(mkdir:*), Bash(tee:*), Bash(python3:*), Grep, Glob
 argument-hint: "[feature or goal to plan]"
 ---
 
@@ -116,49 +116,123 @@ Show the plan to the user. Ask:
 
 Update the plan based on feedback BEFORE starting implementation.
 
-## Step 4.5: Codex Plan Validation (MANDATORY)
+## Step 4.5: Claude vs Codex Debate (MANDATORY)
 
-Before implementation, run a dedicated Codex validation pass on the final plan.
+Adversarial debate produces stronger plans than parallel tracks. Two models argue their planning approaches, and the best ideas from both sides survive. Intellectual conflict forces each side to sharpen and justify their position — weaknesses get exposed and the merged result is harder to break.
 
-Checklist for Codex validation:
-- ordering and dependency correctness
-- hidden edge cases and rollback gaps
-- security/performance blind spots
-- missing verification steps
+### Code Name Assignment
 
-Only after applying those corrections, continue to execution.
+Before the debate starts, assign each side a unique tactical code name from the pool below. Pick two at random. They MUST be different. Announce: **"This debate: [NAME-A] (Claude) vs [NAME-B] (Codex)."**
 
-## Step 4.6: Multi-Agent Bootstrap (MANDATORY)
-
-After validation, launch exactly 5 planning tracks with mixed-model intent using OMG-native routing (same planning discipline as OMG):
-
-1. Architect track (Claude)
-2. Backend track (GPT/Codex)
-3. Frontend track (Gemini)
-4. Security track (GPT/Codex)
-5. Verification track (Claude)
-
-Dispatch pattern is mandatory: all 5 tracks launch in parallel as background sub-agents.
-
-```python
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Architect planning track", prompt="...")
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Backend planning track", prompt="...")
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Frontend planning track", prompt="...")
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Security planning track", prompt="...")
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Verification planning track", prompt="...")
+```
+CODE_NAMES = [
+  ALPINE, OBSIDIAN, VIPER, THUNDER, FALCON, GRANITE,
+  PHANTOM, HORIZON, SENTINEL, ECLIPSE, ARCTIC, IRONSIDE,
+  MERIDIAN, ONYX, RAPTOR, SUMMIT
+]
 ```
 
-Collection and merge protocol:
-- collect every track using `background_output(task_id="...")`
-- run a `sequential-thinking` merge pass to resolve conflicts and ordering
-- emit one final executable checklist only after the merge pass
+The code names are used as the debater's identity throughout all three rounds — label every argument block with the assigned code name.
 
-Each track must return:
-- concrete plan steps
-- risk notes
-- verification commands
+### Debate Topic
 
-Then merge outputs into a single execution checklist before implementation.
+The debate covers the PLAN itself — each side argues for their approach to the user's goal:
+- Architecture decisions (which patterns, which abstractions)
+- Implementation strategy (phases, ordering, dependencies)
+- Technology/library choices (if applicable)
+- Risk assessment (what could go wrong, how to prevent it)
+
+### Round 1 — Opening Arguments (parallel dispatch)
+
+Claude generates its opening argument. Codex is dispatched in parallel:
+
+```python
+# Claude: generate opening argument inline
+# Codex: dispatch via established OMG escalation pattern
+/OMG:escalate codex "You are debating a software plan. Your code name is [NAME-B].
+Plan context: [paste the plan from Step 3 here]
+Generate your Opening Argument for this plan using the template below.
+Be specific, cite trade-offs, and argue why your approach is superior."
+```
+
+Each argument MUST follow this template:
+
+```
+## [CODE_NAME] — Opening Argument
+**Position**: [1-2 sentence thesis on how to approach this plan]
+**Architecture**: [proposed structure, patterns, abstractions]
+**Implementation Strategy**: [phases, ordering, key dependencies]
+**Risk Assessment**: [top 3 risks + mitigations]
+**Key Advantage**: [why this approach outperforms alternatives]
+```
+
+### Round 2 — Rebuttals (sequential)
+
+Each side reads the opponent's Opening Argument, then attacks its weaknesses and defends its own position.
+
+```python
+# Claude: read Codex's opening, write rebuttal
+# Codex: read Claude's opening, dispatch rebuttal
+/OMG:escalate codex "You are [NAME-B] in a plan debate. Your opponent [NAME-A] argued: [paste Claude opening].
+Write your Rebuttal using the template below. Be specific — cite exact weaknesses."
+```
+
+Each rebuttal MUST follow this template:
+
+```
+## [CODE_NAME] — Rebuttal
+**Opponent's Weaknesses**: [specific critiques of the other side's Opening]
+**Defended Position**: [how own approach addresses opponent's critiques]
+**Concessions**: [what the opponent got RIGHT — intellectual honesty required]
+**Updated Proposal**: [refined approach incorporating valid opponent points]
+```
+
+> **Consensus Shortcut**: If after Round 1 both positions are >80% aligned (same architecture, same strategy, same risk assessment) — skip directly to the Merge Pass. No point debating identical approaches.
+
+### Round 3 — Final Positions (sequential)
+
+Each side reads both Rebuttals, then writes their final consolidated position.
+
+```python
+# Claude: read both rebuttals, consolidate
+# Codex: read both rebuttals, dispatch final
+/OMG:escalate codex "You are [NAME-B] in the final round. After the rebuttals:
+[NAME-A] rebuttal: [paste Claude rebuttal]
+[NAME-B] rebuttal: [paste Codex rebuttal]
+Write your Final Position using the template below."
+```
+
+Each final position MUST follow this template:
+
+```
+## [CODE_NAME] — Final Position
+**Consolidated Approach**: [the refined plan after all arguments]
+**Incorporated from Opponent**: [specific ideas adopted from the other side]
+**Non-Negotiables**: [positions that survived all challenges]
+**Proposed Execution Steps**: [concrete numbered steps, actionable]
+```
+
+> **Codex Fallback**: If Codex is unavailable (timeout, auth failure, CLI error) — Claude enters **Steel-Man Mode**: generate the strongest OPPOSING argument to your own position, argue against yourself across all 3 rounds, then proceed to merge. This ensures adversarial rigor even without Codex.
+
+### Merge Pass — Sequential-Thinking Synthesis
+
+After Round 3 (or after the Consensus Shortcut), run a `sequential-thinking` merge pass across all debate output.
+
+Score each argument and proposed step from both sides:
+- **Feasibility** (0-3): Can this actually be implemented in this codebase?
+- **Risk Coverage** (0-3): Does it address failure modes and edge cases?
+- **Specificity** (0-3): Are steps concrete and actionable — not vague?
+- **Codebase Consistency** (0-3): Does it match existing patterns and conventions?
+
+Merge protocol:
+- For each architectural decision point — pick the argument with the highest total score
+- For complementary (non-conflicting) ideas from both sides — merge both into the output
+- Score by argument quality, not volume — one strong argument beats ten weak ones
+- Output: ONE unified plan that takes the best from [NAME-A] and [NAME-B]
+
+The merged output **replaces** the plan written in Step 3 (overwrite `.omg/state/_plan.md`).
+
+Save the full debate transcript (all 3 rounds + merge output) to `.omg/state/debate-transcript.md` for audit trail.
 
 ## Step 5: Generate Checklist
 
