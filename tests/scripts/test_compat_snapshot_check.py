@@ -43,7 +43,7 @@ def test_snapshot_check_detects_drift(tmp_path: Path):
 
 
 def test_legacy_checker_wrapper_still_works():
-    legacy_checker = ROOT / "scripts" / "check-omc-contract-snapshot.py"
+    legacy_checker = ROOT / "scripts" / "check-omg-contract-snapshot.py"
     proc = subprocess.run(
         [sys.executable, str(legacy_checker), "--strict-version"],
         cwd=str(ROOT),

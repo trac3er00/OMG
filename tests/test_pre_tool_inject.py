@@ -118,11 +118,11 @@ def test_plan_truncated_to_200_chars(tmp_path):
 
 # ━━━ 6. Legacy .omc/_plan.md fallback ━━━
 
-def test_legacy_omc_plan_fallback(tmp_path):
-    """If _plan.md only exists under .omc/, should still inject."""
-    omc_dir = tmp_path / ".omc"
-    omc_dir.mkdir(parents=True)
-    (omc_dir / "_plan.md").write_text("# Legacy Plan\n- Old step\n")
+def test_legacy_plan_fallback(tmp_path):
+    """If _plan.md only exists under legacy .omc/ dir, should still inject."""
+    omc_legacy_dir = tmp_path / ".omc"
+    omc_legacy_dir.mkdir(parents=True)
+    (omc_legacy_dir / "_plan.md").write_text("# Legacy Plan\n- Old step\n")
 
     result = _run({"tool_name": "Write"}, tmp_path)
 

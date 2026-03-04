@@ -49,4 +49,4 @@ Evidence now includes provider health details (`cli_health`) with:
 - auth readiness (`auth status` probe)
 - `live_connection` boolean per provider
 
-No external OMC plugin is required.
+No external legacy plugin is required.

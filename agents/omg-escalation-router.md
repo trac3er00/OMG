@@ -14,4 +14,4 @@ Always: include project context (from profile.yaml) in delegation.
 Always: propose to user first, never auto-spawn.
 Collect outputs → synthesize into single report with model attribution.
 If models disagree: present both views, let user decide.
-Standalone mode: use `/OMG:teams` or `/OMG:ccg` directly (no OMC dependency).
+Standalone mode: use `/OMG:teams` or `/OMG:ccg` directly (standalone — no external dependency).

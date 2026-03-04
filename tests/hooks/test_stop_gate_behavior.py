@@ -117,7 +117,7 @@ def test_write_failure_check_ignores_internal_and_unknown_status(tmp_path: Path)
         [
             {"tool": "Write", "file": "src/app.py", "success": True},
             {"tool": "Bash", "command": "pytest -q", "exit_code": 0},
-            {"tool": "Write", "file": ".omc/_checklist.md", "success": False},
+            {"tool": "Write", "file": ".omg/_checklist.md", "success": False},
             {"tool": "Write", "file": "src/other.py", "success": None},
         ],
     )

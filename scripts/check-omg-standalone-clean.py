@@ -10,21 +10,22 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 # Paths where legacy aliases are explicitly allowed.
-ALLOW_OMC_CLI = {
-    ROOT / "commands" / "OMG:omc-compat.md",
+ALLOW_COMPAT_CLI = {
+    ROOT / "commands" / "OMG:compat.md",
     ROOT / "tests" / "scripts" / "test_omg_cli.py",
     ROOT / "tests" / "scripts" / "test_standalone_clean_check.py",
     ROOT / "scripts" / "check-omg-standalone-clean.py",
+    ROOT / ".github" / "workflows" / "omg-compat-gate.yml",
 }
 
 ALLOW_LEGACY_MIGRATOR = {
-    ROOT / "scripts" / "omc_to_omg_migrate.py",
+    ROOT / "scripts" / "migrate-legacy.py",
     ROOT / "tests" / "e2e" / "test_standalone_ga.py",
     ROOT / "scripts" / "check-omg-standalone-clean.py",
 }
 
 ALLOW_LEGACY_SNAPSHOT_CHECKER = {
-    ROOT / "scripts" / "check-omc-contract-snapshot.py",
+    ROOT / "scripts" / "check-omg-contract-snapshot.py",
     ROOT / "tests" / "scripts" / "test_compat_snapshot_check.py",
     ROOT / "scripts" / "check-omg-standalone-clean.py",
 }
@@ -67,22 +68,22 @@ def main() -> int:
 
     violations: list[str] = []
 
-    deprecated_workflow = root / ".github" / "workflows" / "omc-compat-gate.yml"
+    deprecated_workflow = root / ".github" / "workflows" / "compat-gate.yml"
     if deprecated_workflow.exists():
         violations.append(f"deprecated workflow exists: {deprecated_workflow.relative_to(root)}")
 
     for path in _iter_files(root):
         rel = path.relative_to(root)
 
-        if _contains(path, "python3 scripts/omg.py omc "):
-            if path not in ALLOW_OMC_CLI:
+        if _contains(path, "python3 scripts/omg.py compat ") or _contains(path, "python3 scripts/omg.py omc "):
+            if path not in ALLOW_COMPAT_CLI:
                 violations.append(f"{rel}: legacy CLI namespace used outside allowlist")
 
-        if _contains(path, "omc_to_omg_migrate.py"):
+        if _contains(path, "migrate-legacy.py"):
             if path not in ALLOW_LEGACY_MIGRATOR:
                 violations.append(f"{rel}: legacy migrator path reference outside allowlist")
 
-        if _contains(path, "check-omc-contract-snapshot.py"):
+        if _contains(path, "check-omg-contract-snapshot.py"):
             if path not in ALLOW_LEGACY_SNAPSHOT_CHECKER:
                 violations.append(f"{rel}: legacy snapshot checker reference outside allowlist")
 

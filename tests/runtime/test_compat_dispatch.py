@@ -13,11 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_list_compat_skills_meets_standalone_contract():
     compat = list_compat_skills()
     assert len(compat) >= 30
-    assert "omc-teams" in compat
+    assert "omg-teams" in compat
     assert "pipeline" in compat
     assert "security-review" in compat
     assert "ccg" in compat
-    assert "superpowers" in compat
+    assert "omg-superpowers" in compat
     assert "claude-flow" in compat
     assert "memsearch" in compat
 
@@ -29,14 +29,14 @@ def test_list_compat_skills_has_broad_legacy_alias_coverage():
 
 def test_dispatch_representative_skills(tmp_path: Path):
     for skill in [
-        "omc-teams",
+        "omg-teams",
         "ccg",
         "pipeline",
         "note",
-        "omc-doctor",
+        "omg-doctor",
         "security-review",
         "plan",
-        "superpowers",
+        "omg-superpowers",
         "claude-flow",
         "memsearch",
         "ralph-wiggum",
@@ -53,9 +53,9 @@ def test_dispatch_all_compat_skills(tmp_path: Path):
 
 
 def test_contract_is_attached_and_has_core_fields(tmp_path: Path):
-    result = dispatch_compat_skill(skill="omc-teams", problem="x", project_dir=str(tmp_path))
+    result = dispatch_compat_skill(skill="omg-teams", problem="x", project_dir=str(tmp_path))
     contract = result["contract"]
-    assert contract["skill"] == "omc-teams"
+    assert contract["skill"] == "omg-teams"
     assert contract["route"] == "teams"
     assert "inputs" in contract
     assert "outputs" in contract
@@ -64,13 +64,13 @@ def test_contract_is_attached_and_has_core_fields(tmp_path: Path):
 
 
 def test_compat_setup_and_doctor_routes_create_bootstrap(tmp_path: Path):
-    setup = dispatch_compat_skill(skill="omc-setup", problem="bootstrap", project_dir=str(tmp_path))
+    setup = dispatch_compat_skill(skill="omg-setup", problem="bootstrap", project_dir=str(tmp_path))
     assert setup["status"] == "ok"
     assert (tmp_path / ".omg" / "state" / "profile.yaml").exists()
     assert (tmp_path / ".omg" / "idea.yml").exists()
     assert (tmp_path / ".omg" / "policy.yaml").exists()
 
-    doctor = dispatch_compat_skill(skill="omc-doctor", project_dir=str(tmp_path))
+    doctor = dispatch_compat_skill(skill="omg-doctor", project_dir=str(tmp_path))
     assert doctor["status"] == "ok"
     snapshot = doctor["result"]
     assert snapshot["status"] in {"pass", "warn"}
@@ -99,11 +99,11 @@ def test_promoted_skills_report_native_maturity(tmp_path: Path):
         "ultraqa",
         "analyze",
         "build-fix",
-        "learn-about-omc",
+        "learn-about-omg",
         "learner",
         "note",
         "project-session-manager",
-        "sciomc",
+        "sci-omg",
         "skill",
         "trace",
         "writer-memory",
@@ -170,7 +170,7 @@ def test_native_bridge_batch_writes_expected_artifacts(tmp_path: Path):
 
 def test_invalid_request_is_rejected_and_audited(tmp_path: Path):
     bad = dispatch_compat_skill(
-        skill="omc-teams",
+        skill="omg-teams",
         problem="x",
         files=["../secrets.txt"],
         project_dir=str(tmp_path),
@@ -182,7 +182,7 @@ def test_invalid_request_is_rejected_and_audited(tmp_path: Path):
     assert audit.exists()
     lines = [ln for ln in audit.read_text(encoding="utf-8").splitlines() if ln.strip()]
     assert lines, "audit ledger should contain at least one event"
-    assert (tmp_path / ".omg" / "state" / "ledger" / "omc-compat-audit.jsonl").exists()
+    assert (tmp_path / ".omg" / "state" / "ledger" / "compat-audit.jsonl").exists()
 
 
 def test_invalid_request_rejects_absolute_like_file_paths(tmp_path: Path):
@@ -198,7 +198,7 @@ def test_invalid_request_rejects_absolute_like_file_paths(tmp_path: Path):
 
 
 def test_valid_dispatch_writes_request_audit_event(tmp_path: Path):
-    ok = dispatch_compat_skill(skill="omc-teams", problem="audit ok", project_dir=str(tmp_path))
+    ok = dispatch_compat_skill(skill="omg-teams", problem="audit ok", project_dir=str(tmp_path))
     assert ok["status"] == "ok"
     audit = tmp_path / ".omg" / "state" / "ledger" / "omg-compat-audit.jsonl"
     assert audit.exists()

@@ -4,7 +4,7 @@ allowed-tools: Read, Write, Edit, Bash
 argument-hint: "--from <source-branch> [--into <target-branch>] [--preview]"
 ---
 
-# /OMG:merge — Merge OMG State Branches
+# /OMG:session-merge — Merge OMG State Branches
 
 Merge one OMG state branch into another with automatic conflict detection.
 
@@ -15,9 +15,9 @@ Merging is **OMG state only** — it merges branch metadata (`.omg/state/branche
 ## Usage
 
 ```
-/OMG:merge --from "experiment"
-/OMG:merge --from "experiment" --into "main"
-/OMG:merge --from "experiment" --preview
+/OMG:session-merge --from "experiment"
+/OMG:session-merge --from "experiment" --into "main"
+/OMG:session-merge --from "experiment" --preview
 ```
 
 ## What It Does
@@ -118,16 +118,16 @@ Or in `settings.json`:
 
 ```
 # 1. Create branches
-/OMG:branch --name "main"
-/OMG:branch --name "experiment"
+/OMG:session-branch --name "main"
+/OMG:session-branch --name "experiment"
 
 # 2. Do experimental work on "experiment" branch...
 
 # 3. Preview the merge
-/OMG:merge --from "experiment" --preview
+/OMG:session-merge --from "experiment" --preview
 
 # 4. If no conflicts, apply the merge
-/OMG:merge --from "experiment" --into "main"
+/OMG:session-merge --from "experiment" --into "main"
 
 # 5. Verify merge
 python3 tools/session_snapshot.py branches

@@ -1,57 +1,57 @@
 {
-  "name": "oal-core",
-  "version": "1.0.2",
-  "description": "Core OAL commands - essential functionality for routing, initialization, and multi-agent orchestration",
-  "type": "oal-plugin",
+  "name": "omg-core",
+  "version": "1.0.3",
+  "description": "Core OMG commands - essential functionality for routing, initialization, and multi-agent orchestration",
+  "type": "omg-plugin",
   "commands": {
     "init": {
-      "path": "commands/OAL:init.md",
+      "path": "commands/OMG:init.md",
       "description": "Unified initializer for project setup and domain scaffolding",
       "category": "setup"
     },
     "escalate": {
-      "path": "commands/OAL:escalate.md",
+      "path": "commands/OMG:escalate.md",
       "description": "Auto-route to Codex or Gemini",
       "category": "routing"
     },
     "teams": {
-      "path": "commands/OAL:teams.md",
+      "path": "commands/OMG:teams.md",
       "description": "Internal team routing for standalone operation",
       "category": "routing"
     },
     "ccg": {
-      "path": "commands/OAL:ccg.md",
+      "path": "commands/OMG:ccg.md",
       "description": "CCG mode - tri-track synthesis (Claude+Codex+Gemini)",
       "category": "routing"
     },
     "crazy": {
-      "path": "commands/OAL:crazy.md",
+      "path": "commands/OMG:crazy.md",
       "description": "CRAZY mode - parallel multi-agent orchestration",
       "category": "orchestration"
     },
     "compat": {
-      "path": "commands/OAL:compat.md",
+      "path": "commands/OMG:compat.md",
       "description": "Legacy skill compatibility dispatcher",
       "category": "compatibility"
     },
     "health-check": {
-      "path": "commands/OAL:health-check.md",
+      "path": "commands/OMG:health-check.md",
       "description": "Verify project setup and tool integration",
       "category": "setup"
     },
     "mode": {
-      "path": "commands/OAL:mode.md",
+      "path": "commands/OMG:mode.md",
       "description": "Set cognitive mode for the session",
       "category": "config"
     },
     "domain-init": {
-      "path": "commands/OAL:domain-init.md",
+      "path": "commands/OMG:domain-init.md",
       "description": "Alias for domain scaffolding (use init instead)",
       "category": "setup",
       "deprecated": true
     },
     "project-init": {
-      "path": "commands/OAL:project-init.md",
+      "path": "commands/OMG:project-init.md",
       "description": "Alias for project setup (use init instead)",
       "category": "setup",
       "deprecated": true

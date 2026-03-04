@@ -66,11 +66,11 @@ Advanced commands work the same as core commands:
 
 See `plugins/advanced/` for examples.
 
-## Migration from Superpowers
+## Migration from Legacy Plugins
 
-Advanced commands are OMG-native equivalents of superpowers capabilities:
+Advanced commands are OMG-native equivalents of legacy plugin capabilities:
 
-| Superpowers | OMG Advanced |
+| Legacy Plugin | OMG Advanced |
 |-------------|--------------|
 | `writing-plans` | `/OMG:deep-plan` |
 | `learner` | `/OMG:learn` |

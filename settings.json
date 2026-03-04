@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "OAL v1.0.2 — project-level config with hook registrations and feature flags. Hooks also registered in ~/.claude/settings.json (user-level) to avoid double-execution.",
+  "_comment": "OMG v1.0.3 — project-level config with hook registrations and feature flags. Hooks also registered in ~/.claude/settings.json (user-level) to avoid double-execution.",
   "permissions": {
     "allow": [
       "Agent",
@@ -231,8 +231,8 @@
       }
     ]
   },
-  "_oal": {
-    "_version": "1.0.2",
+  "_omg": {
+    "_version": "1.0.3",
     "default_mode": "ulw+ralph",
     "vision_auto": true,
     "false_fix_detection": true,

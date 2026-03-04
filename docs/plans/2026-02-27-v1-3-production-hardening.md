@@ -1,10 +1,10 @@
 # OMG v1.3 Production Hardening Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use OMG:deep-plan to implement this plan task-by-task.
 
-**Gomg:** Lock OMC compatibility as a production-grade contract with versioned snapshots, strict drift gates, and hardened request validation.
+**Gomg:** Lock legacy compatibility as a production-grade contract with versioned snapshots, strict drift gates, and hardened request validation.
 
-**Architecture:** Extend the OMC compatibility layer with explicit contract versioning + migration hooks, add runtime request validation/audit logging, and enforce these constraints via CI gates and no-vendor verification.
+**Architecture:** Extend the legacy compatibility layer with explicit contract versioning + migration hooks, add runtime request validation/audit logging, and enforce these constraints via CI gates and no-vendor verification.
 
 **Tech Stack:** Python 3.12, pytest, GitHub Actions.
 
@@ -21,14 +21,14 @@
 **Steps:**
 1. Add `contract_version` metadata to snapshot payload.
 2. Add migration utility stubs for older snapshot schema compatibility.
-3. Ensure `omg omc snapshot` emits deterministic payload.
+3. Ensure `omg compat snapshot` emits deterministic payload.
 4. Update snapshot test to verify version + schema.
 
 ### Task 2: Snapshot Drift Gate
 
 **Files:**
-- Create: `/Users/cminseo/Documents/scripts/Shell/OMG/scripts/check-omc-contract-snapshot.py`
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/.github/workflows/omc-compat-gate.yml`
+- Create: `/Users/cminseo/Documents/scripts/Shell/OMG/scripts/check-omg-contract-snapshot.py`
+- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/.github/workflows/compat-gate.yml`
 - Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/scripts/test_omc_snapshot_check.py`
 
 **Steps:**

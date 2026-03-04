@@ -1,6 +1,6 @@
 """OMG standalone legacy-compat dispatcher.
 
-Primary namespace is `compat/*` while legacy `omc/*` aliases remain supported.
+Primary namespace is `compat/*` while legacy `omg/*` aliases remain supported.
 """
 from __future__ import annotations
 
@@ -19,24 +19,24 @@ from runtime.dispatcher import dispatch_runtime
 from runtime.team_router import TeamDispatchRequest, dispatch_team
 
 CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
-LEGACY_CONTRACT_SNAPSHOT_SCHEMA = "OmcCompatContractSnapshot"
+LEGACY_CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
 CONTRACT_SNAPSHOT_VERSION = "1.0.0"
 LEGACY_SNAPSHOT_VERSION = "0.9.0"
 GAP_REPORT_SCHEMA = "OmgCompatGapReport"
-LEGACY_GAP_REPORT_SCHEMA = "OmcCompatGapReport"
+LEGACY_GAP_REPORT_SCHEMA = "OmgCompatGapReport"
 RESULT_SCHEMA = "OmgCompatResult"
-LEGACY_RESULT_SCHEMA = "OmcCompatResult"
+LEGACY_RESULT_SCHEMA = "OmgCompatResult"
 DEFAULT_CONTRACT_SNAPSHOT_PATH = "runtime/omg_compat_contract_snapshot.json"
-LEGACY_CONTRACT_SNAPSHOT_PATH = "runtime/omc_contract_snapshot.json"
+LEGACY_CONTRACT_SNAPSHOT_PATH = "runtime/omg_contract_snapshot.json"
 DEFAULT_GAP_REPORT_PATH = ".omg/evidence/omg-compat-gap.json"
-LEGACY_GAP_REPORT_PATH = ".omg/evidence/omc-compat-gap.json"
+LEGACY_GAP_REPORT_PATH = ".omg/evidence/compat-gap.json"
 DEFAULT_AUDIT_LEDGER_PATH = ".omg/state/ledger/omg-compat-audit.jsonl"
-LEGACY_AUDIT_LEDGER_PATH = ".omg/state/ledger/omc-compat-audit.jsonl"
+LEGACY_AUDIT_LEDGER_PATH = ".omg/state/ledger/compat-audit.jsonl"
 DEFAULT_EVENT_DISPATCH = "compat_dispatch"
 DEFAULT_EVENT_REQUEST = "compat_dispatch_request"
 LEGACY_EVENT_ALIASES: dict[str, str] = {
-    DEFAULT_EVENT_DISPATCH: "omc_dispatch",
-    DEFAULT_EVENT_REQUEST: "omc_dispatch_request",
+    DEFAULT_EVENT_DISPATCH: "omg_dispatch",
+    DEFAULT_EVENT_REQUEST: "omg_dispatch_request",
 }
 
 MAX_PROBLEM_CHARS = 4000
@@ -83,15 +83,15 @@ LEGACY_SKILL_ROUTES: dict[str, str] = {
     "external-context": "teams",
     "hooks-mastery": "health",
     "hud": "health",
-    "learn-about-omc": "learn",
+    "learn-about-omg": "learn",
     "learner": "learn",
     "mcp-setup": "health",
     "memsearch": "memory",
     "note": "memory",
-    "omc-doctor": "health",
-    "omc-help": "help",
-    "omc-setup": "init",
-    "omc-teams": "teams",
+    "omg-doctor": "health",
+    "omg-help": "help",
+    "omg-setup": "init",
+    "omg-teams": "teams",
     "pipeline": "pipeline",
     "plan": "plan",
     "planning-with-files": "plan",
@@ -102,10 +102,10 @@ LEGACY_SKILL_ROUTES: dict[str, str] = {
     "ralplan": "plan",
     "release": "runtime_ship",
     "review": "review",
-    "sciomc": "maintainer",
+    "sci-omg": "maintainer",
     "security-review": "secure",
     "skill": "learn",
-    "superpowers": "plan",
+    "omg-superpowers": "plan",
     "tdd": "plan",
     "team": "teams",
     "trace": "maintainer",
@@ -115,7 +115,7 @@ LEGACY_SKILL_ROUTES: dict[str, str] = {
     "writer-memory": "memory",
 }
 # Backward-compatible export
-OMC_SKILL_ROUTES = LEGACY_SKILL_ROUTES
+OMG_COMPAT_SKILL_ROUTES = LEGACY_SKILL_ROUTES
 
 ROUTE_MATURITY: dict[str, str] = {
     "teams": "native",
@@ -150,16 +150,16 @@ SKILL_MATURITY_OVERRIDES: dict[str, str] = {
     # Final bridge -> native promotion batch
     "analyze": "native",
     "build-fix": "native",
-    "learn-about-omc": "native",
+    "learn-about-omg": "native",
     "learner": "native",
     "note": "native",
     "project-session-manager": "native",
-    "sciomc": "native",
+    "sci-omg": "native",
     "skill": "native",
     "trace": "native",
     "writer-memory": "native",
     # Ecosystem imports promoted as first-class native routes
-    "superpowers": "native",
+    "omg-superpowers": "native",
     "ralph-wiggum": "native",
     "claude-flow": "native",
     "claude-mem": "native",
@@ -228,7 +228,7 @@ SKILL_OUTPUT_SCHEMA_OVERRIDES: dict[str, str] = {
     "ultraqa": "ReviewSynthesis",
     "analyze": "AnalysisCompatArtifact",
     "trace": "AnalysisCompatArtifact",
-    "sciomc": "AnalysisCompatArtifact",
+    "sci-omg": "AnalysisCompatArtifact",
     "project-session-manager": "SessionState",
 }
 
@@ -242,14 +242,14 @@ SKILL_SIDE_EFFECT_OVERRIDES: dict[str, list[str]] = {
     "build-fix": [".omg/state/build-fix.md"],
     "analyze": [".omg/evidence/analysis-analyze.json"],
     "trace": [".omg/evidence/analysis-trace.json"],
-    "sciomc": [".omg/evidence/analysis-sciomc.json"],
+    "sci-omg": [".omg/evidence/analysis-sci-omg.json"],
     "project-session-manager": [".omg/state/session.json"],
-    "learn-about-omc": [".omg/knowledge/learning/learn-about-omc.md"],
+    "learn-about-omg": [".omg/knowledge/learning/learn-about-omg.md"],
     "learner": [".omg/knowledge/learning/learner.md"],
     "skill": [".omg/knowledge/learning/skill.md"],
     "note": [".omg/knowledge/notes.md"],
     "writer-memory": [".omg/knowledge/writer-memory.md"],
-    "superpowers": [".omg/state/_plan.md", ".omg/state/_checklist.md"],
+    "omg-superpowers": [".omg/state/_plan.md", ".omg/state/_checklist.md"],
     "planning-with-files": [".omg/state/_plan.md", ".omg/state/_checklist.md"],
     "claude-mem": [".omg/state/working-memory.md"],
     "memsearch": [".omg/state/working-memory.md"],
@@ -261,10 +261,10 @@ SKILL_SIDE_EFFECT_OVERRIDES: dict[str, list[str]] = {
 }
 
 SKILL_ROUTE_NOTES: dict[str, str] = {
-    "omc-teams": "Legacy tmux worker dispatch replaced by internal Team router.",
+    "omg-teams": "Legacy tmux worker dispatch replaced by internal Team router.",
     "project-session-manager": "Session metadata maintained in .omg/state/session.json.",
-    "omc-setup": "Bootstraps OMG standalone state and baseline config files.",
-    "omc-doctor": "Health checks run against OMG standalone layout.",
+    "omg-setup": "Bootstraps OMG standalone state and baseline config files.",
+    "omg-doctor": "Health checks run against OMG standalone layout.",
     "pipeline": "Routes to OMG lab policy+pipeline executor.",
     "release": "Routes to runtime ship and emits release draft artifact.",
     "tdd": "Generates plan/checklist scaffolding for red-green-refactor workflow.",
@@ -273,7 +273,7 @@ SKILL_ROUTE_NOTES: dict[str, str] = {
     "trace": "Writes trace evidence artifact for debugging chain.",
     "learner": "Writes learning note into .omg/knowledge/learning.",
     "writer-memory": "Writes long-form memory artifact for writing workflows.",
-    "superpowers": "Imports TDD-first planning discipline into OMG plan route.",
+    "omg-superpowers": "Imports TDD-first planning discipline into OMG plan route.",
     "ralph-wiggum": "Persistent iteration loop via runtime persistent-mode state.",
     "claude-flow": "Maps to CCG route for multi-agent orchestration semantics.",
     "claude-mem": "Maps to memory route for durable working-context updates.",
@@ -306,7 +306,7 @@ LEGACY_SKILL_CONTRACTS: dict[str, dict[str, Any]] = {
     skill: _contract_for(skill, route) for skill, route in LEGACY_SKILL_ROUTES.items()
 }
 # Backward-compatible export
-OMC_SKILL_CONTRACTS = LEGACY_SKILL_CONTRACTS
+OMG_COMPAT_SKILL_CONTRACTS = LEGACY_SKILL_CONTRACTS
 
 
 def list_compat_skills() -> list[str]:
@@ -339,11 +339,11 @@ def migrate_contract_snapshot_payload(payload: dict[str, Any]) -> tuple[dict[str
 
     if "schema" not in migrated:
         migrated["schema"] = LEGACY_CONTRACT_SNAPSHOT_SCHEMA
-        migrations.append("assign-missing-schema:legacy-omc")
+        migrations.append("assign-missing-schema:legacy-omg")
 
     if migrated.get("schema") == LEGACY_CONTRACT_SNAPSHOT_SCHEMA:
         migrated["schema"] = CONTRACT_SNAPSHOT_SCHEMA
-        migrations.append("migrate-schema-omc-to-omg")
+        migrations.append("migrate-schema-legacy-to-omg")
 
     if "contract_version" not in migrated:
         migrated["contract_version"] = LEGACY_SNAPSHOT_VERSION
@@ -1099,7 +1099,7 @@ def dispatch_compat_skill(
             skill=normalized,
             route=route,
             findings=["OMG layout initialized."],
-            actions=["Run `omg compat run --skill omc-doctor` to verify health."],
+            actions=["Run `omg compat run --skill omg-doctor` to verify health."],
             artifacts=artifacts,
         )
 
@@ -1178,7 +1178,7 @@ def dispatch_compat_skill(
         )
 
     if route == "learn":
-        if normalized in {"learn-about-omc", "learner", "skill"}:
+        if normalized in {"learn-about-omg", "learner", "skill"}:
             learn_path = _write_learning_artifact(root, normalized, msg, context)
             return _res(
                 skill=normalized,
@@ -1197,7 +1197,7 @@ def dispatch_compat_skill(
         )
 
     if route == "maintainer":
-        if normalized in {"analyze", "trace", "sciomc"}:
+        if normalized in {"analyze", "trace", "sci-omg"}:
             artifact = _write_analysis_artifact(root, normalized, msg, context, file_list)
             return _res(
                 skill=normalized,
@@ -1247,23 +1247,23 @@ def dispatch_compat_skill(
     )
 
 
-def list_omc_skills() -> list[str]:
+def list_omg_skills() -> list[str]:
     return list_compat_skills()
 
 
-def list_omc_skill_contracts() -> list[dict[str, Any]]:
+def list_omg_skill_contracts() -> list[dict[str, Any]]:
     return list_compat_skill_contracts()
 
 
-def get_omc_skill_contract(skill: str) -> dict[str, Any] | None:
+def get_omg_skill_contract(skill: str) -> dict[str, Any] | None:
     return get_compat_skill_contract(skill)
 
 
-def build_omc_gap_report(project_dir: str | None = None) -> dict[str, Any]:
+def build_omg_gap_report(project_dir: str | None = None) -> dict[str, Any]:
     return build_compat_gap_report(project_dir)
 
 
-def validate_omc_request(
+def validate_omg_request(
     *,
     skill: str,
     problem: str,
@@ -1280,7 +1280,7 @@ def validate_omc_request(
     )
 
 
-def dispatch_omc_skill(
+def dispatch_omg_skill(
     *,
     skill: str,
     problem: str = "",

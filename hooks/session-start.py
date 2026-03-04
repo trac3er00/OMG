@@ -124,7 +124,7 @@ for cmd_name in ["OMG:teams", "OMG:ccg", "OMG:compat"]:
         tools.append(f"/{cmd_name}")
 
 if os.environ.get("OMG_INCLUDE_LEGACY_ALIASES", "0") == "1":
-    for cmd_name in ["OMG:omc-compat", "omc-teams", "ccg"]:
+    for cmd_name in ["OMG:compat", "omg-teams", "ccg"]:
         cmd_file = os.path.join(commands_dir, f"{cmd_name}.md")
         if os.path.exists(cmd_file):
             tools.append(f"/{cmd_name} (alias)")
