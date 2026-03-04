@@ -3,7 +3,7 @@ from runtime.business_workflow import build_business_workflow_result
 
 def test_business_workflow_blocks_production_when_checks_missing():
     workflow = build_business_workflow_result(
-        idea={"gomg": "release"},
+        idea={"goal": "release"},
         plan={"status": "planned"},
         execution={"status": "executed"},
         verification={},
@@ -18,7 +18,7 @@ def test_business_workflow_blocks_production_when_checks_missing():
 
 def test_business_workflow_ready_only_when_all_checks_pass():
     workflow = build_business_workflow_result(
-        idea={"gomg": "release"},
+        idea={"goal": "release"},
         plan={"status": "planned"},
         execution={"status": "executed"},
         verification={"checks": [{"name": "tests", "passed": True}, {"name": "security", "passed": True}]},

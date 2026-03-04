@@ -1,29 +1,29 @@
 ---
 description: "Start Ralph autonomous loop — continues working until all tasks complete or max iterations reached."
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob
-argument-hint: "[gomg description]"
+argument-hint: "[goal description]"
 ---
 
 # /OMG:ralph-start — Start Ralph Autonomous Loop
 
 ## Purpose
-Starts a Ralph loop that autonomously continues working until all tasks in the gomg are complete or max iterations reached.
+Starts a Ralph loop that autonomously continues working until all tasks in the goal are complete or max iterations reached.
 
 ## Usage
 ```
-/OMG:ralph-start [gomg description]
+/OMG:ralph-start [goal description]
 ```
 
 ## How it Works
-1. Ask the user for a gomg description if not provided
+1. Ask the user for a goal description if not provided
 2. Create `.omg/state/ralph-loop.json` with:
    - `active: true`
    - `iteration: 0`
    - `max_iterations: 50`
-   - `original_prompt: [gomg]`
+   - `original_prompt: [goal]`
    - `started_at: [ISO8601 timestamp]`
    - `checklist_path: ".omg/state/_checklist.md"` (if exists)
-3. Confirm: "Ralph loop started. Will continue working on: [gomg]"
+3. Confirm: "Ralph loop started. Will continue working on: [goal]"
 
 ## State File Format
 ```json

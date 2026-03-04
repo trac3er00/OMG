@@ -45,7 +45,7 @@ def test_standalone_commands_work_without_omc_install(tmp_path: Path):
 
 def test_standalone_ship_generates_evidence_without_omc(tmp_path: Path):
     idea = tmp_path / "idea.json"
-    idea.write_text(json.dumps({"gomg": "ship standalone test"}), encoding="utf-8")
+    idea.write_text(json.dumps({"goal": "ship standalone test"}), encoding="utf-8")
 
     env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
     ship = _run([str(CLI), "ship", "--runtime", "claude", "--idea", str(idea)], ROOT, env=env)

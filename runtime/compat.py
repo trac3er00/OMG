@@ -600,7 +600,7 @@ def _init_bootstrap(project_dir: str, reason: str) -> list[str]:
     )
     _write_if_missing(
         idea_path,
-        "gomg: \"\"\n"
+        "goal: \"\"\n"
         "constraints: []\n"
         "acceptance: []\n"
         "risk:\n"
@@ -624,12 +624,12 @@ def _init_bootstrap(project_dir: str, reason: str) -> list[str]:
     _write_if_missing(
         plan_path,
         "# Compat Plan\n"
-        f"gomg: {reason or 'bootstrap'}\n"
+        f"goal: {reason or 'bootstrap'}\n"
         "CHANGE_BUDGET=small\n",
     )
     _write_if_missing(
         checklist_path,
-        "- [ ] define gomg\n- [ ] run verification\n- [ ] ship with evidence\n",
+        "- [ ] define goal\n- [ ] run verification\n- [ ] ship with evidence\n",
     )
     if not os.path.exists(qg_path):
         with open(qg_path, "w", encoding="utf-8") as f:
@@ -696,7 +696,7 @@ def _write_persistent_state(
     project_dir: str,
     *,
     mode: str,
-    gomg: str,
+    goal: str,
     context: str,
     expected_outcome: str,
     runtime_result: dict[str, Any],
@@ -707,7 +707,7 @@ def _write_persistent_state(
         "schema": "PersistentModeState",
         "mode": mode,
         "status": "active",
-        "gomg": gomg,
+        "goal": goal,
         "context": context,
         "expected_outcome": expected_outcome,
         "started_at": _now(),
@@ -728,7 +728,7 @@ def _write_persistent_state(
         payload["history"] = []
     payload["mode"] = mode
     payload["status"] = "active"
-    payload["gomg"] = gomg
+    payload["goal"] = goal
     payload["context"] = context
     payload["expected_outcome"] = expected_outcome
     payload["last_updated"] = _now()
@@ -737,7 +737,7 @@ def _write_persistent_state(
         {
             "ts": _now(),
             "event": "dispatch",
-            "gomg": gomg,
+            "goal": goal,
             "runtime_status": runtime_result.get("status", "unknown"),
         }
     )
@@ -789,7 +789,7 @@ def _run_dual_review(
     return synthesis
 
 
-def _ensure_plan_artifacts(project_dir: str, gomg: str) -> list[str]:
+def _ensure_plan_artifacts(project_dir: str, goal: str) -> list[str]:
     _ensure_state_layout(project_dir)
     plan_path = os.path.join(project_dir, ".omg", "state", "_plan.md")
     checklist_path = os.path.join(project_dir, ".omg", "state", "_checklist.md")
@@ -797,7 +797,7 @@ def _ensure_plan_artifacts(project_dir: str, gomg: str) -> list[str]:
     _write_if_missing(
         plan_path,
         "# Deep Plan\n"
-        f"gomg: {gomg or 'compat planning'}\n"
+        f"goal: {goal or 'compat planning'}\n"
         "CHANGE_BUDGET=small\n"
         "phases:\n"
         "- foundation\n- implementation\n- verification\n",
@@ -808,7 +808,7 @@ def _ensure_plan_artifacts(project_dir: str, gomg: str) -> list[str]:
     )
     _write_if_missing(
         idea_path,
-        "gomg: \"compat-plan\"\n"
+        "goal: \"compat-plan\"\n"
         "constraints: []\n"
         "acceptance: []\n"
         "risk:\n"
@@ -828,7 +828,7 @@ def _ensure_plan_artifacts(project_dir: str, gomg: str) -> list[str]:
     ]
 
 
-def _ensure_tdd_artifacts(project_dir: str, gomg: str) -> list[str]:
+def _ensure_tdd_artifacts(project_dir: str, goal: str) -> list[str]:
     _ensure_state_layout(project_dir)
     plan_path = os.path.join(project_dir, ".omg", "state", "_plan.md")
     checklist_path = os.path.join(project_dir, ".omg", "state", "_checklist.md")
@@ -836,7 +836,7 @@ def _ensure_tdd_artifacts(project_dir: str, gomg: str) -> list[str]:
     with open(plan_path, "w", encoding="utf-8") as f:
         f.write(
             "# TDD Plan\n"
-            f"gomg: {gomg or 'tdd workflow'}\n"
+            f"goal: {goal or 'tdd workflow'}\n"
             "CHANGE_BUDGET=small\n"
             "workflow:\n"
             "- red: write failing test\n"
@@ -854,7 +854,7 @@ def _ensure_tdd_artifacts(project_dir: str, gomg: str) -> list[str]:
         )
     _write_if_missing(
         idea_path,
-        "gomg: \"tdd\"\n"
+        "goal: \"tdd\"\n"
         "constraints: []\n"
         "acceptance: []\n"
         "risk:\n"
@@ -994,7 +994,7 @@ def dispatch_compat_skill(
     if route == "runtime_ship":
         runtime = dispatch_runtime(
             "claude",
-            {"gomg": msg, "constraints": [], "acceptance": [expected_outcome] if expected_outcome else []},
+            {"goal": msg, "constraints": [], "acceptance": [expected_outcome] if expected_outcome else []},
         )
         status = "ok" if runtime.get("status") == "ok" else "error"
         artifacts: list[str] = []
@@ -1002,7 +1002,7 @@ def dispatch_compat_skill(
             persistent = _write_persistent_state(
                 root,
                 mode=normalized,
-                gomg=msg,
+                goal=msg,
                 context=context,
                 expected_outcome=expected_outcome,
                 runtime_result=runtime,

@@ -52,7 +52,7 @@ def _now_run_id() -> str:
 def _parse_simple_idea_yaml(path: str) -> dict[str, Any]:
     """Minimal parser for `.omg/idea.yml` template shape."""
     idea: dict[str, Any] = {
-        "gomg": "",
+        "goal": "",
         "constraints": [],
         "acceptance": [],
         "risk": {"security": [], "performance": [], "compatibility": []},
@@ -68,8 +68,8 @@ def _parse_simple_idea_yaml(path: str) -> dict[str, Any]:
             if not stripped or stripped.startswith("#"):
                 continue
 
-            if stripped.startswith("gomg:"):
-                idea["gomg"] = stripped.split(":", 1)[1].strip().strip("\"'")
+            if stripped.startswith("goal:"):
+                idea["goal"] = stripped.split(":", 1)[1].strip().strip("\"'")
                 section = None
                 subsection = None
                 continue
@@ -124,7 +124,7 @@ def cmd_ship(args: argparse.Namespace) -> int:
         run_id,
         tests=checks if isinstance(checks, list) else [],
         security_scans=[],
-        diff_summary={"runtime": runtime, "gomg": idea.get("gomg", "")},
+        diff_summary={"runtime": runtime, "goal": idea.get("goal", "")},
         reproducibility={"command": f"omg ship --runtime {runtime} --idea {idea_path}"},
         unresolved_risks=[],
     )
@@ -134,7 +134,7 @@ def cmd_ship(args: argparse.Namespace) -> int:
         "command": "ship",
         "runtime": runtime,
         "run_id": run_id,
-        "gomg": idea.get("gomg", ""),
+        "goal": idea.get("goal", ""),
         "evidence_path": os.path.relpath(evidence_path, project_dir),
     }
     print(json.dumps(out, indent=2))
@@ -142,8 +142,8 @@ def cmd_ship(args: argparse.Namespace) -> int:
 
 
 def cmd_fix(args: argparse.Namespace) -> int:
-    gomg = f"Fix issue {args.issue}"
-    dispatched = dispatch_runtime(args.runtime, {"gomg": gomg, "acceptance": [f"issue-{args.issue}-resolved"]})
+    goal = f"Fix issue {args.issue}"
+    dispatched = dispatch_runtime(args.runtime, {"goal": goal, "acceptance": [f"issue-{args.issue}-resolved"]})
     print(json.dumps(dispatched, indent=2))
     return 0 if dispatched.get("status") == "ok" else 2
 
@@ -188,7 +188,7 @@ def cmd_runtime_dispatch(args: argparse.Namespace) -> int:
     elif args.idea:
         idea = _load_json(args.idea)
     else:
-        idea = {"gomg": "unspecified"}
+        idea = {"goal": "unspecified"}
     result = dispatch_runtime(args.runtime, idea)
     print(json.dumps(result, indent=2))
     return 0 if result.get("status") == "ok" else 2
