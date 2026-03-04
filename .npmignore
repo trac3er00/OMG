@@ -23,7 +23,6 @@ pytest.ini
 *.bak.*
 
 # Development and internal tooling
-lab/
 docs/
 hud/
 
@@ -38,7 +37,6 @@ control_plane/
 registry/
 
 # Runtime config (not distributable)
-settings.json
 settings.json.bak.*
 .mcp.json
 .mcp.json.bak.*

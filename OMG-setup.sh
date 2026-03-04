@@ -212,6 +212,10 @@ parse_args() {
     if [ "$ACTION" = "reinstall" ]; then
         FRESH_INSTALL=true
     fi
+
+    if [ ! -t 0 ]; then
+        NON_INTERACTIVE=true
+    fi
 }
 
 preflight() {
@@ -961,7 +965,8 @@ run_install_like() {
                 echo "  ✓ Settings merged (auto)"
             else
                 echo "  Merging settings.json..."
-                python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1 | head -5 | sed 's/^/      /'
+                dry_run_preview="$(python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1)"
+                printf '%s\n' "$dry_run_preview" | sed -n '1,5p' | sed 's/^/      /'
                 echo ""
                 read -p "  Apply merge? [Y/n] " -n 1 -r
                 echo ""
