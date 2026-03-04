@@ -101,6 +101,23 @@ def test_setup_script_install_dry_run_non_interactive(tmp_path: Path):
     assert "DRY RUN" in (proc.stdout + proc.stderr)
 
 
+def test_setup_script_install_non_tty_enables_non_interactive_merge(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    _ = (claude_dir / "settings.json").write_text(
+        (ROOT / "settings.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+    proc = _run_script(SETUP, ["install"], env=env)
+    out = proc.stdout + proc.stderr
+
+    assert proc.returncode == 0
+    assert "Settings merged (auto)" in out
+    assert "Apply merge?" not in out
+
+
 def test_setup_script_uninstall_dry_run_non_interactive(tmp_path: Path):
     env = {"CLAUDE_CONFIG_DIR": str(tmp_path / ".claude")}
     proc = _run_script(SETUP, ["uninstall", "--dry-run", "--non-interactive"], env=env)
