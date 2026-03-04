@@ -15,6 +15,7 @@ argument-hint: "[goal or optional path to .oal/idea.yml]"
 - Generate `.oal/state/_plan.md` and `.oal/state/_checklist.md`.
 - Set explicit `CHANGE_BUDGET`.
 - List source files, tests, and rollback strategy.
+- Run planning tracks in parallel sub-agents (architecture/backend/frontend/security/verification), then merge with `sequential-thinking` before execution.
 
 ## Step 3: Execute with Shadow + Evidence discipline
 - Implement changes.
@@ -33,6 +34,11 @@ Return:
 3. Verification evidence (command + exit code)
 4. Risks/unknowns
 5. Suggested PR title + body
+
+## Full-power sub-agent protocol
+- Prefer parallel background sub-agent launches for independent workstreams.
+- Do not finalize until every launched track is collected via `background_output`.
+- Use `sequential-thinking` to reconcile conflicts and enforce execution order.
 
 ## Anti-patterns
 - Do not claim done without evidence.

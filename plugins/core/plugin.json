@@ -26,7 +26,7 @@
     },
     "crazy": {
       "path": "commands/OAL:crazy.md",
-      "description": "CRAZY mode - sequential multi-agent orchestration",
+      "description": "CRAZY mode - parallel multi-agent orchestration",
       "category": "orchestration"
     },
     "compat": {

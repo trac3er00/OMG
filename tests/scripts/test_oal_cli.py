@@ -87,6 +87,8 @@ def test_cli_crazy_launches_five_worker_tracks():
     assert out["status"] == "ok"
     assert out["worker_count"] == 5
     assert out["target_worker_count"] == 5
+    assert out["parallel_execution"] is True
+    assert out["sequential_execution"] is False
     phase_agents = [p.get("agent") for p in out["phases"] if isinstance(p, dict)]
     assert "architect-mode" in phase_agents
     assert "backend-engineer" in phase_agents

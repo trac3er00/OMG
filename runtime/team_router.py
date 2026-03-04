@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 import os
 import re
@@ -365,7 +366,6 @@ def get_core_agent_model(agent_name: str) -> dict[str, Any] | None:
 
 
 
-# Sequential agent execution for CRAZY mode
 def execute_agents_sequentially(
     agent_tasks: list[dict[str, Any]],
     project_dir: str,
@@ -415,13 +415,69 @@ def execute_agents_sequentially(
     return results
 
 
+def execute_agents_parallel(
+    agent_tasks: list[dict[str, Any]],
+    project_dir: str,
+    timeout_per_agent: int = 120,
+) -> list[dict[str, Any]]:
+    indexed_tasks: list[tuple[int, int, dict[str, Any]]] = [
+        (idx, int(task.get("order", 0)), task) for idx, task in enumerate(agent_tasks)
+    ]
+    sorted_tasks = sorted(indexed_tasks, key=lambda x: (x[1], x[0]))
+    if not sorted_tasks:
+        return []
+
+    max_workers = min(len(sorted_tasks), 5)
+    results_by_index: dict[int, dict[str, Any]] = {}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_map = {
+            pool.submit(
+                dispatch_to_model,
+                str(task_info[2].get("agent_name", "executor")),
+                str(task_info[2].get("prompt", "")),
+                project_dir,
+            ): task_info
+            for task_info in sorted_tasks
+        }
+
+        for future in as_completed(future_map):
+            task_info = future_map[future]
+            task = task_info[2]
+            order = task_info[1]
+            task_index = task_info[0]
+            agent_name = str(task.get("agent_name", "executor"))
+
+            try:
+                result = future.result(timeout=timeout_per_agent)
+            except Exception as exc:
+                result = {"error": str(exc), "fallback": "claude"}
+
+            if result.get("fallback") == "claude":
+                status = "fallback-claude"
+            elif "error" in result:
+                status = "error"
+            else:
+                status = "completed" if result.get("exit_code") == 0 else "failed"
+
+            results_by_index[task_index] = {
+                "agent": agent_name,
+                "order": order,
+                "status": status,
+                **result,
+            }
+
+    ordered_results = [results_by_index[task_info[0]] for task_info in sorted_tasks]
+    return ordered_results
+
+
 def execute_crazy_mode(
     problem: str,
     project_dir: str,
     context: str | None = None,
     files: list[str] | None = None
 ) -> dict[str, Any]:
-    print("[CRAZY] Starting sequential agent execution...")
+    print("[CRAZY] Starting parallel agent execution...")
     print(f"[CRAZY] Problem: {problem[:100]}...")
     
     # Build context package
@@ -480,7 +536,7 @@ def execute_crazy_mode(
         },
     ]
 
-    results = execute_agents_sequentially(worker_tasks, project_dir)
+    results = execute_agents_parallel(worker_tasks, project_dir)
 
     result_blocks: list[str] = []
     for r in results:
@@ -517,7 +573,8 @@ def execute_crazy_mode(
             ],
             {"phase": 7, "agent": "claude-synthesis", "prompt": synthesis_prompt},
         ],
-        "sequential_execution": True,
+        "parallel_execution": True,
+        "sequential_execution": False,
         "worker_count": len(results),
         "target_worker_count": 5,
         "model_mix": model_mix,

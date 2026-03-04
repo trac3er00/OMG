@@ -12,7 +12,7 @@ Essential functionality available in all OAL installations:
 | `/OAL:escalate` | Route to Codex/Gemini/CCG |
 | `/OAL:teams` | Team routing (standalone) |
 | `/OAL:ccg` | Tri-track synthesis (Claude+Codex+Gemini) |
-| `/OAL:crazy` | Sequential multi-agent orchestration |
+| `/OAL:crazy` | Parallel multi-agent orchestration |
 | `/OAL:compat` | Legacy compatibility dispatcher |
 | `/OAL:health-check` | Verify setup and tools |
 | `/OAL:mode` | Set cognitive mode |

@@ -28,14 +28,31 @@ CRAZY mode now includes brainstorming by default. Do not run a separate brainsto
 - Compare trade-offs (risk, effort, reversibility)
 - Pick one approach and proceed immediately
 
-## Phase 2: Agent Dispatch
+## Phase 2: Agent Dispatch (Parallel Sub-Agent Required)
+
+CRAZY mode must use parallel sub-agent dispatch for worker tracks.
+
+### Mandatory parallel launch pattern
+
+```python
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Architect track", prompt="...")
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Backend track", prompt="...")
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Frontend track", prompt="...")
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Security track", prompt="...")
+task(subagent_type="explore", run_in_background=true, load_skills=[], description="Verification track", prompt="...")
+```
+
+Then:
+- collect each task with `background_output(task_id="...")`
+- run a `sequential-thinking` synthesis pass to merge contradictions and produce one dependency-ordered checklist
+- only then start implementation
 
 ### Claude (You — Orchestrator)
 - Break task into parallel subtasks
 - Delegate to specialists
 - Synthesize results
 - Make architecture decisions
-- NEVER implement alone when Codex is available for complex work
+- Run a sequential-thinking merge before implementation
 
 ### Codex — Deep Worker + Code Reviewer
 **Codex=deep-code: backend logic, security, debugging, algorithms, performance, root cause analysis**
