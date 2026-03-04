@@ -328,19 +328,28 @@ def detect_available_models() -> dict[str, bool]:
 def discover_mcp_tools() -> list[str]:
     """Read MCP config to find available tool names.
 
-    Checks ~/.claude/settings.json for mcpServers keys.
+    Checks both project-level .mcp.json and ~/.claude/settings.json for mcpServers keys.
     Returns list of server names (not individual tool names).
     """
-    settings_path = os.path.expanduser('~/.claude/settings.json')
-    if not os.path.exists(settings_path):
-        return []
-    try:
-        with open(settings_path) as f:
-            settings = json.load(f)
-        mcp_servers = settings.get('mcpServers', {})
-        return list(mcp_servers.keys())
-    except (json.JSONDecodeError, OSError, KeyError):
-        return []
+    mcp_servers = {}
+    project_dir = os.getcwd()
+    
+    # Read from both sources: project .mcp.json and user settings
+    for mcp_loc in [
+        os.path.join(project_dir, '.mcp.json'),
+        os.path.expanduser('~/.claude/settings.json'),
+    ]:
+        if not os.path.exists(mcp_loc):
+            continue
+        try:
+            with open(mcp_loc) as f:
+                config = json.load(f)
+            servers = config.get('mcpServers', {})
+            mcp_servers.update(servers)
+        except (json.JSONDecodeError, OSError, KeyError):
+            continue
+    
+    return list(mcp_servers.keys())
 
 
 # --- Custom Agent Loading (Task 2.4) ---

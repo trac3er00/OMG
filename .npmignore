@@ -1,0 +1,43 @@
+# Test and development
+tests/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
+
+# State and runtime
+.omg/
+.oal/
+.omc/
+.sisyphus/
+
+# Version control
+.git/
+.github/
+.gitignore
+.gitattributes
+
+# Backups
+*.bak
+*.bak.*
+
+# Development and internal tooling
+lab/
+docs/
+hud/
+
+# Runtime config (not distributable)
+settings.json
+settings.json.bak.*
+.mcp.json.bak.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*

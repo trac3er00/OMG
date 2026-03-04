@@ -15,7 +15,7 @@ def estimate_context_pressure(project_dir):
         if os.path.exists(settings_path):
             with open(settings_path, "r", encoding="utf-8") as settings_file:
                 settings = json.load(settings_file)
-            threshold = settings.get("_omg", {}).get("context_budget", {}).get(
+            threshold = settings.get("_oal", {}).get("context_budget", {}).get(
                 "pressure_threshold", _DEFAULT_THRESHOLD
             )
     except Exception:

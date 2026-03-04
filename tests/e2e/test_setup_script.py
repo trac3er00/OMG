@@ -194,8 +194,11 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     settings_path = claude_dir / "settings.json"
     settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
     enabled = cast(dict[str, object], settings.get("enabledPlugins") or {})
-    mcp_servers = cast(dict[str, object], settings.get("mcpServers") or {})
     assert enabled.get("omg@oh-advanced-layer") is True
+
+    mcp_path = claude_dir / ".mcp.json"
+    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
+    mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
     assert "context7" in mcp_servers
     assert "filesystem" in mcp_servers
     assert "websearch" in mcp_servers
@@ -218,9 +221,9 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     )
     assert install_proc.returncode == 0
 
-    settings_path = claude_dir / "settings.json"
-    settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
-    mcp_servers = cast(dict[str, object], settings.get("mcpServers") or {})
+    mcp_path = claude_dir / ".mcp.json"
+    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
+    mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
     assert "context7" in mcp_servers
     assert "filesystem" in mcp_servers
     assert "websearch" in mcp_servers
@@ -232,14 +235,18 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     assert not (claude_dir / "plugins" / "cache" / "oh-advanced-layer" / "omg").exists()
     assert not (claude_dir / "hud" / "omg-hud.mjs").exists()
 
+    settings_path = claude_dir / "settings.json"
     settings_after = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
-    mcp_after = cast(dict[str, object], settings_after.get("mcpServers") or {})
     enabled_after = cast(dict[str, object], settings_after.get("enabledPlugins") or {})
+    assert "omg@oh-advanced-layer" not in enabled_after
+
+    mcp_after_path = claude_dir / ".mcp.json"
+    mcp_after_config = cast(dict[str, object], json.loads(mcp_after_path.read_text(encoding="utf-8")))
+    mcp_after = cast(dict[str, object], mcp_after_config.get("mcpServers") or {})
     assert "context7" not in mcp_after
     assert "filesystem" not in mcp_after
     assert "websearch" not in mcp_after
     assert "chrome-devtools" not in mcp_after
-    assert "omg@oh-advanced-layer" not in enabled_after
 
     installed_plugins_path = claude_dir / "plugins" / "installed_plugins.json"
     installed_plugins = cast(dict[str, object], json.loads(installed_plugins_path.read_text(encoding="utf-8")))
@@ -264,6 +271,23 @@ def test_setup_uninstall_cleans_legacy_omg_registry_and_cache(tmp_path: Path):
                 "enabledPlugins": {
                     "omg@omg": True,
                 },
+                "mcpServers": {
+                    "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
+                    "filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]},
+                    "websearch": {"command": "npx", "args": ["-y", "exa-mcp-server"]},
+                    "chrome-devtools": {"command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"]},
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    mcp_path = claude_dir / ".mcp.json"
+    _ = mcp_path.write_text(
+        json.dumps(
+            {
                 "mcpServers": {
                     "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
                     "filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]},
@@ -306,8 +330,11 @@ def test_setup_uninstall_cleans_legacy_omg_registry_and_cache(tmp_path: Path):
     assert not legacy_cache.exists()
     settings_after = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
     enabled_after = cast(dict[str, object], settings_after.get("enabledPlugins") or {})
-    mcp_after = cast(dict[str, object], settings_after.get("mcpServers") or {})
     assert "omg@omg" not in enabled_after
+
+    mcp_after_path = claude_dir / ".mcp.json"
+    mcp_after_config = cast(dict[str, object], json.loads(mcp_after_path.read_text(encoding="utf-8")))
+    mcp_after = cast(dict[str, object], mcp_after_config.get("mcpServers") or {})
     assert "context7" not in mcp_after
     assert "filesystem" not in mcp_after
     assert "websearch" not in mcp_after
