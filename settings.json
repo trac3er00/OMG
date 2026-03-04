@@ -206,6 +206,15 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/budget_governor.py\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -236,6 +245,14 @@
     "default_mode": "ulw+ralph",
     "vision_auto": true,
     "false_fix_detection": true,
+    "cost_budget": {
+      "session_limit_usd": 5.0,
+      "thresholds": [50, 80, 95],
+      "pricing": {
+        "input_per_mtok": 3.0,
+        "output_per_mtok": 15.0
+      }
+    },
     "context_budget": {
       "session_start_max_chars": 2000,
       "prompt_enhancer_max_chars": 800,

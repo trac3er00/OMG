@@ -55,6 +55,11 @@
       "description": "Alias for project setup (use init instead)",
       "category": "setup",
       "deprecated": true
+    },
+    "cost": {
+      "path": "commands/OMG:cost.md",
+      "description": "Display session cost tracking, budget status, and usage history",
+      "category": "observability"
     }
   },
   "categories": {
@@ -77,6 +82,10 @@
     "config": {
       "description": "Configuration and settings",
       "commands": ["mode"]
+    },
+    "observability": {
+      "description": "Cost tracking and session observability",
+      "commands": ["cost"]
     }
   }
 }
