@@ -48,7 +48,7 @@ def test_session_start_does_not_advertise_legacy_omc_aliases_by_default():
     with open("hooks/session-start.py") as f:
         content = f.read()
     assert "OMG_INCLUDE_LEGACY_ALIASES" in content
-    assert "omc-teams" not in content.split("OMG_INCLUDE_LEGACY_ALIASES", 1)[0]
+    assert "omg-teams" not in content.split("OMG_INCLUDE_LEGACY_ALIASES", 1)[0]
 
 
 # ━━━ Subprocess-based runtime behavior tests ━━━

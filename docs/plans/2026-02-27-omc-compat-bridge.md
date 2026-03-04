@@ -1,16 +1,16 @@
-# OMC Compatibility Bridge Implementation Plan
+# Legacy Compatibility Bridge Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use OMG:deep-plan to implement this plan task-by-task.
 
-**Gomg:** Ensure every OMC skill name can be invoked in OMG standalone mode without external OMC installation.
+**Gomg:** Ensure every legacy skill name can be invoked in OMG standalone mode without external legacy installation.
 
-**Architecture:** Add a runtime compatibility dispatcher that maps OMC skill names to OMG-native execution routes. Expose this dispatcher via `omg omc list` and `omg omc run`, and enforce coverage with tests that compare against OMG's internal legacy skill contract tables.
+**Architecture:** Add a runtime compatibility dispatcher that maps legacy skill names to OMG-native execution routes. Expose this dispatcher via `omg compat list` and `omg compat run`, and enforce coverage with tests that compare against OMG's internal legacy skill contract tables.
 
 **Tech Stack:** Python 3.12, pytest, existing OMG runtime/hooks modules.
 
 ---
 
-### Task 1: Define OMC skill mapping contract
+### Task 1: Define legacy skill mapping contract
 
 **Files:**
 - Create: `/Users/cminseo/Documents/scripts/Shell/OMG/runtime/omc_compat.py`
@@ -23,7 +23,7 @@
 - `PYENV_VERSION=3.12.7 python -m pytest -q tests/runtime/test_omc_compat.py`
 
 **Step 3: Implement mapping**
-- Add `OMC_SKILL_ROUTES` table for all 37 skills.
+- Add `LEGACY_SKILL_ROUTES` table for all 37 skills.
 - Add `list_omc_skills()`.
 
 **Step 4: Re-run test**
@@ -36,7 +36,7 @@
 - Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/runtime/test_omc_compat.py`
 
 **Step 1: Write failing tests**
-- For representative skills (`omc-teams`, `ccg`, `pipeline`, `note`, `omc-doctor`), assert `status=ok`.
+- For representative skills (`omg-teams`, `ccg`, `pipeline`, `note`, `omg-doctor`), assert `status=ok`.
 
 **Step 2: Run failing tests**
 - Same pytest target.
@@ -57,8 +57,8 @@
 - Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/scripts/test_omg_cli.py`
 
 **Step 1: Write failing CLI tests**
-- `omg omc list` returns count and skills.
-- `omg omc run --skill omc-teams ...` returns compat schema.
+- `omg compat list` returns count and skills.
+- `omg compat run --skill omc-teams ...` returns compat schema.
 
 **Step 2: Run failing tests**
 - `PYENV_VERSION=3.12.7 python -m pytest -q tests/scripts/test_omg_cli.py`

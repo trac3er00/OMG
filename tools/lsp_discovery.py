@@ -178,7 +178,7 @@ def _is_enabled() -> bool:
         if os.path.exists(settings_path):
             with open(settings_path, "r", encoding="utf-8") as f:
                 settings = json.load(f)
-                features = settings.get("_oal", {}).get("features", {})
+                features = settings.get("_omg", {}).get("features", {})
                 if "LSP_TOOLS" in features:
                     return features["LSP_TOOLS"]
     except Exception:

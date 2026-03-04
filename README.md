@@ -172,7 +172,7 @@ Set an explicit operating mode per session:
 /OMG:mode clear
 ```
 
-Modes are persisted to `.oal/state/mode.txt`.
+Modes are persisted to `.omg/state/mode.txt`.
 
 ## Verification and Safety
 
@@ -191,10 +191,10 @@ Important behavior:
 
 ## Project State Layout
 
-After `/OMG:init`, project state is created under `.oal/`:
+After `/OMG:init`, project state is created under `.omg/`:
 
 ```text
-.oal/
+.omg/
   state/
     profile.yaml
     working-memory.md
@@ -245,7 +245,7 @@ gh release create v1.0.3 --title "OMG v1.0.3" --notes "Release notes"
 
 ## Compatibility Notes
 
-- OMG runs standalone (OMC not required)
+- OMG runs fully standalone
 - Legacy migration utilities remain available where needed
 - Works alongside other plugins when command namespaces do not conflict
 
@@ -281,23 +281,23 @@ All new features are disabled by default. Enable via environment variables or `s
 
 | Feature | Env Var | Default |
 |---------|---------|---------|
-| IntentGate keyword detection | `OAL_INTENTGATE_ENABLED=1` | Off |
-| Multi-credential store | `OAL_MULTI_CREDENTIAL_ENABLED=1` | Off |
-| Model roles routing | `OAL_MODEL_ROLES_ENABLED=1` | Off |
-| LSP client | `OAL_LSP_ENABLED=1` | Off |
-| Hashline anchors | `OAL_HASHLINE_ENABLED=1` | Off |
-| Python REPL | `OAL_PYTHON_REPL_ENABLED=1` | Off |
-| Web search | `OAL_WEB_SEARCH_ENABLED=1` | Off |
-| Browser automation | `OAL_BROWSER_ENABLED=1` | Off |
-| SSH manager | `OAL_SSH_ENABLED=1` | Off |
-| Themes | `OAL_THEMES_ENABLED=true` | Off |
-| Rust engine | `OAL_RUST_ENGINE_ENABLED=1` | Off |
+| IntentGate keyword detection | `OMG_INTENTGATE_ENABLED=1` | Off |
+| Multi-credential store | `OMG_MULTI_CREDENTIAL_ENABLED=1` | Off |
+| Model roles routing | `OMG_MODEL_ROLES_ENABLED=1` | Off |
+| LSP client | `OMG_LSP_ENABLED=1` | Off |
+| Hashline anchors | `OMG_HASHLINE_ENABLED=1` | Off |
+| Python REPL | `OMG_PYTHON_REPL_ENABLED=1` | Off |
+| Web search | `OMG_WEB_SEARCH_ENABLED=1` | Off |
+| Browser automation | `OMG_BROWSER_ENABLED=1` | Off |
+| SSH manager | `OMG_SSH_ENABLED=1` | Off |
+| Themes | `OMG_THEMES_ENABLED=true` | Off |
+| Rust engine | `OMG_RUST_ENGINE_ENABLED=1` | Off |
 
-You can also enable features in `settings.json` under `_oal.features`:
+You can also enable features in `settings.json` under `_omg.features`:
 
 ```json
 {
-  "_oal": {
+  "_omg": {
     "features": {
       "THEMES": true,
       "INTENTGATE": true
@@ -336,14 +336,14 @@ To adopt new features selectively:
 
 1. **Enable via env var** before launching Claude Code:
    ```bash
-   export OAL_THEMES_ENABLED=true
-   export OAL_MODEL_ROLES_ENABLED=1
+   export OMG_THEMES_ENABLED=true
+   export OMG_MODEL_ROLES_ENABLED=1
    ```
 
 2. **Or enable in `settings.json`** for persistent config:
    ```json
    {
-     "_oal": {
+     "_omg": {
        "features": {
          "THEMES": true,
          "MODEL_ROLES": true
@@ -354,4 +354,4 @@ To adopt new features selectively:
 
 3. **No breaking changes** — all v1.0 commands, agents, and hooks remain intact.
 
-4. **New command**: `/OMG:theme` is available immediately after update, gated by `OAL_THEMES_ENABLED`.
+4. **New command**: `/OMG:theme` is available immediately after update, gated by `OMG_THEMES_ENABLED`.

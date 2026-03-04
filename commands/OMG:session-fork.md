@@ -46,7 +46,7 @@ python3 tools/session_snapshot.py list
 
 ## Feature Flag
 
-Forking shares the `OMG_BRANCHING_ENABLED` feature flag with `/OMG:branch` (default: `False`).
+Forking shares the `OMG_BRANCHING_ENABLED` feature flag with `/OMG:session-branch` (default: `False`).
 
 ```bash
 export OMG_BRANCHING_ENABLED=true

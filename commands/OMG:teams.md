@@ -1,12 +1,12 @@
 ---
-description: OMG internal team routing (standalone). Replaces /omc-teams dependency.
+description: OMG internal team routing (standalone). Standalone team routing.
 allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(rg:*), Bash(find:*), Bash(cat:*), Bash(python3:*)
 argument-hint: "[codex|gemini|ccg|auto] 'problem statement'"
 ---
 
 # /OMG:teams — Standalone Internal Router
 
-Use OMG's internal router without requiring OMC.
+Use OMG's internal router using internal routing.
 
 ## Input contract
 - target: `auto|codex|gemini|ccg`

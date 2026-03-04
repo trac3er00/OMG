@@ -103,9 +103,9 @@ def test_cli_compat_list_and_run():
     listed_out = json.loads(listed.stdout)
     assert listed_out["status"] == "ok"
     assert listed_out["count"] >= 30
-    assert "omc-teams" in listed_out["skills"]
+    assert "omg-teams" in listed_out["skills"]
 
-    run = _run(["compat", "run", "--skill", "omc-teams", "--problem", "compat smoke"])
+    run = _run(["compat", "run", "--skill", "omg-teams", "--problem", "compat smoke"])
     assert run.returncode == 0
     run_out = json.loads(run.stdout)
     assert run_out["schema"] == "OmgCompatResult"
@@ -113,11 +113,11 @@ def test_cli_compat_list_and_run():
 
 
 def test_cli_compat_contract_and_gap_report():
-    contract = _run(["compat", "contract", "--skill", "omc-teams"])
+    contract = _run(["compat", "contract", "--skill", "omg-teams"])
     assert contract.returncode == 0
     contract_out = json.loads(contract.stdout)
     assert contract_out["status"] == "ok"
-    assert contract_out["contract"]["skill"] == "omc-teams"
+    assert contract_out["contract"]["skill"] == "omg-teams"
 
     promoted_contract = _run(["compat", "contract", "--skill", "autopilot"])
     assert promoted_contract.returncode == 0
@@ -169,7 +169,7 @@ def test_cli_compat_snapshot_and_gate_output(tmp_path: Path):
 
 
 def test_cli_omc_alias_routes_to_compat():
-    listed = _run(["omc", "list"])
+    listed = _run(["compat", "list"])
     assert listed.returncode == 0
     listed_out = json.loads(listed.stdout)
     assert listed_out["status"] == "ok"
@@ -184,7 +184,7 @@ def test_cli_ecosystem_list_status_and_noop_sync(tmp_path: Path):
     assert listed_out["status"] == "ok"
     assert listed_out["count"] >= 9
     names = {repo["name"] for repo in listed_out["repos"]}
-    assert "superpowers" in names
+    assert "omg-superpowers" in names
     assert "claude-flow" in names
     assert "memsearch" in names
 

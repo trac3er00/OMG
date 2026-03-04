@@ -14,7 +14,7 @@
 
 ## Divergence Summary
 
-- OMG introduces standalone routing and state migration (`.omc -> .omg`).
-- OMG keeps command aliases (`/omc-teams`, `/ccg`) as compatibility wrappers.
+- OMG introduces standalone routing and state migration (`legacy -> .omg`).
+- OMG provides native commands (/OMG:teams, /OMG:ccg) as compatibility wrappers.
 - OMG defaults to `.omg` as canonical runtime state path.
 - OMG adds optional ecosystem sync (`omg ecosystem`) for external plugin references.

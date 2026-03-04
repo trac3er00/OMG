@@ -324,7 +324,7 @@
       "notes": ""
     },
     {
-      "skill": "learn-about-omc",
+      "skill": "learn-about-omg",
       "route": "learn",
       "maturity": "native",
       "inputs": {
@@ -339,7 +339,7 @@
         "schema": "LearningArtifact"
       },
       "side_effects": [
-        ".omg/knowledge/learning/learn-about-omc.md"
+        ".omg/knowledge/learning/learn-about-omg.md"
       ],
       "notes": ""
     },
@@ -420,7 +420,7 @@
       "notes": ""
     },
     {
-      "skill": "omc-doctor",
+      "skill": "omg-doctor",
       "route": "health",
       "maturity": "native",
       "inputs": {
@@ -436,7 +436,7 @@
       "notes": "Health checks run against OMG standalone layout."
     },
     {
-      "skill": "omc-help",
+      "skill": "omg-help",
       "route": "help",
       "maturity": "native",
       "inputs": {
@@ -450,7 +450,7 @@
       "notes": ""
     },
     {
-      "skill": "omc-setup",
+      "skill": "omg-setup",
       "route": "init",
       "maturity": "native",
       "inputs": {
@@ -471,7 +471,28 @@
       "notes": "Bootstraps OMG standalone state and baseline config files."
     },
     {
-      "skill": "omc-teams",
+      "skill": "omg-superpowers",
+      "route": "plan",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "PlanningArtifacts"
+      },
+      "side_effects": [
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md"
+      ],
+      "notes": "Imports TDD-first planning discipline into OMG plan route."
+    },
+    {
+      "skill": "omg-teams",
       "route": "teams",
       "maturity": "native",
       "inputs": {
@@ -694,7 +715,7 @@
       "notes": ""
     },
     {
-      "skill": "sciomc",
+      "skill": "sci-omg",
       "route": "maintainer",
       "maturity": "native",
       "inputs": {
@@ -709,7 +730,7 @@
         "schema": "AnalysisCompatArtifact"
       },
       "side_effects": [
-        ".omg/evidence/analysis-sciomc.json"
+        ".omg/evidence/analysis-sci-omg.json"
       ],
       "notes": ""
     },
@@ -748,27 +769,6 @@
         ".omg/knowledge/learning/skill.md"
       ],
       "notes": ""
-    },
-    {
-      "skill": "superpowers",
-      "route": "plan",
-      "maturity": "native",
-      "inputs": {
-        "required": [
-          "problem"
-        ],
-        "optional": [
-          "expected_outcome"
-        ]
-      },
-      "outputs": {
-        "schema": "PlanningArtifacts"
-      },
-      "side_effects": [
-        ".omg/state/_plan.md",
-        ".omg/state/_checklist.md"
-      ],
-      "notes": "Imports TDD-first planning discipline into OMG plan route."
     },
     {
       "skill": "tdd",
@@ -911,6 +911,5 @@
       ],
       "notes": "Writes long-form memory artifact for writing workflows."
     }
-  ],
-  "generated_at": "2026-02-27T21:35:09.541636+00:00"
+  ]
 }

@@ -13,11 +13,11 @@ Handles:
 Idempotent — safe to run multiple times. Always creates a backup first.
 
 Usage:
-  python3 scripts/migrate-omc.py                  # full migration
-  python3 scripts/migrate-omc.py --dry-run        # preview changes only
-  python3 scripts/migrate-omc.py --hooks-only      # only deploy hooks
-  python3 scripts/migrate-omc.py --hud-only        # only switch HUD
-  python3 scripts/migrate-omc.py --restore BACKUP  # restore a backup
+  python3 scripts/migrate-legacy.py                  # full migration
+  python3 scripts/migrate-legacy.py --dry-run        # preview changes only
+  python3 scripts/migrate-legacy.py --hooks-only      # only deploy hooks
+  python3 scripts/migrate-legacy.py --hud-only        # only switch HUD
+  python3 scripts/migrate-legacy.py --restore BACKUP  # restore a backup
 """
 from __future__ import annotations
 
@@ -247,8 +247,8 @@ def step_fix_plugin_manifests(dry_run: bool) -> list[str]:
     """Fix known plugin manifest issues (unrecognized keys)."""
     changes: list[str] = []
 
-    # Fix superpowers manifest
-    manifest_path = CLAUDE_DIR / "plugins" / "cache" / "claude-plugins-official" / "superpowers"
+    # Fix legacy plugin manifest
+    manifest_path = CLAUDE_DIR / "plugins" / "cache" / "claude-plugins-official" / "omg-superpowers"
     if manifest_path.exists():
         for version_dir in manifest_path.iterdir():
             plugin_json = version_dir / ".claude-plugin" / "plugin.json"
@@ -435,7 +435,7 @@ def run_migration(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="migrate-omc",
+        prog="migrate-legacy",
         description="Migrate OMC settings to OMG. Idempotent — safe to run multiple times.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Preview changes without applying")

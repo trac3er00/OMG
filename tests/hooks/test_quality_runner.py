@@ -93,6 +93,6 @@ def test_no_config_passes():
 
 
 def test_legacy_omc_config_still_readable():
-    """Standalone mode still reads legacy .omc config as fallback."""
+    """Standalone mode still reads legacy config as fallback."""
     result = run_quality_runner({"test": "echo $(cat /etc/passwd)"}, use_legacy_omc=True)
     assert_blocked(result)

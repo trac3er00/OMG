@@ -12,8 +12,8 @@ def _read(path: str) -> str:
 
 
 def test_legacy_compat_aliases_removed():
-    """omc-teams.md and ccg.md compat aliases were removed in v1.0.3 — replaced by OMG:teams and OMG:ccg."""
-    assert not (ROOT / "commands" / "omc-teams.md").exists()
+    """omg-teams.md and ccg.md compat aliases were removed in v1.0.3 — replaced by OMG:teams and OMG:ccg."""
+    assert not (ROOT / "commands" / "omg-teams.md").exists()
     assert not (ROOT / "commands" / "ccg.md").exists()
 
 
@@ -32,4 +32,4 @@ def test_escalate_uses_internal_router_not_external_omc():
     assert "~/.claude/omg-runtime/scripts/omg.py" in escalate_doc
     assert "python3 \"$OMG_CLI\" teams" in escalate_doc
     assert "python3 \"$OMG_CLI\" ccg" in escalate_doc
-    assert "No external OMC plugin is required." in escalate_doc
+    assert "No external legacy plugin is required." in escalate_doc
