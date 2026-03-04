@@ -160,6 +160,7 @@ Each argument MUST follow this template:
 ```
 ## [CODE_NAME] — Opening Argument
 **Position**: [1-2 sentence thesis on how to approach this plan]
+**Evidence**: [supporting data, prior art, codebase patterns, or precedents that back this position]
 **Architecture**: [proposed structure, patterns, abstractions]
 **Implementation Strategy**: [phases, ordering, key dependencies]
 **Risk Assessment**: [top 3 risks + mitigations]
