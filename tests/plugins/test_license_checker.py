@@ -1,7 +1,13 @@
 """Tests for license compatibility checker."""
 
+import os
 import pytest
 from plugins.dephealth.license_checker import check_license_compatibility
+
+
+@pytest.fixture(autouse=True)
+def _enable_dep_health(monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
 
 
 class TestGPLDepInMITProjectIncompatible:

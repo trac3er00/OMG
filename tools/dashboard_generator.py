@@ -268,10 +268,10 @@ def generate_dashboard(
     """
     _ensure_imports()
 
-    # Check feature flag (advisory — still generate if disabled)
+    # Check feature flag — return empty string if disabled
     if _get_feature_flag is not None:
         if not _get_feature_flag("SESSION_ANALYTICS", default=False):
-            logger.info("SESSION_ANALYTICS feature flag is disabled; generating dashboard anyway.")
+            return ""
 
     # Resolve default output path
     if output_path is None:

@@ -33,7 +33,7 @@ def _ensure_imports():
 def _is_enabled() -> bool:
     """Check if changelog feature is enabled."""
     _ensure_imports()
-    return _get_feature_flag("changelog", default=False)
+    return _get_feature_flag("GIT_WORKFLOW", default=False)
 
 
 # Supported conventional commit types

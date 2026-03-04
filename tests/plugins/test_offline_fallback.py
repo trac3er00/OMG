@@ -36,6 +36,11 @@ _manifest_detector = importlib.import_module("plugins.dephealth.manifest_detecto
 detect_manifests = _manifest_detector.detect_manifests
 
 
+@pytest.fixture(autouse=True)
+def _enable_dep_health(monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
+
+
 # ─── CVE Scanner Offline Tests ───────────────────────────────────────────────
 
 

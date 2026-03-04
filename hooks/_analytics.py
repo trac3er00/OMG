@@ -238,6 +238,20 @@ def _build_summary_md(report: JsonMap) -> str:
 
 def analyze_patterns(project_dir: str, days: int = 7) -> JsonMap:
     """Return productivity pattern report from query-layer analytics."""
+    try:
+        import importlib
+        _common = importlib.import_module("hooks._common")
+        if not _common.get_feature_flag("SESSION_ANALYTICS", default=False):
+            return {
+                "hotspots": [],
+                "error_trends": {"trend": "stable", "recent_rate": 0.0, "baseline_rate": 0.0},
+                "tool_usage_shifts": [],
+                "session_trends": {"avg_duration_min": 0.0, "trend": "stable"},
+                "summary_md": "",
+            }
+    except Exception:
+        pass
+    
     analysis_days = max(_safe_int(days, 7), 1)
 
     try:

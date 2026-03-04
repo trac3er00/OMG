@@ -37,7 +37,7 @@ def _is_enabled() -> bool:
     _ensure_imports()
     if _get_feature_flag is None:
         return False
-    return bool(_get_feature_flag("ai_commit", default=False))
+    return bool(_get_feature_flag("GIT_WORKFLOW", default=False))
 
 
 # --- File Classification ---

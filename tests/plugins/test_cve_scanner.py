@@ -70,7 +70,8 @@ def _cache_path(project_dir) -> str:
     return str(project_dir / ".omg" / "state" / "cve-cache.json")
 
 
-def test_batch_query_format(tmp_path):
+def test_batch_query_format(tmp_path, monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
     deps = _deps()
 
     with patch("plugins.dephealth.cve_scanner.urllib.request.urlopen") as mock_urlopen:
@@ -91,7 +92,8 @@ def test_batch_query_format(tmp_path):
         }
 
 
-def test_returns_structured_results(tmp_path):
+def test_returns_structured_results(tmp_path, monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
     deps = _deps()
 
     with patch("plugins.dephealth.cve_scanner.urllib.request.urlopen") as mock_urlopen:
@@ -110,7 +112,8 @@ def test_returns_structured_results(tmp_path):
     assert "fixed_version" in result["results"]["flask"][0]
 
 
-def test_cache_written_after_scan(tmp_path):
+def test_cache_written_after_scan(tmp_path, monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
     deps = _deps()
     cache_file = _cache_path(tmp_path)
 
@@ -124,7 +127,8 @@ def test_cache_written_after_scan(tmp_path):
     assert "results" in cache_payload
 
 
-def test_cache_used_within_ttl(tmp_path):
+def test_cache_used_within_ttl(tmp_path, monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
     now = datetime.now(timezone.utc).isoformat()
     cached_data = {"results": {"flask": []}, "cached": False, "scan_ts": now}
     cache_file = tmp_path / ".omg" / "state" / "cve-cache.json"
@@ -139,7 +143,8 @@ def test_cache_used_within_ttl(tmp_path):
     assert result["results"] == {"flask": []}
 
 
-def test_cache_expired_triggers_rescan(tmp_path):
+def test_cache_expired_triggers_rescan(tmp_path, monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
     expired = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
     cache_file = tmp_path / ".omg" / "state" / "cve-cache.json"
     cache_file.parent.mkdir(parents=True)
@@ -154,7 +159,8 @@ def test_cache_expired_triggers_rescan(tmp_path):
     assert "flask" in result["results"]
 
 
-def test_offline_fallback_returns_cached(tmp_path):
+def test_offline_fallback_returns_cached(tmp_path, monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
     now = datetime.now(timezone.utc).isoformat()
     cache_file = tmp_path / ".omg" / "state" / "cve-cache.json"
     cache_file.parent.mkdir(parents=True)
@@ -167,14 +173,16 @@ def test_offline_fallback_returns_cached(tmp_path):
     assert result["results"] == {"flask": [{"id": "CVE-1"}]}
 
 
-def test_offline_no_cache_returns_status(tmp_path):
+def test_offline_no_cache_returns_status(tmp_path, monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
     with patch("plugins.dephealth.cve_scanner.urllib.request.urlopen", side_effect=URLError("offline")):
         result = scan_for_cves(_deps(), project_dir=str(tmp_path))
 
     assert result == {"status": "offline", "results": {}, "cached": False}
 
 
-def test_empty_dependency_list(tmp_path):
+def test_empty_dependency_list(tmp_path, monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
     with patch("plugins.dephealth.cve_scanner.urllib.request.urlopen") as mock_urlopen:
         result = scan_for_cves([], project_dir=str(tmp_path))
 

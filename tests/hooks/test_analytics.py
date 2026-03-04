@@ -2,6 +2,7 @@
 """Tests for hooks/_analytics.py productivity pattern analyzer (Task 18)."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import hooks._analytics as analytics
 
 
 def _patch_empty(monkeypatch):
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
     monkeypatch.setattr(analytics, "get_file_heatmap", lambda _project_dir: {})
     monkeypatch.setattr(analytics, "get_failure_hotspots", lambda _project_dir: {})
     monkeypatch.setattr(analytics, "get_tool_stats", lambda _project_dir, hours=None: {})
@@ -55,6 +57,7 @@ def test_hotspots_include_only_files_with_more_than_five_edits(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
     tracked = tmp_path / "tracked.py"
     _ = tracked.write_text("x = 1\n", encoding="utf-8")
 
@@ -80,6 +83,7 @@ def test_hotspots_include_only_files_with_more_than_five_edits(
 
 
 def test_error_trend_detects_increasing_rates(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
     monkeypatch.setattr(analytics, "get_file_heatmap", lambda _project_dir: {})
     monkeypatch.setattr(
         analytics,
@@ -106,6 +110,7 @@ def test_error_trend_detects_increasing_rates(tmp_path: Path, monkeypatch) -> No
 
 
 def test_error_trend_detects_decreasing_rates(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
     monkeypatch.setattr(analytics, "get_file_heatmap", lambda _project_dir: {})
     monkeypatch.setattr(
         analytics,
@@ -127,6 +132,7 @@ def test_error_trend_detects_decreasing_rates(tmp_path: Path, monkeypatch) -> No
 
 
 def test_tool_usage_shifts_include_gt_20_percent_changes(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
     monkeypatch.setattr(analytics, "get_file_heatmap", lambda _project_dir: {})
     monkeypatch.setattr(analytics, "get_failure_hotspots", lambda _project_dir: {})
     monkeypatch.setattr(
@@ -152,6 +158,7 @@ def test_tool_usage_shifts_include_gt_20_percent_changes(tmp_path: Path, monkeyp
 
 
 def test_session_trends_detect_longer_and_shorter(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
     monkeypatch.setattr(analytics, "get_file_heatmap", lambda _project_dir: {})
     monkeypatch.setattr(analytics, "get_failure_hotspots", lambda _project_dir: {})
     monkeypatch.setattr(analytics, "get_tool_stats", lambda _project_dir, hours=None: {})
@@ -168,6 +175,7 @@ def test_session_trends_detect_longer_and_shorter(tmp_path: Path, monkeypatch) -
 
 
 def test_summary_markdown_contains_all_sections(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
     monkeypatch.setattr(
         analytics,
         "get_file_heatmap",

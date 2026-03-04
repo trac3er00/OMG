@@ -6,6 +6,7 @@ No network access required.
 """
 
 from __future__ import annotations
+import os
 from typing import Any
 
 # License categories (restrictiveness increases top to bottom)
@@ -26,6 +27,21 @@ _NETWORK_COPYLEFT = frozenset({
 })
 
 _ALL_KNOWN = _PERMISSIVE | _WEAK_COPYLEFT | _STRONG_COPYLEFT | _NETWORK_COPYLEFT
+
+
+def _dep_health_enabled() -> bool:
+    env_val = os.environ.get("OMG_DEP_HEALTH_ENABLED", "").lower()
+    if env_val in ("1", "true", "yes"):
+        return True
+    if env_val in ("0", "false", "no"):
+        return False
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        from hooks._common import get_feature_flag
+        return get_feature_flag("DEP_HEALTH", default=False)
+    except Exception:
+        return False
 
 
 def _license_tier(license_id: str) -> int:
@@ -58,6 +74,9 @@ def check_license_compatibility(
             incompatible: [{"pkg": str, "license": str, "reason": str}]
             unknown: [{"pkg": str}]
     """
+    if not _dep_health_enabled():
+        return {"compatible": [], "incompatible": [], "unknown": []}
+    
     compatible: list[dict[str, str]] = []
     incompatible: list[dict[str, str]] = []
     unknown: list[dict[str, str]] = []

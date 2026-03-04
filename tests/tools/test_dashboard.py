@@ -13,6 +13,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from tools.dashboard_generator import generate_dashboard
 
 
+@pytest.fixture(autouse=True)
+def _enable_session_analytics(monkeypatch):
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

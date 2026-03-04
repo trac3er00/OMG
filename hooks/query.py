@@ -234,6 +234,14 @@ def get_tool_stats(project_dir: str, hours: int | None = None) -> dict:
     `hours` is currently accepted for API compatibility and ignored.
     """
     del hours
+    
+    # Feature flag gate
+    try:
+        from hooks._common import get_feature_flag
+        if not get_feature_flag("SESSION_ANALYTICS", default=False):
+            return {"tools": {}}
+    except Exception:
+        pass
 
     def consume_tool(state: dict, entry: dict) -> None:
         tool = str(entry.get("tool", "unknown"))
@@ -290,6 +298,13 @@ def get_tool_stats(project_dir: str, hours: int | None = None) -> dict:
 
 def get_failure_hotspots(project_dir: str) -> dict:
     """Return failure patterns with counts, recent errors, and escalation flag."""
+    try:
+        from hooks._common import get_feature_flag
+        if not get_feature_flag("SESSION_ANALYTICS", default=False):
+            return {}
+    except Exception:
+        pass
+    
     data = _load_json(_join(project_dir, _FAILURE_TRACKER), {})
     if not isinstance(data, dict):
         return {}
@@ -312,6 +327,20 @@ def get_failure_hotspots(project_dir: str) -> dict:
 
 def get_session_summary(project_dir: str) -> dict:
     """Return session-level aggregate summary across ledgers."""
+    try:
+        from hooks._common import get_feature_flag
+        if not get_feature_flag("SESSION_ANALYTICS", default=False):
+            return {
+                "duration": 0,
+                "tool_calls": 0,
+                "success_rate": 0.0,
+                "files_modified": 0,
+                "tests_run": 0,
+                "tokens_used": 0,
+                "cost_usd": 0.0,
+            }
+    except Exception:
+        pass
 
     def consume_tool(state: dict, entry: dict) -> None:
         state["tool_calls"] = _safe_int(state.get("tool_calls", 0), 0) + 1
@@ -399,6 +428,17 @@ def get_escalation_effectiveness(project_dir: str) -> dict:
     Escalations are inferred from active failure patterns at count >= 3.
     Resolution is inferred by matching "resolved" mentions in working-memory.
     """
+    try:
+        from hooks._common import get_feature_flag
+        if not get_feature_flag("SESSION_ANALYTICS", default=False):
+            return {
+                "escalations": 0,
+                "resolved": 0,
+                "unresolved": 0,
+            }
+    except Exception:
+        pass
+    
     hotspots = get_failure_hotspots(project_dir)
     escalated_patterns = [name for name, entry in hotspots.items() if bool(entry.get("escalated"))]
     escalations = len(escalated_patterns)
@@ -429,6 +469,12 @@ def get_escalation_effectiveness(project_dir: str) -> dict:
 
 def get_file_heatmap(project_dir: str) -> dict:
     """Return per-file read/write/edit interaction counts."""
+    try:
+        from hooks._common import get_feature_flag
+        if not get_feature_flag("SESSION_ANALYTICS", default=False):
+            return {}
+    except Exception:
+        pass
 
     def consume_entry(state: dict, entry: dict) -> None:
         tool = str(entry.get("tool", ""))

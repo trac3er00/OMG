@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,25 @@ CACHE_REL_PATH = Path(".omg") / "state" / "cve-cache.json"
 CACHE_TTL_HOURS = 24
 
 
+def _dep_health_enabled() -> bool:
+    env_val = os.environ.get("OMG_DEP_HEALTH_ENABLED", "").lower()
+    if env_val in ("1", "true", "yes"):
+        return True
+    if env_val in ("0", "false", "no"):
+        return False
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        from hooks._common import get_feature_flag
+        return get_feature_flag("DEP_HEALTH", default=False)
+    except Exception:
+        return False
+
+
 def scan_for_cves(dependency_list: list[dict[str, str]], project_dir: str = ".") -> dict[str, Any]:
+    if not _dep_health_enabled():
+        return {"results": {}, "cached": False, "scan_ts": datetime.now(timezone.utc).isoformat()}
+    
     now = datetime.now(timezone.utc)
     cache_path = Path(project_dir) / CACHE_REL_PATH
     cached_payload = _load_cache(cache_path)

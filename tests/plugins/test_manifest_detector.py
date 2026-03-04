@@ -20,6 +20,11 @@ from plugins.dephealth.manifest_detector import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _enable_dep_health(monkeypatch):
+    monkeypatch.setenv("OMG_DEP_HEALTH_ENABLED", "1")
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 

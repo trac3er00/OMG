@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -15,6 +18,11 @@ from hooks.query import (
     get_session_summary,
     get_tool_stats,
 )
+
+
+@pytest.fixture(autouse=True)
+def _enable_session_analytics(monkeypatch):
+    monkeypatch.setenv("OMG_SESSION_ANALYTICS_ENABLED", "1")
 
 
 def _ledger_dir(project_dir: Path) -> Path:

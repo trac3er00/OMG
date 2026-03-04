@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -369,12 +370,29 @@ _PARSERS: dict[str, Any] = {
 # ─── Public API ──────────────────────────────────────────────────────────────
 
 
+def _dep_health_enabled() -> bool:
+    env_val = os.environ.get("OMG_DEP_HEALTH_ENABLED", "").lower()
+    if env_val in ("1", "true", "yes"):
+        return True
+    if env_val in ("0", "false", "no"):
+        return False
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        from hooks._common import get_feature_flag
+        return get_feature_flag("DEP_HEALTH", default=False)
+    except Exception:
+        return False
+
+
 def detect_manifests(project_dir: str) -> DependencyList:
     """Scan project_dir for manifest files and return a unified DependencyList.
 
     Supports: package.json, requirements.txt, Cargo.toml, go.mod, Gemfile, pyproject.toml.
     Gracefully handles missing/malformed files (skips, no crash).
     """
+    if not _dep_health_enabled():
+        return DependencyList()
+    
     result = DependencyList()
     project_path = Path(project_dir)
 
