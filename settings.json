@@ -234,7 +234,7 @@
     },
     "websearch": {
       "command": "npx",
-      "args": ["-y", "exa-mcp-server"]
+      "args": ["-y", "@zhafron/mcp-web-search"]
     },
     "chrome-devtools": {
       "command": "npx",

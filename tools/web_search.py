@@ -10,6 +10,7 @@ Feature flag: OMG_WEB_SEARCH_ENABLED (default: False)
 """
 
 import abc
+import importlib
 import time
 import json
 import os
@@ -46,24 +47,30 @@ def _ensure_imports():
 # --- Lazy import for credential_store (OPTIONAL) ---
 
 _credential_store = None
-_HAS_CREDENTIAL_STORE: Optional[bool] = None
+_has_credential_store: Optional[bool] = None
+# Backward-compat test seam (patched in existing tests).
+_HAS_CREDENTIAL_STORE = None
 
 
 def _check_credential_store() -> bool:
     """Check if credential_store is available (cached after first check)."""
-    global _HAS_CREDENTIAL_STORE, _credential_store
-    if _HAS_CREDENTIAL_STORE is None:
+    global _has_credential_store, _credential_store
+    override = globals().get("_HAS_CREDENTIAL_STORE")
+    if override is not None:
+        return bool(override)
+
+    if _has_credential_store is None:
         try:
             repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             hooks_dir = os.path.join(repo_root, "hooks")
             if hooks_dir not in sys.path:
                 sys.path.insert(0, hooks_dir)
-            import credential_store as _cs
+            _cs = importlib.import_module("credential_store")
             _credential_store = _cs
-            _HAS_CREDENTIAL_STORE = True
+            _has_credential_store = True
         except ImportError:
-            _HAS_CREDENTIAL_STORE = False
-    return _HAS_CREDENTIAL_STORE
+            _has_credential_store = False
+    return bool(_has_credential_store)
 
 
 # --- Feature flag ---
@@ -183,7 +190,7 @@ def get_api_key(provider_name: str) -> Optional[str]:
         The API key string, or None if not found.
     """
     # Try credential store first
-    if _check_credential_store():
+    if _check_credential_store() and _credential_store is not None:
         try:
             key = _credential_store.get_active_key(provider_name)
             if key:
@@ -532,6 +539,16 @@ provider_selector = ProviderSelector()
 # =============================================================================
 
 manager = WebSearchManager()
+
+# Auto-register bundled providers so CLI and hooks work out of the box.
+# - synthetic always registers (no API key required)
+# - api-key providers register only when credentials are available
+try:
+    _providers_mod = importlib.import_module("search_providers")
+    _providers_mod.register_all(manager=manager)
+except Exception:
+    # Keep module import non-fatal if provider modules are unavailable.
+    pass
 
 # =============================================================================
 # CLI Interface
