@@ -23,6 +23,6 @@
 **Before generating code for a new domain, ASK:**
 - Does a reference domain exist? → Read it first, match the pattern
 - Does a spec exist? → Read it, extract requirements
-- If neither → ask the user to define one, or draft one together with /OAL:deep-plan
+- If neither → ask the user to define one, or draft one together with /OMG:deep-plan
 
 **Evidence:** When creating domain code, cite which reference pattern was followed.

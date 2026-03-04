@@ -1,4 +1,4 @@
-"""Runtime dispatch orchestration for OAL v1 adapters."""
+"""Runtime dispatch orchestration for OMG v1 adapters."""
 from __future__ import annotations
 
 from typing import Any

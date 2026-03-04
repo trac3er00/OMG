@@ -1,8 +1,8 @@
-# OAL v5 Security + Reliability + Correctness Hardening
+# OMG v5 Security + Reliability + Correctness Hardening
 
 ## TL;DR
 
-> **Quick Summary**: Fix 37 verified issues across OAL's hook system — secret detection regex bypasses, race conditions in state files, broken command references, and test coverage gaps. All fixes stay within existing architecture, stdlib-only, no new features.
+> **Quick Summary**: Fix 37 verified issues across OMG's hook system — secret detection regex bypasses, race conditions in state files, broken command references, and test coverage gaps. All fixes stay within existing architecture, stdlib-only, no new features.
 > 
 > **Deliverables**:
 > - Hardened secret detection patterns in post-write.py (fix 3 bypasses + add 10 missing patterns)
@@ -20,7 +20,7 @@
 ## Context
 
 ### Original Request
-User asked to "check for any potential issues, bugs with upgraded OMC (OAL)" — a comprehensive audit of the OAL hook system.
+User asked to "check for any potential issues, bugs with upgraded OMC (OMG)" — a comprehensive audit of the OMG hook system.
 
 ### Audit Summary
 6 parallel explore agents audited: all 17 hooks, settings.json, 13 commands, security bypass vectors, state management integrity, and test coverage. Raw findings: 41 issues.
@@ -32,12 +32,12 @@ User asked to "check for any potential issues, bugs with upgraded OMC (OAL)" —
 4. **Finding #4 RECHARACTERIZED**: policy_engine.py uses a blocklist (not sandbox) — concern is blocklist completeness, not path traversal per se.
 5. **Test coverage recalculated**: 9/13 event hooks tested = 69% (not 62.5%) — shared libraries aren't event hooks.
 6. **NEW**: post-write.py and stop-gate.py lack standard sys.path setup (import fragility).
-7. **NEW**: quality-gate.py is deployed but has no source in OAL repo (out of scope).
+7. **NEW**: quality-gate.py is deployed but has no source in OMG repo (out of scope).
 
 ### Research Findings
 - All hooks use _common.py crash handlers with `os._exit(0)` — good baseline
 - pytest infrastructure with helpers.py is solid — test additions are straightforward
-- Hooks deploy via symlinks from ~/.claude/hooks/ to OAL hooks/ directory
+- Hooks deploy via symlinks from ~/.claude/hooks/ to OMG hooks/ directory
 - Stop event has 2 groups: quality-gate(10s) + [stop-gate(15s) + test-validator(30s) + quality-runner(180s)]
 - Claude Code hook execution: groups are sequential, hooks within groups are parallel
 
@@ -46,7 +46,7 @@ User asked to "check for any potential issues, bugs with upgraded OMC (OAL)" —
 ## Work Objectives
 
 ### Core Objective
-Harden OAL's security, reliability, and correctness without changing architecture, adding dependencies, or introducing new features.
+Harden OMG's security, reliability, and correctness without changing architecture, adding dependencies, or introducing new features.
 
 ### Concrete Deliverables
 - `hooks/post-write.py` — Fixed regex patterns + 10 new secret detection patterns
@@ -64,7 +64,7 @@ Harden OAL's security, reliability, and correctness without changing architectur
 ### Definition of Done
 - [ ] `pytest tests/ -x -q` → all pass, count ≥ 224 + new tests
 - [ ] `grep -n 'exit\|sys.exit' hooks/*.py` → only `exit(0)` on all paths
-- [ ] post-write.py scanned against OAL source → zero false positives
+- [ ] post-write.py scanned against OMG source → zero false positives
 - [ ] Each new secret pattern has ≥1 positive + ≥1 negative test case
 
 ### Must Have
@@ -128,10 +128,10 @@ Wave 2 (After Wave 1 — reliability + references, MAX PARALLEL):
 ├── Task 9: Atomic rotation for tool-ledger.py (depends: 1) [deep]
 ├── Task 10: Atomic handoff writes for pre-compact.py (depends: 1) [unspecified-high]
 ├── Task 11: Standardize directory naming in commands (depends: 1) [quick]
-├── Task 12: Fix OAL:ship.md template path (depends: 1) [quick]
-├── Task 13: Fix OAL:learn.md skills-index reference (depends: 1) [quick]
+├── Task 12: Fix OMG:ship.md template path (depends: 1) [quick]
+├── Task 13: Fix OMG:learn.md skills-index reference (depends: 1) [quick]
 ├── Task 14: Add graceful degradation for failure-tracker.json (depends: 1) [quick]
-├── Task 15: Fix OAL:handoff.md project.md reference (depends: 1) [quick]
+├── Task 15: Fix OMG:handoff.md project.md reference (depends: 1) [quick]
 └── Task 16: Update README hook count + settings.json docs (depends: 1) [quick]
 
 Wave 3 (After Waves 1+2 — tests):
@@ -306,7 +306,7 @@ Max Concurrent: 9 (Wave 2)
     9. SendGrid: `SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}`
     10. Database URL expansion: Add `mariadb|mssql|oracle|elasticsearch|cassandra` to existing DB URL pattern
   - Each pattern: `(r"REGEX", "Description")` tuple
-  - Add comment `# Added by OAL hardening audit` above the new block
+  - Add comment `# Added by OMG hardening audit` above the new block
 
   **Must NOT do**:
   - Do not add patterns beyond these 10 (no Alibaba Cloud, Oracle Cloud, etc.)
@@ -574,7 +574,7 @@ Max Concurrent: 9 (Wave 2)
   Scenario: Corrupt tracker file handled gracefully
     Tool: Bash
     Steps:
-      1. Create temp dir with .oal/state/ledger/failure-tracker.json containing '{invalid json'
+      1. Create temp dir with .omg/state/ledger/failure-tracker.json containing '{invalid json'
       2. Run circuit-breaker.py with a failure payload (Bash tool, exit_code=1)
       3. Assert: exit code 0
       4. Assert: failure-tracker.json now contains valid JSON
@@ -689,10 +689,10 @@ Max Concurrent: 9 (Wave 2)
 - [ ] 11. Standardize Directory Naming in Commands
 
   **What to do**:
-  - Pick ONE name: `patterns/` (used by OAL:init.md) — standardize everywhere
-  - Update `commands/OAL:code-review.md` line 62: `.oal/knowledge/domain-patterns/` → `.oal/knowledge/patterns/`
-  - Update `commands/OAL:deep-plan.md` line 123: `.oal/knowledge/domain-patterns/` → `.oal/knowledge/patterns/`
-  - Verify OAL:init.md already uses `patterns/` (line 52, 114) — no change needed
+  - Pick ONE name: `patterns/` (used by OMG:init.md) — standardize everywhere
+  - Update `commands/OMG:code-review.md` line 62: `.omg/knowledge/domain-patterns/` → `.omg/knowledge/patterns/`
+  - Update `commands/OMG:deep-plan.md` line 123: `.omg/knowledge/domain-patterns/` → `.omg/knowledge/patterns/`
+  - Verify OMG:init.md already uses `patterns/` (line 52, 114) — no change needed
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -709,14 +709,14 @@ Max Concurrent: 9 (Wave 2)
   - [ ] `grep -rn 'knowledge/patterns' commands/` returns all references consistently
 
   **Commit**: YES (groups with Wave 2)
-  - Files: `commands/OAL:code-review.md`, `commands/OAL:deep-plan.md`
+  - Files: `commands/OMG:code-review.md`, `commands/OMG:deep-plan.md`
 
 ---
 
-- [ ] 12. Fix OAL:ship.md Template Path
+- [ ] 12. Fix OMG:ship.md Template Path
 
   **What to do**:
-  - Line 11: Change `~/.claude/templates/oal/idea.yml` → `./templates/idea.yml` (local template exists)
+  - Line 11: Change `~/.claude/templates/omg/idea.yml` → `./templates/idea.yml` (local template exists)
   - Keep the home directory path as fallback if local doesn't exist
 
   **Recommended Agent Profile**:
@@ -730,18 +730,18 @@ Max Concurrent: 9 (Wave 2)
   - **Blocked By**: Task 1
 
   **Acceptance Criteria**:
-  - [ ] `grep 'templates.*idea.yml' commands/OAL:ship.md` shows local path first
+  - [ ] `grep 'templates.*idea.yml' commands/OMG:ship.md` shows local path first
 
   **Commit**: YES (groups with Wave 2)
-  - Files: `commands/OAL:ship.md`
+  - Files: `commands/OMG:ship.md`
 
 ---
 
-- [ ] 13. Fix OAL:learn.md Skills-Index Reference
+- [ ] 13. Fix OMG:learn.md Skills-Index Reference
 
   **What to do**:
-  - Line 71: Replace `.oal/skills-index.json` with graceful check — "If `.oal/skills-index.json` exists, update it; otherwise create it"
-  - Lines 38, 41, 78: Standardize skills directory to `.oal/skills/` (project-level, not `~/.config/oal/skills/`)
+  - Line 71: Replace `.omg/skills-index.json` with graceful check — "If `.omg/skills-index.json` exists, update it; otherwise create it"
+  - Lines 38, 41, 78: Standardize skills directory to `.omg/skills/` (project-level, not `~/.config/omg/skills/`)
   - Add note that skill directory is created on first use
 
   **Recommended Agent Profile**:
@@ -755,11 +755,11 @@ Max Concurrent: 9 (Wave 2)
   - **Blocked By**: Task 1
 
   **Acceptance Criteria**:
-  - [ ] `grep -n 'skills-index' commands/OAL:learn.md` shows graceful handling
+  - [ ] `grep -n 'skills-index' commands/OMG:learn.md` shows graceful handling
   - [ ] Single consistent skills directory path used throughout
 
   **Commit**: YES (groups with Wave 2)
-  - Files: `commands/OAL:learn.md`
+  - Files: `commands/OMG:learn.md`
 
 ---
 
@@ -767,12 +767,12 @@ Max Concurrent: 9 (Wave 2)
 
   **What to do**:
   - failure-tracker.json is created at RUNTIME by circuit-breaker.py on first failure — it's intentionally absent initially
-  - In each command that references it, add: "If `.oal/state/ledger/failure-tracker.json` does not exist, skip failure analysis (no failures recorded yet)"
+  - In each command that references it, add: "If `.omg/state/ledger/failure-tracker.json` does not exist, skip failure analysis (no failures recorded yet)"
   - Commands to update:
-    - `OAL:health-check.md` (line 30)
-    - `OAL:escalate.md` (line 18)
-    - `OAL:handoff.md` (line 28)
-    - `OAL:deep-plan.md` (line 19)
+    - `OMG:health-check.md` (line 30)
+    - `OMG:escalate.md` (line 18)
+    - `OMG:handoff.md` (line 28)
+    - `OMG:deep-plan.md` (line 19)
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -792,11 +792,11 @@ Max Concurrent: 9 (Wave 2)
 
 ---
 
-- [ ] 15. Fix OAL:handoff.md project.md Reference
+- [ ] 15. Fix OMG:handoff.md project.md Reference
 
   **What to do**:
-  - Line 26: Remove reference to `project.md` — only `profile.yaml` exists in `.oal/state/`
-  - Change "Read .oal/state/profile.yaml or project.md" → "Read .oal/state/profile.yaml"
+  - Line 26: Remove reference to `project.md` — only `profile.yaml` exists in `.omg/state/`
+  - Change "Read .omg/state/profile.yaml or project.md" → "Read .omg/state/profile.yaml"
 
   **Recommended Agent Profile**:
   - **Category**: `quick`
@@ -809,10 +809,10 @@ Max Concurrent: 9 (Wave 2)
   - **Blocked By**: Task 1
 
   **Acceptance Criteria**:
-  - [ ] `grep -n 'project.md' commands/OAL:handoff.md` returns empty
+  - [ ] `grep -n 'project.md' commands/OMG:handoff.md` returns empty
 
   **Commit**: YES (groups with Wave 2)
-  - Files: `commands/OAL:handoff.md`
+  - Files: `commands/OMG:handoff.md`
 
 ---
 
@@ -820,7 +820,7 @@ Max Concurrent: 9 (Wave 2)
 
   **What to do**:
   - README.md: Change "11 hooks" → "15 hooks" (13 event hooks + _common.py + state_migration.py library). Or specify clearly: "13 event hooks + 4 shared libraries"
-  - Add note that `quality-gate.py` is deployed externally (not in OAL source tree)
+  - Add note that `quality-gate.py` is deployed externally (not in OMG source tree)
   - Document Stop event timeout stacking: "Stop event total: up to 235s (quality-gate 10s + stop-gate 15s + test-validator 30s + quality-runner 180s)"
 
   **Recommended Agent Profile**:
@@ -876,7 +876,7 @@ Max Concurrent: 9 (Wave 2)
 
   **Acceptance Criteria**:
   - [ ] `pytest tests/hooks/test_post_write_patterns.py -v` → all pass, ≥28 tests (14 patterns × 2 each)
-  - [ ] Zero false positives when scanning OAL source files
+  - [ ] Zero false positives when scanning OMG source files
 
   ```
   Scenario: All pattern tests pass
@@ -888,12 +888,12 @@ Max Concurrent: 9 (Wave 2)
     Expected Result: All secret pattern tests green
     Evidence: .sisyphus/evidence/task-17-pattern-tests.txt
 
-  Scenario: Zero false positives on OAL source
+  Scenario: Zero false positives on OMG source
     Tool: Bash
     Steps:
       1. For each hooks/*.py: run post-write.py against it
-      2. Assert: no SECRET DETECTED in stderr for any OAL file
-    Expected Result: OAL source is clean
+      2. Assert: no SECRET DETECTED in stderr for any OMG file
+    Expected Result: OMG source is clean
     Evidence: .sisyphus/evidence/task-17-false-positive-scan.txt
   ```
 
@@ -1130,7 +1130,7 @@ Max Concurrent: 9 (Wave 2)
   Output: `Tests [N pass/N fail] | Exit codes [CLEAN/N issues] | Files [N clean/N issues] | VERDICT`
 
 - [ ] F3. **Full Regression + False Positive Scan** — `unspecified-high`
-  Run `pytest tests/ -x -q` → must show ≥224+(new tests) passed. Run post-write.py against every OAL source file (`hooks/*.py`, `tests/**/*.py`, `commands/*.md`) → must produce zero "SECRET DETECTED" false positives. Run `grep -rn 'sys.exit\|exit(' hooks/*.py` → verify only `exit(0)` on all paths.
+  Run `pytest tests/ -x -q` → must show ≥224+(new tests) passed. Run post-write.py against every OMG source file (`hooks/*.py`, `tests/**/*.py`, `commands/*.md`) → must produce zero "SECRET DETECTED" false positives. Run `grep -rn 'sys.exit\|exit(' hooks/*.py` → verify only `exit(0)` on all paths.
   Output: `Tests [PASS/FAIL] | False Positives [N] | Exit Discipline [CLEAN/N issues] | VERDICT`
 
 - [ ] F4. **Scope Fidelity Check** — `deep`
@@ -1165,5 +1165,5 @@ for f in hooks/*.py; do echo '{"tool_input":{"file_path":"'$f'"}}' | python3 hoo
 - [ ] All "Must NOT Have" absent
 - [ ] All existing tests still pass
 - [ ] New test count ≥ 40 additional tests
-- [ ] Zero false positives on OAL source scan
+- [ ] Zero false positives on OMG source scan
 - [ ] Exit(0) discipline across all hooks

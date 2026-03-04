@@ -1,0 +1,14 @@
+name: "Nord"
+variant: "dark"
+colors:
+  background: "#2e3440"
+  foreground: "#d8dee9"
+  primary: "#81a1c1"
+  secondary: "#4c566a"
+  accent: "#88c0d0"
+  error: "#bf616a"
+  warning: "#ebcb8b"
+  success: "#a3be8c"
+metadata:
+  author: "Arctic Ice Studio"
+  url: "https://www.nordtheme.com/"

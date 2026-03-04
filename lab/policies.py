@@ -1,4 +1,4 @@
-"""Policy checks for OAL lab train/eval pipeline."""
+"""Policy checks for OMG lab train/eval pipeline."""
 from __future__ import annotations
 
 from typing import Any

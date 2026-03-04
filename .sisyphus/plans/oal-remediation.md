@@ -1,8 +1,8 @@
-# OAL Code Review Remediation Plan
+# OMG Code Review Remediation Plan
 
 ## TL;DR
 
-> **Quick Summary**: Remediate 12 findings (3 P0, 1 P1, 8 P2) from the comprehensive OAL code review. Security-critical fixes first (secret scan signaling, pattern classification, exception handling), then observability improvements, then code quality polish.
+> **Quick Summary**: Remediate 12 findings (3 P0, 1 P1, 8 P2) from the comprehensive OMG code review. Security-critical fixes first (secret scan signaling, pattern classification, exception handling), then observability improvements, then code quality polish.
 > 
 > **Deliverables**:
 > - P0: Secret scan signal file mechanism, fixed NON_SOURCE_PATTERNS classification, hardened exception handlers in 4 security-critical files
@@ -18,7 +18,7 @@
 ## Context
 
 ### Original Request
-Comprehensive code review of the OAL repository identified 12 findings across P0/P1/P2 severity levels. User requested a prioritized remediation plan with exact file:line references, dependency ordering, and verification criteria.
+Comprehensive code review of the OMG repository identified 12 findings across P0/P1/P2 severity levels. User requested a prioritized remediation plan with exact file:line references, dependency ordering, and verification criteria.
 
 ### Interview Summary
 **Key Discussions**:
@@ -42,7 +42,7 @@ Comprehensive code review of the OAL repository identified 12 findings across P0
 ## Work Objectives
 
 ### Core Objective
-Fix all 12 code review findings in priority order, preserving OAL's crash isolation architecture while adding security observability and reducing silent failure modes.
+Fix all 12 code review findings in priority order, preserving OMG's crash isolation architecture while adding security observability and reducing silent failure modes.
 
 ### Concrete Deliverables
 - `hooks/post-write.py`: Signal file mechanism for secret detection, cleaned exception handlers, removed duplicate comment
@@ -54,7 +54,7 @@ Fix all 12 code review findings in priority order, preserving OAL's crash isolat
 - `hooks/prompt-enhancer.py`: Word-boundary matching (Latin), knowledge index validation, deprecated utcnow fix
 - `control_plane/server.py`: Stderr warning for --host 0.0.0.0
 - `runtime/team_router.py`: Cached shutil.which result
-- `OAL-setup.sh`: Path-prefix assertions for rm -rf
+- `OMG-setup.sh`: Path-prefix assertions for rm -rf
 - Remaining hooks: _resolve_project_dir() applied
 
 ### Definition of Done
@@ -64,7 +64,7 @@ Fix all 12 code review findings in priority order, preserving OAL's crash isolat
 - [x] All evidence files present in `.sisyphus/evidence/`
 
 ### Must Have
-- Signal file mechanism for secret detection (`.oal/state/secret-detected.json`)
+- Signal file mechanism for secret detection (`.omg/state/secret-detected.json`)
 - Fixed NON_SOURCE_PATTERNS: hooks/ and scripts/ paths correctly classified as source
 - Exception handlers in security paths log to stderr instead of silently passing
 - Audit trail before every `shutil.rmtree` call
@@ -72,13 +72,13 @@ Fix all 12 code review findings in priority order, preserving OAL's crash isolat
 
 ### Must NOT Have (Guardrails)
 - **G1**: DO NOT change `_common.py:setup_crash_handler()` — it's the outer safety net imported by every hook
-- **G2**: DO NOT add any dependencies beyond Python stdlib — OAL is stdlib-only
+- **G2**: DO NOT add any dependencies beyond Python stdlib — OMG is stdlib-only
 - **G3**: DO NOT change hook stdin/stdout/stderr interface contract — Claude Code reads these
 - **G4**: DO NOT refactor adjacent code "while in the file" — pure finding remediation only
 - **G5**: DO NOT use `logging.getLogger` — hooks use `print(..., file=sys.stderr)` pattern
 - **G6**: DO NOT add word-boundary regex to Korean signal tokens — Korean has no word boundaries, substring matching is correct
 - **G7**: DO NOT change exit codes from 0 to non-zero — crash isolation policy preserved
-- **G8**: DO NOT add interactive prompts to OAL-setup.sh — $DRY_RUN already mitigates
+- **G8**: DO NOT add interactive prompts to OMG-setup.sh — $DRY_RUN already mitigates
 - **G9**: DO NOT add schema validation libraries (pydantic, jsonschema) for F10 — stdlib isinstance() only
 - **G10**: Each task touches ≤3 files
 
@@ -130,7 +130,7 @@ Wave 4 (P2 Independent — 4 parallel):
 ├── T11: prompt-enhancer.py word-boundary + knowledge index (depends: T3) [deep]
 ├── T12: server.py --host warning [quick]
 ├── T13: team_router.py cache shutil.which [quick]
-└── T14: OAL-setup.sh path assertions [quick]
+└── T14: OMG-setup.sh path assertions [quick]
 
 Wave 5 (Sweep — 1 task):
 └── T15: Apply _resolve_project_dir() to remaining hooks [unspecified-high]
@@ -185,7 +185,7 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
   **What to do**:
   - Add a new function `_resolve_project_dir()` to `hooks/_common.py` that:
     1. Reads `os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())`
-    2. Validates the resolved path contains `.oal/` directory (or creates it if missing)
+    2. Validates the resolved path contains `.omg/` directory (or creates it if missing)
     3. Returns the validated path
     4. Falls back gracefully if validation fails (returns the path with stderr warning)
   - Place the function near the top of the file, after imports
@@ -367,11 +367,11 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
 
   **What to do**:
   - At `hooks/post-write.py:156-158`, replace the `sys.exit(0)` after secret detection with:
-    1. Write a JSON signal file to `.oal/state/secret-detected.json` containing: `{"timestamp": "...", "file": "<path>", "patterns_matched": ["..."], "action": "blocked"}`
-    2. Print a CLEAR stderr warning: `"⚠ SECRET DETECTED in <file>. Signal written to .oal/state/secret-detected.json"`
+    1. Write a JSON signal file to `.omg/state/secret-detected.json` containing: `{"timestamp": "...", "file": "<path>", "patterns_matched": ["..."], "action": "blocked"}`
+    2. Print a CLEAR stderr warning: `"⚠ SECRET DETECTED in <file>. Signal written to .omg/state/secret-detected.json"`
     3. Keep `sys.exit(0)` — crash isolation preserved
-  - Use `_resolve_project_dir()` from `_common.py` (added in T1) to locate `.oal/state/`
-  - Ensure `.oal/state/` directory exists before writing (use `os.makedirs(..., exist_ok=True)`)
+  - Use `_resolve_project_dir()` from `_common.py` (added in T1) to locate `.omg/state/`
+  - Ensure `.omg/state/` directory exists before writing (use `os.makedirs(..., exist_ok=True)`)
   - Import `_resolve_project_dir` from `_common`
 
   **Must NOT do**:
@@ -403,12 +403,12 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
   - Signal file schema: `{"timestamp": str (ISO 8601), "file": str, "patterns_matched": list[str], "action": "blocked"}`
 
   **External References**:
-  - OAL README section "Standalone Architecture" — Documents crash isolation policy: "all OAL hooks exit 0 on internal errors"
+  - OMG README section "Standalone Architecture" — Documents crash isolation policy: "all OMG hooks exit 0 on internal errors"
 
   **WHY Each Reference Matters**:
   - Lines 140-176 show the complete secret detection flow — understand what triggers detection before modifying the outcome
   - README crash isolation policy confirms exit(0) must be preserved
-  - _resolve_project_dir() is the safe way to find .oal/state/ directory
+  - _resolve_project_dir() is the safe way to find .omg/state/ directory
 
   **Acceptance Criteria**:
   - [x] `python3 -m py_compile hooks/post-write.py` → exit 0
@@ -525,10 +525,10 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
 
   **What to do**:
   - At `hooks/pre-compact.py:133` — before `shutil.rmtree(..., ignore_errors=True)`:
-    1. Add `print(f"[OAL] Deleting: {path}", file=sys.stderr)` immediately before the rmtree call
+    1. Add `print(f"[OMG] Deleting: {path}", file=sys.stderr)` immediately before the rmtree call
     2. Optionally remove `ignore_errors=True` and replace with a try/except that logs the error
   - At `hooks/shadow_manager.py:236` — same pattern:
-    1. Add `print(f"[OAL] Deleting: {path}", file=sys.stderr)` before rmtree
+    1. Add `print(f"[OMG] Deleting: {path}", file=sys.stderr)` before rmtree
     2. Optionally replace `ignore_errors=True` with logged try/except
   - Use `_resolve_project_dir()` if os.getcwd() fallback exists in these files
 
@@ -557,7 +557,7 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
 
   **WHY Each Reference Matters**:
   - Lines around rmtree show what variable holds the path being deleted
-  - tool-ledger.py shows the established `print(f"[OAL] ...", file=sys.stderr)` pattern
+  - tool-ledger.py shows the established `print(f"[OMG] ...", file=sys.stderr)` pattern
 
   **Acceptance Criteria**:
   - [x] `python3 -m py_compile hooks/pre-compact.py` → exit 0
@@ -574,7 +574,7 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
       1. Run `python3 -m py_compile hooks/pre-compact.py`
       2. Run `grep -B2 'shutil.rmtree' hooks/pre-compact.py`
       3. Verify output contains print statement with stderr within 2 lines before rmtree
-    Expected Result: py_compile exit 0, print(f"[OAL] Deleting: ...", file=sys.stderr) visible before rmtree
+    Expected Result: py_compile exit 0, print(f"[OMG] Deleting: ...", file=sys.stderr) visible before rmtree
     Failure Indicators: No logging before rmtree call
     Evidence: .sisyphus/evidence/task-6-audit-precompact.txt
 
@@ -585,7 +585,7 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
       1. Run `python3 -m py_compile hooks/shadow_manager.py`
       2. Run `grep -B2 'shutil.rmtree' hooks/shadow_manager.py`
       3. Verify output contains print statement with stderr within 2 lines before rmtree
-    Expected Result: py_compile exit 0, print(f"[OAL] Deleting: ...", file=sys.stderr) visible before rmtree
+    Expected Result: py_compile exit 0, print(f"[OMG] Deleting: ...", file=sys.stderr) visible before rmtree
     Failure Indicators: No logging before rmtree call
     Evidence: .sisyphus/evidence/task-6-audit-shadow.txt
   ```
@@ -600,7 +600,7 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
   **What to do**:
   - Find all `except Exception: pass` (and `except Exception as e: pass` equivalent silent handlers) in `hooks/post-write.py`
   - For each silent handler in a security-relevant path:
-    1. Replace `pass` with `print(f"[OAL] post-write.py: {type(e).__name__}: {e}", file=sys.stderr)`
+    1. Replace `pass` with `print(f"[OMG] post-write.py: {type(e).__name__}: {e}", file=sys.stderr)`
     2. If the except clause doesn't capture the exception, change `except Exception:` to `except Exception as e:`
   - For cleanup/non-critical handlers (e.g., temp file deletion): use `contextlib.suppress(OSError)` instead of bare `except Exception: pass`
   - Count handlers before and after — document the delta
@@ -658,7 +658,7 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
   **What to do**:
   - `stop_dispatcher.py` has the HIGHEST density of silent handlers (~9). For each:
     1. Identify if the handler is in a security-relevant code path (verification, policy enforcement)
-    2. Security paths: replace `pass` with `print(f"[OAL] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)`
+    2. Security paths: replace `pass` with `print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)`
     3. Cleanup paths: use `contextlib.suppress(OSError)` for file cleanup, or keep `pass` with a `# intentional: cleanup` comment
   - Add `import contextlib` at the top if not already present
   - Document each handler's disposition in a comment
@@ -1021,10 +1021,10 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
   - Files: `runtime/team_router.py`
   - Pre-commit: `python3 -m py_compile runtime/team_router.py`
 
-- [x] 14. Add path-prefix assertions for `rm -rf` in `OAL-setup.sh` (F9 — P2)
+- [x] 14. Add path-prefix assertions for `rm -rf` in `OMG-setup.sh` (F9 — P2)
 
   **What to do**:
-  - At `OAL-setup.sh` lines 518, 935, 939, `rm -rf` operates on constructed paths
+  - At `OMG-setup.sh` lines 518, 935, 939, `rm -rf` operates on constructed paths
   - Before each `rm -rf`, add a path-prefix assertion:
     ```bash
     # Verify the target path is under expected directory before deletion
@@ -1050,26 +1050,26 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
 
   **References**:
   **Pattern References**:
-  - `OAL-setup.sh:515-520` — First rm -rf area
-  - `OAL-setup.sh:930-940` — Second and third rm -rf areas
-  - `OAL-setup.sh:1-30` — Variable definitions ($CLAUDE_DIR, $DRY_RUN)
+  - `OMG-setup.sh:515-520` — First rm -rf area
+  - `OMG-setup.sh:930-940` — Second and third rm -rf areas
+  - `OMG-setup.sh:1-30` — Variable definitions ($CLAUDE_DIR, $DRY_RUN)
 
   **WHY Each Reference Matters**:
   - Need to know the variable names used in each rm -rf to write correct assertions
   - $CLAUDE_DIR is the expected parent directory for all deletions
 
   **Acceptance Criteria**:
-  - [x] `bash -n OAL-setup.sh` → exit 0 (syntax valid)
+  - [x] `bash -n OMG-setup.sh` → exit 0 (syntax valid)
   - [x] Each `rm -rf` has a preceding path assertion within 3 lines
 
   **QA Scenarios (MANDATORY):**
   ```
   Scenario: Path assertions present before rm -rf
     Tool: Bash
-    Preconditions: OAL-setup.sh modified with path assertions
+    Preconditions: OMG-setup.sh modified with path assertions
     Steps:
-      1. Run `bash -n OAL-setup.sh`
-      2. Run `grep -B3 'rm -rf' OAL-setup.sh`
+      1. Run `bash -n OMG-setup.sh`
+      2. Run `grep -B3 'rm -rf' OMG-setup.sh`
       3. Verify each rm -rf has a preceding assertion line
     Expected Result: bash -n exit 0, every rm -rf preceded by path assertion
     Failure Indicators: rm -rf without preceding path check
@@ -1078,8 +1078,8 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
 
   **Commit**: YES — group with Wave 4
   - Message: `fix(installer): add path-prefix assertions before rm -rf operations`
-  - Files: `OAL-setup.sh`
-  - Pre-commit: `bash -n OAL-setup.sh`
+  - Files: `OMG-setup.sh`
+  - Pre-commit: `bash -n OMG-setup.sh`
 
 - [x] 15. Apply `_resolve_project_dir()` across remaining hooks (F7 Sweep)
 
@@ -1183,7 +1183,7 @@ Max Concurrent: 4 (Waves 3, 4, FINAL)
 - **Wave 1**: `fix(hooks): add _resolve_project_dir helper and trivial fixes` — _common.py, post-write.py, prompt-enhancer.py
 - **Wave 2**: `security(hooks): implement secret signal file, fix pattern classification, add deletion audit` — post-write.py, stop_dispatcher.py, pre-compact.py, shadow_manager.py
 - **Wave 3**: `security(hooks): harden exception handlers in security-critical paths` — post-write.py, stop_dispatcher.py, config-guard.py, _common.py
-- **Wave 4**: `fix(oal): P2 remediation — word-boundary, warnings, caching, assertions` — prompt-enhancer.py, server.py, team_router.py, OAL-setup.sh
+- **Wave 4**: `fix(omg): P2 remediation — word-boundary, warnings, caching, assertions` — prompt-enhancer.py, server.py, team_router.py, OMG-setup.sh
 - **Wave 5**: `refactor(hooks): apply _resolve_project_dir across remaining hooks` — remaining hook files
 
 ---
@@ -1205,7 +1205,7 @@ grep -r 'os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())' hooks/
 grep -r 'utcnow()' hooks/
 
 # Shell script syntax valid
-bash -n OAL-setup.sh
+bash -n OMG-setup.sh
 ```
 
 ### Final Checklist

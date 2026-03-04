@@ -1,4 +1,4 @@
-# OAL - Orchestration Abstraction Layer
+# OMG - Oh My God
 # Gitignore for Claude Code plugin
 
 # Python
@@ -60,6 +60,10 @@ desktop.ini
 
 # dot-folders
 .oal/
+.omg/
+# Explicit credential store protection (belt-and-suspenders with .oal/)
+credentials.enc
+credentials.meta
 .omc/
 .sisyphus/
 

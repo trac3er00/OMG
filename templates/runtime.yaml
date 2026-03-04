@@ -1,4 +1,4 @@
-version: oal-v1
+version: omg-v1
 runtime_order:
   - claude
   - gpt

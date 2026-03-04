@@ -1,0 +1,61 @@
+name: OMG Compat Gate
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  compat-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install pytest
+      - name: Prepare compatibility artifacts directory
+        run: mkdir -p artifacts
+
+      - name: OMG compatibility GA gate
+        run: python3 scripts/omg.py compat gate --max-bridge 0 --output artifacts/omg-compat-gap.json
+
+      - name: Export contract snapshot
+        run: python3 scripts/omg.py compat snapshot --output artifacts/omg-compat-contracts.json
+
+      - name: Check committed snapshot drift
+        run: python3 scripts/check-omg-compat-contract-snapshot.py --strict-version
+
+      - name: Check standalone naming hygiene
+        run: python3 scripts/check-omg-standalone-clean.py
+
+      - name: Run regression tests
+        run: python3 -m pytest -q
+
+      - name: Upload compatibility artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: omg-compat-artifacts
+          path: artifacts/
+          if-no-files-found: error
+
+  standalone-no-vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install pytest
+
+      - name: Validate standalone no-vendor behavior
+        run: ./scripts/verify-standalone.sh

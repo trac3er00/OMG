@@ -16,7 +16,7 @@ TOTAL TRACKED ENTRIES:              102
 
 PROTOCOLS BACKUP VERIFICATION
 =============================
-Backup location: /tmp/oal-protocols-backup/
+Backup location: /tmp/omg-protocols-backup/
 Files in backup: 6 .md files
 Status: ✓ VERIFIED (6 files present)
 
@@ -33,5 +33,5 @@ SNAPSHOT COMPLETE
 =================
 - Read-only snapshot taken
 - No files modified
-- Protocols backed up to /tmp/oal-protocols-backup/
+- Protocols backed up to /tmp/omg-protocols-backup/
 - Ready for installer execution

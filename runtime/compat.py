@@ -1,4 +1,4 @@
-"""OAL standalone legacy-compat dispatcher.
+"""OMG standalone legacy-compat dispatcher.
 
 Primary namespace is `compat/*` while legacy `omc/*` aliases remain supported.
 """
@@ -18,20 +18,20 @@ from lab.pipeline import run_pipeline
 from runtime.dispatcher import dispatch_runtime
 from runtime.team_router import TeamDispatchRequest, dispatch_team
 
-CONTRACT_SNAPSHOT_SCHEMA = "OalCompatContractSnapshot"
+CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
 LEGACY_CONTRACT_SNAPSHOT_SCHEMA = "OmcCompatContractSnapshot"
 CONTRACT_SNAPSHOT_VERSION = "1.0.0"
 LEGACY_SNAPSHOT_VERSION = "0.9.0"
-GAP_REPORT_SCHEMA = "OalCompatGapReport"
+GAP_REPORT_SCHEMA = "OmgCompatGapReport"
 LEGACY_GAP_REPORT_SCHEMA = "OmcCompatGapReport"
-RESULT_SCHEMA = "OalCompatResult"
+RESULT_SCHEMA = "OmgCompatResult"
 LEGACY_RESULT_SCHEMA = "OmcCompatResult"
-DEFAULT_CONTRACT_SNAPSHOT_PATH = "runtime/oal_compat_contract_snapshot.json"
+DEFAULT_CONTRACT_SNAPSHOT_PATH = "runtime/omg_compat_contract_snapshot.json"
 LEGACY_CONTRACT_SNAPSHOT_PATH = "runtime/omc_contract_snapshot.json"
-DEFAULT_GAP_REPORT_PATH = ".oal/evidence/oal-compat-gap.json"
-LEGACY_GAP_REPORT_PATH = ".oal/evidence/omc-compat-gap.json"
-DEFAULT_AUDIT_LEDGER_PATH = ".oal/state/ledger/oal-compat-audit.jsonl"
-LEGACY_AUDIT_LEDGER_PATH = ".oal/state/ledger/omc-compat-audit.jsonl"
+DEFAULT_GAP_REPORT_PATH = ".omg/evidence/omg-compat-gap.json"
+LEGACY_GAP_REPORT_PATH = ".omg/evidence/omc-compat-gap.json"
+DEFAULT_AUDIT_LEDGER_PATH = ".omg/state/ledger/omg-compat-audit.jsonl"
+LEGACY_AUDIT_LEDGER_PATH = ".omg/state/ledger/omc-compat-audit.jsonl"
 DEFAULT_EVENT_DISPATCH = "compat_dispatch"
 DEFAULT_EVENT_REQUEST = "compat_dispatch_request"
 LEGACY_EVENT_ALIASES: dict[str, str] = {
@@ -210,16 +210,16 @@ ROUTE_SIDE_EFFECTS: dict[str, list[str]] = {
     "ccg": [],
     "runtime_ship": [],
     "pipeline": [],
-    "memory": [".oal/state/working-memory.md", ".oal/state/session.json (psm only)"],
-    "init": [".oal/state/*", ".oal/idea.yml", ".oal/policy.yaml", ".oal/runtime.yaml"],
+    "memory": [".omg/state/working-memory.md", ".omg/state/session.json (psm only)"],
+    "init": [".omg/state/*", ".omg/idea.yml", ".omg/policy.yaml", ".omg/runtime.yaml"],
     "health": [],
     "help": [],
     "review": [],
-    "plan": [".oal/state/_plan.md", ".oal/state/_checklist.md", ".oal/idea.yml"],
+    "plan": [".omg/state/_plan.md", ".omg/state/_checklist.md", ".omg/idea.yml"],
     "secure": [],
-    "learn": [".oal/state/working-memory.md"],
-    "maintainer": [".oal/evidence/compat-*.json"],
-    "cancel": [".oal/shadow/active-run (removed when exists)"],
+    "learn": [".omg/state/working-memory.md"],
+    "maintainer": [".omg/evidence/compat-*.json"],
+    "cancel": [".omg/shadow/active-run (removed when exists)"],
 }
 
 SKILL_OUTPUT_SCHEMA_OVERRIDES: dict[str, str] = {
@@ -233,27 +233,27 @@ SKILL_OUTPUT_SCHEMA_OVERRIDES: dict[str, str] = {
 }
 
 SKILL_SIDE_EFFECT_OVERRIDES: dict[str, list[str]] = {
-    "autopilot": [".oal/state/persistent-mode.json"],
-    "ralph": [".oal/state/persistent-mode.json"],
-    "ralph-wiggum": [".oal/state/persistent-mode.json"],
-    "ultrapilot": [".oal/state/persistent-mode.json"],
-    "ultrawork": [".oal/state/persistent-mode.json"],
-    "release": [".oal/evidence/release-draft.md"],
-    "build-fix": [".oal/state/build-fix.md"],
-    "analyze": [".oal/evidence/analysis-analyze.json"],
-    "trace": [".oal/evidence/analysis-trace.json"],
-    "sciomc": [".oal/evidence/analysis-sciomc.json"],
-    "project-session-manager": [".oal/state/session.json"],
-    "learn-about-omc": [".oal/knowledge/learning/learn-about-omc.md"],
-    "learner": [".oal/knowledge/learning/learner.md"],
-    "skill": [".oal/knowledge/learning/skill.md"],
-    "note": [".oal/knowledge/notes.md"],
-    "writer-memory": [".oal/knowledge/writer-memory.md"],
-    "superpowers": [".oal/state/_plan.md", ".oal/state/_checklist.md"],
-    "planning-with-files": [".oal/state/_plan.md", ".oal/state/_checklist.md"],
-    "claude-mem": [".oal/state/working-memory.md"],
-    "memsearch": [".oal/state/working-memory.md"],
-    "beads": [".oal/evidence/compat-beads.json"],
+    "autopilot": [".omg/state/persistent-mode.json"],
+    "ralph": [".omg/state/persistent-mode.json"],
+    "ralph-wiggum": [".omg/state/persistent-mode.json"],
+    "ultrapilot": [".omg/state/persistent-mode.json"],
+    "ultrawork": [".omg/state/persistent-mode.json"],
+    "release": [".omg/evidence/release-draft.md"],
+    "build-fix": [".omg/state/build-fix.md"],
+    "analyze": [".omg/evidence/analysis-analyze.json"],
+    "trace": [".omg/evidence/analysis-trace.json"],
+    "sciomc": [".omg/evidence/analysis-sciomc.json"],
+    "project-session-manager": [".omg/state/session.json"],
+    "learn-about-omc": [".omg/knowledge/learning/learn-about-omc.md"],
+    "learner": [".omg/knowledge/learning/learner.md"],
+    "skill": [".omg/knowledge/learning/skill.md"],
+    "note": [".omg/knowledge/notes.md"],
+    "writer-memory": [".omg/knowledge/writer-memory.md"],
+    "superpowers": [".omg/state/_plan.md", ".omg/state/_checklist.md"],
+    "planning-with-files": [".omg/state/_plan.md", ".omg/state/_checklist.md"],
+    "claude-mem": [".omg/state/working-memory.md"],
+    "memsearch": [".omg/state/working-memory.md"],
+    "beads": [".omg/evidence/compat-beads.json"],
     "hooks-mastery": [],
     "claude-flow": [],
     "compound-engineering": [],
@@ -262,24 +262,24 @@ SKILL_SIDE_EFFECT_OVERRIDES: dict[str, list[str]] = {
 
 SKILL_ROUTE_NOTES: dict[str, str] = {
     "omc-teams": "Legacy tmux worker dispatch replaced by internal Team router.",
-    "project-session-manager": "Session metadata maintained in .oal/state/session.json.",
-    "omc-setup": "Bootstraps OAL standalone state and baseline config files.",
-    "omc-doctor": "Health checks run against OAL standalone layout.",
-    "pipeline": "Routes to OAL lab policy+pipeline executor.",
+    "project-session-manager": "Session metadata maintained in .omg/state/session.json.",
+    "omc-setup": "Bootstraps OMG standalone state and baseline config files.",
+    "omc-doctor": "Health checks run against OMG standalone layout.",
+    "pipeline": "Routes to OMG lab policy+pipeline executor.",
     "release": "Routes to runtime ship and emits release draft artifact.",
     "tdd": "Generates plan/checklist scaffolding for red-green-refactor workflow.",
     "build-fix": "Creates targeted fix checklist and routes execution to runtime.",
     "analyze": "Writes structured analysis evidence artifact.",
     "trace": "Writes trace evidence artifact for debugging chain.",
-    "learner": "Writes learning note into .oal/knowledge/learning.",
+    "learner": "Writes learning note into .omg/knowledge/learning.",
     "writer-memory": "Writes long-form memory artifact for writing workflows.",
-    "superpowers": "Imports TDD-first planning discipline into OAL plan route.",
+    "superpowers": "Imports TDD-first planning discipline into OMG plan route.",
     "ralph-wiggum": "Persistent iteration loop via runtime persistent-mode state.",
     "claude-flow": "Maps to CCG route for multi-agent orchestration semantics.",
     "claude-mem": "Maps to memory route for durable working-context updates.",
     "memsearch": "Maps to memory route for retrieval-oriented context search workflow.",
     "beads": "Maps to maintainer route for context engineering artifacts.",
-    "planning-with-files": "Strengthens file-native planning artifacts in .oal/state.",
+    "planning-with-files": "Strengthens file-native planning artifacts in .omg/state.",
     "hooks-mastery": "Maps to health route for hook quality and readiness checks.",
     "compound-engineering": "Maps to CCG route for compounding, iterative orchestration.",
     "compounding-engineering": "Alias to compound-engineering orchestration route.",
@@ -343,7 +343,7 @@ def migrate_contract_snapshot_payload(payload: dict[str, Any]) -> tuple[dict[str
 
     if migrated.get("schema") == LEGACY_CONTRACT_SNAPSHOT_SCHEMA:
         migrated["schema"] = CONTRACT_SNAPSHOT_SCHEMA
-        migrations.append("migrate-schema-omc-to-oal")
+        migrations.append("migrate-schema-omc-to-omg")
 
     if "contract_version" not in migrated:
         migrated["contract_version"] = LEGACY_SNAPSHOT_VERSION
@@ -414,12 +414,12 @@ def _result(
 
 def _ensure_state_layout(project_dir: str) -> None:
     for rel in ["state", "knowledge", "evidence", "trust", "shadow"]:
-        os.makedirs(os.path.join(project_dir, ".oal", rel), exist_ok=True)
+        os.makedirs(os.path.join(project_dir, ".omg", rel), exist_ok=True)
 
 
 def _append_audit_event(project_dir: str, event: dict[str, Any]) -> None:
     _ensure_state_layout(project_dir)
-    ledger_dir = os.path.join(project_dir, ".oal", "state", "ledger")
+    ledger_dir = os.path.join(project_dir, ".omg", "state", "ledger")
     os.makedirs(ledger_dir, exist_ok=True)
     payload = dict(event)
     payload.setdefault("ts", _now())
@@ -489,7 +489,7 @@ def _write_if_missing(path: str, content: str) -> None:
 
 def _append_memory(project_dir: str, message: str) -> str:
     _ensure_state_layout(project_dir)
-    wm_path = os.path.join(project_dir, ".oal", "state", "working-memory.md")
+    wm_path = os.path.join(project_dir, ".omg", "state", "working-memory.md")
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     line = f"- [{ts}] {message}\n"
     with open(wm_path, "a", encoding="utf-8") as f:
@@ -499,7 +499,7 @@ def _append_memory(project_dir: str, message: str) -> str:
 
 def _update_session_state(project_dir: str, message: str) -> str:
     _ensure_state_layout(project_dir)
-    session_path = os.path.join(project_dir, ".oal", "state", "session.json")
+    session_path = os.path.join(project_dir, ".omg", "state", "session.json")
     payload: dict[str, Any] = {"last_updated": _now(), "entries": []}
     if os.path.exists(session_path):
         try:
@@ -522,7 +522,7 @@ def _update_session_state(project_dir: str, message: str) -> str:
 
 def _append_knowledge_note(project_dir: str, rel_path: str, line: str) -> str:
     _ensure_state_layout(project_dir)
-    full = os.path.join(project_dir, ".oal", rel_path)
+    full = os.path.join(project_dir, ".omg", rel_path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
     with open(full, "a", encoding="utf-8") as f:
         f.write(line.rstrip() + "\n")
@@ -530,7 +530,7 @@ def _append_knowledge_note(project_dir: str, rel_path: str, line: str) -> str:
 
 
 def _write_learning_artifact(project_dir: str, skill: str, message: str, context: str) -> str:
-    path = os.path.join(project_dir, ".oal", "knowledge", "learning", f"{skill}.md")
+    path = os.path.join(project_dir, ".omg", "knowledge", "learning", f"{skill}.md")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(f"## {_now()}\n")
@@ -544,7 +544,7 @@ def _write_learning_artifact(project_dir: str, skill: str, message: str, context
 
 def _write_analysis_artifact(project_dir: str, skill: str, message: str, context: str, files: list[str]) -> str:
     _ensure_state_layout(project_dir)
-    out = os.path.join(project_dir, ".oal", "evidence", f"analysis-{skill}.json")
+    out = os.path.join(project_dir, ".omg", "evidence", f"analysis-{skill}.json")
     payload = {
         "schema": "AnalysisCompatArtifact",
         "skill": skill,
@@ -553,7 +553,7 @@ def _write_analysis_artifact(project_dir: str, skill: str, message: str, context
         "context": context,
         "files": files,
         "findings": [
-            "Structured analysis generated by OAL compat dispatcher.",
+            "Structured analysis generated by OMG compat dispatcher.",
             "Use review/teams routes for deeper remediation proposals.",
         ],
     }
@@ -564,7 +564,7 @@ def _write_analysis_artifact(project_dir: str, skill: str, message: str, context
 
 def _write_maintainer_artifact(project_dir: str, skill: str, problem: str) -> str:
     _ensure_state_layout(project_dir)
-    out_path = os.path.join(project_dir, ".oal", "evidence", f"compat-{skill}.json")
+    out_path = os.path.join(project_dir, ".omg", "evidence", f"compat-{skill}.json")
     payload = {
         "schema": "MaintainerCompatArtifact",
         "skill": skill,
@@ -583,18 +583,18 @@ def _write_maintainer_artifact(project_dir: str, skill: str, problem: str) -> st
 
 def _init_bootstrap(project_dir: str, reason: str) -> list[str]:
     _ensure_state_layout(project_dir)
-    profile_path = os.path.join(project_dir, ".oal", "state", "profile.yaml")
-    idea_path = os.path.join(project_dir, ".oal", "idea.yml")
-    policy_path = os.path.join(project_dir, ".oal", "policy.yaml")
-    runtime_path = os.path.join(project_dir, ".oal", "runtime.yaml")
-    plan_path = os.path.join(project_dir, ".oal", "state", "_plan.md")
-    checklist_path = os.path.join(project_dir, ".oal", "state", "_checklist.md")
-    qg_path = os.path.join(project_dir, ".oal", "state", "quality-gate.json")
+    profile_path = os.path.join(project_dir, ".omg", "state", "profile.yaml")
+    idea_path = os.path.join(project_dir, ".omg", "idea.yml")
+    policy_path = os.path.join(project_dir, ".omg", "policy.yaml")
+    runtime_path = os.path.join(project_dir, ".omg", "runtime.yaml")
+    plan_path = os.path.join(project_dir, ".omg", "state", "_plan.md")
+    checklist_path = os.path.join(project_dir, ".omg", "state", "_checklist.md")
+    qg_path = os.path.join(project_dir, ".omg", "state", "quality-gate.json")
 
     _write_if_missing(
         profile_path,
-        "name: oal-project\n"
-        "description: initialized by OAL standalone compat bootstrap\n"
+        "name: omg-project\n"
+        "description: initialized by OMG standalone compat bootstrap\n"
         "language: unknown\n"
         "framework: unknown\n",
     )
@@ -647,29 +647,29 @@ def _init_bootstrap(project_dir: str, reason: str) -> list[str]:
 
 def _health_snapshot(project_dir: str) -> dict[str, Any]:
     p = Path(project_dir)
-    oal_root = p / ".oal"
+    omg_root = p / ".omg"
     checks = [
         {"name": "python>=3.8", "ok": sys.version_info >= (3, 8)},
-        {"name": ".oal exists", "ok": oal_root.exists()},
-        {"name": ".oal/state exists", "ok": (oal_root / "state").exists()},
-        {"name": ".oal/idea.yml exists", "ok": (oal_root / "idea.yml").exists()},
-        {"name": ".oal/policy.yaml exists", "ok": (oal_root / "policy.yaml").exists()},
+        {"name": ".omg exists", "ok": omg_root.exists()},
+        {"name": ".omg/state exists", "ok": (omg_root / "state").exists()},
+        {"name": ".omg/idea.yml exists", "ok": (omg_root / "idea.yml").exists()},
+        {"name": ".omg/policy.yaml exists", "ok": (omg_root / "policy.yaml").exists()},
     ]
     all_ok = all(c["ok"] for c in checks)
     return {
         "project_dir": str(p),
         "status": "pass" if all_ok else "warn",
         "checks": checks,
-        "oal_exists": oal_root.exists(),
-        "state_exists": (oal_root / "state").exists(),
-        "knowledge_exists": (oal_root / "knowledge").exists(),
-        "evidence_exists": (oal_root / "evidence").exists(),
+        "omg_exists": omg_root.exists(),
+        "state_exists": (omg_root / "state").exists(),
+        "knowledge_exists": (omg_root / "knowledge").exists(),
+        "evidence_exists": (omg_root / "evidence").exists(),
     }
 
 
 def _write_release_artifact(project_dir: str, message: str) -> str:
     _ensure_state_layout(project_dir)
-    out = os.path.join(project_dir, ".oal", "evidence", "release-draft.md")
+    out = os.path.join(project_dir, ".omg", "evidence", "release-draft.md")
     if not os.path.exists(out):
         with open(out, "w", encoding="utf-8") as f:
             f.write("# Release Draft\n\n")
@@ -680,7 +680,7 @@ def _write_release_artifact(project_dir: str, message: str) -> str:
 
 def _write_build_fix_artifact(project_dir: str, message: str) -> str:
     _ensure_state_layout(project_dir)
-    out = os.path.join(project_dir, ".oal", "state", "build-fix.md")
+    out = os.path.join(project_dir, ".omg", "state", "build-fix.md")
     with open(out, "a", encoding="utf-8") as f:
         f.write(f"## {_now()}\n")
         f.write(f"- target: {message}\n")
@@ -702,7 +702,7 @@ def _write_persistent_state(
     runtime_result: dict[str, Any],
 ) -> str:
     _ensure_state_layout(project_dir)
-    path = os.path.join(project_dir, ".oal", "state", "persistent-mode.json")
+    path = os.path.join(project_dir, ".omg", "state", "persistent-mode.json")
     payload: dict[str, Any] = {
         "schema": "PersistentModeState",
         "mode": mode,
@@ -791,9 +791,9 @@ def _run_dual_review(
 
 def _ensure_plan_artifacts(project_dir: str, goal: str) -> list[str]:
     _ensure_state_layout(project_dir)
-    plan_path = os.path.join(project_dir, ".oal", "state", "_plan.md")
-    checklist_path = os.path.join(project_dir, ".oal", "state", "_checklist.md")
-    idea_path = os.path.join(project_dir, ".oal", "idea.yml")
+    plan_path = os.path.join(project_dir, ".omg", "state", "_plan.md")
+    checklist_path = os.path.join(project_dir, ".omg", "state", "_checklist.md")
+    idea_path = os.path.join(project_dir, ".omg", "idea.yml")
     _write_if_missing(
         plan_path,
         "# Deep Plan\n"
@@ -830,9 +830,9 @@ def _ensure_plan_artifacts(project_dir: str, goal: str) -> list[str]:
 
 def _ensure_tdd_artifacts(project_dir: str, goal: str) -> list[str]:
     _ensure_state_layout(project_dir)
-    plan_path = os.path.join(project_dir, ".oal", "state", "_plan.md")
-    checklist_path = os.path.join(project_dir, ".oal", "state", "_checklist.md")
-    idea_path = os.path.join(project_dir, ".oal", "idea.yml")
+    plan_path = os.path.join(project_dir, ".omg", "state", "_plan.md")
+    checklist_path = os.path.join(project_dir, ".omg", "state", "_checklist.md")
+    idea_path = os.path.join(project_dir, ".omg", "idea.yml")
     with open(plan_path, "w", encoding="utf-8") as f:
         f.write(
             "# TDD Plan\n"
@@ -921,7 +921,7 @@ def dispatch_compat_skill(
             route="unknown",
             status="error",
             findings=[f"Unsupported skill: {normalized}"],
-            actions=["Use `oal compat list` to see supported skill names."],
+            actions=["Use `omg compat list` to see supported skill names."],
         )
 
     is_valid, reason = validate_compat_request(
@@ -1044,7 +1044,7 @@ def dispatch_compat_skill(
             route=route,
             status=status,
             findings=["Pipeline route executed."],
-            actions=["Use `oal lab eval` when evaluation is ready."],
+            actions=["Use `omg lab eval` when evaluation is ready."],
             result=pipeline,
         )
 
@@ -1098,8 +1098,8 @@ def dispatch_compat_skill(
         return _res(
             skill=normalized,
             route=route,
-            findings=["OAL layout initialized."],
-            actions=["Run `oal compat run --skill omc-doctor` to verify health."],
+            findings=["OMG layout initialized."],
+            actions=["Run `omg compat run --skill omc-doctor` to verify health."],
             artifacts=artifacts,
         )
 
@@ -1109,7 +1109,7 @@ def dispatch_compat_skill(
             skill=normalized,
             route=route,
             findings=["Health snapshot generated."],
-            actions=["Create missing .oal folders if any field is false."],
+            actions=["Create missing .omg folders if any field is false."],
             result=snapshot,
         )
 
@@ -1118,7 +1118,7 @@ def dispatch_compat_skill(
             skill=normalized,
             route=route,
             findings=["Compatibility help generated."],
-            actions=["Run `oal compat list`, `oal compat contract --all`, then `oal compat run --skill <name>`."],
+            actions=["Run `omg compat list`, `omg compat contract --all`, then `omg compat run --skill <name>`."],
             result={
                 "supported_skills": list_compat_skills(),
                 "gap_report_hint": DEFAULT_GAP_REPORT_PATH,
@@ -1192,7 +1192,7 @@ def dispatch_compat_skill(
             skill=normalized,
             route=route,
             findings=["Learning note recorded."],
-            actions=["Review .oal/state/working-memory.md for accumulated insights."],
+            actions=["Review .omg/state/working-memory.md for accumulated insights."],
             artifacts=[os.path.relpath(note_path, root)],
         )
 
@@ -1216,10 +1216,10 @@ def dispatch_compat_skill(
         )
 
     if route == "cancel":
-        active_path = os.path.join(root, ".oal", "shadow", "active-run")
+        active_path = os.path.join(root, ".omg", "shadow", "active-run")
         if os.path.exists(active_path):
             os.remove(active_path)
-        persistent_path = os.path.join(root, ".oal", "state", "persistent-mode.json")
+        persistent_path = os.path.join(root, ".omg", "state", "persistent-mode.json")
         if os.path.exists(persistent_path):
             try:
                 with open(persistent_path, "r", encoding="utf-8") as f:

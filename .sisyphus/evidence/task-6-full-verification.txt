@@ -36,7 +36,7 @@ RESULT: 20 passed in 0.02s
 AC5: python3 -c "...all agent files exist and readable..."
 RESULT: AC5 PASS: all agent files exist and readable
 
-AC6: grep -c '^| oal-' README.md
+AC6: grep -c '^| omg-' README.md
 RESULT: 14
 
 SUMMARY: 6/6 PASS

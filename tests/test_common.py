@@ -25,7 +25,7 @@ def test_log_hook_error():
         log_hook_error("test-hook", ValueError("test error"), context={"key": "value"})
         
         # Verify file was created
-        ledger_path = os.path.join(tmpdir, ".oal", "state", "ledger", "hook-errors.jsonl")
+        ledger_path = os.path.join(tmpdir, ".omg", "state", "ledger", "hook-errors.jsonl")
         assert os.path.exists(ledger_path), f"hook-errors.jsonl not created at {ledger_path}"
         
         # Verify content
@@ -45,7 +45,7 @@ def test_log_hook_error_rotation():
     with tempfile.TemporaryDirectory() as tmpdir:
         os.environ["CLAUDE_PROJECT_DIR"] = tmpdir
         
-        ledger_path = os.path.join(tmpdir, ".oal", "state", "ledger", "hook-errors.jsonl")
+        ledger_path = os.path.join(tmpdir, ".omg", "state", "ledger", "hook-errors.jsonl")
         os.makedirs(os.path.dirname(ledger_path), exist_ok=True)
         
         # Create a file > 100KB
@@ -108,35 +108,35 @@ def test_atomic_json_write_silent_failure():
 def test_feature_flags():
     """Test feature flag resolution order: env var -> settings.json -> default."""
     # Test 1: env var false values
-    os.environ["OAL_MEMORY_ENABLED"] = "0"
+    os.environ["OMG_MEMORY_ENABLED"] = "0"
     import _common
     _common._FEATURE_CACHE.clear()
     assert not get_feature_flag("memory"), "Env var '0' should return False"
     
-    os.environ["OAL_MEMORY_ENABLED"] = "false"
+    os.environ["OMG_MEMORY_ENABLED"] = "false"
     _common._FEATURE_CACHE.clear()
     assert not get_feature_flag("memory"), "Env var 'false' should return False"
     
-    os.environ["OAL_MEMORY_ENABLED"] = "no"
+    os.environ["OMG_MEMORY_ENABLED"] = "no"
     _common._FEATURE_CACHE.clear()
     assert not get_feature_flag("memory"), "Env var 'no' should return False"
     
     # Test 2: env var true values
-    os.environ["OAL_MEMORY_ENABLED"] = "1"
+    os.environ["OMG_MEMORY_ENABLED"] = "1"
     _common._FEATURE_CACHE.clear()
     assert get_feature_flag("memory"), "Env var '1' should return True"
     
-    os.environ["OAL_MEMORY_ENABLED"] = "true"
+    os.environ["OMG_MEMORY_ENABLED"] = "true"
     _common._FEATURE_CACHE.clear()
     assert get_feature_flag("memory"), "Env var 'true' should return True"
     
-    os.environ["OAL_MEMORY_ENABLED"] = "yes"
+    os.environ["OMG_MEMORY_ENABLED"] = "yes"
     _common._FEATURE_CACHE.clear()
     assert get_feature_flag("memory"), "Env var 'yes' should return True"
     
     # Test 3: default value when no env var
-    if "OAL_MEMORY_ENABLED" in os.environ:
-        del os.environ["OAL_MEMORY_ENABLED"]
+    if "OMG_MEMORY_ENABLED" in os.environ:
+        del os.environ["OMG_MEMORY_ENABLED"]
     _common._FEATURE_CACHE.clear()
     assert get_feature_flag("unknown_flag") == True, "Default should be True"
     assert get_feature_flag("unknown_flag", default=False) == False, "Custom default should work"
@@ -145,7 +145,7 @@ def test_feature_flags():
     with tempfile.TemporaryDirectory() as tmpdir:
         os.environ["CLAUDE_PROJECT_DIR"] = tmpdir
         settings = {
-            "_oal": {
+            "_omg": {
                 "features": {
                     "memory": True,
                     "ralph_loop": False,
@@ -165,8 +165,8 @@ def test_feature_flags():
     # Test 5: env var overrides settings.json
     with tempfile.TemporaryDirectory() as tmpdir:
         os.environ["CLAUDE_PROJECT_DIR"] = tmpdir
-        os.environ["OAL_MEMORY_ENABLED"] = "0"
-        settings = {"_oal": {"features": {"memory": True}}}
+        os.environ["OMG_MEMORY_ENABLED"] = "0"
+        settings = {"_omg": {"features": {"memory": True}}}
         settings_path = os.path.join(tmpdir, "settings.json")
         with open(settings_path, "w") as f:
             json.dump(settings, f)
@@ -177,8 +177,8 @@ def test_feature_flags():
     # Test 6: malformed settings.json
     with tempfile.TemporaryDirectory() as tmpdir:
         os.environ["CLAUDE_PROJECT_DIR"] = tmpdir
-        if "OAL_MEMORY_ENABLED" in os.environ:
-            del os.environ["OAL_MEMORY_ENABLED"]
+        if "OMG_MEMORY_ENABLED" in os.environ:
+            del os.environ["OMG_MEMORY_ENABLED"]
         settings_path = os.path.join(tmpdir, "settings.json")
         with open(settings_path, "w") as f:
             f.write("{ invalid json }")
@@ -189,9 +189,9 @@ def test_feature_flags():
     # Test 7: missing features section
     with tempfile.TemporaryDirectory() as tmpdir:
         os.environ["CLAUDE_PROJECT_DIR"] = tmpdir
-        if "OAL_MEMORY_ENABLED" in os.environ:
-            del os.environ["OAL_MEMORY_ENABLED"]
-        settings = {"_oal": {}}
+        if "OMG_MEMORY_ENABLED" in os.environ:
+            del os.environ["OMG_MEMORY_ENABLED"]
+        settings = {"_omg": {}}
         settings_path = os.path.join(tmpdir, "settings.json")
         with open(settings_path, "w") as f:
             json.dump(settings, f)

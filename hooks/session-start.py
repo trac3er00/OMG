@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""SessionStart Hook — OAL Standalone Context Injection.
+"""SessionStart Hook — OMG Standalone Context Injection.
 
-Canonical state path: .oal/state/*
+Canonical state path: .omg/state/*
 Legacy fallback path: .omc/* (auto-migrated when detected)
 """
 import json
@@ -118,13 +118,13 @@ commands_dir = os.path.join(
     os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude")),
     "commands",
 )
-for cmd_name in ["OAL:teams", "OAL:ccg", "OAL:compat"]:
+for cmd_name in ["OMG:teams", "OMG:ccg", "OMG:compat"]:
     cmd_file = os.path.join(commands_dir, f"{cmd_name}.md")
     if os.path.exists(cmd_file):
         tools.append(f"/{cmd_name}")
 
-if os.environ.get("OAL_INCLUDE_LEGACY_ALIASES", "0") == "1":
-    for cmd_name in ["OAL:omc-compat", "omc-teams", "ccg"]:
+if os.environ.get("OMG_INCLUDE_LEGACY_ALIASES", "0") == "1":
+    for cmd_name in ["OMG:omc-compat", "omc-teams", "ccg"]:
         cmd_file = os.path.join(commands_dir, f"{cmd_name}.md")
         if os.path.exists(cmd_file):
             tools.append(f"/{cmd_name} (alias)")
@@ -233,7 +233,7 @@ if os.path.exists(tracker_path):
         active = [(k, v) for k, v in tracker.items() if isinstance(v, dict) and v.get("count", 0) >= 2]
         if active:
             warns = [f"  !! {k}: {v['count']}x failed" for k, v in active[:3]]
-            sections.append("[ACTIVE FAILURES — consider /OAL:escalate or different approach]\n" + "\n".join(warns))
+            sections.append("[ACTIVE FAILURES — consider /OMG:escalate or different approach]\n" + "\n".join(warns))
     except Exception:
         pass
 
@@ -253,7 +253,7 @@ if get_feature_flag('memory'):
 _plan_path = resolve_state_file(project_dir, "state/_plan.md", "_plan.md")
 _has_plan = os.path.exists(_plan_path)
 _has_handoff = handoff_fresh
-_memory_dir = os.path.join(project_dir, '.oal', 'state', 'memory')
+_memory_dir = os.path.join(project_dir, '.omg', 'state', 'memory')
 _has_memory = os.path.isdir(_memory_dir) and bool(os.listdir(_memory_dir)) if os.path.isdir(_memory_dir) else False
 _is_idle = not _has_plan and not _has_handoff and not _has_memory
 

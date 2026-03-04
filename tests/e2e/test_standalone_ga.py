@@ -9,8 +9,8 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CLI = ROOT / "scripts" / "oal.py"
-MIGRATOR = ROOT / "scripts" / "legacy_to_oal_migrate.py"
+CLI = ROOT / "scripts" / "omg.py"
+MIGRATOR = ROOT / "scripts" / "legacy_to_omg_migrate.py"
 
 
 def _run(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -64,12 +64,12 @@ def test_migration_cli_no_legacy_is_safe(tmp_path: Path):
     assert proc.returncode == 0
     out = json.loads(proc.stdout)
     assert out["result"] == "no_legacy"
-    assert (tmp_path / ".oal" / "migrations" / "legacy-to-oal.json").exists()
-    assert (tmp_path / ".oal" / "migrations" / "omc-to-oal.json").exists()
+    assert (tmp_path / ".omg" / "migrations" / "legacy-to-omg.json").exists()
+    assert (tmp_path / ".omg" / "migrations" / "omc-to-omg.json").exists()
 
 
 def test_migration_legacy_wrapper_still_works(tmp_path: Path):
-    wrapper = ROOT / "scripts" / "omc_to_oal_migrate.py"
+    wrapper = ROOT / "scripts" / "omc_to_omg_migrate.py"
     proc = _run([str(wrapper), "--project-dir", str(tmp_path)], ROOT, env={"CLAUDE_PROJECT_DIR": str(tmp_path)})
     assert proc.returncode == 0
 

@@ -7,12 +7,12 @@ Files Created:
   - tests/test_pre_tool_inject.py (133 lines, 6 tests)
 
 --- Acceptance Test 1: Plan exists → @plan-reminder injected ---
-$ echo '{"tool_name":"Write"}' | CLAUDE_PROJECT_DIR=/tmp/oal-test-plan OAL_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
+$ echo '{"tool_name":"Write"}' | CLAUDE_PROJECT_DIR=/tmp/omg-test-plan OMG_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py
 {"contextInjection": "@plan-reminder: # Test Plan\n- Step 1\n- Step 2\n"}
 ✅ PASS — output contains @plan-reminder
 
 --- Acceptance Test 2: No plan → empty output, exit 0 ---
-$ echo '{"tool_name":"Write"}' | CLAUDE_PROJECT_DIR=/tmp/oal-test-noplan OAL_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py; echo "EXIT=$?"
+$ echo '{"tool_name":"Write"}' | CLAUDE_PROJECT_DIR=/tmp/omg-test-noplan OMG_PLANNING_ENFORCEMENT_ENABLED=1 python3 hooks/pre-tool-inject.py; echo "EXIT=$?"
 EXIT=0
 ✅ PASS — empty output, exit code 0
 
@@ -33,7 +33,7 @@ $ python3 -m pytest --tb=short -q
 
 --- Hook Behavior Summary ---
 - Uses `planning_enforcement` feature flag (env var or settings.json)
-- Reads _plan.md via resolve_state_file() (supports .oal/state/ and legacy .omc/)
+- Reads _plan.md via resolve_state_file() (supports .omg/state/ and legacy .omc/)
 - Caps output: first 15 lines, max 200 chars
 - Outputs {"contextInjection": "@plan-reminder: <head>"} — injects context, never blocks
 - Crash isolation: exits 0 on all error paths

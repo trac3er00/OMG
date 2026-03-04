@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Learnings storage utilities for OAL compound learning."""
+"""Learnings storage utilities for OMG compound learning."""
 import os
 import glob
 import re
@@ -19,7 +19,7 @@ def aggregate_learnings(project_dir: str, max_patterns: int = 10) -> str:
 
     Returns formatted string with top tool patterns, max 500 chars.
     """
-    learn_dir = os.path.join(project_dir, '.oal', 'state', 'learnings')
+    learn_dir = os.path.join(project_dir, '.omg', 'state', 'learnings')
     if not os.path.isdir(learn_dir):
         return ''
 
@@ -88,7 +88,7 @@ def rotate_learnings(project_dir: str, max_files: int = 30) -> int:
 
     Returns number of files deleted.
     """
-    learn_dir = os.path.join(project_dir, '.oal', 'state', 'learnings')
+    learn_dir = os.path.join(project_dir, '.omg', 'state', 'learnings')
     if not os.path.isdir(learn_dir):
         return 0
 
@@ -106,7 +106,7 @@ def rotate_learnings(project_dir: str, max_files: int = 30) -> int:
 
 
 def save_critical_patterns(project_dir: str) -> str:
-    """Generate and save critical-patterns.md to .oal/knowledge/.
+    """Generate and save critical-patterns.md to .omg/knowledge/.
 
     Returns the path of the written file, or empty string on failure.
     """
@@ -114,7 +114,7 @@ def save_critical_patterns(project_dir: str) -> str:
     if not content:
         return ''
 
-    knowledge_dir = os.path.join(project_dir, '.oal', 'knowledge')
+    knowledge_dir = os.path.join(project_dir, '.omg', 'knowledge')
     os.makedirs(knowledge_dir, exist_ok=True)
     path = os.path.join(knowledge_dir, 'critical-patterns.md')
 

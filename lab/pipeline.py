@@ -1,4 +1,4 @@
-"""OAL full AI pipeline stub: data -> refine -> train/distill -> evaluate -> regression."""
+"""OMG full AI pipeline stub: data -> refine -> train/distill -> evaluate -> regression."""
 from __future__ import annotations
 
 from datetime import datetime, timezone

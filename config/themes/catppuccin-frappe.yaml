@@ -1,0 +1,14 @@
+name: "Catppuccin Frappé"
+variant: "dark"
+colors:
+  background: "#303446"
+  foreground: "#c6d0f5"
+  primary: "#ca9ee6"
+  secondary: "#8caaee"
+  accent: "#e78284"
+  error: "#e78284"
+  warning: "#e5c890"
+  success: "#a6d189"
+metadata:
+  author: "Catppuccin"
+  url: "https://github.com/catppuccin/catppuccin"

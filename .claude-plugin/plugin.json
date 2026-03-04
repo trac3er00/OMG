@@ -1,19 +1,19 @@
 {
-  "name": "oal",
+  "name": "omg",
   "version": "1.0.1",
-  "description": "OAL standalone orchestration layer for Claude Code - multi-agent coordination with Codex/Gemini",
+  "description": "OMG standalone orchestration layer for Claude Code - multi-agent coordination with Codex/Gemini",
   "author": {
     "name": "trac3er00"
   },
-  "repository": "git@github.com:trac3er00/OAL.git",
-  "homepage": "https://github.com/trac3er00/OAL",
+  "repository": "git@github.com:trac3er00/OMG.git",
+  "homepage": "https://github.com/trac3er00/OMG",
   "license": "MIT",
   "keywords": [
     "claude-code",
     "plugin",
     "orchestration",
     "multi-agent",
-    "oal",
+    "omg",
     "codex",
     "gemini",
     "crazy-mode",

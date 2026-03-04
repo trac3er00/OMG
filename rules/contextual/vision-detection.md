@@ -12,7 +12,7 @@
 1. If screenshot capability is available, capture the current UI state
 2. For visual bugs: capture BEFORE making changes
 3. After fix: capture AFTER to show comparison
-4. For UI review: /OAL:escalate gemini with the screenshot for visual analysis
+4. For UI review: /OMG:escalate gemini with the screenshot for visual analysis
 
 **Actions when images are attached:**
 1. Analyze the image content for context
@@ -23,5 +23,5 @@
 **Integration with Gemini:**
 Gemini excels at visual/design tasks. When vision context is detected:
 ```
-/OAL:escalate gemini "Analyze this UI: [description]. Check: layout, accessibility, responsive behavior, visual consistency."
+/OMG:escalate gemini "Analyze this UI: [description]. Check: layout, accessibility, responsive behavior, visual consistency."
 ```

@@ -1,9 +1,9 @@
 ---
-description: Compatibility alias for /OAL:ccg. Use /OAL:ccg instead.
+description: Compatibility alias for /OMG:ccg. Use /OMG:ccg instead.
 ---
 
 # /ccg — Compatibility Alias
 
-> **Compatibility alias** — This command is a legacy alias. Use `/OAL:ccg` instead.
+> **Compatibility alias** — This command is a legacy alias. Use `/OMG:ccg` instead.
 
-Redirects to `/OAL:ccg` for tri-track synthesis in standalone mode.
+Redirects to `/OMG:ccg` for tri-track synthesis in standalone mode.

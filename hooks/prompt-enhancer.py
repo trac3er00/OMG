@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-UserPromptSubmit Hook — OAL v1
+UserPromptSubmit Hook — OMG v1
 
 Inspired by oh-my-opencode's Sisyphus agent system. Key upgrades:
   1. Intent classification BEFORE acting (IntentGate)
@@ -52,7 +52,7 @@ if not prompt:
 
 prompt_lower = prompt.lower().strip()
 project_dir = _resolve_project_dir()
-oal_root = os.path.join(project_dir, ".oal")
+omg_root = os.path.join(project_dir, ".omg")
 state_dir = resolve_state_dir(project_dir, "state", "")
 knowledge_dir = resolve_state_dir(project_dir, "knowledge", "knowledge")
 injections = []
@@ -186,7 +186,7 @@ elif is_ulw and budget_ok():
 
 # ── Ralph loop auto-activation on keyword ──
 if is_ulw and get_feature_flag('ralph_loop'):
-    ralph_path = os.path.join(project_dir, '.oal', 'state', 'ralph-loop.json')
+    ralph_path = os.path.join(project_dir, '.omg', 'state', 'ralph-loop.json')
     if not os.path.exists(ralph_path):
         # Extract the goal from the prompt (everything after the keyword)
         goal = prompt.strip()
@@ -204,7 +204,7 @@ if is_ulw and get_feature_flag('ralph_loop'):
             'max_iterations': 50,
             'original_prompt': goal[:200],
             'started_at': _dt.now(timezone.utc).isoformat(),
-            'checklist_path': '.oal/state/_checklist.md'
+            'checklist_path': '.omg/state/_checklist.md'
         }
         try:
             os.makedirs(os.path.dirname(ralph_path), exist_ok=True)
@@ -273,7 +273,7 @@ if not is_crazy and not is_ulw and budget_ok():
         )
 
 # ═══════════════════════════════════════════════════════════
-# 3c. COGNITIVE MODE (from .oal/state/mode.txt)
+# 3c. COGNITIVE MODE (from .omg/state/mode.txt)
 # ═══════════════════════════════════════════════════════════
 _mode_path = os.path.join(state_dir, 'mode.txt')
 if os.path.exists(_mode_path) and budget_ok():
@@ -299,11 +299,11 @@ CCG_SIGNALS = [
     "architecture review", "review everything", "cross-functional", "end-to-end", "e2e",
     "풀스택", "아키텍처 리뷰", "전체 리뷰",
 ]
-DEEP_PLAN_SIGNALS = ["deep-plan", "deep plan", "/oal:deep-plan"]
+DEEP_PLAN_SIGNALS = ["deep-plan", "deep plan", "/omg:deep-plan"]
 EXPLICIT_GEMINI = ["gemini", "제미니"]
 EXPLICIT_CODEX = ["codex", "코덱스"]
 
-# Keyword-first model routing. If an explicit keyword exists, force OAL route first.
+# Keyword-first model routing. If an explicit keyword exists, force OMG route first.
 has_ccg_signal = any(signal_matches_text(sig, prompt) for sig in CCG_SIGNALS)
 has_deep_plan_signal = any(signal_matches_text(sig, prompt) for sig in DEEP_PLAN_SIGNALS)
 has_gemini_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_GEMINI)
@@ -322,23 +322,23 @@ elif has_codex_signal:
 if route_lock and budget_ok():
     if route_lock == "deep-plan":
         add(
-            '@route-lock: Explicit keyword route=deep-plan. Execute /OAL:deep-plan "[goal]" FIRST. '
-            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OAL route."
+            '@route-lock: Explicit keyword route=deep-plan. Execute /OMG:deep-plan "[goal]" FIRST. '
+            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
         )
     elif route_lock == "ccg":
         add(
-            '@route-lock: Explicit keyword route=ccg. Execute /OAL:ccg "[problem]" FIRST. '
-            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OAL route."
+            '@route-lock: Explicit keyword route=ccg. Execute /OMG:ccg "[problem]" FIRST. '
+            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
         )
     elif route_lock == "gemini":
         add(
-            '@route-lock: Explicit keyword route=gemini. Execute /OAL:escalate gemini "[problem]" FIRST. '
-            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OAL route."
+            '@route-lock: Explicit keyword route=gemini. Execute /OMG:escalate gemini "[problem]" FIRST. '
+            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
         )
     else:
         add(
-            '@route-lock: Explicit keyword route=codex. Execute /OAL:escalate codex "[problem]" FIRST. '
-            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OAL route."
+            '@route-lock: Explicit keyword route=codex. Execute /OMG:escalate codex "[problem]" FIRST. '
+            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
         )
 
 if not route_lock and get_feature_flag('agent_registry') and budget_ok():
@@ -356,9 +356,9 @@ if not route_lock and get_feature_flag('agent_registry') and budget_ok():
             _agent_name = matched_agent.get('name', '')
             _preferred = matched_agent.get('preferred_model', 'claude')
             if _preferred == 'gemini-cli':
-                add(f'@agent: {_agent_name} → /OAL:escalate gemini "[task]" (visual/frontend domain)')
+                add(f'@agent: {_agent_name} → /OMG:escalate gemini "[task]" (visual/frontend domain)')
             elif _preferred == 'codex-cli':
-                add(f'@agent: {_agent_name} → /OAL:escalate codex "[task]" (backend/security domain)')
+                add(f'@agent: {_agent_name} → /OMG:escalate codex "[task]" (backend/security domain)')
             elif _preferred in ('claude', 'domain-dependent'):
                 _desc = str(matched_agent.get('description', ''))[:80]
                 if _desc:
@@ -374,7 +374,7 @@ SEQUENTIAL_THINKING_SIGNALS = [
     "단계적 사고",
 ]
 if any(signal_matches_text(sig, prompt) for sig in SEQUENTIAL_THINKING_SIGNALS) and budget_ok():
-    add("@reasoning: Use /OAL:sequential-thinking for structured hypothesis and verification flow.")
+    add("@reasoning: Use /OMG:sequential-thinking for structured hypothesis and verification flow.")
 
 # Security domain warning (keep this — it's additive, not routing)
 SECURITY_SIGNALS = [
@@ -386,7 +386,7 @@ SECURITY_SIGNALS = [
 ]
 if not route_lock and any(signal_matches_text(sig, prompt) for sig in SECURITY_SIGNALS) and budget_ok():
     if detected_intent in ("fix", "implement", "refactor"):
-        add("@security: CRITICAL DOMAIN — No hardcoded secrets. Run /OAL:security-review after.")
+        add("@security: CRITICAL DOMAIN — No hardcoded secrets. Run /OMG:security-review after.")
 
 # ═══════════════════════════════════════════════════════════
 # 5. VISION DETECTION
@@ -399,7 +399,7 @@ VISION_SIGNALS = [
 if any(signal_matches_text(sig, prompt) for sig in VISION_SIGNALS) and budget_ok():
     add(
         "@vision: Visual context detected. Use screenshot tools if available. "
-        "/OAL:escalate gemini for visual analysis."
+        "/OMG:escalate gemini for visual analysis."
     )
 
 # ═══════════════════════════════════════════════════════════
@@ -425,7 +425,7 @@ if any(signal_matches_text(sig, prompt) for sig in RESUME_SIGNALS) and budget_ok
                 if sections:
                     add("@handoff:" + "\n".join(sections)[:250])
                 else:
-                    add("@handoff: Read .oal/state/handoff.md for context")
+                    add("@handoff: Read .omg/state/handoff.md for context")
             except Exception:
                 pass
             break
@@ -465,11 +465,11 @@ if any(signal_matches_text(sig, prompt) for sig in DDD_SIGNALS) and budget_ok():
         if pats:
             add(f"@ddd: Patterns: {', '.join(pats[:3])}. Follow existing.")
     else:
-        add("@ddd: No patterns. Use /OAL:domain-init for first reference.")
+        add("@ddd: No patterns. Use /OMG:domain-init for first reference.")
 
 # Knowledge retrieval (top-2, with index cache for performance)
 # §4.5: Instead of os.walk + read every file on every prompt,
-# maintain a lightweight index (.oal/knowledge/.index.json) keyed by mtime.
+# maintain a lightweight index (.omg/knowledge/.index.json) keyed by mtime.
 kd = knowledge_dir
 # Skip knowledge search for very short prompts with no coding signals (perf optimization)
 _word_count = len(prompt_lower.split())
@@ -490,7 +490,7 @@ if os.path.isdir(kd) and budget_ok() and (_word_count >= 15 or _has_code_signal)
                 with open(index_path, "r") as f:
                     index = json.load(f)
                 if not isinstance(index, dict):
-                    print(f"[OAL] prompt-enhancer: index.json is not a dict ({type(index).__name__}), rebuilding", file=sys.stderr)
+                    print(f"[OMG] prompt-enhancer: index.json is not a dict ({type(index).__name__}), rebuilding", file=sys.stderr)
                     try:
                         os.remove(index_path)
                     except OSError:
@@ -567,7 +567,7 @@ if os.path.isdir(kd) and budget_ok() and (_word_count >= 15 or _has_code_signal)
         for sc, fp in matches[:2]:
             if not budget_ok():
                 break
-            rel = os.path.relpath(fp, oal_root)
+            rel = os.path.relpath(fp, omg_root)
             add(f"@knowledge({rel})")
 
 # ═══════════════════════════════════════════════════════════
@@ -631,7 +631,7 @@ if any(signal_matches_text(sig, prompt) for sig in STUCK_SIGNALS) and budget_ok(
                     f.write(str(now))
             except OSError:
                 pass
-            add(f"@stuck{ctx}: STOP retrying. /OAL:escalate codex | different approach | ask user")
+            add(f"@stuck{ctx}: STOP retrying. /OMG:escalate codex | different approach | ask user")
 
 # ═══════════════════════════════════════════════════════════
 # 9. WRITE/EDIT FAILURE AWARENESS (anti-hallucination)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""State path resolution and legacy `.omc` -> `.oal` migration utilities."""
+"""State path resolution and legacy `.omc` -> `.omg` migration utilities."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -9,27 +9,27 @@ import os
 import shutil
 from typing import Any
 
-DEFAULT_MIGRATION_REPORT = "legacy-to-oal.json"
-LEGACY_MIGRATION_REPORT = "omc-to-oal.json"
+DEFAULT_MIGRATION_REPORT = "legacy-to-omg.json"
+LEGACY_MIGRATION_REPORT = "omc-to-omg.json"
 
 
 def paths(project_dir: str) -> dict[str, str]:
-    oal_root = os.path.join(project_dir, ".oal")
+    omg_root = os.path.join(project_dir, ".omg")
     return {
         "project": project_dir,
-        "oal_root": oal_root,
-        "oal_state": os.path.join(oal_root, "state"),
-        "oal_knowledge": os.path.join(oal_root, "knowledge"),
-        "oal_migrations": os.path.join(oal_root, "migrations"),
+        "omg_root": omg_root,
+        "omg_state": os.path.join(omg_root, "state"),
+        "omg_knowledge": os.path.join(omg_root, "knowledge"),
+        "omg_migrations": os.path.join(omg_root, "migrations"),
         "legacy_omc": os.path.join(project_dir, ".omc"),
     }
 
 
-def ensure_oal_structure(project_dir: str) -> None:
+def ensure_omg_structure(project_dir: str) -> None:
     p = paths(project_dir)
-    os.makedirs(p["oal_state"], exist_ok=True)
-    os.makedirs(p["oal_knowledge"], exist_ok=True)
-    os.makedirs(p["oal_migrations"], exist_ok=True)
+    os.makedirs(p["omg_state"], exist_ok=True)
+    os.makedirs(p["omg_knowledge"], exist_ok=True)
+    os.makedirs(p["omg_migrations"], exist_ok=True)
 
 
 def _sha256_file(path: str) -> str:
@@ -103,15 +103,15 @@ MIGRATION_MAP: list[tuple[str, str, str]] = [
 ]
 
 
-def migrate_omc_to_oal(project_dir: str, force: bool = False) -> dict[str, Any]:
-    ensure_oal_structure(project_dir)
+def migrate_omc_to_omg(project_dir: str, force: bool = False) -> dict[str, Any]:
+    ensure_omg_structure(project_dir)
     p = paths(project_dir)
     legacy = p["legacy_omc"]
     report: dict[str, Any] = {
         "started_at": datetime.now(timezone.utc).isoformat(),
         "project_dir": project_dir,
         "legacy_path": legacy,
-        "target_path": p["oal_root"],
+        "target_path": p["omg_root"],
         "result": "ok",
         "entries": [],
     }
@@ -121,7 +121,7 @@ def migrate_omc_to_oal(project_dir: str, force: bool = False) -> dict[str, Any]:
     else:
         for kind, src_rel, dst_rel in MIGRATION_MAP:
             src = os.path.join(legacy, src_rel)
-            dst = os.path.join(p["oal_root"], dst_rel)
+            dst = os.path.join(p["omg_root"], dst_rel)
             entry = {"kind": kind, "source": src_rel, "target": dst_rel, "status": "missing"}
             try:
                 if kind == "file":
@@ -141,9 +141,9 @@ def migrate_omc_to_oal(project_dir: str, force: bool = False) -> dict[str, Any]:
             report["entries"].append(entry)
 
     report["finished_at"] = datetime.now(timezone.utc).isoformat()
-    os.makedirs(p["oal_migrations"], exist_ok=True)
-    out_path = os.path.join(p["oal_migrations"], DEFAULT_MIGRATION_REPORT)
-    legacy_out_path = os.path.join(p["oal_migrations"], LEGACY_MIGRATION_REPORT)
+    os.makedirs(p["omg_migrations"], exist_ok=True)
+    out_path = os.path.join(p["omg_migrations"], DEFAULT_MIGRATION_REPORT)
+    legacy_out_path = os.path.join(p["omg_migrations"], LEGACY_MIGRATION_REPORT)
 
     # idempotent write: overwrite with latest summary
     for path in (out_path, legacy_out_path):
@@ -154,32 +154,32 @@ def migrate_omc_to_oal(project_dir: str, force: bool = False) -> dict[str, Any]:
     return report
 
 
-def migrate_legacy_to_oal(project_dir: str, force: bool = False) -> dict[str, Any]:
+def migrate_legacy_to_omg(project_dir: str, force: bool = False) -> dict[str, Any]:
     """Canonical migration API."""
-    return migrate_omc_to_oal(project_dir, force=force)
+    return migrate_omc_to_omg(project_dir, force=force)
 
 
 def resolve_state_file(
     project_dir: str,
-    oal_relative: str,
+    omg_relative: str,
     legacy_relative: str | None = None,
     auto_migrate: bool = True,
 ) -> str:
-    """Return preferred .oal file path; fallback to .omc if needed.
+    """Return preferred .omg file path; fallback to .omc if needed.
 
-    - If .oal target exists, return it.
+    - If .omg target exists, return it.
     - If not, and legacy exists, optionally run migration and return target if created.
     - If still absent, return the preferred target path.
     """
     p = paths(project_dir)
-    preferred = os.path.join(p["oal_root"], oal_relative)
+    preferred = os.path.join(p["omg_root"], omg_relative)
     if os.path.exists(preferred):
         return preferred
 
-    legacy_rel = legacy_relative or oal_relative
+    legacy_rel = legacy_relative or omg_relative
     legacy_path = os.path.join(p["legacy_omc"], legacy_rel)
     if os.path.exists(legacy_path) and auto_migrate:
-        migrate_legacy_to_oal(project_dir)
+        migrate_legacy_to_omg(project_dir)
         if os.path.exists(preferred):
             return preferred
     if os.path.exists(legacy_path):
@@ -189,19 +189,19 @@ def resolve_state_file(
 
 def resolve_state_dir(
     project_dir: str,
-    oal_relative: str,
+    omg_relative: str,
     legacy_relative: str | None = None,
     auto_migrate: bool = True,
 ) -> str:
     p = paths(project_dir)
-    preferred = os.path.join(p["oal_root"], oal_relative)
+    preferred = os.path.join(p["omg_root"], omg_relative)
     if os.path.isdir(preferred):
         return preferred
 
-    legacy_rel = legacy_relative or oal_relative
+    legacy_rel = legacy_relative or omg_relative
     legacy_path = os.path.join(p["legacy_omc"], legacy_rel)
     if os.path.isdir(legacy_path) and auto_migrate:
-        migrate_legacy_to_oal(project_dir)
+        migrate_legacy_to_omg(project_dir)
         if os.path.isdir(preferred):
             return preferred
     if os.path.isdir(legacy_path):

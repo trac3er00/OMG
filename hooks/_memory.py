@@ -5,7 +5,7 @@ from datetime import datetime
 
 
 def save_memory(project_dir: str, session_id: str, content: str) -> str:
-    memory_dir = os.path.join(project_dir, ".oal", "state", "memory")
+    memory_dir = os.path.join(project_dir, ".omg", "state", "memory")
     os.makedirs(memory_dir, exist_ok=True)
     date_str = datetime.now().strftime("%Y-%m-%d")
     session_short = session_id[:8] if len(session_id) > 8 else session_id
@@ -24,7 +24,7 @@ def save_memory(project_dir: str, session_id: str, content: str) -> str:
 def get_recent_memories(
     project_dir: str, max_files: int = 5, max_chars_total: int = 300
 ) -> str:
-    memory_dir = os.path.join(project_dir, ".oal", "state", "memory")
+    memory_dir = os.path.join(project_dir, ".omg", "state", "memory")
     if not os.path.exists(memory_dir):
         return ""
     files = sorted(glob.glob(os.path.join(memory_dir, "*.md")), reverse=True)
@@ -56,7 +56,7 @@ def get_recent_memories(
 
 
 def rotate_memories(project_dir: str, max_files: int = 50) -> int:
-    memory_dir = os.path.join(project_dir, ".oal", "state", "memory")
+    memory_dir = os.path.join(project_dir, ".omg", "state", "memory")
     if not os.path.exists(memory_dir):
         return 0
     files = sorted(glob.glob(os.path.join(memory_dir, "*.md")))
@@ -74,7 +74,7 @@ def rotate_memories(project_dir: str, max_files: int = 50) -> int:
 
 def search_memories(project_dir: str, query_keywords: list, max_results: int = 3, max_chars: int = 200) -> str:
     """Search memory files by keyword relevance. Returns formatted excerpt string."""
-    memory_dir = os.path.join(project_dir, '.oal', 'state', 'memory')
+    memory_dir = os.path.join(project_dir, '.omg', 'state', 'memory')
     if not os.path.isdir(memory_dir):
         return ''
     results = []

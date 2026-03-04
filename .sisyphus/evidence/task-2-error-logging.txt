@@ -3,13 +3,13 @@
 ## Acceptance Criteria Verification
 
 ### 1. log_hook_error function test
-Command: python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import log_hook_error; log_hook_error('test','err'); import os; path = os.path.join(os.getcwd(), '.oal/state/ledger/hook-errors.jsonl'); print(f'File exists: {os.path.exists(path)}'); os.path.exists(path) and print(open(path).read())"
+Command: python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import log_hook_error; log_hook_error('test','err'); import os; path = os.path.join(os.getcwd(), '.omg/state/ledger/hook-errors.jsonl'); print(f'File exists: {os.path.exists(path)}'); os.path.exists(path) and print(open(path).read())"
 
 Output:
 File exists: True
 {"ts":"2026-02-28T18:08:47.293311+00:00","hook":"test","error":"err"}
 
-✓ PASS: File created at .oal/state/ledger/hook-errors.jsonl
+✓ PASS: File created at .omg/state/ledger/hook-errors.jsonl
 ✓ PASS: JSON format correct with ts, hook, error fields
 ✓ PASS: ISO8601 timestamp present
 
@@ -46,7 +46,7 @@ All tests passed!
 ### File: hooks/_common.py
 - Added imports: fcntl, datetime, timezone
 - Added function: log_hook_error(hook_name, error, context=None)
-  - Logs to .oal/state/ledger/hook-errors.jsonl
+  - Logs to .omg/state/ledger/hook-errors.jsonl
   - JSONL format with ts, hook, error, context fields
   - File locking with fcntl.flock
   - Rotation at 100KB

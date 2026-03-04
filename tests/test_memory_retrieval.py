@@ -18,14 +18,14 @@ search_memories = cast(Callable[..., str], getattr(memory_module, "search_memori
 
 
 def _make_memory_dir(tmp_path: Path) -> Path:
-    """Helper: create .oal/state/memory/ and return its path."""
-    memory_dir = tmp_path / ".oal" / "state" / "memory"
+    """Helper: create .omg/state/memory/ and return its path."""
+    memory_dir = tmp_path / ".omg" / "state" / "memory"
     memory_dir.mkdir(parents=True)
     return memory_dir
 
 
 def test_no_memory_dir_returns_empty(tmp_path: Path):
-    """search_memories returns '' when .oal/state/memory/ does not exist."""
+    """search_memories returns '' when .omg/state/memory/ does not exist."""
     result = search_memories(str(tmp_path), ["test"])
     assert result == ""
 

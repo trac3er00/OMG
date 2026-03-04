@@ -1,1 +1,1 @@
-"""Registry package for OAL."""
+"""Registry package for OMG."""

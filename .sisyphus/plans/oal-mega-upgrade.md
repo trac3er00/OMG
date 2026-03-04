@@ -1,8 +1,8 @@
-# OAL Mega-Upgrade: All-In-One Plugin Transformation
+# OMG Mega-Upgrade: All-In-One Plugin Transformation
 
 ## TL;DR
 
-> **Quick Summary**: Transform OAL into the definitive Claude Code All-In-One plugin by absorbing the best features from 9 competing plugins (Superpowers, Ralph Wiggum, claude-flow, claude-mem, memsearch, Beads, planning-with-files, hooks-mastery, compound-engineering) while fixing existing bugs, adding specialized agent roles with model-per-agent routing (gemini-cli for frontend/visual, codex-cli for backend/logic), and maintaining an on-demand/lazy architecture that injects zero context unless triggered.
+> **Quick Summary**: Transform OMG into the definitive Claude Code All-In-One plugin by absorbing the best features from 9 competing plugins (Superpowers, Ralph Wiggum, claude-flow, claude-mem, memsearch, Beads, planning-with-files, hooks-mastery, compound-engineering) while fixing existing bugs, adding specialized agent roles with model-per-agent routing (gemini-cli for frontend/visual, codex-cli for backend/logic), and maintaining an on-demand/lazy architecture that injects zero context unless triggered.
 > 
 > **Deliverables**:
 > - True Ralph autonomous loop via Stop hook blocking
@@ -25,12 +25,12 @@
 ## Context
 
 ### Original Request
-Transform OAL into an All-In-One Claude Code plugin by:
+Transform OMG into an All-In-One Claude Code plugin by:
 1. Analyzing 9+ competing plugins and absorbing their best features
 2. Fixing all existing bugs in custom commands, hooks, MCP integrations
 3. Making ULW/Ralph persistent loop actually work (currently keyword-only)
 4. Adding specialized agent roles (frontend-designer, backend-engineer, SRE, etc.)
-5. Reducing token consumption while making OAL smarter
+5. Reducing token consumption while making OMG smarter
 6. Adding cross-session persistent memory
 7. Adding compound learning (learn from past session mistakes)
 
@@ -56,7 +56,7 @@ Transform OAL into an All-In-One Claude Code plugin by:
 
 ### Metis Review
 **Critical Findings** (addressed in plan):
-1. **`stop_hook_active` bug**: OAL's `stop-gate.py` NEVER checks this flag → latent infinite loop bug. Fix FIRST.
+1. **`stop_hook_active` bug**: OMG's `stop-gate.py` NEVER checks this flag → latent infinite loop bug. Fix FIRST.
 2. **Stop Hook Multiplexer needed**: 4+ features compete for the Stop event (Ralph, planning, evidence gate, compound learning). Need priority chain.
 3. **Use `SessionEnd` for capture**: Memory/learning capture should use `SessionEnd` (fire-and-forget, no timeout risk), NOT `Stop`.
 4. **Plugin Stop hooks don't block** (GitHub #10412): Hooks MUST stay in `~/.claude/settings.json`, NOT plugin manifest.
@@ -70,15 +70,15 @@ Transform OAL into an All-In-One Claude Code plugin by:
 ## Work Objectives
 
 ### Core Objective
-Absorb the best features from 9 competing Claude Code plugins into OAL's existing architecture while fixing bugs, adding specialized agents with model-per-agent routing (gemini-cli for frontend/visual, codex-cli for backend/logic/security), implementing a built-in code simplifier (anti-AI-slop), and maintaining OAL's on-demand/lazy architecture that injects zero context unless explicitly triggered.
+Absorb the best features from 9 competing Claude Code plugins into OMG's existing architecture while fixing bugs, adding specialized agents with model-per-agent routing (gemini-cli for frontend/visual, codex-cli for backend/logic/security), implementing a built-in code simplifier (anti-AI-slop), and maintaining OMG's on-demand/lazy architecture that injects zero context unless explicitly triggered.
 
 ### Concrete Deliverables
 - `hooks/stop_dispatcher.py` — Stop Hook Multiplexer with priority chain
 - `hooks/session-end-capture.py` — SessionEnd hook for memory + learning capture
 - `hooks/pre-tool-inject.py` — PreToolUse hook for plan forced re-read
-- `.oal/state/memory/` — Cross-session memory storage (plain .md files)
-- `.oal/state/ralph-loop.json` — Ralph loop state file
-- `.oal/knowledge/learnings/` — Compound learning storage
+- `.omg/state/memory/` — Cross-session memory storage (plain .md files)
+- `.omg/state/ralph-loop.json` — Ralph loop state file
+- `.omg/knowledge/learnings/` — Compound learning storage
 - `agents/` — 9 new agent definitions (6 domain + 3 cognitive) with model routing metadata
 - `rules/contextual/cognitive-*.md` — 3 cognitive mode rules
 - `tests/` — pytest infrastructure + hook unit tests + integration tests
@@ -102,10 +102,10 @@ Absorb the best features from 9 competing Claude Code plugins into OAL's existin
 - `stop_hook_active` bug fix (BEFORE any other Stop hook work)
 - Stop Hook Multiplexer with explicit priority ordering
 - Feature flags for every new feature (default: enabled)
-- Hook error logging to `.oal/state/ledger/hook-errors.jsonl`
+- Hook error logging to `.omg/state/ledger/hook-errors.jsonl`
 - Atomic file writes (`.tmp` + `os.rename()`) for all state files
 - Memory rotation (max 50 files, prune oldest)
-- Ralph escape hatch (`rm .oal/state/ralph-loop.json` or max iterations)
+- Ralph escape hatch (`rm .omg/state/ralph-loop.json` or max iterations)
 - All hooks exit(0) on crash (crash isolation preserved)
 - Token budget hard caps per feature
 - Code simplifier: enhanced `@discipline` in prompt-enhancer + CHECK 7 in stop-gate
@@ -130,7 +130,7 @@ Absorb the best features from 9 competing Claude Code plugins into OAL's existin
 - ❌ No Haiku API calls in Stop hook (60s timeout risk). Use SessionEnd or async.
 - ❌ No web UI. No HTTP servers. No ports.
 - ❌ No duplicate knowledge retrieval. Integrate with existing `prompt-enhancer.py:344-424`.
-- ❌ No cross-project memory. Memory is project-scoped (`.oal/state/memory/`).
+- ❌ No cross-project memory. Memory is project-scoped (`.omg/state/memory/`).
 - ❌ No breaking changes to existing hook behavior without feature flag.
 - ❌ Don't move hooks to plugin manifest path (GitHub #10412: plugin Stop hooks don't block).
 - ❌ No always-on context injection. Session-start must be ≤200 chars when no features are active.
@@ -216,13 +216,13 @@ CIRCUIT-BREAKER v2 (Enhanced):
   Phase 1 (count=1): Log failure, no action
   Phase 2 (count=2): Suggest alternative approach in context
   Phase 3 (count=3): Domain-aware escalation:
-    └ auth/security/crypto failure → 'Try /OAL:escalate codex'
-    └ UI/CSS/layout failure      → 'Try /OAL:escalate gemini'
-    └ logic/algorithm failure     → 'Try /OAL:escalate codex'
+    └ auth/security/crypto failure → 'Try /OMG:escalate codex'
+    └ UI/CSS/layout failure      → 'Try /OMG:escalate gemini'
+    └ logic/algorithm failure     → 'Try /OMG:escalate codex'
     └ unknown domain             → 'Try different approach or ask user'
   Phase 4 (count=5): HARD BLOCK — must escalate, change approach, or get user input
   Time-decay: Failures older than 30 minutes count as half-weight
-  Recovery memory: On success, store 'what worked' in .oal/state/ledger/recovery.jsonl
+  Recovery memory: On success, store 'what worked' in .omg/state/ledger/recovery.jsonl
   On similar future failure, suggest the recovery approach first
 
 SCOPE DRIFT DETECTION (stop_dispatcher CHECK 8):
@@ -274,7 +274,7 @@ Evidence saved to `.sisyphus/evidence/task-{N}-{scenario-slug}.{ext}`.
 ### Acceptance Criteria (from Metis — all executable)
 ```bash
 # AC1: Memory capture on SessionEnd
-echo '{"hook_event_name":"SessionEnd","session_id":"test","cwd":"/tmp"}' | python3 hooks/session-end-capture.py && ls .oal/state/memory/*.md | wc -l  # Assert: ≥ 1
+echo '{"hook_event_name":"SessionEnd","session_id":"test","cwd":"/tmp"}' | python3 hooks/session-end-capture.py && ls .omg/state/memory/*.md | wc -l  # Assert: ≥ 1
 
 # AC2: Memory retrieval in session-start
 echo '{}' | python3 hooks/session-start.py | python3 -c "import sys,json; d=json.load(sys.stdin); assert '@memory' in d.get('contextInjection','')"
@@ -283,16 +283,16 @@ echo '{}' | python3 hooks/session-start.py | python3 -c "import sys,json; d=json
 echo '{}' | python3 hooks/session-start.py | python3 -c "import sys; assert len(sys.stdin.read()) <= 2200"
 
 # AC4: Corrupted memory graceful degradation
-echo "CORRUPTED{{{{" > .oal/state/memory/test.md && echo '{}' | python3 hooks/session-start.py; echo $?  # Assert: 0
+echo "CORRUPTED{{{{" > .omg/state/memory/test.md && echo '{}' | python3 hooks/session-start.py; echo $?  # Assert: 0
 
 # AC5: stop_hook_active guard prevents infinite loop
 echo '{"stop_hook_active":true}' | python3 hooks/stop-gate.py; echo $?  # Assert: 0, NO block
 
 # AC6: Ralph blocks when iteration needed
-echo '{}' > .oal/state/ralph-loop.json && echo '{"stop_hook_active":false}' | python3 hooks/stop-gate.py | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('decision')=='block'"
+echo '{}' > .omg/state/ralph-loop.json && echo '{"stop_hook_active":false}' | python3 hooks/stop-gate.py | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('decision')=='block'"
 
 # AC7: Ralph respects max iterations
-echo '{"iteration":50,"max_iterations":50}' > .oal/state/ralph-loop.json && echo '{"stop_hook_active":false}' | python3 hooks/stop-gate.py | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('decision','')!='block'"
+echo '{"iteration":50,"max_iterations":50}' > .omg/state/ralph-loop.json && echo '{"stop_hook_active":false}' | python3 hooks/stop-gate.py | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('decision','')!='block'"
 
 # AC8: Agent keyword routing
 echo '{"tool_input":{"user_message":"fix the auth vulnerability"}}' | python3 hooks/prompt-enhancer.py | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'security' in d.get('contextInjection','').lower()"
@@ -313,7 +313,7 @@ python3 -m pytest tests/ -x -q  # Assert: exit 0
 echo 'INVALID' | python3 hooks/stop-gate.py; echo $?  # Assert: 0
 
 # AC14: Feature flags respected
-OAL_MEMORY_ENABLED=0 echo '{}' | python3 hooks/session-start.py | python3 -c "import sys,json; d=json.load(sys.stdin); assert '@memory' not in d.get('contextInjection','')"
+OMG_MEMORY_ENABLED=0 echo '{}' | python3 hooks/session-start.py | python3 -c "import sys,json; d=json.load(sys.stdin); assert '@memory' not in d.get('contextInjection','')"
 ```
 
 # AC15: Simplifier detects AI slop (advisory)
@@ -345,7 +345,7 @@ Wave 1 (After Wave 0 — Stop Hook Multiplexer, CRITICAL PATH):
 └── Task 11: Create PreToolUse plan injection hook [unspecified-high]
 
 Wave 2 (After Wave 0 — Bug Fixes + Quality, PARALLEL with Wave 1):
-├── Task 12: Fix command routing bugs (OAL:crazy, OAL:deep-plan) [unspecified-high]
+├── Task 12: Fix command routing bugs (OMG:crazy, OMG:deep-plan) [unspecified-high]
 ├── Task 13: Fix prompt-enhancer stuck detection + dedup [unspecified-high]
 ├── Task 14: Fix circuit-breaker pattern normalization [quick]
 ├── Task 15: Fix CCG/Teams Python CLI integration [unspecified-high]
@@ -365,7 +365,7 @@ Wave 4 (After Wave 3 — Integration + Polish):
 ├── Task 25: Ralph prompt injection + escape hatch [deep]
 ├── Task 26: Memory retrieval via context:fork skill [deep]
 ├── Task 27: Memory integration into session-start.py [unspecified-high]
-├── Task 28: Create 3 cognitive mode rules + /OAL:mode command [unspecified-high]
+├── Task 28: Create 3 cognitive mode rules + /OMG:mode command [unspecified-high]
 ├── Task 29: Add agent routing + model dispatch to prompt-enhancer.py [unspecified-high]
 ├── Task 30: Implement compound learning capture on SessionEnd [unspecified-high]
 └── Task 31: Create learnings storage + critical-patterns.md [unspecified-high]
@@ -374,7 +374,7 @@ Wave 5 (After Wave 4 — Optimization + Migration):
 ├── Task 32: Token budget optimization (session-start.py) [deep]
 ├── Task 33: Token budget optimization (prompt-enhancer.py) [deep]
 ├── Task 34: Add model-per-agent dispatch to runtime/team_router.py [unspecified-high]
-├── Task 35: Update OAL-setup.sh migration for new features [unspecified-high]
+├── Task 35: Update OMG-setup.sh migration for new features [unspecified-high]
 ├── Task 36: Update settings.json with all new hook registrations [quick]
 └── Task 37: Update README.md with new features [writing]
 
@@ -437,8 +437,8 @@ Priority 2: Planning enforcement → block if phase incomplete
 Priority 3: Evidence gate (existing CHECK1-CHECK6)
 Priority 4: Simplifier advisory (NEW CHECK 7 — stderr only, never blocks)
 ───────── SEPARATE EVENT: SessionEnd (NOT Stop) ─────────
-Capture A: Memory capture → write .oal/state/memory/
-Capture B: Compound learning → write .oal/knowledge/learnings/
+Capture A: Memory capture → write .omg/state/memory/
+Capture B: Compound learning → write .omg/knowledge/learnings/
 ```
 
 ### Dependency Matrix
@@ -551,7 +551,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **What to do**:
   - Add `log_hook_error(hook_name, error, context=None)` function to `hooks/_common.py`.
-  - Logs to `.oal/state/ledger/hook-errors.jsonl` with fields: `{"ts": ISO8601, "hook": name, "error": str(error), "context": context}`.
+  - Logs to `.omg/state/ledger/hook-errors.jsonl` with fields: `{"ts": ISO8601, "hook": name, "error": str(error), "context": context}`.
   - Use atomic write: write to `.tmp` file, then `os.rename()`. For JSONL: open in append mode with file lock (`fcntl.flock`).
   - Rotation: if file > 100KB, rename to `.hook-errors.jsonl.1` and start fresh.
   - Update `setup_crash_handler()` to call `log_hook_error()` inside the `_excepthook` function.
@@ -580,7 +580,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   - `hooks/tool-ledger.py` — Existing JSONL append pattern (reference for hook-errors.jsonl)
 
   **Acceptance Criteria**:
-  - [x] `python3 -c "from _common import log_hook_error; log_hook_error('test','err')"` → creates `.oal/state/ledger/hook-errors.jsonl`
+  - [x] `python3 -c "from _common import log_hook_error; log_hook_error('test','err')"` → creates `.omg/state/ledger/hook-errors.jsonl`
   - [x] `python3 -c "from _common import atomic_json_write; atomic_json_write('/tmp/test.json', {'a':1})"` → file exists with correct content
   - [x] `python3 -m pytest tests/test_common.py -x` → PASS
 
@@ -589,9 +589,9 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Error logging creates JSONL entry
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state/ledger
+      1. mkdir -p .omg/state/ledger
       2. python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import log_hook_error; log_hook_error('test-hook','sample error',{'key':'val'})"
-      3. tail -1 .oal/state/ledger/hook-errors.jsonl | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); assert d['hook']=='test-hook' and d['error']=='sample error'"
+      3. tail -1 .omg/state/ledger/hook-errors.jsonl | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); assert d['hook']=='test-hook' and d['error']=='sample error'"
     Expected Result: Last line of JSONL has correct hook name and error message
     Evidence: .sisyphus/evidence/task-2-error-logging.txt
 
@@ -600,7 +600,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     Steps:
       1. python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import setup_crash_handler; setup_crash_handler('crash-test'); raise ValueError('boom')" 2>/dev/null; echo $?
       2. Assert exit code is 0
-      3. tail -1 .oal/state/ledger/hook-errors.jsonl | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); assert 'boom' in d['error']"
+      3. tail -1 .omg/state/ledger/hook-errors.jsonl | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); assert 'boom' in d['error']"
     Expected Result: Exit 0, error logged to JSONL
     Evidence: .sisyphus/evidence/task-2-crash-handler-logging.txt
   ```
@@ -614,8 +614,8 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **What to do**:
   - Add `get_feature_flag(flag_name, default=True)` to `hooks/_common.py`.
-  - Resolution order: (1) env var `OAL_{FLAG_NAME}_ENABLED` → (2) `settings.json._oal.features.{flag_name}` → (3) default.
-  - Add `_oal.features` section to `settings.json` with flags:
+  - Resolution order: (1) env var `OMG_{FLAG_NAME}_ENABLED` → (2) `settings.json._omg.features.{flag_name}` → (3) default.
+  - Add `_omg.features` section to `settings.json` with flags:
     ```json
     "features": {
       "memory": true,
@@ -646,11 +646,11 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **References**:
   - `hooks/_common.py:1-62` — Add function here
-  - `settings.json:210-220` — Existing `_oal` section (add `features` sub-key)
+  - `settings.json:210-220` — Existing `_omg` section (add `features` sub-key)
   - `hooks/prompt-enhancer.py:42-45` — Existing `MAX_CHARS`/`budget_ok()` pattern (for reference on config access)
 
   **Acceptance Criteria**:
-  - [x] `OAL_MEMORY_ENABLED=0 python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; assert not get_feature_flag('memory')"` → PASS
+  - [x] `OMG_MEMORY_ENABLED=0 python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; assert not get_feature_flag('memory')"` → PASS
   - [x] `python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; assert get_feature_flag('memory')"` → PASS (default=True)
   - [x] `python3 -m pytest tests/test_common.py::test_feature_flags -x` → PASS
 
@@ -659,7 +659,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Feature flag from env var overrides settings
     Tool: Bash
     Steps:
-      1. OAL_MEMORY_ENABLED=0 python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; print(get_feature_flag('memory'))"
+      1. OMG_MEMORY_ENABLED=0 python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; print(get_feature_flag('memory'))"
       2. Assert output is 'False'
     Expected Result: Env var takes priority over settings.json
     Evidence: .sisyphus/evidence/task-3-feature-flags-env.txt
@@ -759,7 +759,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   **What to do**:
   - Create `tests/` directory with `conftest.py` and `__init__.py`.
   - `conftest.py` should: (1) add `hooks/` to `sys.path`, (2) create a temp project dir fixture (`tmp_project`), (3) set `CLAUDE_PROJECT_DIR` env var in fixture.
-  - Create `tests/conftest.py` with fixtures: `tmp_project` (creates `.oal/state/ledger/`, `.oal/knowledge/`, etc.), `mock_stdin(data)` (patches sys.stdin with JSON), `clean_env` (clears OAL_ env vars).
+  - Create `tests/conftest.py` with fixtures: `tmp_project` (creates `.omg/state/ledger/`, `.omg/knowledge/`, etc.), `mock_stdin(data)` (patches sys.stdin with JSON), `clean_env` (clears OMG_ env vars).
   - Verify setup: `python3 -m pytest tests/ --collect-only` should discover test files.
   - Add `pytest.ini` or `pyproject.toml [tool.pytest.ini_options]` with `testpaths = ["tests"]`.
 
@@ -984,7 +984,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     Tool: Bash
     Preconditions: Create a temp project with source writes in ledger but no test runs
     Steps:
-      1. Set up temp project: mkdir -p /tmp/test-proj/.oal/state/ledger
+      1. Set up temp project: mkdir -p /tmp/test-proj/.omg/state/ledger
       2. Create ledger entry with Write tool but no test commands
       3. CLAUDE_PROJECT_DIR=/tmp/test-proj echo '{"stop_hook_active":false}' | python3 hooks/stop_dispatcher.py
       4. Assert output contains 'decision' and 'block'
@@ -1072,7 +1072,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   **What to do**:
   - Create `hooks/post-tool-failure.py` for the `PostToolUseFailure` event.
   - This event fires when a tool call fails (different from PostToolUse which fires on success too).
-  - Log failure to `.oal/state/ledger/hook-errors.jsonl` with: tool name, error, timestamp.
+  - Log failure to `.omg/state/ledger/hook-errors.jsonl` with: tool name, error, timestamp.
   - Increment failure counter in `failure-tracker.json` (similar to circuit-breaker.py but for ALL tool types).
   - Feature flag: `get_feature_flag('failure_tracking')`.
 
@@ -1095,16 +1095,16 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **Acceptance Criteria**:
   - [x] `echo '{"tool_name":"Bash","error":"timeout"}' | python3 hooks/post-tool-failure.py; echo $?` → exit 0
-  - [x] After above: `tail -1 .oal/state/ledger/hook-errors.jsonl` contains 'timeout'
+  - [x] After above: `tail -1 .omg/state/ledger/hook-errors.jsonl` contains 'timeout'
 
   **QA Scenarios:**
   ```
   Scenario: Tool failure gets logged
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state/ledger
+      1. mkdir -p .omg/state/ledger
       2. echo '{"tool_name":"Write","error":"permission denied"}' | python3 hooks/post-tool-failure.py
-      3. tail -1 .oal/state/ledger/hook-errors.jsonl | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); assert d['error']=='permission denied'"
+      3. tail -1 .omg/state/ledger/hook-errors.jsonl | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); assert d['error']=='permission denied'"
     Expected Result: Failure logged with correct tool name and error
     Evidence: .sisyphus/evidence/task-10-tool-failure-logging.txt
   ```
@@ -1128,7 +1128,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
         json.dump({'contextInjection': f'@plan-reminder: {head[:200]}'}, sys.stdout)
     ```
   - Inspired by planning-with-files: `cat task_plan.md | head -30` on every tool call.
-  - OAL version is lighter: only first 15 lines, only 200 chars, only when _plan.md exists.
+  - OMG version is lighter: only first 15 lines, only 200 chars, only when _plan.md exists.
   - Feature flag: `get_feature_flag('planning_enforcement')`.
 
   **Must NOT do**:
@@ -1159,7 +1159,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Plan reminder injected when _plan.md exists
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state && echo '# My Plan\n## Phase 1\n- Fix auth' > .oal/state/_plan.md
+      1. mkdir -p .omg/state && echo '# My Plan\n## Phase 1\n- Fix auth' > .omg/state/_plan.md
       2. echo '{"tool_name":"Write"}' | python3 hooks/pre-tool-inject.py
       3. Assert output contains 'plan-reminder' and 'Fix auth'
     Expected Result: First 15 lines of plan injected as context
@@ -1168,7 +1168,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: No injection when _plan.md absent
     Tool: Bash
     Steps:
-      1. rm -f .oal/state/_plan.md
+      1. rm -f .omg/state/_plan.md
       2. echo '{"tool_name":"Write"}' | python3 hooks/pre-tool-inject.py > /tmp/no_plan.txt 2>/dev/null
       3. test ! -s /tmp/no_plan.txt
     Expected Result: Empty output, clean exit
@@ -1182,13 +1182,13 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
 ### Wave 2 — Bug Fixes + Quality (Tasks 12-17)
 
-- [x] 12. Fix Command Routing Bugs (OAL:crazy, OAL:deep-plan)
+- [x] 12. Fix Command Routing Bugs (OMG:crazy, OMG:deep-plan)
 
   **What to do**:
-  - **OAL:crazy** (`commands/OAL:crazy.md`): Fix the routing that sends to wrong agents. Ensure Claude=orchestrator, Codex=deep-code+security, Gemini=UI/UX is enforced in the command template.
-  - **OAL:deep-plan** (`commands/OAL:deep-plan.md`): Fix intent understanding — currently jumps to execution instead of asking clarifying questions first.
+  - **OMG:crazy** (`commands/OMG:crazy.md`): Fix the routing that sends to wrong agents. Ensure Claude=orchestrator, Codex=deep-code+security, Gemini=UI/UX is enforced in the command template.
+  - **OMG:deep-plan** (`commands/OMG:deep-plan.md`): Fix intent understanding — currently jumps to execution instead of asking clarifying questions first.
   - Audit all 19 command files for: broken command references, outdated routing instructions, missing intent classification.
-  - Fix any commands referencing deprecated paths (`.omc/` instead of `.oal/`).
+  - Fix any commands referencing deprecated paths (`.omc/` instead of `.omg/`).
 
   **Must NOT do**:
   - Do NOT add new commands. Fix existing only.
@@ -1204,31 +1204,31 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   - **Blocked By**: Tasks 1-7 (foundation must be in place)
 
   **References**:
-  - `commands/OAL:crazy.md:1-91` — Crazy mode command (fix routing)
-  - `commands/OAL:deep-plan.md:1-142` — Deep plan command (fix intent flow)
+  - `commands/OMG:crazy.md:1-91` — Crazy mode command (fix routing)
+  - `commands/OMG:deep-plan.md:1-142` — Deep plan command (fix intent flow)
   - `commands/` directory — All 19 command files for audit
   - `hooks/prompt-enhancer.py:130-131` — CRAZY_SIGNALS detection
 
   **Acceptance Criteria**:
   - [x] `grep -c '.omc/' commands/*.md` → 0 (no deprecated paths)
-  - [x] `grep -l 'Codex=deep-code' commands/OAL:crazy.md` → matches
+  - [x] `grep -l 'Codex=deep-code' commands/OMG:crazy.md` → matches
 
   **QA Scenarios:**
   ```
-  Scenario: OAL:crazy command has correct routing
+  Scenario: OMG:crazy command has correct routing
     Tool: Bash
     Steps:
-      1. grep -i 'codex' commands/OAL\:crazy.md | head -3
+      1. grep -i 'codex' commands/OMG\:crazy.md | head -3
       2. Assert contains 'deep-code' or 'security' or 'backend'
-      3. grep -i 'gemini' commands/OAL\:crazy.md | head -3
+      3. grep -i 'gemini' commands/OMG\:crazy.md | head -3
       4. Assert contains 'UI' or 'UX' or 'frontend' or 'visual'
     Expected Result: Command file has clear Codex=backend, Gemini=frontend routing
     Evidence: .sisyphus/evidence/task-12-command-routing.txt
   ```
 
   **Commit**: YES
-  - Message: `fix(commands): fix routing bugs in OAL:crazy and OAL:deep-plan`
-  - Files: `commands/OAL:crazy.md`, `commands/OAL:deep-plan.md`, other affected commands
+  - Message: `fix(commands): fix routing bugs in OMG:crazy and OMG:deep-plan`
+  - Files: `commands/OMG:crazy.md`, `commands/OMG:deep-plan.md`, other affected commands
   - Pre-commit: `grep -rc '.omc/' commands/ | grep -v ':0$' | wc -l` (must be 0)
 
 - [x] 13. Fix prompt-enhancer Stuck Detection + Dedup
@@ -1236,7 +1236,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   **What to do**:
   - `hooks/prompt-enhancer.py:429-445`: stuck detection currently reads failure-tracker but doesn't dedup.
   - If the same stuck signal fires 3 times in a row, it injects the same `@stuck` message repeatedly.
-  - Fix: Track last stuck injection in a session-level state file (`.oal/state/.last-stuck-ts`).
+  - Fix: Track last stuck injection in a session-level state file (`.omg/state/.last-stuck-ts`).
   - If last stuck injection was <60 seconds ago, skip re-injection (dedup).
   - Also fix: stuck signals should check failure count threshold, not just keyword match.
 
@@ -1328,8 +1328,8 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 - [x] 15. Fix CCG/Teams Python CLI Integration
 
   **What to do**:
-  - `runtime/team_router.py` and `scripts/oal.py`: CCG/Teams commands shell out to Python CLI.
-  - Known issues: path resolution fails when OAL is not in `~/.claude/`, subprocess timeout not set.
+  - `runtime/team_router.py` and `scripts/omg.py`: CCG/Teams commands shell out to Python CLI.
+  - Known issues: path resolution fails when OMG is not in `~/.claude/`, subprocess timeout not set.
   - Fix: Use `os.path.dirname(__file__)` for reliable path resolution.
   - Add 30-second timeout to all subprocess calls.
   - Test with actual `codex-cli` and `gemini-cli` availability detection.
@@ -1346,12 +1346,12 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **References**:
   - `runtime/team_router.py` — Team routing logic
-  - `scripts/oal.py` — CLI entrypoint
-  - `commands/OAL:ccg.md` — CCG command template
-  - `commands/OAL:teams.md` — Teams command template
+  - `scripts/omg.py` — CLI entrypoint
+  - `commands/OMG:ccg.md` — CCG command template
+  - `commands/OMG:teams.md` — Teams command template
 
   **Acceptance Criteria**:
-  - [x] `python3 scripts/oal.py compat list 2>&1` → exit 0 (no path errors)
+  - [x] `python3 scripts/omg.py compat list 2>&1` → exit 0 (no path errors)
   - [x] All subprocess calls in `runtime/team_router.py` have `timeout=` parameter
 
   **QA Scenarios:**
@@ -1359,7 +1359,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: CLI entrypoint resolves paths correctly
     Tool: Bash
     Steps:
-      1. python3 scripts/oal.py compat list 2>&1; echo $?
+      1. python3 scripts/omg.py compat list 2>&1; echo $?
       2. Assert exit code is 0
     Expected Result: No ImportError or path resolution failures
     Evidence: .sisyphus/evidence/task-15-cli-paths.txt
@@ -1367,8 +1367,8 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **Commit**: YES
   - Message: `fix(runtime): fix CCG/Teams path resolution and add subprocess timeouts`
-  - Files: `runtime/team_router.py`, `scripts/oal.py`
-  - Pre-commit: `python3 scripts/oal.py compat list`
+  - Files: `runtime/team_router.py`, `scripts/omg.py`
+  - Pre-commit: `python3 scripts/omg.py compat list`
 
 - [x] 16. Fix Knowledge Retrieval .index.json Corruption
 
@@ -1403,9 +1403,9 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Corrupted index auto-repairs
     Tool: Bash
     Steps:
-      1. echo 'CORRUPTED{{{' > .oal/knowledge/.index.json
+      1. echo 'CORRUPTED{{{' > .omg/knowledge/.index.json
       2. echo '{"tool_input":{"user_message":"implement auth feature"}}' | python3 hooks/prompt-enhancer.py
-      3. python3 -c "import json; json.load(open('.oal/knowledge/.index.json'))" 2>&1; echo $?
+      3. python3 -c "import json; json.load(open('.omg/knowledge/.index.json'))" 2>&1; echo $?
       4. Assert exit code is 0 (valid JSON now)
     Expected Result: Corrupted index deleted, rebuilt with valid JSON
     Evidence: .sisyphus/evidence/task-16-index-repair.txt
@@ -1510,16 +1510,16 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 - [x] 18. Implement Ralph True Loop (State File + Block Logic)
 
   **What to do**:
-  - Create Ralph loop state file format: `.oal/state/ralph-loop.json`
+  - Create Ralph loop state file format: `.omg/state/ralph-loop.json`
     ```json
     {"active": true, "iteration": 3, "max_iterations": 50,
      "original_prompt": "fix all tests", "started_at": "ISO8601",
-     "checklist_path": ".oal/state/_checklist.md"}
+     "checklist_path": ".omg/state/_checklist.md"}
     ```
   - In `hooks/stop_dispatcher.py` (from Task 8), implement P1 (Ralph loop check):
     ```python
     def check_ralph_loop(project_dir, data):
-        ralph_path = os.path.join(project_dir, '.oal/state/ralph-loop.json')
+        ralph_path = os.path.join(project_dir, '.omg/state/ralph-loop.json')
         if not os.path.exists(ralph_path): return [], []
         state = json.load(open(ralph_path))
         if not state.get('active'): return [], []
@@ -1534,8 +1534,8 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
         atomic_json_write(ralph_path, state)
         return [f"Ralph loop iteration {iteration+1}/{max_iter}. Continue: {state.get('original_prompt','')}"], []
     ```
-  - Activation: `/OAL:ralph-start` command or `ralph` keyword in prompt-enhancer creates the state file.
-  - Deactivation: max iterations reached OR `rm .oal/state/ralph-loop.json` OR `/OAL:ralph-stop`.
+  - Activation: `/OMG:ralph-start` command or `ralph` keyword in prompt-enhancer creates the state file.
+  - Deactivation: max iterations reached OR `rm .omg/state/ralph-loop.json` OR `/OMG:ralph-stop`.
   - The block decision uses `{"decision":"block","reason":"<original_prompt_with_progress>"}` to re-inject work.
   - **Claude Code protocol**: Stop hook stdout `{"decision":"block","reason":"..."}` — exactly per spec.
 
@@ -1572,27 +1572,27 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Ralph blocks and re-injects prompt
     Tool: Bash
     Steps:
-      1. echo '{"active":true,"iteration":0,"max_iterations":50,"original_prompt":"fix all tests"}' > .oal/state/ralph-loop.json
+      1. echo '{"active":true,"iteration":0,"max_iterations":50,"original_prompt":"fix all tests"}' > .omg/state/ralph-loop.json
       2. echo '{"stop_hook_active":false}' | python3 hooks/stop_dispatcher.py > /tmp/ralph_out.json
       3. python3 -c "import json; d=json.load(open('/tmp/ralph_out.json')); assert d['decision']=='block'; assert 'fix all tests' in d['reason']"
-      4. python3 -c "import json; s=json.load(open('.oal/state/ralph-loop.json')); assert s['iteration']==1"
+      4. python3 -c "import json; s=json.load(open('.omg/state/ralph-loop.json')); assert s['iteration']==1"
     Expected Result: Completion blocked, iteration incremented, original prompt in reason
     Evidence: .sisyphus/evidence/task-18-ralph-block.txt
 
   Scenario: Ralph stops at max iterations
     Tool: Bash
     Steps:
-      1. echo '{"active":true,"iteration":50,"max_iterations":50,"original_prompt":"test"}' > .oal/state/ralph-loop.json
+      1. echo '{"active":true,"iteration":50,"max_iterations":50,"original_prompt":"test"}' > .omg/state/ralph-loop.json
       2. echo '{"stop_hook_active":false}' | python3 hooks/stop_dispatcher.py > /tmp/ralph_max.json
       3. cat /tmp/ralph_max.json  # Should NOT contain 'block'
-      4. python3 -c "import json; s=json.load(open('.oal/state/ralph-loop.json')); assert not s['active']"
+      4. python3 -c "import json; s=json.load(open('.omg/state/ralph-loop.json')); assert not s['active']"
     Expected Result: Ralph deactivates, does not block
     Evidence: .sisyphus/evidence/task-18-ralph-max.txt
   ```
 
   **Commit**: YES
   - Message: `feat(ralph): implement true Ralph loop with Stop hook blocking and state management`
-  - Files: `hooks/stop_dispatcher.py`, `.oal/state/ralph-loop.json` (template), `tests/test_ralph.py`
+  - Files: `hooks/stop_dispatcher.py`, `.omg/state/ralph-loop.json` (template), `tests/test_ralph.py`
   - Pre-commit: `python3 -m pytest tests/ -x -q`
 
 - [x] 19. Implement Memory Capture on SessionEnd
@@ -1600,10 +1600,10 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   **What to do**:
   - In `hooks/session-end-capture.py` (from Task 9), implement Capture A (memory).
   - On SessionEnd, summarize the session by reading:
-    1. `.oal/state/ledger/tool-ledger.jsonl` — last 50 entries (what tools were used)
-    2. `.oal/state/working-memory.md` — current working state
-    3. `.oal/state/_checklist.md` — progress (if exists)
-  - Write summary to `.oal/state/memory/{date}-{session_id_short}.md`:
+    1. `.omg/state/ledger/tool-ledger.jsonl` — last 50 entries (what tools were used)
+    2. `.omg/state/working-memory.md` — current working state
+    3. `.omg/state/_checklist.md` — progress (if exists)
+  - Write summary to `.omg/state/memory/{date}-{session_id_short}.md`:
     ```markdown
     # Session: 2026-02-28 (ses_abc)
     ## What Was Done
@@ -1638,7 +1638,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   - `hooks/_common.py` — `atomic_json_write()`, `read_file_safe()`
 
   **Acceptance Criteria**:
-  - [x] After SessionEnd: `.oal/state/memory/` contains a new .md file
+  - [x] After SessionEnd: `.omg/state/memory/` contains a new .md file
   - [x] Memory file is ≤500 chars
   - [x] `python3 -m pytest tests/test_memory_capture.py -x` → PASS
 
@@ -1647,10 +1647,10 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Memory captured on SessionEnd
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state/ledger .oal/state/memory
-      2. echo '{"ts":"2026-02-28T10:00:00Z","tool":"Write","file":"src/auth.ts"}' > .oal/state/ledger/tool-ledger.jsonl
+      1. mkdir -p .omg/state/ledger .omg/state/memory
+      2. echo '{"ts":"2026-02-28T10:00:00Z","tool":"Write","file":"src/auth.ts"}' > .omg/state/ledger/tool-ledger.jsonl
       3. echo '{"session_id":"ses_test","cwd":"'$(pwd)'"}' | python3 hooks/session-end-capture.py
-      4. ls .oal/state/memory/*.md | wc -l
+      4. ls .omg/state/memory/*.md | wc -l
       5. Assert count >= 1
     Expected Result: Memory file created with session summary
     Evidence: .sisyphus/evidence/task-19-memory-capture.txt
@@ -1664,7 +1664,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 - [x] 20. Implement Memory Storage Format + Rotation
 
   **What to do**:
-  - Memory files live in `.oal/state/memory/` as plain .md files.
+  - Memory files live in `.omg/state/memory/` as plain .md files.
   - Naming: `{YYYY-MM-DD}-{session_id_short}.md` (e.g., `2026-02-28-ses_abc.md`).
   - Rotation: if >50 files in directory, delete oldest until 50 remain.
   - Dedup: if file with same date+session already exists, append instead of overwrite.
@@ -1700,10 +1700,10 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Memory rotation keeps max 50 files
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state/memory
-      2. for i in $(seq 1 55); do echo "memory $i" > .oal/state/memory/2026-01-$(printf '%02d' $i)-test.md; done
+      1. mkdir -p .omg/state/memory
+      2. for i in $(seq 1 55); do echo "memory $i" > .omg/state/memory/2026-01-$(printf '%02d' $i)-test.md; done
       3. python3 -c "import sys; sys.path.insert(0,'hooks'); from _memory import rotate_memories; rotate_memories('.')"
-      4. ls .oal/state/memory/*.md | wc -l
+      4. ls .omg/state/memory/*.md | wc -l
       5. Assert count == 50
     Expected Result: Oldest 5 files deleted, 50 remain
     Evidence: .sisyphus/evidence/task-20-memory-rotation.txt
@@ -1748,7 +1748,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Plan reminder injected for Write but not Read
     Tool: Bash
     Steps:
-      1. echo '# Plan\n## Phase 1\n- [x] Fix auth' > .oal/state/_plan.md
+      1. echo '# Plan\n## Phase 1\n- [x] Fix auth' > .omg/state/_plan.md
       2. echo '{"tool_name":"Write"}' | python3 hooks/pre-tool-inject.py > /tmp/plan_write.json
       3. Assert output contains '@plan-reminder'
       4. echo '{"tool_name":"Read"}' | python3 hooks/pre-tool-inject.py > /tmp/plan_read.json
@@ -1809,7 +1809,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Incomplete checklist blocks completion
     Tool: Bash
     Steps:
-      1. echo '- [x] Done task\n- [x] Pending task' > .oal/state/_checklist.md
+      1. echo '- [x] Done task\n- [x] Pending task' > .omg/state/_checklist.md
       2. echo '{"stop_hook_active":false}' | python3 hooks/stop_dispatcher.py > /tmp/plan_gate.json
       3. python3 -c "import json; d=json.load(open('/tmp/plan_gate.json')); assert d['decision']=='block'; assert 'pending' in d['reason'].lower()"
     Expected Result: Completion blocked with 'N pending' message
@@ -1818,7 +1818,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Complete checklist allows completion
     Tool: Bash
     Steps:
-      1. echo '- [x] Done 1\n- [x] Done 2' > .oal/state/_checklist.md
+      1. echo '- [x] Done 1\n- [x] Done 2' > .omg/state/_checklist.md
       2. echo '{"stop_hook_active":false}' | python3 hooks/stop_dispatcher.py > /tmp/plan_ok.json
       3. cat /tmp/plan_ok.json  # Should not contain planning gate block
     Expected Result: No planning gate block when all items done
@@ -1949,7 +1949,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **References**:
   - `hooks/prompt-enhancer.py:209-261` — Current specialist routing (REPLACE with registry lookup)
-  - `settings.json:210-220` — `_oal` config section
+  - `settings.json:210-220` — `_omg` config section
   - OMC team_router: model dispatch pattern
   - oh-my-opencode: `task()` dispatch with category + skills
   - everything-claude-code: cost-aware-llm-pipeline skill for model routing
@@ -1996,20 +1996,20 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   **What to do**:
   - Create 9 agent .md files in `agents/` directory (6 domain + 3 cognitive):
     ```
-    agents/oal-frontend-designer.md
-    agents/oal-backend-engineer.md
-    agents/oal-security-auditor.md
-    agents/oal-database-engineer.md
-    agents/oal-testing-engineer.md
-    agents/oal-infra-engineer.md
-    agents/oal-research-mode.md
-    agents/oal-architect-mode.md
-    agents/oal-implement-mode.md
+    agents/omg-frontend-designer.md
+    agents/omg-backend-engineer.md
+    agents/omg-security-auditor.md
+    agents/omg-database-engineer.md
+    agents/omg-testing-engineer.md
+    agents/omg-infra-engineer.md
+    agents/omg-research-mode.md
+    agents/omg-architect-mode.md
+    agents/omg-implement-mode.md
     ```
   - Each agent .md follows Claude Code agent format with YAML frontmatter:
     ```markdown
     ---
-    name: oal-frontend-designer
+    name: omg-frontend-designer
     preferred_model: gemini-cli
     ---
     # Frontend Designer Agent
@@ -2036,7 +2036,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     4. `## Constraints` — what this agent must NOT do (scope boundaries)
     5. `## Guardrails` — domain-specific safety checks
   - **Strong guardrails per agent**:
-    - `security-auditor`: MUST run `/OAL:security-review` before completing. MUST NOT approve code with hardcoded secrets.
+    - `security-auditor`: MUST run `/OMG:security-review` before completing. MUST NOT approve code with hardcoded secrets.
     - `database-engineer`: MUST verify migrations are reversible. MUST NOT run destructive SQL without explicit confirmation.
     - `infra-engineer`: MUST use `--dry-run` for infrastructure changes. MUST NOT modify production configs directly.
     - `testing-engineer`: MUST achieve >0% new test coverage. MUST NOT mark tests as passing without running them.
@@ -2057,14 +2057,14 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   - **Blocked By**: Tasks 3, 4 (feature flags, budget constants)
 
   **References**:
-  - `agents/oal-executor.md` — Existing agent format (follow this pattern)
-  - `agents/oal-architect.md` — Existing agent format
+  - `agents/omg-executor.md` — Existing agent format (follow this pattern)
+  - `agents/omg-architect.md` — Existing agent format
   - Model-Per-Agent Routing Table (in Execution Strategy section)
   - Protocol Reference: Agent .md format
 
   **Acceptance Criteria**:
-  - [x] `ls agents/oal-*.md | wc -l` → 14 (5 existing + 9 new)
-  - [x] `grep -l 'preferred_model:' agents/oal-*.md | wc -l` → ≥9 (all new agents)
+  - [x] `ls agents/omg-*.md | wc -l` → 14 (5 existing + 9 new)
+  - [x] `grep -l 'preferred_model:' agents/omg-*.md | wc -l` → ≥9 (all new agents)
   - [x] Each agent has ## Preferred Tools, ## MCP Tools, ## Constraints sections
 
   **QA Scenarios:**
@@ -2072,7 +2072,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: All agent files are valid markdown with frontmatter
     Tool: Bash
     Steps:
-      1. for f in agents/oal-*.md; do head -1 "$f" | grep -q '^---$' || echo "FAIL: $f missing frontmatter"; done
+      1. for f in agents/omg-*.md; do head -1 "$f" | grep -q '^---$' || echo "FAIL: $f missing frontmatter"; done
       2. Assert no FAIL lines
     Expected Result: All agents have YAML frontmatter
     Evidence: .sisyphus/evidence/task-24-agent-frontmatter.txt
@@ -2080,9 +2080,9 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Security-auditor has mandatory guardrails
     Tool: Bash
     Steps:
-      1. grep -i 'security-review' agents/oal-security-auditor.md | wc -l
+      1. grep -i 'security-review' agents/omg-security-auditor.md | wc -l
       2. Assert count >= 1
-      3. grep -i 'hardcoded secret' agents/oal-security-auditor.md | wc -l
+      3. grep -i 'hardcoded secret' agents/omg-security-auditor.md | wc -l
       4. Assert count >= 1
     Expected Result: Security agent has explicit guardrails for review and secret detection
     Evidence: .sisyphus/evidence/task-24-security-guardrails.txt
@@ -2090,8 +2090,8 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **Commit**: YES
   - Message: `feat(agents): add 9 domain + cognitive agent definitions with model routing and guardrails`
-  - Files: `agents/oal-frontend-designer.md`, `agents/oal-backend-engineer.md`, (7 more)
-  - Pre-commit: `ls agents/oal-*.md | wc -l` (must be 14)
+  - Files: `agents/omg-frontend-designer.md`, `agents/omg-backend-engineer.md`, (7 more)
+  - Pre-commit: `ls agents/omg-*.md | wc -l` (must be 14)
 
 ### Wave 4 — Integration + Polish (Tasks 25-31)
 
@@ -2120,12 +2120,12 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
         return (
             f"Ralph loop iteration {iteration}/{max_iter}{progress}. "
             f"Continue working on: {original}\n"
-            f"If truly done, run: /OAL:ralph-stop"
+            f"If truly done, run: /OMG:ralph-stop"
         )
     ```
   - The `reason` field in `{"decision":"block","reason":"..."}` becomes the next user-facing prompt. Claude sees this as instructions to continue.
-  - **Escape hatch**: Create `/OAL:ralph-stop` command (commands/OAL:ralph-stop.md) — deletes `.oal/state/ralph-loop.json`, confirms "Ralph loop stopped after N iterations."
-  - Also create `/OAL:ralph-start` command (commands/OAL:ralph-start.md) — asks for goal, creates state file with active=true, iteration=0, max_iterations=50.
+  - **Escape hatch**: Create `/OMG:ralph-stop` command (commands/OMG:ralph-stop.md) — deletes `.omg/state/ralph-loop.json`, confirms "Ralph loop stopped after N iterations."
+  - Also create `/OMG:ralph-start` command (commands/OMG:ralph-start.md) — asks for gomg, creates state file with active=true, iteration=0, max_iterations=50.
   - Add `ralph_loop` feature flag check in prompt-enhancer (existing `ulw`/`ralph` keyword detection at line ~278-296) to auto-create the state file when keywords detected.
 
   **Must NOT do**:
@@ -2155,7 +2155,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **API/Type References**:
   - Claude Code Stop hook protocol: `{"decision":"block","reason":"<string>"}` — reason becomes next prompt
-  - `.oal/state/ralph-loop.json` schema (from Task 18)
+  - `.omg/state/ralph-loop.json` schema (from Task 18)
 
   **External References**:
   - Ralph Wiggum plugin: `stop-hook.js` — block+reason pattern with iteration counter
@@ -2168,8 +2168,8 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **Acceptance Criteria**:
   - [x] Ralph block reason includes checklist progress: reason contains `Progress: 3/8`
-  - [x] `/OAL:ralph-stop` command file exists at `commands/OAL:ralph-stop.md`
-  - [x] `/OAL:ralph-start` command file exists at `commands/OAL:ralph-start.md`
+  - [x] `/OMG:ralph-stop` command file exists at `commands/OMG:ralph-stop.md`
+  - [x] `/OMG:ralph-start` command file exists at `commands/OMG:ralph-start.md`
   - [x] Keyword `ralph` or `ulw` in prompt-enhancer auto-creates state file
   - [x] `python3 -m pytest tests/test_ralph.py -x` → PASS (extend from Task 18)
 
@@ -2178,8 +2178,8 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Ralph re-injection includes checklist progress
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state
-      2. echo '- [x] Done 1\n- [x] Done 2\n- [x] Pending 3\n- [x] Pending 4' > .oal/state/_checklist.md
+      1. mkdir -p .omg/state
+      2. echo '- [x] Done 1\n- [x] Done 2\n- [x] Pending 3\n- [x] Pending 4' > .omg/state/_checklist.md
       3. Create ralph-loop.json with active=true, iteration=2, max_iterations=50, checklist_path set
       4. echo '{"stop_hook_active":false}' | python3 hooks/stop_dispatcher.py > /tmp/ralph_inject.json
       5. Assert reason contains 'Progress: 2/4' and 'fix all bugs'
@@ -2190,18 +2190,18 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Keyword detection auto-creates Ralph state file
     Tool: Bash
     Steps:
-      1. rm -f .oal/state/ralph-loop.json
+      1. rm -f .omg/state/ralph-loop.json
       2. echo '{"tool_input":{"user_message":"ulw fix all the failing tests"}}' | python3 hooks/prompt-enhancer.py > /dev/null
-      3. test -f .oal/state/ralph-loop.json && echo 'CREATED' || echo 'MISSING'
+      3. test -f .omg/state/ralph-loop.json && echo 'CREATED' || echo 'MISSING'
       4. Assert state file has active=true and original_prompt contains 'fix all the failing tests'
     Expected Result: State file auto-created with active=true and extracted prompt
-    Failure Indicators: File not created, or original_prompt missing the extracted goal
+    Failure Indicators: File not created, or original_prompt missing the extracted gomg
     Evidence: .sisyphus/evidence/task-25-ralph-keyword-create.txt
   ```
 
   **Commit**: YES
   - Message: `feat(ralph): add rich prompt re-injection with progress, escape hatch commands, and keyword activation`
-  - Files: `hooks/stop_dispatcher.py`, `hooks/prompt-enhancer.py`, `commands/OAL:ralph-stop.md`, `commands/OAL:ralph-start.md`, `tests/test_ralph.py`
+  - Files: `hooks/stop_dispatcher.py`, `hooks/prompt-enhancer.py`, `commands/OMG:ralph-stop.md`, `commands/OMG:ralph-start.md`, `tests/test_ralph.py`
   - Pre-commit: `python3 -m pytest tests/ -x -q`
 
 - [x] 26. Memory Retrieval via context:fork Pattern
@@ -2211,7 +2211,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     ```python
     def search_memories(project_dir, query_keywords: list[str], max_results=3, max_chars=200) -> str:
         """Search memory files for relevant context via keyword match. Returns formatted summary."""
-        memory_dir = os.path.join(project_dir, '.oal/state/memory')
+        memory_dir = os.path.join(project_dir, '.omg/state/memory')
         if not os.path.isdir(memory_dir): return ''
         results = []
         for fname in sorted(os.listdir(memory_dir), reverse=True):  # newest first
@@ -2285,7 +2285,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Memory search finds relevant past sessions
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state/memory
+      1. mkdir -p .omg/state/memory
       2. Create auth-related memory file: 2026-02-27-ses_abc.md with JWT/middleware content
       3. Create UI-related memory file: 2026-02-26-ses_def.md with CSS/grid content
       4. python3 -c "from _memory import search_memories; r=search_memories('.', ['jwt','auth']); assert 'JWT' in r or 'auth' in r; assert len(r) <= 200"
@@ -2317,12 +2317,12 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
         if recent:
             context_parts.append(f'@recent-memory: {recent}')
     ```
-  - **On-demand principle**: If `.oal/state/memory/` doesn't exist or is empty → ZERO overhead.
+  - **On-demand principle**: If `.omg/state/memory/` doesn't exist or is empty → ZERO overhead.
   - **Budget**: Recent memory capped at 150 chars within session-start's 2000 char budget.
   - **Dedup**: session-start injects RECENT (last 3 sessions). prompt-enhancer injects RELEVANT (keyword-matched). Different purposes.
 
   **Must NOT do**:
-  - Do NOT create `.oal/state/memory/` directory. Only read if exists.
+  - Do NOT create `.omg/state/memory/` directory. Only read if exists.
   - Do NOT inject if feature flag `memory` is disabled.
   - Do NOT exceed 150 chars for memory in session-start.
   - Do NOT duplicate prompt-enhancer's keyword search. This is time-based, not topic-based.
@@ -2353,7 +2353,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Session-start injects recent memory when available
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state/memory
+      1. mkdir -p .omg/state/memory
       2. Create memory file: 2026-02-27-ses_test.md with "Fixed auth bug" content
       3. echo '{}' | python3 hooks/session-start.py > /tmp/session_mem.txt
       4. grep '@recent-memory:' /tmp/session_mem.txt
@@ -2364,7 +2364,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: No memory directory = zero overhead
     Tool: Bash
     Steps:
-      1. rm -rf .oal/state/memory
+      1. rm -rf .omg/state/memory
       2. echo '{}' | python3 hooks/session-start.py > /tmp/session_nomem.txt
       3. grep '@recent-memory:' /tmp/session_nomem.txt && echo 'UNEXPECTED' || echo 'CLEAN'
     Expected Result: No @recent-memory injection, CLEAN printed
@@ -2376,33 +2376,33 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   - Files: `hooks/session-start.py`, `tests/test_session_start.py`
   - Pre-commit: `python3 -m pytest tests/ -x -q`
 
-- [x] 28. Cognitive Mode Rules + /OAL:mode Command
+- [x] 28. Cognitive Mode Rules + /OMG:mode Command
 
   **What to do**:
   - Create 3 contextual rule files in `rules/contextual/`:
-    1. `research-mode.md` — Activated when `/OAL:mode research` or architect-mode agent is in play:
+    1. `research-mode.md` — Activated when `/OMG:mode research` or architect-mode agent is in play:
        - Prioritize information gathering over implementation
        - Use librarian/explore subagents for evidence collection
        - Summarize findings before proposing solutions
        - Prefer web search + docs lookup over guessing
-    2. `architect-mode.md` — Activated when `/OAL:mode architect`:
+    2. `architect-mode.md` — Activated when `/OMG:mode architect`:
        - Think in systems, not files. Map dependencies before changes.
        - Evaluate 2-3 approaches before committing to one
        - Consider scale, maintenance, team impact
        - Use oracle subagent for strategic decisions
-    3. `implement-mode.md` — Activated when `/OAL:mode implement` (DEFAULT):
+    3. `implement-mode.md` — Activated when `/OMG:mode implement` (DEFAULT):
        - Focus on shipping. Write code, test, verify.
        - Follow existing patterns. Don't redesign while implementing.
        - Run tests after every change. Evidence before claims.
        - Use domain-specific agent based on file types being modified.
-  - Create `/OAL:mode` command (`commands/OAL:mode.md`):
-    - Usage: `/OAL:mode [research|architect|implement]`
-    - Writes current mode to `.oal/state/mode.txt` (plain text, one word)
-    - prompt-enhancer reads `.oal/state/mode.txt` and loads corresponding contextual rule
+  - Create `/OMG:mode` command (`commands/OMG:mode.md`):
+    - Usage: `/OMG:mode [research|architect|implement]`
+    - Writes current mode to `.omg/state/mode.txt` (plain text, one word)
+    - prompt-enhancer reads `.omg/state/mode.txt` and loads corresponding contextual rule
     - Default mode (if file doesn't exist): `implement`
   - In `hooks/prompt-enhancer.py`, add mode-aware rule loading:
     ```python
-    mode_path = os.path.join(project_dir, '.oal/state/mode.txt')
+    mode_path = os.path.join(project_dir, '.omg/state/mode.txt')
     mode = read_file_safe(mode_path, max_bytes=50).strip() or 'implement'
     if mode in ('research', 'architect', 'implement'):
         injections.append(f'@mode: {mode}')
@@ -2427,13 +2427,13 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   **References**:
   - `rules/contextual/` — Existing contextual rules (follow same format)
   - `hooks/prompt-enhancer.py:170-208` — Existing mode detection (ulw/ralph/crazy). Add cognitive mode reading here.
-  - `agents/oal-research-mode.md`, `agents/oal-architect-mode.md`, `agents/oal-implement-mode.md` — (from Task 24) Agent definitions that align with these modes
+  - `agents/omg-research-mode.md`, `agents/omg-architect-mode.md`, `agents/omg-implement-mode.md` — (from Task 24) Agent definitions that align with these modes
   - Superpowers plugin: anti-rationalization tables concept (modes enforce different thinking styles)
 
   **Acceptance Criteria**:
   - [x] 3 rule files exist: `rules/contextual/research-mode.md`, `architect-mode.md`, `implement-mode.md`
-  - [x] `commands/OAL:mode.md` exists
-  - [x] `echo 'research' > .oal/state/mode.txt && echo '{"tool_input":{"user_message":"test"}}' | python3 hooks/prompt-enhancer.py` → output contains `@mode: research`
+  - [x] `commands/OMG:mode.md` exists
+  - [x] `echo 'research' > .omg/state/mode.txt && echo '{"tool_input":{"user_message":"test"}}' | python3 hooks/prompt-enhancer.py` → output contains `@mode: research`
   - [x] Missing mode file defaults to `implement`
 
   **QA Scenarios:**
@@ -2441,11 +2441,11 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Mode switch changes prompt-enhancer injection
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state
-      2. echo 'research' > .oal/state/mode.txt
+      1. mkdir -p .omg/state
+      2. echo 'research' > .omg/state/mode.txt
       3. echo '{"tool_input":{"user_message":"find auth patterns"}}' | python3 hooks/prompt-enhancer.py > /tmp/mode_research.txt
       4. grep '@mode: research' /tmp/mode_research.txt
-      5. echo 'architect' > .oal/state/mode.txt
+      5. echo 'architect' > .omg/state/mode.txt
       6. echo '{"tool_input":{"user_message":"design auth system"}}' | python3 hooks/prompt-enhancer.py > /tmp/mode_architect.txt
       7. grep '@mode: architect' /tmp/mode_architect.txt
     Expected Result: Each mode reflected in prompt-enhancer output
@@ -2454,7 +2454,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Default mode is implement when no file exists
     Tool: Bash
     Steps:
-      1. rm -f .oal/state/mode.txt
+      1. rm -f .omg/state/mode.txt
       2. echo '{"tool_input":{"user_message":"test"}}' | python3 hooks/prompt-enhancer.py > /tmp/mode_default.txt
       3. grep '@mode: implement' /tmp/mode_default.txt || echo 'DEFAULT MISSING'
     Expected Result: Default mode is 'implement'
@@ -2462,8 +2462,8 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   ```
 
   **Commit**: YES
-  - Message: `feat(modes): add cognitive mode rules (research/architect/implement) and /OAL:mode command`
-  - Files: `rules/contextual/research-mode.md`, `rules/contextual/architect-mode.md`, `rules/contextual/implement-mode.md`, `commands/OAL:mode.md`, `hooks/prompt-enhancer.py`
+  - Message: `feat(modes): add cognitive mode rules (research/architect/implement) and /OMG:mode command`
+  - Files: `rules/contextual/research-mode.md`, `rules/contextual/architect-mode.md`, `rules/contextual/implement-mode.md`, `commands/OMG:mode.md`, `hooks/prompt-enhancer.py`
   - Pre-commit: `python3 -m pytest tests/ -x -q`
 
 - [x] 29. Agent Routing + Model Dispatch in prompt-enhancer.py + Circuit-Breaker v2
@@ -2489,7 +2489,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     1. **Domain-aware routing**: When failure detected in auth/security domain → suggest codex-cli. UI domain → suggest gemini-cli.
     2. **Progressive escalation**: Phase 1 (warning) → Phase 2 (suggest agent) → Phase 3 (force escalation) → Phase 4 (hard block)
     3. **Time-decay**: Failures older than 30 min get half-weight. Prevents old failures from triggering escalation.
-    4. **Recovery memory**: When a pattern succeeds after failures, log to `.oal/state/ledger/recovery.jsonl`:
+    4. **Recovery memory**: When a pattern succeeds after failures, log to `.omg/state/ledger/recovery.jsonl`:
        ```json
        {"pattern":"npm test","failed_approach":"mock override","working_approach":"fixture reset","ts":"ISO8601"}
        ```
@@ -2590,7 +2590,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     ```python
     def capture_learnings(project_dir):
         """Extract patterns from tool ledger for compound learning."""
-        ledger_path = os.path.join(project_dir, '.oal/state/ledger/tool-ledger.jsonl')
+        ledger_path = os.path.join(project_dir, '.omg/state/ledger/tool-ledger.jsonl')
         if not os.path.exists(ledger_path): return
         
         # Read last 100 entries
@@ -2611,7 +2611,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
             if f: file_counts[f] = file_counts.get(f, 0) + 1
         
         # Write learning summary
-        learn_dir = os.path.join(project_dir, '.oal/state/learnings')
+        learn_dir = os.path.join(project_dir, '.omg/state/learnings')
         os.makedirs(learn_dir, exist_ok=True)
         learn_path = os.path.join(learn_dir, f'{date_str}-{session_short}.md')
         
@@ -2648,10 +2648,10 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   - `hooks/session-end-capture.py` — (from Tasks 9, 19) Add Capture B alongside Capture A (memory)
   - `hooks/tool-ledger.py` — JSONL entry format reference
   - compound-engineering: `learnings-researcher` concept (AI-free version)
-  - `.oal/state/ledger/tool-ledger.jsonl` — Source data format
+  - `.omg/state/ledger/tool-ledger.jsonl` — Source data format
 
   **Acceptance Criteria**:
-  - [x] After SessionEnd: `.oal/state/learnings/` contains a new .md file
+  - [x] After SessionEnd: `.omg/state/learnings/` contains a new .md file
   - [x] Learning file ≤300 chars
   - [x] Learning file contains "Most Used Tools" and "Most Modified Files" sections
   - [x] `python3 -m pytest tests/test_learning_capture.py -x` → PASS
@@ -2661,20 +2661,20 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Learning captured from tool ledger on SessionEnd
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state/ledger .oal/state/learnings
+      1. mkdir -p .omg/state/ledger .omg/state/learnings
       2. Create 10 ledger entries: 5x Write to src/auth.ts, 3x Bash npm test, 2x Read
       3. echo '{"session_id":"ses_learn","cwd":"'$(pwd)'"}' | python3 hooks/session-end-capture.py
-      4. ls .oal/state/learnings/*.md | wc -l  # Should be >= 1
-      5. cat .oal/state/learnings/*.md | grep 'Write'  # Most used tool
+      4. ls .omg/state/learnings/*.md | wc -l  # Should be >= 1
+      5. cat .omg/state/learnings/*.md | grep 'Write'  # Most used tool
     Expected Result: Learning file created with Write as most-used tool and auth.ts as most-modified file
     Evidence: .sisyphus/evidence/task-30-learning-capture.txt
 
   Scenario: Empty ledger produces no learning file
     Tool: Bash
     Steps:
-      1. rm -f .oal/state/ledger/tool-ledger.jsonl
+      1. rm -f .omg/state/ledger/tool-ledger.jsonl
       2. echo '{"session_id":"ses_empty","cwd":"'$(pwd)'"}' | python3 hooks/session-end-capture.py
-      3. ls .oal/state/learnings/ 2>/dev/null | wc -l  # Should be 0 (no new file)
+      3. ls .omg/state/learnings/ 2>/dev/null | wc -l  # Should be 0 (no new file)
     Expected Result: No learning file created for empty sessions
     Evidence: .sisyphus/evidence/task-30-learning-empty.txt
   ```
@@ -2691,7 +2691,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     ```python
     def aggregate_learnings(project_dir, max_patterns=10) -> str:
         """Read all learning files, aggregate top patterns into summary."""
-        learn_dir = os.path.join(project_dir, '.oal/state/learnings')
+        learn_dir = os.path.join(project_dir, '.omg/state/learnings')
         if not os.path.isdir(learn_dir): return ''
         
         all_tools = {}  # tool -> total count across sessions
@@ -2714,14 +2714,14 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     def rotate_learnings(project_dir, max_files=30):
         """Delete oldest learning files if count exceeds max."""
     ```
-  - Create `/OAL:learn` enhancement: When user runs `/OAL:learn auto`, read aggregated learnings to suggest patterns.
-  - Create `.oal/knowledge/critical-patterns.md` auto-generation:
-    - Generated on-demand when `/OAL:learn` runs (NOT on every session)
+  - Create `/OMG:learn` enhancement: When user runs `/OMG:learn auto`, read aggregated learnings to suggest patterns.
+  - Create `.omg/knowledge/critical-patterns.md` auto-generation:
+    - Generated on-demand when `/OMG:learn` runs (NOT on every session)
     - Contains: top 10 tool patterns, top 10 file hotspots, suggested skills
     - Max 500 chars
 
   **Must NOT do**:
-  - Do NOT auto-generate critical-patterns.md on every session. Only when `/OAL:learn` runs.
+  - Do NOT auto-generate critical-patterns.md on every session. Only when `/OMG:learn` runs.
   - Do NOT exceed 500 chars for critical-patterns.md.
   - Do NOT use AI for aggregation. Pure counting.
 
@@ -2737,9 +2737,9 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
 
   **References**:
   - `hooks/_memory.py` — Follow same utility module pattern
-  - `commands/OAL:learn.md` — Existing learn command (enhance with aggregated learnings)
+  - `commands/OMG:learn.md` — Existing learn command (enhance with aggregated learnings)
   - compound-engineering: `critical-patterns.md` concept
-  - `.oal/state/learnings/*.md` — Source files from Task 30
+  - `.omg/state/learnings/*.md` — Source files from Task 30
 
   **Acceptance Criteria**:
   - [x] `aggregate_learnings()` returns top patterns from multiple session files
@@ -2752,7 +2752,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Aggregation across multiple learning files
     Tool: Bash
     Steps:
-      1. mkdir -p .oal/state/learnings
+      1. mkdir -p .omg/state/learnings
       2. Create 3 learning files with overlapping tool patterns (Write: 5x, 3x, 2x across files)
       3. python3 -c "import sys; sys.path.insert(0,'hooks'); from _learnings import aggregate_learnings; r=aggregate_learnings('.'); print(r); assert 'Write' in r; assert len(r) <= 500"
     Expected Result: Write shows as top pattern with total count 10, within 500 chars
@@ -2761,16 +2761,16 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Rotation keeps max 30 learning files
     Tool: Bash
     Steps:
-      1. Create 35 learning files in .oal/state/learnings/
+      1. Create 35 learning files in .omg/state/learnings/
       2. python3 -c "from _learnings import rotate_learnings; rotate_learnings('.')"
-      3. ls .oal/state/learnings/*.md | wc -l  # Should be 30
+      3. ls .omg/state/learnings/*.md | wc -l  # Should be 30
     Expected Result: Oldest 5 files deleted, 30 remain
     Evidence: .sisyphus/evidence/task-31-learning-rotation.txt
   ```
 
   **Commit**: YES (groups with Task 30)
   - Message: `feat(learning): add learnings aggregation, rotation, and critical-patterns.md generation`
-  - Files: `hooks/_learnings.py`, `commands/OAL:learn.md`, `tests/test_learnings.py`
+  - Files: `hooks/_learnings.py`, `commands/OMG:learn.md`, `tests/test_learnings.py`
   - Pre-commit: `python3 -m pytest tests/ -x -q`
 
 ### Wave 5 — Optimization + Migration (Tasks 32-37)
@@ -2801,7 +2801,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
     PLAN_INJECTION_MAX = 100       # chars for plan reminder
     ```
   - Add budget tracking: each injection records its char count. Total validated before output.
-  - **Idle detection**: If no `.oal/state/_plan.md`, no `handoff.md`, no `memory/`, inject only profile (1-liner) + tool hint = ≤200 chars.
+  - **Idle detection**: If no `.omg/state/_plan.md`, no `handoff.md`, no `memory/`, inject only profile (1-liner) + tool hint = ≤200 chars.
 
   **Must NOT do**:
   - Do NOT remove any existing injection. Only add budget enforcement.
@@ -2820,7 +2820,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   **References**:
   - `hooks/session-start.py` — Full file (203 lines) — measure current output sizes
   - `hooks/_common.py` — Add budget enforcement utilities
-  - OAL README: "session-start capped at 1500 chars" (v4.2), now raise to 2000 for new features
+  - OMG README: "session-start capped at 1500 chars" (v4.2), now raise to 2000 for new features
 
   **Acceptance Criteria**:
   - [x] `echo '{}' | python3 hooks/session-start.py | wc -c` ≤ 2000 (always)
@@ -2833,7 +2833,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   Scenario: Idle session-start is minimal
     Tool: Bash
     Steps:
-      1. rm -rf .oal/state/_plan.md .oal/state/handoff.md .oal/state/memory
+      1. rm -rf .omg/state/_plan.md .omg/state/handoff.md .omg/state/memory
       2. echo '{}' | python3 hooks/session-start.py > /tmp/idle.txt
       3. wc -c < /tmp/idle.txt
       4. Assert ≤200
@@ -2890,7 +2890,7 @@ Capture B: Compound learning → write .oal/knowledge/learnings/
   **References**:
   - `hooks/prompt-enhancer.py` — Full file (476 lines) — measure current injection sizes
   - `hooks/_budget.py` — (from Task 32) Budget constants
-  - OAL README: "prompt-enhancer capped at 600 chars" (v4.2), now 1000 for new features
+  - OMG README: "prompt-enhancer capped at 600 chars" (v4.2), now 1000 for new features
 
   **Acceptance Criteria**:
   - [x] Simple prompt (no keywords): zero injections, output = original prompt only
@@ -2987,7 +2987,7 @@ Task: {user_prompt}
 Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
     ```
   - **Fallback chain**: preferred_model → claude native → error with guidance.
-  - **Integration with commands**: `/OAL:escalate`, `/OAL:crazy`, `/OAL:teams` all use `dispatch_to_model()`.
+  - **Integration with commands**: `/OMG:escalate`, `/OMG:crazy`, `/OMG:teams` all use `dispatch_to_model()`.
   - **MCP tool awareness**: When dispatching, include which MCP tools are available in the structured prompt.
 
   **Must NOT do**:
@@ -3012,8 +3012,8 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
   **Pattern References**:
   - `runtime/team_router.py` — Current dispatch logic (enhance, don't replace)
   - `hooks/_agent_registry.py` — (from Task 23) Agent definitions, model preferences
-  - `commands/OAL:escalate.md` — Current escalation command (will use dispatch_to_model)
-  - `commands/OAL:crazy.md` — Multi-agent orchestration (will use dispatch_to_model)
+  - `commands/OMG:escalate.md` — Current escalation command (will use dispatch_to_model)
+  - `commands/OMG:crazy.md` — Multi-agent orchestration (will use dispatch_to_model)
 
   **External References**:
   - oh-my-claudecode: team_router model dispatch pattern (codex/gemini subprocess calls)
@@ -3055,7 +3055,7 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
   - Files: `runtime/team_router.py`, `tests/test_team_router.py`
   - Pre-commit: `python3 -m pytest tests/ -x -q`
 
-- [x] 35. Update OAL-setup.sh for New Features
+- [x] 35. Update OMG-setup.sh for New Features
 
   **What to do**:
   - Add migration steps for all new files:
@@ -3072,13 +3072,13 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
     
     # New agent files
     for agent in frontend-designer backend-engineer security-auditor database-engineer testing-engineer infra-engineer research-mode architect-mode implement-mode; do
-        install_agent "oal-${agent}.md"
+        install_agent "omg-${agent}.md"
     done
     
     # New command files
-    install_command "OAL:ralph-start.md"
-    install_command "OAL:ralph-stop.md"
-    install_command "OAL:mode.md"
+    install_command "OMG:ralph-start.md"
+    install_command "OMG:ralph-stop.md"
+    install_command "OMG:mode.md"
     
     # New rule files
     install_contextual_rule "research-mode.md"
@@ -3086,9 +3086,9 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
     install_contextual_rule "implement-mode.md"
     
     # New state directories
-    mkdir -p ".oal/state/memory"
-    mkdir -p ".oal/state/learnings"
-    mkdir -p ".oal/state/ledger"
+    mkdir -p ".omg/state/memory"
+    mkdir -p ".omg/state/learnings"
+    mkdir -p ".omg/state/ledger"
     ```
   - Update `--dry-run` to show all new files.
   - Update version check: detect v4.2 → v5.0 upgrade path.
@@ -3110,12 +3110,12 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
   - **Blocked By**: All Wave 0-4 tasks (setup script installs what was built)
 
   **References**:
-  - `OAL-setup.sh` — Full install script (follow existing install_hook/install_agent patterns)
+  - `OMG-setup.sh` — Full install script (follow existing install_hook/install_agent patterns)
   - `scripts/settings-merge.py` — Settings merge tool
 
   **Acceptance Criteria**:
-  - [x] `./OAL-setup.sh install --dry-run` shows all new files
-  - [x] `./OAL-setup.sh update` installs new hooks, agents, commands, rules
+  - [x] `./OMG-setup.sh install --dry-run` shows all new files
+  - [x] `./OMG-setup.sh update` installs new hooks, agents, commands, rules
   - [x] Existing settings preserved during merge
 
   **QA Scenarios:**
@@ -3123,16 +3123,16 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
   Scenario: Dry-run shows all new files
     Tool: Bash
     Steps:
-      1. ./OAL-setup.sh install --dry-run 2>&1 | grep -c 'stop_dispatcher\|_agent_registry\|ralph-start'
+      1. ./OMG-setup.sh install --dry-run 2>&1 | grep -c 'stop_dispatcher\|_agent_registry\|ralph-start'
       2. Assert count >= 3
     Expected Result: Dry-run lists new hook, registry, and command files
     Evidence: .sisyphus/evidence/task-35-setup-dryrun.txt
   ```
 
   **Commit**: YES
-  - Message: `feat(setup): update OAL-setup.sh with migration for all new features`
-  - Files: `OAL-setup.sh`
-  - Pre-commit: `./OAL-setup.sh install --dry-run`
+  - Message: `feat(setup): update OMG-setup.sh with migration for all new features`
+  - Files: `OMG-setup.sh`
+  - Pre-commit: `./OMG-setup.sh install --dry-run`
 
 - [x] 36. Update settings.json with New Hook Registrations
 
@@ -3156,9 +3156,9 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
       }
     }
     ```
-  - Update `_oal` config section with new feature flags:
+  - Update `_omg` config section with new feature flags:
     ```json
-    "_oal": {
+    "_omg": {
       "version": "5.0.0",
       "features": {
         "ralph_loop": true,
@@ -3197,7 +3197,7 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
 
   **Acceptance Criteria**:
   - [x] `python3 -c "import json; s=json.load(open('settings.json')); assert 'Stop' in s.get('hooks',{})"` → PASS
-  - [x] `python3 -c "import json; s=json.load(open('settings.json')); assert s['_oal']['features']['ralph_loop']"` → PASS
+  - [x] `python3 -c "import json; s=json.load(open('settings.json')); assert s['_omg']['features']['ralph_loop']"` → PASS
   - [x] settings.json is valid JSON: `python3 -m json.tool settings.json > /dev/null`
 
   **QA Scenarios:**
@@ -3228,7 +3228,7 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
     6. Add new section: **"8. Cognitive Modes"** — explain research/architect/implement
     7. Add new section: **"9. Cross-Session Memory"** — explain memsearch-style memory
     8. Update File Structure tree with new files
-    9. Add new **Quick Modes** entry for `/OAL:mode`
+    9. Add new **Quick Modes** entry for `/OMG:mode`
     10. Update v5.0.0 changelog
 
   **Must NOT do**:
@@ -3286,7 +3286,7 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
   - Verify `task()` dispatch uses only valid categories: quick, deep, ultrabrain, visual-engineering, unspecified-high, unspecified-low
   - Verify all agent .md files have YAML frontmatter with `preferred_model:` field
   - Verify `settings.json` hook registrations match actual hook files
-  - Verify feature flags in `_oal` section all have corresponding `get_feature_flag()` checks
+  - Verify feature flags in `_omg` section all have corresponding `get_feature_flag()` checks
   **Guardrail verification**:
   - Verify circuit-breaker v2 progressive escalation: create 5 failures, confirm Phase 1→Phase 4 progression
   - Verify pre-flight guards: attempt dangerous operations (rm -rf simulation), confirm denial
@@ -3335,7 +3335,7 @@ Constraints: {agent.get('constraints', 'Follow existing patterns.')}"""
 Each wave gets one or more logical commits:
 - **Wave 0**: `fix(hooks): add stop_hook_active guard to stop-gate.py` + `feat(test): add pytest infrastructure and baseline tests` + `feat(hooks): add feature flags and error logging`
 - **Wave 1**: `refactor(hooks): extract stop_dispatcher.py multiplexer` + `feat(hooks): add SessionEnd capture and PostToolUseFailure hooks`
-- **Wave 2**: `fix(commands): resolve routing bugs in OAL:crazy and OAL:deep-plan` + `fix(hooks): normalize circuit-breaker patterns and knowledge index`
+- **Wave 2**: `fix(commands): resolve routing bugs in OMG:crazy and OMG:deep-plan` + `fix(hooks): normalize circuit-breaker patterns and knowledge index`
 - **Wave 3**: `feat(ralph): implement true Ralph loop with Stop hook blocking` + `feat(memory): implement memsearch-style session memory` + `feat(planning): add forced re-read and completion gate` + `feat(agents): add agent registry and domain agents`
 - **Wave 4**: `feat(ralph): add prompt injection and escape hatch` + `feat(memory): add context:fork retrieval and session-start integration` + `feat(modes): add cognitive modes` + `feat(routing): registry-based agent routing + circuit-breaker v2` + `feat(learning): compound learning capture and aggregation`
 - **Wave 5**: `perf(tokens): hard budget caps for session-start and prompt-enhancer` + `feat(dispatch): model-per-agent CLI dispatch` + `feat(setup): migration for all new features` + `feat(config): hook registrations and feature flags` + `docs: README v5.0`
@@ -3360,10 +3360,10 @@ echo '{"stop_hook_active":true}' | python3 hooks/stop-gate.py; echo $?   # Expec
 echo '{"stop_hook_active":false}' | python3 hooks/stop-gate.py; echo $?  # Expected: 0 (with block decision)
 
 # Memory
-ls .oal/state/memory/*.md 2>/dev/null | wc -l  # Expected: ≥ 0 (files exist after session)
+ls .omg/state/memory/*.md 2>/dev/null | wc -l  # Expected: ≥ 0 (files exist after session)
 
 # Feature flags
-grep -c '"_oal"' settings.json  # Expected: 1 (section exists)
+grep -c '"_omg"' settings.json  # Expected: 1 (section exists)
 
 # Hook crash isolation
 echo 'INVALID' | python3 hooks/stop-gate.py; echo $?  # Expected: 0

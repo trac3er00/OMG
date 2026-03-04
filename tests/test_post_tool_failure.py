@@ -29,7 +29,7 @@ def _run(payload: dict, project_dir: str | Path) -> subprocess.CompletedProcess[
 
 def _read_hook_errors(project: Path) -> list[dict]:
     """Read hook-errors.jsonl from project dir."""
-    errors_path = project / ".oal" / "state" / "ledger" / "hook-errors.jsonl"
+    errors_path = project / ".omg" / "state" / "ledger" / "hook-errors.jsonl"
     if not errors_path.exists():
         return []
     
@@ -44,7 +44,7 @@ def _read_hook_errors(project: Path) -> list[dict]:
 
 def test_tool_failure_logged(tmp_path):
     """A valid tool failure input should create/append to hook-errors.jsonl."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Bash",
@@ -66,7 +66,7 @@ def test_tool_failure_logged(tmp_path):
 
 def test_invalid_json_exits_zero(tmp_path):
     """Invalid JSON input should exit 0 (crash isolation invariant)."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     proc = subprocess.run(
         [sys.executable, str(HOOK)],
@@ -84,7 +84,7 @@ def test_invalid_json_exits_zero(tmp_path):
 
 def test_missing_error_field_graceful(tmp_path):
     """Input without 'error' field should exit 0 and log 'unknown error'."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Write",

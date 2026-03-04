@@ -9,7 +9,7 @@
 2. Check auth flow end-to-end: login → session creation → token validation → permission check → logout/expiry.
 3. Never hardcode: API keys, secrets, tokens, connection strings, passwords. Use env vars or secret manager.
 4. Validate all inputs: SQL injection, XSS, command injection, path traversal — check at EVERY entry point.
-5. After changes: Request `/OAL:escalate codex "deep security review of [file]: auth flow, injection, privilege escalation"`.
+5. After changes: Request `/OMG:escalate codex "deep security review of [file]: auth flow, injection, privilege escalation"`.
 6. Payment code: PCI-DSS awareness — no raw card numbers in logs, no sensitive data in URLs, encrypt at rest.
 7. Database code: Parameterized queries ONLY. No string concatenation for SQL. Check migration rollback safety.
 

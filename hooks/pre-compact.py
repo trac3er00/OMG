@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""PreCompact Hook — OAL Standalone state preservation.
+"""PreCompact Hook — OMG Standalone state preservation.
 
-1) Snapshot key files from .oal/state (fallback .omc via migration)
-2) Auto-generate handoff files in .oal/state
+1) Snapshot key files from .omg/state (fallback .omc via migration)
+2) Auto-generate handoff files in .omg/state
 """
 import json
 import importlib
@@ -23,8 +23,8 @@ except ImportError:
     _resolve_project_dir = _common._resolve_project_dir
 
 
-MAX_SNAPSHOT_BYTES = int(os.environ.get("OAL_PRECOMPACT_MAX_SNAPSHOT_BYTES", "262144"))
-GIT_DIFF_TIMEOUT_SEC = int(os.environ.get("OAL_PRECOMPACT_GIT_DIFF_TIMEOUT_SEC", "1"))
+MAX_SNAPSHOT_BYTES = int(os.environ.get("OMG_PRECOMPACT_MAX_SNAPSHOT_BYTES", "262144"))
+GIT_DIFF_TIMEOUT_SEC = int(os.environ.get("OMG_PRECOMPACT_GIT_DIFF_TIMEOUT_SEC", "1"))
 
 
 try:
@@ -170,7 +170,7 @@ except Exception:
     pass
 
 parts.append("## Resume Instructions")
-parts.append("Read .oal/state/profile.yaml + this file.")
+parts.append("Read .omg/state/profile.yaml + this file.")
 parts.append("\n---\n*Auto-generated before context compaction.*")
 handoff = "\n\n".join(parts)
 handoff_lines = handoff.split("\n")
@@ -200,5 +200,5 @@ try:
 except Exception:
     pass
 
-print(f"[OAL pre-compact] Snapshotted {len(saved)} files -> {snapshot_dir}", file=sys.stderr)
+print(f"[OMG pre-compact] Snapshotted {len(saved)} files -> {snapshot_dir}", file=sys.stderr)
 sys.exit(0)

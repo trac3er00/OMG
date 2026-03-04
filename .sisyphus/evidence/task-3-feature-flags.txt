@@ -2,9 +2,9 @@
 
 ## Acceptance Criteria Results
 
-### Test 1: OAL_MEMORY_ENABLED=0 returns False
-Command: OAL_MEMORY_ENABLED=0 python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; result = get_feature_flag('memory'); print(f'OAL_MEMORY_ENABLED=0: {result}'); assert not result, 'Expected False'"
-Output: OAL_MEMORY_ENABLED=0: False
+### Test 1: OMG_MEMORY_ENABLED=0 returns False
+Command: OMG_MEMORY_ENABLED=0 python3 -c "import sys; sys.path.insert(0,'hooks'); from _common import get_feature_flag; result = get_feature_flag('memory'); print(f'OMG_MEMORY_ENABLED=0: {result}'); assert not result, 'Expected False'"
+Output: OMG_MEMORY_ENABLED=0: False
 Status: ✓ PASS
 
 ### Test 2: Default (no env var) returns True
@@ -30,11 +30,11 @@ Status: ✓ PASS
 1. hooks/_common.py
    - Added module-level cache: _FEATURE_CACHE = {}
    - Added function: get_feature_flag(flag_name, default=True)
-   - Resolution order: env var (OAL_{FLAG_NAME}_ENABLED) → settings.json (_oal.features) → default
+   - Resolution order: env var (OMG_{FLAG_NAME}_ENABLED) → settings.json (_omg.features) → default
    - Graceful error handling: returns default on any error
 
 2. settings.json
-   - Added _oal.features section with 7 feature flags:
+   - Added _omg.features section with 7 feature flags:
      * memory: true
      * ralph_loop: true
      * planning_enforcement: true
@@ -51,10 +51,10 @@ Status: ✓ PASS
 ## Implementation Details
 
 ### Resolution Order
-1. Environment variable: OAL_{FLAG_NAME.upper()}_ENABLED
+1. Environment variable: OMG_{FLAG_NAME.upper()}_ENABLED
    - "0", "false", "no" → False
    - "1", "true", "yes" → True
-2. settings.json: _oal.features.{flag_name}
+2. settings.json: _omg.features.{flag_name}
 3. default parameter (default=True)
 
 ### Caching Strategy
@@ -65,7 +65,7 @@ Status: ✓ PASS
 ### Error Handling
 - Missing settings.json: returns default
 - Malformed JSON: returns default
-- Missing _oal section: returns default
+- Missing _omg section: returns default
 - Missing features section: returns default
 - No exceptions raised
 
@@ -73,8 +73,8 @@ Status: ✓ PASS
 
 All acceptance criteria met:
 ✓ get_feature_flag() function added to hooks/_common.py
-✓ _oal.features section added to settings.json with 7 flags
+✓ _omg.features section added to settings.json with 7 flags
 ✓ test_feature_flags test created and passing
-✓ OAL_MEMORY_ENABLED=0 test passes
+✓ OMG_MEMORY_ENABLED=0 test passes
 ✓ Default test passes
 ✓ Full test suite passes

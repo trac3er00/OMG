@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
-  title: OAL Control Plane API
+  title: OMG Control Plane API
   version: 1.0.0
-  description: Policy/trust/evidence/runtime/registry/lab endpoints for OAL v1.
+  description: Policy/trust/evidence/runtime/registry/lab endpoints for OMG v1.
 servers:
-  - url: https://api.oal.local
+  - url: https://api.omg.local
 paths:
   /v1/policy/evaluate:
     post:

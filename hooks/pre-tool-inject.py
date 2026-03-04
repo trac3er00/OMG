@@ -2,7 +2,7 @@
 """PreToolUse Hook — Injects plan reminder before each tool call.
 
 Inspired by planning-with-files: forces re-read of plan on every tool call.
-OAL version: lighter — checklist-aware, tool-filtered, max 200 chars.
+OMG version: lighter — checklist-aware, tool-filtered, max 200 chars.
 Only injects for mutation tools (Write/Edit/Bash), not read-only tools.
 """
 import json

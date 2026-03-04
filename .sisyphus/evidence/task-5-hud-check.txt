@@ -7,13 +7,13 @@ VERIFICATION RESULTS:
 ---------------------
 
 1. Installed HUD File Size
-   Location: ~/.claude/hud/oal-hud.mjs
+   Location: ~/.claude/hud/omg-hud.mjs
    Size: 15893 bytes
    Expected: 15893 bytes
    Result: PASS ✓
 
 2. File Identity Check (diff)
-   Command: diff ~/.claude/hud/oal-hud.mjs /Users/cminseo/Documents/scripts/Shell/OAL/hud/oal-hud.mjs
+   Command: diff ~/.claude/hud/omg-hud.mjs /Users/cminseo/Documents/scripts/Shell/OMG/hud/omg-hud.mjs
    Output: (no output = files identical)
    Result: PASS ✓
 
@@ -23,7 +23,7 @@ VERIFICATION RESULTS:
 
 SUMMARY:
 --------
-✓ Latest OAL HUD copied to ~/.claude/hud/oal-hud.mjs
+✓ Latest OMG HUD copied to ~/.claude/hud/omg-hud.mjs
 ✓ File size matches source (15893 bytes)
 ✓ Files are byte-identical (diff produced no output)
 ✓ OMC HUD artifact removed successfully

@@ -23,7 +23,7 @@ rotate_memories = cast(Callable[..., int], getattr(memory_module, "rotate_memori
 def test_save_memory_creates_file(tmp_path: Path):
     file_path = save_memory(str(tmp_path), "ses_test", "content")
     assert Path(file_path).exists()
-    assert ".oal/state/memory/" in file_path
+    assert ".omg/state/memory/" in file_path
 
 
 def test_save_memory_appends_if_exists(tmp_path: Path):
@@ -42,7 +42,7 @@ def test_save_memory_truncates_at_500(tmp_path: Path):
 
 
 def test_rotate_memories_keeps_50(tmp_path: Path):
-    memory_dir = tmp_path / ".oal" / "state" / "memory"
+    memory_dir = tmp_path / ".omg" / "state" / "memory"
     _ = memory_dir.mkdir(parents=True)
     for index in range(55):
         _ = (memory_dir / f"2026-01-01-ses{index:03d}.md").write_text(f"file-{index}")
@@ -51,7 +51,7 @@ def test_rotate_memories_keeps_50(tmp_path: Path):
 
 
 def test_get_recent_memories_returns_under_300(tmp_path: Path):
-    memory_dir = tmp_path / ".oal" / "state" / "memory"
+    memory_dir = tmp_path / ".omg" / "state" / "memory"
     _ = memory_dir.mkdir(parents=True)
     for index in range(3):
         _ = (memory_dir / f"2026-01-0{index + 1}-ses{index}.md").write_text("x" * 200)

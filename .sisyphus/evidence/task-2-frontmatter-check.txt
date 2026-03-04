@@ -14,24 +14,24 @@
 
 === SPOT CHECKS ===
 
-4. oal-frontend-designer.md:
-   grep 'model_version:' agents/oal-frontend-designer.md
+4. omg-frontend-designer.md:
+   grep 'model_version:' agents/omg-frontend-designer.md
    Result: model_version: gemini-3.1-pro-preview ✓
 
-5. oal-backend-engineer.md:
-   grep 'model_version:' agents/oal-backend-engineer.md
+5. omg-backend-engineer.md:
+   grep 'model_version:' agents/omg-backend-engineer.md
    Result: model_version: gpt-5.3 ✓
 
-6. oal-architect.md:
-   grep 'model_version:' agents/oal-architect.md
+6. omg-architect.md:
+   grep 'model_version:' agents/omg-architect.md
    Result: model_version: gpt-5.2 ✓
 
-7. oal-executor.md:
-   grep 'model_version:' agents/oal-executor.md
+7. omg-executor.md:
+   grep 'model_version:' agents/omg-executor.md
    Result: model_version: claude-sonnet-4 ✓
 
-8. oal-research-mode.md:
-   grep 'model_version:' agents/oal-research-mode.md
+8. omg-research-mode.md:
+   grep 'model_version:' agents/omg-research-mode.md
    Result: model_version: claude-haiku-3.5 ✓
 
 === SUMMARY ===

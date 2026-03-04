@@ -1,9 +1,9 @@
 ---
-description: Compatibility alias for /OAL:teams. Use /OAL:teams instead.
+description: Compatibility alias for /OMG:teams. Use /OMG:teams instead.
 ---
 
 # /omc-teams — Compatibility Alias
 
-> **Compatibility alias** — This command is a legacy alias. Use `/OAL:teams` instead.
+> **Compatibility alias** — This command is a legacy alias. Use `/OMG:teams` instead.
 
-Redirects to `/OAL:teams` for internal team routing in standalone mode.
+Redirects to `/OMG:teams` for internal team routing in standalone mode.

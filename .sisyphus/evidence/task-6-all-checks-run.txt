@@ -5,14 +5,14 @@ Date: 2026-03-01
 ## Scenario 2: All checks still run on normal stop
 
 Setup:
-  echo '- [ ] Pending task' > .oal/state/_checklist.md
-  rm -f .oal/state/ledger/.stop-block-tracker.json
+  echo '- [ ] Pending task' > .omg/state/_checklist.md
+  rm -f .omg/state/ledger/.stop-block-tracker.json
 
 Command:
   echo '{"stop_hook_active":false,"transcript_path":"/dev/null"}' | python3 hooks/stop_dispatcher.py
 
 Result (stdout):
-  {"decision": "block", "reason": "Ralph loop iteration 8/50. Continue working on: fix all tests\nIf truly done, run: /OAL:ralph-stop"}
+  {"decision": "block", "reason": "Ralph loop iteration 8/50. Continue working on: fix all tests\nIf truly done, run: /OMG:ralph-stop"}
   {"decision": "block", "reason": "Planning gate: 0/1 complete, 1 pending. Complete checklist before finishing."}
 
 Analysis:

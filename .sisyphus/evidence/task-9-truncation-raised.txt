@@ -20,7 +20,7 @@
    - Lines 122-124: Added new section with:
      ```
      ## Resume Instructions
-     Read .oal/state/profile.yaml + this file.
+     Read .omg/state/profile.yaml + this file.
      ```
 
 ## Verification Results
@@ -41,7 +41,7 @@
 
 ✓ Resume Instructions present in handoff.md:
   - Line 76: ## Resume Instructions
-  - Line 77: Read .oal/state/profile.yaml + this file.
+  - Line 77: Read .omg/state/profile.yaml + this file.
 
 ## Summary
 All requirements met:

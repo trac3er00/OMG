@@ -6,11 +6,11 @@
 - **Gemini:** UI/UX review, visual comparison, accessibility, responsive design
 
 ## When to Delegate (DO IT, don't just think about it)
-- Backend bug persists after 2 attempts → /OAL:escalate codex
-- Security/auth/crypto involved → /OAL:escalate codex
-- UI/visual change made → /OAL:escalate gemini
-- Change spans frontend + backend → /OAL:ccg (tri-model)
-- Stuck on anything for 3+ attempts → /OAL:escalate to relevant model
+- Backend bug persists after 2 attempts → /OMG:escalate codex
+- Security/auth/crypto involved → /OMG:escalate codex
+- UI/visual change made → /OMG:escalate gemini
+- Change spans frontend + backend → /OMG:ccg (tri-model)
+- Stuck on anything for 3+ attempts → /OMG:escalate to relevant model
 
 ## Auto-Detection
 prompt-enhancer.py detects keywords and suggests the right model.

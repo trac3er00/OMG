@@ -1,0 +1,17 @@
+[package]
+name = "omg-natives"
+version = "0.1.0"
+edition = "2021"
+description = "Native Rust acceleration for OMG hot paths"
+license = "MIT"
+
+[lib]
+name = "omg_natives"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.21", features = ["extension-module"] }
+
+[profile.release]
+opt-level = 3
+lto = true

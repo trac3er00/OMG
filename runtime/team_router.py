@@ -1,4 +1,4 @@
-"""Internal team router for OAL standalone operation."""
+"""Internal team router for OMG standalone operation."""
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
@@ -13,7 +13,7 @@ from typing import Any
 
 # --- Path resolution (never relies on CWD) ---
 _ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
-_OAL_ROOT = os.path.dirname(_ROUTER_DIR)
+_OMG_ROOT = os.path.dirname(_ROUTER_DIR)
 
 _logger = logging.getLogger(__name__)
 
@@ -584,4 +584,255 @@ def execute_crazy_mode(
             f"Gemini tracks: {len(model_mix['gemini'])}",
             f"Claude tracks: {len(model_mix['claude'])}",
         ],
+    }
+
+
+# =============================================================================
+# Round-Robin Credential Distribution (Feature: OMG_ROUND_ROBIN_ENABLED)
+# =============================================================================
+
+
+def _fnv1a_hash(data: str) -> int:
+    """FNV-1a 32-bit hash for session-stable key assignment.
+
+    Deterministic: same input always produces the same hash.
+    Used to pin a session to a consistent starting key index.
+    """
+    h = 2166136261
+    for c in data.encode():
+        h ^= c
+        h = (h * 16777619) & 0xFFFFFFFF
+    return h
+
+
+def _get_hooks_imports():
+    """Lazy-import credential_store and get_feature_flag.
+
+    Returns (credential_store_module, get_feature_flag_func) or (None, None).
+    Adds hooks dir to sys.path if needed (same pattern as package_prompt).
+    """
+    import sys as _sys
+
+    _hooks_dir = os.path.join(_OMG_ROOT, "hooks")
+    if _hooks_dir not in _sys.path:
+        _sys.path.insert(0, _hooks_dir)
+    try:
+        from _common import get_feature_flag  # pyright: ignore[reportMissingImports]
+        import credential_store  # pyright: ignore[reportMissingImports]
+
+        return credential_store, get_feature_flag
+    except ImportError:
+        return None, None
+
+
+def get_active_credential(provider: str, session_id: str | None = None) -> str | None:
+    """Get active API key for provider via round-robin.
+
+    Returns key string or None if credential store disabled/unavailable.
+    Feature flag: OMG_ROUND_ROBIN_ENABLED
+
+    Args:
+        provider: Provider name (e.g., 'anthropic', 'openai')
+        session_id: Optional session ID for deterministic key assignment via FNV-1a hash
+    """
+    cred_mod, get_flag = _get_hooks_imports()
+    if cred_mod is None or get_flag is None:
+        return None
+
+    if not get_flag("ROUND_ROBIN", default=False):
+        return None
+
+    passphrase = os.environ.get("OMG_CREDENTIAL_PASSPHRASE")
+    if not passphrase:
+        return None
+
+    try:
+        store = cred_mod.load_store(passphrase)
+    except (ValueError, OSError):
+        return None
+
+    providers = store.get("providers", {})
+    if provider not in providers:
+        return None
+
+    pdata = providers[provider]
+    keys = pdata.get("keys", [])
+    if not keys:
+        return None
+
+    # Pick key index: session-stable via FNV-1a or current active_index
+    if session_id:
+        idx = _fnv1a_hash(session_id) % len(keys)
+    else:
+        idx = pdata.get("active_index", 0)
+        if idx < 0 or idx >= len(keys):
+            idx = 0
+
+    # Track usage on selected key
+    keys[idx]["usage_count"] = keys[idx].get("usage_count", 0) + 1
+    keys[idx]["last_used"] = datetime.now(timezone.utc).isoformat()
+
+    # Advance active_index for next non-session call (round-robin)
+    if not session_id:
+        pdata["active_index"] = (idx + 1) % len(keys)
+
+    # Persist updated stats (best-effort)
+    try:
+        cred_mod.save_store(store, passphrase)
+    except (ValueError, OSError):
+        pass
+
+    return keys[idx].get("key")
+
+
+def on_rate_limit(provider: str, session_id: str | None = None) -> str | None:
+    """Advance to next credential for provider on 429. Returns new active key.
+
+    Called when a rate limit (HTTP 429) is encountered. Advances to the next
+    available key in the rotation and returns it.
+
+    Args:
+        provider: Provider name (e.g., 'anthropic', 'openai')
+        session_id: Optional session ID (currently unused, reserved for future)
+    """
+    cred_mod, get_flag = _get_hooks_imports()
+    if cred_mod is None or get_flag is None:
+        return None
+
+    if not get_flag("ROUND_ROBIN", default=False):
+        return None
+
+    passphrase = os.environ.get("OMG_CREDENTIAL_PASSPHRASE")
+    if not passphrase:
+        return None
+
+    try:
+        store = cred_mod.load_store(passphrase)
+    except (ValueError, OSError):
+        return None
+
+    providers = store.get("providers", {})
+    if provider not in providers:
+        return None
+
+    pdata = providers[provider]
+    keys = pdata.get("keys", [])
+    if not keys:
+        return None
+
+    current_idx = pdata.get("active_index", 0)
+    if current_idx < 0 or current_idx >= len(keys):
+        current_idx = 0
+
+    # Advance to next key
+    new_idx = (current_idx + 1) % len(keys)
+    pdata["active_index"] = new_idx
+
+    # Persist (best-effort)
+    try:
+        cred_mod.save_store(store, passphrase)
+    except (ValueError, OSError):
+        pass
+
+    return keys[new_idx].get("key")
+
+
+# =============================================================================
+# Role-Based Routing (Feature: OMG_ROLE_ROUTING_ENABLED)
+# =============================================================================
+
+
+def get_role_from_env() -> str | None:
+    """Read the active role from OMG_ACTIVE_ROLE environment variable.
+
+    Returns:
+        Role name string (e.g., 'smol', 'slow') or None if not set.
+    """
+    val = os.environ.get("OMG_ACTIVE_ROLE", "").strip().lower()
+    return val if val else None
+
+
+def route_with_role(task_text: str, role: str | None = None) -> dict[str, Any]:
+    """Select model based on role + task classification.
+
+    Resolution order for role:
+      1. Explicit `role` parameter
+      2. OMG_ACTIVE_ROLE env var (via get_role_from_env())
+      3. CLI args (--smol, --slow, --plan, --commit) via parse_role_args()
+      4. None → fall back to existing routing
+
+    Feature flag: OMG_ROLE_ROUTING_ENABLED (default: False)
+    When disabled, returns a baseline dict from existing _infer_target().
+
+    Args:
+        task_text: Description of the task to route.
+        role: Optional explicit role name override.
+
+    Returns:
+        Dict with keys: model, provider, role, reason
+    """
+    import sys as _sys
+
+    # Baseline: always compute the existing routing target
+    existing_target = _infer_target(task_text)
+    baseline = {
+        "model": None,
+        "provider": existing_target,
+        "role": None,
+        "reason": f"intent-based routing to {existing_target}",
+    }
+
+    # Check feature flag via lazy import
+    _hooks_dir = os.path.join(_OMG_ROOT, "hooks")
+    if _hooks_dir not in _sys.path:
+        _sys.path.insert(0, _hooks_dir)
+    try:
+        from _common import get_feature_flag  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        # If _common unavailable, check env var directly
+        env_val = os.environ.get("OMG_ROLE_ROUTING_ENABLED", "").lower()
+        if env_val not in ("1", "true", "yes"):
+            return baseline
+        get_feature_flag = None  # type: ignore[assignment]
+
+    if get_feature_flag is not None and not get_feature_flag("ROLE_ROUTING", default=False):
+        return baseline
+
+    # Resolve role: explicit param → env var → CLI args
+    resolved_role = role
+    if resolved_role is None:
+        resolved_role = get_role_from_env()
+    if resolved_role is None:
+        # Lazy import parse_role_args from agents.model_roles
+        _agents_dir = os.path.join(_OMG_ROOT, "agents")
+        if _agents_dir not in _sys.path:
+            _sys.path.insert(0, _agents_dir)
+        try:
+            from model_roles import parse_role_args  # pyright: ignore[reportMissingImports]
+            resolved_role = parse_role_args(_sys.argv[1:])
+        except ImportError:
+            pass
+
+    # No role resolved → return baseline
+    if resolved_role is None:
+        return baseline
+
+    # Get role config via lazy import
+    _agents_dir = os.path.join(_OMG_ROOT, "agents")
+    if _agents_dir not in _sys.path:
+        _sys.path.insert(0, _agents_dir)
+    try:
+        from model_roles import get_role  # pyright: ignore[reportMissingImports]
+        role_config = get_role(resolved_role)
+    except ImportError:
+        return baseline
+
+    if not role_config:
+        return baseline
+
+    return {
+        "model": role_config.get("model"),
+        "provider": role_config.get("model", existing_target),
+        "role": resolved_role,
+        "reason": f"role-based routing: {resolved_role} → {role_config.get('model', 'unknown')}",
     }

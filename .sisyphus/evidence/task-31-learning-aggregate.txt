@@ -4,13 +4,13 @@ Task 31: Learnings Storage + critical-patterns.md Aggregation
 ## Files Created/Modified
 
 1. hooks/_learnings.py (NEW) — 127 lines
-   - aggregate_learnings(): reads .oal/state/learnings/*.md, sums tool/file counts
+   - aggregate_learnings(): reads .omg/state/learnings/*.md, sums tool/file counts
    - format_critical_patterns(): formats summary ≤500 chars
    - rotate_learnings(): deletes oldest files when count > max_files
-   - save_critical_patterns(): writes .oal/knowledge/critical-patterns.md
+   - save_critical_patterns(): writes .omg/knowledge/critical-patterns.md
    - read_file_safe(): local helper (matches _memory.py pattern)
 
-2. commands/OAL:learn.md (ENHANCED) — added "Aggregated Patterns (Auto)" section
+2. commands/OMG:learn.md (ENHANCED) — added "Aggregated Patterns (Auto)" section
    - Documents critical-patterns.md generation
    - Includes one-liner python command to run manually
 
@@ -20,7 +20,7 @@ Task 31: Learnings Storage + critical-patterns.md Aggregation
    - test_aggregate_learnings_empty_dir: no dir → '' ✓
    - test_rotate_learnings_keeps_30: 35→30 files, 5 deleted ✓
    - test_format_critical_patterns_empty: {} → '' ✓
-   - test_save_critical_patterns: creates .oal/knowledge/critical-patterns.md ✓
+   - test_save_critical_patterns: creates .omg/knowledge/critical-patterns.md ✓
 
 ## Test Results
 
@@ -34,6 +34,6 @@ $ python3 -m pytest tests/ -x -q --ignore=tests/e2e
 
 ## Acceptance Criteria
 ✓ hooks/_learnings.py exists with all 4 public functions
-✓ commands/OAL:learn.md enhanced with aggregation section
+✓ commands/OMG:learn.md enhanced with aggregation section
 ✓ tests/test_learnings.py has 6 tests, all pass
 ✓ Full suite: 314 passed, 0 failed

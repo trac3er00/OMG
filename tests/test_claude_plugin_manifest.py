@@ -12,7 +12,7 @@ def test_claude_plugin_manifest_exists_and_points_to_mcp_config():
     assert manifest_path.exists()
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["name"] == "oal"
+    assert manifest["name"] == "omg"
     assert manifest["mcpServers"] == "./.mcp.json"
 
 

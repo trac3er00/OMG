@@ -12,8 +12,8 @@
 4. Cross-module refactor only with plan approval
 
 ## Active Planning
-For 3+ file changes: create .oal/state/_plan.md + _checklist.md BEFORE coding.
+For 3+ file changes: create .omg/state/_plan.md + _checklist.md BEFORE coding.
 Mark [x] immediately as steps complete. Update plan when approach changes.
-If stuck 2x: STOP. Try different approach or /OAL:escalate.
+If stuck 2x: STOP. Try different approach or /OMG:escalate.
 
 > Enforced: stop-gate.py checks diff budget. circuit-breaker.py catches loops.

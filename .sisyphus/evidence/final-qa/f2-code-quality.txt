@@ -1,4 +1,4 @@
-F2 Code Quality Review — OAL Remediation
+F2 Code Quality Review — OMG Remediation
 =========================================
 Date: 2026-02-28
 Reviewer: Sisyphus-Junior (automated)
@@ -22,7 +22,7 @@ Reviewer: Sisyphus-Junior (automated)
   control_plane/server.py    PASS
   runtime/team_router.py     PASS
 
-  bash -n OAL-setup.sh       PASS
+  bash -n OMG-setup.sh       PASS
 
   Result: 14/14 Python + 1/1 Shell = ALL PASS
 
@@ -33,7 +33,7 @@ Reviewer: Sisyphus-Junior (automated)
   Target files (T7/T8/T9 remediation):
     post-write.py:     0 broad empty catches (formatter uses specific OSError/FileNotFoundError)
     stop_dispatcher.py: 0 broad empty catches (all except Exception have logging now)
-    config-guard.py:   0 broad empty catches (all have [OAL] logging)
+    config-guard.py:   0 broad empty catches (all have [OMG] logging)
 
   Non-security files with empty except Exception: pass:
     _common.py:        4 (all in crash-isolation contexts with comments)
@@ -67,7 +67,7 @@ Reviewer: Sisyphus-Junior (automated)
 5. EXCEPTION HANDLER LOG MESSAGE PATTERN
 ═══════════════════════════════════════════
 
-  Expected: [OAL] <file>: {type(e).__name__}: {e}
+  Expected: [OMG] <file>: {type(e).__name__}: {e}
 
   post-write.py:      2 handlers — all match pattern ✓
   stop_dispatcher.py:  8 handlers — all match pattern ✓
@@ -89,7 +89,7 @@ Reviewer: Sisyphus-Junior (automated)
 
   post-write.py:
     - Secret scan logic well-structured
-    - Signal file write wrapped in try/except with [OAL] logging ✓
+    - Signal file write wrapped in try/except with [OMG] logging ✓
     - contextlib.suppress for non-critical format config read ✓
     - No AI slop detected
 
@@ -131,7 +131,7 @@ SUMMARY
   Empty catches:     0 in security files
   Bare print():      0 violations
   Unused imports:    0 found
-  Handler patterns:  17/17 match [OAL] format
+  Handler patterns:  17/17 match [OMG] format
   contextlib:        Correctly imported where used
 
   Issues found: 0 blocking, 2 style nits, 1 possible incomplete task (T13 cache)

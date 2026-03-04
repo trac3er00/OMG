@@ -23,7 +23,7 @@ COMPLETION EVIDENCE:
 
 5. IMPLEMENTATION DETAILS
    - Uses stdlib-only: sys.stderr (no external dependencies)
-   - Uses print(..., file=sys.stderr) pattern consistent with OAL hooks
+   - Uses print(..., file=sys.stderr) pattern consistent with OMG hooks
    - Checks: if args.host != "127.0.0.1"
    - Warns about network exposure and lack of authentication
    - Does NOT block the --host flag

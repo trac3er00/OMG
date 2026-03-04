@@ -53,7 +53,7 @@ def test_config_guard_accepts_configchange_payload_shape():
         assert out is not None
         assert out["decision"] == "block"
         assert "Trust Review" in out["reason"]
-        assert (Path(tmpdir) / ".oal" / "trust" / "manifest.lock.json").exists()
+        assert (Path(tmpdir) / ".omg" / "trust" / "manifest.lock.json").exists()
 
 
 def test_config_guard_supports_legacy_tool_input_payload():

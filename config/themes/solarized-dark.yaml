@@ -1,0 +1,14 @@
+name: "Solarized Dark"
+variant: "dark"
+colors:
+  background: "#002b36"
+  foreground: "#839496"
+  primary: "#268bd2"
+  secondary: "#073642"
+  accent: "#2aa198"
+  error: "#dc322f"
+  warning: "#b58900"
+  success: "#859900"
+metadata:
+  author: "Ethan Schoonover"
+  url: "https://ethanschoonover.com/solarized/"

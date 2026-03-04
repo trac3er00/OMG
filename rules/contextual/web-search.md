@@ -14,12 +14,12 @@
 - Checking if a dependency is maintained/deprecated
 
 **How to use:**
-- `/OAL:escalate codex "search for [topic] and summarize findings"`
+- `/OMG:escalate codex "search for [topic] and summarize findings"`
 - Direct web_search tool if available in the environment
 - Use `web_search` first for discovery, then use `chrome-devtools` MCP to validate findings on live pages when browser verification is needed
 - Check package registry (npm, PyPI) for version info
 
 **When NOT to search:**
 - Well-known, stable patterns (basic SQL, HTML, CSS fundamentals)
-- Information already in .oal/knowledge/
+- Information already in .omg/knowledge/
 - When the user hasn't asked and you already know the answer

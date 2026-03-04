@@ -77,7 +77,7 @@ def test_stop_gate_invalid_json_exits_zero():
 
 def test_stop_gate_no_crash_without_git(tmp_path):
     """stop-gate should exit 0 even when not in a git repo (CHECK 2 skip)."""
-    (tmp_path / '.oal' / 'state' / 'ledger').mkdir(parents=True)
+    (tmp_path / '.omg' / 'state' / 'ledger').mkdir(parents=True)
     input_data = json.dumps({})
     result = subprocess.run(
         [sys.executable, "hooks/stop-gate.py"],

@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 def _run_dispatcher(tmp_path: Path, payload: dict[str, Any], extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
-    env["OAL_RALPH_LOOP_ENABLED"] = "1"
+    env["OMG_RALPH_LOOP_ENABLED"] = "1"
     # Disable planning enforcement by default to isolate ralph tests
-    env.setdefault("OAL_PLANNING_ENFORCEMENT_ENABLED", "0")
+    env.setdefault("OMG_PLANNING_ENFORCEMENT_ENABLED", "0")
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
@@ -29,7 +29,7 @@ def _run_dispatcher(tmp_path: Path, payload: dict[str, Any], extra_env: dict[str
 
 
 def _write_ralph_state(tmp_path: Path, state: dict[str, Any]) -> Path:
-    path = tmp_path / ".oal" / "state" / "ralph-loop.json"
+    path = tmp_path / ".omg" / "state" / "ralph-loop.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state), encoding="utf-8")
     return path
@@ -109,7 +109,7 @@ def test_ralph_missing_file_allows_completion(tmp_path: Path):
 def test_ralph_block_reason_includes_progress(tmp_path: Path):
     """Reason includes checklist progress when checklist_path is set."""
     # Create checklist with 2/4 done
-    checklist = tmp_path / ".oal" / "state" / "_checklist.md"
+    checklist = tmp_path / ".omg" / "state" / "_checklist.md"
     checklist.parent.mkdir(parents=True, exist_ok=True)
     checklist.write_text(
         "- [x] task one\n"
@@ -125,7 +125,7 @@ def test_ralph_block_reason_includes_progress(tmp_path: Path):
             "iteration": 2,
             "max_iterations": 50,
             "original_prompt": "finish all tasks",
-            "checklist_path": ".oal/state/_checklist.md",
+            "checklist_path": ".omg/state/_checklist.md",
         },
     )
     result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
@@ -152,7 +152,7 @@ def test_ralph_block_reason_includes_original_prompt(tmp_path: Path):
 
 
 def test_ralph_block_reason_includes_stop_instruction(tmp_path: Path):
-    """Reason includes the /OAL:ralph-stop escape hatch instruction."""
+    """Reason includes the /OMG:ralph-stop escape hatch instruction."""
     _write_ralph_state(
         tmp_path,
         {
@@ -165,10 +165,10 @@ def test_ralph_block_reason_includes_stop_instruction(tmp_path: Path):
     result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
     assert result.returncode == 0
     output = json.loads(result.stdout)
-    assert "/OAL:ralph-stop" in output["reason"]
+    assert "/OMG:ralph-stop" in output["reason"]
 
 
 def test_ralph_commands_exist():
     """Command files for ralph-start and ralph-stop exist."""
-    assert (ROOT / "commands" / "OAL:ralph-start.md").exists()
-    assert (ROOT / "commands" / "OAL:ralph-stop.md").exists()
+    assert (ROOT / "commands" / "OMG:ralph-start.md").exists()
+    assert (ROOT / "commands" / "OMG:ralph-stop.md").exists()

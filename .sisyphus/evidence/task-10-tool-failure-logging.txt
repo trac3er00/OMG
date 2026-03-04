@@ -20,7 +20,7 @@ ACCEPTANCE CRITERIA VERIFICATION
    ─────────────────────────────────────────────────────────────────
    ✓ Exit code is 0 (success)
 
-4. After above: .oal/state/ledger/hook-errors.jsonl contains 'timeout'
+4. After above: .omg/state/ledger/hook-errors.jsonl contains 'timeout'
    File content:
    ─────────────────────────────────────────────────────────────────
    {"ts":"2026-02-28T18:21:48.989543+00:00","hook":"post-tool-failure","error":"timeout","context":{"tool":"Bash"}}
@@ -43,7 +43,7 @@ tests/test_post_tool_failure.py::test_missing_error_field_graceful PASSED [100%]
 ============================== 3 passed in 0.10s ===============================
 ─────────────────────────────────────────────────────────────────
 ✓ All 3 tests passed
-✓ No regressions (261 tests pass, 1 pre-existing failure in e2e/test_oal_hud.py)
+✓ No regressions (261 tests pass, 1 pre-existing failure in e2e/test_omg_hud.py)
 
 IMPLEMENTATION DETAILS
 ======================
@@ -56,7 +56,7 @@ Hook: hooks/post-tool-failure.py
 - Error extraction: Uses 'error' field, falls back to 'message', defaults to 'unknown error'
 - Tool context: Captures tool_name in context dict
 - Logging: Uses log_hook_error() from _common.py
-- Output: Writes to .oal/state/ledger/hook-errors.jsonl with file locking
+- Output: Writes to .omg/state/ledger/hook-errors.jsonl with file locking
 - Exit code: Always 0 (crash isolation invariant)
 
 Tests: tests/test_post_tool_failure.py
@@ -81,7 +81,7 @@ REGRESSION TESTING
 ✓ All existing tests pass (261 passed)
 ✓ No new test failures introduced
 ✓ Hook syntax valid
-✓ Hook follows OAL patterns (crash isolation, json_input, log_hook_error)
+✓ Hook follows OMG patterns (crash isolation, json_input, log_hook_error)
 
 COMPLETION CHECKLIST
 ====================

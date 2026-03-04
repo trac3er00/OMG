@@ -1,0 +1,14 @@
+name: "Gruvbox Dark"
+variant: "dark"
+colors:
+  background: "#282828"
+  foreground: "#ebdbb2"
+  primary: "#d79921"
+  secondary: "#504945"
+  accent: "#cc241d"
+  error: "#fb4934"
+  warning: "#fabd2f"
+  success: "#b8bb26"
+metadata:
+  author: "Pavel Pertsev"
+  url: "https://github.com/morhetz/gruvbox"

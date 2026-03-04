@@ -1,4 +1,4 @@
-version: oal-v1
+version: omg-v1
 mode: warn_and_run
 critical_always_block: true
 require_evidence_pack: true
@@ -6,7 +6,7 @@ trust:
   distrust_paths:
     - ".claude/"
     - ".omc/"
-    - ".oal/"
+    - ".omg/"
   review_mcp_changes: true
   review_hook_changes: true
 supply_chain:

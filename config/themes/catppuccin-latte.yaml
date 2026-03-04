@@ -1,0 +1,14 @@
+name: "Catppuccin Latte"
+variant: "light"
+colors:
+  background: "#eff1f5"
+  foreground: "#4c4f69"
+  primary: "#8839ef"
+  secondary: "#1e66f5"
+  accent: "#d20f39"
+  error: "#d20f39"
+  warning: "#df8e1d"
+  success: "#40a02b"
+metadata:
+  author: "Catppuccin"
+  url: "https://github.com/catppuccin/catppuccin"

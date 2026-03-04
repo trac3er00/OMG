@@ -24,8 +24,8 @@ CHANGES MADE:
            if rl.get("active"):
                rl_iter = rl.get("iteration", 0)
                rl_max = rl.get("max_iterations", 50)
-               rl_goal = rl.get("original_prompt", "")[:80]
-               parts.append(f"## Ralph Loop\nIteration: {rl_iter}/{rl_max} | Goal: {rl_goal}")
+               rl_gomg = rl.get("original_prompt", "")[:80]
+               parts.append(f"## Ralph Loop\nIteration: {rl_iter}/{rl_max} | Gomg: {rl_gomg}")
        except Exception:
            pass
 
@@ -33,7 +33,7 @@ VERIFICATION RESULTS:
 ✓ Python syntax check: exit 0
 ✓ Ralph loop appears in handoff.md:
   ## Ralph Loop
-  Iteration: 5/50 | Goal: fix all tests
+  Iteration: 5/50 | Gomg: fix all tests
 
 ✓ Failure tracker shows 5 entries (not 3):
   ## Failed Approaches

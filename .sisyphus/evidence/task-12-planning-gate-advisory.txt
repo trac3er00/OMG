@@ -10,7 +10,7 @@ IMPLEMENTATION:
 - Change: Added context pressure check before returning block
 
 LOGIC:
-1. Read .oal/state/.context-pressure.json
+1. Read .omg/state/.context-pressure.json
 2. If is_high: true, return advisory instead of block
 3. If is_high: false or file missing, return block (normal behavior)
 
@@ -25,20 +25,20 @@ VERIFICATION RESULTS:
 TEST 1: High Pressure (is_high: true)
 -------------------------------------
 Setup:
-  - .oal/state/_checklist.md: "- [ ] Pending task" (1 pending)
-  - .oal/state/.context-pressure.json: {"is_high": true}
+  - .omg/state/_checklist.md: "- [ ] Pending task" (1 pending)
+  - .omg/state/.context-pressure.json: {"is_high": true}
 
 Result:
   ✓ Exit code: 0 (no block)
-  ✓ Advisory in stderr: "[OAL advisory] Planning gate: 0/1 complete, 1 pending. (demoted: context pressure high)"
+  ✓ Advisory in stderr: "[OMG advisory] Planning gate: 0/1 complete, 1 pending. (demoted: context pressure high)"
   ✓ No block decision in stdout
   ✓ Advisory count: 1
 
 TEST 2: Normal Pressure (is_high: false)
 ----------------------------------------
 Setup:
-  - .oal/state/_checklist.md: "- [ ] Pending task" (1 pending)
-  - .oal/state/.context-pressure.json: {"is_high": false}
+  - .omg/state/_checklist.md: "- [ ] Pending task" (1 pending)
+  - .omg/state/.context-pressure.json: {"is_high": false}
 
 Result:
   ✓ Exit code: 0 (normal exit)
@@ -64,14 +64,14 @@ IMPLEMENTATION DETAILS:
 The check_planning_gate() function now:
 1. Checks if pending items exist
 2. If pending > 0:
-   a. Reads .oal/state/.context-pressure.json
+   a. Reads .omg/state/.context-pressure.json
    b. Extracts is_high boolean (default: false)
    c. If is_high: returns ([], [advisory_message])
    d. If not high: returns ([block_message], [])
 3. If no pending: returns ([], [])
 
 The advisory message format:
-"[OAL advisory] Planning gate: {done}/{total} complete, {pending} pending. (demoted: context pressure high)"
+"[OMG advisory] Planning gate: {done}/{total} complete, {pending} pending. (demoted: context pressure high)"
 
 This allows the planning gate to be advisory-only when context is exhausted, preventing false blocks
 when the user is running out of tokens but still has pending checklist items.

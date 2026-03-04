@@ -12,11 +12,11 @@ Hooks (.py files):                18
 Agents (.md files):               7
 Commands (.md files):             63
 Protocols (.md files):            6
-HUD files:                        1 (oal-hud.mjs, 15893 bytes)
+HUD files:                        1 (omg-hud.mjs, 15893 bytes)
 Backup directories:               0
-.bak files (OAL-related):         0
+.bak files (OMG-related):         0
 OMC artifacts:                    GONE
-OAL Version:                      oal-v5-20260227
+OMG Version:                      omg-v5-20260227
 
 ================================================================================
 COMPARISON: PRE-INSTALL vs FINAL STATE
@@ -71,26 +71,26 @@ HOOKS (18 preserved):
   ✓ test-validator.py
   ✓ tool-ledger.py
   ✓ trust_review.py
-  ✓ .oal-version (version marker)
+  ✓ .omg-version (version marker)
 
 AGENTS (7 preserved):
-  ✓ oal-architect.md (OAL core)
-  ✓ oal-critic.md (OAL core)
-  ✓ oal-escalation-router.md (OAL core)
-  ✓ oal-executor.md (OAL core)
-  ✓ oal-qa-tester.md (OAL core)
+  ✓ omg-architect.md (OMG core)
+  ✓ omg-critic.md (OMG core)
+  ✓ omg-escalation-router.md (OMG core)
+  ✓ omg-executor.md (OMG core)
+  ✓ omg-qa-tester.md (OMG core)
   ✓ frontend-design-validator.md (custom)
   ✓ qa-tester.md (custom)
 
 COMMANDS (63 preserved):
-  ✓ 19 static OAL commands (analyze, autopilot, beads, build-fix, etc.)
+  ✓ 19 static OMG commands (analyze, autopilot, beads, build-fix, etc.)
   ✓ 44 compat aliases (legacy OMC command routing)
 
 PROTOCOLS (6 preserved):
   ✓ All 6 protocol files unchanged
 
 HUD (1 preserved):
-  ✓ oal-hud.mjs (15893 bytes, updated timestamp)
+  ✓ omg-hud.mjs (15893 bytes, updated timestamp)
 
 ================================================================================
 WHAT WAS ADDED
@@ -111,11 +111,11 @@ Total removed: 52 entries
 WHAT WAS PRESERVED
 ================================================================================
 ✓ 5 core rules (00-04)
-✓ 18 hooks (17 OAL + 1 custom quality-gate.py)
-✓ 7 agents (5 OAL + 2 custom)
+✓ 18 hooks (17 OMG + 1 custom quality-gate.py)
+✓ 7 agents (5 OMG + 2 custom)
 ✓ 63 commands (19 static + 44 compat aliases)
 ✓ 6 protocols (unchanged)
-✓ 1 HUD file (oal-hud.mjs, updated)
+✓ 1 HUD file (omg-hud.mjs, updated)
 ✓ All custom extensions (frontend-design-validator.md, qa-tester.md, quality-gate.py)
 
 Total preserved: 37 entries
@@ -127,7 +127,7 @@ CLEAN STATE ASSESSMENT
 ✓ CLEAN: YES
 
 Evidence:
-  ✓ No backup directories (.oal-backup-*): 0
+  ✓ No backup directories (.omg-backup-*): 0
   ✓ No .bak files: 0
   ✓ No OMC artifacts: GONE
   ✓ No orphaned files: None detected
@@ -136,9 +136,9 @@ Evidence:
   ✓ Agents intact: 7/7
   ✓ Commands intact: 63/63
   ✓ Protocols intact: 6/6
-  ✓ Version marker present: oal-v5-20260227
+  ✓ Version marker present: omg-v5-20260227
 
-CONCLUSION: ~/.claude is in a clean, consolidated state. All OAL core
+CONCLUSION: ~/.claude is in a clean, consolidated state. All OMG core
 components are present, custom extensions are preserved, and legacy OMC
 artifacts have been removed. The directory is ready for production use.
 

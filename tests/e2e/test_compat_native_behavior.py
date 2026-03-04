@@ -9,7 +9,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CLI = ROOT / "scripts" / "oal.py"
+CLI = ROOT / "scripts" / "omg.py"
 
 
 def _run(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -30,7 +30,7 @@ def test_autopilot_then_cancel_updates_persistent_state(tmp_path: Path):
     env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
     auto = _run([str(CLI), "compat", "run", "--skill", "autopilot", "--problem", "iterate"], ROOT, env=env)
     assert auto.returncode == 0
-    state_path = tmp_path / ".oal" / "state" / "persistent-mode.json"
+    state_path = tmp_path / ".omg" / "state" / "persistent-mode.json"
     assert state_path.exists()
 
     cancel = _run([str(CLI), "compat", "run", "--skill", "cancel"], ROOT, env=env)
@@ -42,13 +42,13 @@ def test_autopilot_then_cancel_updates_persistent_state(tmp_path: Path):
 def test_native_artifact_generators(tmp_path: Path):
     env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
     for skill, rel in [
-        ("build-fix", ".oal/state/build-fix.md"),
-        ("release", ".oal/evidence/release-draft.md"),
-        ("analyze", ".oal/evidence/analysis-analyze.json"),
-        ("trace", ".oal/evidence/analysis-trace.json"),
-        ("learner", ".oal/knowledge/learning/learner.md"),
-        ("note", ".oal/knowledge/notes.md"),
-        ("writer-memory", ".oal/knowledge/writer-memory.md"),
+        ("build-fix", ".omg/state/build-fix.md"),
+        ("release", ".omg/evidence/release-draft.md"),
+        ("analyze", ".omg/evidence/analysis-analyze.json"),
+        ("trace", ".omg/evidence/analysis-trace.json"),
+        ("learner", ".omg/knowledge/learning/learner.md"),
+        ("note", ".omg/knowledge/notes.md"),
+        ("writer-memory", ".omg/knowledge/writer-memory.md"),
     ]:
         proc = _run([str(CLI), "compat", "run", "--skill", skill, "--problem", f"e2e {skill}"], ROOT, env=env)
         assert proc.returncode == 0, f"{skill} failed: {proc.stdout}\n{proc.stderr}"

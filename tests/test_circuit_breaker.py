@@ -29,7 +29,7 @@ def _run(payload: dict, project_dir: str | Path) -> subprocess.CompletedProcess[
 
 def _read_tracker(project: Path) -> dict:
     """Read failure-tracker.json from project dir."""
-    tracker_path = project / ".oal" / "state" / "ledger" / "failure-tracker.json"
+    tracker_path = project / ".omg" / "state" / "ledger" / "failure-tracker.json"
     if not tracker_path.exists():
         return {}
     return json.loads(tracker_path.read_text())
@@ -37,7 +37,7 @@ def _read_tracker(project: Path) -> dict:
 
 def _write_tracker(project: Path, data: dict) -> None:
     """Write failure-tracker.json to project dir."""
-    tracker_path = project / ".oal" / "state" / "ledger" / "failure-tracker.json"
+    tracker_path = project / ".omg" / "state" / "ledger" / "failure-tracker.json"
     tracker_path.parent.mkdir(parents=True, exist_ok=True)
     tracker_path.write_text(json.dumps(data, indent=2))
 
@@ -46,7 +46,7 @@ def _write_tracker(project: Path, data: dict) -> None:
 
 def test_bash_failure_creates_tracker(tmp_path):
     """A Bash tool with non-zero exit code should create a failure entry."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Bash",
@@ -65,7 +65,7 @@ def test_bash_failure_creates_tracker(tmp_path):
 
 def test_write_failure_creates_tracker(tmp_path):
     """A Write tool with success=false should create a failure entry."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Write",
@@ -116,7 +116,7 @@ def test_npm_run_test_normalized_to_npm_test(tmp_path):
 
     The hook strips 'run' from command words, so both should map to 'Bash:npm test'.
     """
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     # First failure: 'npm run test'
     payload1 = {
@@ -145,7 +145,7 @@ def test_npm_run_test_normalized_to_npm_test(tmp_path):
 
 def test_pnpm_normalized_to_npm(tmp_path):
     """pnpm commands should be normalized to npm equivalents."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Bash",
@@ -165,7 +165,7 @@ def test_pnpm_normalized_to_npm(tmp_path):
 
 def test_success_clears_failure_count(tmp_path):
     """A successful tool execution should clear the matching failure pattern."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     # Pre-seed tracker with a failure
     from datetime import datetime, timezone
@@ -193,8 +193,8 @@ def test_success_clears_failure_count(tmp_path):
 # ━━━ 5. Missing state files → graceful degradation (exit 0) ━━━
 
 def test_missing_state_dir_exits_zero(tmp_path):
-    """If .oal/state/ledger/ doesn't exist, hook should still exit 0."""
-    # tmp_path is empty — no .oal structure at all
+    """If .omg/state/ledger/ doesn't exist, hook should still exit 0."""
+    # tmp_path is empty — no .omg structure at all
     payload = {
         "tool_name": "Bash",
         "tool_input": {"command": "npm test"},
@@ -206,7 +206,7 @@ def test_missing_state_dir_exits_zero(tmp_path):
 
 def test_corrupted_tracker_exits_zero(tmp_path):
     """If failure-tracker.json contains garbage, hook should exit 0."""
-    tracker_path = tmp_path / ".oal" / "state" / "ledger" / "failure-tracker.json"
+    tracker_path = tmp_path / ".omg" / "state" / "ledger" / "failure-tracker.json"
     tracker_path.parent.mkdir(parents=True)
     tracker_path.write_text("this is not json!!!")
 
@@ -227,7 +227,7 @@ def test_corrupted_tracker_exits_zero(tmp_path):
 
 def test_count_3_emits_warning(tmp_path):
     """After 3 failures for the same pattern, stderr should contain a warning."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     from datetime import datetime, timezone
     _write_tracker(tmp_path, {
@@ -250,7 +250,7 @@ def test_count_3_emits_warning(tmp_path):
 
 def test_count_5_emits_escalation(tmp_path):
     """After 5 failures, stderr should contain escalation instructions."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     from datetime import datetime, timezone
     _write_tracker(tmp_path, {
@@ -269,14 +269,14 @@ def test_count_5_emits_escalation(tmp_path):
     proc = _run(payload, tmp_path)
     assert proc.returncode == 0
     assert "ESCALATE NOW" in proc.stderr
-    assert "/OAL:escalate" in proc.stderr
+    assert "/OMG:escalate" in proc.stderr
 
 
 # ━━━ 7. Non-failure input → no tracker mutation ━━━
 
 def test_success_with_no_prior_failures_is_noop(tmp_path):
     """Successful Bash with no prior failures should not create tracker entries."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Bash",
@@ -294,7 +294,7 @@ def test_success_with_no_prior_failures_is_noop(tmp_path):
 
 def test_duplicate_errors_not_stored_twice(tmp_path):
     """Same error message in consecutive failures should be deduplicated."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Bash",
@@ -317,7 +317,7 @@ def test_duplicate_errors_not_stored_twice(tmp_path):
 
 def test_python3_m_pytest_normalized_to_pytest(tmp_path):
     """'python3 -m pytest' and 'pytest' should be treated as the same pattern."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     # First failure: 'python3 -m pytest'
     payload1 = {
@@ -346,7 +346,7 @@ def test_python3_m_pytest_normalized_to_pytest(tmp_path):
 
 def test_python_m_pytest_normalized_to_pytest(tmp_path):
     """'python -m pytest' should normalize to 'pytest'."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Bash",
@@ -365,7 +365,7 @@ def test_python_m_pytest_normalized_to_pytest(tmp_path):
 
 def test_npx_jest_normalized_to_jest(tmp_path):
     """'npx jest' and 'jest' should be treated as the same pattern."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     # First failure: 'npx jest'
     payload1 = {
@@ -393,7 +393,7 @@ def test_npx_jest_normalized_to_jest(tmp_path):
 
 def test_bunx_jest_normalized_to_jest(tmp_path):
     """'bunx jest' should normalize to 'jest'."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     payload = {
         "tool_name": "Bash",
@@ -412,7 +412,7 @@ def test_bunx_jest_normalized_to_jest(tmp_path):
 
 def test_success_clears_similar_variants(tmp_path):
     """Success on 'npm test' should clear 'npm run test' and other variants."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     from datetime import datetime, timezone
     # Pre-seed tracker with multiple variants
@@ -446,7 +446,7 @@ def test_success_clears_similar_variants(tmp_path):
 
 def test_success_clears_pytest_variants(tmp_path):
     """Success on 'pytest' should clear 'python3 -m pytest' and 'python -m pytest'."""
-    (tmp_path / ".oal" / "state" / "ledger").mkdir(parents=True)
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     from datetime import datetime, timezone
     # Pre-seed tracker with multiple variants

@@ -8,8 +8,8 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CHECKER = ROOT / "scripts" / "check-oal-compat-contract-snapshot.py"
-SNAPSHOT = ROOT / "runtime" / "oal_compat_contract_snapshot.json"
+CHECKER = ROOT / "scripts" / "check-omg-compat-contract-snapshot.py"
+SNAPSHOT = ROOT / "runtime" / "omg_compat_contract_snapshot.json"
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
