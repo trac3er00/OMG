@@ -1,13 +1,13 @@
-# OMG v1.0.3
+# OMG v1.0.4
 
 OMG (Oh My God) is a standalone orchestration layer for Claude Code.
 It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
 
-- Version: `v1.0.3`
+- Version: `v1.0.4`
 - npm: `npm install @trac3er/oh-my-god`
 - Maintainer: `trac3er00`
 - Repo: `git@github.com:trac3er00/OMG.git`
-- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.3`
+- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.4`
 
 ## What OMG Solves
 
@@ -226,7 +226,14 @@ omg/
 
 ## Versioning and Releases
 
-Current version: `v1.0.3`
+Current version: `v1.0.4`
+
+### v1.0.4 emergency installation bug fix notes
+
+- Fixed npm global install failures in non-TTY environments by auto-enabling non-interactive merge behavior in `OMG-setup.sh`.
+- Removed a fragile dry-run merge preview pipeline that could terminate early under `set -euo pipefail`.
+- Updated npm packaging to include required install-time assets (`settings.json` template and `lab/`).
+- Added regression coverage for non-TTY install merge flow in `tests/e2e/test_setup_script.py`.
 
 ### v1.0.3 emergency installation bug fix notes
 
@@ -239,15 +246,15 @@ Releases are automated via GitHub Actions. When a version tag is pushed, the `pu
 
 ```bash
 # bump version in package.json, then:
-git tag v1.0.3
-git push origin v1.0.3
-# → GitHub Actions auto-publishes @trac3er/oh-my-god@1.0.3 to npm
+git tag v1.0.4
+git push origin v1.0.4
+# → GitHub Actions auto-publishes @trac3er/oh-my-god@1.0.4 to npm
 ```
 
 Manual release (if needed):
 
 ```bash
-gh release create v1.0.3 --title "OMG v1.0.3" --notes "Release notes"
+gh release create v1.0.4 --title "OMG v1.0.4" --notes "Release notes"
 ```
 
 ## Compatibility Notes

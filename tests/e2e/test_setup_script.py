@@ -4,8 +4,11 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import pty
+import select
 import subprocess
 import sys
+import time
 from typing import cast
 
 
@@ -48,6 +51,99 @@ def _run_script_with_input(
     )
 
 
+def _run_script_with_tty_input(
+    path: Path,
+    args: list[str],
+    user_input: str,
+    env: dict[str, str] | None = None,
+    timeout: float = 30.0,
+) -> subprocess.CompletedProcess[str]:
+    """Run script with a pseudo-TTY so bash sees an interactive terminal.
+
+    This is needed for tests that exercise the interactive start-action menu,
+    which is suppressed when stdin is not a TTY (``[ ! -t 0 ]`` → true).
+    """
+    merged_env = dict(os.environ)
+    if env is not None:
+        merged_env.update(env)
+
+    master_fd, slave_fd = pty.openpty()
+    slave_closed = False
+    returncode = 1
+    try:
+        proc = subprocess.Popen(
+            ["bash", str(path), *args],
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            env=merged_env,
+            cwd=str(ROOT),
+            close_fds=True,
+        )
+        os.close(slave_fd)
+        slave_closed = True
+
+        # Give the script time to reach the interactive prompt, then send input.
+        if user_input:
+            time.sleep(0.5)
+            os.write(master_fd, user_input.encode())
+
+        output_bytes = b""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            # Check if process has exited BEFORE blocking on select.
+            if proc.poll() is not None:
+                # Drain any remaining buffered output (short timeout).
+                try:
+                    while True:
+                        r2, _, _ = select.select([master_fd], [], [], 0.1)
+                        if not r2:
+                            break
+                        try:
+                            chunk = os.read(master_fd, 4096)
+                            if not chunk:
+                                break  # EOF on macOS PTY
+                            output_bytes += chunk
+                        except OSError:
+                            break
+                except OSError:
+                    pass
+                break
+
+            r, _, _ = select.select([master_fd], [], [], 0.1)
+            if r:
+                try:
+                    chunk = os.read(master_fd, 4096)
+                    if not chunk:
+                        break  # EOF: slave side closed (macOS PTY behavior)
+                    output_bytes += chunk
+                except OSError:
+                    break
+
+        # Ensure the process terminates.
+        try:
+            returncode = proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            returncode = proc.wait()
+
+    finally:
+        if not slave_closed:
+            os.close(slave_fd)
+        try:
+            os.close(master_fd)
+        except OSError:
+            pass
+
+    output = output_bytes.decode("utf-8", errors="replace")
+    return subprocess.CompletedProcess(
+        args=["bash", str(path), *args],
+        returncode=returncode,
+        stdout=output,
+        stderr="",
+    )
+
+
 def test_setup_script_exists_and_help_lists_subcommands():
     assert SETUP.exists()
     proc = _run_script(SETUP, ["--help"])
@@ -65,7 +161,7 @@ def test_setup_script_exists_and_help_lists_subcommands():
 def test_setup_script_prompts_start_menu_when_no_action(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
-    proc = _run_script_with_input(SETUP, [], "0\n", env=env)
+    proc = _run_script_with_tty_input(SETUP, [], "0\n", env=env)
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
     assert "Select OMG setup action" in out
@@ -87,7 +183,7 @@ def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
     )
 
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
-    proc = _run_script_with_input(SETUP, [], "0\n", env=env)
+    proc = _run_script_with_tty_input(SETUP, [], "0\n", env=env)
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
     assert "Update standalone" in out
