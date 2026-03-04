@@ -216,6 +216,11 @@ parse_args() {
     if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ]; then
         NON_INTERACTIVE=true
     fi
+
+    # Auto-enable plugin mode for npm installs
+    if [ -n "${npm_execpath:-}" ] || [ -n "${npm_lifecycle_event:-}" ]; then
+        INSTALL_AS_PLUGIN=true
+    fi
 }
 
 preflight() {
