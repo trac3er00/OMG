@@ -231,37 +231,6 @@
       }
     ]
   },
-  "mcpServers": {
-    "context7": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp"
-      ]
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "."
-      ]
-    },
-    "websearch": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@zhafron/mcp-web-search"
-      ]
-    },
-    "chrome-devtools": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "chrome-devtools-mcp@latest"
-      ]
-    }
-  },
   "_oal": {
     "_version": "1.0.2",
     "default_mode": "ulw+ralph",

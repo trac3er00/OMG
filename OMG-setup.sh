@@ -365,11 +365,11 @@ write_omg_manifest() {
 }
 
 prune_plugin_mcp_from_settings() {
-    local settings_path="$CLAUDE_DIR/settings.json"
-    if [ ! -f "$settings_path" ]; then
+    local mcp_path="$CLAUDE_DIR/.mcp.json"
+    if [ ! -f "$mcp_path" ]; then
         return 0
     fi
-    python3 - "$settings_path" <<'PY'
+    python3 - "$mcp_path" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -400,65 +400,65 @@ PY
 }
 
 merge_plugin_mcp_into_settings() {
-    local settings_path="$CLAUDE_DIR/settings.json"
-    local source_settings_path="$SCRIPT_DIR/settings.json"
-    python3 - "$settings_path" "$source_settings_path" <<'PY'
+    local mcp_path="$CLAUDE_DIR/.mcp.json"
+    local source_mcp_path="$SCRIPT_DIR/.mcp.json"
+    python3 - "$mcp_path" "$source_mcp_path" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-settings_path = Path(sys.argv[1])
-source_settings_path = Path(sys.argv[2])
+mcp_path = Path(sys.argv[1])
+source_mcp_path = Path(sys.argv[2])
 
-settings = {}
-if settings_path.exists():
+mcp_config = {}
+if mcp_path.exists():
     try:
-        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+        mcp_config = json.loads(mcp_path.read_text(encoding="utf-8"))
     except Exception:
-        settings = {}
-if not isinstance(settings, dict):
-    settings = {}
+        mcp_config = {}
+if not isinstance(mcp_config, dict):
+    mcp_config = {}
 
 try:
-    source_settings = json.loads(source_settings_path.read_text(encoding="utf-8"))
+    source_mcp = json.loads(source_mcp_path.read_text(encoding="utf-8"))
 except Exception:
-    source_settings = {}
+    source_mcp = {}
 
-incoming = source_settings.get("mcpServers") if isinstance(source_settings, dict) else {}
+incoming = source_mcp.get("mcpServers") if isinstance(source_mcp, dict) else {}
 if not isinstance(incoming, dict):
     incoming = {}
 
-servers = settings.get("mcpServers")
+servers = mcp_config.get("mcpServers")
 if not isinstance(servers, dict):
     servers = {}
 for key, value in incoming.items():
     if key not in servers:
         servers[key] = value
-settings["mcpServers"] = servers
+mcp_config["mcpServers"] = servers
 
-settings_path.parent.mkdir(parents=True, exist_ok=True)
-settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+mcp_path.parent.mkdir(parents=True, exist_ok=True)
+mcp_path.write_text(json.dumps(mcp_config, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 print(str(len(incoming)))
 PY
 }
 
 write_plugin_mcp_file() {
     local target_path="$1"
-    local source_settings_path="$SCRIPT_DIR/settings.json"
-    python3 - "$target_path" "$source_settings_path" <<'PY'
+    local source_mcp_path="$SCRIPT_DIR/.mcp.json"
+    python3 - "$target_path" "$source_mcp_path" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 target_path = Path(sys.argv[1])
-source_settings_path = Path(sys.argv[2])
+source_mcp_path = Path(sys.argv[2])
 
 try:
-    source_settings = json.loads(source_settings_path.read_text(encoding="utf-8"))
+    source_mcp = json.loads(source_mcp_path.read_text(encoding="utf-8"))
 except Exception:
-    source_settings = {}
+    source_mcp = {}
 
-mcp_servers = source_settings.get("mcpServers") if isinstance(source_settings, dict) else {}
+mcp_servers = source_mcp.get("mcpServers") if isinstance(source_mcp, dict) else {}
 if not isinstance(mcp_servers, dict):
     mcp_servers = {}
 
