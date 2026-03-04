@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from runtime.adapters import get_adapters
+from runtime.business_workflow import build_business_workflow_result
 
 
 def dispatch_runtime(runtime: str, idea: dict[str, Any]) -> dict[str, Any]:
@@ -22,6 +23,12 @@ def dispatch_runtime(runtime: str, idea: dict[str, Any]) -> dict[str, Any]:
         execution = adapter.execute(plan)
         verification = adapter.verify(execution)
         evidence = adapter.collect_evidence(verification)
+        business_workflow = build_business_workflow_result(
+            idea=idea,
+            plan=plan,
+            execution=execution,
+            verification=verification,
+        )
         return {
             "status": "ok",
             "runtime": runtime,
@@ -29,6 +36,7 @@ def dispatch_runtime(runtime: str, idea: dict[str, Any]) -> dict[str, Any]:
             "execution": execution,
             "verification": verification,
             "evidence": evidence,
+            "business_workflow": business_workflow,
         }
     except Exception as exc:  # pragma: no cover - defensive guard
         return {
@@ -37,4 +45,3 @@ def dispatch_runtime(runtime: str, idea: dict[str, Any]) -> dict[str, Any]:
             "runtime": runtime,
             "message": str(exc),
         }
-

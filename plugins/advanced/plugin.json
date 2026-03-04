@@ -1,6 +1,6 @@
 {
   "name": "oal-advanced",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Advanced OAL commands - deep planning, learning, code review, security review, and specialized workflows",
   "type": "oal-plugin",
   "commands": {
