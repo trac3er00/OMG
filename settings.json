@@ -208,6 +208,16 @@
         ]
       },
       {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/test_generator_hook.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "hooks": [
           {
             "type": "command",
