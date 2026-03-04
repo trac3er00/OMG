@@ -120,3 +120,45 @@ def test_dispatch_params_include_model_version() -> None:
     params = module.get_dispatch_params("backend-engineer")
     assert "model_version" in params
     assert params["model_version"] == "gpt-5.3"
+
+
+def test_invoke_codex_tmux_is_importable() -> None:
+    assert hasattr(team_router, "invoke_codex_tmux")
+    assert callable(team_router.invoke_codex_tmux)
+
+
+def test_invoke_gemini_tmux_is_importable() -> None:
+    assert hasattr(team_router, "invoke_gemini_tmux")
+    assert callable(team_router.invoke_gemini_tmux)
+
+
+def test_should_use_tmux_is_callable() -> None:
+    result = team_router._should_use_tmux()
+    assert isinstance(result, bool)
+
+
+def test_should_use_tmux_false_for_dumb_term(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TERM", "dumb")
+    assert team_router._should_use_tmux() is False
+
+
+def test_should_use_tmux_false_in_thread_pool() -> None:
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(team_router._should_use_tmux)
+        result = future.result()
+    assert result is False
+
+
+def test_invoke_codex_tmux_falls_back_when_tmux_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
+    called: list[str] = []
+
+    def mock_invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, str]:
+        called.append(prompt)
+        return {"error": "codex-cli not found", "fallback": "claude"}
+
+    monkeypatch.setattr(team_router, "invoke_codex", mock_invoke_codex)
+    result = team_router.invoke_codex_tmux("test prompt", "/tmp")
+    assert "fallback" in result or "output" in result or "error" in result

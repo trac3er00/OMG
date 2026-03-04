@@ -472,3 +472,39 @@ def test_setup_keeps_only_two_recent_backups(tmp_path: Path):
 
     backups = sorted(p for p in claude_dir.iterdir() if p.is_dir() and p.name.startswith(".omg-backup-"))
     assert len(backups) <= 2
+
+
+# --- npm plugin auto-registration tests ---
+
+
+def test_setup_npm_context_enables_install_as_plugin(tmp_path: Path):
+    """When npm_execpath env var is set, setup auto-enables plugin bundle mode."""
+    env = {
+        "npm_execpath": "/usr/local/lib/node_modules/npm/bin/npm-cli.js",
+        "CLAUDE_CONFIG_DIR": str(tmp_path / ".claude"),
+    }
+    result = _run_script(SETUP, ["install", "--dry-run", "--non-interactive"], env=env)
+    assert result.returncode == 0
+    out = result.stdout + result.stderr
+    assert "Plugin bundle mode enabled" in out
+
+
+def test_postinstall_script_in_package_json():
+    """package.json uses postinstall (not install) for npm lifecycle hook."""
+    pkg = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    assert "postinstall" in pkg["scripts"], "postinstall script missing from package.json"
+    assert "install" not in pkg["scripts"], "plain 'install' script still present in package.json"
+
+
+def test_npmignore_includes_hud_and_mcp():
+    """.npmignore must NOT exclude hud/ or .mcp.json from the npm package."""
+    npmignore = (ROOT / ".npmignore").read_text(encoding="utf-8").splitlines()
+    assert "hud/" not in npmignore, "hud/ should not be excluded from npm package"
+    assert ".mcp.json" not in npmignore, ".mcp.json should not be excluded from npm package"
+
+
+def test_plugin_install_script_has_install_as_plugin_flag():
+    """.claude-plugin/scripts/install.sh must pass --install-as-plugin --non-interactive."""
+    install_sh = (ROOT / ".claude-plugin" / "scripts" / "install.sh").read_text(encoding="utf-8")
+    assert "--install-as-plugin" in install_sh
+    assert "--non-interactive" in install_sh
