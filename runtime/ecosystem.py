@@ -18,9 +18,9 @@ MAX_SELECTION = 32
 
 ECOSYSTEM_REPOS: tuple[dict[str, Any], ...] = (
     {
-        "name": "superpowers",
-        "aliases": ("superpowers",),
-        "repo": "https://github.com/obra/superpowers.git",
+        "name": "omg-superpowers",
+        "aliases": ("omg-superpowers",),
+        "repo": "https://github.com/trac3er00/OMG.git",
         "ref": "main",
         "route": "plan",
         "category": "tdd",

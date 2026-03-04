@@ -1,16 +1,17 @@
-# OAL v1.0.2
+# OMG v1.0.3
 
-OAL (Orchestration Abstraction Layer) is a standalone orchestration layer for Claude Code.
+OMG (Oh My God) is a standalone orchestration layer for Claude Code.
 It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
 
-- Version: `v1.0.2`
+- Version: `v1.0.3`
+- npm: `npm install @trac3er/oh-my-god`
 - Maintainer: `trac3er00`
-- Repo: `git@github.com:trac3er00/OAL.git`
-- Release: `https://github.com/trac3er00/OAL/releases/tag/v1.0.2`
+- Repo: `git@github.com:trac3er00/OMG.git`
+- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.3`
 
-## What OAL Solves
+## What OMG Solves
 
-OAL is built for teams and solo developers who want:
+OMG is built for teams and solo developers who want:
 
 - Reliable execution loops (explore -> decide -> implement -> verify)
 - Strong verification discipline (no unverified completion claims)
@@ -30,8 +31,8 @@ OAL is built for teams and solo developers who want:
 - Hooks: 27 Python hooks
 - Core rules: 5
 - Contextual rules: 17
-- Agents: 15
-- Commands: 10 core + 10 advanced (+ compatibility aliases)
+- Agents: 21
+- Commands: 18 (`/OMG:*` namespace)
 
 ## Requirements
 
@@ -40,34 +41,48 @@ OAL is built for teams and solo developers who want:
 
 ## Installation
 
-### Standard install
+### Via npm (recommended)
 
 ```bash
-chmod +x OAL-setup.sh
-./OAL-setup.sh install
+npm install @trac3er/oh-my-god
 ```
 
-### Plugin-oriented install (recommended)
+Or install the latest version explicitly:
 
 ```bash
-./OAL-setup.sh install --install-as-plugin
+npm install @trac3er/oh-my-god@latest
+```
+
+### Via git
+
+```bash
+git clone git@github.com:trac3er00/OMG.git
+cd OMG
+chmod +x OMG-setup.sh
+./OMG-setup.sh install
+```
+
+### Plugin-oriented install
+
+```bash
+./OMG-setup.sh install --install-as-plugin
 ```
 
 ### Update
 
 ```bash
-./OAL-setup.sh update
+./OMG-setup.sh update
 ```
 
 ### Uninstall
 
 ```bash
-./OAL-setup.sh uninstall
+./OMG-setup.sh uninstall
 ```
 
 ### Common flags
 
-Supported by `OAL-setup.sh`:
+Supported by `OMG-setup.sh`:
 
 - `--fresh` clean reinstall before install/update
 - `--symlink` development mode with live updates from repo source
@@ -78,12 +93,12 @@ Supported by `OAL-setup.sh`:
 
 ## Plugin Update Behavior
 
-If OAL is installed through Claude Code plugin flow (`/plugin`), update works like this:
+If OMG is installed through Claude Code plugin flow (`/plugin`), update works like this:
 
 - Claude plugin update triggers `.claude-plugin/scripts/update.sh`
 - In git-backed installs, update stashes local changes (if needed) and pulls from `origin/main`
 - When a git tag is available, plugin manifests are synced to the tagged version
-- In cache/copy installs, update delegates to `OAL-setup.sh update`
+- In cache/copy installs, update delegates to `OMG-setup.sh update`
 
 If plugin update appears silent, check:
 
@@ -96,51 +111,51 @@ If plugin update appears silent, check:
 After install, from your target project directory:
 
 ```text
-/OAL:init
-/OAL:health-check
+/OMG:init
+/OMG:health-check
 ```
 
 Common flows:
 
 ```text
-/OAL:mode implement
-/OAL:escalate codex "debug auth middleware"
-/OAL:crazy fix flaky tests in payment module
-/OAL:handoff
+/OMG:mode implement
+/OMG:escalate codex "debug auth middleware"
+/OMG:crazy fix flaky tests in payment module
+/OMG:handoff
 ```
 
 ## Command Groups
 
 ### Core commands
 
-- `/OAL:init`
-- `/OAL:project-init`
-- `/OAL:domain-init`
-- `/OAL:health-check`
-- `/OAL:mode`
-- `/OAL:escalate`
-- `/OAL:teams`
-- `/OAL:ccg`
-- `/OAL:crazy`
-- `/OAL:compat`
+- `/OMG:init`
+- `/OMG:project-init`
+- `/OMG:domain-init`
+- `/OMG:health-check`
+- `/OMG:mode`
+- `/OMG:escalate`
+- `/OMG:teams`
+- `/OMG:ccg`
+- `/OMG:crazy`
+- `/OMG:compat`
 
 ### Advanced commands
 
-- `/OAL:deep-plan`
-- `/OAL:learn`
-- `/OAL:code-review`
-- `/OAL:security-review`
-- `/OAL:ship`
-- `/OAL:maintainer`
-- `/OAL:handoff`
-- `/OAL:sequential-thinking`
-- `/OAL:ralph-start`
-- `/OAL:ralph-stop`
-- `/OAL:theme`
+- `/OMG:deep-plan`
+- `/OMG:learn`
+- `/OMG:code-review`
+- `/OMG:security-review`
+- `/OMG:ship`
+- `/OMG:maintainer`
+- `/OMG:handoff`
+- `/OMG:sequential-thinking`
+- `/OMG:ralph-start`
+- `/OMG:ralph-stop`
+- `/OMG:theme`
 
 ## Agent Routing Model
 
-OAL dispatches by domain intent:
+OMG dispatches by domain intent:
 
 - Codex path: backend logic, debugging, algorithms, security-sensitive implementation
 - Gemini path: UI/UX, layout, visual refinements, accessibility-oriented frontend work
@@ -151,17 +166,17 @@ OAL dispatches by domain intent:
 Set an explicit operating mode per session:
 
 ```text
-/OAL:mode research
-/OAL:mode architect
-/OAL:mode implement
-/OAL:mode clear
+/OMG:mode research
+/OMG:mode architect
+/OMG:mode implement
+/OMG:mode clear
 ```
 
-Modes are persisted to `.oal/state/mode.txt`.
+Modes are persisted to `.omg/state/mode.txt`.
 
 ## Verification and Safety
 
-OAL enforces practical completion gates:
+OMG enforces practical completion gates:
 
 - Prevents unverified completion claims
 - Tracks repeated failures and recommends escalation
@@ -176,10 +191,10 @@ Important behavior:
 
 ## Project State Layout
 
-After `/OAL:init`, project state is created under `.oal/`:
+After `/OMG:init`, project state is created under `.omg/`:
 
 ```text
-.oal/
+.omg/
   state/
     profile.yaml
     working-memory.md
@@ -195,7 +210,7 @@ After `/OAL:init`, project state is created under `.oal/`:
 ## Repository Layout (High Level)
 
 ```text
-oal/
+omg/
   hooks/
   rules/
     core/
@@ -206,24 +221,31 @@ oal/
   templates/
   runtime/
   scripts/
-  OAL-setup.sh
+  OMG-setup.sh
 ```
 
 ## Versioning and Releases
 
-Current version: `v1.0.2`
+Current version: `v1.0.3`
 
-Recommended release flow:
+Releases are automated via GitHub Actions. When a version tag is pushed, the `publish-npm.yml` workflow automatically publishes to npm:
 
 ```bash
-git tag -a v1.0.2 -m "OAL v1.0.2"
-git push origin v1.0.2
-gh release create v1.0.2 --title "OAL v1.0.2" --notes "Release notes"
+# bump version in package.json, then:
+git tag v1.0.3
+git push origin v1.0.3
+# → GitHub Actions auto-publishes @trac3er/oh-my-god@1.0.3 to npm
+```
+
+Manual release (if needed):
+
+```bash
+gh release create v1.0.3 --title "OMG v1.0.3" --notes "Release notes"
 ```
 
 ## Compatibility Notes
 
-- OAL runs standalone (OMC not required)
+- OMG runs fully standalone
 - Legacy migration utilities remain available where needed
 - Works alongside other plugins when command namespaces do not conflict
 
@@ -259,23 +281,23 @@ All new features are disabled by default. Enable via environment variables or `s
 
 | Feature | Env Var | Default |
 |---------|---------|---------|
-| IntentGate keyword detection | `OAL_INTENTGATE_ENABLED=1` | Off |
-| Multi-credential store | `OAL_MULTI_CREDENTIAL_ENABLED=1` | Off |
-| Model roles routing | `OAL_MODEL_ROLES_ENABLED=1` | Off |
-| LSP client | `OAL_LSP_ENABLED=1` | Off |
-| Hashline anchors | `OAL_HASHLINE_ENABLED=1` | Off |
-| Python REPL | `OAL_PYTHON_REPL_ENABLED=1` | Off |
-| Web search | `OAL_WEB_SEARCH_ENABLED=1` | Off |
-| Browser automation | `OAL_BROWSER_ENABLED=1` | Off |
-| SSH manager | `OAL_SSH_ENABLED=1` | Off |
-| Themes | `OAL_THEMES_ENABLED=true` | Off |
-| Rust engine | `OAL_RUST_ENGINE_ENABLED=1` | Off |
+| IntentGate keyword detection | `OMG_INTENTGATE_ENABLED=1` | Off |
+| Multi-credential store | `OMG_MULTI_CREDENTIAL_ENABLED=1` | Off |
+| Model roles routing | `OMG_MODEL_ROLES_ENABLED=1` | Off |
+| LSP client | `OMG_LSP_ENABLED=1` | Off |
+| Hashline anchors | `OMG_HASHLINE_ENABLED=1` | Off |
+| Python REPL | `OMG_PYTHON_REPL_ENABLED=1` | Off |
+| Web search | `OMG_WEB_SEARCH_ENABLED=1` | Off |
+| Browser automation | `OMG_BROWSER_ENABLED=1` | Off |
+| SSH manager | `OMG_SSH_ENABLED=1` | Off |
+| Themes | `OMG_THEMES_ENABLED=true` | Off |
+| Rust engine | `OMG_RUST_ENGINE_ENABLED=1` | Off |
 
-You can also enable features in `settings.json` under `_oal.features`:
+You can also enable features in `settings.json` under `_omg.features`:
 
 ```json
 {
-  "_oal": {
+  "_omg": {
     "features": {
       "THEMES": true,
       "INTENTGATE": true
@@ -286,27 +308,27 @@ You can also enable features in `settings.json` under `_oal.features`:
 
 ### New Commands
 
-- `/OAL:theme` — Interactive theme selector with `--list`, `--preview`, `--set`, and `--auto` modes
+- `/OMG:theme` — Interactive theme selector with `--list`, `--preview`, `--set`, and `--auto` modes
 
 ### New Agents
 
 v1.1 ships with expanded agent coverage:
 
-- `oal-api-builder` — API scaffolding and endpoint design
-- `oal-architect` — System design and architecture decisions
-- `oal-backend-engineer` — Backend implementation tasks
-- `oal-critic` — Code review and critique
-- `oal-database-engineer` — Schema design and query optimization
-- `oal-escalation-router` — Intelligent escalation to Codex/Gemini
-- `oal-frontend-designer` — UI/UX implementation
-- `oal-infra-engineer` — Infrastructure and DevOps tasks
-- `oal-qa-tester` — Test writing and quality assurance
-- `oal-security-auditor` — Security review and vulnerability analysis
-- `oal-testing-engineer` — Test strategy and coverage
+- `omg-api-builder` — API scaffolding and endpoint design
+- `omg-architect` — System design and architecture decisions
+- `omg-backend-engineer` — Backend implementation tasks
+- `omg-critic` — Code review and critique
+- `omg-database-engineer` — Schema design and query optimization
+- `omg-escalation-router` — Intelligent escalation to Codex/Gemini
+- `omg-frontend-designer` — UI/UX implementation
+- `omg-infra-engineer` — Infrastructure and DevOps tasks
+- `omg-qa-tester` — Test writing and quality assurance
+- `omg-security-auditor` — Security review and vulnerability analysis
+- `omg-testing-engineer` — Test strategy and coverage
 
 ## Migration Guide
 
-### Upgrading from OAL v1.0 to v1.1
+### Upgrading from OMG v1.0 to v1.1
 
 All new features default to `False` and are fully backward-compatible. Existing workflows continue unchanged.
 
@@ -314,14 +336,14 @@ To adopt new features selectively:
 
 1. **Enable via env var** before launching Claude Code:
    ```bash
-   export OAL_THEMES_ENABLED=true
-   export OAL_MODEL_ROLES_ENABLED=1
+   export OMG_THEMES_ENABLED=true
+   export OMG_MODEL_ROLES_ENABLED=1
    ```
 
 2. **Or enable in `settings.json`** for persistent config:
    ```json
    {
-     "_oal": {
+     "_omg": {
        "features": {
          "THEMES": true,
          "MODEL_ROLES": true
@@ -332,4 +354,4 @@ To adopt new features selectively:
 
 3. **No breaking changes** — all v1.0 commands, agents, and hooks remain intact.
 
-4. **New command**: `/OAL:theme` is available immediately after update, gated by `OAL_THEMES_ENABLED`.
+4. **New command**: `/OMG:theme` is available immediately after update, gated by `OMG_THEMES_ENABLED`.

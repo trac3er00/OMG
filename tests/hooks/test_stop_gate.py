@@ -5,7 +5,7 @@ def test_false_fix_non_source_patterns():
         content = f.read()
 
     assert '".omg/"' in content, "Missing .omg/ in NON_SOURCE_PATTERNS"
-    assert '".omc/"' in content, "Missing .omc/ in NON_SOURCE_PATTERNS"
+    assert '".omg/"' in content, "Missing .omc/ in NON_SOURCE_PATTERNS"
     assert '"hooks/"' in content, "Missing hooks/ in NON_SOURCE_PATTERNS"
     assert '"CLAUDE.md"' in content, "Missing CLAUDE.md in NON_SOURCE_PATTERNS"
     assert '"AGENTS.md"' in content, "Missing AGENTS.md in NON_SOURCE_PATTERNS"

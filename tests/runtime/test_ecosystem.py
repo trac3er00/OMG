@@ -10,7 +10,7 @@ from runtime import ecosystem as eco
 def test_ecosystem_catalog_contains_requested_targets():
     names = {repo["name"] for repo in eco.list_ecosystem_repos()}
     expected = {
-        "superpowers",
+        "omg-superpowers",
         "ralph-wiggum",
         "claude-flow",
         "claude-mem",
@@ -25,10 +25,10 @@ def test_ecosystem_catalog_contains_requested_targets():
 
 def test_resolve_selection_supports_aliases_and_reports_unknown():
     selected, unknown = eco.resolve_ecosystem_selection(
-        ["superpowers", "ralph wiggum", "compounding-engineering", "does-not-exist"]
+        ["omg-superpowers", "ralph wiggum", "compounding-engineering", "does-not-exist"]
     )
     selected_names = {repo["name"] for repo in selected}
-    assert "superpowers" in selected_names
+    assert "omg-superpowers" in selected_names
     assert "ralph-wiggum" in selected_names
     assert "compound-engineering" in selected_names
     assert unknown == ["does-not-exist"]
@@ -52,11 +52,11 @@ def test_sync_writes_lock_and_playbooks(tmp_path: Path, monkeypatch):
 
     out = eco.sync_ecosystem_repos(
         project_dir=str(tmp_path),
-        names=["superpowers", "claude-flow", "memsearch"],
+        names=["omg-superpowers", "claude-flow", "memsearch"],
         update=False,
     )
     assert out["status"] == "ok"
-    assert out["selected"] == ["superpowers", "claude-flow", "memsearch"]
+    assert out["selected"] == ["omg-superpowers", "claude-flow", "memsearch"]
     assert out["unknown"] == []
     assert len(out["entries"]) == 3
 
@@ -68,13 +68,13 @@ def test_sync_writes_lock_and_playbooks(tmp_path: Path, monkeypatch):
     assert payload["unknown_count"] == 0
 
     playbook_dir = tmp_path / eco.DEFAULT_ECOSYSTEM_PLAYBOOK_DIR
-    assert (playbook_dir / "superpowers.md").exists()
+    assert (playbook_dir / "omg-superpowers.md").exists()
     assert (playbook_dir / "claude-flow.md").exists()
     assert (playbook_dir / "memsearch.md").exists()
 
 
 def test_ecosystem_status_reports_installed_state(tmp_path: Path, monkeypatch):
-    target = tmp_path / eco.DEFAULT_ECOSYSTEM_REPO_DIR / "superpowers"
+    target = tmp_path / eco.DEFAULT_ECOSYSTEM_REPO_DIR / "omg-superpowers"
     target.mkdir(parents=True, exist_ok=True)
 
     def fake_run_git(args, *, cwd=None):
@@ -90,7 +90,7 @@ def test_ecosystem_status_reports_installed_state(tmp_path: Path, monkeypatch):
     status = eco.ecosystem_status(project_dir=str(tmp_path))
     assert status["status"] == "ok"
     repos = {repo["name"]: repo for repo in status["repos"]}
-    assert repos["superpowers"]["installed"] is True
-    assert repos["superpowers"]["commit"] == "abc123"
-    assert repos["superpowers"]["branch"] == "main"
+    assert repos["omg-superpowers"]["installed"] is True
+    assert repos["omg-superpowers"]["commit"] == "abc123"
+    assert repos["omg-superpowers"]["branch"] == "main"
     assert repos["claude-flow"]["installed"] is False

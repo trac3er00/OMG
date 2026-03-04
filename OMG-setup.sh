@@ -630,7 +630,7 @@ remove_omg_files() {
             local pruned_mcp=0
             pruned_mcp=$(prune_plugin_mcp_from_settings)
             if [ "${pruned_mcp:-0}" -gt 0 ]; then
-                echo "  ✓ Plugin-managed MCP servers removed from settings.json ($pruned_mcp)"
+                echo "  ✓ Plugin-managed MCP servers removed from .mcp.json ($pruned_mcp)"
             fi
         fi
     fi
@@ -649,7 +649,7 @@ install_plugin_bundle() {
     if $DRY_RUN; then
         echo "  (would install plugin bundle under $plugin_root and deploy HUD to $hud_target)"
         echo "  (would register plugin in ~/.claude/plugins/installed_plugins.json and enable it in settings.json)"
-        echo "  (would merge plugin MCP servers into user-level settings.json)"
+        echo "  (would merge plugin MCP servers into .mcp.json)"
         return 0
     fi
 
@@ -762,7 +762,7 @@ run_install_like() {
     else
         echo "  ✓ Fresh install"
     fi
-    echo "  ✓ Standalone mode: OMG-only command surface (no OMC aliases)"
+    echo "  ✓ Standalone mode: OMG-only command surface (standalone mode)"
 
     if $FRESH_INSTALL; then
         echo ""
@@ -854,7 +854,7 @@ run_install_like() {
             [ -f "$cmd" ] || continue
             if is_omg_managed_command_file "$cmd"; then
                 ! $DRY_RUN && rm "$cmd"
-                echo "  - commands/$(basename "$cmd") (removed OMC command alias)"
+                echo "  - commands/$(basename "$cmd") (removed legacy command)"
                 removed=$((removed + 1))
             fi
         done
@@ -926,7 +926,7 @@ run_install_like() {
     for f in "$SCRIPT_DIR"/commands/*.md; do
         name=$(basename "$f")
         if [[ "$name" == *omc* ]]; then
-            echo "  - /$(basename "$name" .md) (skipped: OMC alias commands are unsupported)"
+            echo "  - /$(basename "$name" .md) (skipped: legacy alias commands are unsupported)"
             continue
         fi
         target="$CLAUDE_DIR/commands/$name"

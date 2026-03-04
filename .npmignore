@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 *.pyc
 *.pyo
+pytest.ini
 
 # State and runtime
 .omg/
@@ -26,10 +27,29 @@ lab/
 docs/
 hud/
 
+# Rust crates (optional native extensions, not needed for npm)
+crates/
+omg_natives/
+
+# Control plane (server component, not needed for npm)
+control_plane/
+
+# Registry (artifact verification, not needed for npm)
+registry/
+
 # Runtime config (not distributable)
 settings.json
 settings.json.bak.*
+.mcp.json
 .mcp.json.bak.*
+.claude/
+
+# Standalone install script (npm handles install)
+install.sh
+
+# Internal docs
+UPSTREAM_DIFF.md
+THIRD_PARTY_NOTICES.md
 
 # IDE
 .vscode/

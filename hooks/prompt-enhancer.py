@@ -323,22 +323,22 @@ if route_lock and budget_ok():
     if route_lock == "deep-plan":
         add(
             '@route-lock: Explicit keyword route=deep-plan. Execute /OMG:deep-plan "[goal]" FIRST. '
-            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
+            "Do NOT call plugin/Skill routes (omg-teams/frontend-design/etc) before this OMG route."
         )
     elif route_lock == "ccg":
         add(
             '@route-lock: Explicit keyword route=ccg. Execute /OMG:ccg "[problem]" FIRST. '
-            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
+            "Do NOT call plugin/Skill routes (omg-teams/frontend-design/etc) before this OMG route."
         )
     elif route_lock == "gemini":
         add(
             '@route-lock: Explicit keyword route=gemini. Execute /OMG:escalate gemini "[problem]" FIRST. '
-            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
+            "Do NOT call plugin/Skill routes (omg-teams/frontend-design/etc) before this OMG route."
         )
     else:
         add(
             '@route-lock: Explicit keyword route=codex. Execute /OMG:escalate codex "[problem]" FIRST. '
-            "Do NOT call plugin/Skill routes (omc-teams/frontend-design/etc) before this OMG route."
+            "Do NOT call plugin/Skill routes (omg-teams/frontend-design/etc) before this OMG route."
         )
 
 if not route_lock and get_feature_flag('agent_registry') and budget_ok():

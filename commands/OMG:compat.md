@@ -23,7 +23,7 @@ python3 "$OMG_CLI" compat list
 
 ```bash
 python3 "$OMG_CLI" compat contract --all
-python3 "$OMG_CLI" compat contract --skill omc-teams
+python3 "$OMG_CLI" compat contract --skill omg-teams
 python3 "$OMG_CLI" compat snapshot --output runtime/omg_compat_contract_snapshot.json
 python3 scripts/check-omg-compat-contract-snapshot.py --strict-version
 python3 scripts/check-omg-standalone-clean.py
@@ -51,7 +51,7 @@ python3 "$OMG_CLI" compat run --skill "<skill-name>" --problem "$ARGUMENTS"
 Examples:
 
 ```bash
-python3 "$OMG_CLI" compat run --skill omc-teams --problem "review auth flow"
+python3 "$OMG_CLI" compat run --skill omg-teams --problem "review auth flow"
 python3 "$OMG_CLI" compat run --skill plan --problem "ship secure release"
 python3 "$OMG_CLI" compat run --skill pipeline --problem "train model"
 ```

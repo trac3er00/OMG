@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_compat_skill_count_has_standalone_coverage():
     compat_skills = list_compat_skills()
     assert len(compat_skills) >= 30
-    assert "omc-teams" in compat_skills
+    assert "omg-teams" in compat_skills
     assert "ccg" in compat_skills
 
 
@@ -39,4 +39,4 @@ def test_gap_report_is_emitted(tmp_path: Path):
     assert report["maturity_counts"].get("native", 0) == report["total_skills"]
     assert report["maturity_counts"].get("bridge", 0) == 0
     assert (tmp_path / ".omg" / "evidence" / "omg-compat-gap.json").exists()
-    assert (tmp_path / ".omg" / "evidence" / "omc-compat-gap.json").exists()
+    assert (tmp_path / ".omg" / "evidence" / "compat-gap.json").exists()

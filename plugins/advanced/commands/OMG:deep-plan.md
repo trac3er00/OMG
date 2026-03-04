@@ -130,7 +130,7 @@ Only after applying those corrections, continue to execution.
 
 ## Step 4.6: Multi-Agent Bootstrap (MANDATORY)
 
-After validation, launch exactly 5 planning tracks with mixed-model intent using OMG-native routing (same planning discipline as superpowers/OMC):
+After validation, launch exactly 5 planning tracks with mixed-model intent using OMG-native routing (same planning discipline as OMG):
 
 1. Architect track (Claude)
 2. Backend track (GPT/Codex)

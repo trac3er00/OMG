@@ -1,7 +1,7 @@
 {
   "name": "@trac3er/oh-my-god",
-  "version": "1.0.2",
-  "description": "OAL (Orchestration Abstraction Layer) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code",
+  "version": "1.0.3",
+  "description": "OMG (Oh My God) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code",
   "main": "OMG-setup.sh",
   "scripts": {
     "install": "./OMG-setup.sh install",
@@ -14,12 +14,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/trac3er00/OAL.git"
+    "url": "git+https://github.com/trac3er00/OMG.git"
   },
   "bugs": {
-    "url": "https://github.com/trac3er00/OAL/issues"
+    "url": "https://github.com/trac3er00/OMG/issues"
   },
-  "homepage": "https://github.com/trac3er00/OAL#readme",
+  "homepage": "https://github.com/trac3er00/OMG#readme",
   "engines": {
     "node": ">=14"
   }

@@ -86,7 +86,7 @@ def test_hud_defaults_follow_omc_baseline(tmp_path: Path):
     payload = _stdin_payload(project)
     out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
     assert out.returncode == 0
-    # OMC baseline defaults: model hidden, call counts shown.
+    # Legacy baseline defaults: model hidden, call counts shown.
     assert "sonnet" not in out.stdout.lower()
     assert "dir:" in out.stdout.lower()
     assert "agents:" in out.stdout.lower()

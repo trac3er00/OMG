@@ -1,4 +1,4 @@
-"""Enforce fully native route maturity for OMC-compat skills."""
+"""Enforce fully native route maturity for OMG-compat skills."""
 from __future__ import annotations
 
 from runtime.compat import ROUTE_MATURITY, build_compat_gap_report
