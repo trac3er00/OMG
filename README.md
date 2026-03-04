@@ -1,12 +1,12 @@
-# OAL v1
+# OAL v1.0.2
 
 OAL (Orchestration Abstraction Layer) is a standalone orchestration layer for Claude Code.
 It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
 
-- Plugin manifest version: `1.0.1`
-- Runtime install stamp: `oal-v1-YYYYMMDD`
+- Version: `v1.0.2`
 - Maintainer: `trac3er00`
 - Repo: `git@github.com:trac3er00/OAL.git`
+- Release: `https://github.com/trac3er00/OAL/releases/tag/v1.0.2`
 
 ## What OAL Solves
 
@@ -210,16 +210,14 @@ oal/
 
 ## Versioning and Releases
 
-Current plugin manifest version: `1.0.1`
-
-Install/update runtime version stamp: `oal-v1-YYYYMMDD`
+Current version: `v1.0.2`
 
 Recommended release flow:
 
 ```bash
-git tag -a v1.0.1 -m "OAL v1.0.1"
-git push origin v1.0.1
-gh release create v1.0.1 --title "OAL v1.0.1" --notes "Release notes"
+git tag -a v1.0.2 -m "OAL v1.0.2"
+git push origin v1.0.2
+gh release create v1.0.2 --title "OAL v1.0.2" --notes "Release notes"
 ```
 
 ## Compatibility Notes

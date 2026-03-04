@@ -49,7 +49,7 @@ function readOalVersion() {
     // fall through to static fallback
   }
 
-  return "1.0.1";
+  return "1.0.2";
 }
 
 const OAL_VERSION = readOalVersion();
@@ -1026,8 +1026,9 @@ function renderRateLimits(limits) {
 }
 
 function toSafeText(text) {
+  const ansiColorCodeRegex = new RegExp("\\x1b\\[[0-9;]*m", "g");
   return String(text)
-    .replace(/\x1b\[[0-9;]*m/g, "")
+    .replace(ansiColorCodeRegex, "")
     .replace(/⚠/g, "WARN");
 }
 
