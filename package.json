@@ -1,5 +1,5 @@
 {
-  "name": "oh-my-god",
+  "name": "@trac3er/oh-my-god",
   "version": "1.0.2",
   "description": "OAL (Orchestration Abstraction Layer) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code",
   "main": "OMG-setup.sh",
