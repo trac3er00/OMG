@@ -1,16 +1,16 @@
-# OAL v1.0.2
+# OMG v1.0.2
 
-OAL (Orchestration Abstraction Layer) is a standalone orchestration layer for Claude Code.
+OMG (Oh My God) is a standalone orchestration layer for Claude Code.
 It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
 
 - Version: `v1.0.2`
 - Maintainer: `trac3er00`
-- Repo: `git@github.com:trac3er00/OAL.git`
-- Release: `https://github.com/trac3er00/OAL/releases/tag/v1.0.2`
+- Repo: `git@github.com:trac3er00/OMG.git`
+- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.2`
 
-## What OAL Solves
+## What OMG Solves
 
-OAL is built for teams and solo developers who want:
+OMG is built for teams and solo developers who want:
 
 - Reliable execution loops (explore -> decide -> implement -> verify)
 - Strong verification discipline (no unverified completion claims)
@@ -43,31 +43,31 @@ OAL is built for teams and solo developers who want:
 ### Standard install
 
 ```bash
-chmod +x OAL-setup.sh
-./OAL-setup.sh install
+chmod +x OMG-setup.sh
+./OMG-setup.sh install
 ```
 
 ### Plugin-oriented install (recommended)
 
 ```bash
-./OAL-setup.sh install --install-as-plugin
+./OMG-setup.sh install --install-as-plugin
 ```
 
 ### Update
 
 ```bash
-./OAL-setup.sh update
+./OMG-setup.sh update
 ```
 
 ### Uninstall
 
 ```bash
-./OAL-setup.sh uninstall
+./OMG-setup.sh uninstall
 ```
 
 ### Common flags
 
-Supported by `OAL-setup.sh`:
+Supported by `OMG-setup.sh`:
 
 - `--fresh` clean reinstall before install/update
 - `--symlink` development mode with live updates from repo source
@@ -78,12 +78,12 @@ Supported by `OAL-setup.sh`:
 
 ## Plugin Update Behavior
 
-If OAL is installed through Claude Code plugin flow (`/plugin`), update works like this:
+If OMG is installed through Claude Code plugin flow (`/plugin`), update works like this:
 
 - Claude plugin update triggers `.claude-plugin/scripts/update.sh`
 - In git-backed installs, update stashes local changes (if needed) and pulls from `origin/main`
 - When a git tag is available, plugin manifests are synced to the tagged version
-- In cache/copy installs, update delegates to `OAL-setup.sh update`
+- In cache/copy installs, update delegates to `OMG-setup.sh update`
 
 If plugin update appears silent, check:
 
@@ -96,51 +96,51 @@ If plugin update appears silent, check:
 After install, from your target project directory:
 
 ```text
-/OAL:init
-/OAL:health-check
+/OMG:init
+/OMG:health-check
 ```
 
 Common flows:
 
 ```text
-/OAL:mode implement
-/OAL:escalate codex "debug auth middleware"
-/OAL:crazy fix flaky tests in payment module
-/OAL:handoff
+/OMG:mode implement
+/OMG:escalate codex "debug auth middleware"
+/OMG:crazy fix flaky tests in payment module
+/OMG:handoff
 ```
 
 ## Command Groups
 
 ### Core commands
 
-- `/OAL:init`
-- `/OAL:project-init`
-- `/OAL:domain-init`
-- `/OAL:health-check`
-- `/OAL:mode`
-- `/OAL:escalate`
-- `/OAL:teams`
-- `/OAL:ccg`
-- `/OAL:crazy`
-- `/OAL:compat`
+- `/OMG:init`
+- `/OMG:project-init`
+- `/OMG:domain-init`
+- `/OMG:health-check`
+- `/OMG:mode`
+- `/OMG:escalate`
+- `/OMG:teams`
+- `/OMG:ccg`
+- `/OMG:crazy`
+- `/OMG:compat`
 
 ### Advanced commands
 
-- `/OAL:deep-plan`
-- `/OAL:learn`
-- `/OAL:code-review`
-- `/OAL:security-review`
-- `/OAL:ship`
-- `/OAL:maintainer`
-- `/OAL:handoff`
-- `/OAL:sequential-thinking`
-- `/OAL:ralph-start`
-- `/OAL:ralph-stop`
-- `/OAL:theme`
+- `/OMG:deep-plan`
+- `/OMG:learn`
+- `/OMG:code-review`
+- `/OMG:security-review`
+- `/OMG:ship`
+- `/OMG:maintainer`
+- `/OMG:handoff`
+- `/OMG:sequential-thinking`
+- `/OMG:ralph-start`
+- `/OMG:ralph-stop`
+- `/OMG:theme`
 
 ## Agent Routing Model
 
-OAL dispatches by domain intent:
+OMG dispatches by domain intent:
 
 - Codex path: backend logic, debugging, algorithms, security-sensitive implementation
 - Gemini path: UI/UX, layout, visual refinements, accessibility-oriented frontend work
@@ -151,17 +151,17 @@ OAL dispatches by domain intent:
 Set an explicit operating mode per session:
 
 ```text
-/OAL:mode research
-/OAL:mode architect
-/OAL:mode implement
-/OAL:mode clear
+/OMG:mode research
+/OMG:mode architect
+/OMG:mode implement
+/OMG:mode clear
 ```
 
 Modes are persisted to `.oal/state/mode.txt`.
 
 ## Verification and Safety
 
-OAL enforces practical completion gates:
+OMG enforces practical completion gates:
 
 - Prevents unverified completion claims
 - Tracks repeated failures and recommends escalation
@@ -176,7 +176,7 @@ Important behavior:
 
 ## Project State Layout
 
-After `/OAL:init`, project state is created under `.oal/`:
+After `/OMG:init`, project state is created under `.oal/`:
 
 ```text
 .oal/
@@ -195,7 +195,7 @@ After `/OAL:init`, project state is created under `.oal/`:
 ## Repository Layout (High Level)
 
 ```text
-oal/
+omg/
   hooks/
   rules/
     core/
@@ -206,7 +206,7 @@ oal/
   templates/
   runtime/
   scripts/
-  OAL-setup.sh
+  OMG-setup.sh
 ```
 
 ## Versioning and Releases
@@ -216,14 +216,14 @@ Current version: `v1.0.2`
 Recommended release flow:
 
 ```bash
-git tag -a v1.0.2 -m "OAL v1.0.2"
+git tag -a v1.0.2 -m "OMG v1.0.2"
 git push origin v1.0.2
-gh release create v1.0.2 --title "OAL v1.0.2" --notes "Release notes"
+gh release create v1.0.2 --title "OMG v1.0.2" --notes "Release notes"
 ```
 
 ## Compatibility Notes
 
-- OAL runs standalone (OMC not required)
+- OMG runs standalone (OMC not required)
 - Legacy migration utilities remain available where needed
 - Works alongside other plugins when command namespaces do not conflict
 
@@ -286,27 +286,27 @@ You can also enable features in `settings.json` under `_oal.features`:
 
 ### New Commands
 
-- `/OAL:theme` — Interactive theme selector with `--list`, `--preview`, `--set`, and `--auto` modes
+- `/OMG:theme` — Interactive theme selector with `--list`, `--preview`, `--set`, and `--auto` modes
 
 ### New Agents
 
 v1.1 ships with expanded agent coverage:
 
-- `oal-api-builder` — API scaffolding and endpoint design
-- `oal-architect` — System design and architecture decisions
-- `oal-backend-engineer` — Backend implementation tasks
-- `oal-critic` — Code review and critique
-- `oal-database-engineer` — Schema design and query optimization
-- `oal-escalation-router` — Intelligent escalation to Codex/Gemini
-- `oal-frontend-designer` — UI/UX implementation
-- `oal-infra-engineer` — Infrastructure and DevOps tasks
-- `oal-qa-tester` — Test writing and quality assurance
-- `oal-security-auditor` — Security review and vulnerability analysis
-- `oal-testing-engineer` — Test strategy and coverage
+- `omg-api-builder` — API scaffolding and endpoint design
+- `omg-architect` — System design and architecture decisions
+- `omg-backend-engineer` — Backend implementation tasks
+- `omg-critic` — Code review and critique
+- `omg-database-engineer` — Schema design and query optimization
+- `omg-escalation-router` — Intelligent escalation to Codex/Gemini
+- `omg-frontend-designer` — UI/UX implementation
+- `omg-infra-engineer` — Infrastructure and DevOps tasks
+- `omg-qa-tester` — Test writing and quality assurance
+- `omg-security-auditor` — Security review and vulnerability analysis
+- `omg-testing-engineer` — Test strategy and coverage
 
 ## Migration Guide
 
-### Upgrading from OAL v1.0 to v1.1
+### Upgrading from OMG v1.0 to v1.1
 
 All new features default to `False` and are fully backward-compatible. Existing workflows continue unchanged.
 
@@ -332,4 +332,4 @@ To adopt new features selectively:
 
 3. **No breaking changes** — all v1.0 commands, agents, and hooks remain intact.
 
-4. **New command**: `/OAL:theme` is available immediately after update, gated by `OAL_THEMES_ENABLED`.
+4. **New command**: `/OMG:theme` is available immediately after update, gated by `OAL_THEMES_ENABLED`.

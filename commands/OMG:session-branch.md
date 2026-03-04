@@ -4,7 +4,7 @@ allowed-tools: Read, Write, Edit, Bash
 argument-hint: "--name <branch-name> [--from <snapshot_id>]"
 ---
 
-# /OMG:branch — Branch OMG State
+# /OMG:session-branch — Branch OMG State
 
 Create a named branch of the current OMG state for experimentation or parallel exploration.
 
@@ -15,8 +15,8 @@ Branching is **OMG state only** — it captures and restores `.omg/state/` direc
 ## Usage
 
 ```
-/OMG:branch --name "experiment"
-/OMG:branch --name "refactor-v2" --from 20260302_143000_baseline
+/OMG:session-branch --name "experiment"
+/OMG:session-branch --name "refactor-v2" --from 20260302_143000_baseline
 ```
 
 ## What It Does
@@ -74,11 +74,11 @@ Or in `settings.json`:
 
 ```
 # 1. Create a baseline branch
-/OMG:branch --name "baseline"
+/OMG:session-branch --name "baseline"
 
 # 2. Do some experimental work...
 # 3. Create experiment branch to save progress
-/OMG:branch --name "experiment-auth"
+/OMG:session-branch --name "experiment-auth"
 
 # 4. Switch back to baseline if experiment didn't work
 python3 tools/session_snapshot.py switch baseline
