@@ -1,6 +1,6 @@
 {
   "name": "@trac3er/oh-my-god",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "OMG (Oh My God) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code",
   "main": "OMG-setup.sh",
   "scripts": {

@@ -1,13 +1,13 @@
-# OMG v1.0.4
+# OMG v1.0.5
 
 OMG (Oh My God) is a standalone orchestration layer for Claude Code.
 It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
 
-- Version: `v1.0.4`
+- Version: `v1.0.5`
 - npm: `npm install @trac3er/oh-my-god`
 - Maintainer: `trac3er00`
 - Repo: `git@github.com:trac3er00/OMG.git`
-- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.4`
+- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.5`
 
 ## What OMG Solves
 
@@ -226,7 +226,17 @@ omg/
 
 ## Versioning and Releases
 
-Current version: `v1.0.4`
+Current version: `v1.0.5`
+
+### v1.0.5 release notes
+
+- npm `install` now auto-registers OMG as a Claude Code plugin via `postinstall` hook with npm context detection.
+- Added `.mcp.json` and `hud/` to the npm package (previously excluded by `.npmignore`).
+- `.claude-plugin/scripts/install.sh` now passes `--install-as-plugin --non-interactive` flags.
+- Added `OMG-setup.sh` fallback MCP config heredoc for npm installs missing `.mcp.json`.
+- New `runtime/tmux_session_manager.py` provides persistent tmux sessions for Codex/Gemini invocations with sentinel-based completion detection.
+- `runtime/team_router.py` now routes Codex/Gemini calls through persistent tmux sessions when available, with graceful subprocess fallback.
+- Added 20 new tests across 4 test files covering plugin auto-registration and tmux integration (1580 total tests passing).
 
 ### v1.0.4 emergency installation bug fix notes
 
@@ -246,15 +256,15 @@ Releases are automated via GitHub Actions. When a version tag is pushed, the `pu
 
 ```bash
 # bump version in package.json, then:
-git tag v1.0.4
-git push origin v1.0.4
-# → GitHub Actions auto-publishes @trac3er/oh-my-god@1.0.4 to npm
+git tag v1.0.5
+git push origin v1.0.5
+# → GitHub Actions auto-publishes @trac3er/oh-my-god@1.0.5 to npm
 ```
 
 Manual release (if needed):
 
 ```bash
-gh release create v1.0.4 --title "OMG v1.0.4" --notes "Release notes"
+gh release create v1.0.5 --title "OMG v1.0.5" --notes "Release notes"
 ```
 
 ## Compatibility Notes
