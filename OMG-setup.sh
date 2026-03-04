@@ -965,10 +965,9 @@ run_install_like() {
                 echo "  ✓ Settings merged (auto)"
             else
                 echo "  Merging settings.json..."
-                if dry_run_preview="$(python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1)"; then
-                    echo "$dry_run_preview" | head -5 | sed 's/^/      /'
-                    echo ""
-                fi
+                dry_run_preview="$(python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1)"
+                printf '%s\n' "$dry_run_preview" | sed -n '1,5p' | sed 's/^/      /'
+                echo ""
                 if read -p "  Apply merge? [Y/n] " -n 1 -r 2>/dev/null; then
                     echo ""
                     if [[ ! $REPLY =~ ^[Nn]$ ]]; then

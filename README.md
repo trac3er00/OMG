@@ -235,6 +235,13 @@ Current version: `v1.0.4`
 - Updated npm packaging to include required install-time assets (`settings.json` template and `lab/`).
 - Added regression coverage for non-TTY install merge flow in `tests/e2e/test_setup_script.py`.
 
+### v1.0.3 emergency installation bug fix notes
+
+- Fixed npm global install failures in non-TTY environments by auto-enabling non-interactive merge behavior in `OMG-setup.sh`.
+- Removed a fragile dry-run merge preview pipeline that could terminate early under `set -euo pipefail`.
+- Updated npm packaging to include required install-time assets (`settings.json` template and `lab/`).
+- Added regression coverage for non-TTY install merge flow in `tests/e2e/test_setup_script.py`.
+
 Releases are automated via GitHub Actions. When a version tag is pushed, the `publish-npm.yml` workflow automatically publishes to npm:
 
 ```bash
