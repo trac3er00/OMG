@@ -309,7 +309,12 @@
       "DEP_HEALTH": false,
       "CODEBASE_VIZ": false,
       "CONTEXT_MANAGER": false,
-      "BYPASS_ALL": false
+      "BYPASS_ALL": false,
+      "PARALLEL_DISPATCH": false,
+      "EXPERIMENTAL_MEMORY": false,
+      "PATTERN_INTELLIGENCE": false,
+      "ADVANCED_INTEGRATION": false,
+      "ULTRAWORKER": false
     }
   }
 }

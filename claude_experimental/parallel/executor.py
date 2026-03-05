@@ -34,13 +34,19 @@ class ParallelExecutor:
         self._dispatcher = self._load_dispatcher()
 
     def _load_dispatcher(self) -> Any:
-        """Lazy-load subagent_dispatcher module."""
-        runtime_dir = os.path.join(_PROJECT_ROOT, "runtime")
-        if runtime_dir not in sys.path:
-            sys.path.insert(0, runtime_dir)
+        """Lazy-load subagent_dispatcher via the canonical ``runtime`` package path.
+
+        Using ``import runtime.subagent_dispatcher`` (not a bare ``import subagent_dispatcher``)
+        guarantees that executor.py and all other callers share the same module object —
+        and therefore the same ``_jobs`` dict, ``_executor`` singleton, and ``_dynamic_pool``.
+        A bare import after ``sys.path.insert(runtime_dir)`` would register the module as
+        ``subagent_dispatcher`` in sys.modules, splitting singletons from ``runtime.subagent_dispatcher``.
+        """
+        if _PROJECT_ROOT not in sys.path:
+            sys.path.insert(0, _PROJECT_ROOT)
         try:
-            import subagent_dispatcher  # pyright: ignore[reportMissingImports]
-            return subagent_dispatcher
+            import runtime.subagent_dispatcher as _mod  # pyright: ignore[reportMissingImports]
+            return _mod
         except ImportError as e:
             raise ImportError(f"Cannot load subagent_dispatcher: {e}")
 
@@ -60,6 +66,7 @@ class ParallelExecutor:
             agent_name=agent_name,
             task_text=prompt,
             isolation=isolation or self.isolation,
+            timeout=timeout,
         )
         return job_id
 

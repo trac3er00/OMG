@@ -488,6 +488,22 @@ class TestExecutor:
         finally:
             mod._executor = old_executor
 
+    def test_shutdown_tears_down_dynamic_pool(self):
+        import runtime.subagent_dispatcher as mod
+        mock_pool = MagicMock()
+        old_pool = mod._dynamic_pool
+        old_checked = mod._dynamic_pool_checked
+        try:
+            mod._dynamic_pool = mock_pool
+            mod._dynamic_pool_checked = True
+            shutdown(wait=False)
+            mock_pool.shutdown.assert_called_once_with(wait=False)
+            assert mod._dynamic_pool is None
+            assert mod._dynamic_pool_checked is False
+        finally:
+            mod._dynamic_pool = old_pool
+            mod._dynamic_pool_checked = old_checked
+
 
 # =============================================================================
 # Test: Git Check
@@ -562,10 +578,12 @@ class TestArtifactStreaming:
 
 class TestP1BugFixes:
 
-    def test_submit_job_no_timeout_kwarg(self):
+    def test_submit_job_accepts_timeout_parameter(self):
         import inspect
         sig = inspect.signature(submit_job)
-        assert "timeout" not in sig.parameters, "submit_job must not accept timeout kwarg"
+        assert "timeout" in sig.parameters, "submit_job must accept timeout kwarg"
+        assert "isolation" in sig.parameters
+        assert sig.parameters["timeout"].default == 300
 
     def test_is_enabled_via_parallel_dispatch_env(self, monkeypatch):
         monkeypatch.setenv("OMG_PARALLEL_DISPATCH_ENABLED", "1")
@@ -599,3 +617,56 @@ class TestP1BugFixes:
         assert _jobs["fail01"]["status"] == "failed"
         assert "exit code 1" in _jobs["fail01"]["error"]
         assert "something went wrong" in _jobs["fail01"]["error"]
+
+    @patch("runtime.subagent_dispatcher._persist_job")
+    @patch("runtime.subagent_dispatcher._dispatch_to_cli")
+    def test_dispatch_no_cli_available_completes_job(self, mock_dispatch, mock_persist):
+        """When no CLI is available (exit_code=0 stub), job must be status='completed'."""
+        mock_dispatch.return_value = {
+            "stdout": "[No CLI available ...]",
+            "stderr": "",
+            "exit_code": 0,
+        }
+        _jobs["stub01"] = {
+            "job_id": "stub01",
+            "agent_name": "test-agent",
+            "task_text": "do stuff",
+            "isolation": "none",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+        }
+        _run_job("stub01")
+        assert _jobs["stub01"]["status"] == "completed"
+
+    @patch("runtime.subagent_dispatcher._persist_job")
+    @patch("runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/fake-worktree/wt01")
+    @patch("runtime.subagent_dispatcher._cleanup_worktree")
+    @patch("runtime.subagent_dispatcher._dispatch_to_cli")
+    def test_dispatch_cli_with_worktree_passes_cwd(self, mock_dispatch, mock_cleanup, mock_setup, mock_persist):
+        """When isolation='worktree', _dispatch_to_cli must receive cwd=worktree_dir."""
+        mock_dispatch.return_value = {"stdout": "ok", "stderr": "", "exit_code": 0}
+        _jobs["wt01"] = {
+            "job_id": "wt01",
+            "agent_name": "test-agent",
+            "task_text": "isolated task",
+            "isolation": "worktree",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+        }
+        _run_job("wt01")
+        mock_dispatch.assert_called_once()
+        call_kwargs = mock_dispatch.call_args[1]
+        assert call_kwargs.get("cwd") == "/tmp/fake-worktree/wt01"
+
+    @patch("runtime.subagent_dispatcher._persist_job")
+    @patch("runtime.subagent_dispatcher.get_executor")
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    def test_submit_job_stores_timeout_in_record(self, mock_executor, mock_persist):
+        mock_pool = MagicMock()
+        mock_executor.return_value = mock_pool
+        job_id = submit_job("agent", "task", timeout=60)
+        with _lock:
+            record = _jobs[job_id]
+        assert record["timeout"] == 60

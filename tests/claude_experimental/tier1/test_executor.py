@@ -54,6 +54,31 @@ class TestParallelExecutorFeatureGate:
             agent_name="explore",
             task_text="list files",
             isolation="thread",
+            timeout=300,
+        )
+
+
+    def test_submit_passes_custom_timeout(self, feature_flag_enabled):
+        """submit() propagates the timeout argument to submit_job()."""
+        feature_flag_enabled("PARALLEL_DISPATCH")
+
+        mock_dispatcher = MagicMock()
+        mock_dispatcher.submit_job.return_value = "job-timeout"
+
+        with patch(
+            "claude_experimental.parallel.executor.ParallelExecutor._load_dispatcher",
+            return_value=mock_dispatcher,
+        ):
+            from claude_experimental.parallel.executor import ParallelExecutor
+
+            executor = ParallelExecutor()
+            executor.submit("explore", "list files", timeout=60)
+
+        mock_dispatcher.submit_job.assert_called_once_with(
+            agent_name="explore",
+            task_text="list files",
+            isolation="thread",
+            timeout=60,
         )
 
 
@@ -119,3 +144,22 @@ class TestParallelExecutorOperations:
 
     def test_isolation_default_is_thread(self):
         assert self.executor.isolation == "thread"
+
+
+@pytest.mark.experimental
+class TestParallelExecutorCanonicalImport:
+    """Verify _load_dispatcher uses the canonical runtime.subagent_dispatcher path."""
+
+    def test_load_dispatcher_uses_canonical_module_path(self):
+        """_load_dispatcher must return runtime.subagent_dispatcher — the canonical module object."""
+        import sys
+        from claude_experimental.parallel.executor import ParallelExecutor
+
+        executor = ParallelExecutor.__new__(ParallelExecutor)
+        executor.isolation = "thread"
+        dispatcher = executor._load_dispatcher()
+
+        assert sys.modules.get("runtime.subagent_dispatcher") is dispatcher, (
+            "_load_dispatcher returned a different object than runtime.subagent_dispatcher. "
+            "Check that it uses 'import runtime.subagent_dispatcher', not a bare import."
+        )
