@@ -454,6 +454,49 @@ AST-based dependency graph builder for Python (stdlib `ast`), with regex fallbac
 - Command: `/OMG:arch`
 - Flag: `CODEBASE_VIZ`
 
+## Experimental Features (v2.1.0-alpha)
+
+🟠 **Alpha stability** — all features in this section are experimental. APIs may change between releases.
+
+OMG v2.1.0-alpha ships four tiers of experimental capabilities, each independently gated by a feature flag. All tiers are disabled by default and require no external dependencies (stdlib-only).
+
+**Tier-1: Parallel Agent Dispatch** — Real concurrent dispatch to multiple OMG agents. Supports broadcast, shard, and routed distribution modes with configurable result aggregation. Also includes `UltraworkerRouter` for high-throughput priority-queue batching.
+
+**Tier-2: Persistent Memory** — SQLite-backed episodic, semantic, and procedural memory with FTS5 full-text search. Memories persist across sessions and can be scoped to `session`, `project`, or `user`. Includes a migration utility for existing `.omg/state/memory/*.md` files.
+
+**Tier-3: Pattern Intelligence** — AST-based pattern mining and anti-pattern detection across your codebase. Detects structural patterns, computes deviation scores, and generates refactoring suggestions with effort estimates.
+
+**Tier-4: Advanced Integration** — OpenAPI schema-driven tool generation, SSE streaming for agent output, human-in-the-loop checkpoints, local telemetry collection, A/B experiment tagging, and automatic parameter tuning.
+
+### Enabling experimental features
+
+Via environment variable (per-session):
+
+```bash
+export OMG_PARALLEL_DISPATCH_ENABLED=1   # Tier-1: parallel dispatch
+export OMG_ULTRAWORKER_ENABLED=1         # Tier-1: ultraworker router
+export OMG_EXPERIMENTAL_MEMORY_ENABLED=1 # Tier-2: persistent memory
+export OMG_PATTERN_INTELLIGENCE_ENABLED=1 # Tier-3: pattern intelligence
+export OMG_ADVANCED_INTEGRATION_ENABLED=1 # Tier-4: advanced integration
+```
+
+Via `settings.json` (persistent):
+
+```json
+{
+  "_omg": {
+    "features": {
+      "PARALLEL_DISPATCH": true,
+      "EXPERIMENTAL_MEMORY": true,
+      "PATTERN_INTELLIGENCE": true,
+      "ADVANCED_INTEGRATION": true
+    }
+  }
+}
+```
+
+For full API reference, code examples, migration guide, and troubleshooting, see [docs/experimental-features.md](docs/experimental-features.md).
+
 ## Feature Flags
 
 All features are disabled by default. Enable via environment variables or `settings.json`:
