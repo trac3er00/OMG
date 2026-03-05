@@ -66,11 +66,18 @@ jobs:
           PY
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          if [[ "$VERSION" == *"-"* ]]; then
+            npm publish --access public --tag beta
+          else
+            npm publish --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Tag @latest
+      - name: Tag @latest (stable releases only)
+        if: "!contains(steps.version.outputs.VERSION, '-')"
         run: npm dist-tag add @trac3er/oh-my-god@${{ steps.version.outputs.VERSION }} latest
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
