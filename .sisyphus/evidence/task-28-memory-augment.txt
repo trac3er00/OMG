@@ -1,0 +1,23 @@
+Task 28 QA Evidence - Memory-Augmented Generation
+Date: 2026-03-05
+
+Command: python3 QA scenario for MemoryAugmenter with temp project DB
+
+db_path=/var/folders/tz/9h9jcw_s2jn6qm8cfsn5tkr40000gn/T/task28-memory-project-n6nj_uj3/.omg/state/memory.db
+memory_id=1
+has_relevant_context=True
+has_auth=True
+has_base_prompt=True
+stats={1: 1.0}
+
+augmented_prompt:
+## Relevant Context from Memory
+
+1. Implement authentication with auth middleware and JWT refresh token rotation (relevance: 0.50, type: semantic)
+
+---
+
+implement authentication
+
+Command: python3 -m pytest tests/claude_experimental/ -x -q
+Result: 11 passed in 0.02s
