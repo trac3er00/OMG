@@ -32,6 +32,7 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+*.egg-info/
 
 # Claude Code specific (local dev)
 .claude-local/

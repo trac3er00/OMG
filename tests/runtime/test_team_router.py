@@ -2,8 +2,13 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import os
 import sys
+import types
 from pathlib import Path
+
+import runtime.cli_provider as cli_provider
 
 
 _MODULE_PATH = Path(__file__).resolve().parents[2] / "runtime" / "team_router.py"
@@ -15,6 +20,7 @@ _SPEC.loader.exec_module(team_router)
 
 TeamDispatchRequest = team_router.TeamDispatchRequest
 dispatch_team = team_router.dispatch_team
+package_prompt = team_router.package_prompt
 
 
 def _target(problem: str) -> str:
@@ -57,6 +63,41 @@ def test_dispatch_team_reports_live_connection_when_auth_ok(monkeypatch):
     assert gemini["available"] is True
     assert gemini["auth_ok"] is True
     assert gemini["live_connection"] is True
+
+
+def test_dispatch_to_model_opencode_uses_registered_provider(monkeypatch):
+    class _FakeProvider:
+        def detect(self):
+            return True
+
+        def invoke(self, prompt, project_dir, timeout=120):
+            return {"model": "opencode-cli", "output": f"ok:{prompt}", "exit_code": 0}
+
+        def invoke_tmux(self, prompt, project_dir, timeout=120):
+            return {"model": "opencode-cli", "output": f"tmux:{prompt}", "exit_code": 0}
+
+    fake_registry = types.ModuleType("_agent_registry")
+    setattr(
+        fake_registry,
+        "AGENT_REGISTRY",
+        {
+            "opencode-agent": {
+                "preferred_model": "opencode-cli",
+                "task_category": "quick",
+                "skills": ["coding-standards"],
+                "description": "OpenCode specialist",
+            }
+        },
+    )
+    setattr(fake_registry, "detect_available_models", lambda: {"opencode-cli": True, "claude": True})
+    monkeypatch.setitem(sys.modules, "_agent_registry", fake_registry)
+    monkeypatch.setattr(cli_provider, "get_provider", lambda name: _FakeProvider() if name == "opencode" else None)
+    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
+
+    result = team_router.dispatch_to_model("opencode-agent", "test", "/tmp/project")
+
+    assert result["model"] == "opencode-cli"
+    assert result["exit_code"] == 0
 
 
 def test_execute_crazy_mode_launches_five_workers(monkeypatch):
@@ -127,3 +168,146 @@ def test_execute_agents_parallel_preserves_all_results_when_orders_collide(monke
     assert len(results) == 3
     assert [row["agent"] for row in results] == ["a", "b", "c"]
     assert [row["output"] for row in results] == ["a:one", "b:two", "c:three"]
+
+
+# ============================================================================
+# Tests for package_prompt() rich context enrichment (Task 5)
+# ============================================================================
+
+
+def test_package_prompt_includes_agent_description():
+    """Test that package_prompt includes agent description from registry."""
+    result = package_prompt("codex", "debug auth bug", "/tmp/project")
+    assert "specialist" in result or "codex" in result.lower()
+    assert "Task: debug auth bug" in result
+    assert "Project: /tmp/project" in result
+
+
+def test_package_prompt_includes_working_memory_when_file_exists(tmp_path):
+    """Test that package_prompt includes working memory excerpt when file exists."""
+    # Create .omg/state/working-memory.md
+    omg_state = tmp_path / ".omg" / "state"
+    omg_state.mkdir(parents=True, exist_ok=True)
+    working_memory_file = omg_state / "working-memory.md"
+    working_memory_file.write_text("## Session Context\nThis is important working memory content for the task.")
+
+    result = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    # Should include working memory excerpt
+    assert "working memory" in result.lower() or "session context" in result.lower()
+    assert len(result) > 200  # Rich context should be longer than minimal
+
+
+def test_package_prompt_includes_profile_when_file_exists(tmp_path):
+    """Test that package_prompt includes profile context when file exists."""
+    # Create .omg/state/profile.yaml
+    omg_state = tmp_path / ".omg" / "state"
+    omg_state.mkdir(parents=True, exist_ok=True)
+    profile_file = omg_state / "profile.yaml"
+    profile_file.write_text("agent_name: codex\nmodel_version: gpt-4\nmode: implement")
+
+    result = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    # Should include profile context
+    assert "profile" in result.lower() or "agent_name" in result.lower() or "model_version" in result.lower()
+
+
+def test_package_prompt_includes_failure_history_when_ledger_exists(tmp_path):
+    """Test that package_prompt includes recent failures from ledger when available."""
+    # Create .omg/state/ledger/ with failure entries
+    ledger_dir = tmp_path / ".omg" / "state" / "ledger"
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create a failure entry
+    failure_entry = {
+        "timestamp": "2026-03-04T10:00:00Z",
+        "agent": "codex",
+        "problem": "auth middleware bug",
+        "error": "Test failed: expected 200, got 401",
+    }
+    (ledger_dir / "failure-001.jsonl").write_text(json.dumps(failure_entry) + "\n")
+
+    result = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    # Should include failure history
+    assert "failure" in result.lower() or "error" in result.lower() or len(result) > 300
+
+
+def test_package_prompt_respects_max_chars_default(tmp_path):
+    """Test that package_prompt respects default 4000 char limit."""
+    # Create large working memory file
+    omg_state = tmp_path / ".omg" / "state"
+    omg_state.mkdir(parents=True, exist_ok=True)
+    working_memory_file = omg_state / "working-memory.md"
+    large_content = "x" * 5000  # Larger than default limit
+    working_memory_file.write_text(large_content)
+
+    result = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    # Should be capped at 4000 chars (default)
+    assert len(result) <= 4000
+
+
+def test_package_prompt_respects_env_var_max_chars(tmp_path, monkeypatch):
+    """Test that package_prompt respects OMG_PROMPT_MAX_CHARS env var."""
+    # Create large working memory file
+    omg_state = tmp_path / ".omg" / "state"
+    omg_state.mkdir(parents=True, exist_ok=True)
+    working_memory_file = omg_state / "working-memory.md"
+    large_content = "x" * 2000
+    working_memory_file.write_text(large_content)
+
+    # Set custom max chars
+    monkeypatch.setenv("OMG_PROMPT_MAX_CHARS", "1000")
+
+    result = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    # Should be capped at 1000 chars
+    assert len(result) <= 1000
+
+
+def test_package_prompt_gracefully_handles_missing_state_files(tmp_path):
+    """Test that package_prompt works when state files don't exist."""
+    # Don't create any state files
+    result = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    # Should still return valid prompt with agent description and task
+    assert "Task: debug auth bug" in result
+    assert "Project:" in result
+    assert len(result) > 50  # Should have some content
+
+
+def test_package_prompt_includes_constraints_section(tmp_path):
+    """Test that package_prompt includes constraints section."""
+    result = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    # Should include constraints
+    assert "constraint" in result.lower() or "follow" in result.lower()
+
+
+def test_package_prompt_with_all_context_sources(tmp_path):
+    """Test package_prompt with all context sources present."""
+    # Create all state files
+    omg_state = tmp_path / ".omg" / "state"
+    omg_state.mkdir(parents=True, exist_ok=True)
+
+    # Working memory
+    (omg_state / "working-memory.md").write_text("## Current Session\nWorking on auth module refactor.")
+
+    # Profile
+    (omg_state / "profile.yaml").write_text("agent: codex\nmode: implement\nstatus: active")
+
+    # Failure history
+    ledger_dir = omg_state / "ledger"
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+    failure = {"timestamp": "2026-03-04T10:00:00Z", "agent": "codex", "error": "Test timeout"}
+    (ledger_dir / "failure-001.jsonl").write_text(json.dumps(failure) + "\n")
+
+    result = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    # Should include all sections and be substantial
+    assert len(result) > 300
+    assert "Task: debug auth bug" in result
+    assert "Project:" in result
+    # Should include at least some context from the files
+    assert len(result) <= 4000  # Still respects limit

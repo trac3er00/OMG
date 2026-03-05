@@ -4,6 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import glob
+import json
 import logging
 import os
 import re
@@ -19,6 +21,15 @@ _ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
 _OMG_ROOT = os.path.dirname(_ROUTER_DIR)
 
 _logger = logging.getLogger(__name__)
+
+# Import providers to trigger auto-registration in provider registry
+try:
+    import runtime.providers.codex_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    import runtime.providers.gemini_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    import runtime.providers.opencode_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    import runtime.providers.kimi_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
+except ImportError:
+    pass
 
 @dataclass
 class TeamDispatchRequest:
@@ -283,8 +294,16 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
 
 
 def package_prompt(agent_name: str, user_prompt: str, project_dir: str) -> str:
-    """Build structured prompt for external CLI dispatch."""
-    # Import here to avoid circular imports at module level
+    """Build structured prompt for external CLI dispatch with rich context.
+    
+    Enriches prompt with:
+    - Agent description from registry
+    - Working memory excerpt (if .omg/state/working-memory.md exists)
+    - Profile context (if .omg/state/profile.yaml exists)
+    - Recent failure history (if .omg/state/ledger/ exists)
+    
+    Total prompt capped at 4000 chars (default), configurable via OMG_PROMPT_MAX_CHARS.
+    """
     import sys as _sys
 
     _hooks_dir = os.path.join(
@@ -293,23 +312,111 @@ def package_prompt(agent_name: str, user_prompt: str, project_dir: str) -> str:
     )
     if _hooks_dir not in _sys.path:
         _sys.path.insert(0, _hooks_dir)
+
+    max_chars = int(os.environ.get("OMG_PROMPT_MAX_CHARS", "4000"))
+    sections = []
+
     try:
         from _agent_registry import AGENT_REGISTRY  # pyright: ignore[reportMissingImports]
 
         agent = AGENT_REGISTRY.get(agent_name, {})
         description = agent.get("description", f"{agent_name} specialist")
-        agent = AGENT_REGISTRY.get(agent_name, {})
-        description = agent.get("description", f"{agent_name} specialist")
         model_version = agent.get("model_version", "not specified")
-        return (
-            f"You are a {description}\n\n"
-            f"Model: {model_version}\n"
-            f"Project: {project_dir}\n"
-            f"Task: {user_prompt}\n\n"
-            f"Constraints: Follow existing patterns. No hardcoded secrets. Verify changes."
-        )
+
+        sections.append(f"You are a {description}")
+        sections.append(f"Model: {model_version}")
+
     except Exception:
-        return f"Task: {user_prompt}\nProject: {project_dir}"
+        sections.append(f"Agent: {agent_name}")
+
+    sections.append(f"Project: {project_dir}")
+
+    working_memory_excerpt = _read_working_memory(project_dir)
+    if working_memory_excerpt:
+        sections.append(f"Working Memory:\n{working_memory_excerpt}")
+
+    profile_context = _read_profile_context(project_dir)
+    if profile_context:
+        sections.append(f"Profile:\n{profile_context}")
+
+    failure_history = _read_failure_history(project_dir)
+    if failure_history:
+        sections.append(f"Recent Failures:\n{failure_history}")
+
+    sections.append(f"Task: {user_prompt}")
+
+    sections.append("Constraints: Follow existing patterns. No hardcoded secrets. Verify changes.")
+
+    result = "\n\n".join(sections)
+
+    if len(result) > max_chars:
+        result = result[:max_chars].rstrip()
+
+    return result
+
+
+def _read_working_memory(project_dir: str) -> str:
+    """Read working memory excerpt from .omg/state/working-memory.md."""
+    working_memory_path = os.path.join(project_dir, ".omg", "state", "working-memory.md")
+    if not os.path.exists(working_memory_path):
+        return ""
+
+    try:
+        with open(working_memory_path, "r") as f:
+            content = f.read()
+        if len(content) > 500:
+            content = content[:500] + "..."
+        return content
+    except OSError:
+        return ""
+
+
+def _read_profile_context(project_dir: str) -> str:
+    """Read profile context from .omg/state/profile.yaml."""
+    profile_path = os.path.join(project_dir, ".omg", "state", "profile.yaml")
+    if not os.path.exists(profile_path):
+        return ""
+
+    try:
+        with open(profile_path, "r") as f:
+            content = f.read()
+        if len(content) > 300:
+            content = content[:300] + "..."
+        return content
+    except OSError:
+        return ""
+
+
+def _read_failure_history(project_dir: str) -> str:
+    """Read recent failures from .omg/state/ledger/."""
+    ledger_dir = os.path.join(project_dir, ".omg", "state", "ledger")
+    if not os.path.exists(ledger_dir):
+        return ""
+
+    try:
+        failure_files = sorted(glob.glob(os.path.join(ledger_dir, "failure-*.jsonl")))
+        if not failure_files:
+            return ""
+
+        failures = []
+        for file_path in failure_files[-5:]:
+            try:
+                with open(file_path, "r") as f:
+                    for line in f:
+                        if line.strip():
+                            entry = json.loads(line)
+                            error_msg = entry.get("error", "Unknown error")
+                            failures.append(f"- {error_msg}")
+                            if len(failures) >= 5:
+                                break
+            except (OSError, json.JSONDecodeError):
+                continue
+
+        if failures:
+            return "\n".join(failures[:5])
+        return ""
+    except Exception:
+        return ""
 
 
 def invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:
@@ -439,6 +546,23 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
         available = detect_available_models()
         preferred = agent.get("preferred_model", "claude")
         packaged = package_prompt(agent_name, user_prompt, project_dir)
+
+        provider_name_map = {
+            "codex-cli": "codex",
+            "gemini-cli": "gemini",
+            "opencode-cli": "opencode",
+            "kimi-cli": "kimi",
+        }
+        provider_name = provider_name_map.get(preferred)
+
+        if provider_name and available.get(preferred, True):
+            from runtime.cli_provider import get_provider
+
+            provider = get_provider(provider_name)
+            if provider and provider.detect():
+                if _should_use_tmux():
+                    return provider.invoke_tmux(packaged, project_dir)
+                return provider.invoke(packaged, project_dir)
 
         if preferred == "codex-cli" and available.get("codex-cli"):
             if _should_use_tmux():
@@ -690,6 +814,101 @@ def execute_crazy_mode(
         "model_mix": model_mix,
         "findings": [
             f"Workers launched: {len(results)}/5",
+            f"GPT tracks: {len(model_mix['gpt'])}",
+            f"Gemini tracks: {len(model_mix['gemini'])}",
+            f"Claude tracks: {len(model_mix['claude'])}",
+        ],
+    }
+
+
+def execute_ccg_mode(
+    problem: str,
+    project_dir: str,
+    context: str | None = None,
+    files: list[str] | None = None,
+) -> dict[str, Any]:
+    """CCG (Claude-Codex-Gemini) execution mode — 2-track parallel analysis.
+
+    Track 1: backend-engineer (Codex path) — backend/code analysis
+    Track 2: frontend-designer (Gemini path) — UI/UX analysis
+    Then synthesises both tracks into unified output.
+    """
+    print("[CCG] Starting 2-track parallel agent execution...")
+    print(f"[CCG] Problem: {problem[:100]}...")
+
+    # Build context package
+    context_parts: list[str] = []
+    if context:
+        context_parts.append(context)
+    if files:
+        context_parts.append(f"Focus files: {', '.join(files[:8])}")
+    full_context = "\n\n".join(context_parts) if context_parts else ""
+
+    worker_tasks = [
+        {
+            "agent_name": "backend-engineer",
+            "prompt": (
+                f"Backend implementation strategy for: {problem}\n\n"
+                f"Focus: APIs, data flow, failure handling, performance.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 1,
+        },
+        {
+            "agent_name": "frontend-designer",
+            "prompt": (
+                f"Frontend/UI strategy for: {problem}\n\n"
+                f"Focus: UX, accessibility, responsive behavior, component structure.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 2,
+        },
+    ]
+
+    results = execute_agents_parallel(worker_tasks, project_dir)
+
+    result_blocks: list[str] = []
+    for r in results:
+        result_blocks.append(
+            f"**{r.get('agent', 'unknown')} [{r.get('status', 'unknown')}]:**\n"
+            f"{r.get('output', r.get('error', 'No output'))}"
+        )
+
+    synthesis_prompt = (
+        "Synthesize results from two specialized CCG tracks:\n\n"
+        + "\n\n".join(result_blocks)
+        + "\n\nProvide a unified action plan merging backend and frontend perspectives."
+    )
+
+    model_mix = {
+        "gpt": [r.get("agent") for r in results if r.get("model") == "codex-cli"],
+        "gemini": [r.get("agent") for r in results if r.get("model") == "gemini-cli"],
+        "claude": [r.get("agent") for r in results if r.get("fallback") == "claude"],
+    }
+
+    return {
+        "status": "ok",
+        "phases": [
+            {"phase": 1, "agent": "claude-orchestrator", "status": "completed"},
+            *[
+                {
+                    "phase": idx,
+                    "agent": r.get("agent"),
+                    "status": r.get("status", "unknown"),
+                    "model": r.get("model", r.get("fallback", "unknown")),
+                    "output": r.get("output", ""),
+                }
+                for idx, r in enumerate(results, start=2)
+            ],
+            {"phase": len(results) + 2, "agent": "claude-synthesis", "prompt": synthesis_prompt},
+        ],
+        "parallel_execution": True,
+        "sequential_execution": False,
+        "worker_count": len(results),
+        "target_worker_count": 2,
+        "model_mix": model_mix,
+        "findings": [
+            f"Workers launched: {len(results)}/2",
             f"GPT tracks: {len(model_mix['gpt'])}",
             f"Gemini tracks: {len(model_mix['gemini'])}",
             f"Claude tracks: {len(model_mix['claude'])}",
