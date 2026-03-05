@@ -170,8 +170,8 @@ def test_ralph_block_reason_includes_stop_instruction(tmp_path: Path):
 
 def test_ralph_commands_exist():
     """Command files for ralph-start and ralph-stop exist."""
-    assert (ROOT / "commands" / "OMG:ralph-start.md").exists()
-    assert (ROOT / "commands" / "OMG:ralph-stop.md").exists()
+    assert (ROOT / "commands" / "ralph-start.md").exists()
+    assert (ROOT / "commands" / "ralph-stop.md").exists()
 
 
 def test_ralph_expires_after_timeout(tmp_path: Path):

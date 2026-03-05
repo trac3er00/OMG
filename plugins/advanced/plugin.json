@@ -5,57 +5,57 @@
   "type": "omg-plugin",
   "commands": {
     "deep-plan": {
-      "path": "commands/OMG:deep-plan.md",
+      "path": "commands/deep-plan.md",
       "description": "Deep strategic planning with domain awareness",
       "category": "planning"
     },
     "learn": {
-      "path": "commands/OMG:learn.md",
+      "path": "commands/learn.md",
       "description": "Create reusable skills from patterns",
       "category": "knowledge"
     },
     "code-review": {
-      "path": "commands/OMG:code-review.md",
+      "path": "commands/code-review.md",
       "description": "Deep code review with line-by-line analysis",
       "category": "quality"
     },
     "security-review": {
-      "path": "commands/OMG:security-review.md",
+      "path": "commands/security-review.md",
       "description": "Security vulnerability scanning",
       "category": "security"
     },
     "ship": {
-      "path": "commands/OMG:ship.md",
+      "path": "commands/ship.md",
       "description": "Ship pipeline - idea to PR-ready summary",
       "category": "delivery"
     },
     "handoff": {
-      "path": "commands/OMG:handoff.md",
+      "path": "commands/handoff.md",
       "description": "Intelligent session transfer",
       "category": "collaboration"
     },
     "maintainer": {
-      "path": "commands/OMG:maintainer.md",
+      "path": "commands/maintainer.md",
       "description": "Open-source maintainer workflows",
       "category": "oss"
     },
     "sequential-thinking": {
-      "path": "commands/OMG:sequential-thinking.md",
+      "path": "commands/sequential-thinking.md",
       "description": "Structured multi-step reasoning",
       "category": "thinking"
     },
     "ralph-start": {
-      "path": "commands/OMG:ralph-start.md",
+      "path": "commands/ralph-start.md",
       "description": "Start Ralph autonomous loop",
       "category": "automation"
     },
     "ralph-stop": {
-      "path": "commands/OMG:ralph-stop.md",
+      "path": "commands/ralph-stop.md",
       "description": "Stop Ralph autonomous loop",
       "category": "automation"
     },
     "theme": {
-      "path": "commands/OMG:theme.md",
+      "path": "../../commands/theme.md",
       "description": "Interactive theme selector with list, preview, set, and auto modes",
       "category": "config"
     }

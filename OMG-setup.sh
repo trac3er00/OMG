@@ -309,6 +309,29 @@ mark_omg_managed_command_file() {
     fi
 }
 
+standalone_command_filename() {
+    local source_name="$1"
+    if [[ "$source_name" == OMG:* ]]; then
+        printf '%s\n' "$source_name"
+        return 0
+    fi
+    printf 'OMG:%s\n' "$source_name"
+}
+
+is_local_source_install() {
+    if [ ! -e "$SCRIPT_DIR/.git" ]; then
+        return 1
+    fi
+
+    case "$SCRIPT_DIR" in
+        "$CLAUDE_DIR"/plugins/cache/*|"$CLAUDE_DIR"/plugins/marketplaces/*)
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
 # Install a file or directory - either copy or symlink based on USE_SYMLINK
 # Usage: install_file <source> <target> [type: file|dir]
 install_file() {
@@ -852,8 +875,12 @@ HUD_PY
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.mcp.json"
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$PLUGIN_BUNDLE_MARKER_FILE"
     track_file "hud/omg-hud.mjs"
-    register_marketplace_in_known_marketplaces "$PLUGIN_MARKETPLACE" "https://github.com/trac3er00/OMG.git"
-    sync_marketplace_cache "$PLUGIN_MARKETPLACE" "https://github.com/trac3er00/OMG.git"
+    if is_local_source_install; then
+        echo "  ~ Skipping marketplace registration/sync for local source install"
+    else
+        register_marketplace_in_known_marketplaces "$PLUGIN_MARKETPLACE" "https://github.com/trac3er00/OMG.git"
+        sync_marketplace_cache "$PLUGIN_MARKETPLACE" "https://github.com/trac3er00/OMG.git"
+    fi
     echo "  ✓ Plugin bundle installed and registered in Claude plugin settings"
 }
 
@@ -1109,14 +1136,17 @@ run_install_like() {
     echo "Step 5/7: Commands → $CLAUDE_DIR/commands/"
     ! $DRY_RUN && mkdir -p "$CLAUDE_DIR/commands"
     for f in "$SCRIPT_DIR"/commands/*.md; do
-        name=$(basename "$f")
-        if [[ "$name" == *omc* ]]; then
-            echo "  - /$(basename "$name" .md) (skipped: legacy alias commands are unsupported)"
+        local source_name target_name command_name target
+        source_name=$(basename "$f")
+        if [[ "$source_name" == *omc* ]]; then
+            echo "  - /$(basename "$source_name" .md) (skipped: legacy alias commands are unsupported)"
             continue
         fi
-        target="$CLAUDE_DIR/commands/$name"
+        target_name=$(standalone_command_filename "$source_name")
+        command_name=$(basename "$target_name" .md)
+        target="$CLAUDE_DIR/commands/$target_name"
         if [ -f "$target" ] && ! is_omg_managed_command_file "$target"; then
-            echo "  ~ /$(basename "$name" .md) (kept existing custom command)"
+            echo "  ~ /$command_name (kept existing custom command)"
             continue
         fi
         if ! $DRY_RUN; then
@@ -1125,9 +1155,9 @@ run_install_like() {
                 mark_omg_managed_command_file "$target"
             fi
         fi
-        echo "  ✓ /$(basename "$name" .md)"
+        echo "  ✓ /$command_name"
         installed_cmds=$((installed_cmds + 1))
-        track_file "commands/$name"
+        track_file "commands/$target_name"
     done
     echo ""
     echo "Step 6/7: Settings + Templates..."

@@ -119,8 +119,9 @@ If OMG is installed through Claude Code plugin flow (`/plugin`), update works li
 
 If plugin update appears silent, check:
 
-- `~/.claude/plugins/known_marketplaces.json` has git source for `oh-advanced-layer`
-- `~/.claude/plugins/cache/oh-advanced-layer/oal/<version>/.claude-plugin/plugin.json` is valid schema
+- Remote/plugin-managed installs may register `~/.claude/plugins/known_marketplaces.json` with git source `oh-my-god`
+- Local source installs intentionally skip marketplace cache registration and clone sync
+- `~/.claude/plugins/cache/oh-my-god/omg/<version>/.claude-plugin/plugin.json` is valid schema
 - update script exists and is executable
 
 ## Quick Start in Claude Code
@@ -380,10 +381,10 @@ If Claude reports plugin manifest schema errors:
 
 - Verify marketplace source is git-based (not local directory mode)
 - Verify plugin cache points to correct version directory
-- Run update script manually once to confirm output:
+- For local source installs, run the setup script from the checkout again:
 
 ```bash
-bash ~/.claude/plugins/cache/oh-advanced-layer/oal/*/.claude-plugin/scripts/update.sh
+./OMG-setup.sh update
 ```
 
 ## License

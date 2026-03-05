@@ -37,3 +37,16 @@ def test_plugin_manifest_mcp_servers_reference_exists():
             assert (ROOT / ".mcp.json").exists(), f"mcpServers path reference {mcp_ref!r} target missing"
         else:
             assert isinstance(mcp_ref, dict), "mcpServers must be a string path or dict"
+
+
+def test_plugin_command_manifests_use_plain_source_paths():
+    for manifest_relpath in ("plugins/core/plugin.json", "plugins/advanced/plugin.json"):
+        manifest_path = ROOT / manifest_relpath
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for command in manifest["commands"].values():
+            path = command["path"]
+            assert "OMG:" not in path
+            resolved = manifest_path.parent / path
+            if not resolved.exists():
+                resolved = ROOT / path
+            assert resolved.exists()
