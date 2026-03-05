@@ -1,0 +1,12 @@
+Initial success_rate=0.5
+After success #1: rate=0.6000, use_count=1
+After success #2: rate=0.6800, use_count=2
+After success #3: rate=0.7440, use_count=3
+After failure: rate=0.5952, use_count=4
+Rate decreased after failure: True
+EMA formula verified: expected final=0.5952, actual=0.5952
+Low success procedures (threshold=0.3): 2
+  flaky_deploy: rate=0.1
+  manual_test: rate=0.2
+Feature flag gating works: Tier-2 experimental memory is disabled. Enable wit...
+SUCCESS TRACKING EVIDENCE COMPLETE

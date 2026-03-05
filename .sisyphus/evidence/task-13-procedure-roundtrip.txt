@@ -1,0 +1,14 @@
+store_procedure() returned id=1
+Raw content: {"applicable_context": "web applications", "prerequisites": ["OAuth library"], "schema_version": 1, "steps": ["setup provider", "create endpoints", "add middleware"], "success_rate": 0.5, "task_type": "auth_implementation", "use_count": 0}
+Parsed JSON keys: ['applicable_context', 'prerequisites', 'schema_version', 'steps', 'success_rate', 'task_type', 'use_count']
+schema_version: 1
+memory_type: procedural
+find_procedure("implement authentication"): 1 result(s)
+  id=1, task_type=auth_implementation
+  steps=['setup provider', 'create endpoints', 'add middleware']
+  prerequisites=['OAuth library']
+  applicable_context=web applications
+  success_rate=0.5, use_count=0
+find_procedure("database migration steps"): 2 result(s)
+  found: database_migration
+ROUNDTRIP EVIDENCE COMPLETE
