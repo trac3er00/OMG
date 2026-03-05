@@ -1,0 +1,148 @@
+Task 25: ExperimentTracker A/B Experiment Tagging Framework
+============================================================
+
+IMPLEMENTATION SUMMARY
+======================
+
+File: claude_experimental/integration/experiments.py
+- ExperimentTracker class with 4 public methods:
+  1. define_experiment(name, variants, assignment='random') → experiment_id
+  2. assign_variant(experiment_id, subject_id) → variant_name
+  3. tag_metric(experiment_id, variant, metric_name, value) → None
+  4. compare(experiment_id) → dict[variant_name, {count, mean, min, max}]
+
+SCHEMA DESIGN
+=============
+
+Database: .omg/state/telemetry.db (shared with TelemetryCollector)
+
+Tables:
+- experiments: id (PK), name, variants (JSON), assignment, created_at, schema_version
+- experiment_metrics: id (PK), experiment_id (FK), variant, metric_name, value, recorded_at, schema_version
+
+Indexes:
+- idx_experiment_metrics_exp_id (experiment_id)
+- idx_experiment_metrics_variant (variant)
+- idx_experiment_metrics_name (metric_name)
+
+WAL Mode: PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
+
+FEATURE GATING
+==============
+
+All public methods call _require_enabled() from claude_experimental.integration
+- Raises RuntimeError if OMG_ADVANCED_INTEGRATION_ENABLED != 1
+- Feature flag: OMG_ADVANCED_INTEGRATION_ENABLED or settings.json _omg.features.ADVANCED_INTEGRATION
+
+VARIANT ASSIGNMENT STRATEGIES
+=============================
+
+1. Hash-based (deterministic):
+   - Uses SHA256(experiment_id:subject_id) % num_variants
+   - Same subject always gets same variant
+   - Useful for consistent user experience
+
+2. Random (default):
+   - Uses random.choice(variants)
+   - Each call may assign different variant
+   - Useful for true A/B testing
+
+COMPARISON OUTPUT
+=================
+
+compare(exp_id) returns:
+{
+  "variant_name": {
+    "count": int,      # number of observations
+    "mean": float,     # average value
+    "min": float,      # minimum value
+    "max": float       # maximum value
+  },
+  ...
+}
+
+QA SCENARIO EXECUTION
+=====================
+
+Test: Experiment variant comparison
+Steps:
+  1. Create ExperimentTracker(db_path=':memory:')
+  2. exp_id = tracker.define_experiment("pool_size", ["small", "large"])
+  3. tracker.tag_metric(exp_id, "small", "latency_ms", 100)
+  4. tracker.tag_metric(exp_id, "small", "latency_ms", 120)
+  5. tracker.tag_metric(exp_id, "large", "latency_ms", 80)
+  6. result = tracker.compare(exp_id)
+  7. Assert "small" in result and "large" in result
+  8. Assert result["small"]["count"] == 2
+  9. Assert result["large"]["count"] == 1
+
+Result:
+✓ ExperimentTracker created with :memory: DB
+✓ Experiment defined: 24c7e06861509433
+✓ Metrics tagged (small: 100, 120; large: 80)
+✓ Comparison result: {'large': {'count': 1, 'mean': 80.0, 'min': 80.0, 'max': 80.0}, 'small': {'count': 2, 'mean': 110.0, 'min': 100.0, 'max': 120.0}}
+✓ All assertions passed
+
+Additional Tests:
+✓ Hash assignment deterministic: user_123 → treatment (consistent)
+✓ Random assignment produced variants: {'a', 'b', 'c'}
+
+IMPLEMENTATION NOTES
+====================
+
+1. Shared In-Memory DB Handling:
+   - For :memory: DBs, maintain persistent connection in __init__
+   - Closing last connection to shared :memory: DB destroys it
+   - Solution: Keep _shared_memory_conn alive for lifetime of ExperimentTracker
+   - Only close file-backed DB connections in finally blocks
+
+2. Connection Pattern:
+   - Connection-per-invocation for file-backed DBs (same as TelemetryCollector)
+   - Persistent connection for in-memory DBs (test support)
+   - All connections use check_same_thread=False for subprocess safety
+
+3. Schema Initialization:
+   - Called once per file-backed connection (idempotent via CREATE TABLE IF NOT EXISTS)
+   - Called once in __init__ for shared in-memory connection
+   - Schema version stored in schema_info table for future migrations
+
+4. Error Handling:
+   - ValueError for invalid variants (< 2) or assignment strategy
+   - ValueError for missing experiment_id in assign_variant()
+   - RuntimeError for feature flag disabled
+
+TEST RESULTS
+============
+
+pytest tests/claude_experimental/ -x -q
+Result: 11 passed (no regressions)
+
+All existing tests continue to pass:
+- test_package_init.py: 11 tests
+  - TestPackageImports: 5 tests
+  - TestFeatureFlagGating: 4 tests
+  - TestTierAvailabilityDict: 2 tests
+
+VERIFICATION CHECKLIST
+======================
+
+✓ File created: claude_experimental/integration/experiments.py
+✓ ExperimentTracker class implemented with all 4 methods
+✓ Storage: experiments + experiment_metrics tables in .omg/state/telemetry.db
+✓ Feature flag: OMG_ADVANCED_INTEGRATION_ENABLED gating
+✓ Evidence file: .sisyphus/evidence/task-25-experiment.txt
+✓ QA scenario: All assertions passed
+✓ Test suite: 11 tests passing (no regressions)
+✓ Ready for commit
+
+COMMIT MESSAGE
+==============
+
+feat(integration): implement A/B experiment tagging framework
+
+- Add ExperimentTracker class with variant assignment and metric comparison
+- Support hash-based (deterministic) and random variant assignment strategies
+- Store experiments and metrics in shared telemetry.db with WAL mode
+- Feature-gated behind OMG_ADVANCED_INTEGRATION_ENABLED flag
+- Includes schema versioning and connection-per-invocation pattern
+- QA verified: variant comparison, deterministic assignment, random distribution
