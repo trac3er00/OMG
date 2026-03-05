@@ -1,0 +1,16 @@
+=== Semantic Links Evidence ===
+
+Created links: 1, 2, 3, 4
+
+Links involving UserModel: 3
+  [1] UserModel --[used_by]--> AuthService  (2026-03-05T05:02:47Z)
+  [2] UserModel --[used_by]--> ProfileController  (2026-03-05T05:02:47Z)
+  [4] DatabasePool --[stores]--> UserModel  (2026-03-05T05:02:47Z)
+
+Links involving AuthService: 2
+  [3] AuthService --[depends_on]--> JWTProvider
+  [1] UserModel --[used_by]--> AuthService
+
+Links for NonExistentEntity: 0 (expected 0)
+
+Entities linked to UserModel: ['AuthService', 'DatabasePool', 'ProfileController']

@@ -1,0 +1,23 @@
+=== FTS5 Scored Retrieval Evidence ===
+
+Stored 5 auth facts (importance=0.7) and 5 database facts (importance=0.5)
+
+Search: "authentication OR login"
+Results: 5 (all auth domain)
+  score=0.8100 imp=0.7 content="Session authentication validates login credentials"
+  score=0.5964 imp=0.7 content="Authentication login requires JWT token validation"
+  score=0.5964 imp=0.7 content="OAuth authentication flow handles login redirect"
+  score=0.4100 imp=0.7 content="User authentication checks password hash on login"
+  score=0.4100 imp=0.7 content="Two-factor authentication adds login security layer"
+
+Search: "database OR query"
+Results: 5
+  score=0.7500 imp=0.5 content="Database connection pooling optimizes query throughput"
+  score=0.7500 imp=0.5 content="Database query optimization reduces response latency"
+  score=0.3500 imp=0.5 content="Database replication ensures data availability"
+  score=0.3500 imp=0.5 content="Database indexing strategy improves read performance"
+  score=0.3500 imp=0.5 content="Database migration versioning tracks schema changes"
+
+Consolidation: 12 entries -> 10 entries (2 merged)
+
+Formula: BM25_norm*0.4 + importance*0.3 + recency*0.2 + access_freq*0.1
