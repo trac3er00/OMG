@@ -1,0 +1,4 @@
+job_ids_type_ok= True
+job_ids= ['c8f2f721-5085-4b8e-977b-33c1e07efc7a', '5d1e55f4-831f-457f-a2ca-4bb2b2f13d59', 'c9f2e8a0-d0ef-48ca-a062-68bfb6d3187e']
+stats_keys= ['active', 'completed', 'pool_size', 'queued', 'total_cost_units']
+stats= {'pool_size': 1, 'queued': 3, 'active': 0, 'completed': 0, 'total_cost_units': 3}

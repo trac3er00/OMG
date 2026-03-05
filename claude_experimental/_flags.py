@@ -1,7 +1,17 @@
 """Feature flag integration for claude_experimental — lazy import from hooks/_common.py."""
 from __future__ import annotations
+import importlib
 import os
 import sys
+
+
+KNOWN_FLAGS: dict[str, str] = {
+    "PARALLEL_DISPATCH": "OMG_PARALLEL_DISPATCH_ENABLED",
+    "ULTRAWORKER": "OMG_ULTRAWORKER_ENABLED",
+    "ADVANCED_MEMORY": "OMG_ADVANCED_MEMORY_ENABLED",
+    "PATTERN_INTELLIGENCE": "OMG_PATTERN_INTELLIGENCE_ENABLED",
+    "ADVANCED_INTEGRATION": "OMG_ADVANCED_INTEGRATION_ENABLED",
+}
 
 
 def _hooks_dir() -> str:
@@ -16,7 +26,10 @@ def get_feature_flag(flag_name: str, default: bool = False) -> bool:
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
-        from _common import get_feature_flag as _get  # type: ignore[import]
-        return bool(_get(flag_name, default))
+        common_module = importlib.import_module("_common")
+        getter = getattr(common_module, "get_feature_flag", None)
+        if callable(getter):
+            return bool(getter(flag_name, default))
+        return default
     except (ImportError, Exception):
         return default

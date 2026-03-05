@@ -422,3 +422,15 @@
 - **Evidence**: `.sisyphus/evidence/task-29-alpha-warning.txt` (QA scenario with alpha/deprecated warnings verified)
 - **Verification**: `python3 -m pytest tests/claude_experimental/ -x -q` → 11 passed (no regressions)
 - **Commit**: `feat(experimental): implement feature flag lifecycle management`
+
+## [2026-03-05] Task 27: Ultraworker high-throughput router
+
+- **File**: `claude_experimental/parallel/ultraworker.py`
+- **Class/API**: `UltraworkerRouter` with `submit`, `submit_batch`, `wait_for_results`, `get_stats`, `shutdown`
+- **Queue pattern**: Priority queue items are `(-priority, sequence_num, job_id, task_info)` so higher priorities dispatch first
+- **Batching pattern**: `submit_batch()` normalizes a shared `batch_id` and dispatches via `ParallelExecutor.submit_many()`
+- **Aggregation pattern**: `wait_for_results()` resolves executor IDs, waits with `wait_all()`, then aggregates via `ResultAggregator(strategy_for_mode(...))`
+- **Flag gate**: Added `ULTRAWORKER` to `claude_experimental/_flags.py` known flags; all public router methods enforce `get_feature_flag("ULTRAWORKER", default=False)`
+- **Cost tracking**: `_total_cost_units` increments by 1 per submitted task and is exposed in `get_stats()`
+- **Evidence**: `.sisyphus/evidence/task-27-priority.txt`
+- **Verification**: `python3 -m pytest tests/claude_experimental/ -x -q` -> `11 passed`
