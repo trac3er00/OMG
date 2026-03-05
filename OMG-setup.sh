@@ -8,12 +8,18 @@ BACKUP_DIR="$CLAUDE_DIR/.omg-backup-$BACKUP_TS"
 VERSION="omg-v1-$(date +%Y%m%d)"
 
 PLUGIN_NAME="omg"
-PLUGIN_MARKETPLACE="oh-advanced-layer"
+PLUGIN_MARKETPLACE="oh-my-god"
 LEGACY_PLUGIN_MARKETPLACE="omg"
+LEGACY_PLUGIN_MARKETPLACE2="oh-advanced-layer"
+LEGACY_PLUGIN_MARKETPLACE3="trac3er"
 PLUGIN_REF="${PLUGIN_NAME}@${PLUGIN_MARKETPLACE}"
 LEGACY_PLUGIN_REF="${PLUGIN_NAME}@${LEGACY_PLUGIN_MARKETPLACE}"
+LEGACY_PLUGIN_REF2="${PLUGIN_NAME}@${LEGACY_PLUGIN_MARKETPLACE2}"
+LEGACY_PLUGIN_REF3="${PLUGIN_NAME}@${LEGACY_PLUGIN_MARKETPLACE3}"
 PLUGIN_CACHE_DIR="$CLAUDE_DIR/plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME"
 LEGACY_PLUGIN_CACHE_DIR="$CLAUDE_DIR/plugins/cache/$LEGACY_PLUGIN_MARKETPLACE/$PLUGIN_NAME"
+LEGACY_PLUGIN_CACHE_DIR2="$CLAUDE_DIR/plugins/cache/$LEGACY_PLUGIN_MARKETPLACE2/$PLUGIN_NAME"
+LEGACY_PLUGIN_CACHE_DIR3="$CLAUDE_DIR/plugins/cache/$LEGACY_PLUGIN_MARKETPLACE3/$PLUGIN_NAME"
 PLUGIN_BUNDLE_MARKER_FILE=".omg-plugin-bundle"
 
 ACTION="install"
@@ -631,9 +637,19 @@ remove_omg_files() {
         rm -rf "$PLUGIN_CACHE_DIR"
         [[ "$LEGACY_PLUGIN_CACHE_DIR" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $LEGACY_PLUGIN_CACHE_DIR" >&2; exit 1; }
         rm -rf "$LEGACY_PLUGIN_CACHE_DIR"
+        # Remove legacy oh-advanced-layer cache if present
+        if [ -d "$LEGACY_PLUGIN_CACHE_DIR2" ]; then
+            ! $DRY_RUN && rm -rf "$LEGACY_PLUGIN_CACHE_DIR2"
+        fi
+        # Remove legacy trac3er cache if present
+        if [ -d "$LEGACY_PLUGIN_CACHE_DIR3" ]; then
+            ! $DRY_RUN && rm -rf "$LEGACY_PLUGIN_CACHE_DIR3"
+        fi
         rm -f "$CLAUDE_DIR/hud/omg-hud.mjs"
         unregister_plugin_from_registry "$PLUGIN_REF"
         unregister_plugin_from_registry "$LEGACY_PLUGIN_REF"
+        unregister_plugin_from_registry "$LEGACY_PLUGIN_REF2"
+        unregister_plugin_from_registry "$LEGACY_PLUGIN_REF3"
 
         if $remove_plugin_managed_mcp; then
             local pruned_mcp=0
@@ -643,6 +659,57 @@ remove_omg_files() {
             fi
         fi
     fi
+}
+
+register_marketplace_in_known_marketplaces() {
+    local marketplace_name="$1"
+    local git_url="$2"
+    local km_path="$CLAUDE_DIR/plugins/known_marketplaces.json"
+
+    python3 - "$km_path" "$marketplace_name" "$git_url" <<'PY'
+import json, sys
+from pathlib import Path
+from datetime import datetime, timezone
+
+km_path = Path(sys.argv[1])
+marketplace_name = sys.argv[2]
+git_url = sys.argv[3]
+install_location = str(Path.home() / ".claude" / "plugins" / "marketplaces" / marketplace_name)
+now = datetime.now(timezone.utc).isoformat()
+
+km = {}
+if km_path.exists():
+    try:
+        km = json.loads(km_path.read_text(encoding="utf-8"))
+    except Exception:
+        km = {}
+if not isinstance(km, dict):
+    km = {}
+
+# Remove any stale entries that point to the same install path
+stale_keys = [
+    k for k, v in km.items()
+    if isinstance(v, dict) and isinstance(v.get("source"), dict)
+    and isinstance(v["source"].get("path"), str)
+    and "OMG" in v["source"]["path"]
+    and k != marketplace_name
+]
+for k in stale_keys:
+    km.pop(k)
+
+km[marketplace_name] = {
+    "source": {
+        "source": "git",
+        "url": git_url
+    },
+    "installLocation": install_location,
+    "lastUpdated": now,
+}
+
+km_path.parent.mkdir(parents=True, exist_ok=True)
+km_path.write_text(json.dumps(km, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+print(f"  ✓ Marketplace '{marketplace_name}' registered as git source in known_marketplaces.json")
+PY
 }
 
 install_plugin_bundle() {
@@ -699,10 +766,53 @@ FALLBACK_MCP
     fi
     
     cp "$hud_src" "$hud_target"
+
+    # Register HUD as statusLine in user settings.json
+    python3 - "$CLAUDE_DIR/settings.json" "$hud_target" <<'HUD_PY'
+import json, sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+hud_path = sys.argv[2]
+
+settings = {}
+if settings_path.exists():
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        settings = {}
+if not isinstance(settings, dict):
+    settings = {}
+
+existing = settings.get("statusLine")
+# Only set if not already set, or if it's a previous OMG/OAL HUD
+should_update = (
+    not isinstance(existing, dict) or
+    any(kw in str(existing.get("command", "")) for kw in ["omg-hud", "oal-hud", "omc-hud"])
+)
+
+if should_update:
+    settings["statusLine"] = {
+        "type": "command",
+        "command": f"node {hud_path}"
+    }
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    print("  ✓ statusLine registered for OMG HUD")
+else:
+    print("  ~ statusLine already set to custom config (not overwriting)")
+HUD_PY
+
+    # Write version companion file for HUD self-identification
+    local pkg_version
+    pkg_version=$(python3 -c "import json; print(json.load(open('$SCRIPT_DIR/package.json'))['version'])" 2>/dev/null || echo "1.0.5")
+    printf '%s\n' "$pkg_version" > "$CLAUDE_DIR/hud/.omg-version"
+
     mkdir -p "$PLUGIN_CACHE_DIR"
     printf '%s\n' "omg-plugin-bundle-v1" > "$PLUGIN_CACHE_DIR/$PLUGIN_BUNDLE_MARKER_FILE"
 
     unregister_plugin_from_registry "$LEGACY_PLUGIN_REF"
+    unregister_plugin_from_registry "$LEGACY_PLUGIN_REF2"
     register_plugin_in_registry "$plugin_ref" "$plugin_root" "$VERSION"
     merge_plugin_mcp_into_settings >/dev/null
 
@@ -710,6 +820,7 @@ FALLBACK_MCP
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.mcp.json"
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$PLUGIN_BUNDLE_MARKER_FILE"
     track_file "hud/omg-hud.mjs"
+    register_marketplace_in_known_marketplaces "$PLUGIN_MARKETPLACE" "https://github.com/trac3er00/OMG.git"
     echo "  ✓ Plugin bundle installed and registered in Claude plugin settings"
 }
 
