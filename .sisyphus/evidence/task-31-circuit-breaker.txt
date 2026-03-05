@@ -1,0 +1,59 @@
+Task 31: Graceful Degradation Framework — Circuit Breaker QA Evidence
+=====================================================================
+Date: 2026-03-05
+Module: claude_experimental/_degradation.py
+
+QA Scenario: Circuit breaker activates and recovers
+----------------------------------------------------
+
+Step 1-2: Created GracefulDegradation(tier=CIRCUIT_BREAKER, fallback_value="fallback", feature_name="test")
+  Result: PASS
+
+Step 3: Defined failing_fn() that raises ValueError("test error")
+
+Step 4-5: Triggered 3 consecutive failures via dg.execute(failing_fn)
+  Result: PASS — all returned "fallback"
+
+Step 6-7: Checked stats after 3 failures
+  Result: PASS — circuit_open=True
+
+Step 8-9: Verified failure count
+  Result: PASS — failures=3
+
+Step 10-11: 4th call with counting_fn (should not execute)
+  Result: PASS — returned "fallback", call_count=0 (fn was NOT called)
+
+Step 12-13: Reset and verify recovery
+  dg.reset() called
+  Result: PASS — circuit_open=False
+
+Additional Tests
+----------------
+
+TRANSPARENT_FALLBACK:
+  - Returns fallback_value silently
+  - No stderr output produced
+  Result: PASS
+
+ANNOTATED_FALLBACK:
+  - Returns fallback_value
+  - Writes "[OMG DEGRADED] my_feature: test error" to stderr
+  Result: PASS
+
+Success tracking:
+  - Success returns actual result (42)
+  - Stats: successes=1, failures=0
+  Result: PASS
+
+Success resets consecutive failures:
+  - fail, fail, SUCCESS, fail, fail → circuit stays closed
+  - Success in between resets consecutive count
+  Result: PASS
+
+@graceful_degrade decorator:
+  - Wraps function with GracefulDegradation.execute()
+  - Exposes _degradation attribute for inspection
+  - Passes through on success (add(3,4) = 7)
+  Result: PASS
+
+ALL QA SCENARIOS PASSED
