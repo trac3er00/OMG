@@ -1,0 +1,45 @@
+Task 24: Telemetry Collection and Metrics Store - Evidence
+==========================================================
+Date: 2026-03-05
+File: claude_experimental/integration/telemetry.py
+
+QA1: Import Check
+-----------------
+$ python3 -c "from claude_experimental.integration.telemetry import TelemetryCollector; print('OK')"
+OK
+
+QA2: Counter Round-Trip (100 increments)
+-----------------------------------------
+$ OMG_ADVANCED_INTEGRATION_ENABLED=1 python3 -c "..."
+Counter records: 100
+Aggregated sum: 100.0
+Bucket count: 1
+First bucket: {'period_key': '2026-03-05T05:15', 'sum': 100.0, 'count': 100, 'min': 1.0, 'max': 1.0, 'avg': 1.0}
+Gauge records: 1, value=256.5
+Histogram records: 1, value=42.3
+Schema version: 1
+Journal mode: wal
+
+PASS: TelemetryCollector counter round-trip verified
+PASS: 100 increments aggregated to sum=100
+PASS: gauge and histogram metric types working
+PASS: SQLite WAL mode active
+PASS: schema_version=1 stored in schema_info
+
+QA3: Old Data Rotation
+-----------------------
+$ OMG_ADVANCED_INTEGRATION_ENABLED=1 python3 -c "..."
+Total before rotate: 7
+Deleted: 5
+Total after rotate: 2
+PASS: rotate_old_data correctly removes old rows (5 old entries deleted, 2 recent kept)
+
+Feature Flag Gating
+-------------------
+Constructor and all public methods call _require_enabled() from claude_experimental.integration.
+Without OMG_ADVANCED_INTEGRATION_ENABLED=1, RuntimeError is raised.
+
+Privacy
+-------
+No content capture. Only numeric metrics (name, value, tags, timestamp).
+No external telemetry. All data stored locally in .omg/state/telemetry.db.
