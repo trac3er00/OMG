@@ -42,6 +42,152 @@ _INSTALL_HINTS: dict[str, str] = {
     "kimi": "uv tool install --python 3.13 kimi-cli",
 }
 
+MCP_CATALOG: list[dict[str, Any]] = [
+    {
+        "id": "context7",
+        "name": "Context7",
+        "description": "Upstash Context7 MCP server for context management",
+        "command": "npx",
+        "args": ["-y", "@upstash/context7-mcp"],
+        "default": True,
+        "category": "productivity",
+    },
+    {
+        "id": "filesystem",
+        "name": "Filesystem",
+        "description": "ModelContextProtocol filesystem server for file operations",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", os.path.expanduser("~")],
+        "default": True,
+        "category": "system",
+    },
+    {
+        "id": "websearch",
+        "name": "Web Search",
+        "description": "Web search MCP server for internet queries",
+        "command": "npx",
+        "args": ["-y", "@zhafron/mcp-web-search"],
+        "default": True,
+        "category": "search",
+    },
+    {
+        "id": "chrome-devtools",
+        "name": "Chrome DevTools",
+        "description": "Chrome DevTools MCP server for browser automation",
+        "command": "npx",
+        "args": ["-y", "chrome-devtools-mcp@latest"],
+        "default": True,
+        "category": "browser",
+    },
+    {
+        "id": "omg-memory",
+        "name": "OMG Memory",
+        "description": "OMG shared memory server via HTTP",
+        "command": None,
+        "args": [],
+        "type": "http",
+        "url": "http://127.0.0.1:8765/mcp",
+        "default": True,
+        "category": "memory",
+    },
+    {
+        "id": "github",
+        "name": "GitHub",
+        "description": "ModelContextProtocol GitHub server for repository operations",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "default": False,
+        "category": "vcs",
+    },
+    {
+        "id": "puppeteer",
+        "name": "Puppeteer",
+        "description": "ModelContextProtocol Puppeteer server for browser automation",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+        "default": False,
+        "category": "browser",
+    },
+    {
+        "id": "brave-search",
+        "name": "Brave Search",
+        "description": "ModelContextProtocol Brave Search server",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "default": False,
+        "category": "search",
+    },
+    {
+        "id": "sequential-thinking",
+        "name": "Sequential Thinking",
+        "description": "ModelContextProtocol Sequential Thinking server for reasoning",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+        "default": False,
+        "category": "reasoning",
+    },
+    {
+        "id": "grep-app",
+        "name": "Grep App",
+        "description": "Grep App MCP server for code search",
+        "command": "npx",
+        "args": ["-y", "grep-app-mcp"],
+        "default": False,
+        "category": "search",
+    },
+    {
+        "id": "memory-graph",
+        "name": "Memory Graph",
+        "description": "ModelContextProtocol Memory server for knowledge graphs",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-memory"],
+        "default": False,
+        "category": "memory",
+    },
+]
+
+
+def get_mcp_catalog() -> list[dict[str, Any]]:
+    """Return the MCP catalog.
+
+    Returns:
+        List of MCP server definitions with id, name, description, command, args, default, and category.
+    """
+    return MCP_CATALOG
+
+
+def build_mcp_config(selected_ids: list[str]) -> dict[str, Any]:
+    """Build .mcp.json configuration from selected MCP server IDs.
+
+    Args:
+        selected_ids: List of MCP server IDs to include in the config.
+
+    Returns:
+        Dict with 'mcpServers' key containing the MCP server configurations.
+    """
+    mcp_servers: dict[str, Any] = {}
+
+    for mcp in MCP_CATALOG:
+        if mcp["id"] not in selected_ids:
+            continue
+
+        mcp_id = mcp["id"]
+
+        # HTTP-type MCPs (like omg-memory)
+        if mcp.get("type") == "http":
+            mcp_servers[mcp_id] = {
+                "type": "http",
+                "url": mcp["url"],
+            }
+        # NPX-type MCPs
+        else:
+            mcp_servers[mcp_id] = {
+                "command": mcp["command"],
+                "args": mcp["args"],
+            }
+
+    return {"mcpServers": mcp_servers}
+
 
 def is_setup_enabled() -> bool:
     """Check if the setup wizard feature is enabled.
