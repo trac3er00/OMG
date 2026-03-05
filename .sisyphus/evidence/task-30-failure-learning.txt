@@ -1,0 +1,20 @@
+=== Task 30: FailureLearner QA Evidence ===
+
+Step 3: record_failure("auth module", "ImportError", "No module named jwt") -> memory_id=1
+Step 4: record_failure("auth module", "ImportError", "No module named bcrypt") -> memory_id=2
+Step 5: suggest_fix returned 1 suggestion(s)
+  ASSERT len(suggestions) > 0: PASS (1 > 0)
+  suggestion: {'context': 'auth module', 'error_type': 'ImportError', 'error_message': "No module named 'jwt'", 'memory_id': 1, 'relevance': 1.0}
+Step 7: get_failure_patterns returned 1 pattern(s)
+  ASSERT any ImportError pattern: PASS (True)
+  patterns: [{'error_type': 'ImportError', 'count': 2}]
+
+Stack trace sanitization:
+  Input:  File "/Users/someone/projects/myapp/auth/login.py", line 42, in authenticate
+  Output: File "login.py", in authenticate
+  Full paths removed: PASS
+  Line numbers removed: PASS
+
+Feature flag gate: PASS (RuntimeError raised when disabled)
+
+ALL CHECKS PASSED
