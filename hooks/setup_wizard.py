@@ -310,6 +310,54 @@ def detect_clis() -> dict[str, Any]:
     return results
 
 
+def get_cli_auth_instructions(provider: str) -> dict[str, str]:
+    """Return install, auth, and verify instructions for a CLI provider.
+
+    This function returns command strings only — it does NOT execute anything
+    or store credentials.
+
+    Args:
+        provider: CLI provider name (e.g. "codex", "gemini", "kimi", "opencode").
+
+    Returns:
+        Dict with keys: install, auth, verify, subscription.
+        Unknown providers return placeholder strings.
+    """
+    instructions: dict[str, dict[str, str]] = {
+        "codex": {
+            "install": "npm install -g @openai/codex",
+            "auth": "codex login",
+            "verify": "codex --version",
+            "subscription": "Requires ChatGPT Plus, Team, or Enterprise subscription (or OpenAI API key)",
+        },
+        "gemini": {
+            "install": "npm install -g @google/gemini-cli",
+            "auth": "gemini auth login",
+            "verify": "gemini --version",
+            "subscription": "Requires Google account with Gemini API access (free tier available)",
+        },
+        "kimi": {
+            "install": "uv tool install --python 3.13 kimi-cli",
+            "auth": "Add token to ~/.kimi/config.toml",
+            "verify": "kimi --version",
+            "subscription": "Requires Kimi API key from platform.moonshot.cn",
+        },
+        "opencode": {
+            "install": "npm install -g opencode-ai",
+            "auth": "opencode auth login",
+            "verify": "opencode --version",
+            "subscription": "Requires Anthropic API key or Claude subscription",
+        },
+    }
+
+    return instructions.get(provider, {
+        "install": "Unknown provider",
+        "auth": "Unknown provider",
+        "verify": "Unknown provider",
+        "subscription": "Unknown",
+    })
+
+
 def check_auth() -> dict[str, Any]:
     """Verify authentication for detected CLI tools.
 
