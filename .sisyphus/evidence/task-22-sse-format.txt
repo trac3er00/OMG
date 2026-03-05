@@ -1,0 +1,141 @@
+Task 22: SSE Streaming for Agent Output
+=========================================
+
+IMPLEMENTATION: claude_experimental/integration/streaming.py
+- SSEStream class with max_buffer=100 default
+- emit(event_type, data, event_id=None) → None
+- read(last_event_id=None) → Generator[str, None, None]
+- close() → None
+
+SSE FORMAT COMPLIANCE
+=====================
+
+Test: Single event emission and read
+-------------------------------------
+stream = SSEStream(max_buffer=100)
+stream.emit('content', 'Test data')
+lines = list(stream.read())
+
+Output:
+  Line 0: id: e42f7126-1b7c-414c-8b46-bcb5bf39a41f
+  Line 1: event: content
+  Line 2: data: Test data
+  Line 3: '' (blank line)
+
+Format verified:
+  ✓ id: {uuid}
+  ✓ event: {type}
+  ✓ data: {payload}
+  ✓ Blank line terminator
+
+RFC 9110 SSE Compliance:
+  ✓ Each field on separate line
+  ✓ Blank line separates events
+  ✓ Event ID preserved for resumable streams
+  ✓ Event type field present
+
+BACKPRESSURE HANDLING
+=====================
+
+Test: Buffer overflow with max_buffer=100
+------------------------------------------
+Emitted: 200 events
+Buffer size: 100
+Result: 100 events in buffer (oldest 100 dropped)
+
+Verification:
+  ✓ deque(maxlen=100) auto-drops oldest on overflow
+  ✓ FIFO backpressure working correctly
+  ✓ No memory leak from unbounded growth
+
+THREAD SAFETY
+=============
+
+Test: Concurrent emit from 5 threads
+-------------------------------------
+Threads: 5
+Events per thread: 20
+Total events: 100
+Concurrent operations: emit() + read()
+
+Result: All 100 events captured, no race conditions
+Verification:
+  ✓ threading.Lock protects _buffer access
+  ✓ emit() acquires lock before append
+  ✓ read() acquires lock before list copy
+  ✓ No deadlocks or lost events
+
+FEATURE FLAG GATING
+===================
+
+Test: _require_enabled() enforcement
+------------------------------------
+With OMG_ADVANCED_INTEGRATION_ENABLED=1:
+  ✓ SSEStream() constructor succeeds
+  ✓ emit() succeeds
+  ✓ read() succeeds
+
+Without flag (default):
+  ✓ RuntimeError raised: "Tier-4 advanced integration is disabled"
+
+RESUMABLE STREAMS
+=================
+
+Test: last_event_id filtering
+------------------------------
+Emitted: 5 events with auto-generated UUIDs
+Resumed from: event 3 (last_event_id=<uuid_3>)
+Result: 2 events returned (events 4 and 5)
+
+Verification:
+  ✓ Events before last_event_id skipped
+  ✓ Event matching last_event_id skipped
+  ✓ Events after last_event_id returned
+  ✓ Supports resumable stream semantics
+
+CLOSE BEHAVIOR
+==============
+
+Test: Stream closure
+--------------------
+stream.close()
+stream.emit('event', 'data')
+
+Result: RuntimeError("Cannot emit to closed stream")
+Verification:
+  ✓ close() sets _closed flag
+  ✓ emit() checks _closed before append
+  ✓ Prevents further emissions after close
+
+EVENT TYPES SUPPORTED
+=====================
+
+Tested event types:
+  ✓ 'content' — streaming content chunks
+  ✓ 'progress' — progress updates
+  ✓ 'complete' — stream completion signal
+  ✓ 'error' — error events (custom types supported)
+
+STDLIB-ONLY DEPENDENCIES
+=========================
+
+Imports used:
+  ✓ threading (stdlib)
+  ✓ uuid (stdlib)
+  ✓ collections.deque (stdlib)
+  ✓ typing (stdlib)
+
+No external dependencies required.
+
+SUMMARY
+=======
+
+✓ SSEStream class implemented
+✓ SSE format RFC 9110 compliant
+✓ Backpressure via deque(maxlen=100)
+✓ Thread-safe with threading.Lock
+✓ Feature flag gated via _require_enabled()
+✓ Resumable streams with last_event_id
+✓ Proper close() semantics
+✓ Stdlib-only (no external deps)
+✓ All 6 QA scenarios verified
