@@ -203,6 +203,55 @@ def build_mcp_config(selected_ids: list[str]) -> dict[str, Any]:
     return {"mcpServers": mcp_servers}
 
 
+def configure_plan_type(plan_type: str) -> dict[str, Any]:
+    """Configure Claude plan type and model routing.
+
+    Args:
+        plan_type: "max" or "pro"
+
+    Returns:
+        dict with plan_type and optionally model_routing
+    """
+    result: dict[str, Any] = {"plan_type": plan_type}
+    if plan_type == "pro":
+        result["model_routing"] = {
+            "planning": "claude-opus-4-5",
+            "coding": "claude-sonnet-4-5",
+            "review": "claude-opus-4-5",
+            "commit": "claude-haiku-4-5",
+        }
+    return result
+
+
+def select_mcps(selected_ids: list[str] | None = None) -> dict[str, Any]:
+    """Build MCP config from selected IDs.
+
+    Args:
+        selected_ids: List of MCP IDs to include. If None, uses defaults.
+
+    Returns:
+        dict with mcpServers key (ready to write as .mcp.json)
+    """
+    if selected_ids is None:
+        selected_ids = [m["id"] for m in MCP_CATALOG if m["default"]]
+    return build_mcp_config(selected_ids)
+
+
+def configure_bypass_all(enabled: bool) -> dict[str, Any]:
+    """Configure bypass_all mode.
+
+    Args:
+        enabled: True to enable bypass-all, False to disable
+
+    Returns:
+        dict with enabled status and warning_shown flag
+    """
+    result: dict[str, Any] = {"enabled": enabled}
+    if enabled:
+        result["warning_shown"] = True
+    return result
+
+
 def is_setup_enabled() -> bool:
     """Check if the setup wizard feature is enabled.
 
