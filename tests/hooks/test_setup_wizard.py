@@ -126,13 +126,16 @@ class TestWizardStubs:
         assert isinstance(result, dict)
         assert result["status"] == "pending"
 
-    def test_configure_mcp_returns_pending(self):
-        """configure_mcp() stub should return pending status."""
+    def test_configure_mcp_returns_ok_status(self):
+        """configure_mcp() should return status=ok."""
         import setup_wizard
 
-        result = setup_wizard.configure_mcp()
+        result = setup_wizard.configure_mcp(
+            project_dir="/tmp/test",
+            detected_clis={}
+        )
         assert isinstance(result, dict)
-        assert result["status"] == "pending"
+        assert result["status"] == "ok"
 
     def test_set_preferences_returns_ok(self):
         """set_preferences() should return ok status."""
@@ -509,3 +512,138 @@ class TestSetPreferences:
                 data2 = yaml.safe_load(f)
 
             assert data1 == data2
+
+
+class TestConfigureMcp:
+    """Tests for configure_mcp() MCP server configuration."""
+
+    def test_configure_mcp_returns_ok_status(self):
+        """configure_mcp() should return status=ok."""
+        import setup_wizard
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = setup_wizard.configure_mcp(
+                project_dir=tmpdir,
+                detected_clis={}
+            )
+        assert isinstance(result, dict)
+        assert result["status"] == "ok"
+
+    def test_configure_mcp_always_writes_claude_config(self):
+        """Claude config should be written even with empty detected_clis."""
+        import setup_wizard
+        from unittest.mock import patch, MagicMock
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_claude = MagicMock()
+            with patch("setup_wizard.write_claude_mcp_config", mock_claude):
+                setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={}
+                )
+            mock_claude.assert_called_once()
+
+    def test_configure_mcp_writes_detected_cli_configs(self):
+        """Detected CLI should have its config writer called."""
+        import setup_wizard
+        from unittest.mock import patch, MagicMock
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_codex = MagicMock()
+            with patch("setup_wizard.write_codex_mcp_config", mock_codex), \
+                 patch("setup_wizard.write_claude_mcp_config"):
+                setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={"codex": {"detected": True}}
+                )
+            mock_codex.assert_called_once()
+
+    def test_configure_mcp_skips_undetected_clis(self):
+        """Undetected CLI should NOT have its config writer called."""
+        import setup_wizard
+        from unittest.mock import patch, MagicMock
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_gemini = MagicMock()
+            with patch("setup_wizard.write_gemini_mcp_config", mock_gemini), \
+                 patch("setup_wizard.write_claude_mcp_config"):
+                setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={"gemini": {"detected": False}}
+                )
+            mock_gemini.assert_not_called()
+
+    def test_configure_mcp_returns_configured_list(self):
+        """Result should include list of successfully configured CLIs."""
+        import setup_wizard
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("setup_wizard.write_codex_mcp_config"), \
+                 patch("setup_wizard.write_gemini_mcp_config"), \
+                 patch("setup_wizard.write_claude_mcp_config"):
+                result = setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={
+                        "codex": {"detected": True},
+                        "gemini": {"detected": False}
+                    }
+                )
+        assert "configured" in result
+        assert isinstance(result["configured"], list)
+        assert "codex" in result["configured"]
+        assert "gemini" not in result["configured"]
+
+    def test_configure_mcp_handles_writer_error(self):
+        """Writer exception should be caught and added to errors dict."""
+        import setup_wizard
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            def raise_error(*args, **kwargs):
+                raise RuntimeError("write failed")
+
+            with patch("setup_wizard.write_codex_mcp_config", side_effect=raise_error), \
+                 patch("setup_wizard.write_claude_mcp_config"):
+                result = setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={"codex": {"detected": True}}
+                )
+        assert result["status"] == "ok"
+        assert "errors" in result
+        assert "codex" in result["errors"]
+        assert "write failed" in result["errors"]["codex"]
+
+    def test_configure_mcp_custom_server_url(self):
+        """Custom server URL should be passed to writers."""
+        import setup_wizard
+        from unittest.mock import patch, call
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
+                 patch("setup_wizard.write_claude_mcp_config") as mock_claude:
+                setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={"codex": {"detected": True}},
+                    server_url="http://custom:9999/mcp"
+                )
+            # Check that custom URL was passed
+            calls = mock_codex.call_args_list
+            assert any("http://custom:9999/mcp" in str(call) for call in calls)
+
+    def test_configure_mcp_custom_server_name(self):
+        """Custom server name should be passed to writers."""
+        import setup_wizard
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
+                 patch("setup_wizard.write_claude_mcp_config") as mock_claude:
+                setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={"codex": {"detected": True}},
+                    server_name="custom-server"
+                )
+            # Check that custom name was passed
+            calls = mock_codex.call_args_list
+            assert any("custom-server" in str(call) for call in calls)

@@ -19,6 +19,13 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from runtime.cli_provider import get_provider, list_available_providers  # noqa: E402
+from runtime.mcp_config_writers import (  # noqa: E402
+    write_claude_mcp_config,
+    write_codex_mcp_config,
+    write_gemini_mcp_config,
+    write_opencode_mcp_config,
+    write_kimi_mcp_config,
+)
 
 # Trigger provider auto-registration on import
 import runtime.providers.codex_provider  # noqa: E402, F401
@@ -103,13 +110,64 @@ def check_auth() -> dict[str, Any]:
     return {"status": "pending", "results": {}}
 
 
-def configure_mcp() -> dict[str, Any]:
+def configure_mcp(
+    project_dir: str,
+    detected_clis: dict[str, Any],
+    server_url: str = "http://127.0.0.1:8765/mcp",
+    server_name: str = "omg-memory",
+) -> dict[str, Any]:
     """Configure MCP memory server for authenticated CLIs.
 
-    Stub — returns pending status. T17 will implement real MCP config
-    using each provider's write_mcp_config() method.
+    For each CLI in detected_clis where detected_clis[cli]["detected"] == True,
+    calls the appropriate writer from runtime.mcp_config_writers.
+
+    Args:
+        project_dir: Path to the project directory.
+        detected_clis: Dict of CLI detection results from detect_clis().
+        server_url: MCP server URL (default: http://127.0.0.1:8765/mcp).
+        server_name: MCP server name (default: omg-memory).
+
+    Returns:
+        Dict with keys:
+        - status: "ok" on success
+        - configured: List of CLI names that were successfully configured
+        - errors: Dict of CLI name → error message for failures
     """
-    return {"status": "pending", "configured": []}
+    configured: list[str] = []
+    errors: dict[str, str] = {}
+
+    # Always write Claude config
+    try:
+        write_claude_mcp_config(project_dir, server_url, server_name)
+    except Exception as exc:
+        _logger.warning("Failed to write Claude MCP config: %s", exc)
+        errors["claude"] = str(exc)
+
+    # Write configs for detected CLIs
+    cli_writers = {
+        "codex": write_codex_mcp_config,
+        "gemini": write_gemini_mcp_config,
+        "opencode": write_opencode_mcp_config,
+        "kimi": write_kimi_mcp_config,
+    }
+
+    for cli_name, writer_func in cli_writers.items():
+        cli_info = detected_clis.get(cli_name, {})
+        if not cli_info.get("detected", False):
+            continue
+
+        try:
+            writer_func(server_url, server_name)
+            configured.append(cli_name)
+        except Exception as exc:
+            _logger.warning("Failed to write %s MCP config: %s", cli_name, exc)
+            errors[cli_name] = str(exc)
+
+    return {
+        "status": "ok",
+        "configured": configured,
+        "errors": errors,
+    }
 
 
 def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, Any]:
@@ -189,7 +247,7 @@ def run_setup_wizard(project_dir: str, non_interactive: bool = False) -> dict[st
     # Run each wizard step (stubs for now — T15/T16/T17 fill these in)
     clis = detect_clis()
     auth = check_auth()
-    mcp = configure_mcp()
+    mcp = configure_mcp(project_dir, clis)
     prefs = set_preferences(project_dir, {})
 
     return {
