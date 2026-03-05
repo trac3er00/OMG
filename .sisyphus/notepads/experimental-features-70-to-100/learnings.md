@@ -434,3 +434,56 @@
 - **Cost tracking**: `_total_cost_units` increments by 1 per submitted task and is exposed in `get_stats()`
 - **Evidence**: `.sisyphus/evidence/task-27-priority.txt`
 - **Verification**: `python3 -m pytest tests/claude_experimental/ -x -q` -> `11 passed`
+
+## [2026-03-05] Task 34: Comprehensive Tier-3 Pattern Intelligence test suite
+
+- **Files created**: 5 test files in `tests/claude_experimental/tier3/`:
+  - `test_extractor.py` (8 tests): extract from real .py, finds functions/classes, cache hit, empty file, syntax error regex fallback, non-Python regex, pattern fields
+  - `test_mining.py` (5 tests): mine directory returns report, sequential patterns with chains, empty dir, invalid pattern_type ValueError, baseline keys
+  - `test_antipatterns.py` (7 tests): bare_except, mutable_default, deep_nesting, clean file >0.9, dirty file <0.5, add_custom_rule, empty_except
+  - `test_api.py` (6 tests): pattern_detect returns report, detects antipatterns in frequencies, pattern_validate returns ValidationReport, validate with Pattern object, synthesize basic, synthesize with constraints
+  - `test_refactoring.py` (5 tests): deep nesting suggestions, clean file no suggestions, multiple issues prioritized, summary contains path, effort field present
+- **Total**: 31 tests passing (target was ≥20)
+- **All tests use** `@pytest.mark.experimental` marker
+- **Feature flag**: Used `feature_flag_enabled("PATTERN_INTELLIGENCE")` conftest fixture (autouse)
+- **Cache safety**: `ASTExtractor._cache.clear()` in autouse fixtures prevents cross-test leaks (class-level dict)
+- **All existing tests preserved**: 176 total tests pass (including 11 original + other tier tests)
+- **Commit**: `test(patterns): add comprehensive Tier-3 test suite`
+
+## [2026-03-05] Task 35: Comprehensive Tier-4 Integration Test Suite
+
+- **Files created**: 6 test files in `tests/claude_experimental/tier4/`
+  - `test_openapi.py` (7 tests): generate/callable/404→FileNotFoundError/malformed spec/empty paths/disabled flag
+  - `test_streaming.py` (10 tests): emit/read round-trip, SSE format, FIFO order, backpressure 200→100, last_event_id filtering, close semantics, feature gate
+  - `test_checkpoints.py` (10 tests): create/get/list/resume lifecycle, resolved excluded from pending, auto-expiry, cleanup_expired, invalid type, nonexistent KeyError, feature gate
+  - `test_telemetry.py` (8 tests): counter/gauge/histogram recording + query, tags round-trip, aggregate sum/min/max/avg, rotate_old_data, feature gate
+  - `test_experiments.py` (7 tests): define_experiment, hash deterministic assignment, random assignment, tag_metric + compare per-variant stats, empty compare, feature gate
+  - `test_autotuner.py` (9 tests): high latency scale-up, normal latency no change, max_workers cap, get_current_params, no-data no-adjustment, invalid min_workers/target_p99, feature gate
+- **Total**: 51 tests passing (requirement was ≥20)
+- **All tests**: Use `@pytest.mark.experimental` marker on test classes
+- **Feature flag**: `autouse=True` fixture with `monkeypatch.setenv("OMG_ADVANCED_INTEGRATION_ENABLED", "1")` per module
+- **File-backed DBs**: Used `tmp_path / "telemetry.db"` for TelemetryCollector, ExperimentTracker, AutoTuner (avoids :memory: cross-connection gotcha)
+- **CheckpointManager**: Passed `base_dir=str(tmp_path)` to constructor (creates .omg/state/checkpoints/ under tmp_path)
+- **AutoTuner pool cleanup**: Used `yield` fixture with `p.shutdown(wait=False)` in finally/teardown
+- **Existing tests**: 11 tests in test_package_init.py still passing (no regressions)
+- **Mocking pattern**: Used `@patch("claude_experimental.integration.openapi_gen.request.urlopen")` for ToolGenerator HTTP tests
+- **Commit**: `test(integration): add comprehensive Tier-4 test suite`
+
+
+## [2026-03-05] Task 36: Cross-tier integration tests
+
+- **File**: `tests/claude_experimental/test_cross_tier.py`
+- **Coverage added**:
+  - Tier independence: memory tier operates with `OMG_EXPERIMENTAL_MEMORY_ENABLED=1` while Tier-1 parallel submit raises `RuntimeError` when disabled.
+  - Graceful degradation: `GracefulDegradation(DegradationTier.CIRCUIT_BREAKER)` returns fallback payload on tier failure.
+  - Lifecycle: `FeatureFlagLifecycle().check_health()` validated against all five experimental flags (`PARALLEL_DISPATCH`, `EXPERIMENTAL_MEMORY`, `PATTERN_INTELLIGENCE`, `ADVANCED_INTEGRATION`, `ULTRAWORKER`).
+  - Memory + pattern: `ASTExtractor` output and `MemoryAugmenter` prompt enrichment verified in same test context.
+  - Telemetry + parallel: `TelemetryCollector` records histogram/counter metrics produced from `DynamicPool` operations; aggregate and query verified.
+  - Failure learning + memory: `FailureLearner.record_failure()` and `suggest_fix()` round-trip against file-backed memory DB.
+- **Gotchas**:
+  - `MemoryAugmenter.augment_prompt()` depends on `recall()` lexical match and relevance threshold; punctuation-heavy prompts can cause no-memory fallback. Stable tests use tokenized query/memory text with high importance.
+  - Keep Tier-1 coverage dispatch-free by using `ParallelExecutor().submit(...)` only in disabled-path assertion to avoid real agent calls.
+- **Verification**:
+  - `python3 -m pytest tests/claude_experimental/test_cross_tier.py -x -q` -> `6 passed`
+  - `python3 -m pytest tests/claude_experimental/ -x -q` -> `190 passed`
+  - `lsp_diagnostics tests/claude_experimental/test_cross_tier.py` -> clean
