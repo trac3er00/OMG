@@ -252,6 +252,7 @@
   },
   "_omg": {
     "_version": "2.0.0",
+    "setup_in_progress": false,
     "bypass_all": false,
     "default_mode": "ulw+ralph",
     "vision_auto": true,
