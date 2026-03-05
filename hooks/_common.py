@@ -243,6 +243,68 @@ def is_bypass_mode(data):
     return mode in BYPASS_MODES
 
 
+# Permission mode constants for accept-edits and plan modes
+ACCEPT_EDITS_MODES = frozenset({"acceptedits"})
+PLAN_MODES = frozenset({"plan"})
+
+
+def is_accept_edits_mode(data):
+    """Return True if permission_mode indicates auto-accept edits mode.
+    
+    In accept-edits mode, the agent can automatically apply suggested edits
+    without requiring explicit user confirmation.
+    """
+    if not isinstance(data, dict):
+        return False
+    mode = (data.get("permission_mode") or "").lower().strip()
+    return mode in ACCEPT_EDITS_MODES
+
+
+def is_plan_mode(data):
+    """Return True if permission_mode indicates plan/read-only mode.
+    
+    In plan mode, the agent can only read and analyze code without making
+    modifications. This is useful for planning and review workflows.
+    """
+    if not isinstance(data, dict):
+        return False
+    mode = (data.get("permission_mode") or "").lower().strip()
+    return mode in PLAN_MODES
+
+
+def is_bypass_all(data):
+    """Return True if bypass_all flag is enabled in settings.
+    
+    The bypass_all flag is a global setting that overrides all permission modes.
+    It is read from settings.json via get_feature_flag("bypass_all", default=False).
+    """
+    return get_feature_flag("bypass_all", default=False)
+
+
+def get_effective_permission_tier(data):
+    """Return the effective permission tier based on permission_mode and bypass_all flag.
+    
+    Priority order:
+    1. "bypass" — if bypass_all flag is True OR permission_mode is a bypass mode
+    2. "accept_edits" — if permission_mode is "acceptEdits"
+    3. "plan" — if permission_mode is "plan"
+    4. "default" — for all other cases
+    
+    Args:
+        data: Hook input dict containing permission_mode
+    
+    Returns:
+        One of: "bypass", "accept_edits", "plan", "default"
+    """
+    if is_bypass_all(data) or is_bypass_mode(data):
+        return "bypass"
+    if is_accept_edits_mode(data):
+        return "accept_edits"
+    if is_plan_mode(data):
+        return "plan"
+    return "default"
+
+
 # --- Subagent & Context-Limit Detection ---
 
 # Stop hook feedback markers injected by Claude Code when a stop hook blocks
