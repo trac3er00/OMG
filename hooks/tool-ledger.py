@@ -5,7 +5,7 @@ Logs every tool execution to .omg/state/ledger/tool-ledger.jsonl.
 Evidence trail for stop-gate.py and claim verification.
 Includes log rotation to prevent unbounded growth.
 """
-import json, sys, os, re, shutil
+import json, sys, os, re, shutil, time
 from datetime import datetime, timezone
 
 HOOKS_DIR = os.path.dirname(__file__)
@@ -18,6 +18,7 @@ from state_migration import resolve_state_dir
 setup_crash_handler("tool-ledger", fail_closed=False)
 
 data = json_input()
+_wall_start = time.monotonic()
 
 project_dir = get_project_dir()
 ledger_dir = resolve_state_dir(project_dir, "state/ledger", "ledger")
@@ -106,6 +107,28 @@ if run_id:
     ev_path = os.path.join(project_dir, ".omg", "evidence", f"{run_id}.json")
     if os.path.exists(ev_path):
         entry["evidence_path"] = os.path.relpath(ev_path, project_dir)
+
+# ── Latency tracking: duration_ms ──
+# Prefer startTime/endTime from hook stdin (ISO8601), fall back to wall clock.
+_duration_ms = None
+try:
+    _start_str = data.get("startTime")
+    _end_str = data.get("endTime")
+    if _start_str and _end_str:
+        _st = datetime.fromisoformat(_start_str.replace("Z", "+00:00"))
+        _et = datetime.fromisoformat(_end_str.replace("Z", "+00:00"))
+        _duration_ms = int((_et - _st).total_seconds() * 1000)
+    else:
+        # Wall clock fallback
+        _duration_ms = int((time.monotonic() - _wall_start) * 1000)
+except Exception:
+    # Malformed timestamps: fall back to wall clock, or null if that also fails
+    try:
+        _duration_ms = int((time.monotonic() - _wall_start) * 1000)
+    except Exception:
+        _duration_ms = None
+
+entry["duration_ms"] = _duration_ms
 
 try:
     import fcntl

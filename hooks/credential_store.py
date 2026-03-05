@@ -206,8 +206,8 @@ def load_store(passphrase: str, project_dir: str | None = None) -> dict:
     passphrase_bytes = passphrase.encode("utf-8")
 
     if not os.path.exists(enc_path):
-        # New store — return empty
-        return dict(_EMPTY_STORE)
+        # New store — return fresh empty (deep copy to avoid shared mutation)
+        return {"version": _EMPTY_STORE["version"], "providers": {}}
 
     meta = _load_meta(meta_path)
     if not meta:
@@ -287,6 +287,7 @@ def add_credential(
     passphrase: str,
     label: str | None = None,
     project_dir: str | None = None,
+    expires_at: str | None = None,
 ) -> None:
     """Add an API key for a provider.
 
@@ -296,6 +297,7 @@ def add_credential(
         passphrase: User passphrase
         label: Optional human-readable label
         project_dir: Optional project directory
+        expires_at: Optional ISO8601 expiry datetime string
     """
     store = load_store(passphrase, project_dir)
 
@@ -327,15 +329,17 @@ def add_credential(
     if label is None:
         label = f"key-{index}"
 
-    existing_keys.append(
-        {
-            "key": key,
-            "label": label,
-            "added": datetime.now(timezone.utc).isoformat(),
-            "last_used": None,
-            "usage_count": 0,
-        }
-    )
+    key_entry = {
+        "key": key,
+        "label": label,
+        "added": datetime.now(timezone.utc).isoformat(),
+        "last_used": None,
+        "usage_count": 0,
+    }
+    if expires_at is not None:
+        key_entry["expires_at"] = expires_at
+
+    existing_keys.append(key_entry)
 
     # First key sets active_index
     if index == 0:
@@ -581,7 +585,15 @@ def get_active_key(provider: str, project_dir: str | None = None) -> str | None:
     if active_idx < 0 or active_idx >= len(keys):
         active_idx = 0
 
-    return keys[active_idx].get("key")
+    key_entry = keys[active_idx]
+
+    # Advisory expiry check — warn but NEVER block retrieval
+    try:
+        _warn_if_expired(provider, key_entry)
+    except Exception:
+        pass  # Never let expiry check crash key retrieval
+
+    return key_entry.get("key")
 
 
 def advance_key(provider: str, project_dir: str | None = None) -> None:
@@ -628,6 +640,163 @@ def advance_key(provider: str, project_dir: str | None = None) -> None:
         save_store(store, passphrase, project_dir)
     except (ValueError, OSError):
         pass  # Best-effort; don't crash the API call
+
+
+# =============================================================================
+# Expiry & Rotation Schedule
+# =============================================================================
+
+# Default constants
+_DEFAULT_ROTATION_SCHEDULE_DAYS = 90
+_DEFAULT_EXPIRY_WARNING_DAYS = 14
+
+
+def get_rotation_schedule_days() -> int:
+    """Get the configured rotation schedule in days.
+
+    Resolution order:
+    1. settings.json → _omg.credentials.rotation_schedule_days
+    2. Default: 90 days
+    """
+    try:
+        settings_path = os.path.join(get_project_dir(), "settings.json")
+        if os.path.exists(settings_path):
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+            cred_cfg = settings.get("_omg", {}).get("credentials", {})
+            return int(cred_cfg.get("rotation_schedule_days", _DEFAULT_ROTATION_SCHEDULE_DAYS))
+    except (json.JSONDecodeError, OSError, TypeError, ValueError):
+        pass
+    return _DEFAULT_ROTATION_SCHEDULE_DAYS
+
+
+def _get_expiry_warning_days() -> int:
+    """Get the configured expiry warning threshold in days (default: 14)."""
+    try:
+        settings_path = os.path.join(get_project_dir(), "settings.json")
+        if os.path.exists(settings_path):
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+            cred_cfg = settings.get("_omg", {}).get("credentials", {})
+            return int(cred_cfg.get("expiry_warning_days", _DEFAULT_EXPIRY_WARNING_DAYS))
+    except (json.JSONDecodeError, OSError, TypeError, ValueError):
+        pass
+    return _DEFAULT_EXPIRY_WARNING_DAYS
+
+
+def _parse_expiry(expires_at: str) -> datetime | None:
+    """Parse an ISO8601 expires_at string to datetime, or None on failure."""
+    try:
+        dt = datetime.fromisoformat(expires_at)
+        # Ensure timezone-aware
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        return None
+
+
+def check_expiry(project_dir: str) -> list[dict]:
+    """Check all credentials for expiry status.
+
+    Args:
+        project_dir: Project directory containing .omg/state/
+
+    Returns:
+        List of dicts with keys:
+          - name: provider name
+          - expires_at: ISO8601 string
+          - days_remaining: int (negative = already expired)
+          - status: 'expired' | 'expiring' | 'ok'
+
+    Credentials without expires_at are omitted from the report.
+    """
+    passphrase = os.environ.get("OMG_CREDENTIAL_PASSPHRASE")
+    if not passphrase:
+        return []
+
+    try:
+        store = load_store(passphrase, project_dir)
+    except (ValueError, OSError):
+        return []
+
+    providers = store.get("providers", {})
+    if not providers:
+        return []
+
+    now = datetime.now(timezone.utc)
+    warning_days = _DEFAULT_EXPIRY_WARNING_DAYS
+    try:
+        warning_days = _get_expiry_warning_days()
+    except Exception:
+        pass
+
+    results = []
+    for provider_name, pdata in sorted(providers.items()):
+        keys = pdata.get("keys", [])
+        active_idx = pdata.get("active_index", 0)
+
+        for i, key_entry in enumerate(keys):
+            expires_at_str = key_entry.get("expires_at")
+            if not expires_at_str:
+                continue
+
+            expiry_dt = _parse_expiry(expires_at_str)
+            if expiry_dt is None:
+                continue
+
+            delta = expiry_dt - now
+            days_remaining = int(delta.total_seconds() / 86400)
+
+            if days_remaining < 0:
+                status = "expired"
+            elif days_remaining <= warning_days:
+                status = "expiring"
+            else:
+                status = "ok"
+
+            label = key_entry.get("label", f"key-{i}")
+            results.append({
+                "name": provider_name,
+                "label": label,
+                "key_index": i,
+                "is_active": i == active_idx,
+                "expires_at": expires_at_str,
+                "days_remaining": days_remaining,
+                "status": status,
+            })
+
+    return results
+
+
+def _warn_if_expired(provider: str, key_entry: dict) -> None:
+    """Print a warning to stderr if a key is expired or expiring. Advisory only."""
+    expires_at_str = key_entry.get("expires_at")
+    if not expires_at_str:
+        return
+
+    expiry_dt = _parse_expiry(expires_at_str)
+    if expiry_dt is None:
+        return
+
+    now = datetime.now(timezone.utc)
+    delta = expiry_dt - now
+    days_remaining = int(delta.total_seconds() / 86400)
+
+    if days_remaining < 0:
+        label = key_entry.get("label", "unknown")
+        print(
+            f"Warning: Key '{label}' for provider '{provider}' expired "
+            f"{abs(days_remaining)} days ago (expires_at: {expires_at_str})",
+            file=sys.stderr,
+        )
+    elif days_remaining <= _DEFAULT_EXPIRY_WARNING_DAYS:
+        label = key_entry.get("label", "unknown")
+        print(
+            f"Warning: Key '{label}' for provider '{provider}' expiring in "
+            f"{days_remaining} days (expires_at: {expires_at_str})",
+            file=sys.stderr,
+        )
 
 
 # =============================================================================

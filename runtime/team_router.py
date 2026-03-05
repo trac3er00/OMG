@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import threading
@@ -440,20 +441,41 @@ def invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str,
         return {"error": str(exc), "fallback": "claude"}
 
 
+_TMUX_EXIT_MARKER = "__OMG_TMUX_EXIT_CODE__"
+_TMUX_EXIT_CODE_RE = re.compile(r"(?:\r?\n)?__OMG_TMUX_EXIT_CODE__:(\d+)\s*$")
+
+
+def _parse_tmux_command_result(output: str) -> tuple[str, int]:
+    """Extract exit code marker from tmux output and return cleaned output + exit code."""
+    match = _TMUX_EXIT_CODE_RE.search(output)
+    if not match:
+        raise RuntimeError("tmux output missing exit code marker")
+    exit_code = int(match.group(1))
+    cleaned = _TMUX_EXIT_CODE_RE.sub("", output).rstrip()
+    return cleaned, exit_code
+
+
 def invoke_codex_tmux(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:
     """Invoke codex-cli via persistent tmux session. Falls back to subprocess on error."""
     if not _check_tool_available("codex"):
         return {"error": "codex-cli not found", "fallback": "claude"}
+
+    mgr = _get_tmux_mgr()
+    session: str | None = None
     try:
-        mgr = _get_tmux_mgr()
         session_name = mgr.make_session_name("codex", unique_id=str(uuid.uuid4())[:8])
         session = mgr.get_or_create_session(session_name)
-        output = mgr.send_command(session, f"codex exec --json '{prompt}'", timeout=timeout)
-        mgr.kill_session(session)
-        return {"model": "codex-cli", "output": output, "exit_code": 0}
+        quoted_prompt = shlex.quote(prompt)
+        cmd = f"codex exec --json {quoted_prompt}; printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+        raw_output = mgr.send_command(session, cmd, timeout=timeout)
+        output, exit_code = _parse_tmux_command_result(raw_output)
+        return {"model": "codex-cli", "output": output, "exit_code": exit_code}
     except Exception as exc:
         _logger.warning("tmux codex invocation failed, falling back to subprocess: %s", exc)
         return invoke_codex(prompt, project_dir, timeout=timeout)
+    finally:
+        if session:
+            mgr.kill_session(session)
 
 
 def invoke_gemini(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:
@@ -482,16 +504,23 @@ def invoke_gemini_tmux(prompt: str, project_dir: str, timeout: int = 120) -> dic
     """Invoke gemini-cli via persistent tmux session. Falls back to subprocess on error."""
     if not _check_tool_available("gemini"):
         return {"error": "gemini-cli not found", "fallback": "claude"}
+
+    mgr = _get_tmux_mgr()
+    session: str | None = None
     try:
-        mgr = _get_tmux_mgr()
         session_name = mgr.make_session_name("gemini", unique_id=str(uuid.uuid4())[:8])
         session = mgr.get_or_create_session(session_name)
-        output = mgr.send_command(session, f"gemini -p '{prompt}'", timeout=timeout)
-        mgr.kill_session(session)
-        return {"model": "gemini-cli", "output": output, "exit_code": 0}
+        quoted_prompt = shlex.quote(prompt)
+        cmd = f"gemini -p {quoted_prompt}; printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+        raw_output = mgr.send_command(session, cmd, timeout=timeout)
+        output, exit_code = _parse_tmux_command_result(raw_output)
+        return {"model": "gemini-cli", "output": output, "exit_code": exit_code}
     except Exception as exc:
         _logger.warning("tmux gemini invocation failed, falling back to subprocess: %s", exc)
         return invoke_gemini(prompt, project_dir, timeout=timeout)
+    finally:
+        if session:
+            mgr.kill_session(session)
 
 
 def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> dict[str, Any]:

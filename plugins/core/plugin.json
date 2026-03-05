@@ -55,6 +55,27 @@
       "description": "Alias for project setup (use init instead)",
       "category": "setup",
       "deprecated": true
+    },
+    "cost": {
+      "path": "commands/OMG:cost.md",
+      "description": "Display session cost tracking, budget status, and usage history",
+      "category": "observability"
+    },
+    "stats": {
+      "path": "commands/OMG:stats.md",
+      "description": "Display session analytics, tool usage trends, file heatmaps, and failure patterns",
+      "category": "observability"
+    },
+    "deps": {
+      "path": "commands/OMG:deps.md",
+      "description": "Scan project dependencies for CVEs, license issues, and outdated packages",
+      "category": "observability"
+    },
+    "arch": {
+      "path": "commands/OMG:arch.md",
+      "description": "Codebase visualization — dependency graphs and architecture diagrams",
+      "category": "visualization",
+      "feature_flag": "CODEBASE_VIZ"
     }
   },
   "categories": {
@@ -77,6 +98,14 @@
     "config": {
       "description": "Configuration and settings",
       "commands": ["mode"]
+    },
+    "observability": {
+      "description": "Cost tracking and session observability",
+      "commands": ["cost", "stats", "deps"]
+    },
+    "visualization": {
+      "description": "Codebase visualization and architecture diagrams",
+      "commands": ["arch"]
     }
   }
 }

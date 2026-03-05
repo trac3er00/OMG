@@ -1,6 +1,6 @@
 {
   "name": "@trac3er/oh-my-god",
-  "version": "2.0.0-beta.1",
+  "version": "2.0.0-b",
   "description": "OMG (Oh My God) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code",
   "main": "OMG-setup.sh",
   "scripts": {
@@ -9,7 +9,16 @@
     "uninstall": "./OMG-setup.sh uninstall",
     "test": "python3 -m pytest tests/ -x -q"
   },
-  "keywords": ["claude", "claude-code", "orchestration", "multi-agent", "ai", "llm", "codex", "gemini"],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "orchestration",
+    "multi-agent",
+    "ai",
+    "llm",
+    "codex",
+    "gemini"
+  ],
   "author": "trac3er00",
   "license": "MIT",
   "repository": {

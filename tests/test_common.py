@@ -191,7 +191,7 @@ def test_feature_flags():
         os.environ["CLAUDE_PROJECT_DIR"] = tmpdir
         if "OMG_MEMORY_ENABLED" in os.environ:
             del os.environ["OMG_MEMORY_ENABLED"]
-        settings = {"_oal": {}}
+        settings = {"_omg": {}}
         settings_path = os.path.join(tmpdir, "settings.json")
         with open(settings_path, "w") as f:
             json.dump(settings, f)
