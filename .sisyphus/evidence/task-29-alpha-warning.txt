@@ -1,0 +1,45 @@
+Task 29: Feature Flag Lifecycle Management
+=============================================
+
+QA Scenario: Alpha feature warns on use
+Steps:
+  1. import sys, io
+  2. from claude_experimental._lifecycle import FeatureFlagLifecycle, LifecycleStage
+  3. lc = FeatureFlagLifecycle()
+  4. lc.register("TEST_FEATURE", status="alpha", since_version="2.0.0-beta.3")
+  5. stderr_capture = io.StringIO()
+  6. sys.stderr = stderr_capture
+  7. lc.use_feature("TEST_FEATURE")
+  8. sys.stderr = sys.__stderr__
+  9. output = stderr_capture.getvalue()
+  10. Assert "[OMG ALPHA]" in output
+  11. Assert "TEST_FEATURE" in output
+
+Result:
+  Captured stderr: "[OMG ALPHA] Feature 'TEST_FEATURE' is alpha. Behavior may change.\n"
+  ✓ "[OMG ALPHA]" in output: True
+  ✓ "TEST_FEATURE" in output: True
+  ✓ "is alpha" in output: True
+  ✓ "Behavior may change" in output: True
+
+Pre-registered Features (5 total):
+  - PARALLEL_DISPATCH (alpha, since 2.0.0-beta.3)
+  - EXPERIMENTAL_MEMORY (alpha, since 2.0.0-beta.3)
+  - PATTERN_INTELLIGENCE (alpha, since 2.0.0-beta.3)
+  - ADVANCED_INTEGRATION (alpha, since 2.0.0-beta.3)
+  - ULTRAWORKER (alpha, since 2.0.0-beta.3)
+
+Deprecated Warning Test:
+  Registered DEPRECATED_FEATURE with status="deprecated"
+  ✓ Stderr contains "[OMG DEPRECATED]"
+  ✓ Stderr contains "Please migrate"
+
+Health Check:
+  ✓ check_health() returns dict with all registered flags
+  ✓ Each entry has status, since_version, description keys
+
+Registry Access:
+  ✓ get_registry() returns complete registry dict
+  ✓ Registry is mutable (can register new flags)
+
+All QA checks PASSED ✓
