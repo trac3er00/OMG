@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "OMG v1.0.5 — project-level config with hook registrations and feature flags. Hooks also registered in ~/.claude/settings.json (user-level) to avoid double-execution.",
+  "_comment": "OMG v1.0.5 \u2014 project-level config with hook registrations and feature flags. Hooks also registered in ~/.claude/settings.json (user-level) to avoid double-execution.",
   "permissions": {
     "allow": [
       "Agent",
@@ -206,6 +206,25 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/test_generator_hook.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/budget_governor.py\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -232,14 +251,33 @@
     ]
   },
   "_omg": {
-    "_version": "1.0.5",
+    "_version": "2.0.0",
     "default_mode": "ulw+ralph",
     "vision_auto": true,
     "false_fix_detection": true,
+    "cost_budget": {
+      "session_limit_usd": 5.0,
+      "thresholds": [
+        50,
+        80,
+        95
+      ],
+      "pricing": {
+        "input_per_mtok": 3.0,
+        "output_per_mtok": 15.0
+      }
+    },
     "context_budget": {
       "session_start_max_chars": 2000,
       "prompt_enhancer_max_chars": 800,
-      "prompt_enhancer_max_injections": 10
+      "prompt_enhancer_max_injections": 10,
+      "full_turns": 10,
+      "summarize_turns": 50,
+      "batch_size": 21
+    },
+    "credentials": {
+      "rotation_schedule_days": 90,
+      "expiry_warning_days": 14
     },
     "features": {
       "memory": false,
@@ -251,7 +289,14 @@
       "agent_registry": true,
       "circuit_breaker_v2": true,
       "cognitive_modes": true,
-      "agent_routing": true
+      "agent_routing": true,
+      "COST_TRACKING": false,
+      "GIT_WORKFLOW": false,
+      "SESSION_ANALYTICS": false,
+      "TEST_GENERATION": false,
+      "DEP_HEALTH": false,
+      "CODEBASE_VIZ": false,
+      "CONTEXT_MANAGER": false
     }
   }
 }

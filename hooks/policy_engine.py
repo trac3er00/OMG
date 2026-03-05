@@ -7,6 +7,7 @@ artifact verification.
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
+from fnmatch import fnmatch
 import os
 import re
 from typing import Any
@@ -221,7 +222,196 @@ def _is_omg_credential_path(normalized_path: str) -> bool:
            parent.endswith("/.omg/state")
 
 
-def evaluate_file_access(tool: str, file_path: str) -> PolicyDecision:
+# === ALLOWLIST SUPPORT =======================================================
+
+# Globs that are too broad to be safe — reject these in allowlist entries.
+OVERLY_BROAD_GLOBS = frozenset({
+    "*", "**", "**/*", "**/**", "*/*", "*/**",
+})
+
+
+def validate_allowlist_entry(entry: dict[str, Any]) -> None:
+    """Validate a single allowlist entry.
+
+    Schema: {"path": "glob", "tools": ["Read", "Write"], "reason": "text"}
+
+    Raises ValueError if the entry is invalid.
+    """
+    if not isinstance(entry, dict):
+        raise ValueError("Allowlist entry must be a dict")
+
+    for field in ("path", "tools", "reason"):
+        if field not in entry:
+            raise ValueError(f"Missing required field: {field}")
+
+    path = entry["path"]
+    if path in OVERLY_BROAD_GLOBS:
+        raise ValueError(f"Overly broad glob rejected: {path}")
+
+    tools = entry["tools"]
+    if not isinstance(tools, list) or not tools:
+        raise ValueError("tools must be a non-empty list")
+
+
+def is_allowlisted(file_path: str, tool: str, allowlist: list[dict[str, Any]]) -> bool:
+    """Check if a file_path + tool combination is allowlisted.
+
+    Matches the file's basename and normalized path against allowlist globs.
+    Invalid entries are silently skipped.
+
+    Returns True if the path+tool matches any valid allowlist entry.
+    """
+    if not allowlist:
+        return False
+
+    normalized = os.path.normpath(file_path)
+    basename = os.path.basename(normalized)
+
+    for entry in allowlist:
+        try:
+            validate_allowlist_entry(entry)
+        except (ValueError, TypeError):
+            continue
+
+        pattern = entry["path"]
+        entry_tools = entry["tools"]
+
+        # Match against basename or full normalized path
+        if fnmatch(basename, pattern) or fnmatch(normalized, pattern):
+            if tool in entry_tools:
+                _log_allowlist_bypass(
+                    file_path, tool, entry.get("reason", "")
+                )
+                return True
+
+    return False
+
+
+def load_allowlist(project_dir: str = ".") -> list[dict[str, Any]]:
+    """Load allowlist entries from .omg/policy.yaml.
+
+    Returns a list of valid allowlist entries. Invalid entries (overly broad
+    globs, missing fields) are filtered out silently.
+
+    Returns empty list if file doesn't exist or has no allowlist section.
+    """
+    policy_path = os.path.join(project_dir, ".omg", "policy.yaml")
+    if not os.path.isfile(policy_path):
+        return []
+
+    try:
+        import yaml
+        with open(policy_path, "r") as f:
+            data = yaml.safe_load(f)
+    except ImportError:
+        # Fallback: no yaml module — try simple line-by-line parse
+        data = _parse_policy_yaml_fallback(policy_path)
+    except Exception:
+        return []
+
+    if not isinstance(data, dict):
+        return []
+
+    raw_allowlist = data.get("allowlist")
+    if not isinstance(raw_allowlist, list):
+        return []
+
+    # Filter out invalid entries
+    valid = []
+    for entry in raw_allowlist:
+        try:
+            validate_allowlist_entry(entry)
+            valid.append(entry)
+        except (ValueError, TypeError):
+            continue
+
+    return valid
+
+
+def _parse_policy_yaml_fallback(path: str) -> dict[str, Any]:
+    """Minimal YAML-like parser for allowlist section only.
+
+    Used when PyYAML is not available. Handles simple allowlist entries.
+    """
+    try:
+        with open(path, "r") as f:
+            lines = f.readlines()
+    except Exception:
+        return {}
+
+    result: dict[str, Any] = {}
+    in_allowlist = False
+    allowlist: list[dict[str, Any]] = []
+    current_entry: dict[str, Any] | None = None
+
+    for line in lines:
+        stripped = line.rstrip()
+
+        if stripped == "allowlist:":
+            in_allowlist = True
+            continue
+
+        if in_allowlist:
+            # Detect end of allowlist section (new top-level key)
+            if stripped and not stripped.startswith(" ") and not stripped.startswith("\t"):
+                in_allowlist = False
+                continue
+
+            # New list entry
+            if stripped.lstrip().startswith("- path:"):
+                if current_entry is not None:
+                    allowlist.append(current_entry)
+                val = stripped.split(":", 1)[1].strip().strip("'\"")
+                current_entry = {"path": val, "tools": [], "reason": ""}
+            elif current_entry is not None:
+                clean = stripped.strip()
+                if clean.startswith("reason:"):
+                    current_entry["reason"] = clean.split(":", 1)[1].strip().strip("'\"")
+                elif clean.startswith("- ") and "tools" not in clean:
+                    current_entry["tools"].append(clean[2:].strip().strip("'\""))
+
+    if current_entry is not None:
+        allowlist.append(current_entry)
+
+    if allowlist:
+        result["allowlist"] = allowlist
+
+    return result
+
+
+def _log_allowlist_bypass(path: str, tool: str, reason: str) -> None:
+    """Record that an allowlist entry overrode a deny decision.
+
+    Writes an audit trail entry to .omg/state/ledger/secret-access.jsonl
+    with allowlisted=True. Uses CLAUDE_PROJECT_DIR or cwd as project root.
+    Silently fails — never raises exceptions (crash isolation invariant).
+    """
+    try:
+        from secret_audit import log_secret_access
+
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+        log_secret_access(
+            project_dir=project_dir,
+            tool=tool,
+            file_path=path,
+            decision="allow",
+            reason=f"allowlist bypass: {reason}",
+            allowlisted=True,
+        )
+    except Exception:
+        pass  # Crash isolation: audit logging must never break policy evaluation
+
+
+def evaluate_file_access(
+    tool: str,
+    file_path: str,
+    allowlist: list[dict[str, Any]] | None = None,
+) -> PolicyDecision:
+    """Evaluate file access policy.
+
+    If an allowlist is provided, matching entries override deny decisions
+    for the given path and tool combination.
+    """
     if not file_path:
         return allow("no file")
 
@@ -233,6 +423,11 @@ def evaluate_file_access(tool: str, file_path: str) -> PolicyDecision:
         pass
     basename = os.path.basename(normalized).lower()
     lowpath = normalized.lower()
+
+    # --- Allowlist check (before deny rules) ---
+    # Check allowlist early: if path+tool is allowlisted, override deny.
+    if allowlist and is_allowlisted(file_path, tool, allowlist):
+        return allow(f"Allowlisted: {file_path}")
 
     if basename in EXAMPLE_FILES and tool in ("Write", "Edit", "MultiEdit"):
         return deny(

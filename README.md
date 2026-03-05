@@ -1,13 +1,13 @@
-# OMG v1.0.5
+# OMG v2.0.0-alpha
 
 OMG (Oh My God) is a standalone orchestration layer for Claude Code.
 It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
 
-- Version: `v1.0.5`
+- Version: `v2.0.0-alpha`
 - npm: `npm install @trac3er/oh-my-god`
 - Maintainer: `trac3er00`
 - Repo: `git@github.com:trac3er00/OMG.git`
-- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.5`
+- Release: `https://github.com/trac3er00/OMG/releases/tag/v2.0.0-alpha`
 
 ## What OMG Solves
 
@@ -28,11 +28,12 @@ OMG is built for teams and solo developers who want:
 
 ## At a Glance
 
-- Hooks: 27 Python hooks
+- Hooks: 48 Python hooks
 - Core rules: 5
 - Contextual rules: 17
 - Agents: 21
-- Commands: 18 (`/OMG:*` namespace)
+- Commands: 22 (`/OMG:*` namespace)
+- Feature flags: 17 (6 new in v2.0)
 
 ## Requirements
 
@@ -153,6 +154,13 @@ Common flows:
 - `/OMG:ralph-stop`
 - `/OMG:theme`
 
+### v2.0 commands
+
+- `/OMG:cost` — Cost tracking and budget management (`/cost history`, `/cost budget`, `/cost reset`)
+- `/OMG:stats` — Session analytics dashboard (`/stats weekly`, `/stats files`, `/stats failures`, `/stats dashboard`)
+- `/OMG:deps` — Dependency health and CVE scanning (`/deps cves`, `/deps licenses`, `/deps outdated`)
+- `/OMG:arch` — Codebase visualization and architecture diagrams (`/arch render`, `/arch stats`, `/arch --native`)
+
 ## Agent Routing Model
 
 OMG dispatches by domain intent:
@@ -200,6 +208,9 @@ After `/OMG:init`, project state is created under `.omg/`:
     working-memory.md
     handoff.md
     ledger/
+    dephealth/
+    dashboard.html
+    arch-diagram.png
   knowledge/
   trust/
   evidence/
@@ -218,6 +229,8 @@ omg/
   agents/
   commands/
   plugins/
+    dephealth/
+    viz/
   templates/
   runtime/
   scripts/
@@ -226,7 +239,17 @@ omg/
 
 ## Versioning and Releases
 
-Current version: `v1.0.5`
+Current version: `v2.0.0-alpha`
+
+### v2.0.0-alpha release notes
+
+See [New in v2.0](#new-in-v20) below for the full feature overview.
+
+- 8 capability gaps addressed across cost tracking, context management, secrets, test generation, git automation, analytics, dependency health, and codebase visualization
+- 6 new feature flags (all off by default, fully backward-compatible)
+- 4 new commands: `/OMG:cost`, `/OMG:stats`, `/OMG:deps`, `/OMG:arch`
+- 48 Python hooks (up from 27 in v1.0.5)
+- Research-backed implementations: BATS-inspired budget scheduling, MemGPT-enhanced context management, CodaMosa-inspired test generation, OSV batch API for CVE scanning
 
 ### v1.0.5 release notes
 
@@ -256,15 +279,15 @@ Releases are automated via GitHub Actions. When a version tag is pushed, the `pu
 
 ```bash
 # bump version in package.json, then:
-git tag v1.0.5
-git push origin v1.0.5
-# → GitHub Actions auto-publishes @trac3er/oh-my-god@1.0.5 to npm
+git tag v2.0.0-alpha
+git push origin v2.0.0-alpha
+# → GitHub Actions auto-publishes @trac3er/oh-my-god@2.0.0-alpha to npm
 ```
 
 Manual release (if needed):
 
 ```bash
-gh release create v1.0.5 --title "OMG v1.0.5" --notes "Release notes"
+gh release create v2.0.0-alpha --title "OMG v2.0.0-alpha" --notes "Release notes"
 ```
 
 ## Compatibility Notes
@@ -297,11 +320,73 @@ bash ~/.claude/plugins/cache/oh-advanced-layer/oal/*/.claude-plugin/scripts/upda
 
 MIT
 
-## New in v1.1 (Enhancement Release)
+## New in v2.0
 
-### Feature Flags
+v2.0 addresses 8 capability gaps identified through production usage. All features are disabled by default and fully backward-compatible with v1.x workflows.
 
-All new features are disabled by default. Enable via environment variables or `settings.json`:
+### Gap 1: Real-Time Cost & Token Budget Management
+
+Inspired by BATS (Budget-Aware Token Scheduling) and FrugalGPT cost-optimization research. Tracks token usage and USD spend per tool call, fires threshold alerts at 50%/80%/95% budget, and provides a full cost breakdown by tool and session.
+
+- Hook: `budget_governor.py` (PostToolUse)
+- Command: `/OMG:cost`
+- Flag: `COST_TRACKING`
+
+### Gap 2: Intelligent Context Window Manager
+
+Enhanced with Acon (Adaptive Context) and MemGPT-inspired memory tiering. Manages context window pressure by selectively compressing or evicting stale context while preserving high-value working memory.
+
+- Hook: `context_manager.py`
+- Flag: built into core context management
+
+### Gap 3: Secrets & Environment Vault Upgrades
+
+Adds allowlisting, audit logging, and expiry tracking to the existing secrets vault. Prevents accidental exposure of credentials in tool outputs and tracks secret access patterns.
+
+- Hook: `secrets_vault.py`
+- Flag: built into core secrets handling
+
+### Gap 4: Automated Test Generation Engine
+
+CodaMosa-inspired iterative test generation. Analyzes uncovered code paths and generates targeted test cases, prioritizing edge cases and boundary conditions that manual test writing tends to miss.
+
+- Plugin: `plugins/testgen/`
+- Flag: `TEST_GENERATION`
+
+### Gap 5: Advanced Git Workflow Automation
+
+Extends git integration beyond status checks to full commit execution, branch management, and PR creation. Supports conventional commit formatting, branch naming conventions, and automated PR descriptions.
+
+- Hook: `git_workflow.py`
+- Flag: `GIT_WORKFLOW`
+
+### Gap 6: Session Analytics & Productivity Dashboard
+
+Unified query layer over all OMG state files. Surfaces tool usage trends, file heatmaps, failure patterns, and escalation effectiveness. Generates a self-contained HTML dashboard at `.omg/state/dashboard.html`.
+
+- Hook: `session_tracker.py`
+- Command: `/OMG:stats`
+- Flag: `SESSION_ANALYTICS`
+
+### Gap 7: Dependency Health & License Compliance
+
+CVE scanning via the OSV batch API with reachability analysis (direct vs. transitive imports). License compatibility checker with tiered model: permissive > weak-copyleft > copyleft. Supports npm, pip, Cargo, Go modules, and RubyGems.
+
+- Plugin: `plugins/dephealth/`
+- Command: `/OMG:deps`
+- Flag: `DEP_HEALTH`
+
+### Gap 8: Codebase Visualization
+
+AST-based dependency graph builder for Python (stdlib `ast`), with regex fallback for JS/TS/Go. Generates Mermaid and D2 diagrams, renders to PNG via mermaid.ink, and supports native toolchain parsing (`go list`, `tsc`, `cargo metadata`) for ~95% accuracy.
+
+- Plugin: `plugins/viz/`
+- Command: `/OMG:arch`
+- Flag: `CODEBASE_VIZ`
+
+## Feature Flags
+
+All features are disabled by default. Enable via environment variables or `settings.json`:
 
 | Feature | Env Var | Default |
 |---------|---------|---------|
@@ -316,6 +401,12 @@ All new features are disabled by default. Enable via environment variables or `s
 | SSH manager | `OMG_SSH_ENABLED=1` | Off |
 | Themes | `OMG_THEMES_ENABLED=true` | Off |
 | Rust engine | `OMG_RUST_ENGINE_ENABLED=1` | Off |
+| **Cost tracking** | `OMG_COST_TRACKING_ENABLED=1` | Off |
+| **Git workflow automation** | `OMG_GIT_WORKFLOW_ENABLED=1` | Off |
+| **Session analytics** | `OMG_SESSION_ANALYTICS_ENABLED=1` | Off |
+| **Test generation** | `OMG_TEST_GENERATION_ENABLED=1` | Off |
+| **Dependency health** | `OMG_DEP_HEALTH_ENABLED=1` | Off |
+| **Codebase visualization** | `OMG_CODEBASE_VIZ_ENABLED=1` | Off |
 
 You can also enable features in `settings.json` under `_omg.features`:
 
@@ -324,17 +415,18 @@ You can also enable features in `settings.json` under `_omg.features`:
   "_omg": {
     "features": {
       "THEMES": true,
-      "INTENTGATE": true
+      "COST_TRACKING": true,
+      "SESSION_ANALYTICS": true
     }
   }
 }
 ```
 
-### New Commands
+### New Commands (v1.1)
 
 - `/OMG:theme` — Interactive theme selector with `--list`, `--preview`, `--set`, and `--auto` modes
 
-### New Agents
+### New Agents (v1.1)
 
 v1.1 ships with expanded agent coverage:
 
@@ -351,6 +443,37 @@ v1.1 ships with expanded agent coverage:
 - `omg-testing-engineer` — Test strategy and coverage
 
 ## Migration Guide
+
+### Upgrading from OMG v1.x to v2.0
+
+All new features default to `False` and are fully backward-compatible. Existing workflows continue unchanged.
+
+To adopt v2.0 features selectively:
+
+1. **Enable via env var** before launching Claude Code:
+   ```bash
+   export OMG_COST_TRACKING_ENABLED=1
+   export OMG_SESSION_ANALYTICS_ENABLED=1
+   export OMG_DEP_HEALTH_ENABLED=1
+   ```
+
+2. **Or enable in `settings.json`** for persistent config:
+   ```json
+   {
+     "_omg": {
+       "features": {
+         "COST_TRACKING": true,
+         "SESSION_ANALYTICS": true,
+         "DEP_HEALTH": true,
+         "CODEBASE_VIZ": true
+       }
+     }
+   }
+   ```
+
+3. **No breaking changes** — all v1.x commands, agents, and hooks remain intact.
+
+4. **New commands** are available immediately after update, each gated by its respective feature flag.
 
 ### Upgrading from OMG v1.0 to v1.1
 

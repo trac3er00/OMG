@@ -11,13 +11,14 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, deny_decision, is_bypass_mode
+from _common import setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
 
 # Fail-closed: deny on crash (security hook)
 setup_crash_handler("secret-guard", fail_closed=True)
 
 try:
     from policy_engine import evaluate_file_access, to_pretool_hook_output
+    from secret_audit import log_secret_access
 except Exception as _import_err:
     print(f"OMG secret-guard: policy_engine import failed: {_import_err}", file=sys.stderr)
     deny_decision(f"OMG secret-guard crash: policy_engine import failed: {_import_err}. Denying for safety.")
@@ -34,6 +35,19 @@ if not file_path:
     sys.exit(0)
 
 decision = evaluate_file_access(tool, file_path)
+
+# Audit log: record every secret access decision
+try:
+    log_secret_access(
+        project_dir=get_project_dir(),
+        tool=tool,
+        file_path=file_path,
+        decision=decision.action,
+        reason=decision.reason,
+        allowlisted=False,
+    )
+except Exception:
+    pass  # Crash isolation: audit logging must never break the hook
 
 # In bypass-permission mode, only enforce hard denials (critical safety).
 # Skip "ask" decisions so the user is not prompted for confirmation.

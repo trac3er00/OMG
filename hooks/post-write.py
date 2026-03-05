@@ -6,9 +6,23 @@ PostToolUse Hook (Write/Edit/MultiEdit): Auto-Format + Secret Scan (Enterprise)
 """
 import json, sys, os, re, subprocess
 import contextlib
+import importlib.util
 from datetime import datetime, timezone
-from _common import _resolve_project_dir
-from state_migration import resolve_state_file
+
+
+def _load_local_attr(module_name, filename, attr_name):
+    module_path = os.path.join(os.path.dirname(__file__), filename)
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Unable to load {filename}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return getattr(module, attr_name)
+
+
+_resolve_project_dir = _load_local_attr("omg_hooks_common", "_common.py", "_resolve_project_dir")
+resolve_state_file = _load_local_attr("omg_hooks_state_migration", "state_migration.py", "resolve_state_file")
+detect_high_entropy_strings = _load_local_attr("omg_hooks_post_write", "post_write.py", "detect_high_entropy_strings")
 
 try:
     data = json.load(sys.stdin)
@@ -131,17 +145,17 @@ SECURITY_WARNINGS = [
 
 findings = []
 patterns_matched = []
+lowpath = file_path.lower()
+is_test_file = any(d in lowpath for d in ["/__tests__/", "/test/", "/tests/"])
+if not is_test_file:
+    basename = os.path.basename(file_path).lower()
+    is_test_file = any(p in basename for p in [".test.", ".spec."])
+
 for i, line in enumerate(content.split("\n"), 1):
     stripped = line.strip()
     # Skip lines that are entirely comments (bare "*" removed — too broad)
     if stripped.startswith(("#", "//", "/*", "* ", "<!--", "%", ";")):
         continue
-    # Skip test files: check parent DIRECTORY for test dirs, not just filename
-    lowpath = file_path.lower()
-    is_test_file = any(d in lowpath for d in ["/__tests__/", "/test/", "/tests/", "/fixtures/", "/mocks/", "/__mocks__/"])
-    if not is_test_file:
-        basename = os.path.basename(file_path).lower()
-        is_test_file = any(p in basename for p in [".test.", ".spec.", "_test.", "test_"])
     if is_test_file:
         continue
     for pattern, label in SECRET_PATTERNS:
@@ -150,6 +164,12 @@ for i, line in enumerate(content.split("\n"), 1):
             if label not in patterns_matched:
                 patterns_matched.append(label)
             break  # One finding per line is enough
+
+    entropy_matches = detect_high_entropy_strings(line)
+    if entropy_matches:
+        findings.append(f"  Line {i}: High-entropy potential secret")
+        if "High-entropy potential secret" not in patterns_matched:
+            patterns_matched.append("High-entropy potential secret")
 
 if findings:
     try:

@@ -33,7 +33,7 @@ def _ensure_imports():
 def _is_enabled() -> bool:
     """Check if changelog feature is enabled."""
     _ensure_imports()
-    return _get_feature_flag("changelog", default=False)
+    return _get_feature_flag("GIT_WORKFLOW", default=False)
 
 
 # Supported conventional commit types
@@ -262,6 +262,85 @@ def main():
     else:
         print("[OMG Changelog] No changes written (no commits or feature flag disabled).")
         sys.exit(1)
+
+
+_SYNTH_TYPE_TO_SECTION = {
+    "feat": "Features",
+    "fix": "Bug Fixes",
+}
+
+_SYNTH_SECTION_ORDER = ["Features", "Bug Fixes", "Breaking Changes", "Other"]
+
+
+def synthesize_changelog(commits: List[Dict[str, Any]]) -> str:
+    """Public API: group raw commit dicts by type into markdown sections.
+
+    Accepts dicts with ``message`` (str), optional ``hash`` and ``files``.
+    """
+    if not commits:
+        return ""
+
+    sections: Dict[str, List[str]] = {s: [] for s in _SYNTH_SECTION_ORDER}
+
+    for commit in commits:
+        message = commit.get("message", "").strip()
+        if not message:
+            continue
+
+        is_breaking = message.startswith("BREAKING CHANGE")
+        if not is_breaking:
+            colon_idx = message.find(":")
+            if colon_idx > 0 and "!" in message[:colon_idx]:
+                is_breaking = True
+
+        if is_breaking:
+            sections["Breaking Changes"].append(f"- {message}")
+            continue
+
+        match = _CONVENTIONAL_RE.match(message)
+        if match:
+            commit_type = match.group("type").lower()
+            section = _SYNTH_TYPE_TO_SECTION.get(commit_type, "Other")
+            sections[section].append(f"- {message}")
+        else:
+            sections["Other"].append(f"- {message}")
+
+    lines: List[str] = ["## Changes", ""]
+
+    for section_name in _SYNTH_SECTION_ORDER:
+        entries = sections[section_name]
+        if not entries:
+            continue
+        lines.append(f"### {section_name}")
+        lines.extend(entries)
+        lines.append("")
+
+    while lines and lines[-1] == "":
+        lines.pop()
+
+    if len(lines) <= 1:
+        return ""
+
+    return "\n".join(lines)
+
+
+def write_changelog(
+    commits: List[Dict[str, Any]],
+    output_path: Optional[str] = None,
+) -> str:
+    """Synthesize changelog; write to *output_path* when given, else return string."""
+    content = synthesize_changelog(commits)
+    if not content:
+        return ""
+
+    if output_path is not None:
+        parent = os.path.dirname(output_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+    return content
 
 
 if __name__ == "__main__":
