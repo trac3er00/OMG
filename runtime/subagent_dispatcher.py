@@ -108,9 +108,40 @@ def _load_job_from_disk(job_id: str) -> dict[str, Any] | None:
         return None
 
 
+def _try_dynamic_pool() -> Any | None:
+    """Return a DynamicPool instance if PARALLEL_DISPATCH flag is enabled, else None."""
+    try:
+        exp_dir = os.path.join(_OMG_ROOT, "claude_experimental")
+        parent = os.path.dirname(exp_dir)
+        if parent not in sys.path:
+            sys.path.insert(0, parent)
+        from claude_experimental._flags import get_feature_flag  # type: ignore[import]
+        if not get_feature_flag("PARALLEL_DISPATCH", default=False):
+            return None
+        from claude_experimental.parallel.scaling import DynamicPool  # type: ignore[import]
+        return DynamicPool(min_workers=1, max_workers=MAX_JOBS, scale_interval=10.0)
+    except (ImportError, Exception):
+        return None
+
+
+# Module-level DynamicPool singleton (lazy init)
+_dynamic_pool: Any | None = None
+_dynamic_pool_checked = False
+
+
 def get_executor() -> ThreadPoolExecutor:
-    """Lazy-init and return the module-level ThreadPoolExecutor singleton."""
-    global _executor
+    """Lazy-init and return the module-level executor singleton.
+
+    When the ``PARALLEL_DISPATCH`` feature flag is enabled, returns a
+    ``DynamicPool`` (which wraps ``ThreadPoolExecutor`` with auto-scaling).
+    Otherwise returns a static ``ThreadPoolExecutor(max_workers=MAX_JOBS)``.
+    """
+    global _executor, _dynamic_pool, _dynamic_pool_checked
+    if not _dynamic_pool_checked:
+        _dynamic_pool_checked = True
+        _dynamic_pool = _try_dynamic_pool()
+    if _dynamic_pool is not None:
+        return _dynamic_pool  # type: ignore[return-value]
     if _executor is None:
         _executor = ThreadPoolExecutor(max_workers=MAX_JOBS)
     return _executor

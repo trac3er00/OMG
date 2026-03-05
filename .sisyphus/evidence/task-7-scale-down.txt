@@ -1,0 +1,8 @@
+=== SCALE-DOWN EVIDENCE ===
+Artificially scaled to 6: {'active': 0, 'queued': 0, 'completed': 0, 'pool_size': 6}
+After 2s idle: {'active': 0, 'queued': 0, 'completed': 0, 'pool_size': 1}
+Scale-down: 6 -> 1
+PASS
+
+Condition: queue_depth(0) < 0.5 * current_workers(6) = 3 for >0.5s → scaled down to min_workers=1
+Hysteresis: scale-down only triggers after sustained low usage (configurable hold period)

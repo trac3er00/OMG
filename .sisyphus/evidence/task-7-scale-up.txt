@@ -1,0 +1,9 @@
+=== SCALE-UP EVIDENCE ===
+Initial: {'active': 0, 'queued': 0, 'completed': 0, 'pool_size': 1}
+After 10 submits (pre-monitor): {'active': 1, 'queued': 9, 'completed': 0, 'pool_size': 1}
+After monitor cycle: {'active': 1, 'queued': 9, 'completed': 0, 'pool_size': 8}
+Scale-up triggered: True (1 -> 8)
+After completion: {'active': 0, 'queued': 0, 'completed': 10, 'pool_size': 8}
+RESULT: PASS
+
+Condition: queue_depth(10) > 2 * current_workers(1) = 2 → scaled to min(10, max_workers=8) = 8
