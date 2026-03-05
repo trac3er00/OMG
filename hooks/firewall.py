@@ -12,7 +12,7 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, deny_decision, is_bypass_mode
+from _common import setup_crash_handler, json_input, deny_decision, is_bypass_mode, is_bypass_all, is_plan_mode
 
 # Fail-closed: deny on crash (security hook)
 setup_crash_handler("firewall", fail_closed=True)
@@ -39,6 +39,12 @@ decision = evaluate_bash_command(cmd)
 # In bypass-permission mode, only enforce hard denials (critical safety).
 # Skip "ask" decisions so the user is not prompted for confirmation.
 if is_bypass_mode(data) and decision.action != "deny":
+    sys.exit(0)
+# bypass_all flag: same behavior as bypassPermissions — skip asks, keep denials
+if is_bypass_all(data) and decision.action != "deny":
+    sys.exit(0)
+# plan mode: allow all Bash commands (writes are gated by secret-guard, not firewall)
+if is_plan_mode(data) and decision.action != "deny":
     sys.exit(0)
 
 out = to_pretool_hook_output(decision)
