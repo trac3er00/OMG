@@ -299,7 +299,12 @@
       "TEST_GENERATION": false,
       "DEP_HEALTH": false,
       "CODEBASE_VIZ": false,
-      "CONTEXT_MANAGER": false
+      "CONTEXT_MANAGER": false,
+      "PARALLEL_DISPATCH": false,
+      "REFLECTIVE_MEMORY": false,
+      "PATTERN_INTELLIGENCE": false,
+      "INTEGRATION_BRIDGE": false,
+      "ULTRAWORKER": false
     }
   }
 }
