@@ -42,6 +42,20 @@ _INSTALL_HINTS: dict[str, str] = {
     "kimi": "uv tool install --python 3.13 kimi-cli",
 }
 
+BYPASS_ALL_WARNING = (
+    "⚠️  BYPASS-ALL / FULL VIBE-CODE MODE WARNING ⚠️\n\n"
+    "Enabling bypass-all grants Claude Code unrestricted write access to your filesystem "
+    "without asking for confirmation on individual file edits.\n\n"
+    "IMPORTANT DISCLAIMER: The author takes NO responsibility for any data loss, "
+    "unintended file modifications, or system changes that occur while bypass-all is enabled. "
+    "Use at your own risk.\n\n"
+    "Note: Some safety measures remain active even in bypass-all mode:\n"
+    "  • Firewall deny rules still block dangerous commands (rm -rf, sudo, etc.)\n"
+    "  • Secret-guard still protects credentials and API keys\n"
+    "  • You can disable bypass-all at any time via settings.json\n\n"
+    "Do you want to enable bypass-all mode? (y/N): "
+)
+
 MCP_CATALOG: list[dict[str, Any]] = [
     {
         "id": "context7",
