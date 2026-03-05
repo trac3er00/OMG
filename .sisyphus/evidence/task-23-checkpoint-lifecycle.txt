@@ -1,0 +1,41 @@
+=== Task 23: Checkpoint Lifecycle Evidence ===
+Timestamp: 2026-03-05T05:14:37.788120+00:00
+
+--- Step 1: Create DECISION checkpoint ---
+checkpoint_id: 9b00c455-ebfb-48a8-b82f-4b3479f34c0b
+status: pending
+type: DECISION
+options: ['staging', 'production', 'canary']
+schema_version: 1
+decision: None
+created_at: 2026-03-05T05:14:37.789248+00:00
+expires_at: 2026-03-05T06:14:37.789248+00:00
+file_exists: True
+
+--- Step 2: List pending ---
+pending_count: 1
+pending_ids: ['9b00c455-ebfb-48a8-b82f-4b3479f34c0b']
+
+--- Step 3: Resume checkpoint ---
+resume_result: True
+status_after: resolved
+decision_after: staging
+
+--- Step 4: Resume already resolved ---
+resume_again: False (expected False)
+
+--- Step 5: Create VERIFICATION checkpoint ---
+checkpoint_id: c204717a-a101-48b2-8d9e-e271fc99653a
+type: VERIFICATION
+
+--- Step 6: Expired checkpoint cleanup ---
+removed: 1
+expired_file_exists: False
+
+--- Step 7: Invalid checkpoint type ---
+ValueError: Invalid checkpoint type 'INVALID'. Must be one of: VERIFICATION, DECISION, CLARIFICATION
+
+--- Step 8: Feature flag gating ---
+RuntimeError: Tier-4 advanced integration is disabled. Enable with: OMG_ADVANCED_INTEGRATION_ENABLED=1 or settings.json _omg.features.ADVANCED_INTEGRATION: true
+
+=== ALL LIFECYCLE CHECKS PASSED ===
