@@ -32,7 +32,7 @@ OMG_ROOT="$(dirname "$PLUGIN_DIR")"
 if [ -f "$OMG_ROOT/OMG-setup.sh" ]; then
     info "Found OMG-setup.sh, running installation..."
     echo ""
-    bash "$OMG_ROOT/OMG-setup.sh" install
+    bash "$OMG_ROOT/OMG-setup.sh" install --install-as-plugin --non-interactive
 else
     error "OMG-setup.sh not found at: $OMG_ROOT/OMG-setup.sh"
     error "Plugin installation requires the OMG setup script"

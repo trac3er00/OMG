@@ -216,6 +216,11 @@ parse_args() {
     if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ]; then
         NON_INTERACTIVE=true
     fi
+
+    # Auto-enable plugin mode for npm installs
+    if [ -n "${npm_execpath:-}" ] || [ -n "${npm_lifecycle_event:-}" ]; then
+        INSTALL_AS_PLUGIN=true
+    fi
 }
 
 preflight() {
@@ -660,7 +665,39 @@ install_plugin_bundle() {
     mkdir -p "$plugin_root/.claude-plugin"
     mkdir -p "$CLAUDE_DIR/hud"
     cp "$plugin_manifest_src" "$plugin_manifest_target"
-    write_plugin_mcp_file "$plugin_mcp_target" >/dev/null
+    
+    # Provide a fallback .mcp.json if not shipped in npm package
+    if [ ! -f "$SCRIPT_DIR/.mcp.json" ]; then
+        local _fallback_mcp_dir
+        _fallback_mcp_dir=$(mktemp -d)
+        cat > "$_fallback_mcp_dir/.mcp.json" <<'FALLBACK_MCP'
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    },
+    "websearch": {
+      "command": "npx",
+      "args": ["-y", "@zhafron/mcp-web-search"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"]
+    }
+  }
+}
+FALLBACK_MCP
+        SCRIPT_DIR="$_fallback_mcp_dir" write_plugin_mcp_file "$plugin_mcp_target" >/dev/null
+        rm -rf "$_fallback_mcp_dir"
+    else
+        write_plugin_mcp_file "$plugin_mcp_target" >/dev/null
+    fi
+    
     cp "$hud_src" "$hud_target"
     mkdir -p "$PLUGIN_CACHE_DIR"
     printf '%s\n' "omg-plugin-bundle-v1" > "$PLUGIN_CACHE_DIR/$PLUGIN_BUNDLE_MARKER_FILE"

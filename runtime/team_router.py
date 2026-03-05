@@ -7,8 +7,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
+import threading
+import uuid
 from typing import Any
 
 # --- Path resolution (never relies on CWD) ---
@@ -114,6 +117,49 @@ _INSTALL_HINTS: dict[str, str] = {
     "codex": "Install Codex CLI: npm install -g @openai/codex",
     "gemini": "Install Gemini CLI: npm install -g @google/gemini-cli",
 }
+
+
+_tmux_mgr: Any = None
+
+
+def _get_tmux_mgr() -> Any:
+    """Return the module-level TmuxSessionManager singleton (lazy init)."""
+    global _tmux_mgr
+    if _tmux_mgr is None:
+        try:
+            from runtime.tmux_session_manager import TmuxSessionManager  # pyright: ignore[reportMissingImports]
+
+            _tmux_mgr = TmuxSessionManager()
+        except ImportError:
+            class _FallbackMgr:  # type: ignore[no-redef]
+                def is_tmux_available(self):
+                    return False
+
+            _tmux_mgr = _FallbackMgr()
+    return _tmux_mgr
+
+
+def _should_use_tmux() -> bool:
+    """Return True only when tmux is usable in this execution context.
+
+    Returns False if:
+    - tmux is not installed
+    - TERM env var is 'dumb' or empty (non-interactive terminal)
+    - Running inside a ThreadPoolExecutor worker thread
+    """
+    try:
+        if not _get_tmux_mgr().is_tmux_available():
+            return False
+        term = os.environ.get("TERM", "")
+        if term in ("dumb", ""):
+            return False
+        # Detect ThreadPoolExecutor worker threads (named 'ThreadPoolExecutor-N_N')
+        thread_name = threading.current_thread().name
+        if "ThreadPoolExecutor" in thread_name:
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def _auth_status_command(tool_name: str) -> list[str] | None:
@@ -288,6 +334,43 @@ def invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str,
         return {"error": str(exc), "fallback": "claude"}
 
 
+_TMUX_EXIT_MARKER = "__OMG_TMUX_EXIT_CODE__"
+_TMUX_EXIT_CODE_RE = re.compile(r"(?:\r?\n)?__OMG_TMUX_EXIT_CODE__:(\d+)\s*$")
+
+
+def _parse_tmux_command_result(output: str) -> tuple[str, int]:
+    """Extract exit code marker from tmux output and return cleaned output + exit code."""
+    match = _TMUX_EXIT_CODE_RE.search(output)
+    if not match:
+        raise RuntimeError("tmux output missing exit code marker")
+    exit_code = int(match.group(1))
+    cleaned = _TMUX_EXIT_CODE_RE.sub("", output).rstrip()
+    return cleaned, exit_code
+
+
+def invoke_codex_tmux(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:
+    """Invoke codex-cli via persistent tmux session. Falls back to subprocess on error."""
+    if not _check_tool_available("codex"):
+        return {"error": "codex-cli not found", "fallback": "claude"}
+
+    mgr = _get_tmux_mgr()
+    session: str | None = None
+    try:
+        session_name = mgr.make_session_name("codex", unique_id=str(uuid.uuid4())[:8])
+        session = mgr.get_or_create_session(session_name)
+        quoted_prompt = shlex.quote(prompt)
+        cmd = f"codex exec --json {quoted_prompt}; printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+        raw_output = mgr.send_command(session, cmd, timeout=timeout)
+        output, exit_code = _parse_tmux_command_result(raw_output)
+        return {"model": "codex-cli", "output": output, "exit_code": exit_code}
+    except Exception as exc:
+        _logger.warning("tmux codex invocation failed, falling back to subprocess: %s", exc)
+        return invoke_codex(prompt, project_dir, timeout=timeout)
+    finally:
+        if session:
+            mgr.kill_session(session)
+
+
 def invoke_gemini(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:
     """Invoke gemini-cli as subprocess. Returns result dict with model/output/exit_code or error/fallback."""
     if not _check_tool_available("gemini"):
@@ -308,6 +391,29 @@ def invoke_gemini(prompt: str, project_dir: str, timeout: int = 120) -> dict[str
         return {"error": "gemini-cli not found", "fallback": "claude"}
     except Exception as exc:
         return {"error": str(exc), "fallback": "claude"}
+
+
+def invoke_gemini_tmux(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:
+    """Invoke gemini-cli via persistent tmux session. Falls back to subprocess on error."""
+    if not _check_tool_available("gemini"):
+        return {"error": "gemini-cli not found", "fallback": "claude"}
+
+    mgr = _get_tmux_mgr()
+    session: str | None = None
+    try:
+        session_name = mgr.make_session_name("gemini", unique_id=str(uuid.uuid4())[:8])
+        session = mgr.get_or_create_session(session_name)
+        quoted_prompt = shlex.quote(prompt)
+        cmd = f"gemini -p {quoted_prompt}; printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+        raw_output = mgr.send_command(session, cmd, timeout=timeout)
+        output, exit_code = _parse_tmux_command_result(raw_output)
+        return {"model": "gemini-cli", "output": output, "exit_code": exit_code}
+    except Exception as exc:
+        _logger.warning("tmux gemini invocation failed, falling back to subprocess: %s", exc)
+        return invoke_gemini(prompt, project_dir, timeout=timeout)
+    finally:
+        if session:
+            mgr.kill_session(session)
 
 
 def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> dict[str, Any]:
@@ -335,8 +441,12 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
         packaged = package_prompt(agent_name, user_prompt, project_dir)
 
         if preferred == "codex-cli" and available.get("codex-cli"):
+            if _should_use_tmux():
+                return invoke_codex_tmux(packaged, project_dir)
             return invoke_codex(packaged, project_dir)
         if preferred == "gemini-cli" and available.get("gemini-cli"):
+            if _should_use_tmux():
+                return invoke_gemini_tmux(packaged, project_dir)
             return invoke_gemini(packaged, project_dir)
         # Fallback: use Claude native task() dispatch
         return {
