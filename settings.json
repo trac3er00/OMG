@@ -254,6 +254,13 @@
     "_version": "2.0.0",
     "setup_in_progress": false,
     "bypass_all": false,
+    "plan_type": "max",
+    "model_routing": {
+      "planning": "claude-opus-4-5",
+      "coding": "claude-sonnet-4-5",
+      "review": "claude-opus-4-5",
+      "commit": "claude-haiku-4-5"
+    },
     "default_mode": "ulw+ralph",
     "vision_auto": true,
     "false_fix_detection": true,
