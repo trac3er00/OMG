@@ -12,24 +12,29 @@ def _read(path: str) -> str:
 
 
 def test_legacy_compat_aliases_removed():
-    """omg-teams.md and ccg.md compat aliases were removed in v1.0.3 — replaced by OMG:teams and OMG:ccg."""
+    """The old standalone compat alias filename remains removed."""
     assert not (ROOT / "commands" / "omg-teams.md").exists()
-    assert not (ROOT / "commands" / "ccg.md").exists()
 
 
 def test_omg_teams_exists():
-    teams_doc = _read("commands/OMG:teams.md")
+    teams_doc = _read("commands/teams.md")
     assert "teams" in teams_doc.lower()
 
 
 def test_omg_ccg_exists():
-    ccg_doc = _read("commands/OMG:ccg.md")
+    ccg_doc = _read("commands/ccg.md")
     assert "ccg" in ccg_doc.lower()
 
 
 def test_escalate_uses_internal_router_not_external_omc():
-    escalate_doc = _read("commands/OMG:escalate.md")
+    escalate_doc = _read("commands/escalate.md")
     assert "~/.claude/omg-runtime/scripts/omg.py" in escalate_doc
     assert "python3 \"$OMG_CLI\" teams" in escalate_doc
     assert "python3 \"$OMG_CLI\" ccg" in escalate_doc
     assert "No external legacy plugin is required." in escalate_doc
+
+
+def test_prefixed_source_command_filenames_removed():
+    assert not (ROOT / "commands" / "OMG:teams.md").exists()
+    assert not (ROOT / "commands" / "OMG:ccg.md").exists()
+    assert not (ROOT / "commands" / "OMG:escalate.md").exists()

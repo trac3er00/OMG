@@ -15,6 +15,8 @@ from typing import cast
 ROOT = Path(__file__).resolve().parents[2]
 SETUP = ROOT / "OMG-setup.sh"
 LEGACY = ROOT / "install.sh"
+PLUGIN_MARKETPLACE = "oh-my-god"
+PLUGIN_REF = f"omg@{PLUGIN_MARKETPLACE}"
 
 
 def _run_script(path: Path, args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -176,8 +178,8 @@ def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     (claude_dir / "hooks").mkdir(parents=True)
     _ = (claude_dir / "hooks" / ".omg-version").write_text("omg-v1-old\n", encoding="utf-8")
-    (claude_dir / "plugins" / "cache" / "oh-advanced-layer" / "omg").mkdir(parents=True)
-    _ = (claude_dir / "plugins" / "cache" / "oh-advanced-layer" / "omg" / ".omg-plugin-bundle").write_text(
+    (claude_dir / "plugins" / "cache" / PLUGIN_MARKETPLACE / "omg").mkdir(parents=True)
+    _ = (claude_dir / "plugins" / "cache" / PLUGIN_MARKETPLACE / "omg" / ".omg-plugin-bundle").write_text(
         "omg-plugin-bundle-v1\n",
         encoding="utf-8",
     )
@@ -241,6 +243,7 @@ def test_setup_install_uses_omg_only_command_surface(tmp_path: Path):
     installed = [p.name for p in commands_dir.glob("*.md")]
     assert installed
     assert all("omc" not in name.lower() for name in installed)
+    assert all(name.startswith("OMG:") for name in installed)
 
 
 def test_setup_install_preserves_existing_custom_deprecated_command_name(tmp_path: Path):
@@ -294,7 +297,7 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     )
     assert proc.returncode == 0
 
-    plugin_cache_root = claude_dir / "plugins" / "cache" / "oh-advanced-layer" / "omg"
+    plugin_cache_root = claude_dir / "plugins" / "cache" / PLUGIN_MARKETPLACE / "omg"
     installed_versions = sorted([p for p in plugin_cache_root.iterdir() if p.is_dir()])
     assert installed_versions
     plugin_dir = installed_versions[-1]
@@ -307,7 +310,7 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     settings_path = claude_dir / "settings.json"
     settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
     enabled = cast(dict[str, object], settings.get("enabledPlugins") or {})
-    assert enabled.get("omg@oh-advanced-layer") is True
+    assert enabled.get(PLUGIN_REF) is True
 
     mcp_path = claude_dir / ".mcp.json"
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
@@ -320,7 +323,22 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     installed_plugins_path = claude_dir / "plugins" / "installed_plugins.json"
     installed_plugins = cast(dict[str, object], json.loads(installed_plugins_path.read_text(encoding="utf-8")))
     plugins = cast(dict[str, object], installed_plugins.get("plugins") or {})
-    assert "omg@oh-advanced-layer" in plugins
+    assert PLUGIN_REF in plugins
+
+
+def test_setup_plugin_install_from_local_source_skips_marketplace_cache_registration(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    assert not (claude_dir / "plugins" / "marketplaces" / PLUGIN_MARKETPLACE).exists()
+    assert not (claude_dir / "plugins" / "known_marketplaces.json").exists()
 
 
 def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: Path):
@@ -345,13 +363,13 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
     assert uninstall_proc.returncode == 0
 
-    assert not (claude_dir / "plugins" / "cache" / "oh-advanced-layer" / "omg").exists()
+    assert not (claude_dir / "plugins" / "cache" / PLUGIN_MARKETPLACE / "omg").exists()
     assert not (claude_dir / "hud" / "omg-hud.mjs").exists()
 
     settings_path = claude_dir / "settings.json"
     settings_after = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
     enabled_after = cast(dict[str, object], settings_after.get("enabledPlugins") or {})
-    assert "omg@oh-advanced-layer" not in enabled_after
+    assert PLUGIN_REF not in enabled_after
 
     mcp_after_path = claude_dir / ".mcp.json"
     mcp_after_config = cast(dict[str, object], json.loads(mcp_after_path.read_text(encoding="utf-8")))
@@ -364,7 +382,7 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     installed_plugins_path = claude_dir / "plugins" / "installed_plugins.json"
     installed_plugins = cast(dict[str, object], json.loads(installed_plugins_path.read_text(encoding="utf-8")))
     plugins_after = cast(dict[str, object], installed_plugins.get("plugins") or {})
-    assert "omg@oh-advanced-layer" not in plugins_after
+    assert PLUGIN_REF not in plugins_after
 
 
 def test_setup_uninstall_cleans_legacy_omg_registry_and_cache(tmp_path: Path):

@@ -5,74 +5,74 @@
   "type": "omg-plugin",
   "commands": {
     "init": {
-      "path": "commands/OMG:init.md",
+      "path": "commands/init.md",
       "description": "Unified initializer for project setup and domain scaffolding",
       "category": "setup"
     },
     "escalate": {
-      "path": "commands/OMG:escalate.md",
+      "path": "commands/escalate.md",
       "description": "Auto-route to Codex or Gemini",
       "category": "routing"
     },
     "teams": {
-      "path": "commands/OMG:teams.md",
+      "path": "commands/teams.md",
       "description": "Internal team routing for standalone operation",
       "category": "routing"
     },
     "ccg": {
-      "path": "commands/OMG:ccg.md",
+      "path": "commands/ccg.md",
       "description": "CCG mode - tri-track synthesis (Claude+Codex+Gemini)",
       "category": "routing"
     },
     "crazy": {
-      "path": "commands/OMG:crazy.md",
+      "path": "commands/crazy.md",
       "description": "CRAZY mode - parallel multi-agent orchestration",
       "category": "orchestration"
     },
     "compat": {
-      "path": "commands/OMG:compat.md",
+      "path": "commands/compat.md",
       "description": "Legacy skill compatibility dispatcher",
       "category": "compatibility"
     },
     "health-check": {
-      "path": "commands/OMG:health-check.md",
+      "path": "commands/health-check.md",
       "description": "Verify project setup and tool integration",
       "category": "setup"
     },
     "mode": {
-      "path": "commands/OMG:mode.md",
+      "path": "commands/mode.md",
       "description": "Set cognitive mode for the session",
       "category": "config"
     },
     "domain-init": {
-      "path": "commands/OMG:domain-init.md",
+      "path": "commands/domain-init.md",
       "description": "Alias for domain scaffolding (use init instead)",
       "category": "setup",
       "deprecated": true
     },
     "project-init": {
-      "path": "commands/OMG:project-init.md",
+      "path": "commands/project-init.md",
       "description": "Alias for project setup (use init instead)",
       "category": "setup",
       "deprecated": true
     },
     "cost": {
-      "path": "commands/OMG:cost.md",
+      "path": "commands/cost.md",
       "description": "Display session cost tracking, budget status, and usage history",
       "category": "observability"
     },
     "stats": {
-      "path": "commands/OMG:stats.md",
+      "path": "commands/stats.md",
       "description": "Display session analytics, tool usage trends, file heatmaps, and failure patterns",
       "category": "observability"
     },
     "deps": {
-      "path": "commands/OMG:deps.md",
+      "path": "commands/deps.md",
       "description": "Scan project dependencies for CVEs, license issues, and outdated packages",
       "category": "observability"
     },
     "arch": {
-      "path": "commands/OMG:arch.md",
+      "path": "commands/arch.md",
       "description": "Codebase visualization — dependency graphs and architecture diagrams",
       "category": "visualization",
       "feature_flag": "CODEBASE_VIZ"

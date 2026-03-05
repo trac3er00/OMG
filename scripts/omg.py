@@ -105,6 +105,14 @@ def _ensure_project_dir() -> str:
     return os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 
 
+def _resolve_compat_output_path(project_dir: str, output_path: str) -> Path:
+    path = Path(output_path)
+    if not path.is_absolute():
+        path = Path(project_dir) / path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def cmd_ship(args: argparse.Namespace) -> int:
     project_dir = _ensure_project_dir()
     idea_path = args.idea
@@ -269,9 +277,11 @@ def cmd_compat_contract(args: argparse.Namespace) -> int:
 
 
 def cmd_compat_gap_report(args: argparse.Namespace) -> int:
-    report = build_compat_gap_report(_ensure_project_dir())
+    project_dir = _ensure_project_dir()
+    report = build_compat_gap_report(project_dir)
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
+        out_path = _resolve_compat_output_path(project_dir, args.output)
+        with open(out_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
     print(json.dumps({"status": "ok", "report": report}, indent=2))
     return 0
@@ -287,9 +297,11 @@ def cmd_compat_snapshot(args: argparse.Namespace) -> int:
 
 
 def cmd_compat_gate(args: argparse.Namespace) -> int:
-    report = build_compat_gap_report(_ensure_project_dir())
+    project_dir = _ensure_project_dir()
+    report = build_compat_gap_report(project_dir)
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
+        out_path = _resolve_compat_output_path(project_dir, args.output)
+        with open(out_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
     bridge_count = int(report.get("maturity_counts", {}).get("bridge", 0))
     if bridge_count > args.max_bridge:
