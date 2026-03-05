@@ -406,7 +406,7 @@ class TestRunJob:
 
         assert _jobs["test01"]["status"] == "completed"
         assert len(_jobs["test01"]["artifacts"]) == 1
-        assert _jobs["test01"]["artifacts"][0]["type"] == "result"
+        assert _jobs["test01"]["artifacts"][0]["type"] == "agent_output"
 
     @patch("runtime.subagent_dispatcher._persist_job")
     def test_run_skips_cancelled_job(self, mock_persist):

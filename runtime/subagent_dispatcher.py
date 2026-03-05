@@ -8,6 +8,7 @@ Feature flag: OMG_PARALLEL_SUBAGENTS_ENABLED (default: False)
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import time
 import uuid
@@ -229,6 +230,55 @@ def _cleanup_worktree(worktree_dir: str) -> None:
         pass
 
 
+def _load_agent_definition(agent_name: str) -> str | None:
+    """Load agent definition from agents/{agent_name}.md."""
+    agents_dir = os.path.join(_OMG_ROOT, "agents")
+    agent_path = os.path.join(agents_dir, f"{agent_name}.md")
+    if os.path.exists(agent_path):
+        try:
+            with open(agent_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            pass
+    return None
+
+
+def _dispatch_to_cli(prompt: str, timeout: int, job_id: str) -> dict[str, Any]:
+    """Dispatch prompt to available CLI. Returns {"stdout": str, "stderr": str, "exit_code": int}."""
+    import subprocess  # local import to avoid circular
+
+    # Try opencode first (most capable), then fallback
+    cli_candidates = [
+        ["opencode", "run", prompt],
+    ]
+
+    # Check which CLI is available
+    for cmd in cli_candidates:
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            return {
+                "stdout": result.stdout or f"[{cmd[0]} completed with exit code {result.returncode}]",
+                "stderr": result.stderr,
+                "exit_code": result.returncode,
+            }
+        except FileNotFoundError:
+            continue  # CLI not available, try next
+        except subprocess.TimeoutExpired:
+            raise  # Propagate timeout
+
+    # No CLI available — return informative stub (not simulated, but honest)
+    return {
+        "stdout": f"[No CLI available for parallel dispatch. Install opencode, codex, or gemini to enable real dispatch. Job prompt: {prompt[:200]}]",
+        "stderr": "",
+        "exit_code": 1,
+    }
+
+
 def _run_job(job_id: str) -> None:
     """Execute a subagent job in the thread pool.
 
@@ -256,17 +306,36 @@ def _run_job(job_id: str) -> None:
                     record["worktree"] = worktree_dir
                 _persist_job(job_id, record)
 
-        # --- Simulated execution ---
-        # Real implementation would dispatch to an agent here.
-        # For now, simulate work + produce an artifact.
-        time.sleep(0.05)  # Simulate brief work
+        # --- Real agent dispatch ---
+        # Read agent definition (fallback to generic prompt if not found)
+        agent_def = _load_agent_definition(record["agent_name"])
 
+        # Build command based on available CLI
+        prompt_text = record["task_text"]
+        if agent_def:
+            prompt_text = f"{agent_def}\n\nTask: {record['task_text']}"
+
+        start_time = time.time()
+        try:
+            dispatch_result = _dispatch_to_cli(
+                prompt=prompt_text,
+                timeout=record.get("timeout", 300),
+                job_id=job_id,
+            )
+        except subprocess.TimeoutExpired:
+            raise TimeoutError(f"Job {job_id} timed out after {record.get('timeout', 300)}s")
+
+        duration_ms = int((time.time() - start_time) * 1000)
         artifact = {
-            "type": "result",
+            "type": "agent_output",
             "agent": record["agent_name"],
-            "content": f"Simulated output for: {record['task_text'][:100]}",
+            "content": dispatch_result["stdout"],
+            "exit_code": dispatch_result["exit_code"],
+            "duration_ms": duration_ms,
             "produced_at": datetime.now(timezone.utc).isoformat(),
         }
+        if dispatch_result["stderr"]:
+            artifact["stderr"] = dispatch_result["stderr"][:2000]  # cap stderr
 
         with _lock:
             # Check for cancellation mid-execution
