@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 import warnings
 from pathlib import Path
 from typing import Any
@@ -238,6 +239,7 @@ def conversations_to_memory_items(
 
         items.append(
             {
+                "id": str(uuid.uuid4()),
                 "key": f"chatgpt-{conv_id[:8]}",
                 "content": full_content,
                 "source_cli": "chatgpt",

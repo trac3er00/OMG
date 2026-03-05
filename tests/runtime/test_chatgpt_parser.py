@@ -275,6 +275,7 @@ class TestConversationsToMemoryItems:
         result = conversations_to_memory_items(conversations)
         assert len(result) == 1
         item = result[0]
+        assert "id" in item
         assert item["key"] == "chatgpt-abcdef12"
         assert item["source_cli"] == "chatgpt"
         assert item["tags"] == ["chatgpt", "imported"]
