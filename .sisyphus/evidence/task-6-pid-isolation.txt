@@ -1,0 +1,13 @@
+=== PID Isolation Verification ===
+Parent PID: 28170
+Child PID:  28254
+PIDs differ: True
+Exit code:  0
+Result:     {'child_pid': 28254, 'parent_env': False}
+Duration:   27.58ms
+Schema ver: 1
+
+PASS: Child process runs in separate PID (28254) from parent (28170)
+PASS: Uses subprocess.Popen (spawn semantics, not fork)
+PASS: Communication via JSON over stdin/stdout
+PASS: Result schema includes schema_version field

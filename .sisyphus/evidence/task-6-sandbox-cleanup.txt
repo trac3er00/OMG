@@ -1,0 +1,20 @@
+=== Cleanup Behavior Verification ===
+
+--- Test 1: Timeout kills process cleanly ---
+Exit code: -1 (expected -1)
+Error:     TimeoutError: job exceeded 1s limit
+Tracked processes after timeout: 0 (expected 0)
+PASS: Timed-out process killed and removed from tracking
+
+--- Test 2: Completed process removed from tracking ---
+Exit code: 0 (expected 0)
+Tracked processes after completion: 0 (expected 0)
+PASS: Completed process removed from tracking list
+
+--- Test 3: atexit cleanup registered ---
+Cleanup registered: True
+PASS: atexit handler registered for child process cleanup
+
+--- Test 4: Feature flag gating ---
+Feature flag: OMG_PARALLEL_DISPATCH_ENABLED=1
+PASS: SandboxedExecutor requires PARALLEL_DISPATCH flag
