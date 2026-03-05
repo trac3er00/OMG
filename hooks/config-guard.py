@@ -13,7 +13,7 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, _resolve_project_dir
+from _common import setup_crash_handler, json_input, _resolve_project_dir, is_bypass_mode, is_bypass_all
 
 # Compatibility marker for existing tests and policy docs.
 DANGEROUS_IN_ALLOW = [
@@ -158,6 +158,10 @@ if isinstance(payload_new, dict):
 
 # Exemption: skip trust_review for .mcp.json changes during setup wizard
 if _is_setup_in_progress() and _is_mcp_config_file(config_path):
+    sys.exit(0)
+
+# In bypass mode, skip trust_review asks (but not denials for critical issues)
+if is_bypass_mode(data) or is_bypass_all(data):
     sys.exit(0)
 
 review = review_config_change(config_path, old_config, new_config)
