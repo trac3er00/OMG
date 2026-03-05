@@ -37,6 +37,34 @@ jobs:
           fi
           echo "Version match: $PKG_VERSION"
 
+      - name: Sync version files to tag
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          python3 - "$VERSION" <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          version = sys.argv[1]
+
+          # Sync plugin.json
+          p = Path(".claude-plugin/plugin.json")
+          d = json.loads(p.read_text())
+          d["version"] = version
+          p.write_text(json.dumps(d, indent=2) + "\n")
+          print(f"  plugin.json → {version}")
+
+          # Sync marketplace.json (3 version fields)
+          p = Path(".claude-plugin/marketplace.json")
+          d = json.loads(p.read_text())
+          d["version"] = version
+          if isinstance(d.get("metadata"), dict):
+              d["metadata"]["version"] = version
+          if isinstance(d.get("plugins"), list) and d["plugins"]:
+              d["plugins"][0]["version"] = version
+          p.write_text(json.dumps(d, indent=2) + "\n")
+          print(f"  marketplace.json → {version}")
+          PY
+
       - name: Publish to npm
         run: npm publish --access public
         env:

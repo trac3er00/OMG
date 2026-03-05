@@ -26,6 +26,17 @@ function readOmgVersion() {
   const scriptPath = realpathSync(fileURLToPath(import.meta.url));
   const scriptDir = dirname(scriptPath);
 
+  // Try companion version file (deployed mode: ~/.claude/hud/.omg-version)
+  try {
+    const versionFilePath = join(scriptDir, ".omg-version");
+    if (existsSync(versionFilePath)) {
+      const ver = readFileSync(versionFilePath, "utf8").trim();
+      if (ver && /^\d+\.\d+/.test(ver)) return ver;
+    }
+  } catch {
+    // fall through
+  }
+
   try {
     const pluginJsonPath = join(scriptDir, "..", ".claude-plugin", "plugin.json");
     const pluginJson = JSON.parse(readFileSync(pluginJsonPath, "utf8"));
