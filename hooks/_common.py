@@ -217,7 +217,9 @@ def get_feature_flag(flag_name, default=True):
             if os.path.exists(settings_path):
                 with open(settings_path, "r", encoding="utf-8") as f:
                     settings = json.load(f)
-                    _FEATURE_CACHE.update(settings.get("_omg", {}).get("features", {}))
+                    omg_features = settings.get("_omg", {}).get("features", {})
+                    oal_features = settings.get("_oal", {}).get("features", {})
+                    _FEATURE_CACHE.update(omg_features or oal_features)
         except Exception:
             pass  # Return default on any error
     
