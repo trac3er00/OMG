@@ -56,19 +56,25 @@ def _get_atomic_json_write() -> Any:
 def _is_enabled() -> bool:
     """Check if parallel subagents feature is enabled.
 
-    Resolution: env var OMG_PARALLEL_SUBAGENTS_ENABLED → settings.json → default False.
+    Resolution (checked in order):
+      OMG_PARALLEL_SUBAGENTS_ENABLED, OMG_PARALLEL_DISPATCH_ENABLED
+      → settings.json PARALLEL_SUBAGENTS or PARALLEL_DISPATCH → default False.
     """
-    # Fast path: check env var directly
-    env_val = os.environ.get("OMG_PARALLEL_SUBAGENTS_ENABLED", "").lower()
-    if env_val in ("0", "false", "no"):
-        return False
-    if env_val in ("1", "true", "yes"):
-        return True
+    # Fast path: check env vars — either legacy or canonical name enables the feature
+    for _env_key in ("OMG_PARALLEL_SUBAGENTS_ENABLED", "OMG_PARALLEL_DISPATCH_ENABLED"):
+        _env_val = os.environ.get(_env_key, "").lower()
+        if _env_val in ("0", "false", "no"):
+            return False
+        if _env_val in ("1", "true", "yes"):
+            return True
 
     # Slow path: check via get_feature_flag
     get_flag = _get_feature_flag()
     if get_flag is not None:
-        return get_flag("PARALLEL_SUBAGENTS", default=False)
+        return (
+            get_flag("PARALLEL_SUBAGENTS", default=False)
+            or get_flag("PARALLEL_DISPATCH", default=False)
+        )
     return False
 
 
@@ -273,7 +279,14 @@ def _run_job(job_id: str) -> None:
             if record["status"] == "cancelled":
                 return
             record["artifacts"].append(artifact)
-            record["status"] = "completed"
+            if dispatch_result["exit_code"] != 0:
+                record["status"] = "failed"
+                record["error"] = (
+                    f"CLI dispatch failed with exit code {dispatch_result['exit_code']}: "
+                    + (dispatch_result.get("stderr") or "")[:500]
+                )
+            else:
+                record["status"] = "completed"
             record["completed_at"] = datetime.now(timezone.utc).isoformat()
 
         _persist_job(job_id, record)

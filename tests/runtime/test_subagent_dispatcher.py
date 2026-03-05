@@ -553,3 +553,49 @@ class TestArtifactStreaming:
         with patch("runtime.subagent_dispatcher._get_project_dir", return_value=str(tmp_path)):
             result = _load_job_from_disk("nope")
             assert result is None
+
+
+# =============================================================================
+# Test: P1 Bug Fixes
+# =============================================================================
+
+
+class TestP1BugFixes:
+
+    def test_submit_job_no_timeout_kwarg(self):
+        import inspect
+        sig = inspect.signature(submit_job)
+        assert "timeout" not in sig.parameters, "submit_job must not accept timeout kwarg"
+
+    def test_is_enabled_via_parallel_dispatch_env(self, monkeypatch):
+        monkeypatch.setenv("OMG_PARALLEL_DISPATCH_ENABLED", "1")
+        monkeypatch.delenv("OMG_PARALLEL_SUBAGENTS_ENABLED", raising=False)
+        assert _is_enabled() is True
+
+        monkeypatch.setenv("OMG_PARALLEL_DISPATCH_ENABLED", "0")
+        assert _is_enabled() is False
+
+    @patch("runtime.subagent_dispatcher._persist_job")
+    @patch("runtime.subagent_dispatcher._dispatch_to_cli")
+    def test_failed_cli_exit_code_sets_status_failed(self, mock_dispatch, mock_persist):
+        mock_dispatch.return_value = {
+            "stdout": "",
+            "stderr": "something went wrong",
+            "exit_code": 1,
+        }
+
+        _jobs["fail01"] = {
+            "job_id": "fail01",
+            "agent_name": "test-agent",
+            "task_text": "do stuff",
+            "isolation": "none",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+        }
+
+        _run_job("fail01")
+
+        assert _jobs["fail01"]["status"] == "failed"
+        assert "exit code 1" in _jobs["fail01"]["error"]
+        assert "something went wrong" in _jobs["fail01"]["error"]
