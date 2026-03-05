@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oh-my-god"
-version = "2.0.0b1"
+version = "2.0.0b4"
 description = "OMG (Oh My God) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,7 +43,15 @@ Repository = "https://github.com/trac3er00/OMG.git"
 Issues = "https://github.com/trac3er00/OMG/issues"
 
 [tool.setuptools]
-packages = ["hooks", "runtime", "agents", "commands"]
+packages = [
+    "hooks",
+    "runtime",
+    "agents",
+    "commands",
+    "claude_experimental",
+    "claude_experimental.parallel",
+    "claude_experimental.integration",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -60,6 +68,7 @@ markers = [
     "slow: marks tests as slow",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "experimental: marks tests for experimental feature surfaces",
 ]
 
 [tool.coverage.run]

@@ -6,7 +6,7 @@
     },
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/cminseo"]
     },
     "websearch": {
       "command": "npx",

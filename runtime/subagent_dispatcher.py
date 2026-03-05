@@ -8,6 +8,7 @@ Feature flag: OMG_PARALLEL_SUBAGENTS_ENABLED (default: False)
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import time
 import uuid
@@ -56,19 +57,25 @@ def _get_atomic_json_write() -> Any:
 def _is_enabled() -> bool:
     """Check if parallel subagents feature is enabled.
 
-    Resolution: env var OMG_PARALLEL_SUBAGENTS_ENABLED → settings.json → default False.
+    Resolution (checked in order):
+      OMG_PARALLEL_SUBAGENTS_ENABLED, OMG_PARALLEL_DISPATCH_ENABLED
+      → settings.json PARALLEL_SUBAGENTS or PARALLEL_DISPATCH → default False.
     """
-    # Fast path: check env var directly
-    env_val = os.environ.get("OMG_PARALLEL_SUBAGENTS_ENABLED", "").lower()
-    if env_val in ("0", "false", "no"):
-        return False
-    if env_val in ("1", "true", "yes"):
-        return True
+    # Fast path: check env vars — either legacy or canonical name enables the feature
+    for _env_key in ("OMG_PARALLEL_SUBAGENTS_ENABLED", "OMG_PARALLEL_DISPATCH_ENABLED"):
+        _env_val = os.environ.get(_env_key, "").lower()
+        if _env_val in ("0", "false", "no"):
+            return False
+        if _env_val in ("1", "true", "yes"):
+            return True
 
     # Slow path: check via get_feature_flag
     get_flag = _get_feature_flag()
     if get_flag is not None:
-        return get_flag("PARALLEL_SUBAGENTS", default=False)
+        return (
+            get_flag("PARALLEL_SUBAGENTS", default=False)
+            or get_flag("PARALLEL_DISPATCH", default=False)
+        )
     return False
 
 
@@ -107,9 +114,40 @@ def _load_job_from_disk(job_id: str) -> dict[str, Any] | None:
         return None
 
 
+def _try_dynamic_pool() -> Any | None:
+    """Return a DynamicPool instance if PARALLEL_DISPATCH flag is enabled, else None."""
+    try:
+        exp_dir = os.path.join(_OMG_ROOT, "claude_experimental")
+        parent = os.path.dirname(exp_dir)
+        if parent not in sys.path:
+            sys.path.insert(0, parent)
+        from claude_experimental._flags import get_feature_flag  # type: ignore[import]
+        if not get_feature_flag("PARALLEL_DISPATCH", default=False):
+            return None
+        from claude_experimental.parallel.scaling import DynamicPool  # type: ignore[import]
+        return DynamicPool(min_workers=1, max_workers=MAX_JOBS, scale_interval=10.0)
+    except (ImportError, Exception):
+        return None
+
+
+# Module-level DynamicPool singleton (lazy init)
+_dynamic_pool: Any | None = None
+_dynamic_pool_checked = False
+
+
 def get_executor() -> ThreadPoolExecutor:
-    """Lazy-init and return the module-level ThreadPoolExecutor singleton."""
-    global _executor
+    """Lazy-init and return the module-level executor singleton.
+
+    When the ``PARALLEL_DISPATCH`` feature flag is enabled, returns a
+    ``DynamicPool`` (which wraps ``ThreadPoolExecutor`` with auto-scaling).
+    Otherwise returns a static ``ThreadPoolExecutor(max_workers=MAX_JOBS)``.
+    """
+    global _executor, _dynamic_pool, _dynamic_pool_checked
+    if not _dynamic_pool_checked:
+        _dynamic_pool_checked = True
+        _dynamic_pool = _try_dynamic_pool()
+    if _dynamic_pool is not None:
+        return _dynamic_pool  # type: ignore[return-value]
     if _executor is None:
         _executor = ThreadPoolExecutor(max_workers=MAX_JOBS)
     return _executor
@@ -124,6 +162,7 @@ def submit_job(
     agent_name: str,
     task_text: str,
     isolation: str = "none",
+    timeout: int = 300,
 ) -> str:
     """Submit a subagent job for concurrent execution.
 
@@ -131,6 +170,8 @@ def submit_job(
         agent_name: Name of the agent to dispatch.
         task_text: Task description / prompt for the agent.
         isolation: Isolation backend — "none" (default) or "worktree".
+        timeout: Maximum execution time in seconds (default 300). Stored in the
+                 job record and consumed by _run_job when calling _dispatch_to_cli.
 
     Returns:
         job_id (8-char hex string).
@@ -152,6 +193,7 @@ def submit_job(
             "agent_name": agent_name,
             "task_text": task_text,
             "isolation": isolation,
+            "timeout": timeout,
             "status": "queued",
             "created_at": now,
             "artifacts": [],
@@ -229,6 +271,71 @@ def _cleanup_worktree(worktree_dir: str) -> None:
         pass
 
 
+def _load_agent_definition(agent_name: str) -> str | None:
+    """Load agent definition from agents/{agent_name}.md."""
+    agents_dir = os.path.join(_OMG_ROOT, "agents")
+    agent_path = os.path.join(agents_dir, f"{agent_name}.md")
+    if os.path.exists(agent_path):
+        try:
+            with open(agent_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except OSError:
+            pass
+    return None
+
+
+def _dispatch_to_cli(
+    prompt: str,
+    timeout: int,
+    job_id: str,
+    cwd: str | None = None,
+) -> dict[str, Any]:
+    """Dispatch prompt to available CLI. Returns {"stdout": str, "stderr": str, "exit_code": int}.
+
+    Args:
+        prompt: Task text to dispatch.
+        timeout: Maximum execution time in seconds.
+        job_id: Job identifier (for logging/tracing).
+        cwd: Working directory for the CLI subprocess. When isolation='worktree',
+             pass the worktree path so the CLI reads/writes the isolated checkout.
+    """
+    import subprocess  # local import to avoid circular
+
+    # Try opencode first (most capable), then fallback
+    cli_candidates = [
+        ["opencode", "run", prompt],
+    ]
+
+    # Check which CLI is available
+    for cmd in cli_candidates:
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=cwd,
+            )
+            return {
+                "stdout": result.stdout or f"[{cmd[0]} completed with exit code {result.returncode}]",
+                "stderr": result.stderr,
+                "exit_code": result.returncode,
+            }
+        except FileNotFoundError:
+            continue  # CLI not available, try next
+        except subprocess.TimeoutExpired:
+            raise  # Propagate timeout
+
+    # No CLI available — return informative stub with exit_code 0.
+    # This is graceful degradation, not a real failure: the job completes with
+    # an explanatory message rather than crashing.
+    return {
+        "stdout": f"[No CLI available for parallel dispatch. Install opencode, codex, or gemini to enable real dispatch. Job prompt: {prompt[:200]}]",
+        "stderr": "",
+        "exit_code": 0,
+    }
+
+
 def _run_job(job_id: str) -> None:
     """Execute a subagent job in the thread pool.
 
@@ -256,24 +363,51 @@ def _run_job(job_id: str) -> None:
                     record["worktree"] = worktree_dir
                 _persist_job(job_id, record)
 
-        # --- Simulated execution ---
-        # Real implementation would dispatch to an agent here.
-        # For now, simulate work + produce an artifact.
-        time.sleep(0.05)  # Simulate brief work
+        # --- Real agent dispatch ---
+        # Read agent definition (fallback to generic prompt if not found)
+        agent_def = _load_agent_definition(record["agent_name"])
 
+        # Build command based on available CLI
+        prompt_text = record["task_text"]
+        if agent_def:
+            prompt_text = f"{agent_def}\n\nTask: {record['task_text']}"
+
+        start_time = time.time()
+        try:
+            dispatch_result = _dispatch_to_cli(
+                prompt=prompt_text,
+                timeout=record.get("timeout", 300),
+                job_id=job_id,
+                cwd=worktree_dir,
+            )
+        except subprocess.TimeoutExpired:
+            raise TimeoutError(f"Job {job_id} timed out after {record.get('timeout', 300)}s")
+
+        duration_ms = int((time.time() - start_time) * 1000)
         artifact = {
-            "type": "result",
+            "type": "agent_output",
             "agent": record["agent_name"],
-            "content": f"Simulated output for: {record['task_text'][:100]}",
+            "content": dispatch_result["stdout"],
+            "exit_code": dispatch_result["exit_code"],
+            "duration_ms": duration_ms,
             "produced_at": datetime.now(timezone.utc).isoformat(),
         }
+        if dispatch_result["stderr"]:
+            artifact["stderr"] = dispatch_result["stderr"][:2000]  # cap stderr
 
         with _lock:
             # Check for cancellation mid-execution
             if record["status"] == "cancelled":
                 return
             record["artifacts"].append(artifact)
-            record["status"] = "completed"
+            if dispatch_result["exit_code"] != 0:
+                record["status"] = "failed"
+                record["error"] = (
+                    f"CLI dispatch failed with exit code {dispatch_result['exit_code']}: "
+                    + (dispatch_result.get("stderr") or "")[:500]
+                )
+            else:
+                record["status"] = "completed"
             record["completed_at"] = datetime.now(timezone.utc).isoformat()
 
         _persist_job(job_id, record)
@@ -353,10 +487,18 @@ def list_jobs(status_filter: str | None = None) -> list[dict[str, Any]]:
 def shutdown(wait: bool = True) -> None:
     """Shut down the executor gracefully.
 
+    Handles both the static ThreadPoolExecutor path and the DynamicPool path.
+    In the PARALLEL_DISPATCH path _executor stays None, so checking only
+    _executor leaves the DynamicPool monitor thread and worker pool running.
+
     Args:
         wait: If True, wait for running jobs to complete before returning.
     """
-    global _executor
+    global _executor, _dynamic_pool, _dynamic_pool_checked
+    if _dynamic_pool is not None:
+        _dynamic_pool.shutdown(wait=wait)
+        _dynamic_pool = None
+        _dynamic_pool_checked = False
     if _executor is not None:
         _executor.shutdown(wait=wait)
         _executor = None

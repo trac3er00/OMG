@@ -42,6 +42,215 @@ _INSTALL_HINTS: dict[str, str] = {
     "kimi": "uv tool install --python 3.13 kimi-cli",
 }
 
+BYPASS_ALL_WARNING = (
+    "⚠️  BYPASS-ALL / FULL VIBE-CODE MODE WARNING ⚠️\n\n"
+    "Enabling bypass-all grants Claude Code unrestricted write access to your filesystem "
+    "without asking for confirmation on individual file edits.\n\n"
+    "IMPORTANT DISCLAIMER: The author takes NO responsibility for any data loss, "
+    "unintended file modifications, or system changes that occur while bypass-all is enabled. "
+    "Use at your own risk.\n\n"
+    "Note: Some safety measures remain active even in bypass-all mode:\n"
+    "  • Firewall deny rules still block dangerous commands (rm -rf, sudo, etc.)\n"
+    "  • Secret-guard still protects credentials and API keys\n"
+    "  • You can disable bypass-all at any time via settings.json\n\n"
+    "Do you want to enable bypass-all mode? (y/N): "
+)
+
+MCP_CATALOG: list[dict[str, Any]] = [
+    {
+        "id": "context7",
+        "name": "Context7",
+        "description": "Upstash Context7 MCP server for context management",
+        "command": "npx",
+        "args": ["-y", "@upstash/context7-mcp"],
+        "default": True,
+        "category": "productivity",
+    },
+    {
+        "id": "filesystem",
+        "name": "Filesystem",
+        "description": "ModelContextProtocol filesystem server for file operations",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", os.path.expanduser("~")],
+        "default": True,
+        "category": "system",
+    },
+    {
+        "id": "websearch",
+        "name": "Web Search",
+        "description": "Web search MCP server for internet queries",
+        "command": "npx",
+        "args": ["-y", "@zhafron/mcp-web-search"],
+        "default": True,
+        "category": "search",
+    },
+    {
+        "id": "chrome-devtools",
+        "name": "Chrome DevTools",
+        "description": "Chrome DevTools MCP server for browser automation",
+        "command": "npx",
+        "args": ["-y", "chrome-devtools-mcp@latest"],
+        "default": True,
+        "category": "browser",
+    },
+    {
+        "id": "omg-memory",
+        "name": "OMG Memory",
+        "description": "OMG shared memory server via HTTP",
+        "command": None,
+        "args": [],
+        "type": "http",
+        "url": "http://127.0.0.1:8765/mcp",
+        "default": True,
+        "category": "memory",
+    },
+    {
+        "id": "github",
+        "name": "GitHub",
+        "description": "ModelContextProtocol GitHub server for repository operations",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "default": False,
+        "category": "vcs",
+    },
+    {
+        "id": "puppeteer",
+        "name": "Puppeteer",
+        "description": "ModelContextProtocol Puppeteer server for browser automation",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+        "default": False,
+        "category": "browser",
+    },
+    {
+        "id": "brave-search",
+        "name": "Brave Search",
+        "description": "ModelContextProtocol Brave Search server",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "default": False,
+        "category": "search",
+    },
+    {
+        "id": "sequential-thinking",
+        "name": "Sequential Thinking",
+        "description": "ModelContextProtocol Sequential Thinking server for reasoning",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+        "default": False,
+        "category": "reasoning",
+    },
+    {
+        "id": "grep-app",
+        "name": "Grep App",
+        "description": "Grep App MCP server for code search",
+        "command": "npx",
+        "args": ["-y", "grep-app-mcp"],
+        "default": False,
+        "category": "search",
+    },
+    {
+        "id": "memory-graph",
+        "name": "Memory Graph",
+        "description": "ModelContextProtocol Memory server for knowledge graphs",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-memory"],
+        "default": False,
+        "category": "memory",
+    },
+]
+
+
+def get_mcp_catalog() -> list[dict[str, Any]]:
+    """Return the MCP catalog.
+
+    Returns:
+        List of MCP server definitions with id, name, description, command, args, default, and category.
+    """
+    return MCP_CATALOG
+
+
+def build_mcp_config(selected_ids: list[str]) -> dict[str, Any]:
+    """Build .mcp.json configuration from selected MCP server IDs.
+
+    Args:
+        selected_ids: List of MCP server IDs to include in the config.
+
+    Returns:
+        Dict with 'mcpServers' key containing the MCP server configurations.
+    """
+    mcp_servers: dict[str, Any] = {}
+
+    for mcp in MCP_CATALOG:
+        if mcp["id"] not in selected_ids:
+            continue
+
+        mcp_id = mcp["id"]
+
+        # HTTP-type MCPs (like omg-memory)
+        if mcp.get("type") == "http":
+            mcp_servers[mcp_id] = {
+                "type": "http",
+                "url": mcp["url"],
+            }
+        # NPX-type MCPs
+        else:
+            mcp_servers[mcp_id] = {
+                "command": mcp["command"],
+                "args": mcp["args"],
+            }
+
+    return {"mcpServers": mcp_servers}
+
+
+def configure_plan_type(plan_type: str) -> dict[str, Any]:
+    """Configure Claude plan type and model routing.
+
+    Args:
+        plan_type: "max" or "pro"
+
+    Returns:
+        dict with plan_type and optionally model_routing
+    """
+    result: dict[str, Any] = {"plan_type": plan_type}
+    if plan_type == "pro":
+        result["model_routing"] = {
+            "planning": "claude-opus-4-5",
+            "coding": "claude-sonnet-4-5",
+            "review": "claude-opus-4-5",
+            "commit": "claude-haiku-4-5",
+        }
+    return result
+
+
+def select_mcps(selected_ids: list[str] | None = None) -> dict[str, Any]:
+    """Build MCP config from selected IDs.
+
+    Args:
+        selected_ids: List of MCP IDs to include. If None, uses defaults.
+
+    Returns:
+        dict with mcpServers key (ready to write as .mcp.json)
+    """
+    if selected_ids is None:
+        selected_ids = [m["id"] for m in MCP_CATALOG if m["default"]]
+    return build_mcp_config(selected_ids)
+
+
+def configure_bypass_all(enabled: bool) -> dict[str, Any]:
+    """Configure bypass_all mode.
+
+    Args:
+        enabled: True to enable bypass-all, False to disable
+
+    Returns:
+        dict with enabled status and warning_shown flag
+    """
+    result: dict[str, Any] = {"enabled": enabled}
+    if enabled:
+        result["warning_shown"] = True
+    return result
+
 
 def is_setup_enabled() -> bool:
     """Check if the setup wizard feature is enabled.
@@ -99,6 +308,54 @@ def detect_clis() -> dict[str, Any]:
         }
 
     return results
+
+
+def get_cli_auth_instructions(provider: str) -> dict[str, str]:
+    """Return install, auth, and verify instructions for a CLI provider.
+
+    This function returns command strings only — it does NOT execute anything
+    or store credentials.
+
+    Args:
+        provider: CLI provider name (e.g. "codex", "gemini", "kimi", "opencode").
+
+    Returns:
+        Dict with keys: install, auth, verify, subscription.
+        Unknown providers return placeholder strings.
+    """
+    instructions: dict[str, dict[str, str]] = {
+        "codex": {
+            "install": "npm install -g @openai/codex",
+            "auth": "codex login",
+            "verify": "codex --version",
+            "subscription": "Requires ChatGPT Plus, Team, or Enterprise subscription (or OpenAI API key)",
+        },
+        "gemini": {
+            "install": "npm install -g @google/gemini-cli",
+            "auth": "gemini auth login",
+            "verify": "gemini --version",
+            "subscription": "Requires Google account with Gemini API access (free tier available)",
+        },
+        "kimi": {
+            "install": "uv tool install --python 3.13 kimi-cli",
+            "auth": "Add token to ~/.kimi/config.toml",
+            "verify": "kimi --version",
+            "subscription": "Requires Kimi API key from platform.moonshot.cn",
+        },
+        "opencode": {
+            "install": "npm install -g opencode-ai",
+            "auth": "opencode auth login",
+            "verify": "opencode --version",
+            "subscription": "Requires Anthropic API key or Claude subscription",
+        },
+    }
+
+    return instructions.get(provider, {
+        "install": "Unknown provider",
+        "auth": "Unknown provider",
+        "verify": "Unknown provider",
+        "subscription": "Unknown",
+    })
 
 
 def check_auth() -> dict[str, Any]:

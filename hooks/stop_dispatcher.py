@@ -18,6 +18,8 @@ from _common import (  # noqa: E402
     check_performance_budget,
     get_feature_flag,
     get_project_dir,
+    is_bypass_all,
+    is_plan_mode,
     json_input,
     log_hook_error,
     record_stop_block,
@@ -879,19 +881,31 @@ def main():
     data["_stop_ctx"] = _build_context(project_dir)
     data["_stop_advisories"] = []
 
+    # Plan mode detection: quality gates become advisories (non-blocking)
+    _plan_mode = is_plan_mode(data)
+    _bypass_all_mode = is_bypass_all(data)
+
     # P1: Ralph loop check (implemented in Task 18)
+    # In plan mode, ralph loop becomes advisory to avoid deadlock
+    # (ralph demands writes → plan mode blocks writes → infinite loop)
     block_reasons, advisories = check_ralph_loop(project_dir, data)
     if advisories:
         data["_stop_advisories"].extend(advisories)
     if block_reasons:
-        record_stop_block(project_dir, reason="ralph_loop")
-        block_decision(block_reasons[0])
+        if _plan_mode:
+            print(f"[OMG plan-mode advisory] {block_reasons[0]}", file=sys.stderr)
+        else:
+            record_stop_block(project_dir, reason="ralph_loop")
+            block_decision(block_reasons[0])
 
     # P2: Planning enforcement (implemented in Task 22)
     block_reasons, advisories = check_planning_gate(project_dir)
     if block_reasons:
-        record_stop_block(project_dir, reason="planning_gate")
-        block_decision(block_reasons[0])
+        if _plan_mode:
+            print(f"[OMG plan-mode advisory] {block_reasons[0]}", file=sys.stderr)
+        else:
+            record_stop_block(project_dir, reason="planning_gate")
+            block_decision(block_reasons[0])
     advisories.extend(check_scope_drift(project_dir))
     if advisories:
         data["_stop_advisories"].extend(advisories)
@@ -902,8 +916,11 @@ def main():
     _p3_elapsed = (time.monotonic() - _p3_start) * 1000
     check_performance_budget("check_todo_continuation", _p3_elapsed, STOP_CHECK_MAX_MS)
     if todo_result and todo_result.get("decision") == "block":
-        record_stop_block(project_dir, reason="todo_continuation")
-        block_decision(todo_result["reason"])
+        if _plan_mode:
+            print(f"[OMG plan-mode advisory] {todo_result['reason']}", file=sys.stderr)
+        else:
+            record_stop_block(project_dir, reason="todo_continuation")
+            block_decision(todo_result["reason"])
 
     blocks = []
     for check_fn in [
@@ -933,8 +950,12 @@ def main():
         print("\n".join(advisories), file=sys.stderr)
 
     if blocks:
-        record_stop_block(project_dir, reason="quality_check")
-        block_decision("\n\n---\n\n".join(blocks))
+        if _plan_mode:
+            for block in blocks:
+                print(f"[OMG plan-mode advisory] {block}", file=sys.stderr)
+        else:
+            record_stop_block(project_dir, reason="quality_check")
+            block_decision("\n\n---\n\n".join(blocks))
 
     check_simplifier(data, project_dir)
     reset_stop_block_tracker(project_dir)
