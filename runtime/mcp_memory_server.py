@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import ipaddress
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -14,6 +15,26 @@ from fastmcp import FastMCP
 from runtime.memory_store import MemoryStore, MemoryStoreFullError
 
 _store = MemoryStore()
+
+
+def _is_truthy_env(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _validate_host(host: str) -> str:
+    normalized = host.strip()
+    if normalized == "localhost":
+        return normalized
+    try:
+        if ipaddress.ip_address(normalized).is_loopback:
+            return normalized
+    except ValueError:
+        pass
+    if _is_truthy_env("OMG_MEMORY_UNSAFE_BIND"):
+        return normalized
+    raise ValueError(
+        "Memory server must bind to a loopback host unless OMG_MEMORY_UNSAFE_BIND=true"
+    )
 
 
 def _load_state() -> None:
@@ -92,7 +113,7 @@ def memory_all_resource() -> str:
 
 
 def get_host() -> str:
-    return os.environ.get("OMG_MEMORY_HOST", "127.0.0.1")
+    return _validate_host(os.environ.get("OMG_MEMORY_HOST", "127.0.0.1"))
 
 
 def get_port() -> int:

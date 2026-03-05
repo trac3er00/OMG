@@ -120,7 +120,11 @@ class TestInvokeTmux:
 
         mgr.make_session_name.assert_called_once()
         mgr.get_or_create_session.assert_called_once_with("omg-gemini-abc")
-        mgr.send_command.assert_called_once()
+        mgr.send_command.assert_called_once_with(
+            "omg-gemini-abc",
+            ["gemini", "-p", "fix bug"],
+            timeout=90,
+        )
         mgr.kill_session.assert_called_once_with("omg-gemini-abc")
         assert result == {"model": "gemini-cli", "output": "gemini output here", "exit_code": 0}
 

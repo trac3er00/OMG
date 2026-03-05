@@ -119,7 +119,11 @@ class TestInvokeTmux:
 
         mgr.make_session_name.assert_called_once()
         mgr.get_or_create_session.assert_called_once_with("omg-codex-abc")
-        mgr.send_command.assert_called_once()
+        mgr.send_command.assert_called_once_with(
+            "omg-codex-abc",
+            ["codex", "exec", "--json", "fix bug"],
+            timeout=90,
+        )
         mgr.kill_session.assert_called_once_with("omg-codex-abc")
         assert result == {"model": "codex-cli", "output": '{"done":true}', "exit_code": 0}
 

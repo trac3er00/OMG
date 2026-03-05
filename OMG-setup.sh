@@ -859,7 +859,15 @@ HUD_PY
 
     # Write version companion file for HUD self-identification
     local pkg_version
-    pkg_version=$(python3 -c "import json; print(json.load(open('$SCRIPT_DIR/package.json'))['version'])" 2>/dev/null || echo "1.0.5")
+    pkg_version=$(
+        python3 - "$SCRIPT_DIR/package.json" 2>/dev/null <<'PY' || echo "1.0.5"
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as fh:
+    print(json.load(fh)["version"])
+PY
+    )
     printf '%s\n' "$pkg_version" > "$CLAUDE_DIR/hud/.omg-version"
 
     mkdir -p "$PLUGIN_CACHE_DIR"

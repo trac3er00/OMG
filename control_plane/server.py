@@ -2,12 +2,34 @@
 from __future__ import annotations
 
 import argparse
+import json
+import ipaddress
+import os
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import json
 from typing import Any
 
 from control_plane.service import ControlPlaneService
+
+
+def _is_truthy_env(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def validate_host(host: str) -> str:
+    normalized = host.strip()
+    if normalized == "localhost":
+        return normalized
+    try:
+        if ipaddress.ip_address(normalized).is_loopback:
+            return normalized
+    except ValueError:
+        pass
+    if _is_truthy_env("OMG_CONTROL_PLANE_UNSAFE_BIND"):
+        return normalized
+    raise ValueError(
+        "Control plane must bind to a loopback host unless OMG_CONTROL_PLANE_UNSAFE_BIND=true"
+    )
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
@@ -80,6 +102,7 @@ def make_handler(service: ControlPlaneService):
 
 
 def run_server(host: str = "127.0.0.1", port: int = 8787, project_dir: str | None = None) -> None:
+    host = validate_host(host)
     service = ControlPlaneService(project_dir=project_dir)
     handler = make_handler(service)
     server = HTTPServer((host, port), handler)
@@ -95,13 +118,21 @@ def _main() -> int:
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--project-dir", default=None)
     args = parser.parse_args()
-    if args.host != "127.0.0.1":
-        print(f"⚠ WARNING: Binding to {args.host} exposes the control plane to the network. No authentication is configured.", file=sys.stderr)
+    try:
+        host = validate_host(args.host)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    if host != "127.0.0.1":
+        print(
+            f"⚠ WARNING: Binding to {host} exposes the control plane to the network. "
+            "No authentication is configured.",
+            file=sys.stderr,
+        )
 
-    run_server(args.host, args.port, args.project_dir)
+    run_server(host, args.port, args.project_dir)
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(_main())
-

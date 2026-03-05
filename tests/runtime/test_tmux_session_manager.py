@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import importlib.util
+import shlex
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -64,6 +66,34 @@ def test_graceful_when_tmux_not_available():
         assert mgr.kill_session("omg-test") is False
         assert mgr.send_command("omg-test", "echo hi") == ""
         assert mgr.cleanup_stale_sessions() == 0
+
+
+def test_send_command_quotes_argv_before_dispatch():
+    mgr = TmuxSessionManager()
+    calls: list[list[str]] = []
+    sentinel = "__OMG_DONE_deadbeef__"
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        if args[:2] == ["tmux", "capture-pane"]:
+            return subprocess.CompletedProcess(args, 0, f"ok\n{sentinel}\n", "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    with patch.object(mgr, "is_tmux_available", return_value=True), \
+         patch.object(_mod.uuid, "uuid4", return_value=type("FakeUUID", (), {"hex": "deadbeef"})()), \
+         patch.object(_mod.subprocess, "run", side_effect=fake_run), \
+         patch.object(_mod.time, "sleep", return_value=None):
+        output = mgr.send_command("omg-test", ["codex", "exec", "--json", "quote ' and space"], timeout=1)
+
+    assert output == "ok"
+    assert calls[0] == [
+        "tmux",
+        "send-keys",
+        "-t",
+        "omg-test",
+        shlex.join(["codex", "exec", "--json", "quote ' and space"]),
+        "Enter",
+    ]
 
 
 @pytest.mark.skipif(not TMUX_AVAILABLE, reason="tmux not available")
