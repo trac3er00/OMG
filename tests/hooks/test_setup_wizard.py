@@ -647,3 +647,123 @@ class TestConfigureMcp:
             # Check that custom name was passed
             calls = mock_codex.call_args_list
             assert any("custom-server" in str(call) for call in calls)
+
+
+class TestConfigurePlanType:
+    """Tests for configure_plan_type() model routing configuration."""
+
+    def test_configure_plan_type_pro(self):
+        from setup_wizard import configure_plan_type
+
+        r = configure_plan_type("pro")
+        assert r["plan_type"] == "pro"
+        assert "model_routing" in r
+        assert r["model_routing"]["planning"] == "claude-opus-4-5"
+        assert r["model_routing"]["coding"] == "claude-sonnet-4-5"
+
+    def test_configure_plan_type_max(self):
+        from setup_wizard import configure_plan_type
+
+        r = configure_plan_type("max")
+        assert r["plan_type"] == "max"
+        assert "model_routing" not in r
+
+
+class TestMcpCatalog:
+    """Tests for MCP_CATALOG structure and completeness."""
+
+    def test_mcp_catalog_has_11_entries(self):
+        from setup_wizard import MCP_CATALOG
+
+        assert len(MCP_CATALOG) >= 11
+        ids = {m["id"] for m in MCP_CATALOG}
+        for required_id in [
+            "context7", "filesystem", "websearch", "chrome-devtools", "omg-memory",
+            "github", "puppeteer", "brave-search", "sequential-thinking",
+            "grep-app", "memory-graph",
+        ]:
+            assert required_id in ids, f"Missing MCP: {required_id}"
+
+    def test_mcp_catalog_entries_have_required_fields(self):
+        from setup_wizard import MCP_CATALOG
+
+        for m in MCP_CATALOG:
+            assert "id" in m
+            assert "name" in m
+            assert "command" in m  # may be None for http type
+            assert "args" in m
+            assert "default" in m
+
+
+class TestBuildMcpConfig:
+    """Tests for build_mcp_config() and select_mcps()."""
+
+    def test_build_mcp_config_produces_valid_structure(self):
+        from setup_wizard import build_mcp_config
+
+        cfg = build_mcp_config(["context7", "github"])
+        assert "mcpServers" in cfg
+        assert "context7" in cfg["mcpServers"]
+        assert "github" in cfg["mcpServers"]
+        assert "filesystem" not in cfg["mcpServers"]
+
+    def test_select_mcps_with_explicit_ids(self):
+        from setup_wizard import select_mcps
+
+        r = select_mcps(["context7", "github"])
+        assert "mcpServers" in r
+        assert "context7" in r["mcpServers"]
+        assert "github" in r["mcpServers"]
+
+    def test_select_mcps_default_returns_five(self):
+        from setup_wizard import select_mcps, MCP_CATALOG
+
+        defaults = [m["id"] for m in MCP_CATALOG if m["default"]]
+        r = select_mcps(None)
+        assert len(r["mcpServers"]) == len(defaults)
+
+
+class TestConfigureBypassAll:
+    """Tests for configure_bypass_all() and BYPASS_ALL_WARNING."""
+
+    def test_configure_bypass_all_enable(self):
+        from setup_wizard import configure_bypass_all
+
+        r = configure_bypass_all(True)
+        assert r["enabled"] is True
+        assert r.get("warning_shown") is True
+
+    def test_configure_bypass_all_disable(self):
+        from setup_wizard import configure_bypass_all
+
+        r = configure_bypass_all(False)
+        assert r["enabled"] is False
+
+    def test_bypass_all_warning_exists(self):
+        from setup_wizard import BYPASS_ALL_WARNING
+
+        assert len(BYPASS_ALL_WARNING) > 100
+        assert any(
+            word in BYPASS_ALL_WARNING.lower()
+            for word in ["responsibility", "disclaimer", "risk"]
+        )
+
+
+class TestGetCliAuthInstructions:
+    """Tests for get_cli_auth_instructions() provider docs."""
+
+    def test_get_cli_auth_instructions_codex(self):
+        from setup_wizard import get_cli_auth_instructions
+
+        r = get_cli_auth_instructions("codex")
+        assert "install" in r
+        assert "auth" in r
+        assert "verify" in r
+
+    def test_get_cli_auth_instructions_all_providers(self):
+        from setup_wizard import get_cli_auth_instructions
+
+        for provider in ["codex", "gemini", "kimi", "opencode"]:
+            r = get_cli_auth_instructions(provider)
+            assert "install" in r, f"{provider}: missing install"
+            assert "auth" in r, f"{provider}: missing auth"
