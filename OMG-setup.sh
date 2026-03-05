@@ -661,6 +661,37 @@ remove_omg_files() {
     fi
 }
 
+sync_marketplace_cache() {
+    local marketplace_name="$1"
+    local git_url="$2"
+    local marketplace_dir="$CLAUDE_DIR/plugins/marketplaces/$marketplace_name"
+
+    if [ -d "$marketplace_dir" ] && [ -n "$(ls -A "$marketplace_dir" 2>/dev/null)" ]; then
+        echo "  ~ Marketplace cache already populated, skipping sync"
+        return 0
+    fi
+
+    echo "  Syncing marketplace cache for '$marketplace_name'..."
+
+    if command -v claude >/dev/null 2>&1; then
+        if claude plugin marketplace update "$marketplace_name" >/dev/null 2>&1; then
+            echo "  ✓ Marketplace cache synced via claude CLI"
+            return 0
+        fi
+    fi
+
+    if command -v git >/dev/null 2>&1; then
+        mkdir -p "$marketplace_dir"
+        if git clone --depth=1 "$git_url" "$marketplace_dir" >/dev/null 2>&1; then
+            echo "  ✓ Marketplace cache cloned via git"
+            return 0
+        fi
+        rmdir "$marketplace_dir" 2>/dev/null || true
+    fi
+
+    echo "  ~ Marketplace sync skipped (claude CLI and git unavailable or no network)"
+}
+
 register_marketplace_in_known_marketplaces() {
     local marketplace_name="$1"
     local git_url="$2"
@@ -813,6 +844,7 @@ HUD_PY
 
     unregister_plugin_from_registry "$LEGACY_PLUGIN_REF"
     unregister_plugin_from_registry "$LEGACY_PLUGIN_REF2"
+    unregister_plugin_from_registry "$LEGACY_PLUGIN_REF3"
     register_plugin_in_registry "$plugin_ref" "$plugin_root" "$VERSION"
     merge_plugin_mcp_into_settings >/dev/null
 
@@ -821,6 +853,7 @@ HUD_PY
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$PLUGIN_BUNDLE_MARKER_FILE"
     track_file "hud/omg-hud.mjs"
     register_marketplace_in_known_marketplaces "$PLUGIN_MARKETPLACE" "https://github.com/trac3er00/OMG.git"
+    sync_marketplace_cache "$PLUGIN_MARKETPLACE" "https://github.com/trac3er00/OMG.git"
     echo "  ✓ Plugin bundle installed and registered in Claude plugin settings"
 }
 
