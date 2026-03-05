@@ -1,13 +1,13 @@
-# OMG v1.0.5
+# OMG v2.0.0-beta.1
 
 OMG (Oh My God) is a standalone orchestration layer for Claude Code.
-It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini), and durable session state for long-running engineering tasks.
+It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini/OpenCode/Kimi Code), and durable session state for long-running engineering tasks.
 
-- Version: `v1.0.5`
+- Version: `v2.0.0-beta.1`
 - npm: `npm install @trac3er/oh-my-god`
 - Maintainer: `trac3er00`
 - Repo: `git@github.com:trac3er00/OMG.git`
-- Release: `https://github.com/trac3er00/OMG/releases/tag/v1.0.5`
+- Release: `https://github.com/trac3er00/OMG/releases/tag/v2.0.0-beta.1`
 
 ## What OMG Solves
 
@@ -21,10 +21,24 @@ OMG is built for teams and solo developers who want:
 ## Core Capabilities
 
 - Multi-agent orchestration with role-specific agents
-- Dynamic routing to Codex and Gemini for domain-specific tasks
+- Dynamic routing to Codex, Gemini, OpenCode, and Kimi Code for domain-specific tasks
 - Failure tracking and escalation after repeated unsuccessful attempts
 - Command surface for planning, review, security, handoff, and execution modes
 - Context minimization and selective knowledge injection to reduce prompt noise
+
+## Multi-CLI Support
+
+OMG v2.0 supports 5 CLI providers with a unified provider abstraction:
+
+| CLI | Command | Auth |
+|-----|---------|------|
+| Claude | (default) | Claude Code |
+| Codex | `codex exec "<prompt>"` | `codex login` |
+| Gemini | `gemini -p "<prompt>"` | `gemini auth login` |
+| OpenCode | `opencode run "<prompt>"` | `opencode auth login` |
+| Kimi Code | `kimi --print -p "<prompt>"` | `~/.kimi/config.toml` token |
+
+All providers are auto-detected and registered at startup. Use `/OMG:setup` to configure.
 
 ## At a Glance
 
@@ -32,12 +46,14 @@ OMG is built for teams and solo developers who want:
 - Core rules: 5
 - Contextual rules: 17
 - Agents: 21
-- Commands: 18 (`/OMG:*` namespace)
+- Commands: 19 (`/OMG:*` namespace)
+- CLI Providers: 5 (Claude, Codex, Gemini, OpenCode, Kimi Code)
 
 ## Requirements
 
 - Python `3.10+`
 - Claude Code with write access to `~/.claude`
+- `fastmcp>=2.0` (for memory server)
 
 ## Installation
 
@@ -124,6 +140,12 @@ Common flows:
 /OMG:handoff
 ```
 
+Run the setup wizard to configure CLI providers:
+
+```text
+/OMG:setup
+```
+
 ## Command Groups
 
 ### Core commands
@@ -138,6 +160,7 @@ Common flows:
 - `/OMG:ccg`
 - `/OMG:crazy`
 - `/OMG:compat`
+- `/OMG:setup`
 
 ### Advanced commands
 
@@ -159,6 +182,8 @@ OMG dispatches by domain intent:
 
 - Codex path: backend logic, debugging, algorithms, security-sensitive implementation
 - Gemini path: UI/UX, layout, visual refinements, accessibility-oriented frontend work
+- OpenCode path: general-purpose tasks with OpenCode's native tool use
+- Kimi Code path: long-context tasks and document-heavy analysis
 - Claude path: orchestration, synthesis, review loops, and fallback execution
 
 ## Cognitive Modes
@@ -199,6 +224,7 @@ After `/OMG:init`, project state is created under `.omg/`:
     profile.yaml
     working-memory.md
     handoff.md
+    cli-config.yaml
     ledger/
   knowledge/
   trust/
@@ -224,9 +250,60 @@ omg/
   OMG-setup.sh
 ```
 
+## Shared Memory (MCP Server)
+
+OMG v2.0 includes a FastMCP-based shared memory server that enables cross-CLI state sharing.
+
+### Starting the Memory Server
+
+```bash
+python3 runtime/mcp_memory_server.py
+```
+
+The server binds to `127.0.0.1:8765` by default. Configure via environment variables:
+
+- `OMG_MEMORY_HOST` — bind address (default: `127.0.0.1`)
+- `OMG_MEMORY_PORT` — port (default: `8765`)
+- `OMG_MEMORY_AUTOSTART` — auto-start on import (default: off)
+
+The server exposes 6 MCP tools: `memory_store`, `memory_search`, `memory_list`, `memory_delete`, `memory_import`, and `memory_export`. A `/health` endpoint is also available at `http://127.0.0.1:8765/health`.
+
+### Memory Import
+
+Import memories from other AI platforms:
+
+- **ChatGPT**: Export `conversations.json` from OpenAI, then parse with `runtime/memory_parsers/chatgpt_parser.py`
+- **Claude.ai**: Use the extraction prompt from `runtime/memory_parsers/claude_import.py`, paste the result
+- **Gemini Web**: Use the extraction prompt from `runtime/memory_parsers/gemini_import.py`, paste the result
+- **Kimi Web**: Use the extraction prompt from `runtime/memory_parsers/kimi_import.py`, paste the result
+
+### Memory Export
+
+Export all memories to markdown for uploading to Claude Projects or pasting into ChatGPT:
+
+```python
+from runtime.memory_store import MemoryStore
+from runtime.memory_parsers.export import export_from_store
+
+store = MemoryStore()
+export_from_store(store, "memories.md")
+```
+
 ## Versioning and Releases
 
-Current version: `v1.0.5`
+Current version: `v2.0.0-beta.1`
+
+### v2.0.0-beta.1 release notes
+
+- Multi-CLI provider abstraction: Codex, Gemini, OpenCode, Kimi Code + Claude
+- `/OMG:setup` interactive wizard with CLI detection, auth verification, and MCP config writing
+- FastMCP shared memory MCP server (`runtime/mcp_memory_server.py`) with 6 tools
+- Memory import parsers: ChatGPT `conversations.json`, Claude.ai/Gemini/Kimi paste-based
+- Memory export to markdown for cross-platform sharing
+- MCP server lifecycle manager (`runtime/mcp_lifecycle.py`)
+- 6 confirmed bug fixes including critical `_oal`→`_omg` feature flag fix
+- Python minimum raised to 3.10+
+- Test suite expanded from 1523 to 1900+ tests
 
 ### v1.0.5 release notes
 
@@ -256,15 +333,15 @@ Releases are automated via GitHub Actions. When a version tag is pushed, the `pu
 
 ```bash
 # bump version in package.json, then:
-git tag v1.0.5
-git push origin v1.0.5
-# → GitHub Actions auto-publishes @trac3er/oh-my-god@1.0.5 to npm
+git tag v2.0.0-beta.1
+git push origin v2.0.0-beta.1
+# → GitHub Actions auto-publishes @trac3er/oh-my-god@2.0.0-beta.1 to npm
 ```
 
 Manual release (if needed):
 
 ```bash
-gh release create v1.0.5 --title "OMG v1.0.5" --notes "Release notes"
+gh release create v2.0.0-beta.1 --title "OMG v2.0.0-beta.1" --notes "Release notes"
 ```
 
 ## Compatibility Notes
@@ -316,6 +393,8 @@ All new features are disabled by default. Enable via environment variables or `s
 | SSH manager | `OMG_SSH_ENABLED=1` | Off |
 | Themes | `OMG_THEMES_ENABLED=true` | Off |
 | Rust engine | `OMG_RUST_ENGINE_ENABLED=1` | Off |
+| Setup wizard | `OMG_SETUP_ENABLED=1` | Off |
+| Memory server | `OMG_MEMORY_AUTOSTART=1` | Off |
 
 You can also enable features in `settings.json` under `_omg.features`:
 
@@ -379,3 +458,17 @@ To adopt new features selectively:
 3. **No breaking changes** — all v1.0 commands, agents, and hooks remain intact.
 
 4. **New command**: `/OMG:theme` is available immediately after update, gated by `OMG_THEMES_ENABLED`.
+
+### Upgrading from OMG v1.x to v2.0
+
+v2.0 is backward-compatible. All v1.x commands, agents, and hooks remain intact.
+
+New in v2.0:
+
+1. **Multi-CLI support** — install additional CLI tools and run `/OMG:setup` to configure them.
+
+2. **Memory server** — start `python3 runtime/mcp_memory_server.py` to enable cross-CLI memory sharing.
+
+3. **Setup wizard** — enable with `OMG_SETUP_ENABLED=1`, then run `/OMG:setup` for guided configuration.
+
+4. **Python 3.10+ required** — upgrade if you're on an older Python version.

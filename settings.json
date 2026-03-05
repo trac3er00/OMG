@@ -251,7 +251,10 @@
       "agent_registry": true,
       "circuit_breaker_v2": true,
       "cognitive_modes": true,
-      "agent_routing": true
+      "agent_routing": true,
+      "SETUP_WIZARD": false,
+      "MEMORY_SERVER": false,
+      "MEMORY_AUTOSTART": false
     }
   }
 }
