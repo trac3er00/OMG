@@ -25,6 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "fastmcp>=2.0",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]

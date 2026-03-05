@@ -62,3 +62,12 @@ def test_compat_gate_zero_bridge(tmp_path: Path):
     payload = json.loads(gate.stdout)
     assert payload["status"] == "ok"
     assert payload["report"]["maturity_counts"].get("bridge", 0) == 0
+
+
+def test_compat_gap_report_uses_project_evidence_dir_by_default(tmp_path: Path):
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+    report = _run([str(CLI), "compat", "gap-report"], ROOT, env=env)
+    assert report.returncode == 0
+    payload = json.loads(report.stdout)
+    assert payload["status"] == "ok"
+    assert (tmp_path / ".omg" / "evidence" / "omg-compat-gap.json").exists()
