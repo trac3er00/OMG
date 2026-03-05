@@ -21,6 +21,15 @@ _OMG_ROOT = os.path.dirname(_ROUTER_DIR)
 
 _logger = logging.getLogger(__name__)
 
+# Import providers to trigger auto-registration in provider registry
+try:
+    import runtime.providers.codex_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    import runtime.providers.gemini_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    import runtime.providers.opencode_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
+    import runtime.providers.kimi_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
+except ImportError:
+    pass
+
 @dataclass
 class TeamDispatchRequest:
     target: str  # codex | gemini | ccg | auto
@@ -508,6 +517,23 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
         available = detect_available_models()
         preferred = agent.get("preferred_model", "claude")
         packaged = package_prompt(agent_name, user_prompt, project_dir)
+
+        provider_name_map = {
+            "codex-cli": "codex",
+            "gemini-cli": "gemini",
+            "opencode-cli": "opencode",
+            "kimi-cli": "kimi",
+        }
+        provider_name = provider_name_map.get(preferred)
+
+        if provider_name and available.get(preferred, True):
+            from runtime.cli_provider import get_provider
+
+            provider = get_provider(provider_name)
+            if provider and provider.detect():
+                if _should_use_tmux():
+                    return provider.invoke_tmux(packaged, project_dir)
+                return provider.invoke(packaged, project_dir)
 
         if preferred == "codex-cli" and available.get("codex-cli"):
             if _should_use_tmux():
