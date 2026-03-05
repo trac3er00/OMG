@@ -764,11 +764,11 @@ install_plugin_bundle() {
     mkdir -p "$CLAUDE_DIR/hud"
     cp "$plugin_manifest_src" "$plugin_manifest_target"
     
-    # Provide a fallback .mcp.json if not shipped in npm package
-    if [ ! -f "$SCRIPT_DIR/.mcp.json" ]; then
-        local _fallback_mcp_dir
-        _fallback_mcp_dir=$(mktemp -d)
-        cat > "$_fallback_mcp_dir/.mcp.json" <<'FALLBACK_MCP'
+     # Provide a fallback .mcp.json if not shipped in npm package
+     if [ ! -f "$SCRIPT_DIR/.mcp.json" ]; then
+         local _fallback_mcp_dir
+         _fallback_mcp_dir=$(mktemp -d)
+         cat > "$_fallback_mcp_dir/.mcp.json" <<FALLBACK_MCP
 {
   "mcpServers": {
     "context7": {
@@ -777,7 +777,7 @@ install_plugin_bundle() {
     },
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "$HOME"]
     },
     "websearch": {
       "command": "npx",
