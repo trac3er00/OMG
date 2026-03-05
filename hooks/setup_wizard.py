@@ -1,0 +1,201 @@
+"""OMG Setup Wizard — interactive CLI detection, auth verification, and MCP configuration.
+
+Feature-gated: requires OMG_SETUP_ENABLED=1 (default off).
+"""
+from __future__ import annotations
+
+import logging
+import os
+import sys
+from typing import Any, cast
+
+import yaml
+
+from _common import get_feature_flag
+
+# Ensure project root is on sys.path for runtime imports
+_PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from runtime.cli_provider import get_provider, list_available_providers  # noqa: E402
+
+# Trigger provider auto-registration on import
+import runtime.providers.codex_provider  # noqa: E402, F401
+import runtime.providers.gemini_provider  # noqa: E402, F401
+import runtime.providers.opencode_provider  # noqa: E402, F401
+import runtime.providers.kimi_provider  # noqa: E402, F401
+
+_logger = logging.getLogger(__name__)
+
+_INSTALL_HINTS: dict[str, str] = {
+    "codex": "npm install -g @openai/codex",
+    "gemini": "npm install -g @google/gemini-cli",
+    "opencode": "npm install -g opencode-ai  (or: curl -fsSL https://opencode.ai/install | bash)",
+    "kimi": "uv tool install --python 3.13 kimi-cli",
+}
+
+
+def is_setup_enabled() -> bool:
+    """Check if the setup wizard feature is enabled.
+
+    Uses get_feature_flag("SETUP", default=False) — disabled by default.
+    Enable via OMG_SETUP_ENABLED=1 env var or settings.json._omg.features.SETUP: true.
+    """
+    return get_feature_flag("SETUP", default=False)
+
+
+def detect_clis() -> dict[str, Any]:
+    """Detect installed CLI tools using the provider registry.
+
+    Iterates over all registered providers, calling ``detect()`` and
+    ``check_auth()`` on each.  Returns a dict keyed by provider name::
+
+        {
+            "codex": {"detected": True, "auth_ok": True, "message": "..."},
+            "gemini": {"detected": False, "auth_ok": None,
+                       "message": "Not found. Install: npm install -g @google/gemini-cli"},
+            ...
+        }
+    """
+    results: dict[str, Any] = {}
+
+    for name in list_available_providers():
+        provider = get_provider(name)
+        if provider is None:
+            continue
+
+        try:
+            detected = provider.detect()
+        except Exception as exc:
+            _logger.warning("detect() failed for %s: %s", name, exc)
+            detected = False
+
+        auth_ok: bool | None = None
+        message = ""
+
+        if detected:
+            try:
+                auth_ok, message = provider.check_auth()
+            except Exception as exc:
+                _logger.warning("check_auth() failed for %s: %s", name, exc)
+                auth_ok = None
+                message = f"Auth check error: {exc}"
+        else:
+            hint = _INSTALL_HINTS.get(name, f"Install the '{name}' CLI")
+            message = f"Not found. Install: {hint}"
+
+        results[name] = {
+            "detected": detected,
+            "auth_ok": auth_ok,
+            "message": message,
+        }
+
+    return results
+
+
+def check_auth() -> dict[str, Any]:
+    """Verify authentication for detected CLI tools.
+
+    Stub — returns pending status. T16 will implement real auth checks
+    using each provider's check_auth() method.
+    """
+    return {"status": "pending", "results": {}}
+
+
+def configure_mcp() -> dict[str, Any]:
+    """Configure MCP memory server for authenticated CLIs.
+
+    Stub — returns pending status. T17 will implement real MCP config
+    using each provider's write_mcp_config() method.
+    """
+    return {"status": "pending", "configured": []}
+
+
+def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, Any]:
+    """Set user preferences for CLI routing and save to .omg/state/cli-config.yaml.
+
+    Args:
+        project_dir: Path to the project directory.
+        preferences: Dict with optional 'cli_configs' key. If empty, uses defaults.
+                    Expected structure:
+                    {
+                        "cli_configs": {
+                            "codex": {"subscription": "free", "max_parallel_agents": 1},
+                            "gemini": {"subscription": "free", "max_parallel_agents": 1},
+                            ...
+                        }
+                    }
+
+    Returns:
+        Dict with keys:
+        - status: "ok" on success
+        - path: Full path to saved config file
+        - config: The saved config dict (version + cli_configs)
+    """
+    # Default config structure
+    default_cli_configs: dict[str, Any] = {
+        "codex": {"subscription": "free", "max_parallel_agents": 1},
+        "gemini": {"subscription": "free", "max_parallel_agents": 1},
+        "opencode": {"subscription": "free", "max_parallel_agents": 1},
+        "kimi": {"subscription": "free", "max_parallel_agents": 1},
+    }
+    default_config: dict[str, Any] = {
+        "version": "2.0",
+        "cli_configs": default_cli_configs,
+    }
+
+    # Merge custom preferences if provided
+    if preferences and isinstance(preferences, dict):
+        cli_configs = preferences.get("cli_configs")
+        if isinstance(cli_configs, dict):
+            default_cli_configs.update(cast(dict[str, Any], cli_configs))
+
+    # Create .omg/state directory if needed
+    state_dir = os.path.join(project_dir, ".omg", "state")
+    os.makedirs(state_dir, exist_ok=True)
+
+    # Write config to YAML file
+    config_path = os.path.join(state_dir, "cli-config.yaml")
+    with open(config_path, "w") as f:
+        yaml.dump(default_config, f, default_flow_style=False, sort_keys=False)
+
+    _logger.info("Saved CLI config to %s", config_path)
+
+    return {
+        "status": "ok",
+        "path": config_path,
+        "config": default_config,
+    }
+
+
+def run_setup_wizard(project_dir: str, non_interactive: bool = False) -> dict[str, Any]:
+    """Run the OMG setup wizard.
+
+    Args:
+        project_dir: Path to the project directory.
+        non_interactive: If True, skip prompts and use defaults (for CI).
+
+    Returns:
+        Dict with wizard results including status and step outcomes.
+        If feature is disabled, returns {"status": "disabled", "message": "..."}.
+    """
+    if not is_setup_enabled():
+        return {
+            "status": "disabled",
+            "message": "Setup wizard disabled. Set OMG_SETUP_ENABLED=1 to enable.",
+        }
+
+    # Run each wizard step (stubs for now — T15/T16/T17 fill these in)
+    clis = detect_clis()
+    auth = check_auth()
+    mcp = configure_mcp()
+    prefs = set_preferences(project_dir, {})
+
+    return {
+        "status": "complete",
+        "clis_detected": clis,
+        "auth_status": auth,
+        "mcp_configured": mcp,
+        "preferences": prefs,
+    }
