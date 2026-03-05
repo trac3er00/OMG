@@ -7,6 +7,7 @@ registration with the global REGISTRY via bind_function().
 from __future__ import annotations
 
 import os
+import sys
 import time
 
 import pytest
@@ -107,19 +108,25 @@ class TestGlob:
 class TestShell:
     def test_shell_runs_command(self):
         """shell runs `echo hello`, checks stdout."""
-        result = shell("echo hello")
+        result = shell(["echo", "hello"])
         assert result["success"] is True
         assert result["returncode"] == 0
         assert "hello" in result["stdout"]
 
     def test_shell_captures_stderr(self):
-        result = shell("echo err >&2")
+        result = shell([sys.executable, "-c", "import sys; sys.stderr.write('err\\n')"])
         assert "err" in result["stderr"]
 
     def test_shell_failure_returncode(self):
-        result = shell("exit 1")
+        result = shell([sys.executable, "-c", "raise SystemExit(1)"])
         assert result["success"] is False
         assert result["returncode"] == 1
+
+    def test_shell_rejects_shell_metacharacters(self):
+        result = shell("echo hello && whoami")
+        assert result["success"] is False
+        assert result["returncode"] == -1
+        assert "shell metacharacters" in result["stderr"].lower()
 
     def test_shell_registered(self):
         spec = get_binding("shell")

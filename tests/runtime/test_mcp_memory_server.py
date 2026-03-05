@@ -42,6 +42,23 @@ def test_get_host_uses_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
     assert module.get_host() == "localhost"
 
 
+def test_get_host_rejects_non_loopback_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module()
+    monkeypatch.setenv("OMG_MEMORY_HOST", "0.0.0.0")
+    monkeypatch.delenv("OMG_MEMORY_UNSAFE_BIND", raising=False)
+
+    with pytest.raises(ValueError, match="loopback"):
+        module.get_host()
+
+
+def test_get_host_allows_non_loopback_with_explicit_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_module()
+    monkeypatch.setenv("OMG_MEMORY_HOST", "0.0.0.0")
+    monkeypatch.setenv("OMG_MEMORY_UNSAFE_BIND", "true")
+
+    assert module.get_host() == "0.0.0.0"
+
+
 def test_get_port_defaults_to_8765(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_module()
     monkeypatch.delenv("OMG_MEMORY_PORT", raising=False)

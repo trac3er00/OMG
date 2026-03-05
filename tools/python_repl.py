@@ -89,8 +89,8 @@ def _get_sandbox_flag() -> bool:
         return True
     _ensure_imports()
     if _get_feature_flag is not None:
-        return _get_feature_flag("REPL_SANDBOX", default=False)
-    return False
+        return _get_feature_flag("REPL_SANDBOX", default=True)
+    return True
 
 
 def _get_helpers_flag() -> bool:

@@ -147,7 +147,11 @@ class TestInvokeTmux:
 
         mgr.make_session_name.assert_called_once()
         mgr.get_or_create_session.assert_called_once_with("omg-opencode-abc")
-        mgr.send_command.assert_called_once()
+        mgr.send_command.assert_called_once_with(
+            "omg-opencode-abc",
+            ["opencode", "run", "fix bug"],
+            timeout=90,
+        )
         mgr.kill_session.assert_called_once_with("omg-opencode-abc")
         assert result == {"model": "opencode-cli", "output": "opencode output here", "exit_code": 0}
 

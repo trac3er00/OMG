@@ -61,8 +61,8 @@ def _is_sandbox_enabled() -> bool:
     # Fallback to hooks/_common.get_feature_flag
     _ensure_imports()
     if _get_feature_flag is not None:
-        return _get_feature_flag("REPL_SANDBOX", default=False)
-    return False
+        return _get_feature_flag("REPL_SANDBOX", default=True)
+    return True
 
 
 # --- Blocked imports configuration ---
@@ -258,6 +258,42 @@ def get_code_violations(code: str) -> List[str]:
 
 # --- String-level escape detection ---
 
+def _resolve_static_string(node: ast.AST) -> Optional[str]:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Constant) and isinstance(node.value, bytes):
+        try:
+            return node.value.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _resolve_static_string(node.left)
+        right = _resolve_static_string(node.right)
+        if left is not None and right is not None:
+            return left + right
+        return None
+    if isinstance(node, ast.JoinedStr):
+        parts: list[str] = []
+        for value in node.values:
+            resolved = _resolve_static_string(value)
+            if resolved is None:
+                return None
+            parts.append(resolved)
+        return "".join(parts)
+    if isinstance(node, ast.FormattedValue):
+        return None
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "chr":
+        if len(node.args) != 1 or node.keywords:
+            return None
+        arg = node.args[0]
+        if isinstance(arg, ast.Constant) and isinstance(arg.value, int):
+            try:
+                return chr(arg.value)
+            except ValueError:
+                return None
+    return None
+
+
 def _check_string_escapes(code: str) -> Optional[str]:
     """Check for sandbox escape patterns in raw code string.
 
@@ -273,6 +309,21 @@ def _check_string_escapes(code: str) -> Optional[str]:
     for pattern in _ESCAPE_PATTERNS:
         if pattern in code:
             return f"Blocked: suspicious pattern '{pattern}' detected"
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    for node in ast.walk(tree):
+        resolved = _resolve_static_string(node)
+        if not resolved:
+            continue
+        for pattern in _ESCAPE_PATTERNS:
+            if pattern in resolved:
+                return (
+                    f"Blocked: suspicious pattern '{pattern}' detected via constructed string"
+                )
     return None
 
 

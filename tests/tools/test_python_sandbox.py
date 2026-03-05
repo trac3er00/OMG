@@ -19,6 +19,7 @@ if project_root not in sys.path:
 
 from tools.python_sandbox import (
     SandboxedExecutor,
+    _check_string_escapes,
     create_sandbox,
     execute_sandboxed,
     get_code_violations,
@@ -265,15 +266,15 @@ class TestExecuteSandboxed:
 class TestFeatureFlag:
     """Tests for sandbox feature flag behavior."""
 
-    def test_flag_default_disabled(self):
-        """Sandbox is disabled by default."""
+    def test_flag_default_enabled(self):
+        """Sandbox is enabled by default."""
         from tools.python_sandbox import _is_sandbox_enabled
         with patch.dict(os.environ, {}, clear=False):
             # Remove the env var if set
             env = dict(os.environ)
             env.pop("OMG_REPL_SANDBOX_ENABLED", None)
             with patch.dict(os.environ, env, clear=True):
-                assert _is_sandbox_enabled() is False
+                assert _is_sandbox_enabled() is True
 
     def test_flag_enabled_via_env(self):
         """Sandbox can be enabled via environment variable."""
@@ -333,6 +334,19 @@ class TestReplIntegration:
             result = self.python_repl.execute_code("sandbox-block", "import subprocess")
             assert result.get("blocked") is True
 
+    def test_sandbox_is_on_by_default_in_repl(self):
+        """When sandbox flag is unset, REPL still routes through sandbox."""
+        with patch.dict(os.environ, {"OMG_PYTHON_REPL_ENABLED": "true"}, clear=False):
+            env = dict(os.environ)
+            env.pop("OMG_REPL_SANDBOX_ENABLED", None)
+            with patch.dict(os.environ, env, clear=True):
+                self.python_repl.start_repl_session(session_id="sandbox-default")
+                result = self.python_repl.execute_code(
+                    "sandbox-default",
+                    "__builtins__.__dict__",
+                )
+                assert result.get("blocked") is True
+
     def test_no_sandbox_without_flag(self):
         """Without sandbox flag, execute_code works normally (no 'blocked' key)."""
         with patch.dict(os.environ, {
@@ -342,3 +356,15 @@ class TestReplIntegration:
             session = self.python_repl.start_repl_session(session_id="no-sandbox")
             result = self.python_repl.execute_code("no-sandbox", "x = 1 + 1")
             assert "blocked" not in result
+
+
+class TestStringEscapeDetection:
+    def test_blocks_constant_string_concatenation_escape(self):
+        violation = _check_string_escapes("'__cl' + 'ass__'")
+        assert violation is not None
+        assert "__class__" in violation
+
+    def test_blocks_chr_built_escape(self):
+        violation = _check_string_escapes("chr(95)+chr(95)+'builtins'+chr(95)+chr(95)")
+        assert violation is not None
+        assert "__builtins__" in violation

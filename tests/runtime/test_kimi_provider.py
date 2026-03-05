@@ -163,7 +163,11 @@ class TestInvokeTmux:
 
         mgr.make_session_name.assert_called_once()
         mgr.get_or_create_session.assert_called_once_with("omg-kimi-abc")
-        mgr.send_command.assert_called_once()
+        mgr.send_command.assert_called_once_with(
+            "omg-kimi-abc",
+            ["kimi", "--print", "-p", "fix bug"],
+            timeout=90,
+        )
         mgr.kill_session.assert_called_once_with("omg-kimi-abc")
         assert result == {"model": "kimi-cli", "output": "kimi output here", "exit_code": 0}
 

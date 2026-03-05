@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import logging
 import re
+import shlex
 import shutil
 import subprocess
 import time
@@ -75,17 +77,28 @@ class TmuxSessionManager:
             _logger.warning("Failed to kill tmux session %r: %s", name, exc)
             return False
 
-    def send_command(self, name: str, command: str, timeout: int = 120) -> str:
+    def _normalize_command(self, command: str | Sequence[str]) -> str:
+        if isinstance(command, str):
+            parts = shlex.split(command)
+        else:
+            parts = list(command)
+        if not parts or any(not isinstance(part, str) or not part for part in parts):
+            raise ValueError("tmux command must contain at least one non-empty argument")
+        return shlex.join(parts)
+
+    def send_command(self, name: str, command: str | Sequence[str], timeout: int = 120) -> str:
         """Send a command to a tmux session and return captured pane output."""
         if not self.is_tmux_available():
             return ""
 
         sentinel = f"__OMG_DONE_{uuid.uuid4().hex}__"
         deadline = time.monotonic() + timeout
+        wait_seconds = 0.1
 
         try:
+            normalized_command = self._normalize_command(command)
             send_main = subprocess.run(
-                ["tmux", "send-keys", "-t", name, command, "Enter"],
+                ["tmux", "send-keys", "-t", name, normalized_command, "Enter"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -95,7 +108,7 @@ class TmuxSessionManager:
                 return ""
 
             send_marker = subprocess.run(
-                ["tmux", "send-keys", "-t", name, f"echo {sentinel}", "Enter"],
+                ["tmux", "send-keys", "-t", name, f"printf '%s\\n' {shlex.quote(sentinel)}", "Enter"],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -117,9 +130,13 @@ class TmuxSessionManager:
                     last_output = captured.stdout
                     if sentinel in last_output:
                         return last_output.split(sentinel, 1)[0].rstrip()
-                time.sleep(0.25)
+                time.sleep(wait_seconds)
+                wait_seconds = min(1.0, wait_seconds * 1.5)
 
             return last_output.rstrip()
+        except ValueError as exc:
+            _logger.warning("Invalid tmux command for %r: %s", name, exc)
+            return ""
         except Exception as exc:
             _logger.warning("Failed to send tmux command to %r: %s", name, exc)
             return ""
