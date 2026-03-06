@@ -3,7 +3,7 @@
 When any file write or edit operation shows an error, warning, or hook error:
 
 1. **NEVER claim success** without reading the file to verify changes are present
-2. **Hook errors from external plugins** (e.g. security_reminder_hook.py) are warnings — the write may have succeeded. READ the file to check.
+2. **Hook errors from external plugins** (e.g. `security_reminder_hook.ts`) are warnings — the write may have succeeded. READ the file to check.
 3. **"Error editing file"** means the Edit tool failed. Use an alternative:
    - Try `Write` tool (creates new file)
    - Try Bash: `cat > path/to/file << 'EOF'\n[content]\nEOF`
@@ -13,7 +13,7 @@ When any file write or edit operation shows an error, warning, or hook error:
 
 ## Common Hook Error Pattern
 ```
-Error: PreToolUse:Write hook error: [python3 .../security_reminder_hook.py]: ⚠️ Security Warning: ...
+Error: PreToolUse:Write hook error: [bun .../security_reminder_hook.ts]: warning emitted by external hook
 ```
 This means an external hook emitted a warning. The file write likely succeeded.
 **Action:** Read the file to verify, then continue. Do NOT retry blindly.

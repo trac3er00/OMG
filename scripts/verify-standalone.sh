@@ -7,15 +7,11 @@ TMP_DIR="${1:-$(mktemp -d)}"
 echo "[verify-standalone] source: $ROOT_DIR"
 echo "[verify-standalone] workdir: $TMP_DIR"
 
-tar --exclude="./.omc" --exclude="./.pytest_cache" -cf - -C "$ROOT_DIR" . | (cd "$TMP_DIR" && tar -xf -)
+tar --exclude="./.omc" --exclude="./node_modules" -cf - -C "$ROOT_DIR" . | (cd "$TMP_DIR" && tar -xf -)
 
 cd "$TMP_DIR"
-python3 scripts/omg.py compat gate --max-bridge 0 --output .omg/evidence/omg-compat-gap.json
-
-if command -v pyenv >/dev/null 2>&1 && pyenv prefix 3.12.7 >/dev/null 2>&1; then
-  PYENV_VERSION=3.12.7 python -m pytest -q
-else
-  python3 -m pytest -q
-fi
+bun install --ignore-scripts
+bun scripts/omg.ts compat gate --max-bridge 0 --output .omg/evidence/omg-compat-gap.json
+bun test
 
 echo "[verify-standalone] passed"

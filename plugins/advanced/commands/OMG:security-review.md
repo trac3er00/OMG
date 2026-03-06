@@ -16,13 +16,13 @@ Determine what to scan:
 Identify security-critical files automatically:
 ```bash
 # Auth/session
-find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \) | xargs grep -li "auth\|login\|session\|token\|password\|jwt\|oauth" 2>/dev/null
+find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.go" -o -name "*.rs" \) | xargs grep -li "auth\|login\|session\|token\|password\|jwt\|oauth" 2>/dev/null
 
 # Payment
-find . -type f -name "*.{ts,js,py,go}" | xargs grep -li "payment\|billing\|stripe\|checkout\|card\|price" 2>/dev/null
+find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.go" \) | xargs grep -li "payment\|billing\|stripe\|checkout\|card\|price" 2>/dev/null
 
 # Database
-find . -type f -name "*.{ts,js,py,go}" | xargs grep -li "query\|SELECT\|INSERT\|UPDATE\|DELETE\|migration\|schema" 2>/dev/null
+find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.go" \) | xargs grep -li "query\|SELECT\|INSERT\|UPDATE\|DELETE\|migration\|schema" 2>/dev/null
 ```
 
 ## Step 2: Automated Vulnerability Scan

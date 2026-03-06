@@ -13,8 +13,8 @@
 - Stuck on anything for 3+ attempts → /OMG:escalate to relevant model
 
 ## Auto-Detection
-prompt-enhancer.py detects keywords and suggests the right model.
-circuit-breaker.py auto-suggests escalation after failures.
+prompt-enhancer.ts detects keywords and suggests the right model.
+circuit-breaker.ts auto-suggests escalation after failures.
 
 ## Plugins & MCPs
 - Installed plugins: USE them (they're installed for a reason)
@@ -25,4 +25,4 @@ circuit-breaker.py auto-suggests escalation after failures.
 Say: "This touches auth — let me get Codex to check the security."
 NOT: "Invoking cross-model review protocol for backend analysis."
 
-> Enforced: prompt-enhancer.py + session-start.py detect available tools.
+> Enforced: prompt-enhancer.ts + session-start.ts detect available tools.

@@ -1,7 +1,7 @@
 {
   "name": "omg",
-  "version": "1.0.4",
-  "description": "OMG standalone orchestration layer for Claude Code - multi-agent coordination with Codex/Gemini",
+  "version": "2.0.0-beta.6",
+  "description": "OMG Bun runtime for Claude Code orchestration and multi-agent workflows",
   "author": {
     "name": "trac3er00"
   },
@@ -16,8 +16,7 @@
     "omg",
     "codex",
     "gemini",
-    "crazy-mode",
-    "escalation"
+    "bun"
   ],
   "mcpServers": "./.mcp.json"
 }

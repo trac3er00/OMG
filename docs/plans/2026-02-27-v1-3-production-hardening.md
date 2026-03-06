@@ -1,60 +1,18 @@
-# OMG v1.3 Production Hardening Plan
+# Archived Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use OMG:deep-plan to implement this plan task-by-task.
+This production-hardening note described the retired runtime implementation. It is kept only as a short archive marker.
 
-**Gomg:** Lock legacy compatibility as a production-grade contract with versioned snapshots, strict drift gates, and hardened request validation.
+The current release-hardening surface is Bun-first and lives in:
 
-**Architecture:** Extend the legacy compatibility layer with explicit contract versioning + migration hooks, add runtime request validation/audit logging, and enforce these constraints via CI gates and no-vendor verification.
+- `runtime/release_readiness.ts`
+- `scripts/check-omg-compat-contract-snapshot.ts`
+- `scripts/check-omg-standalone-clean.ts`
+- `.github/workflows/omg-runtime-readiness.yml`
 
-**Tech Stack:** Python 3.12, pytest, GitHub Actions.
+Use the Bun verification stack for current release work:
 
----
-
-### Task 1: Contract Versioning + Migration Hooks
-
-**Files:**
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/runtime/omc_compat.py`
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/scripts/omg.py`
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/runtime/omc_contract_snapshot.json`
-- Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/runtime/test_omc_contract_snapshot.py`
-
-**Steps:**
-1. Add `contract_version` metadata to snapshot payload.
-2. Add migration utility stubs for older snapshot schema compatibility.
-3. Ensure `omg compat snapshot` emits deterministic payload.
-4. Update snapshot test to verify version + schema.
-
-### Task 2: Snapshot Drift Gate
-
-**Files:**
-- Create: `/Users/cminseo/Documents/scripts/Shell/OMG/scripts/check-omg-contract-snapshot.py`
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/.github/workflows/compat-gate.yml`
-- Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/scripts/test_omc_snapshot_check.py`
-
-**Steps:**
-1. Add a check script that compares runtime contracts to committed snapshot.
-2. Run that check in CI before full tests.
-3. Add unit test for script success/failure behavior.
-
-### Task 3: Request Validation + Audit Logging
-
-**Files:**
-- Modify: `/Users/cminseo/Documents/scripts/Shell/OMG/runtime/omc_compat.py`
-- Test: `/Users/cminseo/Documents/scripts/Shell/OMG/tests/runtime/test_omc_compat.py`
-
-**Steps:**
-1. Validate input length/count/path safety in `dispatch_omc_skill`.
-2. Add audit ledger writes for every dispatch result.
-3. Add tests for invalid input rejection and audit event creation.
-
-### Task 4: Full Verification
-
-**Files:**
-- Modify docs if needed: `/Users/cminseo/Documents/scripts/Shell/OMG/README.md`
-
-**Steps:**
-1. Run targeted tests for compat/snapshot/CLI.
-2. Run full test suite.
-3. Run no-vendor verifier script.
-4. Confirm CI workflow file and local outputs are consistent.
-
+```bash
+bun run typecheck
+bun test
+bun scripts/check-runtime-clean.ts
+```

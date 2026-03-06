@@ -34,7 +34,7 @@ CRAZY mode must use parallel sub-agent dispatch for worker tracks.
 
 ### Mandatory parallel launch pattern
 
-```python
+```text
 task(subagent_type="explore", run_in_background=true, load_skills=[], description="Architect track", prompt="...")
 task(subagent_type="explore", run_in_background=true, load_skills=[], description="Backend track", prompt="...")
 task(subagent_type="explore", run_in_background=true, load_skills=[], description="Frontend track", prompt="...")

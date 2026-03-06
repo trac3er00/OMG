@@ -17,4 +17,4 @@ NEVER claim a state you haven't verified. Period.
 
 Forbidden without evidence: "done", "LGTM", "fixed", "works now", "tests passed"
 
-> Enforced: stop-gate.py checks evidence. tool-ledger.py logs tool calls.
+> Enforced: stop-gate.ts checks evidence. tool-ledger.ts logs tool calls.

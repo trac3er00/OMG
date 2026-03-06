@@ -1,13 +1,18 @@
 {
   "name": "@trac3er/oh-my-god",
-  "version": "2.0.0",
+  "version": "2.0.0-beta.6",
   "description": "OMG (Oh My God) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code",
-  "main": "OMG-setup.sh",
+  "bin": {
+    "omg": "scripts/omg.ts"
+  },
+  "main": "scripts/omg.ts",
   "scripts": {
     "postinstall": "./OMG-setup.sh install --non-interactive",
     "update": "./OMG-setup.sh update",
     "uninstall": "./OMG-setup.sh uninstall",
-    "test": "python3 -m pytest tests/ -x -q"
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit",
+    "check:runtime-clean": "bun scripts/check-runtime-clean.ts"
   },
   "keywords": [
     "claude",
@@ -30,6 +35,12 @@
   },
   "homepage": "https://github.com/trac3er00/OMG#readme",
   "engines": {
-    "node": ">=14"
+    "bun": ">=1.3.0"
+  },
+  "packageManager": "bun@1.3.9",
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "bun-types": "^1.3.10",
+    "typescript": "^5.9.2"
   }
 }

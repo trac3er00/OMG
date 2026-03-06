@@ -37,10 +37,10 @@ Examples of GOOD questions:
 Read the codebase to understand the CURRENT state:
 ```bash
 # Directory structure
-find . -type f -name "*.ts" -o -name "*.py" -o -name "*.go" | head -50
+find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.go" \) | head -50
 
 # Key architectural patterns
-grep -rn "export class\|export function\|def \|func \|struct " src/ --include="*.{ts,py,go}" | head -30
+grep -rn "export class\|export function\|function \|const .*=\|func \|struct " src/ --include="*.{ts,tsx,js,jsx,go}" | head -30
 
 # Existing domain boundaries
 ls -la src/*/  # or app/*/ or packages/*/
@@ -140,7 +140,7 @@ After validation, launch exactly 5 planning tracks with mixed-model intent using
 
 Dispatch pattern is mandatory: all 5 tracks launch in parallel as background sub-agents.
 
-```python
+```text
 task(subagent_type="explore", run_in_background=true, load_skills=[], description="Architect planning track", prompt="...")
 task(subagent_type="explore", run_in_background=true, load_skills=[], description="Backend planning track", prompt="...")
 task(subagent_type="explore", run_in_background=true, load_skills=[], description="Frontend planning track", prompt="...")

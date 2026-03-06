@@ -1,6 +1,6 @@
 ---
 description: Ship pipeline — Idea -> Plan -> Execute -> Evidence -> PR-ready summary
-allowed-tools: Read, Write, Edit, MultiEdit, Grep, Glob, Bash(git:*), Bash(rg:*), Bash(find:*), Bash(cat:*), Bash(python3:*), Bash(pytest:*), Bash(npm test:*), Bash(go test:*), Bash(cargo test:*), Bash(jest:*), Bash(vitest:*)
+allowed-tools: Read, Write, Edit, MultiEdit, Grep, Glob, Bash(git:*), Bash(rg:*), Bash(find:*), Bash(cat:*), Bash(bun:*), Bash(npm test:*), Bash(go test:*), Bash(cargo test:*), Bash(jest:*), Bash(vitest:*)
 argument-hint: "[goal or optional path to .omg/idea.yml]"
 ---
 

@@ -1,6 +1,6 @@
 ---
-description: Run legacy skill names on OMG standalone via compatibility dispatcher.
-allowed-tools: Read, Grep, Glob, Bash(python3:*), Bash(rg:*), Bash(find:*), Bash(cat:*)
+description: Run legacy skill names on OMG standalone via the Bun compatibility dispatcher.
+allowed-tools: Read, Grep, Glob, Bash(bun:*), Bash(rg:*), Bash(find:*), Bash(cat:*)
 argument-hint: "<skill-name> [optional problem]"
 ---
 
@@ -9,49 +9,41 @@ argument-hint: "<skill-name> [optional problem]"
 Use this when migrating legacy workflows to OMG standalone.
 
 ```bash
-OMG_CLI="${OMG_CLI_PATH:-$HOME/.claude/omg-runtime/scripts/omg.py}"
-if [ ! -f "$OMG_CLI" ] && [ -f "scripts/omg.py" ]; then OMG_CLI="scripts/omg.py"; fi
+OMG_CLI="${OMG_CLI_PATH:-$HOME/.claude/omg-runtime/scripts/omg.ts}"
+if [ ! -f "$OMG_CLI" ] && [ -f "scripts/omg.ts" ]; then OMG_CLI="scripts/omg.ts"; fi
 ```
 
 ## List supported skills
 
 ```bash
-python3 "$OMG_CLI" compat list
+bun "$OMG_CLI" compat list
 ```
 
-## Inspect contracts
+## Inspect contracts and gates
 
 ```bash
-python3 "$OMG_CLI" compat contract --all
-python3 "$OMG_CLI" compat contract --skill omg-teams
-python3 "$OMG_CLI" compat snapshot --output runtime/omg_compat_contract_snapshot.json
-python3 scripts/check-omg-compat-contract-snapshot.py --strict-version
-python3 scripts/check-omg-standalone-clean.py
+bun "$OMG_CLI" compat contract --all
+bun "$OMG_CLI" compat contract --skill omg-teams
+bun "$OMG_CLI" compat snapshot --output runtime/omg_compat_contract_snapshot.json
+bun scripts/check-omg-compat-contract-snapshot.ts --strict-version
+bun scripts/check-omg-standalone-clean.ts
 ```
 
-## Generate compatibility gap report
+## Generate a compatibility gap report
 
 ```bash
-python3 "$OMG_CLI" compat gap-report
+bun "$OMG_CLI" compat gap-report
 ```
 
-## Enforce GA gate (CI/local)
+## Enforce the GA gate
 
 ```bash
-python3 "$OMG_CLI" compat gate --max-bridge 0
-python3 "$OMG_CLI" compat gate --max-bridge 0 --output .omg/evidence/omg-compat-gap.json
+bun "$OMG_CLI" compat gate --max-bridge 0
+bun "$OMG_CLI" compat gate --max-bridge 0 --output .omg/evidence/omg-compat-gap.json
 ```
 
 ## Run a legacy skill
 
 ```bash
-python3 "$OMG_CLI" compat run --skill "<skill-name>" --problem "$ARGUMENTS"
-```
-
-Examples:
-
-```bash
-python3 "$OMG_CLI" compat run --skill omg-teams --problem "review auth flow"
-python3 "$OMG_CLI" compat run --skill plan --problem "ship secure release"
-python3 "$OMG_CLI" compat run --skill pipeline --problem "train model"
+bun "$OMG_CLI" compat run --skill "<skill-name>" --problem "$ARGUMENTS"
 ```

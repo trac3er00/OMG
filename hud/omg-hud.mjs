@@ -266,7 +266,7 @@ function getRuntimeInventory() {
   const claudeDir = getClaudeConfigDir();
   return {
     agents: countByExt(join(claudeDir, "agents"), ".md"),
-    hooks: countByExt(join(claudeDir, "hooks"), ".py"),
+    hooks: countByExt(join(claudeDir, "hooks"), ".ts"),
     commands: countByExt(join(claudeDir, "commands"), ".md"),
     rules: countByExt(join(claudeDir, "rules"), ".md"),
   };

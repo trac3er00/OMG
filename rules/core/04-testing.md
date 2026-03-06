@@ -24,7 +24,7 @@ Then write tests for THOSE scenarios.
 
 ## Quality Gate
 Every change runs: format → lint → typecheck (if typed) → test
-If quality-gate.json exists, quality-runner.py enforces this.
+If quality-gate.json exists, quality-runner.ts enforces this.
 
-> Enforced: test-validator.py catches fake/boilerplate tests.
-> quality-runner.py runs QA commands.
+> Enforced: test-generator-hook.ts catches missing coverage follow-up for generated tests.
+> quality-runner.ts runs QA commands.

@@ -99,7 +99,7 @@ When detecting patterns, especially look for:
 ## Aggregated Patterns (Auto)
 When you run `/OMG:learn auto`, OMG reads all learning files from `.omg/state/learnings/` and generates `.omg/knowledge/critical-patterns.md` with your top tool and file patterns.
 
-Run: `python3 -c "import sys; sys.path.insert(0,'hooks'); from _learnings import save_critical_patterns; save_critical_patterns('.')"`
+Regenerate by rerunning `/OMG:learn auto` after a representative session.
 ## File Write Fallback
 If `Write` fails (file exists), use `Edit` or Bash heredoc:
 ```bash

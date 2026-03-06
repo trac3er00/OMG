@@ -5,16 +5,16 @@
     "name": "trac3er00"
   },
   "metadata": {
-    "description": "OMG - Oh-My-God for Claude Code",
-    "version": "1.0.2",
+    "description": "OMG Bun runtime for Claude Code",
+    "version": "2.0.0-beta.6",
     "homepage": "https://github.com/trac3er00/OMG",
     "repository": "git@github.com:trac3er00/OMG.git"
   },
   "plugins": [
     {
       "name": "omg",
-      "description": "OMG standalone orchestration layer for Claude Code",
-      "version": "1.0.2",
+      "description": "OMG Bun runtime orchestration layer for Claude Code",
+      "version": "2.0.0-beta.6",
       "source": "./",
       "author": {
         "name": "trac3er00"
@@ -28,9 +28,9 @@
         "omg",
         "codex",
         "gemini",
-        "crazy-mode"
+        "bun"
       ]
     }
   ],
-  "version": "1.0.2"
+  "version": "2.0.0-beta.6"
 }

@@ -1,0 +1,1 @@
+export const BUDGET_PROMPT_TOTAL = 1000;

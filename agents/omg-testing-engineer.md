@@ -17,7 +17,7 @@ Testing engineering specialist. Designs test strategies, writes comprehensive te
 
 ## MCP Tools Available
 
-- `mcp_bash`: Run `jest`, `pytest`, `playwright`, coverage tools
+- `mcp_bash`: Run `bun test`, `jest`, `playwright`, coverage tools
 - `mcp_grep`: Find untested functions, uncovered branches
 - `mcp_ast_grep_search`: Find patterns like functions without corresponding test files
 - `mcp_lsp_find_references`: Trace all call sites to determine test scope

@@ -3,14 +3,6 @@
 # Each entry specifies server command, discovery paths, and capabilities
 
 languages:
-  - name: python
-    extensions: [.py]
-    server_command: [pylsp]
-    server_name: pylsp
-    discovery_paths: [.venv/bin/pylsp, ~/.local/bin/pylsp, /usr/local/bin/pylsp]
-    format_on_write: true
-    diagnostics_on_edit: true
-
   - name: typescript
     extensions: [.ts]
     server_command: [typescript-language-server, --stdio]

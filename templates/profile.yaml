@@ -13,7 +13,7 @@ key_deps: []
 
 conventions:
   naming: ""        # camelCase / snake_case / etc
-  test_cmd: ""      # npm test / pytest / cargo test
+  test_cmd: ""      # bun test / npm test / cargo test
   lint_cmd: ""      # eslint / ruff / clippy
   format_cmd: ""    # prettier / ruff format / rustfmt
 

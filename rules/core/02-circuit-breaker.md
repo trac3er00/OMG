@@ -16,7 +16,7 @@ Options:
 - **Force-Fixer:** Immediately try to fix without understanding root cause
 
 ## Auto-Escalation
-After 3 failures: circuit-breaker.py suggests /OMG:escalate with specific context.
+After 3 failures: circuit-breaker.ts suggests /OMG:escalate with specific context.
 After 5 failures: HARD BLOCK. Must escalate or get user input.
 
-> Enforced: circuit-breaker.py tracks patterns + auto-escalates.
+> Enforced: circuit-breaker.ts tracks patterns + auto-escalates.
