@@ -28,6 +28,20 @@ def test_trust_review_returns_structured_report():
     assert out["risk_level"] == "critical"
 
 
+def test_trust_review_detects_current_permission_syntax():
+    service = ControlPlaneService(project_dir=".")
+    status, out = service.trust_review(
+        {
+            "file_path": "settings.json",
+            "old_config": {"permissions": {"allow": ["Read"]}},
+            "new_config": {"permissions": {"allow": ["Read", "Bash(curl *)"]}},
+        }
+    )
+    assert status == 200
+    assert out["verdict"] == "deny"
+    assert out["risk_level"] == "critical"
+
+
 def test_evidence_ingest_writes_file(tmp_path: Path):
     service = ControlPlaneService(project_dir=str(tmp_path))
     status, out = service.evidence_ingest(
@@ -92,4 +106,3 @@ def test_scoreboard_baseline_shape():
         "pr_throughput",
         "adoption_velocity",
     }
-

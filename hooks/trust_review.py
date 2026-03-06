@@ -16,10 +16,65 @@ from typing import Any, Dict, List
 import re
 import sys
 
-DANGEROUS_IN_ALLOW = [
-    "Bash(rm:*)", "Bash(sudo:*)", "Bash(curl:*)", "Bash(wget:*)",
-    "Bash(ssh:*)", "Bash(nc:*)", "Bash(ncat:*)",
-]
+DANGEROUS_ALLOW_COMMANDS = (
+    "rm",
+    "sudo",
+    "curl",
+    "wget",
+    "ssh",
+    "nc",
+    "ncat",
+)
+
+_LATEST_TAG_PATTERN = re.compile(r"@latest(?:$|[/:])", re.IGNORECASE)
+
+
+def _is_dangerous_allow_entry(entry: Any) -> bool:
+    if not isinstance(entry, str):
+        return False
+
+    normalized = re.sub(r"\s+", " ", entry.strip())
+    for command in DANGEROUS_ALLOW_COMMANDS:
+        patterns = (
+            f"Bash({command}:*)",
+            f"Bash({command} *)",
+        )
+        if normalized in patterns:
+            return True
+
+    return False
+
+
+def _mcp_server_risk(server_name: str, config: Any) -> tuple[int, list[str], list[str]]:
+    if not isinstance(config, dict):
+        return 0, [], []
+
+    score = 0
+    reasons: list[str] = []
+    controls: list[str] = []
+
+    command = str(config.get("command", "")).strip()
+    args = config.get("args", [])
+    args_list = [str(arg) for arg in args] if isinstance(args, list) else []
+
+    if command == "npx" and any(arg in {"-y", "--yes"} for arg in args_list):
+        score += 35
+        reasons.append(f"MCP server {server_name} uses npx auto-install confirmation")
+        controls.append("pin-mcp-package")
+
+    if any(_LATEST_TAG_PATTERN.search(arg) for arg in args_list):
+        score += 45
+        reasons.append(f"MCP server {server_name} uses an unpinned @latest package")
+        controls.append("pin-mcp-package")
+
+    if "server-filesystem" in " ".join(args_list):
+        root = args_list[-1] if args_list else ""
+        if root not in {".", "./"}:
+            score += 45
+            reasons.append(f"MCP filesystem server {server_name} is scoped outside the project root")
+            controls.append("scope-filesystem-root")
+
+    return score, reasons, controls
 
 
 def _safe_dict(value: Any) -> dict[str, Any]:
@@ -118,8 +173,8 @@ def _risk_from_permissions(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> 
     reasons: list[str] = []
     controls: list[str] = []
 
-    for dangerous in DANGEROUS_IN_ALLOW:
-        if dangerous in added_allow:
+    for dangerous in added_allow:
+        if _is_dangerous_allow_entry(dangerous):
             score += 80
             reasons.append(f"Dangerous allow pattern added: {dangerous}")
             controls.extend(["manual-trust-review", "deny-by-default"])
@@ -163,6 +218,7 @@ def _risk_from_mcp(mcp_changes: list[dict[str, Any]]) -> tuple[int, list[str], l
     for change in mcp_changes:
         ctype = change.get("type")
         name = change.get("server")
+        server_cfg = change.get("new") if ctype in {"added", "modified"} else change.get("old")
         if ctype == "added":
             score += 30
             reasons.append(f"New MCP server added: {name}")
@@ -174,6 +230,11 @@ def _risk_from_mcp(mcp_changes: list[dict[str, Any]]) -> tuple[int, list[str], l
         elif ctype == "removed":
             score += 10
             reasons.append(f"MCP server removed: {name}")
+
+        extra_score, extra_reasons, extra_controls = _mcp_server_risk(str(name), server_cfg)
+        score += extra_score
+        reasons.extend(extra_reasons)
+        controls.extend(extra_controls)
 
     return score, reasons, controls
 

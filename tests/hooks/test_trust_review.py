@@ -18,6 +18,39 @@ def test_trust_review_detects_dangerous_permission_change():
     assert review["risk_score"] >= 80
 
 
+def test_trust_review_detects_space_syntax_dangerous_permission_change():
+    old = {"permissions": {"allow": ["Read"]}}
+    new = {"permissions": {"allow": ["Read", "Bash(curl *)", "Bash(ssh *)"]}}
+
+    review = review_config_change("settings.json", old, new)
+
+    assert review["verdict"] == "deny"
+    assert review["risk_level"] == "critical"
+    assert review["risk_score"] >= 80
+
+
+def test_trust_review_blocks_high_risk_mcp_config_change():
+    old = {"mcpServers": {}}
+    new = {
+        "mcpServers": {
+            "filesystem": {
+                "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/example"],
+            },
+            "chrome-devtools": {
+                "command": "npx",
+                "args": ["-y", "chrome-devtools-mcp@latest"],
+            },
+        }
+    }
+
+    review = review_config_change(".mcp.json", old, new)
+
+    assert review["verdict"] == "deny"
+    assert review["risk_level"] == "critical"
+    assert review["risk_score"] >= 80
+
+
 def test_trust_review_manifest_written(tmp_path: Path):
     review = review_config_change("settings.json", {}, {"hooks": {"PreToolUse": []}})
     path = write_trust_manifest(str(tmp_path), review)
