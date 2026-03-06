@@ -1172,6 +1172,7 @@ def execute_ccg_mode(
     }
 
     return {
+        "schema": "CCGExecutionResult",
         "status": "ok",
         "phases": [
             {"phase": 1, "agent": "claude-orchestrator", "status": "completed"},
@@ -1192,6 +1193,11 @@ def execute_ccg_mode(
         "worker_count": len(results),
         "target_worker_count": 2,
         "model_mix": model_mix,
+        "evidence": {
+            "target": "ccg",
+            "worker_count": len(results),
+            "parallel_execution": True,
+        },
         "findings": [
             f"Workers launched: {len(results)}/2",
             f"GPT tracks: {len(model_mix['gpt'])}",

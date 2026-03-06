@@ -16,6 +16,8 @@ import argparse
 import base64
 import gc
 import getpass
+import hashlib
+import hmac
 import json
 import os
 import sys
@@ -34,34 +36,31 @@ from _common import (
     setup_crash_handler,
 )
 
-# Fail-closed: security-critical module
+# Credential storage prefers Fernet, but standalone/no-vendor verification
+# still needs a local authenticated fallback when optional crypto wheels are absent.
 setup_crash_handler("credential_store", fail_closed=True)
 
 # --- Lazy-loaded cryptography imports ---
 _Fernet = None
-_PBKDF2HMAC = None
-_hashes = None
+_InvalidToken = None
+_CRYPTO_BACKEND: str | None = None
 
 
 def _ensure_crypto():
-    """Lazily import cryptography; fail with clear message if missing."""
-    global _Fernet, _PBKDF2HMAC, _hashes
-    if _Fernet is not None:
+    """Prefer cryptography, but allow a stdlib fallback in standalone mode."""
+    global _Fernet, _InvalidToken, _CRYPTO_BACKEND
+    if _CRYPTO_BACKEND is not None:
         return
     try:
-        from cryptography.fernet import Fernet
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        from cryptography.fernet import Fernet, InvalidToken
 
         _Fernet = Fernet
-        _PBKDF2HMAC = PBKDF2HMAC
-        _hashes = hashes
+        _InvalidToken = InvalidToken
+        _CRYPTO_BACKEND = "fernet"
     except ImportError:
-        print(
-            "Error: 'cryptography' library required. Install with: pip install cryptography",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+        _Fernet = None
+        _InvalidToken = ValueError
+        _CRYPTO_BACKEND = "stdlib"
 
 
 # --- Constants ---
@@ -74,6 +73,57 @@ MIN_PASSPHRASE_LEN = 8
 
 # Default empty store schema
 _EMPTY_STORE = {"version": 1, "providers": {}}
+_STDLIB_TOKEN_PREFIX = b"OMG1"
+
+
+def _raw_key(key: bytes) -> bytes:
+    return base64.urlsafe_b64decode(key)
+
+
+def _derive_keystream(secret: bytes, nonce: bytes, length: int) -> bytes:
+    chunks: list[bytes] = []
+    counter = 0
+    produced = 0
+    while produced < length:
+        block = hmac.new(secret, nonce + counter.to_bytes(4, "big"), hashlib.sha256).digest()
+        chunks.append(block)
+        produced += len(block)
+        counter += 1
+    return b"".join(chunks)[:length]
+
+
+def _encrypt_store_stdlib(payload: bytes, key: bytes) -> bytes:
+    secret = _raw_key(key)
+    nonce = os.urandom(16)
+    keystream = _derive_keystream(secret, nonce, len(payload))
+    ciphertext = bytes(left ^ right for left, right in zip(payload, keystream))
+    digest = hmac.new(secret, _STDLIB_TOKEN_PREFIX + nonce + ciphertext, hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(_STDLIB_TOKEN_PREFIX + nonce + digest + ciphertext)
+
+
+def _decrypt_store_stdlib(token: bytes, key: bytes) -> dict | None:
+    try:
+        payload = base64.urlsafe_b64decode(token)
+    except Exception as exc:  # pragma: no cover - invalid base64 still handled as bad token
+        raise ValueError("Decryption failed: wrong passphrase or corrupted store") from exc
+
+    if not payload.startswith(_STDLIB_TOKEN_PREFIX):
+        return None
+    if len(payload) < len(_STDLIB_TOKEN_PREFIX) + 16 + 32:
+        raise ValueError("Decryption failed: wrong passphrase or corrupted store")
+
+    secret = _raw_key(key)
+    prefix_len = len(_STDLIB_TOKEN_PREFIX)
+    nonce = payload[prefix_len : prefix_len + 16]
+    digest = payload[prefix_len + 16 : prefix_len + 48]
+    ciphertext = payload[prefix_len + 48 :]
+    expected = hmac.new(secret, _STDLIB_TOKEN_PREFIX + nonce + ciphertext, hashlib.sha256).digest()
+    if not hmac.compare_digest(digest, expected):
+        raise ValueError("Decryption failed: wrong passphrase or corrupted store")
+
+    keystream = _derive_keystream(secret, nonce, len(ciphertext))
+    plaintext = bytes(left ^ right for left, right in zip(ciphertext, keystream))
+    return json.loads(plaintext.decode("utf-8"))
 
 
 # =============================================================================
@@ -82,7 +132,7 @@ _EMPTY_STORE = {"version": 1, "providers": {}}
 
 
 def derive_key(passphrase: bytes, salt: bytes, kdf_config: dict | None = None) -> bytes:
-    """Derive a Fernet key from passphrase using PBKDF2HMAC.
+    """Derive a 32-byte URL-safe key from passphrase using stdlib PBKDF2.
 
     Args:
         passphrase: Raw passphrase bytes
@@ -92,34 +142,29 @@ def derive_key(passphrase: bytes, salt: bytes, kdf_config: dict | None = None) -
     Returns:
         URL-safe base64-encoded 32-byte key suitable for Fernet
     """
-    _ensure_crypto()
     iterations = KDF_ITERATIONS
     if kdf_config and "iterations" in kdf_config:
         iterations = int(kdf_config["iterations"])
 
-    kdf = _PBKDF2HMAC(
-        algorithm=_hashes.SHA256(),
-        length=32,
-        salt=salt,
-        iterations=iterations,
-    )
-    return base64.urlsafe_b64encode(kdf.derive(passphrase))
+    derived = hashlib.pbkdf2_hmac("sha256", passphrase, salt, iterations, dklen=32)
+    return base64.urlsafe_b64encode(derived)
 
 
 def encrypt_store(data: dict, key: bytes) -> bytes:
-    """Encrypt credential store payload with Fernet.
+    """Encrypt credential store payload with Fernet or the stdlib fallback.
 
     Args:
         data: Credential store dict to encrypt
-        key: Fernet key (from derive_key)
+        key: Derived key (from derive_key)
 
     Returns:
-        Fernet token bytes
+        Token bytes
     """
     _ensure_crypto()
-    f = _Fernet(key)
     payload = json.dumps(data, separators=(",", ":")).encode("utf-8")
-    return f.encrypt(payload)
+    if _CRYPTO_BACKEND == "fernet" and _Fernet is not None:
+        return _Fernet(key).encrypt(payload)
+    return _encrypt_store_stdlib(payload, key)
 
 
 def decrypt_store(token: bytes, key: bytes) -> dict:
@@ -127,21 +172,26 @@ def decrypt_store(token: bytes, key: bytes) -> dict:
 
     Args:
         token: Fernet token bytes
-        key: Fernet key (from derive_key)
+        key: Derived key (from derive_key)
 
     Returns:
         Decrypted credential store dict
 
     Raises:
-        ValueError: If passphrase is wrong (Fernet InvalidToken)
+        ValueError: If passphrase is wrong or store contents are corrupted
     """
+    fallback = _decrypt_store_stdlib(token, key)
+    if fallback is not None:
+        return fallback
+
     _ensure_crypto()
-    from cryptography.fernet import InvalidToken
+    if _CRYPTO_BACKEND != "fernet" or _Fernet is None or _InvalidToken is None:
+        raise ValueError("Decryption failed: wrong passphrase or corrupted store")
 
     f = _Fernet(key)
     try:
         plaintext = f.decrypt(token)
-    except InvalidToken:
+    except _InvalidToken:
         raise ValueError("Decryption failed: wrong passphrase or corrupted store")
     return json.loads(plaintext.decode("utf-8"))
 
