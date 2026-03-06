@@ -7,14 +7,33 @@ import json
 import os
 import shutil
 
+
+def _claude_config_dir() -> str:
+    return os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude"))
+
+
+def _load_mcp_servers(path: str) -> dict[str, object]:
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(config, dict):
+        return {}
+    servers = config.get("mcpServers", {})
+    return servers if isinstance(servers, dict) else {}
+
+
 # Agent registry: domain → agent config
 AGENT_REGISTRY = {
     'frontend-designer': {
         'preferred_model': 'gemini-cli',
         'task_category': 'visual-engineering',
-        'skills': ['frontend-design', 'frontend-ui-ux'],
+        'skills': ['frontend-design', 'frontend-patterns'],
         'trigger_keywords': {'ui', 'ux', 'css', 'layout', 'responsive', 'visual', 'frontend', 'component', 'style', 'design', 'animation', 'color', 'theme'},
-        'mcp_tools': ['puppeteer_screenshot', 'puppeteer_navigate'],
+        'mcp_tools': ['chrome-devtools'],
         'description': 'Frontend/UI specialist. Uses Gemini for visual tasks.',
         'agent_file': 'agents/omg-frontend-designer.md',
         'model_version': 'gemini-3.1-pro-preview',
@@ -34,7 +53,7 @@ AGENT_REGISTRY = {
         'task_category': 'deep',
         'skills': ['api-design', 'backend-patterns'],
         'trigger_keywords': {'openapi', 'swagger', 'rest', 'graphql', 'api-spec', 'schema', 'contract', 'endpoint-design'},
-        'mcp_tools': ['context7_query-docs'],
+        'mcp_tools': ['context7'],
         'description': 'API design/build specialist. Contracts, endpoint shape, and versioning.',
         'agent_file': 'agents/omg-api-builder.md',
         'model_version': 'gpt-5.3',
@@ -44,7 +63,7 @@ AGENT_REGISTRY = {
         'task_category': 'deep',
         'skills': ['security-review'],
         'trigger_keywords': {'auth', 'encrypt', 'cors', 'jwt', 'vulnerability', 'security', 'xss', 'csrf', 'injection', 'secret', 'password', 'token'},
-        'mcp_tools': ['sentry_search_issues', 'sentry_get_issue_details'],
+        'mcp_tools': ['context7', 'websearch'],
         'description': 'Security specialist. Uses Codex for deep security analysis.',
         'agent_file': 'agents/omg-security-auditor.md',
         'model_version': 'gpt-5.3',
@@ -64,7 +83,7 @@ AGENT_REGISTRY = {
         'task_category': 'unspecified-high',
         'skills': ['python-testing', 'e2e-testing'],
         'trigger_keywords': {'test', 'spec', 'coverage', 'fixture', 'mock', 'playwright', 'e2e', 'unit', 'integration', 'pytest', 'jest'},
-        'mcp_tools': ['puppeteer_navigate', 'puppeteer_screenshot'],
+        'mcp_tools': ['chrome-devtools'],
         'description': 'Testing specialist. Unit tests, integration tests, E2E with Playwright.',
         'agent_file': 'agents/omg-testing-engineer.md',
         'model_version': 'claude-sonnet-4-5',
@@ -86,7 +105,7 @@ AGENT_REGISTRY = {
         'subagent_type': 'librarian',
         'skills': [],
         'trigger_keywords': {'research', 'find', 'how to', 'explain', 'documentation', 'docs', 'lookup'},
-        'mcp_tools': ['web_search_exa', 'google_search', 'context7_query-docs'],
+        'mcp_tools': ['websearch', 'context7', 'chrome-devtools'],
         'description': 'Research mode. Web search, docs lookup, library exploration.',
         'agent_file': 'agents/omg-research-mode.md',
         'model_version': 'claude-haiku-3-5',
@@ -140,9 +159,9 @@ AGENT_REGISTRY = {
     'designer': {
         'preferred_model': 'gemini-cli',
         'task_category': 'visual-engineering',
-        'skills': ['frontend-design', 'frontend-ui-ux'],
+        'skills': ['frontend-design', 'frontend-patterns'],
         'trigger_keywords': {'component', 'layout', 'accessibility', 'responsive', 'tailwind', 'css', 'aria', 'wcag', 'breakpoint'},
-        'mcp_tools': ['puppeteer_screenshot', 'puppeteer_navigate'],
+        'mcp_tools': ['chrome-devtools'],
         'description': 'UI/UX design agent. Component design, layout, accessibility, responsive design.',
         'agent_file': 'agents/designer.md',
         'model_version': 'claude-opus-4-5',
@@ -154,7 +173,7 @@ AGENT_REGISTRY = {
         'task_category': 'deep',
         'skills': ['security-review'],
         'trigger_keywords': {'review', 'audit', 'check', 'inspect', 'critique', 'feedback', 'pr', 'pull-request', 'quality'},
-        'mcp_tools': ['sentry_search_issues', 'sentry_get_issue_details'],
+        'mcp_tools': ['context7', 'websearch'],
         'description': 'Code review agent. Security, performance, quality, best practices, test coverage.',
         'agent_file': 'agents/reviewer.md',
         'model_version': 'claude-opus-4-5',
@@ -318,27 +337,20 @@ def detect_available_models() -> dict[str, bool]:
 def discover_mcp_tools() -> list[str]:
     """Read MCP config to find available tool names.
 
-    Checks both project-level .mcp.json and ~/.claude/settings.json for mcpServers keys.
+    Checks project-level and user-level Claude MCP configs for mcpServers keys.
     Returns list of server names (not individual tool names).
     """
     mcp_servers = {}
     project_dir = os.getcwd()
-    
-    # Read from both sources: project .mcp.json and user settings
+
+    claude_dir = _claude_config_dir()
     for mcp_loc in [
         os.path.join(project_dir, '.mcp.json'),
-        os.path.expanduser('~/.claude/settings.json'),
+        os.path.join(claude_dir, '.mcp.json'),
+        os.path.join(claude_dir, 'settings.json'),
     ]:
-        if not os.path.exists(mcp_loc):
-            continue
-        try:
-            with open(mcp_loc) as f:
-                config = json.load(f)
-            servers = config.get('mcpServers', {})
-            mcp_servers.update(servers)
-        except (json.JSONDecodeError, OSError, KeyError):
-            continue
-    
+        mcp_servers.update(_load_mcp_servers(mcp_loc))
+
     return list(mcp_servers.keys())
 
 

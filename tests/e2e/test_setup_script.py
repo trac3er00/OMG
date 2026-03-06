@@ -323,6 +323,31 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     assert "omg@oh-advanced-layer" in plugins
 
 
+def test_setup_install_registers_session_start_hook(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=apply"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    settings_path = claude_dir / "settings.json"
+    settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+    hooks = cast(dict[str, object], settings.get("hooks") or {})
+    session_start = cast(list[object], hooks.get("SessionStart") or [])
+    commands = [
+        hook.get("command")
+        for entry in session_start
+        if isinstance(entry, dict)
+        for hook in cast(list[dict[str, object]], entry.get("hooks") or [])
+        if isinstance(hook, dict)
+    ]
+    assert 'python3 "$HOME/.claude/hooks/session-start.py"' in commands
+
+
 def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
@@ -365,6 +390,45 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     installed_plugins = cast(dict[str, object], json.loads(installed_plugins_path.read_text(encoding="utf-8")))
     plugins_after = cast(dict[str, object], installed_plugins.get("plugins") or {})
     assert "omg@oh-advanced-layer" not in plugins_after
+
+
+def test_setup_install_as_plugin_refreshes_stale_plugin_mcp_servers(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    mcp_path = claude_dir / ".mcp.json"
+    _ = mcp_path.write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
+                    "filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]},
+                    "websearch": {"command": "npx", "args": ["-y", "@zhafron/mcp-web-search"]},
+                    "chrome-devtools": {"command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"]},
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    merged = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
+    servers = cast(dict[str, object], merged.get("mcpServers") or {})
+    source = cast(dict[str, object], json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8")))
+    source_servers = cast(dict[str, object], source.get("mcpServers") or {})
+
+    assert servers["context7"] == source_servers["context7"]
+    assert servers["filesystem"] == source_servers["filesystem"]
+    assert servers["websearch"] == source_servers["websearch"]
+    assert servers["chrome-devtools"] == source_servers["chrome-devtools"]
 
 
 def test_setup_uninstall_cleans_legacy_omg_registry_and_cache(tmp_path: Path):

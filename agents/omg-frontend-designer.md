@@ -17,11 +17,10 @@ Frontend design specialist. Handles all UI/UX tasks: component design, responsiv
 
 ## MCP Tools Available
 
-- `mcp_puppeteer_puppeteer_screenshot`: Verify visual output after changes
-- `mcp_puppeteer_puppeteer_navigate`: Preview pages in browser
-- `mcp_lsp_diagnostics`: Check for TypeScript/CSS errors
-- `mcp_ast_grep_search`: Find component patterns across codebase
-- `mcp_grep_app_searchGitHub`: Find real-world UI implementation examples
+- `chrome-devtools`: Preview pages, inspect layout issues, and validate responsive behavior in a real browser
+- `filesystem`: Review component files, generated assets, and local screenshots without leaving the workspace
+- `context7`: Look up framework and component-library documentation when implementation details are unclear
+- `websearch`: Check current UI patterns or browser-specific behavior when local context is insufficient
 
 ## Constraints
 

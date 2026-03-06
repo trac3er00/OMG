@@ -129,9 +129,11 @@ if os.environ.get("OMG_INCLUDE_LEGACY_ALIASES", "0") == "1":
         if os.path.exists(cmd_file):
             tools.append(f"/{cmd_name} (alias)")
 
+claude_config_dir = os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude"))
 for mcp_loc in [
     os.path.join(project_dir, ".mcp.json"),
-    os.path.expanduser("~/.claude/settings.json"),
+    os.path.join(claude_config_dir, ".mcp.json"),
+    os.path.join(claude_config_dir, "settings.json"),
 ]:
     if os.path.exists(mcp_loc):
         try:
