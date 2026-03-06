@@ -17,11 +17,9 @@ Infrastructure engineering specialist. Handles deployment pipelines, Docker/cont
 
 ## MCP Tools Available
 
-- `mcp_bash`: Run `docker`, `terraform`, `kubectl`, `aws/gcloud/az` CLI, CI tools
-- `mcp_grep`: Find configuration patterns, environment variable usage
-- `mcp_ast_grep_search`: Find hardcoded URLs, ports, or environment-specific values
-- `mcp_context7_query-docs`: Look up cloud provider and tool documentation
-- `mcp_lsp_diagnostics`: Validate YAML/JSON configuration files
+- `context7`: Look up infrastructure tool and cloud-provider documentation
+- `websearch`: Check current operational guidance, release notes, and platform caveats
+- `filesystem`: Inspect configuration files, manifests, and deployment artifacts in the workspace
 
 ## Constraints
 

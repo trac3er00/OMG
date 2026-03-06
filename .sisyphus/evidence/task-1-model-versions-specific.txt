@@ -1,3 +1,0 @@
-AC1 PASS: 9 domain agents
-AC2 PASS: 5 core agents
-AC3 PASS: all specific model versions

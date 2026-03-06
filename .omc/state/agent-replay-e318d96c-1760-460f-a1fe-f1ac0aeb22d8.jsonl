@@ -1,8 +1,0 @@
-{"t":0,"agent":"ae2e1e8","agent_type":"security-reviewer","event":"agent_start","parent_mode":"none"}
-{"t":0,"agent":"a926532","agent_type":"quality-reviewer","event":"agent_start","parent_mode":"none"}
-{"t":0,"agent":"a926532","agent_type":"quality-reviewer","event":"agent_stop","success":true,"duration_ms":195165}
-{"t":0,"agent":"ae2e1e8","agent_type":"security-reviewer","event":"agent_stop","success":true,"duration_ms":297125}
-{"t":0,"agent":"system","event":"skill_invoked","skill_name":"OAL:deep-plan"}
-{"t":0,"agent":"system","event":"skill_invoked","skill_name":"brainstorming"}
-{"t":0,"agent":"a910b09","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"a0ff8ef","agent_type":"unknown","event":"agent_stop","success":true}

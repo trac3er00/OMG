@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 import uuid
@@ -99,7 +100,7 @@ class KimiCodeProvider(CLIProvider):
             mgr = TmuxSessionManager()
             session_name = mgr.make_session_name("kimi", unique_id=str(uuid.uuid4())[:8])
             session = mgr.get_or_create_session(session_name)
-            output = mgr.send_command(session, f"kimi --print -p '{prompt}'", timeout=timeout)
+            output = mgr.send_command(session, f"kimi --print -p {shlex.quote(prompt)}", timeout=timeout)
             mgr.kill_session(session)
             return {"model": "kimi-cli", "output": output, "exit_code": 0}
         except Exception as exc:

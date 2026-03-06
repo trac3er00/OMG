@@ -4,6 +4,7 @@ Feature-gated: requires OMG_SETUP_ENABLED=1 (default off).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -32,6 +33,13 @@ import runtime.providers.codex_provider  # noqa: E402, F401
 import runtime.providers.gemini_provider  # noqa: E402, F401
 import runtime.providers.opencode_provider  # noqa: E402, F401
 import runtime.providers.kimi_provider  # noqa: E402, F401
+from runtime.adoption import (  # noqa: E402
+    CANONICAL_VERSION,
+    build_adoption_report,
+    get_preset_features,
+    resolve_preset,
+    write_adoption_report,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -41,6 +49,215 @@ _INSTALL_HINTS: dict[str, str] = {
     "opencode": "npm install -g opencode-ai  (or: curl -fsSL https://opencode.ai/install | bash)",
     "kimi": "uv tool install --python 3.13 kimi-cli",
 }
+
+BYPASS_ALL_WARNING = (
+    "⚠️  BYPASS-ALL / FULL VIBE-CODE MODE WARNING ⚠️\n\n"
+    "Enabling bypass-all grants Claude Code unrestricted write access to your filesystem "
+    "without asking for confirmation on individual file edits.\n\n"
+    "IMPORTANT DISCLAIMER: The author takes NO responsibility for any data loss, "
+    "unintended file modifications, or system changes that occur while bypass-all is enabled. "
+    "Use at your own risk.\n\n"
+    "Note: Some safety measures remain active even in bypass-all mode:\n"
+    "  • Firewall deny rules still block dangerous commands (rm -rf, sudo, etc.)\n"
+    "  • Secret-guard still protects credentials and API keys\n"
+    "  • You can disable bypass-all at any time via settings.json\n\n"
+    "Do you want to enable bypass-all mode? (y/N): "
+)
+
+MCP_CATALOG: list[dict[str, Any]] = [
+    {
+        "id": "context7",
+        "name": "Context7",
+        "description": "Upstash Context7 MCP server for context management",
+        "command": "npx",
+        "args": ["@upstash/context7-mcp@2.1.3"],
+        "default": True,
+        "category": "productivity",
+    },
+    {
+        "id": "filesystem",
+        "name": "Filesystem",
+        "description": "ModelContextProtocol filesystem server for file operations",
+        "command": "npx",
+        "args": ["@modelcontextprotocol/server-filesystem@2026.1.14", "."],
+        "default": True,
+        "category": "system",
+    },
+    {
+        "id": "websearch",
+        "name": "Web Search",
+        "description": "Web search MCP server for internet queries",
+        "command": "npx",
+        "args": ["@zhafron/mcp-web-search@1.2.2"],
+        "default": True,
+        "category": "search",
+    },
+    {
+        "id": "chrome-devtools",
+        "name": "Chrome DevTools",
+        "description": "Chrome DevTools MCP server for browser automation",
+        "command": "npx",
+        "args": ["chrome-devtools-mcp@0.19.0"],
+        "default": True,
+        "category": "browser",
+    },
+    {
+        "id": "omg-memory",
+        "name": "OMG Memory",
+        "description": "OMG shared memory server via HTTP",
+        "command": None,
+        "args": [],
+        "type": "http",
+        "url": "http://127.0.0.1:8765/mcp",
+        "default": True,
+        "category": "memory",
+    },
+    {
+        "id": "github",
+        "name": "GitHub",
+        "description": "ModelContextProtocol GitHub server for repository operations",
+        "command": "npx",
+        "args": ["@modelcontextprotocol/server-github"],
+        "default": False,
+        "category": "vcs",
+    },
+    {
+        "id": "puppeteer",
+        "name": "Puppeteer",
+        "description": "ModelContextProtocol Puppeteer server for browser automation",
+        "command": "npx",
+        "args": ["@modelcontextprotocol/server-puppeteer"],
+        "default": False,
+        "category": "browser",
+    },
+    {
+        "id": "brave-search",
+        "name": "Brave Search",
+        "description": "ModelContextProtocol Brave Search server",
+        "command": "npx",
+        "args": ["@modelcontextprotocol/server-brave-search"],
+        "default": False,
+        "category": "search",
+    },
+    {
+        "id": "sequential-thinking",
+        "name": "Sequential Thinking",
+        "description": "ModelContextProtocol Sequential Thinking server for reasoning",
+        "command": "npx",
+        "args": ["@modelcontextprotocol/server-sequential-thinking"],
+        "default": False,
+        "category": "reasoning",
+    },
+    {
+        "id": "grep-app",
+        "name": "Grep App",
+        "description": "Grep App MCP server for code search",
+        "command": "npx",
+        "args": ["grep-app-mcp"],
+        "default": False,
+        "category": "search",
+    },
+    {
+        "id": "memory-graph",
+        "name": "Memory Graph",
+        "description": "ModelContextProtocol Memory server for knowledge graphs",
+        "command": "npx",
+        "args": ["@modelcontextprotocol/server-memory"],
+        "default": False,
+        "category": "memory",
+    },
+]
+
+
+def get_mcp_catalog() -> list[dict[str, Any]]:
+    """Return the MCP catalog.
+
+    Returns:
+        List of MCP server definitions with id, name, description, command, args, default, and category.
+    """
+    return MCP_CATALOG
+
+
+def build_mcp_config(selected_ids: list[str]) -> dict[str, Any]:
+    """Build .mcp.json configuration from selected MCP server IDs.
+
+    Args:
+        selected_ids: List of MCP server IDs to include in the config.
+
+    Returns:
+        Dict with 'mcpServers' key containing the MCP server configurations.
+    """
+    mcp_servers: dict[str, Any] = {}
+
+    for mcp in MCP_CATALOG:
+        if mcp["id"] not in selected_ids:
+            continue
+
+        mcp_id = mcp["id"]
+
+        # HTTP-type MCPs (like omg-memory)
+        if mcp.get("type") == "http":
+            mcp_servers[mcp_id] = {
+                "type": "http",
+                "url": mcp["url"],
+            }
+        # NPX-type MCPs
+        else:
+            mcp_servers[mcp_id] = {
+                "command": mcp["command"],
+                "args": mcp["args"],
+            }
+
+    return {"mcpServers": mcp_servers}
+
+
+def configure_plan_type(plan_type: str) -> dict[str, Any]:
+    """Configure Claude plan type and model routing.
+
+    Args:
+        plan_type: "max" or "pro"
+
+    Returns:
+        dict with plan_type and optionally model_routing
+    """
+    result: dict[str, Any] = {"plan_type": plan_type}
+    if plan_type == "pro":
+        result["model_routing"] = {
+            "planning": "claude-opus-4-5",
+            "coding": "claude-sonnet-4-5",
+            "review": "claude-opus-4-5",
+            "commit": "claude-haiku-4-5",
+        }
+    return result
+
+
+def select_mcps(selected_ids: list[str] | None = None) -> dict[str, Any]:
+    """Build MCP config from selected IDs.
+
+    Args:
+        selected_ids: List of MCP IDs to include. If None, uses defaults.
+
+    Returns:
+        dict with mcpServers key (ready to write as .mcp.json)
+    """
+    if selected_ids is None:
+        selected_ids = [m["id"] for m in MCP_CATALOG if m["default"]]
+    return build_mcp_config(selected_ids)
+
+
+def configure_bypass_all(enabled: bool) -> dict[str, Any]:
+    """Configure bypass_all mode.
+
+    Args:
+        enabled: True to enable bypass-all, False to disable
+
+    Returns:
+        dict with enabled status and warning_shown flag
+    """
+    result: dict[str, Any] = {"enabled": enabled}
+    if enabled:
+        result["warning_shown"] = True
+    return result
 
 
 def is_setup_enabled() -> bool:
@@ -99,6 +316,54 @@ def detect_clis() -> dict[str, Any]:
         }
 
     return results
+
+
+def get_cli_auth_instructions(provider: str) -> dict[str, str]:
+    """Return install, auth, and verify instructions for a CLI provider.
+
+    This function returns command strings only — it does NOT execute anything
+    or store credentials.
+
+    Args:
+        provider: CLI provider name (e.g. "codex", "gemini", "kimi", "opencode").
+
+    Returns:
+        Dict with keys: install, auth, verify, subscription.
+        Unknown providers return placeholder strings.
+    """
+    instructions: dict[str, dict[str, str]] = {
+        "codex": {
+            "install": "npm install -g @openai/codex",
+            "auth": "codex login",
+            "verify": "codex --version",
+            "subscription": "Requires ChatGPT Plus, Team, or Enterprise subscription (or OpenAI API key)",
+        },
+        "gemini": {
+            "install": "npm install -g @google/gemini-cli",
+            "auth": "gemini auth login",
+            "verify": "gemini --version",
+            "subscription": "Requires Google account with Gemini API access (free tier available)",
+        },
+        "kimi": {
+            "install": "uv tool install --python 3.13 kimi-cli",
+            "auth": "Add token to ~/.kimi/config.toml",
+            "verify": "kimi --version",
+            "subscription": "Requires Kimi API key from platform.moonshot.cn",
+        },
+        "opencode": {
+            "install": "npm install -g opencode-ai",
+            "auth": "opencode auth login",
+            "verify": "opencode --version",
+            "subscription": "Requires Anthropic API key or Claude subscription",
+        },
+    }
+
+    return instructions.get(provider, {
+        "install": "Unknown provider",
+        "auth": "Unknown provider",
+        "verify": "Unknown provider",
+        "subscription": "Unknown",
+    })
 
 
 def check_auth() -> dict[str, Any]:
@@ -198,8 +463,11 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         "opencode": {"subscription": "free", "max_parallel_agents": 1},
         "kimi": {"subscription": "free", "max_parallel_agents": 1},
     }
+    preset = resolve_preset(cast(str | None, preferences.get("preset")))
     default_config: dict[str, Any] = {
-        "version": "2.0",
+        "version": CANONICAL_VERSION,
+        "preset": preset,
+        "resolved_features": get_preset_features(preset),
         "cli_configs": default_cli_configs,
     }
 
@@ -208,6 +476,8 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         cli_configs = preferences.get("cli_configs")
         if isinstance(cli_configs, dict):
             default_cli_configs.update(cast(dict[str, Any], cli_configs))
+
+    _write_project_settings_preset(project_dir, preset)
 
     # Create .omg/state directory if needed
     state_dir = os.path.join(project_dir, ".omg", "state")
@@ -227,12 +497,55 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
     }
 
 
-def run_setup_wizard(project_dir: str, non_interactive: bool = False) -> dict[str, Any]:
+def _write_project_settings_preset(project_dir: str, preset: str) -> None:
+    """Persist preset metadata into project settings when settings.json exists."""
+    settings_path = os.path.join(project_dir, "settings.json")
+    if not os.path.exists(settings_path):
+        return
+
+    try:
+        with open(settings_path, "r", encoding="utf-8") as f:
+            settings = json.load(f)
+    except Exception:
+        return
+
+    if not isinstance(settings, dict):
+        return
+
+    omg = settings.get("_omg")
+    if not isinstance(omg, dict):
+        omg = {}
+    features = omg.get("features")
+    if not isinstance(features, dict):
+        features = {}
+
+    features.update(get_preset_features(preset))
+    omg["features"] = features
+    omg["preset"] = preset
+    omg["_version"] = CANONICAL_VERSION
+    settings["_omg"] = omg
+
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2, ensure_ascii=True)
+        f.write("\n")
+
+
+def run_setup_wizard(
+    project_dir: str,
+    non_interactive: bool = False,
+    *,
+    mode: str | None = None,
+    adopt: str = "auto",
+    preset: str | None = None,
+) -> dict[str, Any]:
     """Run the OMG setup wizard.
 
     Args:
         project_dir: Path to the project directory.
         non_interactive: If True, skip prompts and use defaults (for CI).
+        mode: Optional adoption mode override (`omg-only` or `coexist`).
+        adopt: Adoption detection mode (currently only `auto` is meaningful).
+        preset: Optional preset override.
 
     Returns:
         Dict with wizard results including status and step outcomes.
@@ -244,11 +557,20 @@ def run_setup_wizard(project_dir: str, non_interactive: bool = False) -> dict[st
             "message": "Setup wizard disabled. Set OMG_SETUP_ENABLED=1 to enable.",
         }
 
-    # Run each wizard step (stubs for now — T15/T16/T17 fill these in)
+    selected_preset = resolve_preset(preset or ("balanced" if non_interactive else "safe"))
+    adoption = build_adoption_report(
+        project_dir,
+        requested_mode=mode,
+        preset=selected_preset,
+        adopt=adopt,
+    )
+
     clis = detect_clis()
     auth = check_auth()
     mcp = configure_mcp(project_dir, clis)
-    prefs = set_preferences(project_dir, {})
+    prefs = set_preferences(project_dir, {"preset": selected_preset})
+    report_path = write_adoption_report(project_dir, adoption)
+    adoption["report_path"] = report_path
 
     return {
         "status": "complete",
@@ -256,4 +578,5 @@ def run_setup_wizard(project_dir: str, non_interactive: bool = False) -> dict[st
         "auth_status": auth,
         "mcp_configured": mcp,
         "preferences": prefs,
+        "adoption": adoption,
     }

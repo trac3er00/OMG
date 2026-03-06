@@ -89,6 +89,7 @@ class TestRunSetupWizard:
         assert "auth_status" in result
         assert "mcp_configured" in result
         assert "preferences" in result
+        assert "adoption" in result
 
     def test_non_interactive_mode(self):
         """Wizard should accept non_interactive flag."""
@@ -103,6 +104,8 @@ class TestRunSetupWizard:
 
         assert isinstance(result, dict)
         assert result["status"] == "complete"
+        assert result["adoption"]["selected_mode"] == "omg-only"
+        assert result["preferences"]["config"]["preset"] == "balanced"
 
 
 class TestWizardStubs:
@@ -396,7 +399,7 @@ class TestSetPreferences:
             with open(config_path) as f:
                 data = yaml.safe_load(f)
             assert "version" in data
-            assert data["version"] == "2.0"
+            assert data["version"] == "2.0.1"
 
     def test_set_preferences_includes_cli_configs_key(self):
         """Config should include cli_configs key."""
@@ -493,6 +496,7 @@ class TestSetPreferences:
         assert isinstance(result["config"], dict)
         assert "version" in result["config"]
         assert "cli_configs" in result["config"]
+        assert "preset" in result["config"]
 
     def test_set_preferences_idempotent(self):
         """Calling set_preferences() twice should produce same file."""
@@ -512,6 +516,20 @@ class TestSetPreferences:
                 data2 = yaml.safe_load(f)
 
             assert data1 == data2
+
+    def test_set_preferences_writes_requested_preset(self):
+        """Preset should be persisted in cli-config.yaml."""
+        import setup_wizard
+        import yaml
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_wizard.set_preferences(tmpdir, {"preset": "labs"})
+
+            config_path = os.path.join(tmpdir, ".omg", "state", "cli-config.yaml")
+            with open(config_path) as f:
+                data = yaml.safe_load(f)
+
+        assert data["preset"] == "labs"
 
 
 class TestConfigureMcp:

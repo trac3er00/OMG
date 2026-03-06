@@ -1,76 +1,71 @@
 ---
-description: "Interactive setup wizard for OMG v2.0 — detect CLIs, verify auth, configure MCP memory server"
+description: "Native OMG setup and adoption flow for supported hosts"
 allowed-tools: Read, Write, Edit, Bash(python*:*), Bash(ls:*), Bash(grep:*)
-argument-hint: "[optional: --non-interactive for CI mode]"
+argument-hint: "[optional: --non-interactive, --mode omg-only|coexist, --preset safe|balanced|interop|labs]"
 ---
 
-# /OMG:setup — Interactive Setup Wizard
+# /OMG:setup
 
 Feature-gated: requires `OMG_SETUP_ENABLED=1` or `settings.json._omg.features.SETUP: true`.
 
 ## Overview
 
-Guided setup for OMG v2.0 multi-CLI environment. Detects installed CLI tools,
-verifies authentication, configures MCP memory servers, and sets user preferences.
+Native OMG setup for Claude Code, Codex, OpenCode, and other supported CLIs.
+The command keeps migration logic internal and focuses the user on a small adoption flow:
+
+1. Detect supported CLIs.
+2. Detect overlapping ecosystems.
+3. Recommend an adoption mode.
+4. Apply an OMG preset.
+5. Configure MCP and save preferences.
 
 ## Wizard Flow
 
-```
+```text
 Step 1: Detect CLIs
-  → Scan PATH for: codex, gemini, opencode, kimi
-  → Report: installed / not found / version
+  - codex
+  - gemini
+  - opencode
+  - kimi
 
-Step 2: Check Auth
-  → For each detected CLI, verify authentication
-  → Report: authenticated / needs login / error
-  → Suggest auth commands for unauthenticated CLIs
+Step 2: Detect adoption context
+  - OMC-style markers
+  - OMX-style markers
+  - Superpowers-style markers
 
-Step 3: Configure MCP
-  → For each authenticated CLI, offer to write MCP server config
-  → Uses provider.write_mcp_config() from provider registry
-  → Confirm each write before proceeding
+Step 3: Choose mode
+  - OMG-only (recommended)
+  - coexist
 
-Step 4: Set Preferences
-  → Preferred model routing (which CLI for which task type)
-  → Default timeout for CLI invocations
-  → Save to .omg/state/setup-preferences.json
+Step 4: Choose preset
+  - safe
+  - balanced
+  - interop
+  - labs
+
+Step 5: Configure MCP and persist preferences
+  - writes .mcp.json
+  - writes .omg/state/cli-config.yaml
+  - writes .omg/state/adoption-report.json
 ```
 
 ## Modes
 
-### Interactive (default)
-Prompts the user at each step. Confirms before writing config files.
+`OMG-only`
+- Recommended default.
+- OMG becomes the main hooks, HUD, MCP, and orchestration layer.
 
-### Non-interactive (`--non-interactive`)
-For CI/automation. Uses sensible defaults:
-- Detects all CLIs silently
-- Checks auth silently
-- Skips MCP config writes (requires explicit opt-in)
-- Uses default preferences
+`coexist`
+- Advanced mode.
+- OMG avoids destructive overlap and keeps third-party command namespaces intact where possible.
 
 ## Output
 
-Returns a summary dict:
-```json
-{
-  "status": "complete",
-  "clis_detected": ["codex", "gemini"],
-  "auth_status": {"codex": "ok", "gemini": "needs_login"},
-  "mcp_configured": ["codex"],
-  "preferences_saved": true
-}
-```
+The command emits a final summary that includes:
 
-## Error Handling
-
-- CLI detection failures are non-fatal (reported as "not found")
-- Auth check failures are non-fatal (reported as "error")
-- MCP config write failures are reported but don't abort the wizard
-- The wizard always completes — partial results are valid
-
-## Integration
-
-- Uses `list_available_providers()` from `runtime/cli_provider.py` for CLI detection
-- Uses individual `CLIProvider` instances for auth checks and MCP config writes
-- Saves preferences to `.omg/state/setup-preferences.json`
-- Can be re-run safely — idempotent operations
+- CLI detection results
+- auth status
+- MCP configuration status
+- selected preset
+- selected adoption mode
+- adoption report path

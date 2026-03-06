@@ -1,590 +1,111 @@
-# OMG v2.0.0-b
+# OMG 2.0.1
 
-OMG (Oh My God) is a standalone orchestration layer for Claude Code.
-It adds structured multi-agent workflows, intelligent model routing (Claude/Codex/Gemini/OpenCode/Kimi Code), and durable session state for long-running engineering tasks.
+OMG upgrades your agent host instead of replacing it. It gives Claude Code, Codex, OpenCode, and other supported CLIs a tighter setup flow, stronger orchestration, adoption paths from older plugin stacks, and proof-backed verification.
 
-- Version: `v2.0.0-b`
-- npm: `npm install @trac3er/oh-my-god`
-- Maintainer: `trac3er00`
-- Repo: `git@github.com:trac3er00/OMG.git`
-- Release: `https://github.com/trac3er00/OMG/releases/tag/v2.0.0-b`
+- Brand: `OMG`
+- Repo: `https://github.com/trac3er00/OMG`
+- npm: `@trac3er/oh-my-god`
+- Plugin id: `omg`
+- Marketplace id: `omg`
+- Version: `2.0.1`
 
-## What OMG Solves
+## The Front Door
 
-OMG is built for teams and solo developers who want:
+OMG keeps the public journey small:
 
-- Reliable execution loops (explore -> decide -> implement -> verify)
-- Strong verification discipline (no unverified completion claims)
-- Better model delegation for backend, frontend, security, and architecture tasks
-- Session continuity across long refactors and multi-day work
+1. Install for your host.
+2. Run `/OMG:setup`.
+3. Run `/OMG:crazy <goal>`.
 
-## Core Capabilities
+Everything else is still available, but `setup` and `crazy` are the native OMG entrypoints.
 
-- Multi-agent orchestration with role-specific agents
-- Dynamic routing to Codex, Gemini, OpenCode, and Kimi Code for domain-specific tasks
-- Failure tracking and escalation after repeated unsuccessful attempts
-- Command surface for planning, review, security, handoff, and execution modes
-- Context minimization and selective knowledge injection to reduce prompt noise
+## What OMG Does
 
-## Multi-CLI Support
+- Upgrades Claude Code, Codex, and OpenCode with a shared orchestration layer.
+- Detects overlapping ecosystems and offers native OMG adoption instead of public migration commands.
+- Supports two adoption modes:
+  - `OMG-only`: recommended. OMG becomes the primary hooks, HUD, MCP, and orchestration layer.
+  - `coexist`: advanced. OMG preserves other ecosystems where possible and avoids destructive overlap.
+- Presets reduce feature-flag sprawl:
+  - `safe`
+  - `balanced`
+  - `interop`
+  - `labs`
+- Keeps `compat` available for legacy skill routing without making it the main onboarding story.
 
-OMG v2.0 supports 5 CLI providers with a unified provider abstraction:
+## Supported Hosts
 
-| CLI | Command | Auth |
-|-----|---------|------|
-| Claude | (default) | Claude Code |
-| Codex | `codex exec "<prompt>"` | `codex login` |
-| Gemini | `gemini -p "<prompt>"` | `gemini auth login` |
-| OpenCode | `opencode run "<prompt>"` | `opencode auth login` |
-| Kimi Code | `kimi --print -p "<prompt>"` | `~/.kimi/config.toml` token |
+- Claude Code
+- Codex
+- OpenCode
+- Gemini CLI
+- Kimi CLI
 
-All providers are auto-detected and registered at startup. Use `/OMG:setup` to configure.
+Claude Code, Codex, and OpenCode are the primary top-level install journeys in this release.
 
-## At a Glance
+## Install
 
-- Hooks: 48 Python hooks
-- Core rules: 5
-- Contextual rules: 17
-- Agents: 21
-- Commands: 22 (`/OMG:*` namespace)
-- CLI Providers: 5 (Claude, Codex, Gemini, OpenCode, Kimi Code)
-- Feature flags: 17 (all new in v2.0)
-
-## Requirements
-
-- Python `3.10+`
-- Claude Code with write access to `~/.claude`
-- `fastmcp>=2.0` (for memory server)
-
-## Installation
-
-### Via npm (recommended)
+### npm
 
 ```bash
 npm install @trac3er/oh-my-god
 ```
 
-Or install the latest version explicitly:
+### git
 
 ```bash
-npm install @trac3er/oh-my-god@latest
-```
-
-### Via git
-
-```bash
-git clone git@github.com:trac3er00/OMG.git
+git clone https://github.com/trac3er00/OMG
 cd OMG
 chmod +x OMG-setup.sh
 ./OMG-setup.sh install
 ```
 
-### Plugin-oriented install
+### Host Guides
 
-```bash
-./OMG-setup.sh install --install-as-plugin
-```
+- Claude Code: [docs/install/claude-code.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/install/claude-code.md)
+- Codex: [docs/install/codex.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/install/codex.md)
+- OpenCode: [docs/install/opencode.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/install/opencode.md)
 
-### Update
+## Native Adoption
 
-```bash
-./OMG-setup.sh update
-```
+OMG can adopt setups coming from OMC, OMX, and Superpowers-style environments through `/OMG:setup` and `OMG-setup.sh`.
 
-### Uninstall
+- It detects overlapping ecosystems internally.
+- It writes an adoption report to `.omg/state/adoption-report.json`.
+- It recommends `OMG-only` and keeps `coexist` available when you want a non-destructive landing.
 
-```bash
-./OMG-setup.sh uninstall
-```
+Details: [docs/migration/native-adoption.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/migration/native-adoption.md)
 
-### Common flags
+## Proof
 
-Supported by `OMG-setup.sh`:
+Trust is a product surface. OMG publishes proof for:
 
-- `--fresh` clean reinstall before install/update
-- `--symlink` development mode with live updates from repo source
-- `--install-as-plugin` install plugin bundle (plugin manifest + MCP + HUD)
-- `--dry-run` preview changes without writing files
-- `--non-interactive` skip prompts (CI/automation)
-- `--merge-policy=ask|apply|skip` control settings merge behavior
+- current verification results
+- verification status
+- provider coverage
+- adoption evidence
+- HUD artifact
+- sample transcripts
 
-## Plugin Update Behavior
+Current local verification for this release: `2444 passed, 2 skipped` on March 6, 2026.
 
-If OMG is installed through Claude Code plugin flow (`/plugin`), update works like this:
+See [docs/proof.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/proof.md).
 
-- Claude plugin update triggers `.claude-plugin/scripts/update.sh`
-- In git-backed installs, update stashes local changes (if needed) and pulls from `origin/main`
-- When a git tag is available, plugin manifests are synced to the tagged version
-- In cache/copy installs, update delegates to `OMG-setup.sh update`
+## Commands
 
-If plugin update appears silent, check:
+Primary:
 
-- `~/.claude/plugins/known_marketplaces.json` has git source for `oh-advanced-layer`
-- `~/.claude/plugins/cache/oh-advanced-layer/oal/<version>/.claude-plugin/plugin.json` is valid schema
-- update script exists and is executable
+- `/OMG:setup`
+- `/OMG:crazy`
 
-## Quick Start in Claude Code
+Advanced:
 
-After install, from your target project directory:
-
-```text
-/OMG:init
-/OMG:health-check
-```
-
-Common flows:
-
-```text
-/OMG:mode implement
-/OMG:escalate codex "debug auth middleware"
-/OMG:crazy fix flaky tests in payment module
-/OMG:handoff
-```
-
-Run the setup wizard to configure CLI providers:
-
-```text
-/OMG:setup
-```
-
-## Command Groups
-
-### Core commands
-
-- `/OMG:init`
-- `/OMG:project-init`
-- `/OMG:domain-init`
-- `/OMG:health-check`
-- `/OMG:mode`
-- `/OMG:escalate`
 - `/OMG:teams`
 - `/OMG:ccg`
-- `/OMG:crazy`
 - `/OMG:compat`
-- `/OMG:setup`
-
-### Advanced commands
-
-- `/OMG:deep-plan`
-- `/OMG:learn`
-- `/OMG:code-review`
-- `/OMG:security-review`
 - `/OMG:ship`
-- `/OMG:maintainer`
-- `/OMG:handoff`
-- `/OMG:sequential-thinking`
-- `/OMG:ralph-start`
-- `/OMG:ralph-stop`
-- `/OMG:theme`
+- `/OMG:security-review`
 
-### v2.0 commands
+## Positioning
 
-- `/OMG:cost` — Cost tracking and budget management (`/cost history`, `/cost budget`, `/cost reset`)
-- `/OMG:stats` — Session analytics dashboard (`/stats weekly`, `/stats files`, `/stats failures`, `/stats dashboard`)
-- `/OMG:deps` — Dependency health and CVE scanning (`/deps cves`, `/deps licenses`, `/deps outdated`)
-- `/OMG:arch` — Codebase visualization and architecture diagrams (`/arch render`, `/arch stats`, `/arch --native`)
-
-## Agent Routing Model
-
-OMG dispatches by domain intent:
-
-- Codex path: backend logic, debugging, algorithms, security-sensitive implementation
-- Gemini path: UI/UX, layout, visual refinements, accessibility-oriented frontend work
-- OpenCode path: general-purpose tasks with OpenCode's native tool use
-- Kimi Code path: long-context tasks and document-heavy analysis
-- Claude path: orchestration, synthesis, review loops, and fallback execution
-
-## Cognitive Modes
-
-Set an explicit operating mode per session:
-
-```text
-/OMG:mode research
-/OMG:mode architect
-/OMG:mode implement
-/OMG:mode clear
-```
-
-Modes are persisted to `.omg/state/mode.txt`.
-
-## Verification and Safety
-
-OMG enforces practical completion gates:
-
-- Prevents unverified completion claims
-- Tracks repeated failures and recommends escalation
-- Validates test quality (anti-boilerplate checks)
-- Preserves evidence and handoff state before context compaction
-
-Important behavior:
-
-- Prefer proof over assumptions
-- Run checks after modifications
-- Keep output tied to observable evidence
-
-## Project State Layout
-
-After `/OMG:init`, project state is created under `.omg/`:
-
-```text
-.omg/
-  state/
-    profile.yaml
-    working-memory.md
-    handoff.md
-    cli-config.yaml
-    ledger/
-    dephealth/
-    dashboard.html
-    arch-diagram.png
-  knowledge/
-  trust/
-  evidence/
-  shadow/
-  migrations/
-```
-
-## Repository Layout (High Level)
-
-```text
-omg/
-  hooks/
-  rules/
-    core/
-    contextual/
-  agents/
-  commands/
-  plugins/
-    dephealth/
-    viz/
-  templates/
-  runtime/
-  scripts/
-  OMG-setup.sh
-```
-
-## Shared Memory (MCP Server)
-
-OMG v2.0 includes a FastMCP-based shared memory server that enables cross-CLI state sharing.
-
-### Starting the Memory Server
-
-```bash
-python3 runtime/mcp_memory_server.py
-```
-
-The server binds to `127.0.0.1:8765` by default. Configure via environment variables:
-
-- `OMG_MEMORY_HOST` — bind address (default: `127.0.0.1`)
-- `OMG_MEMORY_PORT` — port (default: `8765`)
-- `OMG_MEMORY_AUTOSTART` — auto-start on import (default: off)
-
-The server exposes 6 MCP tools: `memory_store`, `memory_search`, `memory_list`, `memory_delete`, `memory_import`, and `memory_export`. A `/health` endpoint is also available at `http://127.0.0.1:8765/health`.
-
-### Memory Import
-
-Import memories from other AI platforms:
-
-- **ChatGPT**: Export `conversations.json` from OpenAI, then parse with `runtime/memory_parsers/chatgpt_parser.py`
-- **Claude.ai**: Use the extraction prompt from `runtime/memory_parsers/claude_import.py`, paste the result
-- **Gemini Web**: Use the extraction prompt from `runtime/memory_parsers/gemini_import.py`, paste the result
-- **Kimi Web**: Use the extraction prompt from `runtime/memory_parsers/kimi_import.py`, paste the result
-
-### Memory Export
-
-Export all memories to markdown for uploading to Claude Projects or pasting into ChatGPT:
-
-```python
-from runtime.memory_store import MemoryStore
-from runtime.memory_parsers.export import export_from_store
-
-store = MemoryStore()
-export_from_store(store, "memories.md")
-```
-
-## Versioning and Releases
-
-Current version: `v2.0.0-b`
-
-### v2.0.0-b release notes
-
-- Multi-CLI provider abstraction: Codex, Gemini, OpenCode, Kimi Code + Claude
-- `/OMG:setup` interactive wizard with CLI detection, auth verification, and MCP config writing
-- FastMCP shared memory MCP server (`runtime/mcp_memory_server.py`) with 6 tools
-- Memory import parsers: ChatGPT `conversations.json`, Claude.ai/Gemini/Kimi paste-based
-- Memory export to markdown for cross-platform sharing
-- MCP server lifecycle manager (`runtime/mcp_lifecycle.py`)
-- 8 capability gaps addressed: cost tracking, context management, secrets, test generation, git automation, analytics, dependency health, and codebase visualization
-- 4 new commands: `/OMG:cost`, `/OMG:stats`, `/OMG:deps`, `/OMG:arch`
-- 48 Python hooks (up from 27 in v1.0.5)
-- 6 confirmed bug fixes including critical `_oal`→`_omg` feature flag fix
-- Python minimum raised to 3.10+
-- Test suite expanded from 1523 to 1900+ tests
-
-### v1.0.5 release notes
-
-- npm `install` now auto-registers OMG as a Claude Code plugin via `postinstall` hook with npm context detection.
-- Added `.mcp.json` and `hud/` to the npm package (previously excluded by `.npmignore`).
-- `.claude-plugin/scripts/install.sh` now passes `--install-as-plugin --non-interactive` flags.
-- Added `OMG-setup.sh` fallback MCP config heredoc for npm installs missing `.mcp.json`.
-- New `runtime/tmux_session_manager.py` provides persistent tmux sessions for Codex/Gemini invocations with sentinel-based completion detection.
-- `runtime/team_router.py` now routes Codex/Gemini calls through persistent tmux sessions when available, with graceful subprocess fallback.
-- Added 20 new tests across 4 test files covering plugin auto-registration and tmux integration (1580 total tests passing).
-
-### v1.0.4 emergency installation bug fix notes
-
-- Fixed npm global install failures in non-TTY environments by auto-enabling non-interactive merge behavior in `OMG-setup.sh`.
-- Removed a fragile dry-run merge preview pipeline that could terminate early under `set -euo pipefail`.
-- Updated npm packaging to include required install-time assets (`settings.json` template and `lab/`).
-- Added regression coverage for non-TTY install merge flow in `tests/e2e/test_setup_script.py`.
-
-### v1.0.3 emergency installation bug fix notes
-
-- Fixed npm global install failures in non-TTY environments by auto-enabling non-interactive merge behavior in `OMG-setup.sh`.
-- Removed a fragile dry-run merge preview pipeline that could terminate early under `set -euo pipefail`.
-- Updated npm packaging to include required install-time assets (`settings.json` template and `lab/`).
-- Added regression coverage for non-TTY install merge flow in `tests/e2e/test_setup_script.py`.
-
-Releases are automated via GitHub Actions. When a version tag is pushed, the `publish-npm.yml` workflow automatically publishes to npm:
-
-```bash
-# bump version in package.json, then:
-git tag v2.0.0-b
-git push origin v2.0.0-b
-# → GitHub Actions auto-publishes @trac3er/oh-my-god@2.0.0-b to npm
-```
-
-Manual release (if needed):
-
-```bash
-gh release create v2.0.0-b --title "OMG v2.0.0-b" --notes "Release notes"
-```
-
-## Compatibility Notes
-
-- OMG runs fully standalone
-- Legacy migration utilities remain available where needed
-- Works alongside other plugins when command namespaces do not conflict
-
-## Troubleshooting
-
-### Plugin manifest invalid
-
-If Claude reports plugin manifest schema errors:
-
-- Keep `.claude-plugin/plugin.json` minimal and schema-compatible
-- Avoid unsupported keys for your Claude Code version
-- Reinstall plugin cache after manifest changes
-
-### Plugin update does nothing
-
-- Verify marketplace source is git-based (not local directory mode)
-- Verify plugin cache points to correct version directory
-- Run update script manually once to confirm output:
-
-```bash
-bash ~/.claude/plugins/cache/oh-advanced-layer/oal/*/.claude-plugin/scripts/update.sh
-```
-
-## License
-
-MIT
-
-## New in v2.0
-
-v2.0 addresses 8 capability gaps identified through production usage. All features are disabled by default and fully backward-compatible with v1.x workflows.
-
-### Gap 1: Real-Time Cost & Token Budget Management
-
-Inspired by BATS (Budget-Aware Token Scheduling) and FrugalGPT cost-optimization research. Tracks token usage and USD spend per tool call, fires threshold alerts at 50%/80%/95% budget, and provides a full cost breakdown by tool and session.
-
-- Hook: `budget_governor.py` (PostToolUse)
-- Command: `/OMG:cost`
-- Flag: `COST_TRACKING`
-
-### Gap 2: Intelligent Context Window Manager
-
-Enhanced with Acon (Adaptive Context) and MemGPT-inspired memory tiering. Manages context window pressure by selectively compressing or evicting stale context while preserving high-value working memory.
-
-- Hook: `context_manager.py`
-- Flag: built into core context management
-
-### Gap 3: Secrets & Environment Vault Upgrades
-
-Adds allowlisting, audit logging, and expiry tracking to the existing secrets vault. Prevents accidental exposure of credentials in tool outputs and tracks secret access patterns.
-
-- Hook: `secrets_vault.py`
-- Flag: built into core secrets handling
-
-### Gap 4: Automated Test Generation Engine
-
-CodaMosa-inspired iterative test generation. Analyzes uncovered code paths and generates targeted test cases, prioritizing edge cases and boundary conditions that manual test writing tends to miss.
-
-- Plugin: `plugins/testgen/`
-- Flag: `TEST_GENERATION`
-
-### Gap 5: Advanced Git Workflow Automation
-
-Extends git integration beyond status checks to full commit execution, branch management, and PR creation. Supports conventional commit formatting, branch naming conventions, and automated PR descriptions.
-
-- Hook: `git_workflow.py`
-- Flag: `GIT_WORKFLOW`
-
-### Gap 6: Session Analytics & Productivity Dashboard
-
-Unified query layer over all OMG state files. Surfaces tool usage trends, file heatmaps, failure patterns, and escalation effectiveness. Generates a self-contained HTML dashboard at `.omg/state/dashboard.html`.
-
-- Hook: `session_tracker.py`
-- Command: `/OMG:stats`
-- Flag: `SESSION_ANALYTICS`
-
-### Gap 7: Dependency Health & License Compliance
-
-CVE scanning via the OSV batch API with reachability analysis (direct vs. transitive imports). License compatibility checker with tiered model: permissive > weak-copyleft > copyleft. Supports npm, pip, Cargo, Go modules, and RubyGems.
-
-- Plugin: `plugins/dephealth/`
-- Command: `/OMG:deps`
-- Flag: `DEP_HEALTH`
-
-### Gap 8: Codebase Visualization
-
-AST-based dependency graph builder for Python (stdlib `ast`), with regex fallback for JS/TS/Go. Generates Mermaid and D2 diagrams, renders to PNG via mermaid.ink, and supports native toolchain parsing (`go list`, `tsc`, `cargo metadata`) for ~95% accuracy.
-
-- Plugin: `plugins/viz/`
-- Command: `/OMG:arch`
-- Flag: `CODEBASE_VIZ`
-
-## Feature Flags
-
-All features are disabled by default. Enable via environment variables or `settings.json`:
-
-| Feature | Env Var | Default |
-|---------|---------|---------|
-| IntentGate keyword detection | `OMG_INTENTGATE_ENABLED=1` | Off |
-| Multi-credential store | `OMG_MULTI_CREDENTIAL_ENABLED=1` | Off |
-| Model roles routing | `OMG_MODEL_ROLES_ENABLED=1` | Off |
-| LSP client | `OMG_LSP_ENABLED=1` | Off |
-| Hashline anchors | `OMG_HASHLINE_ENABLED=1` | Off |
-| Python REPL | `OMG_PYTHON_REPL_ENABLED=1` | Off |
-| Web search | `OMG_WEB_SEARCH_ENABLED=1` | Off |
-| Browser automation | `OMG_BROWSER_ENABLED=1` | Off |
-| SSH manager | `OMG_SSH_ENABLED=1` | Off |
-| Themes | `OMG_THEMES_ENABLED=true` | Off |
-| Rust engine | `OMG_RUST_ENGINE_ENABLED=1` | Off |
-| Setup wizard | `OMG_SETUP_ENABLED=1` | Off |
-| Memory server | `OMG_MEMORY_AUTOSTART=1` | Off |
-| **Cost tracking** | `OMG_COST_TRACKING_ENABLED=1` | Off |
-| **Git workflow automation** | `OMG_GIT_WORKFLOW_ENABLED=1` | Off |
-| **Session analytics** | `OMG_SESSION_ANALYTICS_ENABLED=1` | Off |
-| **Test generation** | `OMG_TEST_GENERATION_ENABLED=1` | Off |
-| **Dependency health** | `OMG_DEP_HEALTH_ENABLED=1` | Off |
-| **Codebase visualization** | `OMG_CODEBASE_VIZ_ENABLED=1` | Off |
-
-You can also enable features in `settings.json` under `_omg.features`:
-
-```json
-{
-  "_omg": {
-    "features": {
-      "THEMES": true,
-      "COST_TRACKING": true,
-      "SESSION_ANALYTICS": true
-    }
-  }
-}
-```
-
-### New Commands (v1.1)
-
-- `/OMG:theme` — Interactive theme selector with `--list`, `--preview`, `--set`, and `--auto` modes
-
-### New Agents (v1.1)
-
-v1.1 ships with expanded agent coverage:
-
-- `omg-api-builder` — API scaffolding and endpoint design
-- `omg-architect` — System design and architecture decisions
-- `omg-backend-engineer` — Backend implementation tasks
-- `omg-critic` — Code review and critique
-- `omg-database-engineer` — Schema design and query optimization
-- `omg-escalation-router` — Intelligent escalation to Codex/Gemini
-- `omg-frontend-designer` — UI/UX implementation
-- `omg-infra-engineer` — Infrastructure and DevOps tasks
-- `omg-qa-tester` — Test writing and quality assurance
-- `omg-security-auditor` — Security review and vulnerability analysis
-- `omg-testing-engineer` — Test strategy and coverage
-
-## Migration Guide
-
-### Upgrading from OMG v1.x to v2.0
-
-All new features default to `False` and are fully backward-compatible. Existing workflows continue unchanged.
-
-To adopt v2.0 features selectively:
-
-1. **Enable via env var** before launching Claude Code:
-   ```bash
-   export OMG_COST_TRACKING_ENABLED=1
-   export OMG_SESSION_ANALYTICS_ENABLED=1
-   export OMG_DEP_HEALTH_ENABLED=1
-   ```
-
-2. **Or enable in `settings.json`** for persistent config:
-   ```json
-   {
-     "_omg": {
-       "features": {
-         "COST_TRACKING": true,
-         "SESSION_ANALYTICS": true,
-         "DEP_HEALTH": true,
-         "CODEBASE_VIZ": true
-       }
-     }
-   }
-   ```
-
-3. **No breaking changes** — all v1.x commands, agents, and hooks remain intact.
-
-4. **New commands** are available immediately after update, each gated by its respective feature flag.
-
-### Upgrading from OMG v1.0 to v1.1
-
-All new features default to `False` and are fully backward-compatible. Existing workflows continue unchanged.
-
-To adopt new features selectively:
-
-1. **Enable via env var** before launching Claude Code:
-   ```bash
-   export OMG_THEMES_ENABLED=true
-   export OMG_MODEL_ROLES_ENABLED=1
-   ```
-
-2. **Or enable in `settings.json`** for persistent config:
-   ```json
-   {
-     "_omg": {
-       "features": {
-         "THEMES": true,
-         "MODEL_ROLES": true
-       }
-     }
-   }
-   ```
-
-3. **No breaking changes** — all v1.0 commands, agents, and hooks remain intact.
-
-4. **New command**: `/OMG:theme` is available immediately after update, gated by `OMG_THEMES_ENABLED`.
-
-### Upgrading from OMG v1.x to v2.0
-
-v2.0 is backward-compatible. All v1.x commands, agents, and hooks remain intact.
-
-New in v2.0:
-
-1. **Multi-CLI support** — install additional CLI tools and run `/OMG:setup` to configure them.
-
-2. **Memory server** — start `python3 runtime/mcp_memory_server.py` to enable cross-CLI memory sharing.
-
-3. **Setup wizard** — enable with `OMG_SETUP_ENABLED=1`, then run `/OMG:setup` for guided configuration.
-
-4. **Python 3.10+ required** — upgrade if you're on an older Python version.
+OMG is a plugin and orchestration layer for supported CLIs. It is not a base-model training project. The goal is to make frontier agent hosts tighter, safer, more interoperable, and more verifiable than the default experience.

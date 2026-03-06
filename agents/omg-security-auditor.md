@@ -17,11 +17,9 @@ Security auditor. Reviews code for vulnerabilities, enforces security best pract
 
 ## MCP Tools Available
 
-- `mcp_grep`: Scan for secret patterns (API keys, tokens, passwords)
-- `mcp_ast_grep_search`: Find unsafe code patterns (eval, innerHTML, SQL concat)
-- `mcp_lsp_find_references`: Trace data flow from user input to sensitive operations
-- `mcp_bash`: Run `npm audit`, `semgrep`, dependency checks
-- `mcp_context7_query-docs`: Look up security guidance for specific frameworks
+- `context7`: Look up framework-specific security guidance and hardening recommendations
+- `websearch`: Check current advisories, CVEs, and secure deployment guidance
+- `filesystem`: Inspect local config and artifacts involved in the audit path
 
 ## Constraints
 

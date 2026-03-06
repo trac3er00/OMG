@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OMG v1 CLI entrypoint.
+"""OMG 2.0.1 CLI entrypoint.
 
 Implements practical command-line flows for:
 - omg ship
@@ -41,6 +41,7 @@ from runtime.compat import (
     list_compat_skill_contracts,
     list_compat_skills,
 )
+from runtime.adoption import CANONICAL_VERSION
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
 
@@ -399,7 +400,7 @@ def _add_ecosystem_subcommands(parent: argparse.ArgumentParser, *, dest: str) ->
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="omg", description="OMG v1 CLI")
+    parser = argparse.ArgumentParser(prog="omg", description=f"OMG {CANONICAL_VERSION} CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     ship = sub.add_parser("ship", help="Idea -> Evidence -> PR flow")

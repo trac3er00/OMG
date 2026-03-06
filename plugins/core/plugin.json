@@ -1,9 +1,14 @@
 {
   "name": "omg-core",
-  "version": "1.0.5",
-  "description": "Core OMG commands - essential functionality for routing, initialization, and multi-agent orchestration",
+  "version": "2.0.1",
+  "description": "Core OMG commands - native setup, routing, orchestration, and verification surfaces",
   "type": "omg-plugin",
   "commands": {
+    "setup": {
+      "path": "commands/OMG:setup.md",
+      "description": "Native OMG setup and adoption flow for supported hosts",
+      "category": "setup"
+    },
     "init": {
       "path": "commands/OMG:init.md",
       "description": "Unified initializer for project setup and domain scaffolding",
@@ -81,7 +86,7 @@
   "categories": {
     "setup": {
       "description": "Project initialization and setup",
-      "commands": ["init", "health-check"]
+      "commands": ["setup", "init", "health-check"]
     },
     "routing": {
       "description": "Model routing and escalation",

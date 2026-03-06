@@ -1,5 +1,7 @@
 """Tests for session-start.py standalone state behavior."""
 
+import json
+
 
 def test_session_start_uses_omg_state_paths():
     """SessionStart should point to .omg canonical paths."""
@@ -49,6 +51,21 @@ def test_session_start_does_not_advertise_legacy_omc_aliases_by_default():
         content = f.read()
     assert "OMG_INCLUDE_LEGACY_ALIASES" in content
     assert "omg-teams" not in content.split("OMG_INCLUDE_LEGACY_ALIASES", 1)[0]
+
+
+def test_settings_register_session_start_hook():
+    with open("settings.json") as f:
+        settings = json.load(f)
+
+    hooks = settings.get("hooks", {}).get("SessionStart", [])
+    commands = []
+    for entry in hooks:
+        if not isinstance(entry, dict):
+            continue
+        for hook in entry.get("hooks", []):
+            if isinstance(hook, dict):
+                commands.append(hook.get("command"))
+    assert 'python3 "$HOME/.claude/hooks/session-start.py"' in commands
 
 
 # ━━━ Subprocess-based runtime behavior tests ━━━
@@ -128,6 +145,36 @@ def test_session_start_working_memory_injection(tmp_path):
         data = json.loads(proc.stdout)
         ctx = data.get("contextInjection", "")
         assert "WORKING MEMORY" in ctx
+
+
+def test_session_start_advertises_user_claude_mcp_json_tools(tmp_path):
+    home_dir = tmp_path / "home"
+    claude_dir = home_dir / ".claude"
+    claude_dir.mkdir(parents=True)
+    (claude_dir / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"context7": {}, "websearch": {}}}),
+        encoding="utf-8",
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=json.dumps({}),
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+        env={
+            **os.environ,
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "HOME": str(home_dir),
+        },
+        timeout=15,
+    )
+    assert proc.returncode == 0
+    assert proc.stdout.strip(), "Expected contextInjection output"
+    data = json.loads(proc.stdout)
+    ctx = data.get("contextInjection", "")
+    assert "mcp:context7" in ctx
+    assert "mcp:websearch" in ctx
 
 
 # ━━━ Memory injection tests ━━━

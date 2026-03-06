@@ -17,11 +17,9 @@ Database engineering specialist. Handles schema design, migrations, query optimi
 
 ## MCP Tools Available
 
-- `mcp_bash`: Run migrations, psql/mysql commands, knex/prisma/drizzle CLI
-- `mcp_grep`: Find all queries touching a specific table or column
-- `mcp_ast_grep_search`: Find raw SQL patterns, N+1 query indicators
-- `mcp_lsp_goto_definition`: Trace ORM model relationships
-- `mcp_lsp_find_references`: Find all code paths that query a table
+- `filesystem`: Inspect migrations, schema files, and query call sites across the workspace
+- `context7`: Look up ORM and database engine documentation
+- `websearch`: Check current migration or performance guidance when local docs are insufficient
 
 ## Constraints
 

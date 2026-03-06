@@ -14,6 +14,7 @@ Strategy:
 import json
 import sys
 import os
+import re
 import shutil
 from datetime import datetime
 
@@ -39,6 +40,27 @@ def merge_hooks(existing_hooks, new_hooks):
     """Append new hook matchers to existing, avoiding duplicates."""
     merged = dict(existing_hooks)  # shallow copy
 
+    def _normalize_command_name(name):
+        return re.sub(r"[^a-z0-9]+", "", name.lower())
+
+    def _matcher_identity(entry):
+        if not isinstance(entry, dict):
+            return None
+        matcher = entry.get("matcher")
+        return None if matcher in ("", None) else matcher
+
+    def _command_identity(command):
+        if not command:
+            return ""
+        tokens = re.findall(r'"[^"]*"|\'[^\']*\'|\S+', command)
+        if not tokens:
+            return ""
+        candidate = tokens[-1].strip("\"'")
+        base = os.path.basename(candidate)
+        stem, _ = os.path.splitext(base)
+        normalized = _normalize_command_name(stem or base)
+        return normalized or stem or base
+
     def extract_commands(entry):
         commands = set()
         if not isinstance(entry, dict):
@@ -50,11 +72,11 @@ def merge_hooks(existing_hooks, new_hooks):
                     continue
                 cmd = hook.get("command", "") or hook.get("prompt", "")
                 if cmd:
-                    commands.add(cmd)
+                    commands.add(_command_identity(cmd))
             return commands
         cmd = entry.get("command", "") or entry.get("prompt", "")
         if cmd:
-            commands.add(cmd)
+            commands.add(_command_identity(cmd))
         return commands
 
     for event, matchers in new_hooks.items():
@@ -67,17 +89,24 @@ def merge_hooks(existing_hooks, new_hooks):
         for new_matcher in matchers:
             new_cmds = extract_commands(new_matcher)
 
-            # Check if this exact matcher+command combo already exists
+            overlap_indices = []
             already_exists = False
-            for em in existing_matchers:
+            for idx, em in enumerate(existing_matchers):
                 existing_cmds = extract_commands(em)
-                same_matcher = em.get("matcher") == new_matcher.get("matcher")
+                same_matcher = _matcher_identity(em) == _matcher_identity(new_matcher)
                 if new_cmds and same_matcher and (new_cmds & existing_cmds):
-                    already_exists = True
-                    break
+                    overlap_indices.append(idx)
+                    continue
                 if not new_cmds and em == new_matcher:
                     already_exists = True
                     break
+
+            if overlap_indices:
+                first = overlap_indices[0]
+                existing_matchers[first] = new_matcher
+                for idx in reversed(overlap_indices[1:]):
+                    existing_matchers.pop(idx)
+                continue
 
             if not already_exists:
                 existing_matchers.append(new_matcher)
@@ -122,6 +151,31 @@ def merge_mcp_servers(existing, new):
             merged[name] = merged_cfg
     return merged
 
+
+def merge_omg_settings(existing, new):
+    """Merge the OMG namespace while preserving explicit user feature overrides."""
+    merged = dict(existing or {})
+    incoming = dict(new or {})
+
+    for key, value in incoming.items():
+        if key == "features":
+            continue
+        if key == "_version":
+            merged[key] = value
+            continue
+        if key not in merged:
+            merged[key] = value
+
+    existing_features = existing.get("features", {}) if isinstance(existing, dict) else {}
+    incoming_features = incoming.get("features", {}) if isinstance(incoming, dict) else {}
+    if isinstance(existing_features, dict) or isinstance(incoming_features, dict):
+        merged_features = dict(incoming_features) if isinstance(incoming_features, dict) else {}
+        if isinstance(existing_features, dict):
+            merged_features.update(existing_features)
+        merged["features"] = merged_features
+
+    return merged
+
 def merge_settings(existing, new):
     """
     Merge strategy:
@@ -146,18 +200,23 @@ def merge_settings(existing, new):
         existing_perms = merged.get("permissions", {})
         new_perms = new["permissions"]
         merged_perms = dict(existing_perms)
+        managed_rules = set()
+        for category in ("allow", "deny", "ask"):
+            managed_rules.update(new_perms.get(category, []))
 
         for category in ("allow", "deny", "ask"):
-            if category in new_perms:
-                existing_list = existing_perms.get(category, [])
-                merged_perms[category] = merge_permission_list(
-                    existing_list, new_perms[category]
-                )
+            existing_list = existing_perms.get(category, [])
+            filtered_existing = [item for item in existing_list if item not in managed_rules]
+            new_list = new_perms.get(category, [])
+            merged_perms[category] = merge_permission_list(filtered_existing, new_list)
 
         merged["permissions"] = merged_perms
 
     if "mcpServers" in new:
         merged["mcpServers"] = merge_mcp_servers(merged.get("mcpServers", {}), new.get("mcpServers", {}))
+
+    if "_omg" in new:
+        merged["_omg"] = merge_omg_settings(merged.get("_omg", {}), new.get("_omg", {}))
 
     return merged
 
