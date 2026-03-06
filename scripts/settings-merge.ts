@@ -13,6 +13,11 @@ function unique<T>(items: T[]): T[] {
   return [...new Set(items)];
 }
 
+type HookCommandEntry = {
+  command?: unknown;
+  [key: string]: unknown;
+};
+
 const RETIRED_HOOK_COMMANDS = new Set([
   "\"$HOME/.claude/hooks/pre-tool-inject.ts\"",
   "\"$HOME/.claude/hooks/test-generator-hook.ts\"",
@@ -25,7 +30,7 @@ function pruneRetiredHooks(hooks: Record<string, any>) {
     const nextEntries = (Array.isArray(entries) ? entries : [])
       .map((entry) => {
         const nextHooks = (Array.isArray(entry?.hooks) ? entry.hooks : []).filter(
-          (hook) => !RETIRED_HOOK_COMMANDS.has(String(hook?.command || ""))
+          (hook: HookCommandEntry) => !RETIRED_HOOK_COMMANDS.has(String(hook.command || ""))
         );
         return nextHooks.length > 0 ? { ...entry, hooks: nextHooks } : null;
       })
