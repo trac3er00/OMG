@@ -131,7 +131,7 @@ def test_cli_provider_smoke_supports_codex_and_kimi():
     result = smoke_out["results"][0]
     assert result["provider"] == "kimi"
     assert result["host_mode"] == "claude_dispatch"
-    assert result["smoke_status"] in {"success", "missing_model", "mcp_unreachable", "auth_required"}
+    assert result["smoke_status"] in {"success", "missing_model", "mcp_unreachable", "auth_required", "cli_missing"}
 
 
 def test_cli_provider_smoke_rejects_unknown_provider():

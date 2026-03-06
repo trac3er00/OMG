@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import builtins
+import importlib
 from pathlib import Path
-import types
+import sys
+
+import pytest
 
 
 def test_mcp_lifecycle_exposes_pid_path_and_server_url(tmp_path, monkeypatch):
@@ -69,3 +73,37 @@ def test_mcp_memory_server_tools_are_importable():
     assert callable(mcp_memory_server.get_host)
     assert callable(mcp_memory_server.get_port)
     assert callable(mcp_memory_server.run_server)
+
+
+def test_mcp_memory_server_imports_without_optional_dependencies(monkeypatch):
+    blocked = {
+        "fastmcp",
+        "starlette",
+        "starlette.requests",
+        "starlette.responses",
+    }
+    original_import = builtins.__import__
+
+    def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name in blocked:
+            raise ModuleNotFoundError(f"No module named '{name}'")
+        return original_import(name, globals, locals, fromlist, level)
+
+    for module_name in (
+        "runtime.mcp_memory_server",
+        "fastmcp",
+        "starlette",
+        "starlette.requests",
+        "starlette.responses",
+    ):
+        sys.modules.pop(module_name, None)
+
+    monkeypatch.setattr(builtins, "__import__", _guarded_import)
+
+    mcp_memory_server = importlib.import_module("runtime.mcp_memory_server")
+
+    assert callable(mcp_memory_server.get_host)
+    assert callable(mcp_memory_server.get_port)
+    assert callable(mcp_memory_server.run_server)
+    with pytest.raises(RuntimeError, match="fastmcp"):
+        mcp_memory_server.run_server()
