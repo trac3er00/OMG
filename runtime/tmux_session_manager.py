@@ -123,6 +123,13 @@ class TmuxSessionManager:
         text = str(captured_output).rstrip()
         matches = list(re.finditer(rf"{re.escape(marker)}::(-?\d+)", text))
         if not matches:
+            marker_index = text.rfind(marker)
+            if marker_index != -1:
+                return {
+                    "output": text[:marker_index].rstrip(),
+                    "exit_code": None,
+                    "completed": True,
+                }
             return {
                 "output": text,
                 "exit_code": None,
