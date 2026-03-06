@@ -298,3 +298,41 @@ def test_merge_moves_managed_permission_to_new_category(tmp_path: Path):
     merged = json.loads(existing_path.read_text(encoding="utf-8"))
     assert "Bash(curl *)" not in merged["permissions"]["allow"]
     assert "Bash(curl *)" in merged["permissions"]["ask"]
+
+
+def test_merge_updates_omg_version_and_preset_while_preserving_feature_overrides(tmp_path: Path):
+    existing = {
+        "_omg": {
+            "_version": "2.0.0",
+            "features": {
+                "MEMORY_AUTOSTART": False,
+                "SETUP_WIZARD": True,
+            },
+        }
+    }
+    new = {
+        "_omg": {
+            "_version": "2.0.1",
+            "preset": "safe",
+            "features": {
+                "MEMORY_AUTOSTART": True,
+                "SETUP": True,
+                "SETUP_WIZARD": True,
+            },
+        }
+    }
+    existing_path = tmp_path / "existing.json"
+    new_path = tmp_path / "new.json"
+    existing_path.write_text(json.dumps(existing), encoding="utf-8")
+    new_path.write_text(json.dumps(new), encoding="utf-8")
+
+    proc = _run(existing_path, new_path)
+    assert proc.returncode == 0, proc.stderr
+
+    merged = json.loads(existing_path.read_text(encoding="utf-8"))
+    omg = merged["_omg"]
+    assert omg["_version"] == "2.0.1"
+    assert omg["preset"] == "safe"
+    assert omg["features"]["MEMORY_AUTOSTART"] is False
+    assert omg["features"]["SETUP"] is True
+    assert omg["features"]["SETUP_WIZARD"] is True

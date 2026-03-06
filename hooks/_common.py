@@ -192,6 +192,89 @@ def atomic_json_write(path, data):
 
 # Feature flags cache — read settings.json once per hook invocation
 _FEATURE_CACHE = {}
+_SETTINGS_PRESET = None
+_MANAGED_PRESET_FLAGS = {
+    "SETUP",
+    "SETUP_WIZARD",
+    "MEMORY_AUTOSTART",
+    "SESSION_ANALYTICS",
+    "CONTEXT_MANAGER",
+    "COST_TRACKING",
+    "MEMORY_SERVER",
+    "GIT_WORKFLOW",
+    "TEST_GENERATION",
+    "DEP_HEALTH",
+    "CODEBASE_VIZ",
+}
+_PRESET_FEATURES = {
+    "safe": {flag: False for flag in _MANAGED_PRESET_FLAGS},
+    "balanced": {
+        "SETUP": True,
+        "SETUP_WIZARD": True,
+        "MEMORY_AUTOSTART": True,
+        "SESSION_ANALYTICS": True,
+        "CONTEXT_MANAGER": True,
+        "COST_TRACKING": True,
+        "MEMORY_SERVER": False,
+        "GIT_WORKFLOW": False,
+        "TEST_GENERATION": False,
+        "DEP_HEALTH": False,
+        "CODEBASE_VIZ": False,
+    },
+    "interop": {
+        "SETUP": True,
+        "SETUP_WIZARD": True,
+        "MEMORY_AUTOSTART": True,
+        "SESSION_ANALYTICS": True,
+        "CONTEXT_MANAGER": True,
+        "COST_TRACKING": True,
+        "MEMORY_SERVER": True,
+        "GIT_WORKFLOW": False,
+        "TEST_GENERATION": False,
+        "DEP_HEALTH": False,
+        "CODEBASE_VIZ": False,
+    },
+    "labs": {
+        "SETUP": True,
+        "SETUP_WIZARD": True,
+        "MEMORY_AUTOSTART": True,
+        "SESSION_ANALYTICS": True,
+        "CONTEXT_MANAGER": True,
+        "COST_TRACKING": True,
+        "MEMORY_SERVER": True,
+        "GIT_WORKFLOW": True,
+        "TEST_GENERATION": True,
+        "DEP_HEALTH": True,
+        "CODEBASE_VIZ": True,
+    },
+}
+_FEATURE_ALIASES = {
+    "SETUP": ("SETUP", "SETUP_WIZARD"),
+    "SETUP_WIZARD": ("SETUP_WIZARD", "SETUP"),
+}
+
+
+def _load_feature_settings():
+    """Populate feature cache from settings.json and return the configured preset."""
+    global _SETTINGS_PRESET
+
+    _FEATURE_CACHE.clear()
+    _SETTINGS_PRESET = None
+    try:
+        settings_path = os.path.join(get_project_dir(), "settings.json")
+        if os.path.exists(settings_path):
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings = json.load(f)
+            omg = settings.get("_omg", {})
+            if isinstance(omg, dict):
+                features = omg.get("features", {})
+                if isinstance(features, dict):
+                    _FEATURE_CACHE.update(features)
+                preset = omg.get("preset")
+                if isinstance(preset, str) and preset in _PRESET_FEATURES:
+                    _SETTINGS_PRESET = preset
+    except Exception:
+        pass
 
 
 def get_feature_flag(flag_name, default=True):
@@ -209,20 +292,30 @@ def get_feature_flag(flag_name, default=True):
         return False
     if env_val in ("1", "true", "yes"):
         return True
-    
+
     # Check settings.json (cached)
     if not _FEATURE_CACHE:
-        try:
-            settings_path = os.path.join(get_project_dir(), "settings.json")
-            if os.path.exists(settings_path):
-                with open(settings_path, "r", encoding="utf-8") as f:
-                    settings = json.load(f)
-                    _FEATURE_CACHE.update(settings.get("_omg", {}).get("features", {}))
-        except Exception:
-            pass  # Return default on any error
-    
-    # Return from cache, or default
-    return _FEATURE_CACHE.get(flag_name, default)
+        _load_feature_settings()
+
+    env_preset = os.environ.get("OMG_PRESET", "").lower().strip()
+    lookup_names = _FEATURE_ALIASES.get(flag_name, (flag_name,))
+
+    # Env preset is a session-scoped override for managed flags.
+    if env_preset in _PRESET_FEATURES:
+        for name in lookup_names:
+            if name in _MANAGED_PRESET_FLAGS:
+                return _PRESET_FEATURES[env_preset].get(name, default)
+
+    for name in lookup_names:
+        if name in _FEATURE_CACHE:
+            return _FEATURE_CACHE[name]
+
+    if _SETTINGS_PRESET in _PRESET_FEATURES:
+        for name in lookup_names:
+            if name in _MANAGED_PRESET_FLAGS:
+                return _PRESET_FEATURES[_SETTINGS_PRESET].get(name, default)
+
+    return default
 
 
 # Permission mode helpers

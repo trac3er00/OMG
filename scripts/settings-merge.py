@@ -151,6 +151,31 @@ def merge_mcp_servers(existing, new):
             merged[name] = merged_cfg
     return merged
 
+
+def merge_omg_settings(existing, new):
+    """Merge the OMG namespace while preserving explicit user feature overrides."""
+    merged = dict(existing or {})
+    incoming = dict(new or {})
+
+    for key, value in incoming.items():
+        if key == "features":
+            continue
+        if key == "_version":
+            merged[key] = value
+            continue
+        if key not in merged:
+            merged[key] = value
+
+    existing_features = existing.get("features", {}) if isinstance(existing, dict) else {}
+    incoming_features = incoming.get("features", {}) if isinstance(incoming, dict) else {}
+    if isinstance(existing_features, dict) or isinstance(incoming_features, dict):
+        merged_features = dict(incoming_features) if isinstance(incoming_features, dict) else {}
+        if isinstance(existing_features, dict):
+            merged_features.update(existing_features)
+        merged["features"] = merged_features
+
+    return merged
+
 def merge_settings(existing, new):
     """
     Merge strategy:
@@ -189,6 +214,9 @@ def merge_settings(existing, new):
 
     if "mcpServers" in new:
         merged["mcpServers"] = merge_mcp_servers(merged.get("mcpServers", {}), new.get("mcpServers", {}))
+
+    if "_omg" in new:
+        merged["_omg"] = merge_omg_settings(merged.get("_omg", {}), new.get("_omg", {}))
 
     return merged
 

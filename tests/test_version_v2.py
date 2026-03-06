@@ -1,25 +1,25 @@
-"""Test version consistency between package.json and settings.json for v2.0.0"""
+"""Test version consistency between package.json and settings.json for v2.0.1."""
 import json
 import os
 
 
 def test_package_json_version():
-    """GREEN: package.json should have version 2.0.0 (T50 release)"""
+    """package.json should have version 2.0.1."""
     with open("package.json") as f:
         pkg = json.load(f)
-    assert pkg["version"] == "2.0.0", f"Expected 2.0.0, got {pkg['version']}"
+    assert pkg["version"] == "2.0.1", f"Expected 2.0.1, got {pkg['version']}"
 
 
 def test_settings_json_version():
-    """GREEN: settings.json _omg._version should have version 2.0.0 (T50 release)"""
+    """settings.json _omg._version should have version 2.0.1."""
     with open("settings.json") as f:
         settings = json.load(f)
-    assert settings["_omg"]["_version"] == "2.0.0", \
-        f"Expected 2.0.0, got {settings['_omg']['_version']}"
+    assert settings["_omg"]["_version"] == "2.0.1", \
+        f"Expected 2.0.1, got {settings['_omg']['_version']}"
 
 
 def test_version_consistency():
-    """GREEN: Both files should have matching versions"""
+    """Both files should have matching versions."""
     with open("package.json") as f:
         pkg = json.load(f)
     with open("settings.json") as f:
@@ -30,5 +30,5 @@ def test_version_consistency():
 
     assert pkg_version == settings_version, \
         f"Version mismatch: package.json={pkg_version}, settings.json={settings_version}"
-    assert pkg_version == "2.0.0", \
-        f"Expected 2.0.0, got {pkg_version}"
+    assert pkg_version == "2.0.1", \
+        f"Expected 2.0.1, got {pkg_version}"

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <rect width="1200" height="720" fill="#0f1720"/>
+  <rect x="40" y="40" width="1120" height="640" rx="24" fill="#152435" stroke="#5eead4" stroke-width="2"/>
+  <text x="80" y="110" fill="#f8fafc" font-family="monospace" font-size="40">OMG HUD</text>
+  <text x="80" y="150" fill="#5eead4" font-family="monospace" font-size="20">native setup | adoption report | crazy orchestration</text>
+
+  <rect x="80" y="200" width="320" height="180" rx="18" fill="#1e293b"/>
+  <text x="105" y="240" fill="#f8fafc" font-family="monospace" font-size="22">Hosts</text>
+  <text x="105" y="280" fill="#cbd5e1" font-family="monospace" font-size="18">Claude Code</text>
+  <text x="105" y="310" fill="#cbd5e1" font-family="monospace" font-size="18">Codex</text>
+  <text x="105" y="340" fill="#cbd5e1" font-family="monospace" font-size="18">OpenCode</text>
+
+  <rect x="440" y="200" width="320" height="180" rx="18" fill="#1e293b"/>
+  <text x="465" y="240" fill="#f8fafc" font-family="monospace" font-size="22">Adoption</text>
+  <text x="465" y="280" fill="#cbd5e1" font-family="monospace" font-size="18">mode: omg-only</text>
+  <text x="465" y="310" fill="#cbd5e1" font-family="monospace" font-size="18">preset: balanced</text>
+  <text x="465" y="340" fill="#cbd5e1" font-family="monospace" font-size="18">ecosystems: omc, superpowers</text>
+
+  <rect x="800" y="200" width="320" height="180" rx="18" fill="#1e293b"/>
+  <text x="825" y="240" fill="#f8fafc" font-family="monospace" font-size="22">Proof</text>
+  <text x="825" y="280" fill="#cbd5e1" font-family="monospace" font-size="18">tests</text>
+  <text x="825" y="310" fill="#cbd5e1" font-family="monospace" font-size="18">provider matrix</text>
+  <text x="825" y="340" fill="#cbd5e1" font-family="monospace" font-size="18">sample transcripts</text>
+
+  <rect x="80" y="430" width="1040" height="190" rx="18" fill="#0b1220" stroke="#334155" stroke-width="1"/>
+  <text x="105" y="470" fill="#f8fafc" font-family="monospace" font-size="22">Session</text>
+  <text x="105" y="515" fill="#5eead4" font-family="monospace" font-size="18">/OMG:setup</text>
+  <text x="245" y="515" fill="#cbd5e1" font-family="monospace" font-size="18">detected codex, opencode</text>
+  <text x="105" y="550" fill="#5eead4" font-family="monospace" font-size="18">/OMG:crazy</text>
+  <text x="245" y="550" fill="#cbd5e1" font-family="monospace" font-size="18">launched 5-worker orchestration</text>
+  <text x="105" y="585" fill="#cbd5e1" font-family="monospace" font-size="18">evidence required before completion</text>
+</svg>

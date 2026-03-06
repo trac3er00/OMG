@@ -1,82 +1,49 @@
 # OMG Commands
 
-OMG (Oh My OpenCode Alternative) provides two tiers of commands:
+OMG exposes a small native front door and keeps the rest of the surface available as advanced plugins.
 
-## Core Commands (`commands/`)
+## Native Entry Points
 
-Essential functionality available in all OMG installations:
+| Command | Description |
+|---------|-------------|
+| `/OMG:setup` | Native setup and adoption flow for supported hosts |
+| `/OMG:crazy` | Default OMG orchestration flow |
+
+## Core Commands
 
 | Command | Description |
 |---------|-------------|
 | `/OMG:init` | Initialize project or domain |
-| `/OMG:escalate` | Route to Codex/Gemini/CCG |
-| `/OMG:teams` | Team routing (standalone) |
-| `/OMG:ccg` | Tri-track synthesis (Claude+Codex+Gemini) |
-| `/OMG:crazy` | Parallel multi-agent orchestration |
-| `/OMG:compat` | Legacy compatibility dispatcher |
-| `/OMG:health-check` | Verify setup and tools |
-| `/OMG:mode` | Set cognitive mode |
+| `/OMG:escalate` | Route to Codex, Gemini, or CCG |
+| `/OMG:teams` | Team routing for internal OMG execution |
+| `/OMG:ccg` | Tri-track synthesis |
+| `/OMG:compat` | Legacy compatibility routing |
+| `/OMG:health-check` | Verify setup and tool integration |
+| `/OMG:mode` | Set cognitive mode for the session |
 
-## Advanced Commands (`plugins/advanced/`)
-
-Extended functionality for specialized workflows:
+## Advanced Commands
 
 | Command | Category | Description |
 |---------|----------|-------------|
 | `/OMG:deep-plan` | Planning | Strategic planning with domain awareness |
-| `/OMG:learn` | Knowledge | Create skills from patterns |
-| `/OMG:code-review` | Quality | Deep code review |
-| `/OMG:security-review` | Security | Security vulnerability scanning |
-| `/OMG:ship` | Delivery | Ship pipeline (idea → PR) |
-| `/OMG:handoff` | Collaboration | Session transfer |
-| `/OMG:maintainer` | OSS | Open-source maintainer tools |
-| `/OMG:sequential-thinking` | Thinking | Structured reasoning |
-| `/OMG:ralph-start` | Automation | Start Ralph loop |
-| `/OMG:ralph-stop` | Automation | Stop Ralph loop |
+| `/OMG:learn` | Knowledge | Convert patterns into OMG-native instincts and skills |
+| `/OMG:code-review` | Quality | Deep review flow |
+| `/OMG:security-review` | Security | Security-focused review |
+| `/OMG:ship` | Delivery | Idea to evidence to release |
+| `/OMG:handoff` | Collaboration | Session transfer and continuity |
 
-## Plugin Architecture
+## Plugin Layout
 
-Commands are organized as plugins:
-
-```
+```text
 plugins/
-├── core/           # Essential commands
-│   ├── commands/   # Command definitions
-│   └── plugin.json # Plugin manifest
-└── advanced/       # Extended commands
-    ├── commands/
-    └── plugin.json
+  core/
+    commands/
+    plugin.json
+  advanced/
+    commands/
+    plugin.json
 ```
 
-### Using Advanced Commands
+## Adoption Notes
 
-Advanced commands work the same as core commands:
-
-```
-/OMG:deep-plan implement OAuth2 flow
-/OMG:learn from this session
-/OMG:code-review src/auth.ts
-```
-
-### Creating Custom Plugins
-
-1. Create `plugins/my-plugin/plugin.json`
-2. Add commands to `plugins/my-plugin/commands/`
-3. OMG auto-discovers plugins on startup
-
-See `plugins/advanced/` for examples.
-
-## Migration from Legacy Plugins
-
-Advanced commands are OMG-native equivalents of legacy plugin capabilities:
-
-| Legacy Plugin | OMG Advanced |
-|-------------|--------------|
-| `writing-plans` | `/OMG:deep-plan` |
-| `learner` | `/OMG:learn` |
-| `requesting-code-review` | `/OMG:code-review` |
-| `security-review` | `/OMG:security-review` |
-| `finishing-a-development-branch` | `/OMG:ship` |
-| `handoff` | `/OMG:handoff` |
-
-OMG advanced commands are designed for OMG standalone mode without requiring external plugins.
+Public migration commands are intentionally avoided. OMG uses `/OMG:setup` and `OMG-setup.sh` to detect and adopt older ecosystems internally, while `compat` remains focused on legacy skill routing.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "OMG v1.0.5 \u2014 project-level config with hook registrations and feature flags. Hooks also registered in ~/.claude/settings.json (user-level) to avoid double-execution.",
+  "_comment": "OMG 2.0.1 - project-level config with hook registrations, presets, and feature flags.",
   "permissions": {
     "allow": [
       "Agent",
@@ -262,7 +262,8 @@
     ]
   },
   "_omg": {
-    "_version": "2.0.0",
+    "_version": "2.0.1",
+    "preset": "safe",
     "default_mode": "ulw+ralph",
     "vision_auto": true,
     "false_fix_detection": true,
@@ -301,6 +302,7 @@
       "circuit_breaker_v2": true,
       "cognitive_modes": true,
       "agent_routing": true,
+      "SETUP": false,
       "SETUP_WIZARD": false,
       "MEMORY_SERVER": false,
       "MEMORY_AUTOSTART": false,

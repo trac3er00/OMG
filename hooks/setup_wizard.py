@@ -4,6 +4,7 @@ Feature-gated: requires OMG_SETUP_ENABLED=1 (default off).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -32,6 +33,13 @@ import runtime.providers.codex_provider  # noqa: E402, F401
 import runtime.providers.gemini_provider  # noqa: E402, F401
 import runtime.providers.opencode_provider  # noqa: E402, F401
 import runtime.providers.kimi_provider  # noqa: E402, F401
+from runtime.adoption import (  # noqa: E402
+    CANONICAL_VERSION,
+    build_adoption_report,
+    get_preset_features,
+    resolve_preset,
+    write_adoption_report,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -455,8 +463,11 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         "opencode": {"subscription": "free", "max_parallel_agents": 1},
         "kimi": {"subscription": "free", "max_parallel_agents": 1},
     }
+    preset = resolve_preset(cast(str | None, preferences.get("preset")))
     default_config: dict[str, Any] = {
-        "version": "2.0",
+        "version": CANONICAL_VERSION,
+        "preset": preset,
+        "resolved_features": get_preset_features(preset),
         "cli_configs": default_cli_configs,
     }
 
@@ -465,6 +476,8 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         cli_configs = preferences.get("cli_configs")
         if isinstance(cli_configs, dict):
             default_cli_configs.update(cast(dict[str, Any], cli_configs))
+
+    _write_project_settings_preset(project_dir, preset)
 
     # Create .omg/state directory if needed
     state_dir = os.path.join(project_dir, ".omg", "state")
@@ -484,12 +497,55 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
     }
 
 
-def run_setup_wizard(project_dir: str, non_interactive: bool = False) -> dict[str, Any]:
+def _write_project_settings_preset(project_dir: str, preset: str) -> None:
+    """Persist preset metadata into project settings when settings.json exists."""
+    settings_path = os.path.join(project_dir, "settings.json")
+    if not os.path.exists(settings_path):
+        return
+
+    try:
+        with open(settings_path, "r", encoding="utf-8") as f:
+            settings = json.load(f)
+    except Exception:
+        return
+
+    if not isinstance(settings, dict):
+        return
+
+    omg = settings.get("_omg")
+    if not isinstance(omg, dict):
+        omg = {}
+    features = omg.get("features")
+    if not isinstance(features, dict):
+        features = {}
+
+    features.update(get_preset_features(preset))
+    omg["features"] = features
+    omg["preset"] = preset
+    omg["_version"] = CANONICAL_VERSION
+    settings["_omg"] = omg
+
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2, ensure_ascii=True)
+        f.write("\n")
+
+
+def run_setup_wizard(
+    project_dir: str,
+    non_interactive: bool = False,
+    *,
+    mode: str | None = None,
+    adopt: str = "auto",
+    preset: str | None = None,
+) -> dict[str, Any]:
     """Run the OMG setup wizard.
 
     Args:
         project_dir: Path to the project directory.
         non_interactive: If True, skip prompts and use defaults (for CI).
+        mode: Optional adoption mode override (`omg-only` or `coexist`).
+        adopt: Adoption detection mode (currently only `auto` is meaningful).
+        preset: Optional preset override.
 
     Returns:
         Dict with wizard results including status and step outcomes.
@@ -501,11 +557,20 @@ def run_setup_wizard(project_dir: str, non_interactive: bool = False) -> dict[st
             "message": "Setup wizard disabled. Set OMG_SETUP_ENABLED=1 to enable.",
         }
 
-    # Run each wizard step (stubs for now — T15/T16/T17 fill these in)
+    selected_preset = resolve_preset(preset or ("balanced" if non_interactive else "safe"))
+    adoption = build_adoption_report(
+        project_dir,
+        requested_mode=mode,
+        preset=selected_preset,
+        adopt=adopt,
+    )
+
     clis = detect_clis()
     auth = check_auth()
     mcp = configure_mcp(project_dir, clis)
-    prefs = set_preferences(project_dir, {})
+    prefs = set_preferences(project_dir, {"preset": selected_preset})
+    report_path = write_adoption_report(project_dir, adoption)
+    adoption["report_path"] = report_path
 
     return {
         "status": "complete",
@@ -513,4 +578,5 @@ def run_setup_wizard(project_dir: str, non_interactive: bool = False) -> dict[st
         "auth_status": auth,
         "mcp_configured": mcp,
         "preferences": prefs,
+        "adoption": adoption,
     }

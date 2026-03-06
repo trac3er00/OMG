@@ -27,6 +27,16 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
     )
 
 
+def test_cli_help_uses_canonical_identity():
+    proc = _run(["--help"])
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "OMG 2.0.1 CLI" in out
+    assert "OMG v1 CLI" not in out
+    assert "crazy" in out
+    assert "compat" in out
+
+
 def test_cli_runtime_dispatch_inline_json():
     proc = _run(["runtime", "dispatch", "--runtime", "claude", "--idea-json", '{"goal":"x"}'])
     assert proc.returncode == 0
