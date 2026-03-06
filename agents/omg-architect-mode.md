@@ -17,11 +17,9 @@ Architect mode cognitive agent. Designs system architecture, models domains, cre
 
 ## MCP Tools Available
 
-- `mcp_lsp_symbols`: Map out module structure and exported interfaces
-- `mcp_lsp_find_references`: Trace dependencies between modules
-- `mcp_ast_grep_search`: Find architectural patterns (dependency injection, event handlers)
-- `mcp_grep`: Find cross-cutting concerns (logging, error handling, auth checks)
-- `mcp_filesystem_directory_tree`: Visualize project structure
+- `filesystem`: Visualize project structure and inspect cross-module boundaries
+- `context7`: Check official guidance for architectural patterns or framework constraints
+- `websearch`: Validate trade-offs against current ecosystem practice when needed
 
 ## Constraints
 

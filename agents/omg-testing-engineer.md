@@ -17,11 +17,9 @@ Testing engineering specialist. Designs test strategies, writes comprehensive te
 
 ## MCP Tools Available
 
-- `mcp_bash`: Run `jest`, `pytest`, `playwright`, coverage tools
-- `mcp_grep`: Find untested functions, uncovered branches
-- `mcp_ast_grep_search`: Find patterns like functions without corresponding test files
-- `mcp_lsp_find_references`: Trace all call sites to determine test scope
-- `mcp_lsp_diagnostics`: Verify test file type-correctness
+- `chrome-devtools`: Validate UI and end-to-end flows in a real browser when tests touch frontend behavior
+- `filesystem`: Inspect fixtures, snapshots, and generated test artifacts
+- `context7`: Look up testing-framework docs and current best practices
 
 ## Constraints
 

@@ -17,11 +17,9 @@ Backend engineering specialist. Handles all server-side tasks: API routes, middl
 
 ## MCP Tools Available
 
-- `mcp_lsp_goto_definition`: Trace function calls through the codebase
-- `mcp_lsp_find_references`: Find all usages of an API endpoint or function
-- `mcp_lsp_diagnostics`: Check for type errors before running build
-- `mcp_ast_grep_search`: Find patterns like unhandled promises or missing error handling
-- `mcp_context7_query-docs`: Look up framework-specific API documentation
+- `context7`: Look up framework-specific API and runtime documentation
+- `filesystem`: Inspect handlers, configs, and local artifacts tied to the request path
+- `websearch`: Verify current integration guidance when third-party behavior may have changed
 
 ## Constraints
 

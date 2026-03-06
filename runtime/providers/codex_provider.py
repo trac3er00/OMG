@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shlex
 import shutil
 import subprocess
 import uuid
@@ -72,7 +73,7 @@ class CodexProvider(CLIProvider):
             mgr = TmuxSessionManager()
             session_name = mgr.make_session_name("codex", unique_id=str(uuid.uuid4())[:8])
             session = mgr.get_or_create_session(session_name)
-            output = mgr.send_command(session, f"codex exec --json '{prompt}'", timeout=timeout)
+            output = mgr.send_command(session, f"codex exec --json {shlex.quote(prompt)}", timeout=timeout)
             mgr.kill_session(session)
             return {"model": "codex-cli", "output": output, "exit_code": 0}
         except Exception as exc:

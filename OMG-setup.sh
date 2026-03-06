@@ -441,8 +441,7 @@ servers = mcp_config.get("mcpServers")
 if not isinstance(servers, dict):
     servers = {}
 for key, value in incoming.items():
-    if key not in servers:
-        servers[key] = value
+    servers[key] = value
 mcp_config["mcpServers"] = servers
 
 mcp_path.parent.mkdir(parents=True, exist_ok=True)
@@ -675,19 +674,19 @@ install_plugin_bundle() {
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
+      "args": ["@upstash/context7-mcp@2.1.3"]
     },
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+      "args": ["@modelcontextprotocol/server-filesystem@2026.1.14", "."]
     },
     "websearch": {
       "command": "npx",
-      "args": ["-y", "@zhafron/mcp-web-search"]
+      "args": ["@zhafron/mcp-web-search@1.2.2"]
     },
     "chrome-devtools": {
       "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest"]
+      "args": ["chrome-devtools-mcp@0.19.0"]
     }
   }
 }

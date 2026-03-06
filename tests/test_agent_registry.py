@@ -1,4 +1,5 @@
 from importlib import util
+import json
 from pathlib import Path
 
 
@@ -85,10 +86,52 @@ def test_discover_mcp_tools_returns_list():
     assert isinstance(tools, list)
 
 
+def test_discover_mcp_tools_reads_user_claude_mcp_json(monkeypatch, tmp_path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    home_dir = tmp_path / "home"
+    claude_dir = home_dir / ".claude"
+    claude_dir.mkdir(parents=True)
+    (claude_dir / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"context7": {}, "websearch": {}}}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(project_dir)
+    monkeypatch.setenv("HOME", str(home_dir))
+
+    tools = discover_mcp_tools()
+    assert set(tools) == {"context7", "websearch"}
+
+
 def test_all_agents_have_model_version():
     for name, config in AGENT_REGISTRY.items():
         assert 'model_version' in config, f"Agent {name} missing model_version"
         assert config['model_version'], f"Agent {name} has empty model_version"
+
+
+def test_all_agent_skills_are_from_supported_catalog():
+    supported_skills = {
+        "api-design",
+        "backend-patterns",
+        "docker-patterns",
+        "e2e-testing",
+        "frontend-design",
+        "frontend-patterns",
+        "python-testing",
+        "security-review",
+    }
+    for name, config in AGENT_REGISTRY.items():
+        for skill in config.get("skills", []):
+            assert skill in supported_skills, f"Agent {name} references unknown skill {skill}"
+
+
+def test_all_agent_mcp_tools_exist_in_repo_mcp_config():
+    repo_mcp = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
+    available = set(repo_mcp.get("mcpServers", {}).keys())
+    for name, config in AGENT_REGISTRY.items():
+        for tool in config.get("mcp_tools", []):
+            assert tool in available, f"Agent {name} references unknown MCP tool {tool}"
 
 
 def test_core_agent_models_has_5_entries():

@@ -19,11 +19,10 @@ Implementation mode cognitive agent. Executes approved plans by coordinating dom
 
 ## MCP Tools Available
 
-- `mcp_bash`: Run cross-module builds, integration tests, linters
-- `mcp_lsp_diagnostics`: Check for errors across all changed files
-- `mcp_grep`: Verify changes propagated correctly across modules
-- `mcp_ast_grep_search`: Ensure patterns are consistent after refactoring
-- `mcp_lsp_find_references`: Verify no broken references after changes
+- `filesystem`: Inspect changed files and generated artifacts across modules
+- `context7`: Pull official docs when implementation details depend on library behavior
+- `websearch`: Verify current ecosystem guidance when local docs are incomplete
+- `chrome-devtools`: Validate browser-visible behavior when a change spans UI and backend flows
 
 ## Constraints
 
