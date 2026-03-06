@@ -158,6 +158,8 @@ class TestRouteWithRoleEnabled:
         assert "provider" in result
         assert "role" in result
         assert "reason" in result
+        assert "host_parity" in result
+        assert "host_parity_target" in result
 
 
 # =============================================================================
@@ -235,6 +237,14 @@ class TestCostOptimization:
         result = route_with_role("generate commit msg", role="commit")
         assert "haiku" in result["model"].lower()
 
+    @patch.dict(os.environ, {"OMG_ROLE_ROUTING_ENABLED": "1"}, clear=False)
+    def test_role_routing_attaches_host_capabilities_for_inferred_provider(self):
+        result = route_with_role("fix auth security issue", role="slow")
+        assert result["host_parity_target"] == "codex"
+        assert result["host_parity"]["native_host"]["host_mode"] == "codex_native"
+        assert result["host_parity"]["dispatch_host"]["host_mode"] == "claude_dispatch"
+        assert "tool_calling_supported" in result["host_parity"]["native_host"]
+
 
 # =============================================================================
 # Existing Routing Unchanged
@@ -258,6 +268,27 @@ class TestExistingRoutingUnchanged:
         result = dispatch_team(req)
         assert result.status == "ok"
         assert len(result.findings) > 0
+
+
+class TestExtendedModelDetection:
+    """Checks that external CLI host detection includes all supported providers."""
+
+    def test_detect_available_models_includes_supported_external_clis(self, monkeypatch):
+        registry_path = os.path.join(_HOOKS_DIR, "_agent_registry.py")
+        spec = __import__("importlib.util").util.spec_from_file_location("agent_registry_extended_models", registry_path)
+        assert spec is not None and spec.loader is not None
+        module = __import__("importlib.util").util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        monkeypatch.setattr(module.shutil, "which", lambda name: f"/usr/local/bin/{name}")
+        module._model_cache = None
+
+        detected = module.detect_available_models()
+
+        assert detected["claude"] is True
+        assert detected["codex-cli"] is True
+        assert detected["gemini-cli"] is True
+        assert detected["kimi-cli"] is True
 
     def test_route_with_role_baseline_matches_infer_target(self):
         """Baseline (no role) uses _infer_target result as provider."""

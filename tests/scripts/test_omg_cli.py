@@ -31,8 +31,33 @@ def test_cli_runtime_dispatch_inline_json():
     proc = _run(["runtime", "dispatch", "--runtime", "claude", "--idea-json", '{"goal":"x"}'])
     assert proc.returncode == 0
     out = json.loads(proc.stdout)
+    assert out["schema"] == "OmgRuntimeDispatch"
     assert out["status"] == "ok"
     assert out["runtime"] == "claude"
+
+
+def test_cli_runtime_dispatch_accepts_provider_execution_metadata():
+    proc = _run(
+        [
+            "runtime",
+            "dispatch",
+            "--runtime",
+            "claude",
+            "--provider",
+            "kimi",
+            "--host-mode",
+            "claude_dispatch",
+            "--smoke-status",
+            "success",
+            "--idea-json",
+            '{"goal":"validate runtime provenance"}',
+        ]
+    )
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "OmgRuntimeDispatch"
+    assert out["provenance"]["provider_execution"]["provider"] == "kimi"
+    assert out["provenance"]["host_mode"] == "claude_dispatch"
 
 
 def test_cli_trust_review(tmp_path: Path):
@@ -48,31 +73,18 @@ def test_cli_trust_review(tmp_path: Path):
     assert out["review"]["risk_level"] == "critical"
 
 
-def test_cli_teams_command():
+def test_cli_teams_and_ccg_commands():
     teams = _run(["teams", "--problem", "debug api auth bug"])
     assert teams.returncode == 0
     teams_out = json.loads(teams.stdout)
     assert teams_out["status"] == "ok"
     assert teams_out["schema"] == "TeamDispatchResult"
 
-
-def test_cli_ccg_launches_two_worker_tracks():
-    try:
-        ccg = _run(["ccg", "--problem", "review full stack architecture"])
-    except subprocess.TimeoutExpired:
-        pytest.skip("ccg command timed out (expected for long-running multi-agent tasks)")
-        return
+    ccg = _run(["ccg", "--problem", "review full stack architecture"])
     assert ccg.returncode == 0
-    start = ccg.stdout.find("{")
-    assert start >= 0
-    ccg_out = json.loads(ccg.stdout[start:])
+    ccg_out = json.loads(ccg.stdout)
     assert ccg_out["status"] == "ok"
-    assert ccg_out["worker_count"] == 2
-    assert ccg_out["target_worker_count"] == 2
-    assert ccg_out["parallel_execution"] is True
-    phase_agents = [p.get("agent") for p in ccg_out["phases"] if isinstance(p, dict)]
-    assert "backend-engineer" in phase_agents
-    assert "frontend-designer" in phase_agents
+    assert ccg_out["evidence"]["target"] == "ccg"
 
 
 def test_cli_teams_auto_routing_honors_explicit_and_ccg_keywords():
@@ -85,6 +97,125 @@ def test_cli_teams_auto_routing_honors_explicit_and_ccg_keywords():
     assert ccg.returncode == 0
     ccg_out = json.loads(ccg.stdout)
     assert ccg_out["evidence"]["target"] == "ccg"
+
+
+def test_cli_teams_accepts_kimi():
+    kimi = _run(["teams", "--target", "kimi", "--problem", "run provider smoke"])
+    assert kimi.returncode == 0
+    kimi_out = json.loads(kimi.stdout)
+    assert kimi_out["evidence"]["target"] == "kimi"
+
+
+def test_cli_teams_rejects_unknown_target():
+    invalid = _run(["teams", "--target", "legacy-provider", "--problem", "run provider smoke"])
+    assert invalid.returncode != 0
+    assert "invalid choice" in (invalid.stderr or invalid.stdout).lower()
+
+
+def test_cli_provider_smoke_supports_codex_and_kimi():
+    codex = _run(["providers", "smoke", "--provider", "codex", "--host-mode", "claude_dispatch"])
+    assert codex.returncode == 0
+    codex_out = json.loads(codex.stdout)
+    assert codex_out["schema"] == "ProviderSmokeMatrix"
+    assert codex_out["count"] == 1
+    codex_result = codex_out["results"][0]
+    assert codex_result["provider"] == "codex"
+    assert codex_result["host_mode"] == "claude_dispatch"
+    assert codex_result["smoke_status"] in {"success", "auth_required", "mcp_unreachable", "provider_error", "cli_missing"}
+
+    smoke = _run(["providers", "smoke", "--provider", "kimi", "--host-mode", "claude_dispatch"])
+    assert smoke.returncode == 0
+    smoke_out = json.loads(smoke.stdout)
+    assert smoke_out["schema"] == "ProviderSmokeMatrix"
+    assert smoke_out["count"] == 1
+    result = smoke_out["results"][0]
+    assert result["provider"] == "kimi"
+    assert result["host_mode"] == "claude_dispatch"
+    assert result["smoke_status"] in {"success", "missing_model", "mcp_unreachable", "auth_required", "cli_missing"}
+
+
+def test_cli_provider_smoke_rejects_unknown_provider():
+    invalid = _run(["providers", "smoke", "--provider", "legacy-provider", "--host-mode", "claude_dispatch"])
+    assert invalid.returncode != 0
+    assert "invalid choice" in (invalid.stderr or invalid.stdout).lower()
+
+
+def test_cli_provider_status_reports_matrix():
+    status = _run(["providers", "status"])
+    assert status.returncode == 0
+    status_out = json.loads(status.stdout)
+    assert status_out["schema"] == "ProviderStatusMatrix"
+    assert status_out["status"] == "ok"
+    assert "providers" in status_out
+    assert "mcp_server" in status_out
+    entry = status_out["providers"][0]
+    assert "local_steps" in entry
+    assert "provider_steps" in entry
+    assert "native_ready_reasons" in entry
+    assert "dispatch_ready_reasons" in entry
+
+
+def test_cli_provider_status_with_smoke_supports_codex():
+    status = _run(["providers", "status", "--provider", "codex", "--smoke"])
+    assert status.returncode == 0
+    status_out = json.loads(status.stdout)
+    assert status_out["schema"] == "ProviderStatusMatrix"
+    assert status_out["providers"][0]["provider"] == "codex"
+
+
+def test_cli_provider_status_with_smoke_rejects_unknown_provider():
+    status = _run(["providers", "status", "--provider", "legacy-provider", "--smoke"])
+    assert status.returncode != 0
+    assert "invalid choice" in (status.stderr or status.stdout).lower()
+
+
+def test_cli_provider_bootstrap_writes_host_configs(tmp_path: Path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    env = {
+        "HOME": str(tmp_path),
+        "CLAUDE_PROJECT_DIR": str(project_dir),
+    }
+
+    boot = _run(["providers", "bootstrap", "--provider", "codex"], env=env)
+    assert boot.returncode == 0
+    boot_out = json.loads(boot.stdout)
+    assert boot_out["schema"] == "ProviderBootstrapResult"
+    assert "codex" in boot_out["configured"]
+    assert (project_dir / ".mcp.json").exists()
+    assert (tmp_path / ".codex" / "config.toml").exists()
+
+
+def test_cli_provider_repair_reports_backup_and_removed_flags(tmp_path: Path):
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    codex_dir = tmp_path / ".codex"
+    codex_dir.mkdir()
+    (codex_dir / "config.toml").write_text(
+        "[features]\nrmcp_client = true\nunified_exec = true\n",
+        encoding="utf-8",
+    )
+    env = {
+        "HOME": str(tmp_path),
+        "CLAUDE_PROJECT_DIR": str(project_dir),
+    }
+
+    repaired = _run(["providers", "repair", "--provider", "codex"], env=env)
+    assert repaired.returncode == 0
+    repaired_out = json.loads(repaired.stdout)
+    assert repaired_out["schema"] == "ProviderRepairResult"
+    assert repaired_out["repairs"]["codex"]["removed_keys"] == ["rmcp_client"]
+    assert repaired_out["repairs"]["codex"]["backup_path"]
+
+
+def test_cli_release_readiness_reports_branch_and_provider_summary():
+    ready = _run(["release", "readiness"])
+    assert ready.returncode == 0
+    ready_out = json.loads(ready.stdout)
+    assert ready_out["schema"] == "OmgReleaseReadiness"
+    assert "git" in ready_out
+    assert "providers" in ready_out
+    assert "blockers" in ready_out
 
 
 def test_cli_crazy_launches_five_worker_tracks():

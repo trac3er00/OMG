@@ -1,0 +1,3 @@
+interface:
+  display_name: "OMG Session Continuity"
+  short_description: "Preserve handoff and state continuity for Codex"

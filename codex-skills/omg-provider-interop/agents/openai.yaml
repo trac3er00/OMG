@@ -1,0 +1,3 @@
+interface:
+  display_name: "OMG Provider Interop"
+  short_description: "Choose and validate Codex, Gemini, and Kimi paths"

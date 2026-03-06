@@ -1,0 +1,3 @@
+interface:
+  display_name: "OMG Runtime Triage"
+  short_description: "Inspect provider smoke, readiness, and runtime evidence"

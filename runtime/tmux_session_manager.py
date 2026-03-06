@@ -8,9 +8,36 @@ import shutil
 import subprocess
 import time
 import uuid
+from typing import Any
 
 
 _logger = logging.getLogger(__name__)
+
+TMUX_REUSE_SCHEMA = "OmgTmuxReuseReport"
+DEFAULT_MIN_REUSE_RATIO = 0.7
+
+
+def build_tmux_reuse_report(
+    *,
+    reused_sessions: int,
+    total_sessions: int,
+    min_reuse_ratio: float = DEFAULT_MIN_REUSE_RATIO,
+) -> dict[str, Any]:
+    """Build a deterministic tmux session reuse summary."""
+    total = max(int(total_sessions), 0)
+    reused = max(int(reused_sessions), 0)
+    if total == 0:
+        reuse_ratio = 0.0
+    else:
+        reuse_ratio = round(reused / total, 2)
+    return {
+        "schema": TMUX_REUSE_SCHEMA,
+        "reused_sessions": reused,
+        "total_sessions": total,
+        "reuse_ratio": reuse_ratio,
+        "budgets": {"min_reuse_ratio": float(min_reuse_ratio)},
+        "within_budget": reuse_ratio >= float(min_reuse_ratio),
+    }
 
 
 class TmuxSessionManager:
@@ -77,8 +104,33 @@ class TmuxSessionManager:
 
     def send_command(self, name: str, command: str, timeout: int = 120) -> str:
         """Send a command to a tmux session and return captured pane output."""
+        result = self.send_command_result(name, command, timeout=timeout)
+        return str(result.get("output", ""))
+
+    def _extract_command_result(self, captured_output: str, marker: str) -> dict[str, Any]:
+        """Parse tmux pane output into a stable result payload."""
+        text = str(captured_output).rstrip()
+        matches = list(re.finditer(rf"{re.escape(marker)}::(-?\d+)", text))
+        if not matches:
+            return {
+                "output": text,
+                "exit_code": None,
+                "completed": False,
+            }
+
+        match = matches[-1]
+        exit_code = int(match.group(1))
+        output = text[: match.start()].rstrip()
+        return {
+            "output": output,
+            "exit_code": exit_code,
+            "completed": True,
+        }
+
+    def send_command_result(self, name: str, command: str, timeout: int = 120) -> dict[str, Any]:
+        """Send a command to tmux and return deterministic output, exit code, and completion state."""
         if not self.is_tmux_available():
-            return ""
+            return {"output": "", "exit_code": None, "completed": False, "timed_out": False}
 
         sentinel = f"__OMG_DONE_{uuid.uuid4().hex}__"
         deadline = time.monotonic() + timeout
@@ -92,19 +144,24 @@ class TmuxSessionManager:
                 timeout=10,
             )
             if send_main.returncode != 0:
-                return ""
+                return {"output": "", "exit_code": None, "completed": False, "timed_out": False}
 
             send_marker = subprocess.run(
-                ["tmux", "send-keys", "-t", name, f"echo {sentinel}", "Enter"],
+                ["tmux", "send-keys", "-t", name, f'printf "{sentinel}::%s\\n" "$?"', "Enter"],
                 capture_output=True,
                 text=True,
                 check=False,
                 timeout=10,
             )
             if send_marker.returncode != 0:
-                return ""
+                return {"output": "", "exit_code": None, "completed": False, "timed_out": False}
 
-            last_output = ""
+            last_result: dict[str, Any] = {
+                "output": "",
+                "exit_code": None,
+                "completed": False,
+                "timed_out": False,
+            }
             while time.monotonic() < deadline:
                 captured = subprocess.run(
                     ["tmux", "capture-pane", "-t", name, "-p"],
@@ -114,15 +171,17 @@ class TmuxSessionManager:
                     timeout=10,
                 )
                 if captured.returncode == 0:
-                    last_output = captured.stdout
-                    if sentinel in last_output:
-                        return last_output.split(sentinel, 1)[0].rstrip()
+                    last_result = self._extract_command_result(captured.stdout, sentinel)
+                    if last_result["completed"]:
+                        last_result["timed_out"] = False
+                        return last_result
                 time.sleep(0.25)
 
-            return last_output.rstrip()
+            last_result["timed_out"] = True
+            return last_result
         except Exception as exc:
             _logger.warning("Failed to send tmux command to %r: %s", name, exc)
-            return ""
+            return {"output": "", "exit_code": None, "completed": False, "timed_out": False}
 
     def get_or_create_session(self, name: str) -> str:
         """Return a fresh tmux session name, recreating stale sessions if needed."""
@@ -160,7 +219,7 @@ class TmuxSessionManager:
 
             killed = 0
             prefix = f"{self.session_prefix}-"
-            for session_name in listed.stdout.splitlines():
+            for session_name in sorted(listed.stdout.splitlines()):
                 if session_name.startswith(prefix) and self.kill_session(session_name):
                     killed += 1
             return killed

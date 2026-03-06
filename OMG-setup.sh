@@ -24,9 +24,26 @@ MERGE_POLICY="ask"
 FRESH_INSTALL=false
 INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
+SKIP_CODEX_SKILLS=false
 ERRORS=0
 OMG_MANIFEST="$CLAUDE_DIR/.omg-manifest"
 NEW_MANIFEST_ENTRIES=()
+CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
+CODEX_SKILLS_DIR="$CODEX_HOME_DIR/skills"
+CODEX_HUD_DIR="$CODEX_HOME_DIR/hud"
+CODEX_BIN_DIR="$CODEX_HOME_DIR/bin"
+CODEX_SKILL_MARKER_FILE=".omg-managed-skill"
+OMG_CODEX_SKILLS=(
+    "omg-codex-workbench"
+    "omg-orchestrator"
+    "omg-provider-interop"
+    "omg-verified-delivery"
+    "omg-deep-execution"
+    "omg-runtime-triage"
+    "omg-review-gate"
+    "omg-session-continuity"
+    "omg-release-readiness"
+)
 
 V3_RULES=(
     "00-truth-evidence.md" "01-enforcement-map.md" "02-doc-check.md"
@@ -75,6 +92,8 @@ Options:
   --symlink          Use symlinks instead of copies (dev mode - live updates)
   --install-as-plugin
                      Install plugin bundle (plugin.json + MCP + HUD) together
+  --skip-codex-skills
+                     Skip auto-install/update of OMG Codex skills
   --dry-run          Show what would happen without writing files
   --non-interactive  Skip prompts (CI/automation mode)
   --merge-policy=X   Settings merge: ask (default), apply, skip
@@ -84,6 +103,7 @@ Examples:
   ./OMG-setup.sh install
   ./OMG-setup.sh install --symlink              # Dev mode: live updates from repo
   ./OMG-setup.sh install --install-as-plugin
+  ./OMG-setup.sh install --skip-codex-skills
   ./OMG-setup.sh update --non-interactive --merge-policy=apply
   ./OMG-setup.sh reinstall --dry-run
   ./OMG-setup.sh uninstall --dry-run
@@ -195,6 +215,7 @@ parse_args() {
             --non-interactive) NON_INTERACTIVE=true ;;
             --fresh) FRESH_INSTALL=true ;;
             --install-as-plugin) INSTALL_AS_PLUGIN=true ;;
+            --skip-codex-skills) SKIP_CODEX_SKILLS=true ;;
             --merge-policy=*) MERGE_POLICY="${arg#*=}" ;;
             --help|-h)
                 usage
@@ -300,6 +321,141 @@ mark_omg_managed_command_file() {
     fi
     if ! grep -q "OMG-MANAGED-COMMAND" "$file" 2>/dev/null; then
         printf "\n<!-- OMG-MANAGED-COMMAND -->\n" >> "$file"
+    fi
+}
+
+codex_is_present() {
+    if [ -n "${CODEX_HOME:-}" ]; then
+        return 0
+    fi
+    if [ -d "$CODEX_HOME_DIR" ]; then
+        return 0
+    fi
+    command -v codex >/dev/null 2>&1
+}
+
+install_codex_skill_dir() {
+    local src_dir="$1"
+    local target_dir="$2"
+
+    mkdir -p "$target_dir"
+    if $USE_SYMLINK; then
+        local entry base
+        for entry in "$src_dir"/* "$src_dir"/.*; do
+            [ -e "$entry" ] || continue
+            base="$(basename "$entry")"
+            if [ "$base" = "." ] || [ "$base" = ".." ]; then
+                continue
+            fi
+            ln -s "$entry" "$target_dir/$base"
+        done
+    else
+        cp -R "$src_dir"/. "$target_dir"/
+    fi
+    printf '%s\n' "omg-codex-skill-v1" > "$target_dir/$CODEX_SKILL_MARKER_FILE"
+}
+
+sync_codex_skills() {
+    local skills_src_root="$SCRIPT_DIR/codex-skills"
+    local installed=0
+    local skipped=0
+
+    if $SKIP_CODEX_SKILLS; then
+        echo "  ⊘ Skipped Codex skill sync (--skip-codex-skills)"
+        return 0
+    fi
+    if ! codex_is_present; then
+        echo "  ~ Codex not detected; skipping Codex skill sync"
+        return 0
+    fi
+    if [ ! -d "$skills_src_root" ]; then
+        echo "  ❌ Missing codex-skills source tree: $skills_src_root"
+        ERRORS=$((ERRORS + 1))
+        return 1
+    fi
+
+    if $DRY_RUN; then
+        echo "  (would sync OMG Codex skills to $CODEX_SKILLS_DIR)"
+        return 0
+    fi
+
+    mkdir -p "$CODEX_SKILLS_DIR"
+    local skill_name src_dir target_dir
+    for skill_name in "${OMG_CODEX_SKILLS[@]}"; do
+        src_dir="$skills_src_root/$skill_name"
+        target_dir="$CODEX_SKILLS_DIR/$skill_name"
+        if [ ! -d "$src_dir" ]; then
+            echo "  ❌ Missing Codex skill source: $src_dir"
+            ERRORS=$((ERRORS + 1))
+            continue
+        fi
+        if [ -e "$target_dir" ] || [ -L "$target_dir" ]; then
+            if [ -L "$target_dir" ] || [ -f "$target_dir/$CODEX_SKILL_MARKER_FILE" ]; then
+                [[ "$target_dir" == "$CODEX_SKILLS_DIR"/* ]] || { echo "ERROR: rm -rf target outside expected directory: $target_dir" >&2; exit 1; }
+                rm -rf "$target_dir"
+            else
+                echo "  ~ Codex skill $skill_name (kept existing custom skill)"
+                skipped=$((skipped + 1))
+                continue
+            fi
+        fi
+        install_codex_skill_dir "$src_dir" "$target_dir"
+        echo "  ✓ Codex skill $skill_name"
+        installed=$((installed + 1))
+    done
+
+    if [ $installed -eq 0 ] && [ $skipped -eq 0 ]; then
+        echo "  (no Codex skills synced)"
+    fi
+}
+
+sync_codex_hud() {
+    local hud_src="$SCRIPT_DIR/codex-hud/omg_codex_hud.py"
+    local wrapper_src="$SCRIPT_DIR/codex-hud/omg-codex-hud"
+    local hud_target="$CODEX_HUD_DIR/omg-codex-hud.py"
+    local wrapper_target="$CODEX_BIN_DIR/omg-codex-hud"
+
+    if ! codex_is_present; then
+        echo "  ~ Codex not detected; skipping Codex HUD sync"
+        return 0
+    fi
+    if [ ! -f "$hud_src" ] || [ ! -f "$wrapper_src" ]; then
+        echo "  ❌ Missing Codex HUD source files"
+        ERRORS=$((ERRORS + 1))
+        return 1
+    fi
+    if $DRY_RUN; then
+        echo "  (would sync Codex HUD/workbench to $CODEX_HUD_DIR and $CODEX_BIN_DIR)"
+        return 0
+    fi
+
+    mkdir -p "$CODEX_HUD_DIR" "$CODEX_BIN_DIR"
+    install_file "$hud_src" "$hud_target"
+    install_file "$wrapper_src" "$wrapper_target"
+    chmod +x "$hud_target" "$wrapper_target"
+    echo "  ✓ Codex HUD/workbench"
+}
+
+remove_omg_codex_skills() {
+    local skill_name skill_dir
+    for skill_name in "${OMG_CODEX_SKILLS[@]}"; do
+        skill_dir="$CODEX_SKILLS_DIR/$skill_name"
+        if [ -L "$skill_dir" ] || { [ -d "$skill_dir" ] && [ -f "$skill_dir/$CODEX_SKILL_MARKER_FILE" ]; }; then
+            [[ "$skill_dir" == "$CODEX_SKILLS_DIR"/* ]] || { echo "ERROR: rm -rf target outside expected directory: $skill_dir" >&2; exit 1; }
+            rm -rf "$skill_dir"
+        fi
+    done
+}
+
+remove_omg_codex_hud() {
+    local hud_target="$CODEX_HUD_DIR/omg-codex-hud.py"
+    local wrapper_target="$CODEX_BIN_DIR/omg-codex-hud"
+
+    if [ -f "$hud_target" ] || [ -L "$hud_target" ]; then
+        rm -f "$hud_target"
+    fi
+    if [ -f "$wrapper_target" ] || [ -L "$wrapper_target" ]; then
+        rm -f "$wrapper_target"
     fi
 }
 
@@ -642,6 +798,8 @@ remove_omg_files() {
                 echo "  ✓ Plugin-managed MCP servers removed from .mcp.json ($pruned_mcp)"
             fi
         fi
+        remove_omg_codex_skills
+        remove_omg_codex_hud
     fi
 }
 
@@ -755,9 +913,9 @@ run_uninstall() {
     fi
     remove_omg_files
     if $DRY_RUN; then
-        echo "  (would remove OMG hooks/rules/agents/commands/templates)"
+        echo "  (would remove OMG hooks/rules/agents/commands/templates plus Codex skills/HUD)"
     else
-        echo "  ✓ Removed OMG hooks/rules/agents/commands/templates"
+        echo "  ✓ Removed OMG hooks/rules/agents/commands/templates plus Codex skills/HUD"
     fi
 
     echo ""
@@ -777,6 +935,8 @@ run_install_like() {
     local hook_errors=0
     local installed_agents=0
     local installed_cmds=0
+    local installed_codex_skills=0
+    local installed_codex_hud=0
 
     echo "═══════════════════════════════════════════════════════════════"
     echo "  OMG Setup Manager — $ACTION"
@@ -825,7 +985,7 @@ run_install_like() {
         fi
         remove_omg_files
         if $DRY_RUN; then
-            echo "  (would remove OMG hooks/rules/agents/commands/templates)"
+        echo "  (would remove OMG hooks/rules/agents/commands/templates and Codex skills)"
         else
             echo "  ✓ Clean slate ready"
         fi
@@ -1099,7 +1259,24 @@ run_install_like() {
 
 
     echo ""
-    echo "Step 7/7: Reconcile stale files..."
+    echo "Step 7/8: Codex workbench + skills..."
+    codex_before=0
+    if [ -d "$CODEX_SKILLS_DIR" ]; then
+        codex_before=$(find "$CODEX_SKILLS_DIR" -maxdepth 2 -type f -name "$CODEX_SKILL_MARKER_FILE" | wc -l | tr -d ' ')
+    fi
+    sync_codex_hud
+    sync_codex_skills
+    if ! $DRY_RUN && [ -d "$CODEX_SKILLS_DIR" ]; then
+        installed_codex_skills=$(find "$CODEX_SKILLS_DIR" -maxdepth 2 -type f -name "$CODEX_SKILL_MARKER_FILE" | wc -l | tr -d ' ')
+        if [ -f "$CODEX_HUD_DIR/omg-codex-hud.py" ] && [ -f "$CODEX_BIN_DIR/omg-codex-hud" ]; then
+            installed_codex_hud=1
+        fi
+    elif $DRY_RUN; then
+        installed_codex_skills=$codex_before
+    fi
+
+    echo ""
+    echo "Step 8/8: Reconcile stale files..."
     reconcile_stale_files
     write_omg_manifest
 
@@ -1112,7 +1289,7 @@ run_install_like() {
     fi
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
-    echo "  Files: $installed_rules rules, $installed_hooks hooks, $installed_agents agents, $installed_cmds commands"
+    echo "  Files: $installed_rules rules, $installed_hooks hooks, $installed_agents agents, $installed_cmds commands, $installed_codex_skills codex skills, $installed_codex_hud codex HUD"
     echo "  Version: $VERSION"
     if $USE_SYMLINK; then
         echo "  Mode: Symlink (live updates from $SCRIPT_DIR)"
