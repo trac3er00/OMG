@@ -1,3 +1,0 @@
-interface:
-  display_name: "OMG Release Readiness"
-  short_description: "Check branch and provider readiness before integration"

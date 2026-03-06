@@ -42,14 +42,6 @@ from runtime.compat import (
     list_compat_skills,
 )
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
-from runtime.provider_bootstrap import (
-    bootstrap_provider_hosts,
-    collect_provider_status,
-    collect_provider_status_with_options,
-    repair_provider_hosts,
-)
-from runtime.release_readiness import collect_release_readiness
-from runtime.provider_smoke import run_provider_smoke_matrix
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
 
 
@@ -197,21 +189,6 @@ def cmd_runtime_dispatch(args: argparse.Namespace) -> int:
         idea = _load_json(args.idea)
     else:
         idea = {"goal": "unspecified"}
-    if not isinstance(idea, dict):
-        raise ValueError("runtime dispatch idea must be a JSON object")
-
-    if any((args.provider, args.host_mode, args.smoke_status)):
-        provider_execution = idea.get("provider_execution")
-        if not isinstance(provider_execution, dict):
-            provider_execution = {}
-        if args.provider:
-            provider_execution["provider"] = args.provider
-        if args.host_mode:
-            provider_execution["host_mode"] = args.host_mode
-        if args.smoke_status:
-            provider_execution["smoke_status"] = args.smoke_status
-        idea["provider_execution"] = provider_execution
-
     result = dispatch_runtime(args.runtime, idea)
     print(json.dumps(result, indent=2))
     return 0 if result.get("status") == "ok" else 2
@@ -379,61 +356,6 @@ def cmd_ecosystem_sync(args: argparse.Namespace) -> int:
     return 0 if not errors else 2
 
 
-def cmd_provider_smoke(args: argparse.Namespace) -> int:
-    providers = None if args.provider == "all" else [args.provider]
-    result = run_provider_smoke_matrix(
-        providers,
-        _ensure_project_dir(),
-        host_mode=args.host_mode,
-        prompt=args.prompt,
-        timeout=args.timeout,
-    )
-    print(json.dumps(result, indent=2))
-    return 0
-
-
-def cmd_provider_status(args: argparse.Namespace) -> int:
-    providers = None if args.provider == "all" else [args.provider]
-    result = collect_provider_status_with_options(
-        _ensure_project_dir(),
-        providers=providers,
-        include_smoke=bool(args.smoke),
-        smoke_host_mode=args.host_mode,
-    )
-    print(json.dumps(result, indent=2))
-    return 0
-
-
-def cmd_provider_bootstrap(args: argparse.Namespace) -> int:
-    providers = None if args.provider == "all" else [args.provider]
-    result = bootstrap_provider_hosts(
-        _ensure_project_dir(),
-        providers=providers,
-        server_url=args.server_url or None,
-        server_name=args.server_name,
-    )
-    print(json.dumps(result, indent=2))
-    return 0
-
-
-def cmd_provider_repair(args: argparse.Namespace) -> int:
-    providers = None if args.provider == "all" else [args.provider]
-    result = repair_provider_hosts(
-        _ensure_project_dir(),
-        providers=providers,
-        server_url=args.server_url or None,
-        server_name=args.server_name,
-    )
-    print(json.dumps(result, indent=2))
-    return 0
-
-
-def cmd_release_readiness(args: argparse.Namespace) -> int:
-    result = collect_release_readiness(_ensure_project_dir())
-    print(json.dumps(result, indent=2))
-    return 0
-
-
 def _add_compat_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     compat_sub = parent.add_subparsers(dest=dest, required=True)
     compat_list = compat_sub.add_parser("list", help="List supported legacy skill names")
@@ -513,9 +435,6 @@ def build_parser() -> argparse.ArgumentParser:
     runtime_dispatch.add_argument("--runtime", required=True, choices=["claude", "gpt", "local"])
     runtime_dispatch.add_argument("--idea", default="", help="Path to idea json")
     runtime_dispatch.add_argument("--idea-json", default="", help="Inline idea json")
-    runtime_dispatch.add_argument("--provider", default="", choices=["", "codex", "gemini", "opencode", "kimi"])
-    runtime_dispatch.add_argument("--host-mode", default="", help="Host execution mode for provider-backed dispatch")
-    runtime_dispatch.add_argument("--smoke-status", default="", help="Provider smoke status to attach to provenance")
     runtime_dispatch.set_defaults(func=cmd_runtime_dispatch)
 
     lab = sub.add_parser("lab", help="Lab pipeline operations")
@@ -530,7 +449,7 @@ def build_parser() -> argparse.ArgumentParser:
     lab_eval.set_defaults(func=cmd_lab_eval)
 
     teams = sub.add_parser("teams", help="Internal OMG team routing")
-    teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "opencode", "kimi", "ccg"])
+    teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "ccg"])
     teams.add_argument("--problem", required=True)
     teams.add_argument("--context", default="")
     teams.add_argument("--files", default="")
@@ -558,46 +477,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     ecosystem = sub.add_parser("ecosystem", help="Upstream ecosystem sync and status")
     _add_ecosystem_subcommands(ecosystem, dest="ecosystem_command")
-
-    providers = sub.add_parser("providers", help="Provider smoke and runtime status")
-    providers_sub = providers.add_subparsers(dest="providers_command", required=True)
-    provider_status = providers_sub.add_parser("status", help="Show provider/bootstrap/runtime readiness status")
-    provider_status.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "opencode", "kimi"])
-    provider_status.add_argument("--smoke", action="store_true", help="Include live smoke diagnostics")
-    provider_status.add_argument(
-        "--host-mode",
-        default="claude_dispatch",
-        choices=["claude_dispatch", "native", "codex_native", "gemini_native", "opencode_native", "kimi_native"],
-    )
-    provider_status.set_defaults(func=cmd_provider_status)
-
-    provider_bootstrap = providers_sub.add_parser("bootstrap", help="Write provider host configs and ensure OMG memory MCP")
-    provider_bootstrap.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "opencode", "kimi"])
-    provider_bootstrap.add_argument("--server-url", default="")
-    provider_bootstrap.add_argument("--server-name", default="omg-memory")
-    provider_bootstrap.set_defaults(func=cmd_provider_bootstrap)
-
-    provider_repair = providers_sub.add_parser("repair", help="Backup and repair local provider host configs")
-    provider_repair.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "opencode", "kimi"])
-    provider_repair.add_argument("--server-url", default="")
-    provider_repair.add_argument("--server-name", default="omg-memory")
-    provider_repair.set_defaults(func=cmd_provider_repair)
-
-    provider_smoke = providers_sub.add_parser("smoke", help="Run live smoke against provider CLIs")
-    provider_smoke.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "opencode", "kimi"])
-    provider_smoke.add_argument(
-        "--host-mode",
-        default="claude_dispatch",
-        choices=["claude_dispatch", "native", "codex_native", "gemini_native", "opencode_native", "kimi_native"],
-    )
-    provider_smoke.add_argument("--prompt", default="Reply with OK.")
-    provider_smoke.add_argument("--timeout", type=int, default=45)
-    provider_smoke.set_defaults(func=cmd_provider_smoke)
-
-    release = sub.add_parser("release", help="Release-readiness status and prep")
-    release_sub = release.add_subparsers(dest="release_command", required=True)
-    release_readiness = release_sub.add_parser("readiness", help="Show branch/provider release-readiness evidence")
-    release_readiness.set_defaults(func=cmd_release_readiness)
 
     return parser
 

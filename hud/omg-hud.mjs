@@ -219,7 +219,7 @@ const PRESET_CONFIGS = {
     safeMode: true,
     inventory: true,
   },
-  providers: {
+  opencode: {
     cwd: true,
     cwdFormat: "relative",
     gitRepo: false,

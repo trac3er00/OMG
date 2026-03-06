@@ -2,7 +2,7 @@
 """
 UserPromptSubmit Hook — OMG v1
 
-Inspired by persistent agent orchestration systems. Key upgrades:
+Inspired by oh-my-opencode's Sisyphus agent system. Key upgrades:
   1. Intent classification BEFORE acting (IntentGate)
   2. Discipline enforcement — never stop halfway
   3. Agent-aware routing — Codex/Gemini/Claude orchestration
@@ -85,7 +85,7 @@ _has_any_signal = any([
                                                      "review","auth","css","layout","ui","ux","test",
                                                      "stuck","error","crash","ralph","ulw","crazy",
                                                      "plan","design","search","find","research","explain",
-                                                     "codex","gemini","opencode","kimi","ccg","screenshot","screen",
+                                                     "codex","gemini","ccg","screenshot","screen",
                                                      "security","warning","hook error","resume","handoff",
                                                      "continue","domain","scaffold","debug","deploy",
                                                      "수정","구현","버그","에러","고쳐","스크린샷","보안"]),
@@ -173,7 +173,7 @@ if is_crazy and budget_ok():
     add(
         "@mode:CRAZY — All agents active. "
         "Brainstorming is merged in CRAZY (no separate brainstorm step). "
-            "Claude=orchestrator, Codex=deep-code+security, Gemini=UI/UX, Kimi=long-context synthesis on request. "
+        "Claude=orchestrator, Codex=deep-code+security, Gemini=UI/UX. "
         "Parallel dispatch. Error-loop prevention ON. "
         "After planning, run a Codex validation pass before implementation."
     )
@@ -261,7 +261,7 @@ if not is_crazy and not is_ulw and budget_ok():
     if complexity_score >= 4:
         add(
             "@mode:CRAZY(auto) — Complex task detected (multi-step/multi-component). "
-            "All agents active: Claude=orchestrator, Codex=deep-code, Gemini=UI/UX, Kimi=long-context synthesis. "
+            "All agents active: Claude=orchestrator, Codex=deep-code, Gemini=UI/UX. "
             "Work through all items systematically. Verify each step."
         )
     # MEDIUM complexity (≥2): auto-trigger PERSISTENT
@@ -302,28 +302,17 @@ CCG_SIGNALS = [
 DEEP_PLAN_SIGNALS = ["deep-plan", "deep plan", "/omg:deep-plan"]
 EXPLICIT_GEMINI = ["gemini", "제미니"]
 EXPLICIT_CODEX = ["codex", "코덱스"]
-EXPLICIT_OPENCODE = ["opencode"]
-EXPLICIT_KIMI = ["kimi"]
 
 # Keyword-first model routing. If an explicit keyword exists, force OMG route first.
 has_ccg_signal = any(signal_matches_text(sig, prompt) for sig in CCG_SIGNALS)
-has_explicit_ccg_signal = signal_matches_text("ccg", prompt)
 has_deep_plan_signal = any(signal_matches_text(sig, prompt) for sig in DEEP_PLAN_SIGNALS)
 has_gemini_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_GEMINI)
 has_codex_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_CODEX)
-has_opencode_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_OPENCODE)
-has_kimi_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_KIMI)
 
 route_lock = ""
 if has_deep_plan_signal:
     route_lock = "deep-plan"
-elif has_explicit_ccg_signal or (has_gemini_signal and has_codex_signal):
-    route_lock = "ccg"
-elif has_opencode_signal:
-    route_lock = "opencode"
-elif has_kimi_signal:
-    route_lock = "kimi"
-elif has_ccg_signal:
+elif has_ccg_signal or (has_gemini_signal and has_codex_signal):
     route_lock = "ccg"
 elif has_gemini_signal:
     route_lock = "gemini"
@@ -345,16 +334,6 @@ if route_lock and budget_ok():
         add(
             '@route-lock: Explicit keyword route=gemini. Execute /OMG:escalate gemini "[problem]" FIRST. '
             "Do NOT call plugin/Skill routes (omg-teams/frontend-design/etc) before this OMG route."
-        )
-    elif route_lock == "opencode":
-        add(
-            '@route-lock: Explicit keyword route=opencode. Execute /OMG:teams --target opencode "[problem]" FIRST. '
-            "Host mode=claude_dispatch. policy_mode=toc_ok."
-        )
-    elif route_lock == "kimi":
-        add(
-            '@route-lock: Explicit keyword route=kimi. Execute /OMG:teams --target kimi "[problem]" FIRST. '
-            "Host mode=claude_dispatch. policy_mode=manual_review_required."
         )
     else:
         add(

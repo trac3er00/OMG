@@ -249,11 +249,7 @@ def check_verification(data, project_dir):
         any(kw in cmd for kw in ["build", "compile", "tsc", "cargo build", "go build", "make"])
         for cmd in recent_commands
     )
-    has_provider_smoke = any(
-        "providers smoke" in cmd or "provider smoke" in cmd
-        for cmd in recent_commands
-    )
-    has_any_verification = has_test or has_lint or has_build or has_provider_smoke
+    has_any_verification = has_test or has_lint or has_build
 
     data["_has_test"] = has_test
 
@@ -284,18 +280,6 @@ def check_verification(data, project_dir):
                 "No quality-gate.json configured, but at minimum run lint/test/build.\n"
                 "Run /OMG:init to configure quality gates, or explicitly state\n"
                 "what is **Unverified** and why."
-            )
-
-    provider_execution = data.get("provider_execution")
-    if isinstance(provider_execution, dict):
-        smoke_status = str(provider_execution.get("smoke_status", "")).strip().lower()
-        if smoke_status and smoke_status != "success":
-            provider_name = str(provider_execution.get("provider", "unknown"))
-            host_mode = str(provider_execution.get("host_mode", "unknown"))
-            blocks.append(
-                "Provider execution was degraded "
-                f"(provider={provider_name}, host_mode={host_mode}, smoke_status={smoke_status}).\n"
-                "Do not claim completion without explicitly marking the run degraded and unverified."
             )
 
     policy_mode, policy_require_evidence = _read_policy_flags(project_dir)

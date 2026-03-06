@@ -16,7 +16,7 @@ from typing import Any
 from hooks.policy_engine import evaluate_bash_command
 from lab.pipeline import run_pipeline
 from runtime.dispatcher import dispatch_runtime
-from runtime.team_router import TeamDispatchRequest, dispatch_team, get_provider_host_parity
+from runtime.team_router import TeamDispatchRequest, dispatch_team
 
 CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
 LEGACY_CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
@@ -396,7 +396,6 @@ def _result(
     actions: list[str] | None = None,
     artifacts: list[str] | None = None,
     result: dict[str, Any] | None = None,
-    host_parity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
         "schema": RESULT_SCHEMA,
@@ -409,27 +408,8 @@ def _result(
         "actions": actions or [],
         "artifacts": artifacts or [],
         "result": result or {},
-        "host_parity": host_parity or {},
         "generated_at": _now(),
     }
-
-
-def _build_host_parity(routed_to: str, route: str) -> dict[str, Any]:
-    raw_targets = [part.strip().lower() for part in re.split(r"[+,]", routed_to or route) if part.strip()]
-    if not raw_targets and route in {"teams", "review", "runtime_ship"}:
-        raw_targets = ["claude"]
-
-    resolved: list[str] = []
-    for target in raw_targets:
-        if target == "ccg":
-            for provider in ("codex", "gemini"):
-                if provider not in resolved:
-                    resolved.append(provider)
-            continue
-        if target in {"codex", "gemini", "kimi", "claude"} and target not in resolved:
-            resolved.append(target)
-
-    return {provider: get_provider_host_parity(provider) for provider in resolved}
 
 
 def _ensure_state_layout(project_dir: str) -> None:
@@ -923,10 +903,6 @@ def dispatch_compat_skill(
         return payload
 
     def _res(**kwargs: Any) -> dict[str, Any]:
-        kwargs.setdefault(
-            "host_parity",
-            _build_host_parity(str(kwargs.get("routed_to", "")), route),
-        )
         return _emit(_result(**kwargs))
 
     if not normalized:

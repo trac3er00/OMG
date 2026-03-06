@@ -55,28 +55,6 @@ def test_make_session_name_unique_ids_differ():
     assert name1 != name2
 
 
-def test_extract_command_result_parses_marker_and_exit_code():
-    """Captured tmux output should parse into deterministic output + exit code."""
-    mgr = TmuxSessionManager()
-    marker = "__OMG_DONE_test__"
-    parsed = mgr._extract_command_result(
-        "analysis line\nfinal line\n__OMG_DONE_test__::7\n",
-        marker,
-    )
-    assert parsed["output"] == "analysis line\nfinal line"
-    assert parsed["exit_code"] == 7
-    assert parsed["completed"] is True
-
-
-def test_extract_command_result_handles_missing_marker():
-    """Missing marker should preserve output and report incomplete state."""
-    mgr = TmuxSessionManager()
-    parsed = mgr._extract_command_result("still running\n", "__OMG_DONE_missing__")
-    assert parsed["output"] == "still running"
-    assert parsed["exit_code"] is None
-    assert parsed["completed"] is False
-
-
 def test_graceful_when_tmux_not_available():
     """All methods return gracefully when tmux is not on PATH."""
     mgr = TmuxSessionManager()

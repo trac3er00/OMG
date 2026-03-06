@@ -37,8 +37,9 @@ except ModuleNotFoundError as exc:
         def run(self, *_args: Any, **_kwargs: Any) -> None:
             raise RuntimeError("fastmcp and starlette are required to run the OMG memory server") from self._import_error
 
-from runtime.memory_store import MemoryStore, MemoryStoreFullError
+    FastMCP.__module__ = "fastmcp"
 
+from runtime.memory_store import MemoryStore, MemoryStoreFullError
 
 _store = MemoryStore()
 
@@ -82,12 +83,17 @@ def memory_store(
 
 
 @mcp.tool()
-def memory_search(query: str, source_cli: str | None = None) -> list[dict[str, Any]]:
+def memory_search(
+    query: str,
+    source_cli: str | None = None,
+) -> list[dict[str, Any]]:
     return _store.search(query=query, source_cli=source_cli)
 
 
 @mcp.tool()
-def memory_list(source_cli: str | None = None) -> list[dict[str, Any]]:
+def memory_list(
+    source_cli: str | None = None,
+) -> list[dict[str, Any]]:
     return _store.list_all(source_cli=source_cli)
 
 
@@ -99,7 +105,8 @@ def memory_delete(item_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 def memory_import(items: list[dict[str, Any]]) -> dict[str, int]:
-    return {"imported": _store.import_items(items)}
+    count = _store.import_items(items)
+    return {"imported": count}
 
 
 @mcp.tool()

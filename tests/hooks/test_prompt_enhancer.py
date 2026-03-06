@@ -87,23 +87,6 @@ def test_explicit_codex_route_keyword():
     assert "codex" in ctx.lower()
     assert "do not call plugin/skill routes" in ctx.lower()
 
-def test_explicit_opencode_route_keyword():
-    ctx = run_enhancer("use opencode to implement this patch")
-    assert "@route-lock" in ctx
-    assert "opencode" in ctx.lower()
-    assert "claude_dispatch" in ctx.lower()
-
-def test_explicit_kimi_route_keyword_marks_manual_review():
-    ctx = run_enhancer("use kimi to inspect the local runtime")
-    assert "@route-lock" in ctx
-    assert "kimi" in ctx.lower()
-    assert "manual_review_required" in ctx.lower()
-
-def test_explicit_kimi_route_keyword_beats_ccg_signals():
-    ctx = run_enhancer("use kimi for this full stack runtime analysis")
-    assert "@route-lock" in ctx
-    assert "route=kimi" in ctx.lower()
-
 def test_explicit_ccg_route_keyword():
     ctx = run_enhancer("do a ccg review for this full stack task")
     assert "@route-lock" in ctx

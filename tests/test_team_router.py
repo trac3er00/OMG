@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shlex
 import subprocess
 import sys
 import types
@@ -46,163 +47,6 @@ def test_dispatch_to_model_known_agent_without_cli_returns_claude_fallback(monke
     assert result["fallback"] == "claude"
     assert result["category"] == "deep"
     assert result["skills"] == ["backend-patterns"]
-    assert result["fallback_provider"] == "claude"
-    assert result["fallback_mode"] == "provider_failover"
-    assert result["fallback_agent_name"] == "backend-engineer"
-    assert result["fallback_model_tier"] == "sonnet"
-    assert result["fallback_model_role"] == "default"
-    assert result["fallback_preserved_skills"] == ["backend-patterns"]
-
-
-def test_dispatch_to_model_routes_kimi_cli_via_provider_registry(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_registry = types.ModuleType("_agent_registry")
-    setattr(fake_registry, "AGENT_REGISTRY", {
-        "local-runtime": {
-            "preferred_model": "kimi-cli",
-            "task_category": "deep",
-            "skills": ["backend-patterns"],
-            "description": "Local runtime specialist",
-        }
-    })
-    setattr(fake_registry, "detect_available_models", lambda: {
-        "claude": True,
-        "codex-cli": False,
-        "gemini-cli": False,
-        "kimi-cli": True,
-    })
-    monkeypatch.setitem(sys.modules, "_agent_registry", fake_registry)
-
-    class _FakeProvider:
-        def invoke(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            return {"model": "kimi-cli", "output": prompt, "exit_code": 0}
-
-        def invoke_tmux(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            raise AssertionError("tmux should not be used in this test")
-
-    monkeypatch.setattr(team_router, "_get_registered_provider", lambda name: _FakeProvider() if name == "kimi" else None, raising=False)
-    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
-
-    result = team_router.dispatch_to_model("local-runtime", "inspect runtime", "/tmp/project")
-
-    assert result["model"] == "kimi-cli"
-    assert result["provider"] == "kimi"
-    assert result["host_mode"] == "claude_dispatch"
-
-
-def test_dispatch_to_model_routes_codex_cli_via_provider_registry(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_registry = types.ModuleType("_agent_registry")
-    setattr(fake_registry, "AGENT_REGISTRY", {
-        "implementation-engineer": {
-            "preferred_model": "codex-cli",
-            "task_category": "deep",
-            "skills": ["backend-patterns"],
-            "description": "Implementation specialist",
-        }
-    })
-    setattr(fake_registry, "detect_available_models", lambda: {
-        "claude": True,
-        "codex-cli": True,
-        "gemini-cli": False,
-        "kimi-cli": False,
-    })
-    monkeypatch.setitem(sys.modules, "_agent_registry", fake_registry)
-
-    class _FakeProvider:
-        def invoke(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            return {"model": "codex-cli", "output": prompt, "exit_code": 0}
-
-        def invoke_tmux(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            raise AssertionError("tmux should not be used in this test")
-
-    monkeypatch.setattr(team_router, "_get_registered_provider", lambda name: _FakeProvider() if name == "codex" else None, raising=False)
-    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
-
-    result = team_router.dispatch_to_model("implementation-engineer", "ship feature", "/tmp/project")
-
-    assert result["model"] == "codex-cli"
-    assert result["provider"] == "codex"
-    assert result["host_mode"] == "claude_dispatch"
-
-
-def test_dispatch_to_model_routes_opencode_cli_via_provider_registry(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_registry = types.ModuleType("_agent_registry")
-    setattr(fake_registry, "AGENT_REGISTRY", {
-        "implementation-engineer": {
-            "preferred_model": "opencode-cli",
-            "task_category": "deep",
-            "skills": ["backend-patterns"],
-            "description": "Implementation specialist",
-        }
-    })
-    setattr(fake_registry, "detect_available_models", lambda: {
-        "claude": True,
-        "codex-cli": False,
-        "gemini-cli": False,
-        "opencode-cli": True,
-        "kimi-cli": False,
-    })
-    monkeypatch.setitem(sys.modules, "_agent_registry", fake_registry)
-
-    class _FakeProvider:
-        def invoke(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            return {"model": "opencode-cli", "output": prompt, "exit_code": 0}
-
-        def invoke_tmux(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            raise AssertionError("tmux should not be used in this test")
-
-    monkeypatch.setattr(team_router, "_get_registered_provider", lambda name: _FakeProvider() if name == "opencode" else None, raising=False)
-    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
-
-    result = team_router.dispatch_to_model("implementation-engineer", "ship feature", "/tmp/project")
-
-    assert result["model"] == "opencode-cli"
-    assert result["provider"] == "opencode"
-    assert result["host_mode"] == "claude_dispatch"
-
-
-def test_dispatch_to_model_normalizes_kimi_missing_model_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_registry = types.ModuleType("_agent_registry")
-    setattr(fake_registry, "AGENT_REGISTRY", {
-        "local-runtime": {
-            "preferred_model": "kimi-cli",
-            "task_category": "deep",
-            "skills": [],
-            "description": "Local runtime specialist",
-        }
-    })
-    setattr(fake_registry, "detect_available_models", lambda: {
-        "claude": True,
-        "codex-cli": False,
-        "gemini-cli": False,
-        "kimi-cli": True,
-    })
-    monkeypatch.setitem(sys.modules, "_agent_registry", fake_registry)
-
-    class _FakeProvider:
-        def invoke(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            return {
-                "model": "kimi-cli",
-                "output": "",
-                "stderr": "LLM not set",
-                "exit_code": 1,
-            }
-
-        def invoke_tmux(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            raise AssertionError("tmux should not be used in this test")
-
-    monkeypatch.setattr(team_router, "_get_registered_provider", lambda name: _FakeProvider() if name == "kimi" else None, raising=False)
-    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
-
-    result = team_router.dispatch_to_model("local-runtime", "inspect runtime", "/tmp/project")
-
-    assert result["provider"] == "kimi"
-    assert result["host_mode"] == "claude_dispatch"
-    assert result["error_code"] == "missing_model"
-    assert result["fallback_provider"] == "claude"
-    assert result["fallback_mode"] == "provider_failover"
-    assert result["fallback_agent_name"] == "local-runtime"
-    assert result["fallback_model_tier"] == "sonnet"
-    assert result["fallback_model_role"] == "default"
 
 
 def test_invoke_codex_returns_not_found_when_tool_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -248,58 +92,24 @@ def test_invoke_codex_timeout_returns_timeout_error(monkeypatch: pytest.MonkeyPa
     assert result == {"error": "codex-cli timeout", "fallback": "claude"}
 
 
-def test_dispatch_to_model_preserves_agent_identity_for_security_failover(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_registry = types.ModuleType("_agent_registry")
-    setattr(fake_registry, "AGENT_REGISTRY", {
-        "security-auditor": {
-            "preferred_model": "codex-cli",
-            "task_category": "deep",
-            "skills": ["security-review"],
-            "description": "Security specialist",
-            "model_role": "slow",
-        }
-    })
-    setattr(fake_registry, "detect_available_models", lambda: {
-        "claude": True,
-        "codex-cli": True,
-        "gemini-cli": False,
-    })
-    monkeypatch.setitem(sys.modules, "_agent_registry", fake_registry)
-    monkeypatch.setattr(
-        team_router,
-        "_invoke_provider",
-        lambda provider_name, prompt, project_dir, timeout=120: {
-            "provider": provider_name,
-            "host_mode": "claude_dispatch",
-            "error_code": "auth_required",
-            "blocking_class": "authentication_required",
-            "fallback_provider": "claude",
-            "fallback_reason": "provider_login_required",
-        },
-    )
+def test_check_tool_auth_reports_authenticated(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed = subprocess.CompletedProcess(args=["codex", "auth", "status"], returncode=0, stdout="logged in", stderr="")
+    monkeypatch.setattr(team_router, "_run_tool", lambda _cmd, timeout=15: completed)
 
-    result = team_router.dispatch_to_model("security-auditor", "audit auth flow", "/tmp/project")
-
-    assert result["fallback_provider"] == "claude"
-    assert result["fallback_mode"] == "provider_failover"
-    assert result["fallback_agent_name"] == "security-auditor"
-    assert result["fallback_model_tier"] == "opus"
-    assert result["fallback_model_role"] == "slow"
-    assert result["fallback_preserved_skills"] == ["security-review"]
-
-
-def test_check_tool_auth_reports_unsupported_for_codex() -> None:
     ok, message = team_router._check_tool_auth("codex")
 
-    assert ok is None
-    assert message == "auth status check not supported"
+    assert ok is True
+    assert message == "CLI is authenticated"
 
 
-def test_check_tool_auth_reports_unsupported_for_gemini() -> None:
+def test_check_tool_auth_reports_not_authenticated(monkeypatch: pytest.MonkeyPatch) -> None:
+    completed = subprocess.CompletedProcess(args=["gemini", "auth", "status"], returncode=1, stdout="", stderr="not logged in")
+    monkeypatch.setattr(team_router, "_run_tool", lambda _cmd, timeout=15: completed)
+
     ok, message = team_router._check_tool_auth("gemini")
 
-    assert ok is None
-    assert message == "auth status check not supported"
+    assert ok is False
+    assert "not authenticated" in message
 
 
 def test_dispatch_params_include_model_version() -> None:
@@ -343,13 +153,86 @@ def test_should_use_tmux_false_in_thread_pool() -> None:
 
 
 def test_invoke_codex_tmux_falls_back_when_tmux_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
-    called: list[str] = []
+    class _FakeMgr:
+        def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
+            return "omg-codex-123"
 
-    def mock_invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, str]:
-        called.append(prompt)
-        return {"error": "codex-cli not found", "fallback": "claude"}
+        def get_or_create_session(self, name: str) -> str:
+            return name
+
+        def send_command(self, name: str, command: str, timeout: int = 120) -> str:
+            return "output without marker"
+
+        def kill_session(self, name: str) -> bool:
+            return True
+
+    monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: _FakeMgr())
+
+    def mock_invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
+        return {"model": "codex-cli", "output": "fallback", "exit_code": 9}
 
     monkeypatch.setattr(team_router, "invoke_codex", mock_invoke_codex)
     result = team_router.invoke_codex_tmux("test prompt", "/tmp")
-    assert "fallback" in result or "output" in result or "error" in result
+    assert result == {"model": "codex-cli", "output": "fallback", "exit_code": 9}
+
+
+def test_invoke_codex_tmux_quotes_prompt_and_reports_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeMgr:
+        def __init__(self) -> None:
+            self.last_command = ""
+            self.killed: list[str] = []
+
+        def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
+            return "omg-codex-xyz"
+
+        def get_or_create_session(self, name: str) -> str:
+            return name
+
+        def send_command(self, name: str, command: str, timeout: int = 120) -> str:
+            self.last_command = command
+            return "ok-json\n__OMG_TMUX_EXIT_CODE__:7"
+
+        def kill_session(self, name: str) -> bool:
+            self.killed.append(name)
+            return True
+
+    fake_mgr = _FakeMgr()
+    prompt = "don't break"
+
+    monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: fake_mgr)
+
+    result = team_router.invoke_codex_tmux(prompt, "/tmp")
+
+    assert shlex.quote(prompt) in fake_mgr.last_command
+    assert result == {"model": "codex-cli", "output": "ok-json", "exit_code": 7}
+    assert fake_mgr.killed == ["omg-codex-xyz"]
+
+
+def test_invoke_gemini_tmux_reports_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeMgr:
+        def __init__(self) -> None:
+            self.killed: list[str] = []
+
+        def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
+            return "omg-gemini-xyz"
+
+        def get_or_create_session(self, name: str) -> str:
+            return name
+
+        def send_command(self, name: str, command: str, timeout: int = 120) -> str:
+            return "gemini-output\n__OMG_TMUX_EXIT_CODE__:3"
+
+        def kill_session(self, name: str) -> bool:
+            self.killed.append(name)
+            return True
+
+    fake_mgr = _FakeMgr()
+    monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: fake_mgr)
+
+    result = team_router.invoke_gemini_tmux("hello", "/tmp")
+
+    assert result == {"model": "gemini-cli", "output": "gemini-output", "exit_code": 3}
+    assert fake_mgr.killed == ["omg-gemini-xyz"]
