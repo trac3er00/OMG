@@ -24,8 +24,10 @@ const CHECK_DIRS = [
   "commands",
   "control_plane",
   "hooks",
+  "hud",
   "lab",
   "omg_natives",
+  "plugins",
   "registry",
   "runtime",
   "scripts",
@@ -41,7 +43,9 @@ const BLOCKED_PATTERNS = [
   new RegExp(`\\b${escapeRegex(PYTHON)}3?\\b`, "i"),
   new RegExp(`\\b${escapeRegex(PYTEST)}\\b`, "i"),
   new RegExp(escapeRegex(OMG_PY)),
-  new RegExp(escapeRegex(PY))
+  new RegExp(escapeRegex(PY)),
+  /\bopencode\b/i,
+  /\bOpenCode\b/
 ];
 
 function walk(path: string, files: string[] = []): string[] {

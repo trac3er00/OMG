@@ -11,7 +11,7 @@ OMG `v2.0.0` runs on Bun + TypeScript. The public product surface stays stable:
 
 - Bun `>= 1.3`
 - Claude Code or a compatible `~/.claude` config
-- optional provider CLIs for multi-provider routing: `codex`, `gemini`, `opencode`, `kimi`
+- optional provider CLIs for multi-provider routing: `codex`, `gemini`, `kimi`
 
 ## Install
 

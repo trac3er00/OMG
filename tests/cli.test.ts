@@ -106,7 +106,7 @@ describe("omg cli", () => {
   test("providers and release readiness return json", () => {
     const status = stdoutJson(run(["bun", "scripts/omg.ts", "providers", "status", "--smoke"]));
     expect(status.status).toBe("ok");
-    expect(status.providers.length).toBe(4);
+    expect(status.providers.map((entry: any) => entry.provider)).toEqual(["codex", "gemini", "kimi"]);
 
     const readiness = stdoutJson(run(["bun", "scripts/omg.ts", "release", "readiness"]));
     expect(readiness.status).toBe("ok");

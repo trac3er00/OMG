@@ -1,6 +1,6 @@
 # OMG Commands
 
-OMG (Oh My OpenCode Alternative) provides two tiers of commands:
+OMG provides two tiers of commands:
 
 ## Core Commands (`commands/`)
 

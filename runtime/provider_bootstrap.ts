@@ -10,7 +10,6 @@ type ProviderMeta = {
 const PROVIDERS: ProviderMeta[] = [
   { provider: "codex", command: "codex" },
   { provider: "gemini", command: "gemini" },
-  { provider: "opencode", command: "opencode" },
   { provider: "kimi", command: "kimi" }
 ];
 
