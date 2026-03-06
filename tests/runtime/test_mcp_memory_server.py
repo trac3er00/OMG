@@ -61,10 +61,7 @@ def test_mcp_is_fastmcp_instance() -> None:
     mcp_cls = module.mcp.__class__
 
     assert mcp_cls.__name__ == "FastMCP"
-    if getattr(module, "_MCP_IMPORT_ERROR", None) is None:
-        assert mcp_cls.__module__.startswith("fastmcp")
-    else:
-        assert mcp_cls.__module__ == "runtime.mcp_memory_server"
+    assert mcp_cls.__module__.startswith("fastmcp")
 
 
 def test_default_binding_is_localhost_only(monkeypatch: pytest.MonkeyPatch) -> None:

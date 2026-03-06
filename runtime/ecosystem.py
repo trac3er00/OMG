@@ -7,8 +7,6 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
-from runtime.team_router import get_host_execution_matrix, get_provider_host_parity
-
 ECOSYSTEM_SCHEMA = "OmgEcosystemCatalog"
 ECOSYSTEM_CATALOG_VERSION = "1.0.0"
 ECOSYSTEM_LOCK_SCHEMA = "OmgEcosystemLock"
@@ -370,11 +368,4 @@ def ecosystem_status(*, project_dir: str) -> dict[str, Any]:
         "lock_generated_at": lock.get("generated_at", ""),
         "repo_dir": str(repo_root),
         "repos": statuses,
-        "runtime_context": {
-            "host_execution_matrix": get_host_execution_matrix(),
-            "provider_host_parity": {
-                provider: get_provider_host_parity(provider)
-                for provider in ("claude", "codex", "gemini", "kimi")
-            },
-        },
     }

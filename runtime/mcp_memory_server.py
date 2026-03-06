@@ -6,39 +6,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-_MCP_IMPORT_ERROR: ModuleNotFoundError | None = None
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
-try:
-    from fastmcp import FastMCP
-    from starlette.requests import Request
-    from starlette.responses import JSONResponse
-except ModuleNotFoundError as exc:
-    _MCP_IMPORT_ERROR = exc
-    Request = Any
-
-    class JSONResponse(dict):
-        def __init__(self, content: dict[str, Any]):
-            super().__init__(content)
-
-    def _passthrough_decorator(*_args: Any, **_kwargs: Any):
-        def decorator(func: Any) -> Any:
-            return func
-
-        return decorator
-
-    class FastMCP:  # type: ignore[override]
-        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
-            self._import_error = _MCP_IMPORT_ERROR
-
-        custom_route = staticmethod(_passthrough_decorator)
-        tool = staticmethod(_passthrough_decorator)
-        resource = staticmethod(_passthrough_decorator)
-
-        def run(self, *_args: Any, **_kwargs: Any) -> None:
-            raise RuntimeError("fastmcp and starlette are required to run the OMG memory server") from self._import_error
+from fastmcp import FastMCP
 
 from runtime.memory_store import MemoryStore, MemoryStoreFullError
-
 
 _store = MemoryStore()
 
@@ -82,12 +55,17 @@ def memory_store(
 
 
 @mcp.tool()
-def memory_search(query: str, source_cli: str | None = None) -> list[dict[str, Any]]:
+def memory_search(
+    query: str,
+    source_cli: str | None = None,
+) -> list[dict[str, Any]]:
     return _store.search(query=query, source_cli=source_cli)
 
 
 @mcp.tool()
-def memory_list(source_cli: str | None = None) -> list[dict[str, Any]]:
+def memory_list(
+    source_cli: str | None = None,
+) -> list[dict[str, Any]]:
     return _store.list_all(source_cli=source_cli)
 
 
@@ -99,7 +77,8 @@ def memory_delete(item_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 def memory_import(items: list[dict[str, Any]]) -> dict[str, int]:
-    return {"imported": _store.import_items(items)}
+    count = _store.import_items(items)
+    return {"imported": count}
 
 
 @mcp.tool()

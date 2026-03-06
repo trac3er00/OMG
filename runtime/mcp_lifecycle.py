@@ -2,40 +2,36 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 
-def _project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
 def get_pid_file_path() -> str:
+    """Return path to the PID file for the memory server."""
     return str(Path.home() / ".omg" / "shared-memory" / "server.pid")
 
 
-def get_log_file_path() -> str:
-    return str(Path.home() / ".omg" / "shared-memory" / "server.log")
-
-
 def get_server_url() -> str:
+    """Return the MCP server URL using host/port from mcp_memory_server."""
     from runtime.mcp_memory_server import get_host, get_port
 
     return f"http://{get_host()}:{get_port()}/mcp"
 
 
 def _read_pid() -> int | None:
+    """Read PID from PID file. Returns None if missing or invalid."""
     try:
-        return int(Path(get_pid_file_path()).read_text(encoding="utf-8").strip())
+        return int(Path(get_pid_file_path()).read_text().strip())
     except (FileNotFoundError, ValueError):
         return None
 
 
 def is_server_running() -> bool:
+    """Check if the memory server process is alive."""
     pid = _read_pid()
     if pid is None:
         return False
@@ -45,10 +41,11 @@ def is_server_running() -> bool:
     except ProcessLookupError:
         return False
     except PermissionError:
-        return True
+        return True  # Process exists but we can't signal it
 
 
 def _wait_for_health(url: str, timeout: float = 5.0) -> bool:
+    """Wait for server health endpoint to respond."""
     import urllib.request
 
     deadline = time.monotonic() + timeout
@@ -63,6 +60,7 @@ def _wait_for_health(url: str, timeout: float = 5.0) -> bool:
 
 
 def _wait_for_exit(pid: int, timeout: float = 5.0) -> bool:
+    """Wait for a process to exit."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
@@ -74,62 +72,37 @@ def _wait_for_exit(pid: int, timeout: float = 5.0) -> bool:
 
 
 def start_memory_server() -> dict[str, Any]:
+    """Start the MCP memory server as a background process."""
     if is_server_running():
-        state = check_memory_server()
-        return {
-            "status": "already_running",
-            "url": get_server_url(),
-            "pid": state.get("pid"),
-            "log_path": get_log_file_path(),
-        }
+        return {"status": "already_running", "url": get_server_url()}
 
     pid_path = Path(get_pid_file_path())
     pid_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path = Path(get_log_file_path())
-    log_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        root = _project_root()
-        env = dict(os.environ)
-        existing_pythonpath = env.get("PYTHONPATH", "").strip()
-        env["PYTHONPATH"] = (
-            f"{root}{os.pathsep}{existing_pythonpath}"
-            if existing_pythonpath
-            else str(root)
+        server_script = str(Path(__file__).parent / "mcp_memory_server.py")
+        proc = subprocess.Popen(
+            [sys.executable, server_script],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
-        launch_cmd = [
-            sys.executable,
-            "-c",
-            "from runtime.mcp_memory_server import run_server; run_server()",
-        ]
-        with open(log_path, "ab") as log_handle:
-            proc = subprocess.Popen(
-                launch_cmd,
-                cwd=str(root),
-                env=env,
-                stdout=log_handle,
-                stderr=log_handle,
-            )
-        pid_path.write_text(str(proc.pid), encoding="utf-8")
+
+        pid_path.write_text(str(proc.pid))
 
         health_url = get_server_url().replace("/mcp", "/health")
         if _wait_for_health(health_url):
+            return {"status": "started", "pid": proc.pid, "url": get_server_url()}
+        else:
             return {
-                "status": "started",
-                "pid": proc.pid,
-                "url": get_server_url(),
-                "log_path": str(log_path),
+                "status": "error",
+                "message": "Server did not respond within timeout",
             }
-        return {
-            "status": "error",
-            "message": "Server did not respond within timeout",
-            "log_path": str(log_path),
-        }
     except Exception as exc:
-        return {"status": "error", "message": str(exc), "log_path": str(log_path)}
+        return {"status": "error", "message": str(exc)}
 
 
 def stop_memory_server() -> dict[str, Any]:
+    """Stop the MCP memory server."""
     if not is_server_running():
         return {"status": "not_running"}
 
@@ -140,9 +113,11 @@ def stop_memory_server() -> dict[str, Any]:
     try:
         os.kill(pid, signal.SIGTERM)
         _wait_for_exit(pid)
+
         pid_path = Path(get_pid_file_path())
         if pid_path.exists():
             pid_path.unlink()
+
         return {"status": "stopped", "pid": pid}
     except ProcessLookupError:
         pid_path = Path(get_pid_file_path())
@@ -154,36 +129,25 @@ def stop_memory_server() -> dict[str, Any]:
 
 
 def check_memory_server() -> dict[str, Any]:
-    if not is_server_running():
-        return {
-            "running": False,
-            "url": None,
-            "pid": None,
-            "health_ok": False,
-            "log_path": get_log_file_path(),
-        }
-    url = get_server_url()
-    health_ok = _wait_for_health(url.replace("/mcp", "/health"), timeout=1.0)
+    """Check the memory server status."""
+    running = is_server_running()
+    if not running:
+        return {"running": False, "url": None, "pid": None}
+
     return {
         "running": True,
-        "url": url,
+        "url": get_server_url(),
         "pid": _read_pid(),
-        "health_ok": health_ok,
-        "log_path": get_log_file_path(),
     }
 
 
 def ensure_memory_server() -> dict[str, Any]:
-    state = check_memory_server()
-    if state.get("running") and state.get("health_ok"):
-        return {
-            "status": "already_running",
-            "url": state.get("url"),
-            "pid": state.get("pid"),
-            "log_path": state.get("log_path"),
-        }
+    """Ensure the memory server is running (idempotent)."""
+    if is_server_running():
+        return {"status": "already_running", "url": get_server_url()}
     return start_memory_server()
 
 
+# Feature flag: auto-start on import
 if os.environ.get("OMG_MEMORY_AUTOSTART") == "1":
     ensure_memory_server()

@@ -48,15 +48,6 @@ def _as_string_list(value: Any) -> list[str]:
     return []
 
 
-def _as_string_map(value: Any, keys: tuple[str, ...]) -> dict[str, list[str]]:
-    normalized = {key: [] for key in keys}
-    if not isinstance(value, dict):
-        return normalized
-    for key in keys:
-        normalized[key] = _as_string_list(value.get(key, []))
-    return normalized
-
-
 def _resolve_workflow_path(idea: dict[str, Any]) -> list[str]:
     raw_path = idea.get("workflow") or idea.get("path") or idea.get("delivery_path") or idea.get("workflow_path")
     requested = _as_string_list(raw_path)
@@ -71,17 +62,6 @@ def _resolve_workflow_path(idea: dict[str, Any]) -> list[str]:
         if required not in resolved:
             resolved.append(required)
     return resolved
-
-
-def _build_failure_taxonomy(provider_execution: dict[str, Any], checks: list[dict[str, Any]]) -> list[str]:
-    failures: list[str] = []
-    smoke_status = str(provider_execution.get("smoke_status", "")).strip().lower()
-    if smoke_status and smoke_status != "success":
-        failures.append(f"provider_{smoke_status}")
-    for check in checks:
-        if isinstance(check, dict) and check.get("passed") is not True:
-            failures.append(f"check_{check.get('name', 'unknown')}")
-    return failures
 
 
 def build_business_task_plan(idea: dict[str, Any]) -> dict[str, Any]:
@@ -214,35 +194,6 @@ def build_business_workflow_result(
     checks_value = verification.get("checks") if isinstance(verification, dict) else None
     checks = checks_value if isinstance(checks_value, list) else []
     checks_ok = bool(checks) and all(isinstance(check, dict) and check.get("passed") is True for check in checks)
-    failed_checks = [
-        str(check.get("name", "unknown"))
-        for check in checks
-        if isinstance(check, dict) and check.get("passed") is not True
-    ]
-    passed_checks = [
-        str(check.get("name", "unknown"))
-        for check in checks
-        if isinstance(check, dict) and check.get("passed") is True
-    ]
-    provider_execution = idea.get("provider_execution") if isinstance(idea.get("provider_execution"), dict) else {}
-    provider_smoke_status = str(provider_execution.get("smoke_status", "")).strip().lower()
-    provider_degraded = bool(provider_smoke_status and provider_smoke_status != "success")
-    verification_state = "verified" if checks_ok else ("failed" if checks else "unverified")
-    if provider_degraded and checks_ok:
-        verification_state = "degraded"
-
-    verification_summary = {
-        "state": verification_state,
-        "check_count": len(checks),
-        "passed_checks": passed_checks,
-        "failed_checks": failed_checks,
-        "provider_degraded": provider_degraded,
-        "provider_smoke_status": provider_smoke_status or None,
-    }
-    evidence_requirements = _as_string_map(
-        idea.get("evidence_required"),
-        ("tests", "security_scans", "reproducibility", "artifacts"),
-    )
 
     stage_status = {
         "plan": "completed" if plan.get("status") == "planned" else "failed",
@@ -252,30 +203,12 @@ def build_business_workflow_result(
         "final_test": "completed" if checks_ok else "failed",
         "production": "ready" if checks_ok else "blocked",
     }
-    if verification_state == "degraded":
-        stage_status["qa"] = "degraded"
-        stage_status["simulate"] = "degraded"
-        stage_status["final_test"] = "degraded"
-        stage_status["production"] = "blocked"
-
-    failure_taxonomy = _build_failure_taxonomy(provider_execution, checks)
-    qualification = {
-        "schema": "OmgModelFactoryQualification",
-        "workflow_depth": len(plan_payload["resolved_path"]),
-        "replayable": True,
-        "long_horizon_ready": verification_state == "verified" and not failure_taxonomy,
-        "failure_taxonomy": failure_taxonomy,
-    }
 
     return {
         "goal": plan_payload["goal"],
         "workflow_path": plan_payload["resolved_path"],
         "requested_workflow_path": plan_payload["requested_path"],
         "task_plan": plan_payload,
-        "verification_summary": verification_summary,
-        "provider_execution": dict(provider_execution),
-        "evidence_requirements": evidence_requirements,
-        "qualification": qualification,
         "stage_status": [
             {
                 "stage": stage,
@@ -283,5 +216,5 @@ def build_business_workflow_result(
             }
             for stage in plan_payload["resolved_path"]
         ],
-        "ready_for_production": verification_state == "verified",
+        "ready_for_production": checks_ok,
     }

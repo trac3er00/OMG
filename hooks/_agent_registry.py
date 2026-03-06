@@ -102,26 +102,16 @@ AGENT_REGISTRY = {
         'agent_file': 'agents/omg-architect-mode.md',
         'model_version': 'claude-sonnet-4-5',
     },
-    'implement-mode': {
-        'preferred_model': 'domain-dependent',
-        'task_category': 'deep',
-        'skills': [],
-        'trigger_keywords': {'implement', 'build', 'create', 'add', 'develop', 'write', 'code'},
-        'mcp_tools': [],
-        'description': 'Implementation mode. Model chosen based on domain of task.',
-        'agent_file': 'agents/omg-implement-mode.md',
-        'model_version': 'claude-sonnet-4-5',
-    },
-    'implement-mode': {
-        'preferred_model': 'domain-dependent',
-        'task_category': 'deep',
-        'skills': [],
-        'trigger_keywords': {'implement', 'build', 'create', 'add', 'develop', 'write', 'code'},
-        'mcp_tools': [],
-        'description': 'Implementation mode. Model chosen based on domain of task.',
-        'agent_file': 'agents/omg-implement-mode.md',
-        'model_version': 'claude-sonnet-4-5',
-    },
+     'implement-mode': {
+         'preferred_model': 'domain-dependent',
+         'task_category': 'deep',
+         'skills': [],
+         'trigger_keywords': {'implement', 'build', 'create', 'add', 'develop', 'write', 'code'},
+         'mcp_tools': [],
+         'description': 'Implementation mode. Model chosen based on domain of task.',
+         'agent_file': 'agents/omg-implement-mode.md',
+         'model_version': 'claude-sonnet-4-5',
+     },
     # Bundled agents (Task 2.3)
     'explore': {
         'preferred_model': 'claude',
@@ -289,9 +279,11 @@ def get_dispatch_params(agent_name: str):
     preferred = config.get('preferred_model', 'claude')
 
     # Resolve model availability
-    if preferred == 'domain-dependent':
+    if preferred == 'gemini-cli' and not available.get('gemini-cli'):
         preferred = 'claude'
-    elif preferred.endswith('-cli') and not available.get(preferred, False):
+    elif preferred == 'codex-cli' and not available.get('codex-cli'):
+        preferred = 'claude'
+    elif preferred == 'domain-dependent':
         preferred = 'claude'
 
     params = {
@@ -307,9 +299,9 @@ def get_dispatch_params(agent_name: str):
 
 
 def detect_available_models() -> dict[str, bool]:
-    """Check which CLIs are available: codex-cli, gemini-cli, kimi-cli.
+    """Check which CLIs are available: codex-cli, gemini-cli.
 
-    Returns dict with Claude plus supported external CLI hosts.
+    Returns dict: {'claude': True, 'codex-cli': bool, 'gemini-cli': bool}
     Caches result per process.
     """
     global _model_cache
@@ -319,7 +311,6 @@ def detect_available_models() -> dict[str, bool]:
     result = {'claude': True}  # Claude is always available
     result['codex-cli'] = shutil.which('codex') is not None
     result['gemini-cli'] = shutil.which('gemini') is not None
-    result['kimi-cli'] = shutil.which('kimi') is not None
     _model_cache = result
     return result
 

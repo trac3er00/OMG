@@ -1,1 +1,0 @@
-"""OMG agents module."""

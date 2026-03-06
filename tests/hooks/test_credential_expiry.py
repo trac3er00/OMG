@@ -12,7 +12,6 @@ Tests:
 """
 from __future__ import annotations
 
-import builtins
 import io
 import json
 import os
@@ -250,39 +249,3 @@ class TestCheckExpiryNoExpiresAt:
         # Credentials without expires_at should not appear in expiry report
         assert isinstance(result, list)
         assert len(result) == 0
-
-
-class TestCryptoFallback:
-    def test_expiry_flow_works_without_cryptography_dependency(self, monkeypatch):
-        """Credential expiry flow should still work when cryptography is unavailable."""
-        original_import = builtins.__import__
-
-        def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-            if name.startswith("cryptography"):
-                raise ModuleNotFoundError(f"No module named '{name}'")
-            return original_import(name, globals, locals, fromlist, level)
-
-        sys.modules.pop("credential_store", None)
-        monkeypatch.setattr(builtins, "__import__", _guarded_import)
-
-        import credential_store
-
-        d = _make_project_dir()
-        passphrase = "test-passphrase-secure"
-        soon = (datetime.now(timezone.utc) + timedelta(days=5)).isoformat()
-
-        credential_store.add_credential(
-            provider="openai",
-            key="sk-test-fallback-crypto",
-            passphrase=passphrase,
-            project_dir=d,
-            expires_at=soon,
-        )
-
-        store = credential_store.load_store(passphrase, d)
-        assert store["providers"]["openai"]["keys"][0]["expires_at"] == soon
-
-        with patch.dict(os.environ, {"OMG_CREDENTIAL_PASSPHRASE": passphrase}):
-            result = credential_store.check_expiry(d)
-
-        assert result[0]["status"] == "expiring"

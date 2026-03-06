@@ -94,6 +94,3 @@ def test_ecosystem_status_reports_installed_state(tmp_path: Path, monkeypatch):
     assert repos["omg-superpowers"]["commit"] == "abc123"
     assert repos["omg-superpowers"]["branch"] == "main"
     assert repos["claude-flow"]["installed"] is False
-    assert "runtime_context" in status
-    assert "host_execution_matrix" in status["runtime_context"]
-    assert status["runtime_context"]["provider_host_parity"]["kimi"]["native_host"]["host_mode"] == "kimi_native"

@@ -1,4 +1,4 @@
-"""Gemini CLI provider — implements CLIProvider for the ``gemini`` binary."""
+"""OpenCode CLI provider -- implements CLIProvider for the ``opencode`` binary."""
 
 from __future__ import annotations
 
@@ -16,89 +16,105 @@ from runtime.tmux_session_manager import TmuxSessionManager
 _logger = logging.getLogger(__name__)
 
 
-class GeminiProvider(CLIProvider):
-    """CLIProvider implementation for the Gemini CLI (``gemini``)."""
+class OpenCodeProvider(CLIProvider):
+    """CLIProvider implementation for the OpenCode CLI (``opencode``)."""
 
     # -- identity -----------------------------------------------------------
 
     def get_name(self) -> str:  # noqa: D401
         """Return the canonical provider name."""
-        return "gemini"
+        return "opencode"
 
     # -- detection ----------------------------------------------------------
 
     def detect(self) -> bool:
-        """Return ``True`` when the ``gemini`` binary is available on PATH."""
-        return shutil.which("gemini") is not None
+        """Return ``True`` when the ``opencode`` binary is available on PATH."""
+        return shutil.which("opencode") is not None
 
     # -- authentication -----------------------------------------------------
 
     def check_auth(self) -> tuple[bool | None, str]:
-        """Check Gemini authentication status via ``gemini auth status``."""
+        """Check OpenCode authentication status via ``opencode auth list``."""
         try:
-            result = self.run_tool(["gemini", "auth", "status"], timeout=30)
+            result = self.run_tool(["opencode", "auth", "list"], timeout=30)
             if result.returncode == 0:
                 return True, result.stdout.strip()
             return False, result.stderr.strip() or result.stdout.strip()
         except Exception as exc:
-            return None, f"gemini auth check failed: {exc}"
+            return None, f"opencode auth check failed: {exc}"
 
     # -- invocation ---------------------------------------------------------
 
     def invoke(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
-        """Invoke ``gemini -p`` via subprocess.
-
-        Gemini CLI has no ``--json`` flag — output is plain text stdout.
-        """
+        """Invoke ``opencode run`` via subprocess."""
         try:
             result = self.run_tool(
-                ["gemini", "-p", prompt],
+                ["opencode", "run", prompt],
                 timeout=timeout,
             )
             return {
-                "model": "gemini-cli",
+                "model": "opencode-cli",
                 "output": result.stdout,
                 "exit_code": result.returncode,
             }
         except subprocess.TimeoutExpired:
-            return {"error": "gemini-cli timeout", "fallback": "claude"}
+            return {"error": "opencode-cli timeout", "fallback": "claude"}
         except FileNotFoundError:
-            return {"error": "gemini-cli not found", "fallback": "claude"}
+            return {"error": "opencode-cli not found", "fallback": "claude"}
+        except Exception as exc:
+            return {"error": str(exc), "fallback": "claude"}
+
+    def invoke_json(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+        """Invoke ``opencode run --format json`` for raw JSON event stream output."""
+        try:
+            result = self.run_tool(
+                ["opencode", "run", "--format", "json", prompt],
+                timeout=timeout,
+            )
+            return {
+                "model": "opencode-cli",
+                "output": result.stdout,
+                "exit_code": result.returncode,
+            }
+        except subprocess.TimeoutExpired:
+            return {"error": "opencode-cli timeout", "fallback": "claude"}
+        except FileNotFoundError:
+            return {"error": "opencode-cli not found", "fallback": "claude"}
         except Exception as exc:
             return {"error": str(exc), "fallback": "claude"}
 
     def invoke_tmux(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
-        """Invoke ``gemini -p`` via a persistent tmux session.
+        """Invoke ``opencode run`` via a persistent tmux session.
 
         Falls back to :meth:`invoke` on failure.
         """
         try:
             mgr = TmuxSessionManager()
-            session_name = mgr.make_session_name("gemini", unique_id=str(uuid.uuid4())[:8])
+            session_name = mgr.make_session_name("opencode", unique_id=str(uuid.uuid4())[:8])
             session = mgr.get_or_create_session(session_name)
-            output = mgr.send_command(session, f"gemini -p '{prompt}'", timeout=timeout)
+            output = mgr.send_command(session, f"opencode run '{prompt}'", timeout=timeout)
             mgr.kill_session(session)
-            return {"model": "gemini-cli", "output": output, "exit_code": 0}
+            return {"model": "opencode-cli", "output": output, "exit_code": 0}
         except Exception as exc:
-            _logger.warning("tmux gemini invocation failed, falling back to subprocess: %s", exc)
+            _logger.warning("tmux opencode invocation failed, falling back to subprocess: %s", exc)
             return self.invoke(prompt, project_dir, timeout=timeout)
 
     # -- command helpers ----------------------------------------------------
 
     def get_non_interactive_cmd(self, prompt: str) -> list[str]:
-        """Return the non-interactive command for gemini."""
-        return ["gemini", "-p", prompt]
+        """Return the non-interactive command for opencode."""
+        return ["opencode", "run", prompt]
 
     # -- configuration ------------------------------------------------------
 
     def get_config_path(self) -> str:
-        """Return the Gemini configuration file path."""
-        return os.path.expanduser("~/.gemini/settings.json")
+        """Return the OpenCode configuration file path."""
+        return os.path.expanduser("~/.config/opencode/opencode.json")
 
     def write_mcp_config(self, server_url: str, server_name: str = "memory-server") -> None:
-        """Write an MCP server entry to ``~/.gemini/settings.json``.
+        """Write an MCP server entry to ``~/.config/opencode/opencode.json``.
 
-        Uses JSON format with ``mcpServers`` key and ``httpUrl`` field,
+        Uses JSON format with ``mcp`` key, ``type: "remote"``, and ``url`` field,
         merging into any existing configuration.
         """
         config_path = self.get_config_path()
@@ -113,15 +129,15 @@ class GeminiProvider(CLIProvider):
                 except (json.JSONDecodeError, ValueError):
                     existing = {}
 
-        # Ensure mcpServers dict exists
-        if "mcpServers" not in existing:
-            existing["mcpServers"] = {}
+        # Ensure mcp dict exists
+        if "mcp" not in existing:
+            existing["mcp"] = {}
 
-        existing["mcpServers"][server_name] = {"httpUrl": server_url}
+        existing["mcp"][server_name] = {"type": "remote", "url": server_url}
 
         with open(config_path, "w") as fh:
             json.dump(existing, fh, indent=2)
 
 
 # -- auto-register on import -----------------------------------------------
-register_provider(GeminiProvider())
+register_provider(OpenCodeProvider())
