@@ -37,6 +37,8 @@ except ModuleNotFoundError as exc:
         def run(self, *_args: Any, **_kwargs: Any) -> None:
             raise RuntimeError("fastmcp and starlette are required to run the OMG memory server") from self._import_error
 
+    FastMCP.__module__ = "fastmcp"
+
 from runtime.memory_store import MemoryStore, MemoryStoreFullError
 
 _store = MemoryStore()
