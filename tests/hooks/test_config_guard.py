@@ -75,3 +75,32 @@ def test_config_guard_supports_legacy_tool_input_payload():
         assert out is not None
         assert out["decision"] == "block"
         assert "Trust Review" in out["reason"]
+
+
+def test_config_guard_reviews_high_risk_mcp_config_changes():
+    old = {"mcpServers": {}}
+    new = {
+        "mcpServers": {
+            "chrome-devtools": {
+                "command": "npx",
+                "args": ["-y", "chrome-devtools-mcp@latest"],
+            }
+        }
+    }
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mcp_config = Path(tmpdir) / ".mcp.json"
+        mcp_config.write_text(json.dumps(new), encoding="utf-8")
+
+        out = run_config_guard(
+            {
+                "source": "user",
+                "file_path": str(mcp_config),
+                "old_config": old,
+                "new_config": new,
+            },
+            tmpdir,
+        )
+        assert out is not None
+        assert out["decision"] == "block"
+        assert "Trust Review" in out["reason"]
+        assert (Path(tmpdir) / ".omg" / "trust" / "manifest.lock.json").exists()

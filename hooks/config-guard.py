@@ -15,6 +15,19 @@ if HOOKS_DIR not in sys.path:
 
 from _common import setup_crash_handler, json_input, _resolve_project_dir
 
+try:
+    from _common import is_bypass_mode
+except ImportError:  # pragma: no cover - compatibility with older runtimes
+    def is_bypass_mode(_payload):
+        return False
+
+
+try:
+    from _common import is_bypass_all
+except ImportError:  # pragma: no cover - compatibility with older runtimes
+    def is_bypass_all(_payload):
+        return False
+
 # Compatibility marker for existing tests and policy docs.
 DANGEROUS_IN_ALLOW = [
     "Bash(rm:*)", "Bash(sudo:*)", "Bash(curl:*)", "Bash(wget:*)",
@@ -79,12 +92,46 @@ def _is_watched_settings_path(path):
     return normalized == "settings.json" or normalized.endswith("/settings.json")
 
 
+def _is_setup_in_progress():
+    """Check if setup wizard is in progress by reading settings.json."""
+    try:
+        project_dir = _resolve_project_dir()
+        settings_path = os.path.join(project_dir, "settings.json")
+        if not os.path.exists(settings_path):
+            return False
+        with open(settings_path, "r", encoding="utf-8") as f:
+            settings = json.load(f)
+            if isinstance(settings, dict):
+                omg_config = settings.get("_omg", {})
+                if isinstance(omg_config, dict):
+                    return omg_config.get("setup_in_progress", False)
+    except Exception:
+        pass
+    return False
+
+
+def _is_mcp_config_file(path):
+    """Check if the file being changed is .mcp.json."""
+    normalized = path.replace("\\", "/").rstrip("/")
+    return normalized == ".mcp.json" or normalized.endswith("/.mcp.json")
+
+
+def _is_watched_config_path(path):
+    return _is_watched_settings_path(path) or _is_mcp_config_file(path)
+
+
+def _snapshot_path_for(project_dir, config_path):
+    snapshot_dir = os.path.join(project_dir, ".omg", "trust")
+    os.makedirs(snapshot_dir, exist_ok=True)
+    filename = "last-mcp.json" if _is_mcp_config_file(config_path) else "last-settings.json"
+    return os.path.join(snapshot_dir, filename)
+
+
 config_path = _extract_config_path(data)
 if not config_path:
     sys.exit(0)
 
-is_settings = _is_watched_settings_path(config_path)
-if not is_settings:
+if not _is_watched_config_path(config_path):
     sys.exit(0)
 
 project_dir = _resolve_project_dir()
@@ -101,10 +148,8 @@ except Exception as e:
     print(f"[OMG] config-guard: config read failed: {type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(0)
 
-# Load previous settings snapshot for diff-based trust review.
-snapshot_dir = os.path.join(project_dir, ".omg", "trust")
-os.makedirs(snapshot_dir, exist_ok=True)
-snapshot_path = os.path.join(snapshot_dir, "last-settings.json")
+# Load previous config snapshot for diff-based trust review.
+snapshot_path = _snapshot_path_for(project_dir, config_path)
 
 old_config = {}
 # Prefer explicit old config in payload if present.
@@ -131,6 +176,14 @@ payload_new = _extract_config_object(
 )
 if isinstance(payload_new, dict):
     new_config = payload_new
+
+# Exemption: skip trust_review for .mcp.json changes during setup wizard
+if _is_setup_in_progress() and _is_mcp_config_file(config_path):
+    sys.exit(0)
+
+# In bypass mode, skip trust_review asks (but not denials for critical issues)
+if is_bypass_mode(data) or is_bypass_all(data):
+    sys.exit(0)
 
 review = review_config_change(config_path, old_config, new_config)
 write_trust_manifest(project_dir, review)
