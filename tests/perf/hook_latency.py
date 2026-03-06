@@ -20,6 +20,10 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+HOOK_LATENCY_AVG_BUDGET_MS = 200.0
+RUNTIME_STRESS_LATENCY_BUDGET_MS = 300.0
+RUNTIME_STRESS_MEMORY_BUDGET_MB = 128.0
+
 
 def get_project_dir():
     """Get project directory."""
@@ -119,6 +123,69 @@ def benchmark_hook(hook_path, hook_name, runs=3):
         "max_ms": round(max(timings), 2),
         "status": "ok" if not errors else "partial_error",
         "error": errors[0] if errors else None
+    }
+
+
+def build_benchmark_payload(project_dir, hooks):
+    """Build a deterministic hook latency payload with budget summary."""
+    hook_count = len(hooks)
+    slowest_hook = ""
+    slowest_avg = -1.0
+    over_budget = []
+
+    for hook_name, metrics in hooks.items():
+        avg_ms = float(metrics.get("avg_ms") or 0.0)
+        if avg_ms > slowest_avg:
+            slowest_avg = avg_ms
+            slowest_hook = hook_name
+        if avg_ms > HOOK_LATENCY_AVG_BUDGET_MS:
+            over_budget.append(hook_name)
+
+    return {
+        "schema": "OmgHookLatencyBaseline",
+        "project_dir": project_dir,
+        "measured_at": datetime.now(timezone.utc).isoformat(),
+        "hooks": hooks,
+        "budgets": {"max_avg_ms": HOOK_LATENCY_AVG_BUDGET_MS},
+        "summary": {
+            "hook_count": hook_count,
+            "slowest_hook": slowest_hook,
+            "over_budget": over_budget,
+        },
+    }
+
+
+def build_runtime_stress_budget_payload(project_dir, *, samples, tmux_report):
+    """Build a runtime stress payload covering latency, memory, and tmux reuse."""
+    over_latency_budget = [
+        str(sample.get("name", ""))
+        for sample in samples
+        if float(sample.get("avg_ms") or 0.0) > RUNTIME_STRESS_LATENCY_BUDGET_MS
+    ]
+    over_memory_budget = [
+        str(sample.get("name", ""))
+        for sample in samples
+        if float(sample.get("peak_memory_mb") or 0.0) > RUNTIME_STRESS_MEMORY_BUDGET_MB
+    ]
+    tmux_reuse_within_budget = bool(tmux_report.get("within_budget", False))
+
+    return {
+        "schema": "OmgRuntimeStressBudget",
+        "project_dir": project_dir,
+        "measured_at": datetime.now(timezone.utc).isoformat(),
+        "samples": list(samples),
+        "tmux_report": dict(tmux_report),
+        "budgets": {
+            "max_avg_ms": RUNTIME_STRESS_LATENCY_BUDGET_MS,
+            "max_peak_memory_mb": RUNTIME_STRESS_MEMORY_BUDGET_MB,
+        },
+        "summary": {
+            "sample_count": len(samples),
+            "over_latency_budget": over_latency_budget,
+            "over_memory_budget": over_memory_budget,
+            "tmux_reuse_within_budget": tmux_reuse_within_budget,
+            "within_budget": not over_latency_budget and not over_memory_budget and tmux_reuse_within_budget,
+        },
     }
 
 

@@ -13,6 +13,8 @@ from .compat import (
     list_omg_skills,
 )
 from .ecosystem import ecosystem_status, list_ecosystem_repos, resolve_ecosystem_selection, sync_ecosystem_repos
+from . import mcp_config_writers, mcp_lifecycle, mcp_memory_server
+from . import providers  # noqa: F401
 
 __all__ = [
     "build_compat_gap_report",
@@ -29,4 +31,8 @@ __all__ = [
     "list_ecosystem_repos",
     "resolve_ecosystem_selection",
     "sync_ecosystem_repos",
+    "mcp_config_writers",
+    "mcp_lifecycle",
+    "mcp_memory_server",
+    "providers",
 ]

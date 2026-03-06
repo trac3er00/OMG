@@ -1,0 +1,3 @@
+interface:
+  display_name: "OMG Review Gate"
+  short_description: "Apply a Codex-only review gate before completion"

@@ -1,0 +1,3 @@
+interface:
+  display_name: "OMG Orchestrator"
+  short_description: "Run OMG workflows in Codex"

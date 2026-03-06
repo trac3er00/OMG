@@ -1,0 +1,3 @@
+interface:
+  display_name: "OMG Verified Delivery"
+  short_description: "Verify OMG changes before closing the task"

@@ -1,6 +1,8 @@
 """Tests for hooks/setup_wizard.py — OMG setup wizard skeleton + CLI detection."""
 from __future__ import annotations
 
+import builtins
+import json
 import os
 import sys
 import tempfile
@@ -233,20 +235,6 @@ class TestDetectClis:
         assert result["gemini"]["detected"] is False
         assert "npm install -g @google/gemini-cli" in result["gemini"]["message"]
 
-    def test_not_detected_shows_install_hint_for_opencode(self):
-        """Undetected opencode provider should include install hint."""
-        import setup_wizard
-        import runtime.cli_provider
-
-        mock_p = self._mock_provider("opencode", detected=False)
-
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"opencode": mock_p}, clear=True):
-            result = setup_wizard.detect_clis()
-
-        assert result["opencode"]["detected"] is False
-        assert "opencode" in result["opencode"]["message"]
-
     def test_not_detected_shows_install_hint_for_kimi(self):
         """Undetected kimi provider should include uv install hint."""
         import setup_wizard
@@ -359,6 +347,28 @@ class TestSetPreferences:
         assert "path" in result
         assert result["path"].endswith("cli-config.yaml")
 
+    def test_set_preferences_without_yaml_dependency(self, monkeypatch):
+        """set_preferences() should write JSON-compatible config when yaml is unavailable."""
+        original_import = builtins.__import__
+
+        def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "yaml":
+                raise ModuleNotFoundError("No module named 'yaml'")
+            return original_import(name, globals, locals, fromlist, level)
+
+        sys.modules.pop("setup_wizard", None)
+        monkeypatch.setattr(builtins, "__import__", _guarded_import)
+
+        import setup_wizard
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = setup_wizard.set_preferences(tmpdir, {})
+            with open(result["path"], "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+
+        assert data["version"] == "2.0"
+        assert data["cli_configs"]["codex"]["subscription"] == "free"
+
     def test_set_preferences_creates_state_directory(self):
         """set_preferences() should create .omg/state/ if missing."""
         import setup_wizard
@@ -413,7 +423,7 @@ class TestSetPreferences:
             assert isinstance(data["cli_configs"], dict)
 
     def test_set_preferences_default_config_has_all_clis(self):
-        """Default config should have entries for codex, gemini, opencode, kimi."""
+        """Default config should have entries for codex, gemini, kimi."""
         import setup_wizard
         import yaml
 
@@ -427,7 +437,6 @@ class TestSetPreferences:
             cli_configs = data["cli_configs"]
             assert "codex" in cli_configs
             assert "gemini" in cli_configs
-            assert "opencode" in cli_configs
             assert "kimi" in cli_configs
 
     def test_set_preferences_default_subscription_is_free(self):
