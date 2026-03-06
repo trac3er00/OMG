@@ -95,7 +95,6 @@ def test_bootstrap_provider_hosts_writes_configs_and_reports_paths(tmp_path, mon
 
     providers = {
         "codex": _FakeProvider(str(tmp_path / ".codex" / "config.toml")),
-        "opencode": _FakeProvider(str(tmp_path / ".config" / "opencode" / "opencode.json")),
         "kimi": _FakeProvider(str(tmp_path / ".kimi" / "mcp.json")),
     }
 
@@ -123,14 +122,13 @@ def test_bootstrap_provider_hosts_writes_configs_and_reports_paths(tmp_path, mon
         },
     )
 
-    result = provider_bootstrap.bootstrap_provider_hosts(str(project_dir), providers=["codex", "opencode", "kimi"])
+    result = provider_bootstrap.bootstrap_provider_hosts(str(project_dir), providers=["codex", "kimi"])
 
     assert result["schema"] == "ProviderBootstrapResult"
     assert result["status"] == "ok"
-    assert set(result["configured"]) == {"codex", "opencode", "kimi"}
+    assert set(result["configured"]) == {"codex", "kimi"}
     assert (project_dir / ".mcp.json").exists()
     assert (tmp_path / ".codex" / "config.toml").exists()
-    assert (tmp_path / ".config" / "opencode" / "opencode.json").exists()
     assert (tmp_path / ".kimi" / "mcp.json").exists()
     assert result["mcp_server"]["running"] is True
     assert result["written_paths"]

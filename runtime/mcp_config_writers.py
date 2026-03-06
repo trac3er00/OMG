@@ -146,17 +146,6 @@ def write_gemini_mcp_config(server_url: str, server_name: str = "memory-server")
     _write_json(config_path, config)
 
 
-def write_opencode_mcp_config(server_url: str, server_name: str = "memory-server") -> None:
-    config_path = Path.home() / ".config" / "opencode" / "opencode.json"
-    config = _load_json(config_path)
-    mcp_servers = config.get("mcp")
-    if not isinstance(mcp_servers, dict):
-        mcp_servers = {}
-        config["mcp"] = mcp_servers
-    mcp_servers[server_name] = {"type": "http", "url": server_url}
-    _write_json(config_path, config)
-
-
 def write_kimi_mcp_config(server_url: str, server_name: str = "memory-server") -> None:
     config_path = Path.home() / ".kimi" / "mcp.json"
     config = _load_json(config_path)
@@ -172,6 +161,5 @@ __all__ = [
     "write_claude_mcp_config",
     "write_codex_mcp_config",
     "write_gemini_mcp_config",
-    "write_opencode_mcp_config",
     "write_kimi_mcp_config",
 ]

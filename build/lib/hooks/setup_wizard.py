@@ -20,7 +20,6 @@ from runtime.mcp_config_writers import (
     write_codex_mcp_config,
     write_gemini_mcp_config,
     write_kimi_mcp_config,
-    write_opencode_mcp_config,
 )
 from runtime.provider_bootstrap import (
     bootstrap_provider_hosts,
@@ -35,7 +34,6 @@ _logger = logging.getLogger(__name__)
 _INSTALL_HINTS: dict[str, str] = {
     "codex": "npm install -g @openai/codex",
     "gemini": "npm install -g @google/gemini-cli",
-    "opencode": "See https://opencode.ai/docs/cli/ for OpenCode CLI installation",
     "kimi": "uv tool install --python 3.13 kimi-cli",
 }
 
@@ -51,7 +49,6 @@ def _mcp_writers() -> dict[str, Any]:
     return {
         "codex": write_codex_mcp_config,
         "gemini": write_gemini_mcp_config,
-        "opencode": write_opencode_mcp_config,
         "kimi": write_kimi_mcp_config,
     }
 
@@ -121,8 +118,6 @@ def configure_mcp(
                     written_paths.append(config_path)
             elif cli_name == "gemini":
                 written_paths.append(str(Path.home() / ".gemini" / "settings.json"))
-            elif cli_name == "opencode":
-                written_paths.append(str(Path.home() / ".config" / "opencode" / "opencode.json"))
             elif cli_name == "kimi":
                 written_paths.append(str(Path.home() / ".kimi" / "mcp.json"))
         except Exception as exc:
@@ -140,7 +135,6 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
     default_cli_configs: dict[str, Any] = {
         "codex": {"subscription": "free", "max_parallel_agents": 1},
         "gemini": {"subscription": "free", "max_parallel_agents": 1},
-        "opencode": {"subscription": "free", "max_parallel_agents": 1},
         "kimi": {"subscription": "free", "max_parallel_agents": 1},
     }
     default_config: dict[str, Any] = {

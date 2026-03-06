@@ -17,7 +17,7 @@ from runtime.team_router import (
 
 _RUNTIME_DIR = Path(__file__).resolve().parent
 _ROOT_DIR = _RUNTIME_DIR.parent
-_SUPPORTED_PROVIDERS = ("codex", "gemini", "opencode", "kimi")
+_SUPPORTED_PROVIDERS = ("codex", "gemini", "kimi")
 
 
 def _coerce_config_path(path_value: object) -> str:

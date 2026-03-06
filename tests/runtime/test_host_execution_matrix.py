@@ -8,7 +8,6 @@ EXPECTED_HOSTS = {
     "claude_native",
     "codex_native",
     "gemini_native",
-    "opencode_native",
     "kimi_native",
     "claude_dispatch",
 }
@@ -60,7 +59,6 @@ def test_external_native_hosts_are_model_specific():
     for host_mode, provider in {
         "codex_native": "codex",
         "gemini_native": "gemini",
-        "opencode_native": "opencode",
         "kimi_native": "kimi",
     }.items():
         profile = get_host_execution_profile(host_mode)
@@ -76,6 +74,5 @@ def test_unknown_host_profile_returns_none():
 def test_verified_policy_modes_match_current_official_sources():
     assert get_host_execution_profile("codex_native")["policy_mode"] == "toc_ok"
     assert get_host_execution_profile("gemini_native")["policy_mode"] == "toc_ok"
-    assert get_host_execution_profile("opencode_native")["policy_mode"] == "toc_ok"
     assert get_host_execution_profile("kimi_native")["policy_mode"] == "manual_review_required"
     assert get_host_execution_profile("claude_dispatch")["policy_mode"] == "manual_review_required"

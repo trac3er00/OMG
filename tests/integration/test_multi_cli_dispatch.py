@@ -36,11 +36,10 @@ def _mock_agent_registry(monkeypatch, agent_name: str, preferred_model: str, ava
 def test_all_supported_providers_register():
     import runtime.providers.codex_provider  # noqa: F401
     import runtime.providers.gemini_provider  # noqa: F401
-    import runtime.providers.opencode_provider  # noqa: F401
     import runtime.providers.kimi_provider  # noqa: F401
     from runtime.cli_provider import list_available_providers
 
-    assert list_available_providers() == ["codex", "gemini", "opencode", "kimi"]
+    assert list_available_providers() == ["codex", "gemini", "kimi"]
 
 
 def test_dispatch_to_model_uses_codex_provider_registry(monkeypatch):

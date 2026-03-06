@@ -21,20 +21,6 @@ _CLI_CONTRACTS: dict[str, dict[str, Any]] = {
         "auth_probe": None,
         "non_interactive_builder": lambda prompt, _project_dir: ["gemini", "-p", prompt, "--output-format", "json"],
     },
-    "opencode": {
-        "binary": "opencode",
-        "auth_probe_kind": "list",
-        "auth_probe": ["opencode", "auth", "list"],
-        "non_interactive_builder": lambda prompt, project_dir: [
-            "opencode",
-            "run",
-            prompt,
-            "--format",
-            "json",
-            "--dir",
-            project_dir,
-        ],
-    },
     "kimi": {
         "binary": "kimi",
         "auth_probe_kind": "none",
@@ -215,7 +201,6 @@ def default_config_path(provider_name: str) -> str:
     defaults = {
         "codex": str(Path.home() / ".codex" / "config.toml"),
         "gemini": str(Path.home() / ".gemini" / "settings.json"),
-        "opencode": str(Path.home() / ".config" / "opencode" / "opencode.json"),
         "kimi": str(Path.home() / ".kimi" / "config.toml"),
     }
     return defaults.get(provider_name, "")

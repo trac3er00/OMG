@@ -124,42 +124,6 @@ def test_dispatch_to_model_routes_codex_cli_via_provider_registry(monkeypatch: p
     assert result["host_mode"] == "claude_dispatch"
 
 
-def test_dispatch_to_model_routes_opencode_cli_via_provider_registry(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_registry = types.ModuleType("_agent_registry")
-    setattr(fake_registry, "AGENT_REGISTRY", {
-        "implementation-engineer": {
-            "preferred_model": "opencode-cli",
-            "task_category": "deep",
-            "skills": ["backend-patterns"],
-            "description": "Implementation specialist",
-        }
-    })
-    setattr(fake_registry, "detect_available_models", lambda: {
-        "claude": True,
-        "codex-cli": False,
-        "gemini-cli": False,
-        "opencode-cli": True,
-        "kimi-cli": False,
-    })
-    monkeypatch.setitem(sys.modules, "_agent_registry", fake_registry)
-
-    class _FakeProvider:
-        def invoke(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            return {"model": "opencode-cli", "output": prompt, "exit_code": 0}
-
-        def invoke_tmux(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, object]:
-            raise AssertionError("tmux should not be used in this test")
-
-    monkeypatch.setattr(team_router, "_get_registered_provider", lambda name: _FakeProvider() if name == "opencode" else None, raising=False)
-    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
-
-    result = team_router.dispatch_to_model("implementation-engineer", "ship feature", "/tmp/project")
-
-    assert result["model"] == "opencode-cli"
-    assert result["provider"] == "opencode"
-    assert result["host_mode"] == "claude_dispatch"
-
-
 def test_dispatch_to_model_normalizes_kimi_missing_model_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_registry = types.ModuleType("_agent_registry")
     setattr(fake_registry, "AGENT_REGISTRY", {

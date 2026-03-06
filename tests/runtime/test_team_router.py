@@ -25,7 +25,6 @@ def _target(problem: str) -> str:
 def test_auto_route_respects_explicit_model_keywords():
     assert _target("please use gemini for this UI review") == "gemini"
     assert _target("please use codex for this backend debug") == "codex"
-    assert _target("please use opencode for this implementation pass") == "opencode"
     assert _target("run a ccg review for this change") == "ccg"
     assert _target("ccg: review this change") == "ccg"
     assert _target("route both codex and gemini for this bug") == "ccg"
@@ -83,31 +82,6 @@ def test_dispatch_team_uses_provider_registry_for_codex_health(monkeypatch):
     assert codex["available"] is True
     assert codex["auth_ok"] is True
     assert codex["status_message"] == "auth probe succeeded"
-
-
-def test_dispatch_team_uses_provider_registry_for_opencode_health(monkeypatch):
-    class _FakeProvider:
-        def detect(self) -> bool:
-            return True
-
-        def check_auth(self):
-            return True, "auth probe succeeded"
-
-    monkeypatch.setattr(
-        team_router,
-        "_get_registered_provider",
-        lambda name: _FakeProvider() if name == "opencode" else None,
-        raising=False,
-    )
-
-    result = dispatch_team(TeamDispatchRequest(target="opencode", problem="run implementation pass")).to_dict()
-
-    assert result["evidence"]["target"] == "opencode"
-    assert result["evidence"]["live_connection"] is True
-    opencode = result["evidence"]["cli_health"]["opencode"]
-    assert opencode["available"] is True
-    assert opencode["auth_ok"] is True
-    assert opencode["status_message"] == "auth probe succeeded"
 
 
 def test_dispatch_team_represents_kimi_target(monkeypatch):

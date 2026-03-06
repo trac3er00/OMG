@@ -28,18 +28,6 @@ def test_gemini_contract_matches_current_cli_shape():
     assert cmd == ["gemini", "-p", "Reply with OK.", "--output-format", "json"]
 
 
-def test_opencode_contract_matches_current_cli_shape():
-    contract = team_router.get_cli_contract("opencode")
-
-    assert contract is not None
-    assert contract["binary"] == "opencode"
-    assert contract["auth_probe_kind"] == "list"
-    assert contract["auth_probe"] == ["opencode", "auth", "list"]
-
-    cmd = team_router.build_non_interactive_command("opencode", "Reply with OK.", "/tmp/project")
-    assert cmd == ["opencode", "run", "Reply with OK.", "--format", "json", "--dir", "/tmp/project"]
-
-
 def test_kimi_contract_matches_current_cli_shape():
     contract = team_router.get_cli_contract("kimi")
 

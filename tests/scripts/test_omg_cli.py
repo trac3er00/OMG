@@ -99,12 +99,7 @@ def test_cli_teams_auto_routing_honors_explicit_and_ccg_keywords():
     assert ccg_out["evidence"]["target"] == "ccg"
 
 
-def test_cli_teams_accepts_opencode_and_kimi():
-    opencode = _run(["teams", "--target", "opencode", "--problem", "run provider smoke"])
-    assert opencode.returncode == 0
-    opencode_out = json.loads(opencode.stdout)
-    assert opencode_out["evidence"]["target"] == "opencode"
-
+def test_cli_teams_accepts_kimi():
     kimi = _run(["teams", "--target", "kimi", "--problem", "run provider smoke"])
     assert kimi.returncode == 0
     kimi_out = json.loads(kimi.stdout)
@@ -117,7 +112,7 @@ def test_cli_teams_rejects_unknown_target():
     assert "invalid choice" in (invalid.stderr or invalid.stdout).lower()
 
 
-def test_cli_provider_smoke_supports_opencode_codex_and_kimi():
+def test_cli_provider_smoke_supports_codex_and_kimi():
     codex = _run(["providers", "smoke", "--provider", "codex", "--host-mode", "claude_dispatch"])
     assert codex.returncode == 0
     codex_out = json.loads(codex.stdout)
@@ -127,16 +122,6 @@ def test_cli_provider_smoke_supports_opencode_codex_and_kimi():
     assert codex_result["provider"] == "codex"
     assert codex_result["host_mode"] == "claude_dispatch"
     assert codex_result["smoke_status"] in {"success", "auth_required", "mcp_unreachable", "provider_error", "cli_missing"}
-
-    opencode = _run(["providers", "smoke", "--provider", "opencode", "--host-mode", "claude_dispatch"])
-    assert opencode.returncode == 0
-    opencode_out = json.loads(opencode.stdout)
-    assert opencode_out["schema"] == "ProviderSmokeMatrix"
-    assert opencode_out["count"] == 1
-    opencode_result = opencode_out["results"][0]
-    assert opencode_result["provider"] == "opencode"
-    assert opencode_result["host_mode"] == "claude_dispatch"
-    assert opencode_result["smoke_status"] in {"success", "auth_required", "mcp_unreachable", "provider_error", "cli_missing"}
 
     smoke = _run(["providers", "smoke", "--provider", "kimi", "--host-mode", "claude_dispatch"])
     assert smoke.returncode == 0
@@ -170,18 +155,12 @@ def test_cli_provider_status_reports_matrix():
     assert "dispatch_ready_reasons" in entry
 
 
-def test_cli_provider_status_with_smoke_supports_codex_and_opencode():
+def test_cli_provider_status_with_smoke_supports_codex():
     status = _run(["providers", "status", "--provider", "codex", "--smoke"])
     assert status.returncode == 0
     status_out = json.loads(status.stdout)
     assert status_out["schema"] == "ProviderStatusMatrix"
     assert status_out["providers"][0]["provider"] == "codex"
-
-    opencode = _run(["providers", "status", "--provider", "opencode", "--smoke"])
-    assert opencode.returncode == 0
-    opencode_out = json.loads(opencode.stdout)
-    assert opencode_out["schema"] == "ProviderStatusMatrix"
-    assert opencode_out["providers"][0]["provider"] == "opencode"
 
 
 def test_cli_provider_status_with_smoke_rejects_unknown_provider():

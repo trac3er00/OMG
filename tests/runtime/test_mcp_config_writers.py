@@ -11,7 +11,6 @@ def test_mcp_config_writers_write_expected_provider_shapes(tmp_path, monkeypatch
         write_claude_mcp_config,
         write_codex_mcp_config,
         write_gemini_mcp_config,
-        write_opencode_mcp_config,
         write_kimi_mcp_config,
     )
 
@@ -21,7 +20,6 @@ def test_mcp_config_writers_write_expected_provider_shapes(tmp_path, monkeypatch
     write_claude_mcp_config(str(project_dir), "http://127.0.0.1:8765/mcp", "omg-memory")
     codex_result = write_codex_mcp_config("http://127.0.0.1:8765/mcp", "omg-memory")
     write_gemini_mcp_config("http://127.0.0.1:8765/mcp", "omg-memory")
-    write_opencode_mcp_config("http://127.0.0.1:8765/mcp", "omg-memory")
     write_kimi_mcp_config("http://127.0.0.1:8765/mcp", "omg-memory")
 
     claude_cfg = json.loads((project_dir / ".mcp.json").read_text(encoding="utf-8"))
@@ -35,9 +33,6 @@ def test_mcp_config_writers_write_expected_provider_shapes(tmp_path, monkeypatch
 
     gemini_cfg = json.loads((tmp_path / ".gemini" / "settings.json").read_text(encoding="utf-8"))
     assert gemini_cfg["mcpServers"]["omg-memory"]["httpUrl"] == "http://127.0.0.1:8765/mcp"
-
-    opencode_cfg = json.loads((tmp_path / ".config" / "opencode" / "opencode.json").read_text(encoding="utf-8"))
-    assert opencode_cfg["mcp"]["omg-memory"]["url"] == "http://127.0.0.1:8765/mcp"
 
     kimi_cfg = json.loads((tmp_path / ".kimi" / "mcp.json").read_text(encoding="utf-8"))
     assert kimi_cfg["mcpServers"]["omg-memory"]["url"] == "http://127.0.0.1:8765/mcp"
