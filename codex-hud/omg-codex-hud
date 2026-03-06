@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/../hud/omg-codex-hud.py" ]; then
+  HUD_SCRIPT="$SCRIPT_DIR/../hud/omg-codex-hud.py"
+else
+  HUD_SCRIPT="$SCRIPT_DIR/omg_codex_hud.py"
+fi
+
+python3 "$HUD_SCRIPT" "$@"

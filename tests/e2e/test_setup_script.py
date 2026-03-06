@@ -15,6 +15,17 @@ from typing import cast
 ROOT = Path(__file__).resolve().parents[2]
 SETUP = ROOT / "OMG-setup.sh"
 LEGACY = ROOT / "install.sh"
+EXPECTED_CODEX_SKILLS = (
+    "omg-codex-workbench",
+    "omg-orchestrator",
+    "omg-provider-interop",
+    "omg-verified-delivery",
+    "omg-deep-execution",
+    "omg-runtime-triage",
+    "omg-review-gate",
+    "omg-session-continuity",
+    "omg-release-readiness",
+)
 
 
 def _run_script(path: Path, args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -295,11 +306,13 @@ def test_setup_install_auto_syncs_codex_skills_when_codex_home_exists(tmp_path: 
     proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
     assert proc.returncode == 0
 
-    for skill_name in ("omg-orchestrator", "omg-provider-interop", "omg-verified-delivery"):
+    for skill_name in EXPECTED_CODEX_SKILLS:
         skill_dir = codex_home / "skills" / skill_name
         assert (skill_dir / "SKILL.md").exists()
         assert (skill_dir / "agents" / "openai.yaml").exists()
         assert (skill_dir / ".omg-managed-skill").exists()
+    assert (codex_home / "hud" / "omg-codex-hud.py").exists()
+    assert (codex_home / "bin" / "omg-codex-hud").exists()
 
 
 def test_setup_uninstall_removes_omg_managed_codex_skills(tmp_path: Path):
@@ -316,8 +329,10 @@ def test_setup_uninstall_removes_omg_managed_codex_skills(tmp_path: Path):
     uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
     assert uninstall_proc.returncode == 0
 
-    for skill_name in ("omg-orchestrator", "omg-provider-interop", "omg-verified-delivery"):
+    for skill_name in EXPECTED_CODEX_SKILLS:
         assert not (codex_home / "skills" / skill_name).exists()
+    assert not (codex_home / "hud" / "omg-codex-hud.py").exists()
+    assert not (codex_home / "bin" / "omg-codex-hud").exists()
 
 
 def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: Path):

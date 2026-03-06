@@ -30,11 +30,19 @@ OMG_MANIFEST="$CLAUDE_DIR/.omg-manifest"
 NEW_MANIFEST_ENTRIES=()
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
 CODEX_SKILLS_DIR="$CODEX_HOME_DIR/skills"
+CODEX_HUD_DIR="$CODEX_HOME_DIR/hud"
+CODEX_BIN_DIR="$CODEX_HOME_DIR/bin"
 CODEX_SKILL_MARKER_FILE=".omg-managed-skill"
 OMG_CODEX_SKILLS=(
+    "omg-codex-workbench"
     "omg-orchestrator"
     "omg-provider-interop"
     "omg-verified-delivery"
+    "omg-deep-execution"
+    "omg-runtime-triage"
+    "omg-review-gate"
+    "omg-session-continuity"
+    "omg-release-readiness"
 )
 
 V3_RULES=(
@@ -401,6 +409,33 @@ sync_codex_skills() {
     fi
 }
 
+sync_codex_hud() {
+    local hud_src="$SCRIPT_DIR/codex-hud/omg_codex_hud.py"
+    local wrapper_src="$SCRIPT_DIR/codex-hud/omg-codex-hud"
+    local hud_target="$CODEX_HUD_DIR/omg-codex-hud.py"
+    local wrapper_target="$CODEX_BIN_DIR/omg-codex-hud"
+
+    if ! codex_is_present; then
+        echo "  ~ Codex not detected; skipping Codex HUD sync"
+        return 0
+    fi
+    if [ ! -f "$hud_src" ] || [ ! -f "$wrapper_src" ]; then
+        echo "  ❌ Missing Codex HUD source files"
+        ERRORS=$((ERRORS + 1))
+        return 1
+    fi
+    if $DRY_RUN; then
+        echo "  (would sync Codex HUD/workbench to $CODEX_HUD_DIR and $CODEX_BIN_DIR)"
+        return 0
+    fi
+
+    mkdir -p "$CODEX_HUD_DIR" "$CODEX_BIN_DIR"
+    install_file "$hud_src" "$hud_target"
+    install_file "$wrapper_src" "$wrapper_target"
+    chmod +x "$hud_target" "$wrapper_target"
+    echo "  ✓ Codex HUD/workbench"
+}
+
 remove_omg_codex_skills() {
     local skill_name skill_dir
     for skill_name in "${OMG_CODEX_SKILLS[@]}"; do
@@ -410,6 +445,18 @@ remove_omg_codex_skills() {
             rm -rf "$skill_dir"
         fi
     done
+}
+
+remove_omg_codex_hud() {
+    local hud_target="$CODEX_HUD_DIR/omg-codex-hud.py"
+    local wrapper_target="$CODEX_BIN_DIR/omg-codex-hud"
+
+    if [ -f "$hud_target" ] || [ -L "$hud_target" ]; then
+        rm -f "$hud_target"
+    fi
+    if [ -f "$wrapper_target" ] || [ -L "$wrapper_target" ]; then
+        rm -f "$wrapper_target"
+    fi
 }
 
 # Install a file or directory - either copy or symlink based on USE_SYMLINK
@@ -752,6 +799,7 @@ remove_omg_files() {
             fi
         fi
         remove_omg_codex_skills
+        remove_omg_codex_hud
     fi
 }
 
@@ -865,9 +913,9 @@ run_uninstall() {
     fi
     remove_omg_files
     if $DRY_RUN; then
-        echo "  (would remove OMG hooks/rules/agents/commands/templates)"
+        echo "  (would remove OMG hooks/rules/agents/commands/templates plus Codex skills/HUD)"
     else
-        echo "  ✓ Removed OMG hooks/rules/agents/commands/templates and Codex skills"
+        echo "  ✓ Removed OMG hooks/rules/agents/commands/templates plus Codex skills/HUD"
     fi
 
     echo ""
@@ -888,6 +936,7 @@ run_install_like() {
     local installed_agents=0
     local installed_cmds=0
     local installed_codex_skills=0
+    local installed_codex_hud=0
 
     echo "═══════════════════════════════════════════════════════════════"
     echo "  OMG Setup Manager — $ACTION"
@@ -1210,14 +1259,18 @@ run_install_like() {
 
 
     echo ""
-    echo "Step 7/8: Codex skills..."
+    echo "Step 7/8: Codex workbench + skills..."
     codex_before=0
     if [ -d "$CODEX_SKILLS_DIR" ]; then
-        codex_before=$(find "$CODEX_SKILLS_DIR" -maxdepth 1 -type d \( -name "omg-orchestrator" -o -name "omg-provider-interop" -o -name "omg-verified-delivery" \) | wc -l | tr -d ' ')
+        codex_before=$(find "$CODEX_SKILLS_DIR" -maxdepth 2 -type f -name "$CODEX_SKILL_MARKER_FILE" | wc -l | tr -d ' ')
     fi
+    sync_codex_hud
     sync_codex_skills
     if ! $DRY_RUN && [ -d "$CODEX_SKILLS_DIR" ]; then
-        installed_codex_skills=$(find "$CODEX_SKILLS_DIR" -maxdepth 1 -type d \( -name "omg-orchestrator" -o -name "omg-provider-interop" -o -name "omg-verified-delivery" \) | wc -l | tr -d ' ')
+        installed_codex_skills=$(find "$CODEX_SKILLS_DIR" -maxdepth 2 -type f -name "$CODEX_SKILL_MARKER_FILE" | wc -l | tr -d ' ')
+        if [ -f "$CODEX_HUD_DIR/omg-codex-hud.py" ] && [ -f "$CODEX_BIN_DIR/omg-codex-hud" ]; then
+            installed_codex_hud=1
+        fi
     elif $DRY_RUN; then
         installed_codex_skills=$codex_before
     fi
@@ -1236,7 +1289,7 @@ run_install_like() {
     fi
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
-    echo "  Files: $installed_rules rules, $installed_hooks hooks, $installed_agents agents, $installed_cmds commands, $installed_codex_skills codex skills"
+    echo "  Files: $installed_rules rules, $installed_hooks hooks, $installed_agents agents, $installed_cmds commands, $installed_codex_skills codex skills, $installed_codex_hud codex HUD"
     echo "  Version: $VERSION"
     if $USE_SYMLINK; then
         echo "  Mode: Symlink (live updates from $SCRIPT_DIR)"

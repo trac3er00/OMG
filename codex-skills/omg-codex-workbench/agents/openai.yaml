@@ -1,0 +1,3 @@
+interface:
+  display_name: "OMG Codex Workbench"
+  short_description: "Inspect Codex-only OMG HUD and local project state"

@@ -22,6 +22,8 @@ OMG is built for teams and solo developers who want:
 
 - Multi-agent orchestration with role-specific agents
 - Dynamic routing to Codex, Gemini, and Kimi for domain-specific tasks
+- Codex-only OMG skill suite installed under `$CODEX_HOME/skills`
+- Standalone Codex HUD/workbench installed under `$CODEX_HOME/bin/omg-codex-hud`
 - Failure tracking and escalation after repeated unsuccessful attempts
 - Command surface for planning, review, security, handoff, and execution modes
 - Context minimization and selective knowledge injection to reduce prompt noise
@@ -87,6 +89,7 @@ Supported by `OMG-setup.sh`:
 - `--fresh` clean reinstall before install/update
 - `--symlink` development mode with live updates from repo source
 - `--install-as-plugin` install plugin bundle (plugin manifest + MCP + HUD)
+- Codex installs also sync the Codex-only OMG skill suite and standalone Codex HUD/workbench when Codex is present
 - `--dry-run` preview changes without writing files
 - `--non-interactive` skip prompts (CI/automation)
 - `--merge-policy=ask|apply|skip` control settings merge behavior
@@ -122,6 +125,12 @@ Common flows:
 /OMG:escalate codex "debug auth middleware"
 /OMG:crazy fix flaky tests in payment module
 /OMG:handoff
+```
+
+For Codex-specific local status after install:
+
+```bash
+omg-codex-hud --project "$PWD"
 ```
 
 ## Command Groups
@@ -161,6 +170,12 @@ OMG dispatches by domain intent:
 - Gemini path: UI/UX, layout, visual refinements, accessibility-oriented frontend work
 - Kimi path: long-context inspection, synthesis, workspace analysis, and local runtime triage
 - Claude path: orchestration, synthesis, review loops, and fallback execution
+
+Codex-specific notes:
+
+- OMG installs a Codex-only skill suite into `$CODEX_HOME/skills`
+- OMG also installs a standalone Codex HUD/workbench command into `$CODEX_HOME/bin`
+- This Codex HUD is a local OMG workbench surface, not a native Codex statusline hook
 
 ## Cognitive Modes
 
@@ -218,6 +233,7 @@ omg/
     contextual/
   agents/
   commands/
+  codex-hud/
   codex-skills/
   templates/
   runtime/
