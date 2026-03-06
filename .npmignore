@@ -42,6 +42,7 @@ settings.json.bak.*
 
 # Standalone install script (npm handles install)
 install.sh
+!.claude-plugin/scripts/install.sh
 
 # Internal docs
 UPSTREAM_DIFF.md

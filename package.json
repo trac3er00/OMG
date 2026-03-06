@@ -7,9 +7,9 @@
   },
   "main": "scripts/omg.ts",
   "scripts": {
-    "postinstall": "./OMG-setup.sh install --non-interactive",
-    "update": "./OMG-setup.sh update",
-    "uninstall": "./OMG-setup.sh uninstall",
+    "postinstall": "bash ./OMG-setup.sh install --non-interactive",
+    "update": "bash ./OMG-setup.sh update",
+    "uninstall": "bash ./OMG-setup.sh uninstall",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit",
     "check:runtime-clean": "bun scripts/check-runtime-clean.ts"
