@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "OMG Bun runtime for Claude Code",
-    "version": "2.0.0-beta.6",
+    "version": "2.0.0",
     "homepage": "https://github.com/trac3er00/OMG",
     "repository": "git@github.com:trac3er00/OMG.git"
   },
@@ -14,7 +14,7 @@
     {
       "name": "omg",
       "description": "OMG Bun runtime orchestration layer for Claude Code",
-      "version": "2.0.0-beta.6",
+      "version": "2.0.0",
       "source": "./",
       "author": {
         "name": "trac3er00"
@@ -32,5 +32,5 @@
       ]
     }
   ],
-  "version": "2.0.0-beta.6"
+  "version": "2.0.0"
 }

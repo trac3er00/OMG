@@ -1,6 +1,6 @@
 # OMG v2 Bun Runtime
 
-OMG `v2.0.0-beta.6` runs on Bun + TypeScript. The public product surface stays stable:
+OMG `v2.0.0` runs on Bun + TypeScript. The public product surface stays stable:
 
 - `omg` remains the CLI entrypoint
 - Claude hooks still write to `.omg/`

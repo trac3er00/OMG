@@ -53,7 +53,7 @@ export function getCompatSkillContract(skill: string): CompatContract | null {
 export function buildContractSnapshotPayload(options: { includeGeneratedAt?: boolean } = {}) {
   const payload: Record<string, unknown> = {
     schema: "OmgCompatContractSnapshot",
-    contract_version: "2.0.0-beta.6",
+    contract_version: "2.0.0",
     count: CONTRACTS.length,
     contracts: listCompatSkillContracts()
   };

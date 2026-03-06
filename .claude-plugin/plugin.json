@@ -1,6 +1,6 @@
 {
   "name": "omg",
-  "version": "2.0.0-beta.6",
+  "version": "2.0.0",
   "description": "OMG Bun runtime for Claude Code orchestration and multi-agent workflows",
   "author": {
     "name": "trac3er00"
