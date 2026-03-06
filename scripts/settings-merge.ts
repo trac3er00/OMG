@@ -13,6 +13,30 @@ function unique<T>(items: T[]): T[] {
   return [...new Set(items)];
 }
 
+const RETIRED_HOOK_COMMANDS = new Set([
+  "\"$HOME/.claude/hooks/pre-tool-inject.ts\"",
+  "\"$HOME/.claude/hooks/test-generator-hook.ts\"",
+  "\"$HOME/.claude/hooks/post-write.ts\""
+]);
+
+function pruneRetiredHooks(hooks: Record<string, any>) {
+  const pruned: Record<string, any[]> = {};
+  for (const [event, entries] of Object.entries(hooks)) {
+    const nextEntries = (Array.isArray(entries) ? entries : [])
+      .map((entry) => {
+        const nextHooks = (Array.isArray(entry?.hooks) ? entry.hooks : []).filter(
+          (hook) => !RETIRED_HOOK_COMMANDS.has(String(hook?.command || ""))
+        );
+        return nextHooks.length > 0 ? { ...entry, hooks: nextHooks } : null;
+      })
+      .filter(Boolean);
+    if (nextEntries.length > 0) {
+      pruned[event] = nextEntries as any[];
+    }
+  }
+  return pruned;
+}
+
 function mergeHooks(target: Record<string, any>, source: Record<string, any>) {
   const merged: Record<string, any[]> = { ...target };
   for (const [event, entries] of Object.entries(source)) {
@@ -28,7 +52,7 @@ function mergeHooks(target: Record<string, any>, source: Record<string, any>) {
     }
     merged[event] = current;
   }
-  return merged;
+  return pruneRetiredHooks(merged);
 }
 
 function mergeSettings(target: Record<string, any>, source: Record<string, any>) {

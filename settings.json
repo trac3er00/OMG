@@ -174,16 +174,6 @@
         ]
       }
     ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$HOME/.claude/hooks/pre-tool-inject.ts\""
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Bash",
@@ -202,16 +192,6 @@
             "type": "command",
             "command": "\"$HOME/.claude/hooks/tool-ledger.ts\"",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "\"$HOME/.claude/hooks/test-generator-hook.ts\"",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "\"$HOME/.claude/hooks/post-write.ts\"",
-            "timeout": 15
           }
         ]
       }

@@ -62,6 +62,8 @@ omg teams --target auto --problem "debug auth regression"
 - `omg_natives/index.ts`: Bun-native helper surface
 - `tools/*.ts`: Bun support utilities used by commands and tests
 
+Stable `settings.json` only registers hooks that perform work at runtime: session start/end capture, the Bash circuit breaker, tool ledger, post-tool-failure, and stop dispatch.
+
 ## Verification
 
 ```bash
