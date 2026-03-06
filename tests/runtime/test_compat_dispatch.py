@@ -52,6 +52,27 @@ def test_dispatch_all_compat_skills(tmp_path: Path):
         assert result["status"] == "ok", f"{skill} failed: {result}"
 
 
+def test_compat_teams_route_honors_codex_and_kimi_keywords(tmp_path: Path):
+    codex = dispatch_compat_skill(
+        skill="omg-teams",
+        problem="use codex to implement this backend patch",
+        project_dir=str(tmp_path),
+    )
+    assert codex["status"] == "ok"
+    assert codex["routed_to"] == "codex"
+    assert codex["host_parity"]["codex"]["native_host"]["host_mode"] == "codex_native"
+    assert codex["host_parity"]["codex"]["dispatch_host"]["host_mode"] == "claude_dispatch"
+
+    kimi = dispatch_compat_skill(
+        skill="omg-teams",
+        problem="use kimi to inspect this local runtime issue",
+        project_dir=str(tmp_path),
+    )
+    assert kimi["status"] == "ok"
+    assert kimi["routed_to"] == "kimi"
+    assert kimi["host_parity"]["kimi"]["native_host"]["host_mode"] == "kimi_native"
+
+
 def test_contract_is_attached_and_has_core_fields(tmp_path: Path):
     result = dispatch_compat_skill(skill="omg-teams", problem="x", project_dir=str(tmp_path))
     contract = result["contract"]
@@ -61,6 +82,7 @@ def test_contract_is_attached_and_has_core_fields(tmp_path: Path):
     assert "outputs" in contract
     assert "side_effects" in contract
     assert contract["maturity"] in {"native", "bridge"}
+    assert "host_parity" in result
 
 
 def test_compat_setup_and_doctor_routes_create_bootstrap(tmp_path: Path):

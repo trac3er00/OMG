@@ -6,12 +6,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
+from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from fastmcp import FastMCP
-
 from runtime.memory_store import MemoryStore, MemoryStoreFullError
+
 
 _store = MemoryStore()
 
@@ -55,17 +55,12 @@ def memory_store(
 
 
 @mcp.tool()
-def memory_search(
-    query: str,
-    source_cli: str | None = None,
-) -> list[dict[str, Any]]:
+def memory_search(query: str, source_cli: str | None = None) -> list[dict[str, Any]]:
     return _store.search(query=query, source_cli=source_cli)
 
 
 @mcp.tool()
-def memory_list(
-    source_cli: str | None = None,
-) -> list[dict[str, Any]]:
+def memory_list(source_cli: str | None = None) -> list[dict[str, Any]]:
     return _store.list_all(source_cli=source_cli)
 
 
@@ -77,8 +72,7 @@ def memory_delete(item_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 def memory_import(items: list[dict[str, Any]]) -> dict[str, int]:
-    count = _store.import_items(items)
-    return {"imported": count}
+    return {"imported": _store.import_items(items)}
 
 
 @mcp.tool()

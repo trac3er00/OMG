@@ -17,7 +17,7 @@ verifies authentication, configures MCP memory servers, and sets user preference
 
 ```
 Step 1: Detect CLIs
-  → Scan PATH for: codex, gemini, opencode, kimi
+  → Scan PATH for: codex, gemini, kimi
   → Report: installed / not found / version
 
 Step 2: Check Auth

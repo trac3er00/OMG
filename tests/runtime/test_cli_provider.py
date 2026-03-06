@@ -32,7 +32,6 @@ def test_cli_provider_abstract_contract_enforced() -> None:
         "invoke_tmux",
         "get_non_interactive_cmd",
         "get_config_path",
-        "write_mcp_config",
     ]
     for method_name in expected_methods:
         assert method_name in message
@@ -63,16 +62,12 @@ def test_registry_register_lookup_and_list() -> None:
             return {"model": "dummy", "output": prompt, "exit_code": 0}
 
         @override
-        def get_non_interactive_cmd(self, prompt: str) -> list[str]:
-            return ["dummy", prompt]
+        def get_non_interactive_cmd(self, prompt: str, project_dir: str) -> list[str]:
+            return ["dummy", prompt, project_dir]
 
         @override
         def get_config_path(self) -> str:
             return "~/.dummy/config"
-
-        @override
-        def write_mcp_config(self, server_url: str, server_name: str = "memory-server") -> None:
-            _ = server_url, server_name
 
     provider = DummyProvider()
     register_provider(provider)

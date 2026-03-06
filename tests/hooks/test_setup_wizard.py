@@ -233,20 +233,6 @@ class TestDetectClis:
         assert result["gemini"]["detected"] is False
         assert "npm install -g @google/gemini-cli" in result["gemini"]["message"]
 
-    def test_not_detected_shows_install_hint_for_opencode(self):
-        """Undetected opencode provider should include install hint."""
-        import setup_wizard
-        import runtime.cli_provider
-
-        mock_p = self._mock_provider("opencode", detected=False)
-
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"opencode": mock_p}, clear=True):
-            result = setup_wizard.detect_clis()
-
-        assert result["opencode"]["detected"] is False
-        assert "opencode" in result["opencode"]["message"]
-
     def test_not_detected_shows_install_hint_for_kimi(self):
         """Undetected kimi provider should include uv install hint."""
         import setup_wizard
@@ -413,7 +399,7 @@ class TestSetPreferences:
             assert isinstance(data["cli_configs"], dict)
 
     def test_set_preferences_default_config_has_all_clis(self):
-        """Default config should have entries for codex, gemini, opencode, kimi."""
+        """Default config should have entries for codex, gemini, kimi."""
         import setup_wizard
         import yaml
 
@@ -427,7 +413,6 @@ class TestSetPreferences:
             cli_configs = data["cli_configs"]
             assert "codex" in cli_configs
             assert "gemini" in cli_configs
-            assert "opencode" in cli_configs
             assert "kimi" in cli_configs
 
     def test_set_preferences_default_subscription_is_free(self):

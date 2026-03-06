@@ -154,6 +154,7 @@ def test_setup_script_exists_and_help_lists_subcommands():
     assert "reinstall" in out
     assert "uninstall" in out
     assert "--install-as-plugin" in out
+    assert "--skip-codex-skills" in out
     assert "--clear-omc" not in out
     assert "--without-legacy-aliases" not in out
 
@@ -281,6 +282,42 @@ def test_setup_install_provisions_portable_omg_runtime(tmp_path: Path):
     assert payload["status"] == "ok"
     evidence = cast(dict[str, object], payload["evidence"])
     assert evidence["target"] == "gemini"
+
+
+def test_setup_install_auto_syncs_codex_skills_when_codex_home_exists(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    codex_home = tmp_path / ".codex"
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "CODEX_HOME": str(codex_home),
+    }
+
+    proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+    assert proc.returncode == 0
+
+    for skill_name in ("omg-orchestrator", "omg-provider-interop", "omg-verified-delivery"):
+        skill_dir = codex_home / "skills" / skill_name
+        assert (skill_dir / "SKILL.md").exists()
+        assert (skill_dir / "agents" / "openai.yaml").exists()
+        assert (skill_dir / ".omg-managed-skill").exists()
+
+
+def test_setup_uninstall_removes_omg_managed_codex_skills(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    codex_home = tmp_path / ".codex"
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "CODEX_HOME": str(codex_home),
+    }
+
+    install_proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+    assert install_proc.returncode == 0
+
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    for skill_name in ("omg-orchestrator", "omg-provider-interop", "omg-verified-delivery"):
+        assert not (codex_home / "skills" / skill_name).exists()
 
 
 def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: Path):

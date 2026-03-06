@@ -203,7 +203,7 @@ def test_hud_shows_daily_and_weekly_usage_even_when_rate_limits_disabled(tmp_pat
     claude.mkdir(parents=True)
 
     _ = (claude / "settings.json").write_text(
-        json.dumps({"omcHud": {"preset": "opencode"}}),
+        json.dumps({"omcHud": {"preset": "providers"}}),
         encoding="utf-8",
     )
 
