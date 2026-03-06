@@ -85,7 +85,7 @@ _has_any_signal = any([
                                                      "review","auth","css","layout","ui","ux","test",
                                                      "stuck","error","crash","ralph","ulw","crazy",
                                                      "plan","design","search","find","research","explain",
-                                                     "codex","gemini","kimi","ccg","screenshot","screen",
+                                                     "codex","gemini","opencode","kimi","ccg","screenshot","screen",
                                                      "security","warning","hook error","resume","handoff",
                                                      "continue","domain","scaffold","debug","deploy",
                                                      "수정","구현","버그","에러","고쳐","스크린샷","보안"]),
@@ -302,21 +302,28 @@ CCG_SIGNALS = [
 DEEP_PLAN_SIGNALS = ["deep-plan", "deep plan", "/omg:deep-plan"]
 EXPLICIT_GEMINI = ["gemini", "제미니"]
 EXPLICIT_CODEX = ["codex", "코덱스"]
+EXPLICIT_OPENCODE = ["opencode"]
 EXPLICIT_KIMI = ["kimi"]
 
 # Keyword-first model routing. If an explicit keyword exists, force OMG route first.
 has_ccg_signal = any(signal_matches_text(sig, prompt) for sig in CCG_SIGNALS)
+has_explicit_ccg_signal = signal_matches_text("ccg", prompt)
 has_deep_plan_signal = any(signal_matches_text(sig, prompt) for sig in DEEP_PLAN_SIGNALS)
 has_gemini_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_GEMINI)
 has_codex_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_CODEX)
+has_opencode_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_OPENCODE)
 has_kimi_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_KIMI)
 
 route_lock = ""
 if has_deep_plan_signal:
     route_lock = "deep-plan"
+elif has_explicit_ccg_signal or (has_gemini_signal and has_codex_signal):
+    route_lock = "ccg"
+elif has_opencode_signal:
+    route_lock = "opencode"
 elif has_kimi_signal:
     route_lock = "kimi"
-elif has_ccg_signal or (has_gemini_signal and has_codex_signal):
+elif has_ccg_signal:
     route_lock = "ccg"
 elif has_gemini_signal:
     route_lock = "gemini"
@@ -338,6 +345,11 @@ if route_lock and budget_ok():
         add(
             '@route-lock: Explicit keyword route=gemini. Execute /OMG:escalate gemini "[problem]" FIRST. '
             "Do NOT call plugin/Skill routes (omg-teams/frontend-design/etc) before this OMG route."
+        )
+    elif route_lock == "opencode":
+        add(
+            '@route-lock: Explicit keyword route=opencode. Execute /OMG:teams --target opencode "[problem]" FIRST. '
+            "Host mode=claude_dispatch. policy_mode=toc_ok."
         )
     elif route_lock == "kimi":
         add(

@@ -87,6 +87,12 @@ def test_explicit_codex_route_keyword():
     assert "codex" in ctx.lower()
     assert "do not call plugin/skill routes" in ctx.lower()
 
+def test_explicit_opencode_route_keyword():
+    ctx = run_enhancer("use opencode to implement this patch")
+    assert "@route-lock" in ctx
+    assert "opencode" in ctx.lower()
+    assert "claude_dispatch" in ctx.lower()
+
 def test_explicit_kimi_route_keyword_marks_manual_review():
     ctx = run_enhancer("use kimi to inspect the local runtime")
     assert "@route-lock" in ctx

@@ -10,6 +10,7 @@ from runtime.mcp_config_writers import (
     write_codex_mcp_config,
     write_gemini_mcp_config,
     write_kimi_mcp_config,
+    write_opencode_mcp_config,
 )
 from runtime.mcp_lifecycle import check_memory_server, ensure_memory_server, get_server_url
 from runtime.provider_smoke import get_host_runtime_paths, run_provider_live_smoke
@@ -20,6 +21,7 @@ import runtime.providers  # noqa: F401  # Ensure provider registry is populated 
 _WRITERS = {
     "codex": write_codex_mcp_config,
     "gemini": write_gemini_mcp_config,
+    "opencode": write_opencode_mcp_config,
     "kimi": write_kimi_mcp_config,
 }
 
