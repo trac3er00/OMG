@@ -88,6 +88,26 @@ _HOST_EXECUTION_MATRIX: dict[str, dict[str, Any]] = {
             "documented external host. Native OMG parity still needs runtime compatibility work."
         ),
     },
+    "opencode_native": {
+        "provider": "opencode",
+        "host_mode": "opencode_native",
+        "native_omg_supported": False,
+        "claude_call_supported": True,
+        "hooks_supported": False,
+        "skills_supported": True,
+        "mcp_supported": True,
+        "tool_calling_supported": True,
+        "policy_mode": "toc_ok",
+        "policy_refs": [
+            "https://opencode.ai/docs/cli/",
+            "https://opencode.ai/legal/terms-of-service",
+            "https://opencode.ai/legal/privacy-policy",
+        ],
+        "notes": (
+            "OpenCode publishes official CLI and legal docs, so OMG can track OpenCode as a documented "
+            "external host. Native OMG parity still needs runtime compatibility work."
+        ),
+    },
     "kimi_native": {
         "provider": "kimi",
         "host_mode": "kimi_native",
@@ -195,7 +215,7 @@ def build_non_interactive_command(tool_name: str, prompt: str, project_dir: str)
 
 @dataclass
 class TeamDispatchRequest:
-    target: str  # codex | gemini | kimi | ccg | auto
+    target: str  # codex | gemini | opencode | kimi | ccg | auto
     problem: str
     context: str = ""
     files: list[str] | None = None
@@ -221,12 +241,15 @@ def _infer_target(problem: str) -> str:
     ccg_kw = bool(re.search(r"\bccg\b", p)) or "tri-track" in p or "tri track" in p
     gemini_kw = bool(re.search(r"\bgemini\b", p))
     codex_kw = bool(re.search(r"\bcodex\b", p))
+    opencode_kw = bool(re.search(r"\bopencode\b", p))
     kimi_kw = bool(re.search(r"\bkimi\b", p))
 
-    if kimi_kw:
-        return "kimi"
     if ccg_kw or (codex_kw and gemini_kw):
         return "ccg"
+    if opencode_kw:
+        return "opencode"
+    if kimi_kw:
+        return "kimi"
     if gemini_kw:
         return "gemini"
     if codex_kw:
@@ -312,18 +335,21 @@ def _run_tool(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProce
 _TOOL_MAP: dict[str, str] = {
     "codex": "codex",
     "gemini": "gemini",
+    "opencode": "opencode",
     "kimi": "kimi",
 }
 
 _INSTALL_HINTS: dict[str, str] = {
     "codex": "Install Codex CLI: npm install -g @openai/codex",
     "gemini": "Install Gemini CLI: npm install -g @google/gemini-cli",
+    "opencode": "Install OpenCode CLI using the official instructions: https://opencode.ai/docs/cli/",
     "kimi": "Install Kimi CLI from https://moonshotai.github.io/kimi-cli/en/",
 }
 
 _MODEL_PROVIDER_MAP: dict[str, str] = {
     "codex-cli": "codex",
     "gemini-cli": "gemini",
+    "opencode-cli": "opencode",
     "kimi-cli": "kimi",
 }
 
@@ -476,7 +502,7 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
         findings.append(f"{provider} live connection: unavailable ({info.get('status_message', 'unknown status')})")
 
     actions = []
-    if target == "codex":
+    if target in {"codex", "opencode"}:
         actions.extend(
             [
                 "Perform deep code-level analysis",

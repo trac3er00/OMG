@@ -6,11 +6,12 @@ from runtime.cli_provider import CLIProvider, get_provider, list_available_provi
 # Import modules to trigger registration.
 import runtime.providers.codex_provider  # noqa: F401
 import runtime.providers.gemini_provider  # noqa: F401
+import runtime.providers.opencode_provider  # noqa: F401
 import runtime.providers.kimi_provider  # noqa: F401
 
 
 def test_list_available_providers_is_deterministic():
-    assert list_available_providers() == ["codex", "gemini", "kimi"]
+    assert list_available_providers() == ["codex", "gemini", "opencode", "kimi"]
     assert get_provider("legacy-provider") is None
     assert get_provider("kimi") is not None
 
@@ -65,3 +66,17 @@ def test_kimi_provider_returns_current_non_interactive_command():
         "Reply with OK.",
     ]
 
+
+def test_opencode_provider_returns_current_non_interactive_command():
+    provider = get_provider("opencode")
+    assert provider is not None
+
+    assert provider.get_non_interactive_cmd("Reply with OK.", "/tmp/project") == [
+        "opencode",
+        "run",
+        "Reply with OK.",
+        "--format",
+        "json",
+        "--dir",
+        "/tmp/project",
+    ]

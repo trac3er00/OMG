@@ -52,6 +52,23 @@ def test_check_verification_blocks_without_verification(monkeypatch, tmp_path):
     assert "NO verification commands" in blocks[0]
 
 
+def test_check_verification_blocks_when_provider_run_is_degraded(monkeypatch, tmp_path):
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True)
+    data = _base_data()
+    data["_stop_ctx"]["has_source_writes"] = True
+    data["_stop_ctx"]["recent_commands"] = ["python3 scripts/omg.py providers smoke --provider codex"]
+    data["provider_execution"] = {
+        "provider": "codex",
+        "host_mode": "claude_dispatch",
+        "smoke_status": "mcp_unreachable",
+    }
+
+    blocks = stop_dispatcher.check_verification(data, str(tmp_path))
+
+    assert len(blocks) == 1
+    assert "provider execution was degraded" in blocks[0].lower()
+
+
 def test_check_verification_respects_feature_flag(monkeypatch, tmp_path):
     monkeypatch.setattr(stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: False)
     data = _base_data()

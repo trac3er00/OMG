@@ -20,6 +20,7 @@ def test_setup_wizard_detects_registered_clis(monkeypatch):
     providers = {
         "codex": _FakeProvider(True, (None, "auth status check not supported")),
         "gemini": _FakeProvider(True, (None, "auth status check not supported")),
+        "opencode": _FakeProvider(True, (True, "auth probe succeeded")),
         "kimi": _FakeProvider(False, (None, "")),
     }
 
@@ -30,6 +31,7 @@ def test_setup_wizard_detects_registered_clis(monkeypatch):
 
     assert detected["codex"]["detected"] is True
     assert detected["gemini"]["detected"] is True
+    assert detected["opencode"]["detected"] is True
     assert detected["kimi"]["detected"] is False
     assert "legacy-provider" not in detected
 
@@ -41,6 +43,7 @@ def test_setup_wizard_configure_mcp_writes_detected_provider_configs(tmp_path, m
     detected = {
         "codex": {"detected": True},
         "gemini": {"detected": True},
+        "opencode": {"detected": True},
         "kimi": {"detected": False},
     }
 
@@ -50,10 +53,11 @@ def test_setup_wizard_configure_mcp_writes_detected_provider_configs(tmp_path, m
     result = setup_wizard.configure_mcp(str(project_dir), detected, "http://127.0.0.1:8765/mcp", "omg-memory")
 
     assert result["status"] == "ok"
-    assert set(result["configured"]) == {"codex", "gemini"}
+    assert set(result["configured"]) == {"codex", "gemini", "opencode"}
     assert (project_dir / ".mcp.json").exists()
     assert (tmp_path / ".codex" / "config.toml").exists()
     assert (tmp_path / ".gemini" / "settings.json").exists()
+    assert (tmp_path / ".config" / "opencode" / "opencode.json").exists()
 
 
 def test_setup_wizard_set_preferences_writes_cli_config(tmp_path):
@@ -68,7 +72,7 @@ def test_setup_wizard_set_preferences_writes_cli_config(tmp_path):
     assert result["status"] == "ok"
     assert config_path.exists()
     assert result["config"]["cli_configs"]["codex"]["subscription"] == "pro"
-    assert set(result["config"]["cli_configs"]) == {"codex", "gemini", "kimi"}
+    assert set(result["config"]["cli_configs"]) == {"codex", "gemini", "opencode", "kimi"}
 
 
 def test_setup_wizard_run_includes_provider_bootstrap_and_status(tmp_path, monkeypatch):
