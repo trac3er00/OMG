@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 _NATIVE_EXPECTATIONS = {
     "codex": {"success", "mcp_unreachable", "auth_required"},
     "gemini": {"success", "missing_env", "auth_required", "service_disabled"},
+    "opencode": {"success", "auth_required", "mcp_unreachable"},
     "kimi": {"success", "missing_model", "mcp_unreachable", "auth_required"},
 }
 
@@ -24,7 +25,7 @@ def _require_provider_cli(provider: str) -> None:
         pytest.skip(f"{provider} CLI is not installed on PATH")
 
 
-@pytest.mark.parametrize("provider", ["codex", "gemini", "kimi"])
+@pytest.mark.parametrize("provider", ["codex", "gemini", "opencode", "kimi"])
 def test_provider_native_live_smoke(provider: str):
     _require_provider_cli(provider)
 
@@ -45,7 +46,7 @@ def test_provider_native_live_smoke(provider: str):
     assert "blocking_class" in result
 
 
-@pytest.mark.parametrize("provider", ["codex", "gemini", "kimi"])
+@pytest.mark.parametrize("provider", ["codex", "gemini", "opencode", "kimi"])
 def test_claude_dispatch_live_smoke(provider: str):
     _require_provider_cli(provider)
 

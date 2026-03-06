@@ -513,7 +513,7 @@ def build_parser() -> argparse.ArgumentParser:
     runtime_dispatch.add_argument("--runtime", required=True, choices=["claude", "gpt", "local"])
     runtime_dispatch.add_argument("--idea", default="", help="Path to idea json")
     runtime_dispatch.add_argument("--idea-json", default="", help="Inline idea json")
-    runtime_dispatch.add_argument("--provider", default="", choices=["", "codex", "gemini", "kimi"])
+    runtime_dispatch.add_argument("--provider", default="", choices=["", "codex", "gemini", "opencode", "kimi"])
     runtime_dispatch.add_argument("--host-mode", default="", help="Host execution mode for provider-backed dispatch")
     runtime_dispatch.add_argument("--smoke-status", default="", help="Provider smoke status to attach to provenance")
     runtime_dispatch.set_defaults(func=cmd_runtime_dispatch)
@@ -530,7 +530,7 @@ def build_parser() -> argparse.ArgumentParser:
     lab_eval.set_defaults(func=cmd_lab_eval)
 
     teams = sub.add_parser("teams", help="Internal OMG team routing")
-    teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "kimi", "ccg"])
+    teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "opencode", "kimi", "ccg"])
     teams.add_argument("--problem", required=True)
     teams.add_argument("--context", default="")
     teams.add_argument("--files", default="")
@@ -562,33 +562,33 @@ def build_parser() -> argparse.ArgumentParser:
     providers = sub.add_parser("providers", help="Provider smoke and runtime status")
     providers_sub = providers.add_subparsers(dest="providers_command", required=True)
     provider_status = providers_sub.add_parser("status", help="Show provider/bootstrap/runtime readiness status")
-    provider_status.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "kimi"])
+    provider_status.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "opencode", "kimi"])
     provider_status.add_argument("--smoke", action="store_true", help="Include live smoke diagnostics")
     provider_status.add_argument(
         "--host-mode",
         default="claude_dispatch",
-        choices=["claude_dispatch", "native", "codex_native", "gemini_native", "kimi_native"],
+        choices=["claude_dispatch", "native", "codex_native", "gemini_native", "opencode_native", "kimi_native"],
     )
     provider_status.set_defaults(func=cmd_provider_status)
 
     provider_bootstrap = providers_sub.add_parser("bootstrap", help="Write provider host configs and ensure OMG memory MCP")
-    provider_bootstrap.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "kimi"])
+    provider_bootstrap.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "opencode", "kimi"])
     provider_bootstrap.add_argument("--server-url", default="")
     provider_bootstrap.add_argument("--server-name", default="omg-memory")
     provider_bootstrap.set_defaults(func=cmd_provider_bootstrap)
 
     provider_repair = providers_sub.add_parser("repair", help="Backup and repair local provider host configs")
-    provider_repair.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "kimi"])
+    provider_repair.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "opencode", "kimi"])
     provider_repair.add_argument("--server-url", default="")
     provider_repair.add_argument("--server-name", default="omg-memory")
     provider_repair.set_defaults(func=cmd_provider_repair)
 
     provider_smoke = providers_sub.add_parser("smoke", help="Run live smoke against provider CLIs")
-    provider_smoke.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "kimi"])
+    provider_smoke.add_argument("--provider", default="all", choices=["all", "codex", "gemini", "opencode", "kimi"])
     provider_smoke.add_argument(
         "--host-mode",
         default="claude_dispatch",
-        choices=["claude_dispatch", "native", "codex_native", "gemini_native", "kimi_native"],
+        choices=["claude_dispatch", "native", "codex_native", "gemini_native", "opencode_native", "kimi_native"],
     )
     provider_smoke.add_argument("--prompt", default="Reply with OK.")
     provider_smoke.add_argument("--timeout", type=int, default=45)
