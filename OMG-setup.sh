@@ -5,11 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="$CLAUDE_DIR/.omg-backup-$BACKUP_TS"
-VERSION="omg-v1-$(date +%Y%m%d)"
+VERSION="2.0.1"
 
 PLUGIN_NAME="omg"
-PLUGIN_MARKETPLACE="oh-advanced-layer"
-LEGACY_PLUGIN_MARKETPLACE="omg"
+PLUGIN_MARKETPLACE="omg"
+LEGACY_PLUGIN_MARKETPLACE="oh-advanced-layer"
 PLUGIN_REF="${PLUGIN_NAME}@${PLUGIN_MARKETPLACE}"
 LEGACY_PLUGIN_REF="${PLUGIN_NAME}@${LEGACY_PLUGIN_MARKETPLACE}"
 PLUGIN_CACHE_DIR="$CLAUDE_DIR/plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME"
@@ -24,6 +24,9 @@ MERGE_POLICY="ask"
 FRESH_INSTALL=false
 INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
+ADOPTION_MODE="omg-only"
+ADOPT_MODE="auto"
+OMG_PRESET="safe"
 ERRORS=0
 OMG_MANIFEST="$CLAUDE_DIR/.omg-manifest"
 NEW_MANIFEST_ENTRIES=()
@@ -78,12 +81,18 @@ Options:
   --dry-run          Show what would happen without writing files
   --non-interactive  Skip prompts (CI/automation mode)
   --merge-policy=X   Settings merge: ask (default), apply, skip
+  --mode=omg-only|coexist
+                     Native OMG adoption mode for overlapping ecosystems
+  --adopt=auto       Detect OMG-adjacent ecosystems during install/update
+  --preset=safe|balanced|interop|labs
+                     User-facing preset for managed OMG features
   -h, --help         Show this help
 
 Examples:
   ./OMG-setup.sh install
   ./OMG-setup.sh install --symlink              # Dev mode: live updates from repo
   ./OMG-setup.sh install --install-as-plugin
+  ./OMG-setup.sh install --mode=coexist --preset=interop
   ./OMG-setup.sh update --non-interactive --merge-policy=apply
   ./OMG-setup.sh reinstall --dry-run
   ./OMG-setup.sh uninstall --dry-run
@@ -196,6 +205,9 @@ parse_args() {
             --fresh) FRESH_INSTALL=true ;;
             --install-as-plugin) INSTALL_AS_PLUGIN=true ;;
             --merge-policy=*) MERGE_POLICY="${arg#*=}" ;;
+            --mode=*) ADOPTION_MODE="${arg#*=}" ;;
+            --adopt=*) ADOPT_MODE="${arg#*=}" ;;
+            --preset=*) OMG_PRESET="${arg#*=}" ;;
             --help|-h)
                 usage
                 exit 0
@@ -221,6 +233,30 @@ parse_args() {
     if [ -n "${npm_execpath:-}" ] || [ -n "${npm_lifecycle_event:-}" ]; then
         INSTALL_AS_PLUGIN=true
     fi
+
+    case "$ADOPTION_MODE" in
+        omg-only|coexist) ;;
+        *)
+            echo "Unknown adoption mode: $ADOPTION_MODE"
+            exit 1
+            ;;
+    esac
+
+    case "$ADOPT_MODE" in
+        auto) ;;
+        *)
+            echo "Unknown adoption detector mode: $ADOPT_MODE"
+            exit 1
+            ;;
+    esac
+
+    case "$OMG_PRESET" in
+        safe|balanced|interop|labs) ;;
+        *)
+            echo "Unknown OMG preset: $OMG_PRESET"
+            exit 1
+            ;;
+    esac
 }
 
 preflight() {
@@ -441,8 +477,7 @@ servers = mcp_config.get("mcpServers")
 if not isinstance(servers, dict):
     servers = {}
 for key, value in incoming.items():
-    if key not in servers:
-        servers[key] = value
+    servers[key] = value
 mcp_config["mcpServers"] = servers
 
 mcp_path.parent.mkdir(parents=True, exist_ok=True)
@@ -579,6 +614,89 @@ if installed_plugins_path.exists():
 PY
 }
 
+apply_omg_preset_to_settings() {
+    local settings_path="$1"
+    local preset="$2"
+
+    if [ ! -f "$settings_path" ]; then
+        return 0
+    fi
+
+    python3 - "$SCRIPT_DIR" "$settings_path" "$preset" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+settings_path = Path(sys.argv[2])
+preset = sys.argv[3]
+
+sys.path.insert(0, str(root))
+
+from runtime.adoption import CANONICAL_VERSION, get_preset_features, resolve_preset
+
+try:
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+except Exception:
+    settings = {}
+
+if not isinstance(settings, dict):
+    settings = {}
+
+omg = settings.get("_omg")
+if not isinstance(omg, dict):
+    omg = {}
+
+features = omg.get("features")
+if not isinstance(features, dict):
+    features = {}
+
+features.update(get_preset_features(resolve_preset(preset)))
+omg["features"] = features
+omg["preset"] = resolve_preset(preset)
+omg["_version"] = CANONICAL_VERSION
+settings["_omg"] = omg
+
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+}
+
+write_native_adoption_report() {
+    python3 - "$SCRIPT_DIR" "$CLAUDE_DIR" "$ADOPTION_MODE" "$ADOPT_MODE" "$OMG_PRESET" <<'PY'
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+project_dir = Path(sys.argv[2])
+mode = sys.argv[3]
+adopt = sys.argv[4]
+preset = sys.argv[5]
+
+sys.path.insert(0, str(root))
+
+from runtime.adoption import build_adoption_report, write_adoption_report
+
+report = build_adoption_report(project_dir, requested_mode=mode, preset=preset, adopt=adopt)
+path = write_adoption_report(project_dir, report)
+print(path)
+PY
+}
+
+apply_adoption_mode_marker() {
+    if [ "$ADOPTION_MODE" = "coexist" ]; then
+        if ! $DRY_RUN; then
+            mkdir -p "$CLAUDE_DIR/hooks"
+            printf '%s\n' "coexist" > "$CLAUDE_DIR/hooks/.omg-coexist"
+        fi
+        track_file "hooks/.omg-coexist"
+    else
+        if ! $DRY_RUN; then
+            rm -f "$CLAUDE_DIR/hooks/.omg-coexist"
+        fi
+    fi
+}
+
 remove_omg_files() {
     if ! $DRY_RUN; then
         local plugin_bundle_marker="$PLUGIN_CACHE_DIR/$PLUGIN_BUNDLE_MARKER_FILE"
@@ -675,19 +793,19 @@ install_plugin_bundle() {
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
+      "args": ["@upstash/context7-mcp@2.1.3"]
     },
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+      "args": ["@modelcontextprotocol/server-filesystem@2026.1.14", "."]
     },
     "websearch": {
       "command": "npx",
-      "args": ["-y", "@zhafron/mcp-web-search"]
+      "args": ["@zhafron/mcp-web-search@1.2.2"]
     },
     "chrome-devtools": {
       "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest"]
+      "args": ["chrome-devtools-mcp@0.19.0"]
     }
   }
 }
@@ -803,7 +921,9 @@ run_install_like() {
     else
         echo "  ✓ Fresh install"
     fi
-    echo "  ✓ Standalone mode: OMG-only command surface (standalone mode)"
+    echo "  ✓ Command surface: /OMG:setup and /OMG:crazy are the primary native front door"
+    echo "  ✓ Adoption mode: $ADOPTION_MODE"
+    echo "  ✓ Preset: $OMG_PRESET"
 
     if $FRESH_INSTALL; then
         echo ""
@@ -943,6 +1063,7 @@ run_install_like() {
         track_file "hooks/$name"
     done
     ! $DRY_RUN && echo "$VERSION" > "$CLAUDE_DIR/hooks/.omg-version"
+    apply_adoption_mode_marker
     echo "  ✓ $installed_hooks hooks ($hook_errors errors)"
 
     echo ""
@@ -993,12 +1114,15 @@ run_install_like() {
     if ! $DRY_RUN; then
         if [ ! -f "$TARGET" ]; then
             cp "$SOURCE" "$TARGET"
+            apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
             echo "  ✓ Created settings.json"
         else
             if [ "$MERGE_POLICY" = "skip" ]; then
+                apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
                 echo "  ⊘ Skipped settings merge (--merge-policy=skip)"
             elif [ "$MERGE_POLICY" = "apply" ] || $NON_INTERACTIVE; then
                 python3 "$MERGE" "$TARGET" "$SOURCE"
+                apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
                 echo "  ✓ Settings merged (auto)"
             else
                 echo "  Merging settings.json..."
@@ -1009,6 +1133,7 @@ run_install_like() {
                     echo ""
                     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
                         python3 "$MERGE" "$TARGET" "$SOURCE"
+                        apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
                         echo "  ✓ Settings merged"
                     else
                         echo "  ⊘ Skipped (manual merge needed)"
@@ -1018,6 +1143,7 @@ run_install_like() {
                     # non-interactive fallback: check for clear non-interactive indicators
                     if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ]; then
                         python3 "$MERGE" "$TARGET" "$SOURCE"
+                        apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
                         echo "  ✓ Settings merged (auto — non-interactive fallback)"
                     else
                         echo "  ⚠ Could not read input. Skipping merge to be safe."
@@ -1090,11 +1216,16 @@ run_install_like() {
         if $INSTALL_AS_PLUGIN; then
             install_plugin_bundle
         fi
+
+        local adoption_report_path=""
+        adoption_report_path=$(write_native_adoption_report)
+        echo "  ✓ Adoption report → $adoption_report_path"
     else
         echo "  (would merge settings.json + copy templates + provision portable runtime)"
         if $INSTALL_AS_PLUGIN; then
             install_plugin_bundle
         fi
+        echo "  (would write adoption report and apply preset/mode markers)"
     fi
 
 
@@ -1106,9 +1237,9 @@ run_install_like() {
     echo ""
     echo "═══════════════════════════════════════════════════════════════"
     if [ $ERRORS -eq 0 ]; then
-        echo "  ✅ OMG v1 ${ACTION} completed successfully"
+        echo "  ✅ OMG ${VERSION} ${ACTION} completed successfully"
     else
-        echo "  ⚠  OMG v1 ${ACTION} completed with $ERRORS error(s)"
+        echo "  ⚠  OMG ${VERSION} ${ACTION} completed with $ERRORS error(s)"
     fi
     echo "═══════════════════════════════════════════════════════════════"
     echo ""

@@ -94,3 +94,245 @@ def test_merge_mcp_server_keeps_existing_and_unions_args_and_env(tmp_path: Path)
     assert filesystem["args"] == ["-y", "@modelcontextprotocol/server-filesystem", ".", "src"]
     assert filesystem["env"] == {"ROOT": ".", "MODE": "readonly"}
     assert filesystem["extra"] == "value"
+
+
+def test_merge_replaces_stale_hook_command_variants(tmp_path: Path):
+    existing = {
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": 'bun "$HOME/.claude/hooks/firewall.ts"',
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    new = {
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": 'python3 "$HOME/.claude/hooks/firewall.py"',
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    existing_path = tmp_path / "existing.json"
+    new_path = tmp_path / "new.json"
+    existing_path.write_text(json.dumps(existing), encoding="utf-8")
+    new_path.write_text(json.dumps(new), encoding="utf-8")
+
+    proc = _run(existing_path, new_path)
+    assert proc.returncode == 0, proc.stderr
+
+    merged = json.loads(existing_path.read_text(encoding="utf-8"))
+    hooks = merged["hooks"]["PreToolUse"]
+    assert len(hooks) == 1
+    command = hooks[0]["hooks"][0]["command"]
+    assert command == 'python3 "$HOME/.claude/hooks/firewall.py"'
+
+
+def test_merge_replaces_duplicate_stale_hook_entries(tmp_path: Path):
+    existing = {
+        "hooks": {
+            "SessionStart": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": 'python3 "$HOME/.claude/hooks/session-start.py"',
+                        }
+                    ],
+                },
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": '"$HOME/.claude/hooks/session-start.ts"',
+                        }
+                    ],
+                },
+            ]
+        }
+    }
+    new = {
+        "hooks": {
+            "SessionStart": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": 'python3 "$HOME/.claude/hooks/session-start.py"',
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    existing_path = tmp_path / "existing.json"
+    new_path = tmp_path / "new.json"
+    existing_path.write_text(json.dumps(existing), encoding="utf-8")
+    new_path.write_text(json.dumps(new), encoding="utf-8")
+
+    proc = _run(existing_path, new_path)
+    assert proc.returncode == 0, proc.stderr
+
+    merged = json.loads(existing_path.read_text(encoding="utf-8"))
+    hooks = merged["hooks"]["SessionStart"]
+    assert len(hooks) == 1
+    command = hooks[0]["hooks"][0]["command"]
+    assert command == 'python3 "$HOME/.claude/hooks/session-start.py"'
+
+
+def test_merge_normalizes_hook_identity_aliases(tmp_path: Path):
+    existing = {
+        "hooks": {
+            "Stop": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": '"$HOME/.claude/hooks/stop-dispatcher.ts"',
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    new = {
+        "hooks": {
+            "Stop": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": 'python3 "$HOME/.claude/hooks/stop_dispatcher.py"',
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    existing_path = tmp_path / "existing.json"
+    new_path = tmp_path / "new.json"
+    existing_path.write_text(json.dumps(existing), encoding="utf-8")
+    new_path.write_text(json.dumps(new), encoding="utf-8")
+
+    proc = _run(existing_path, new_path)
+    assert proc.returncode == 0, proc.stderr
+
+    merged = json.loads(existing_path.read_text(encoding="utf-8"))
+    hooks = merged["hooks"]["Stop"]
+    assert len(hooks) == 1
+    command = hooks[0]["hooks"][0]["command"]
+    assert command == 'python3 "$HOME/.claude/hooks/stop_dispatcher.py"'
+
+
+def test_merge_treats_blank_and_missing_matchers_as_same_group(tmp_path: Path):
+    existing = {
+        "hooks": {
+            "Stop": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": '"$HOME/.claude/hooks/stop-dispatcher.ts"',
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    new = {
+        "hooks": {
+            "Stop": [
+                {
+                    "matcher": "",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": 'python3 "$HOME/.claude/hooks/stop_dispatcher.py"',
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+    existing_path = tmp_path / "existing.json"
+    new_path = tmp_path / "new.json"
+    existing_path.write_text(json.dumps(existing), encoding="utf-8")
+    new_path.write_text(json.dumps(new), encoding="utf-8")
+
+    proc = _run(existing_path, new_path)
+    assert proc.returncode == 0, proc.stderr
+
+    merged = json.loads(existing_path.read_text(encoding="utf-8"))
+    hooks = merged["hooks"]["Stop"]
+    assert len(hooks) == 1
+    assert hooks[0]["matcher"] == ""
+    command = hooks[0]["hooks"][0]["command"]
+    assert command == 'python3 "$HOME/.claude/hooks/stop_dispatcher.py"'
+
+
+def test_merge_moves_managed_permission_to_new_category(tmp_path: Path):
+    existing = {"permissions": {"allow": ["Bash(curl *)"], "ask": [], "deny": []}}
+    new = {"permissions": {"allow": [], "ask": ["Bash(curl *)"], "deny": []}}
+    existing_path = tmp_path / "existing.json"
+    new_path = tmp_path / "new.json"
+    existing_path.write_text(json.dumps(existing), encoding="utf-8")
+    new_path.write_text(json.dumps(new), encoding="utf-8")
+
+    proc = _run(existing_path, new_path)
+    assert proc.returncode == 0, proc.stderr
+
+    merged = json.loads(existing_path.read_text(encoding="utf-8"))
+    assert "Bash(curl *)" not in merged["permissions"]["allow"]
+    assert "Bash(curl *)" in merged["permissions"]["ask"]
+
+
+def test_merge_updates_omg_version_and_preset_while_preserving_feature_overrides(tmp_path: Path):
+    existing = {
+        "_omg": {
+            "_version": "2.0.0",
+            "features": {
+                "MEMORY_AUTOSTART": False,
+                "SETUP_WIZARD": True,
+            },
+        }
+    }
+    new = {
+        "_omg": {
+            "_version": "2.0.1",
+            "preset": "safe",
+            "features": {
+                "MEMORY_AUTOSTART": True,
+                "SETUP": True,
+                "SETUP_WIZARD": True,
+            },
+        }
+    }
+    existing_path = tmp_path / "existing.json"
+    new_path = tmp_path / "new.json"
+    existing_path.write_text(json.dumps(existing), encoding="utf-8")
+    new_path.write_text(json.dumps(new), encoding="utf-8")
+
+    proc = _run(existing_path, new_path)
+    assert proc.returncode == 0, proc.stderr
+
+    merged = json.loads(existing_path.read_text(encoding="utf-8"))
+    omg = merged["_omg"]
+    assert omg["_version"] == "2.0.1"
+    assert omg["preset"] == "safe"
+    assert omg["features"]["MEMORY_AUTOSTART"] is False
+    assert omg["features"]["SETUP"] is True
+    assert omg["features"]["SETUP_WIZARD"] is True

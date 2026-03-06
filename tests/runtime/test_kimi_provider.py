@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -179,6 +180,23 @@ class TestInvokeTmux:
             result = provider.invoke_tmux("fix bug", "/project")
             assert result["model"] == "kimi-cli"
             assert result["output"] == "fallback output"
+
+    @patch("runtime.providers.kimi_provider.TmuxSessionManager")
+    def test_quotes_prompt_safely(self, mock_mgr_cls: MagicMock, provider: KimiCodeProvider) -> None:
+        mgr = mock_mgr_cls.return_value
+        mgr.make_session_name.return_value = "omg-kimi-abc"
+        mgr.get_or_create_session.return_value = "omg-kimi-abc"
+        mgr.send_command.return_value = "kimi output here"
+        mgr.kill_session.return_value = True
+
+        prompt = "it's bad; echo nope"
+        provider.invoke_tmux(prompt, "/project", timeout=90)
+
+        mgr.send_command.assert_called_once_with(
+            "omg-kimi-abc",
+            f"kimi --print -p {shlex.quote(prompt)}",
+            timeout=90,
+        )
 
 
 # ---------------------------------------------------------------------------

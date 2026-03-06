@@ -86,6 +86,7 @@ class TestFullWizardFlow:
         assert "mcp_configured" in result
         assert "preferences" in result
         assert "auth_status" in result
+        assert "adoption" in result
 
     def test_wizard_creates_output_files(self, tmp_path, monkeypatch, _patch_cli_writers):
         """Full wizard creates .mcp.json and cli-config.yaml on disk."""
@@ -101,6 +102,7 @@ class TestFullWizardFlow:
 
         # Preferences YAML written by the real writer
         assert (tmp_path / ".omg" / "state" / "cli-config.yaml").exists()
+        assert (tmp_path / ".omg" / "state" / "adoption-report.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +227,7 @@ class TestSetPreferencesIntegration:
         assert config_file.exists()
 
         data = yaml.safe_load(config_file.read_text())
-        assert data["version"] == "2.0"
+        assert data["version"] == "2.0.1"
         assert "cli_configs" in data
         assert len(data["cli_configs"]) == 4
 
@@ -242,6 +244,7 @@ class TestSetPreferencesIntegration:
         assert data["cli_configs"]["codex"]["max_parallel_agents"] == 5
         # Other CLIs keep defaults
         assert data["cli_configs"]["gemini"]["subscription"] == "free"
+        assert data["preset"] == "safe"
 
 
 # ---------------------------------------------------------------------------
@@ -280,6 +283,8 @@ class TestWizardNonInteractiveMode:
             )
 
         assert result["status"] == "complete"
+        assert result["adoption"]["selected_mode"] == "omg-only"
+        assert result["preferences"]["config"]["preset"] == "balanced"
 
 
 # ---------------------------------------------------------------------------
@@ -359,5 +364,35 @@ class TestFullPipelineIntegration:
         config_yaml = tmp_path / ".omg" / "state" / "cli-config.yaml"
         assert config_yaml.exists()
         prefs_data = yaml.safe_load(config_yaml.read_text())
-        assert prefs_data["version"] == "2.0"
+        assert prefs_data["version"] == "2.0.1"
         assert len(prefs_data["cli_configs"]) == 4
+
+    def test_wizard_detects_existing_ecosystems_and_writes_adoption_report(
+        self,
+        tmp_path,
+        monkeypatch,
+        _patch_cli_writers,
+    ):
+        """Wizard should record detected OMG-adjacent ecosystems in the adoption report."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        (tmp_path / ".omc").mkdir()
+        (tmp_path / ".omx").mkdir()
+        (tmp_path / ".claude" / "skills" / "brainstorming").mkdir(parents=True)
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                non_interactive=True,
+            )
+
+        assert result["status"] == "complete"
+        assert result["adoption"]["detected_ecosystems"] == ["omc", "omx", "superpowers"]
+        assert result["adoption"]["recommended_mode"] == "omg-only"
+        assert result["adoption"]["selected_mode"] == "omg-only"
+
+        adoption_report = json.loads(
+            (tmp_path / ".omg" / "state" / "adoption-report.json").read_text(encoding="utf-8")
+        )
+        assert adoption_report["detected_ecosystems"] == ["omc", "omx", "superpowers"]
+        assert adoption_report["selected_mode"] == "omg-only"

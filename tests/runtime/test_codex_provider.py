@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 from unittest.mock import MagicMock, patch
 
@@ -135,6 +136,23 @@ class TestInvokeTmux:
             result = provider.invoke_tmux("fix bug", "/project")
             assert result["model"] == "codex-cli"
             assert result["output"] == "fallback output"
+
+    @patch("runtime.providers.codex_provider.TmuxSessionManager")
+    def test_quotes_prompt_safely(self, mock_mgr_cls: MagicMock, provider: CodexProvider) -> None:
+        mgr = mock_mgr_cls.return_value
+        mgr.make_session_name.return_value = "omg-codex-abc"
+        mgr.get_or_create_session.return_value = "omg-codex-abc"
+        mgr.send_command.return_value = "ok"
+        mgr.kill_session.return_value = True
+
+        prompt = "it's bad; echo nope"
+        provider.invoke_tmux(prompt, "/project", timeout=90)
+
+        mgr.send_command.assert_called_once_with(
+            "omg-codex-abc",
+            f"codex exec --json {shlex.quote(prompt)}",
+            timeout=90,
+        )
 
 
 # ---------------------------------------------------------------------------
