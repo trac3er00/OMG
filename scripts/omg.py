@@ -50,7 +50,7 @@ from runtime.provider_bootstrap import (
 )
 from runtime.release_readiness import collect_release_readiness
 from runtime.provider_smoke import run_provider_smoke_matrix
-from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_crazy_mode
+from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
 
 
 def _now_run_id() -> str:
@@ -247,14 +247,12 @@ def cmd_teams(args: argparse.Namespace) -> int:
 
 def cmd_ccg(args: argparse.Namespace) -> int:
     files = [f.strip() for f in args.files.split(",") if f.strip()] if args.files else []
-    req = TeamDispatchRequest(
-        target="ccg",
+    result = execute_ccg_mode(
         problem=args.problem,
+        project_dir=_ensure_project_dir(),
         context=args.context,
         files=files,
-        expected_outcome=args.expected_outcome,
     )
-    result = dispatch_team(req).to_dict()
     print(json.dumps(result, indent=2))
     return 0
 

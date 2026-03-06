@@ -20,6 +20,10 @@ _ROOT_DIR = _RUNTIME_DIR.parent
 _SUPPORTED_PROVIDERS = ("codex", "gemini", "kimi")
 
 
+def _coerce_config_path(path_value: object) -> str:
+    return path_value if isinstance(path_value, str) else ""
+
+
 def _resolve_host_mode(provider_name: str, host_mode: str) -> str:
     if host_mode == "native":
         return f"{provider_name}_native"
@@ -39,7 +43,7 @@ def get_host_runtime_paths(host_mode: str, project_dir: str) -> dict[str, str]:
     else:
         provider = get_provider(provider_name)
         if provider is not None:
-            host_config = provider.get_config_path()
+            host_config = _coerce_config_path(provider.get_config_path())
 
     return {
         "host_mode": host_mode,

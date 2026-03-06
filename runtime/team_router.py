@@ -1115,6 +1115,92 @@ def execute_agents_parallel(
     return ordered_results
 
 
+def execute_ccg_mode(
+    problem: str,
+    project_dir: str,
+    context: str | None = None,
+    files: list[str] | None = None,
+) -> dict[str, Any]:
+    """CCG mode runs two specialized tracks and returns an execution payload."""
+    context_parts: list[str] = []
+    if context:
+        context_parts.append(context)
+    if files:
+        context_parts.append(f"Focus files: {', '.join(files[:8])}")
+    full_context = "\n\n".join(context_parts) if context_parts else ""
+
+    worker_tasks = [
+        {
+            "agent_name": "backend-engineer",
+            "prompt": (
+                f"Backend implementation strategy for: {problem}\n\n"
+                f"Focus: APIs, data flow, failure handling, performance.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 1,
+        },
+        {
+            "agent_name": "frontend-designer",
+            "prompt": (
+                f"Frontend/UI strategy for: {problem}\n\n"
+                f"Focus: UX, accessibility, responsive behavior, component structure.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 2,
+        },
+    ]
+
+    results = execute_agents_parallel(worker_tasks, project_dir)
+
+    result_blocks: list[str] = []
+    for result in results:
+        result_blocks.append(
+            f"**{result.get('agent', 'unknown')} [{result.get('status', 'unknown')}]:**\n"
+            f"{result.get('output', result.get('error', 'No output'))}"
+        )
+
+    synthesis_prompt = (
+        "Synthesize results from two specialized CCG tracks:\n\n"
+        + "\n\n".join(result_blocks)
+        + "\n\nProvide a unified action plan merging backend and frontend perspectives."
+    )
+
+    model_mix = {
+        "gpt": [result.get("agent") for result in results if result.get("model") == "codex-cli"],
+        "gemini": [result.get("agent") for result in results if result.get("model") == "gemini-cli"],
+        "claude": [result.get("agent") for result in results if result.get("fallback") == "claude"],
+    }
+
+    return {
+        "status": "ok",
+        "phases": [
+            {"phase": 1, "agent": "claude-orchestrator", "status": "completed"},
+            *[
+                {
+                    "phase": idx,
+                    "agent": result.get("agent"),
+                    "status": result.get("status", "unknown"),
+                    "model": result.get("model", result.get("fallback", "unknown")),
+                    "output": result.get("output", ""),
+                }
+                for idx, result in enumerate(results, start=2)
+            ],
+            {"phase": len(results) + 2, "agent": "claude-synthesis", "prompt": synthesis_prompt},
+        ],
+        "parallel_execution": True,
+        "sequential_execution": False,
+        "worker_count": len(results),
+        "target_worker_count": 2,
+        "model_mix": model_mix,
+        "findings": [
+            f"Workers launched: {len(results)}/2",
+            f"GPT tracks: {len(model_mix['gpt'])}",
+            f"Gemini tracks: {len(model_mix['gemini'])}",
+            f"Claude tracks: {len(model_mix['claude'])}",
+        ],
+    }
+
+
 def execute_crazy_mode(
     problem: str,
     project_dir: str,

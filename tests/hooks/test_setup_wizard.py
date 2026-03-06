@@ -1,6 +1,8 @@
 """Tests for hooks/setup_wizard.py — OMG setup wizard skeleton + CLI detection."""
 from __future__ import annotations
 
+import builtins
+import json
 import os
 import sys
 import tempfile
@@ -344,6 +346,28 @@ class TestSetPreferences:
 
         assert "path" in result
         assert result["path"].endswith("cli-config.yaml")
+
+    def test_set_preferences_without_yaml_dependency(self, monkeypatch):
+        """set_preferences() should write JSON-compatible config when yaml is unavailable."""
+        original_import = builtins.__import__
+
+        def _guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "yaml":
+                raise ModuleNotFoundError("No module named 'yaml'")
+            return original_import(name, globals, locals, fromlist, level)
+
+        sys.modules.pop("setup_wizard", None)
+        monkeypatch.setattr(builtins, "__import__", _guarded_import)
+
+        import setup_wizard
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = setup_wizard.set_preferences(tmpdir, {})
+            with open(result["path"], "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+
+        assert data["version"] == "2.0"
+        assert data["cli_configs"]["codex"]["subscription"] == "free"
 
     def test_set_preferences_creates_state_directory(self):
         """set_preferences() should create .omg/state/ if missing."""
