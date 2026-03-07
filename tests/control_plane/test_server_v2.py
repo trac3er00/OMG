@@ -72,6 +72,37 @@ def test_nonloopback_allowed_with_dev_flag() -> None:
     mock_run.assert_called_once_with("0.0.0.0", 8787, None)
 
 
+def test_server_security_check_with_waivers(tmp_path) -> None:
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    server = HTTPServer(("127.0.0.1", 0), make_handler(service))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+
+        v2_status, v2_payload = _post_json(
+            f"{base}/v2/security/check",
+            {"scope": ".", "waivers": ["shell-true"]},
+        )
+        assert v2_status == 200
+        assert v2_payload["schema"] == "SecurityCheckResult"
+        assert v2_payload["api_version"] == "v2"
+
+        v1_status, v1_payload = _post_json(
+            f"{base}/v1/security/check",
+            {"scope": ".", "waivers": ["shell-true"]},
+        )
+        assert v1_status == 200
+        assert v1_payload["deprecated"] is True
+        assert v1_payload["schema"] == "SecurityCheckResult"
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
 def test_loopback_allowed_without_flag() -> None:
     with patch("sys.argv", ["server.py", "--host", "127.0.0.1"]), \
          patch("control_plane.server.run_server") as mock_run:

@@ -13,7 +13,7 @@ import pytest
 class _MCPOMGServerModule(Protocol):
     mcp: object
 
-    def omg_security_check(self, scope: str = ".", include_live_enrichment: bool = False, external_inputs: list[dict] | None = None) -> dict: ...
+    def omg_security_check(self, scope: str = ".", include_live_enrichment: bool = False, external_inputs: list[dict] | None = None, waivers: list[str] | None = None) -> dict: ...
 
     def omg_guide_assert(self, candidate: str, rules: dict) -> dict: ...
 
@@ -124,3 +124,23 @@ def test_omg_security_check_tool_forwards_external_inputs(tmp_path: pytest.TempP
     assert result["schema"] == "SecurityCheckResult"
     assert result["summary"]["finding_count"] >= 1
     assert result["provenance"] is not None
+
+
+def test_omg_security_check_tool_forwards_waivers(tmp_path: pytest.TempPathFactory) -> None:
+    module = _load_module()
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    result = module.omg_security_check(scope=str(tmp_path), waivers=["shell-true"])
+    assert result["schema"] == "SecurityCheckResult"
+    assert result["summary"]["finding_count"] >= 0
+
+
+def test_omg_security_check_tool_accepts_none_waivers(tmp_path: pytest.TempPathFactory) -> None:
+    module = _load_module()
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    result = module.omg_security_check(scope=str(tmp_path), waivers=None)
+    assert result["schema"] == "SecurityCheckResult"
+    assert result["summary"]["finding_count"] >= 1

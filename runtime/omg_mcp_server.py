@@ -169,8 +169,8 @@ def omg_runtime_dispatch(runtime: str, idea: dict[str, Any]) -> dict[str, Any]:
 
 
 @mcp.tool()
-def omg_security_check(scope: str = ".", include_live_enrichment: bool = False, external_inputs: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    _status, payload = _service().security_check({"scope": scope, "include_live_enrichment": include_live_enrichment, "external_inputs": external_inputs})
+def omg_security_check(scope: str = ".", include_live_enrichment: bool = False, external_inputs: list[dict[str, Any]] | None = None, waivers: list[str] | None = None) -> dict[str, Any]:
+    _status, payload = _service().security_check({"scope": scope, "include_live_enrichment": include_live_enrichment, "external_inputs": external_inputs, "waivers": waivers})
     return payload
 
 
