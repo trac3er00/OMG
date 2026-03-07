@@ -20,7 +20,10 @@ jobs:
         run: pip install pytest
 
       - name: Prepare artifact roots
-        run: mkdir -p artifacts/release
+        run: mkdir -p artifacts/release/.omg/evidence
+
+      - name: Capture doctor output
+        run: python3 scripts/omg.py doctor --format json > artifacts/release/.omg/evidence/doctor.json
 
       - name: Validate contract registry
         run: python3 scripts/omg.py contract validate

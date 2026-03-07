@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,6 +60,7 @@ TEXT_GLOBS = [
 ]
 
 MARKDOWN_LINK_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)|\[[^\]]+\]\(([^)]+)\)")
+HTTP_URL_RE = re.compile(r"https?://[^\s)\]>'\"]+")
 ALLOW_PATTERN_REFERENCES = {
     ROOT / "scripts" / "check-omg-public-ready.py",
 }
@@ -167,6 +169,57 @@ def _find_broken_markdown_links(root: Path) -> list[str]:
     return violations
 
 
+def _is_loopback_host(hostname: str) -> bool:
+    lowered = hostname.strip().lower()
+    return lowered in {"localhost", "127.0.0.1", "::1"}
+
+
+def _find_proof_surface_violations(root: Path) -> list[str]:
+    violations: list[str] = []
+    proof_path = root / "docs" / "proof.md"
+    if not proof_path.exists():
+        violations.append("docs/proof.md: missing proof surface document")
+        return violations
+
+    content = _read(proof_path)
+    lowered = content.lower()
+    hardcoded_counts = bool(
+        re.search(r"\b\d+\s*/\s*\d+\b", lowered)
+        or re.search(r"\b\d+\s+(tests?|checks?|providers?)\s+(passed|pass|green|successful)\b", lowered)
+        or re.search(r"\ball\s+tests?\s+passed\b", lowered)
+    )
+    has_artifact_refs = any(
+        token in content
+        for token in (
+            ".omg/evidence/",
+            ".omg/evals/",
+            ".omg/tracebank/",
+            ".omg/lineage/",
+        )
+    )
+    if hardcoded_counts and not has_artifact_refs:
+        violations.append("docs/proof.md: prose-only proof counts found without machine artifact references")
+
+    if ".omg/evidence/doctor.json" not in content:
+        violations.append("docs/proof.md: missing doctor output artifact reference (.omg/evidence/doctor.json)")
+
+    for path in _iter_files(root, PUBLIC_DOC_GLOBS):
+        rel = path.relative_to(root)
+        for line in _read(path).splitlines():
+            if "production" not in line.lower():
+                continue
+            for url in HTTP_URL_RE.findall(line):
+                parsed = urlparse(url)
+                if parsed.scheme != "http":
+                    continue
+                host = parsed.hostname or ""
+                if host and not _is_loopback_host(host):
+                    violations.append(
+                        f"{rel}: production claim uses non-loopback HTTP endpoint ({url})"
+                    )
+    return violations
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check OMG public-readiness hygiene")
     parser.add_argument("--root", default=str(ROOT))
@@ -179,6 +232,7 @@ def main() -> int:
     violations.extend(_find_internal_docs(root))
     violations.extend(_find_text_violations(root))
     violations.extend(_find_broken_markdown_links(root))
+    violations.extend(_find_proof_surface_violations(root))
     violations = sorted(set(violations))
 
     if violations:

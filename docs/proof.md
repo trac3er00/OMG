@@ -8,6 +8,7 @@
 OMG keeps verification visible instead of burying it in implementation details.
 
 - Runtime evidence root: `.omg/evidence/`
+- Doctor output: `.omg/evidence/doctor.json`
 - Security-check artifacts: `.omg/evidence/security-check-*.json`
 - Trust and external input artifacts: `.omg/evidence/trust-*.json`
 - Trace records and evidence links: `.omg/tracebank/events.jsonl`, `.omg/tracebank/evidence-links.jsonl`

@@ -7,6 +7,7 @@ import shutil
 
 import yaml
 from runtime.adoption import CANONICAL_VERSION
+from runtime import contract_compiler as contract_compiler_module
 from runtime.contract_compiler import (
     REQUIRED_CLAUDE_HOOK_EVENTS,
     REQUIRED_CLAUDE_SUBAGENT_NAMES,
@@ -21,6 +22,84 @@ from runtime.contract_compiler import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def _patch_fast_release_checks(monkeypatch) -> None:
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_packaged_install_smoke",
+        lambda _root: {"status": "ok", "blockers": []},
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_mcp_fabric",
+        lambda: {"ready": True, "prompt_count": 1, "resource_count": 1},
+    )
+
+
+def _write_doctor_success(output_root: Path) -> None:
+    doctor_path = output_root / ".omg" / "evidence" / "doctor.json"
+    doctor_path.parent.mkdir(parents=True, exist_ok=True)
+    doctor_path.write_text(
+        json.dumps(
+            {
+                "schema": "DoctorResult",
+                "status": "pass",
+                "checks": [{"name": "python_version", "status": "ok", "required": True}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_eval_ok(output_root: Path) -> None:
+    eval_root = output_root / ".omg" / "evals"
+    eval_root.mkdir(parents=True, exist_ok=True)
+    (eval_root / "latest.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvalGateResult",
+                "status": "ok",
+                "summary": {"regressed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_evidence(
+    output_root: Path,
+    *,
+    include_lineage: bool = True,
+    include_attribution: bool = True,
+    unresolved_risks: list[dict[str, object] | str] | None = None,
+) -> None:
+    payload: dict[str, object] = {
+        "schema": "EvidencePack",
+        "run_id": "run-1",
+        "tests": [{"name": "worker_implementation", "passed": True}],
+        "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
+        "diff_summary": {"files": 1},
+        "reproducibility": {"cmd": "pytest -q"},
+        "unresolved_risks": unresolved_risks or [],
+        "provenance": [{"source": "security-check"}],
+        "trust_scores": {"overall": 1.0},
+        "api_twin": {},
+        "trace_ids": ["trace-1"],
+        "lineage": {"lineage_id": "lineage-1"} if include_lineage else {},
+    }
+    if include_attribution:
+        payload.update(
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+            }
+        )
+
+    evidence_root = output_root / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / "run-1.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
 def test_validate_contract_registry_reports_expected_bundles() -> None:
@@ -120,6 +199,7 @@ def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_pat
 
 def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
     public_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
@@ -145,40 +225,9 @@ def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatc
             actual_sha = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
             assert actual_sha == artifact["sha256"]
 
-    evidence_root = tmp_path / ".omg" / "evidence"
-    evidence_root.mkdir(parents=True, exist_ok=True)
-    (evidence_root / "run-1.json").write_text(
-        json.dumps(
-            {
-                "schema": "EvidencePack",
-                "run_id": "run-1",
-                "tests": [{"name": "worker_implementation", "passed": True}],
-                "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
-                "diff_summary": {"files": 1},
-                "reproducibility": {"cmd": "pytest -q"},
-                "unresolved_risks": [],
-                "provenance": [{"source": "security-check"}],
-                "trust_scores": {"overall": 1.0},
-                "api_twin": {},
-                "trace_ids": ["trace-1"],
-                "lineage": {"lineage_id": "lineage-1"},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    eval_root = tmp_path / ".omg" / "evals"
-    eval_root.mkdir(parents=True, exist_ok=True)
-    (eval_root / "latest.json").write_text(
-        json.dumps(
-            {
-                "schema": "EvalGateResult",
-                "status": "ok",
-                "summary": {"regressed": False},
-            }
-        ),
-        encoding="utf-8",
-    )
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
 
     readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="dual")
     assert readiness["status"] == "ok"
@@ -307,6 +356,179 @@ def test_version_drift_blocker_on_plugin_mismatch(tmp_path: Path, monkeypatch) -
     assert len(version_drift_blockers) > 0, "Expected at least one version_drift blocker"
     assert any("plugins/advanced/plugin.json" in b for b in version_drift_blockers), \
         f"Expected blocker mentioning plugins/advanced/plugin.json, got: {version_drift_blockers}"
+
+
+def test_release_readiness_blocks_missing_doctor_linkage(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("doctor_check_missing" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_missing_proof_chain_linkage(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+    _write_evidence(tmp_path, include_lineage=False, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("proof_chain_linkage" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_missing_evidence_attribution(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=False)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("missing_attribution" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_unwaived_high_risk_security(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+    _write_evidence(
+        tmp_path,
+        include_lineage=True,
+        include_attribution=True,
+        unresolved_risks=[{"severity": "high", "reason": "open finding"}],
+    )
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("security_blocker_unwaived" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_prose_only_proof_claims(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    proof_root = tmp_path / "proof-root"
+    shutil.copytree(ROOT / "registry", proof_root / "registry")
+    shutil.copy2(ROOT / "OMG_COMPAT_CONTRACT.md", proof_root / "OMG_COMPAT_CONTRACT.md")
+    (proof_root / ".git").mkdir(parents=True, exist_ok=True)
+    (proof_root / "docs").mkdir(parents=True, exist_ok=True)
+    (proof_root / "docs" / "proof.md").write_text(
+        "# Proof\n\nAll 42 tests passed and 2/2 providers are green.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "validate_contract_registry",
+        lambda _root: {"status": "ok", "errors": [], "bundles": [], "contract": {}},
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_version_identity_drift",
+        lambda _root: {"status": "ok", "blockers": []},
+    )
+
+    readiness = build_release_readiness(root_dir=proof_root, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("prose_only_proof" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_non_loopback_http_production_claim(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    scope_root = tmp_path / "scope-root"
+    shutil.copytree(ROOT / "registry", scope_root / "registry")
+    shutil.copy2(ROOT / "OMG_COMPAT_CONTRACT.md", scope_root / "OMG_COMPAT_CONTRACT.md")
+    shutil.copy2(ROOT / "README.md", scope_root / "README.md")
+    shutil.copy2(ROOT / "CHANGELOG.md", scope_root / "CHANGELOG.md")
+    shutil.copy2(ROOT / "package.json", scope_root / "package.json")
+    shutil.copy2(ROOT / "pyproject.toml", scope_root / "pyproject.toml")
+    shutil.copy2(ROOT / "settings.json", scope_root / "settings.json")
+    (scope_root / "plugins" / "core").mkdir(parents=True, exist_ok=True)
+    (scope_root / "plugins" / "advanced").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "plugins" / "core" / "plugin.json", scope_root / "plugins" / "core" / "plugin.json")
+    shutil.copy2(ROOT / "plugins" / "advanced" / "plugin.json", scope_root / "plugins" / "advanced" / "plugin.json")
+    (scope_root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / ".claude-plugin" / "plugin.json", scope_root / ".claude-plugin" / "plugin.json")
+    shutil.copy2(ROOT / ".claude-plugin" / "marketplace.json", scope_root / ".claude-plugin" / "marketplace.json")
+    (scope_root / "docs").mkdir(parents=True, exist_ok=True)
+    (scope_root / "docs" / "proof.md").write_text(
+        "Production endpoint: http://10.0.0.8:8765/mcp\n",
+        encoding="utf-8",
+    )
+    (scope_root / ".git").mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "validate_contract_registry",
+        lambda _root: {"status": "ok", "errors": [], "bundles": [], "contract": {}},
+    )
+
+    readiness = build_release_readiness(root_dir=scope_root, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("same_machine_scope_violation" in blocker for blocker in readiness["blockers"])
 
 
 def test_claude_compile_includes_required_hooks_and_subagents(tmp_path: Path) -> None:
