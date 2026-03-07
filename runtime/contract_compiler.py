@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import asyncio
+import importlib
 import json
 import os
 from pathlib import Path
@@ -1436,6 +1437,10 @@ def build_release_readiness(
     checks["eval_gate"] = eval_check
     blockers.extend(eval_check.get("blockers", []))
 
+    proof_chain_check = _check_proof_chain(output)
+    checks["proof_chain"] = proof_chain_check
+    blockers.extend(proof_chain_check.get("blockers", []))
+
     package_check = _check_packaged_install_smoke(root)
     checks["package_smoke"] = package_check
     blockers.extend(package_check.get("blockers", []))
@@ -1498,6 +1503,8 @@ def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
         blockers.append("cosmetic evidence: provenance is empty")
     if not payload.get("trace_ids"):
         blockers.append("missing trace ids in evidence")
+    if not payload.get("trace_id") and not payload.get("trace_ids"):
+        blockers.append("missing trace_id in evidence")
     if not payload.get("lineage"):
         blockers.append("missing lineage in evidence")
     tests = payload.get("tests", [])
@@ -1524,6 +1531,21 @@ def _check_eval_gate(output_root: Path) -> dict[str, Any]:
     return {
         "status": "ok" if not blockers else "error",
         "path": str(latest_path.relative_to(output_root)),
+        "blockers": blockers,
+    }
+
+
+def _check_proof_chain(output_root: Path) -> dict[str, Any]:
+    module = importlib.import_module("runtime.proof_chain")
+    chain = module.assemble_proof_chain(str(output_root))
+    chain_status = str(chain.get("status", "error"))
+    raw_blockers = chain.get("blockers", [])
+    blockers = [f"proof_chain_linkage: {item}" for item in raw_blockers] if isinstance(raw_blockers, list) else ["proof_chain_linkage: invalid blockers"]
+    if chain_status == "ok":
+        blockers = []
+    return {
+        "status": "ok" if not blockers else "error",
+        "proof_chain": chain,
         "blockers": blockers,
     }
 
