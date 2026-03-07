@@ -1289,7 +1289,6 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
     
     # Files to check with their JSON paths to extract version
     files_to_check = [
-        ("README.md", None),  # Special case: extract from "# OMG X.Y.Z"
         ("package.json", ["version"]),
         ("pyproject.toml", None),  # Special case: extract from version = "X.Y.Z"
         ("settings.json", ["_omg", "_version"]),
@@ -1309,14 +1308,7 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
         found_version = None
         
         try:
-            if file_path == "README.md":
-                # Extract from "# OMG X.Y.Z"
-                content = full_path.read_text(encoding="utf-8")
-                for line in content.split("\n"):
-                    if line.startswith("# OMG "):
-                        found_version = line.replace("# OMG ", "").strip()
-                        break
-            elif file_path == "pyproject.toml":
+            if file_path == "pyproject.toml":
                 # Extract from version = "X.Y.Z"
                 content = full_path.read_text(encoding="utf-8")
                 for line in content.split("\n"):

@@ -1,4 +1,4 @@
-# OMG 2.0.5
+# OMG
 
 [![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
@@ -11,7 +11,6 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 - npm: `@trac3er/oh-my-god`
 - Plugin id: `omg`
 - Marketplace id: `omg`
-- Version: `2.0.5`
 
 ## Why OMG
 
