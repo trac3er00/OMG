@@ -59,8 +59,8 @@ Then run:
 Success looks like:
 
 - supported hosts are detected
-- `.mcp.json` is configured
-- `.mcp.json` includes both `omg-memory` and stdio `omg-control`
+- `.mcp.json` is configured with `filesystem` and stdio `omg-control` (the shipped defaults)
+- additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
 

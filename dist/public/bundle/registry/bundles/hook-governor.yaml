@@ -1,6 +1,6 @@
 id: hook-governor
 kind: governance
-version: 2.0.5
+version: 2.0.7
 title: OMG Hook Governor
 description: Canonical hook ordering, policy reinjection, and protected-path governance.
 hosts:
