@@ -69,6 +69,9 @@ BYPASS_ALL_WARNING = (
     "Do you want to enable bypass-all mode? (y/N): "
 )
 
+PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs")
+_PRESET_LEVEL: dict[str, int] = {p: i for i, p in enumerate(PRESET_ORDER)}
+
 MCP_CATALOG: list[dict[str, Any]] = [
     {
         "id": "context7",
@@ -76,7 +79,8 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "description": "Upstash Context7 MCP server for context management",
         "command": "npx",
         "args": ["@upstash/context7-mcp@2.1.3"],
-        "default": True,
+        "default": False,
+        "min_preset": "balanced",
         "category": "productivity",
     },
     {
@@ -86,6 +90,7 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "command": "npx",
         "args": ["@modelcontextprotocol/server-filesystem@2026.1.14", "."],
         "default": True,
+        "min_preset": "safe",
         "category": "system",
     },
     {
@@ -94,7 +99,8 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "description": "Web search MCP server for internet queries",
         "command": "npx",
         "args": ["@zhafron/mcp-web-search@1.2.2"],
-        "default": True,
+        "default": False,
+        "min_preset": "interop",
         "category": "search",
     },
     {
@@ -103,7 +109,8 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "description": "Chrome DevTools MCP server for browser automation",
         "command": "npx",
         "args": ["chrome-devtools-mcp@0.19.0"],
-        "default": True,
+        "default": False,
+        "min_preset": "labs",
         "category": "browser",
     },
     {
@@ -114,7 +121,8 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "args": [],
         "type": "http",
         "url": "http://127.0.0.1:8765/mcp",
-        "default": True,
+        "default": False,
+        "min_preset": "interop",
         "category": "memory",
     },
     {
@@ -124,6 +132,7 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "command": OMG_CONTROL_COMMAND,
         "args": OMG_CONTROL_ARGS,
         "default": True,
+        "min_preset": "safe",
         "category": "control",
     },
     {
@@ -192,6 +201,26 @@ def get_mcp_catalog() -> list[dict[str, Any]]:
     return MCP_CATALOG
 
 
+def get_default_mcps_for_preset(preset: str) -> list[str]:
+    """Return the list of MCP server IDs enabled by default for *preset*.
+
+    Each catalog entry carries a ``min_preset`` field that specifies the
+    lowest preset tier at which the MCP is included.  The preset order is
+    ``safe < balanced < interop < labs``.
+
+    Returns:
+        Sorted list of MCP server IDs whose ``min_preset`` is at or below
+        the requested *preset* level.
+    """
+    level = _PRESET_LEVEL.get(preset, 0)
+    return [
+        m["id"]
+        for m in MCP_CATALOG
+        if _PRESET_LEVEL.get(m.get("min_preset", ""), -1) <= level
+        and m.get("min_preset") is not None
+    ]
+
+
 def build_mcp_config(selected_ids: list[str]) -> dict[str, Any]:
     """Build .mcp.json configuration from selected MCP server IDs.
 
@@ -245,17 +274,18 @@ def configure_plan_type(plan_type: str) -> dict[str, Any]:
     return result
 
 
-def select_mcps(selected_ids: list[str] | None = None) -> dict[str, Any]:
+def select_mcps(selected_ids: list[str] | None = None, preset: str = "safe") -> dict[str, Any]:
     """Build MCP config from selected IDs.
 
     Args:
-        selected_ids: List of MCP IDs to include. If None, uses defaults.
+        selected_ids: List of MCP IDs to include. If None, uses preset defaults.
+        preset: Preset tier that controls which MCPs are included by default.
 
     Returns:
         dict with mcpServers key (ready to write as .mcp.json)
     """
     if selected_ids is None:
-        selected_ids = [m["id"] for m in MCP_CATALOG if m["default"]]
+        selected_ids = get_default_mcps_for_preset(preset)
     return build_mcp_config(selected_ids)
 
 
@@ -383,6 +413,9 @@ def check_auth() -> dict[str, Any]:
     return {"status": "pending", "results": {}}
 
 
+_HTTP_MEMORY_MIN_LEVEL: int = _PRESET_LEVEL["interop"]
+
+
 def configure_mcp(
     project_dir: str,
     detected_clis: dict[str, Any],
@@ -391,11 +424,16 @@ def configure_mcp(
     control_command: str = OMG_CONTROL_COMMAND,
     control_args: list[str] | None = None,
     control_server_name: str = OMG_CONTROL_SERVER_NAME,
+    preset: str = "safe",
 ) -> dict[str, Any]:
     """Configure OMG MCP servers for authenticated CLIs.
 
     For each CLI in detected_clis where detected_clis[cli]["detected"] == True,
     calls the appropriate writer from runtime.mcp_config_writers.
+
+    HTTP memory surfaces are only written when the *preset* is at or above
+    ``interop`` level.  ``safe`` and ``balanced`` presets write only the
+    stdio ``omg-control`` surface.
 
     Args:
         project_dir: Path to the project directory.
@@ -405,6 +443,7 @@ def configure_mcp(
         control_command: stdio command for the OMG control MCP server.
         control_args: stdio args for the OMG control MCP server.
         control_server_name: MCP server name for the OMG control surface.
+        preset: Active preset tier (safe, balanced, interop, labs).
 
     Returns:
         Dict with keys:
@@ -415,10 +454,11 @@ def configure_mcp(
     configured: list[str] = []
     errors: dict[str, str] = {}
     resolved_control_args = list(control_args or OMG_CONTROL_ARGS)
+    http_memory_allowed = _PRESET_LEVEL.get(preset, 0) >= _HTTP_MEMORY_MIN_LEVEL
 
-    # Always write Claude project config for both memory and control surfaces.
     try:
-        write_claude_mcp_config(project_dir, server_url, server_name)
+        if http_memory_allowed:
+            write_claude_mcp_config(project_dir, server_url, server_name)
         write_claude_mcp_stdio_config(
             project_dir,
             command=control_command,
@@ -429,7 +469,6 @@ def configure_mcp(
         _logger.warning("Failed to write Claude MCP config: %s", exc)
         errors["claude"] = str(exc)
 
-    # Write both memory and control surfaces for detected external CLIs.
     cli_writers = {
         "codex": (write_codex_mcp_config, write_codex_mcp_stdio_config),
         "gemini": (write_gemini_mcp_config, write_gemini_mcp_stdio_config),
@@ -442,7 +481,8 @@ def configure_mcp(
             continue
 
         try:
-            http_writer(server_url, server_name)
+            if http_memory_allowed:
+                http_writer(server_url, server_name)
             stdio_writer(
                 command=control_command,
                 args=resolved_control_args,
@@ -591,7 +631,7 @@ def run_setup_wizard(
 
     clis = detect_clis()
     auth = check_auth()
-    mcp = configure_mcp(project_dir, clis)
+    mcp = configure_mcp(project_dir, clis, preset=selected_preset)
     prefs = set_preferences(project_dir, {"preset": selected_preset})
     report_path = write_adoption_report(project_dir, adoption)
     adoption["report_path"] = report_path

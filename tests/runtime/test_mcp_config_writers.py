@@ -274,3 +274,84 @@ def test_managed_python_path_in_claude_stdio_config(tmp_path: Path) -> None:
         "args": ["-m", "runtime.omg_mcp_server"],
     }
     assert "omg-runtime/.venv/bin/python" in managed_python
+
+
+# -- Preset surface narrowing ----------------------------------------
+
+from hooks.setup_wizard import get_default_mcps_for_preset, select_mcps, configure_mcp
+
+
+def test_safe_preset_returns_only_filesystem_and_control() -> None:
+    ids = get_default_mcps_for_preset("safe")
+    assert set(ids) == {"filesystem", "omg-control"}
+
+
+def test_balanced_preset_adds_context7_only() -> None:
+    ids = get_default_mcps_for_preset("balanced")
+    assert set(ids) == {"filesystem", "omg-control", "context7"}
+
+
+def test_safe_preset_omits_http_memory_websearch_browser() -> None:
+    ids = get_default_mcps_for_preset("safe")
+    for excluded in ("omg-memory", "websearch", "chrome-devtools"):
+        assert excluded not in ids, f"{excluded} must not appear in safe preset"
+
+
+def test_balanced_preset_omits_http_memory_websearch_browser() -> None:
+    ids = get_default_mcps_for_preset("balanced")
+    for excluded in ("omg-memory", "websearch", "chrome-devtools"):
+        assert excluded not in ids, f"{excluded} must not appear in balanced preset"
+
+
+def test_interop_preset_includes_http_memory_and_websearch() -> None:
+    ids = get_default_mcps_for_preset("interop")
+    assert "omg-memory" in ids
+    assert "websearch" in ids
+    assert "chrome-devtools" not in ids
+
+
+def test_labs_preset_includes_browser() -> None:
+    ids = get_default_mcps_for_preset("labs")
+    assert "chrome-devtools" in ids
+    assert "omg-memory" in ids
+
+
+def test_select_mcps_safe_preset_produces_minimal_config() -> None:
+    config = select_mcps(preset="safe")
+    server_names = set(config["mcpServers"].keys())
+    assert server_names == {"filesystem", "omg-control"}
+
+
+def test_select_mcps_balanced_preset_adds_context7() -> None:
+    config = select_mcps(preset="balanced")
+    server_names = set(config["mcpServers"].keys())
+    assert server_names == {"filesystem", "omg-control", "context7"}
+
+
+def test_configure_mcp_safe_preset_skips_http_memory(tmp_path: Path) -> None:
+    result = configure_mcp(
+        str(tmp_path),
+        detected_clis={},
+        preset="safe",
+    )
+    assert result["status"] == "ok"
+    config_path = tmp_path / ".mcp.json"
+    payload = _read_json(config_path)
+    servers = _as_dict(payload["mcpServers"])
+    assert "omg-control" in servers
+    assert "omg-memory" not in servers
+    assert "memory-server" not in servers
+
+
+def test_configure_mcp_interop_preset_writes_http_memory(tmp_path: Path) -> None:
+    result = configure_mcp(
+        str(tmp_path),
+        detected_clis={},
+        preset="interop",
+    )
+    assert result["status"] == "ok"
+    config_path = tmp_path / ".mcp.json"
+    payload = _read_json(config_path)
+    servers = _as_dict(payload["mcpServers"])
+    assert "omg-control" in servers
+    assert "omg-memory" in servers

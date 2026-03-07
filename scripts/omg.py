@@ -55,6 +55,7 @@ from runtime.compat import (
     get_compat_skill_contract,
     list_compat_skill_contracts,
     list_compat_skills,
+    run_doctor,
 )
 from runtime.adoption import CANONICAL_VERSION
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
@@ -650,6 +651,23 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
     contract_compile.set_defaults(func=cmd_contract_compile)
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "text")
+    result = run_doctor(root_dir=ROOT_DIR)
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        for check in result["checks"]:
+            marker = "PASS" if check["status"] == "ok" else ("BLOCKER" if check["status"] == "blocker" else "WARN")
+            req_tag = "" if check["required"] else " (optional)"
+            print(f"  {marker:>7} {check['name']}: {check['message']}{req_tag}")
+        blockers = sum(1 for c in result["checks"] if c["status"] == "blocker")
+        warnings = sum(1 for c in result["checks"] if c["status"] == "warning")
+        passed = sum(1 for c in result["checks"] if c["status"] == "ok")
+        print(f"\nPASS [{passed}] | WARN [{warnings}] | BLOCKER [{blockers}]")
+    return 0 if result["status"] == "pass" else 1
+
+
 def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     release_sub = parent.add_subparsers(dest=dest, required=True)
 
@@ -836,6 +854,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     release = sub.add_parser("release", help="OMG release-readiness checks")
     _add_release_subcommands(release, dest="release_command")
+
+    doctor = sub.add_parser("doctor", help="Canonical install and runtime verification")
+    doctor.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    doctor.set_defaults(func=cmd_doctor)
 
     return parser
 

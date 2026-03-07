@@ -363,3 +363,62 @@ def test_cli_ecosystem_list_status_and_noop_sync(tmp_path: Path):
     sync_out = json.loads(sync.stdout)
     assert sync_out["status"] == "ok"
     assert sync_out["unknown"] == ["unknown-plugin"]
+
+
+def test_cli_doctor_json_output_has_named_checks():
+    proc = _run(["doctor", "--format", "json"])
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "DoctorResult"
+    assert "checks" in out
+    check_names = {c["name"] for c in out["checks"]}
+    assert "python_version" in check_names
+    assert "fastmcp" in check_names
+    assert "omg_control_reachable" in check_names
+    assert "policy_files" in check_names
+    assert "metadata_drift" in check_names
+    for check in out["checks"]:
+        assert check["status"] in {"ok", "blocker", "warning"}
+        assert "message" in check
+        assert "required" in check
+
+
+def test_cli_doctor_clean_state_exits_zero_or_reports_blockers():
+    proc = _run(["doctor", "--format", "json"])
+    out = json.loads(proc.stdout)
+    blockers = [c for c in out["checks"] if c["status"] == "blocker"]
+    if not blockers:
+        assert proc.returncode == 0
+        assert out["status"] == "pass"
+    else:
+        assert proc.returncode != 0
+        assert out["status"] == "fail"
+
+
+def test_cli_doctor_missing_fastmcp_produces_blocker(monkeypatch):
+    import importlib
+    original_import = importlib.import_module
+
+    def _block_fastmcp(name, *args, **kwargs):
+        if name == "fastmcp":
+            raise ImportError("mocked: fastmcp not installed")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", _block_fastmcp)
+
+    from runtime.compat import run_doctor
+    result = run_doctor(root_dir=ROOT)
+    fastmcp_checks = [c for c in result["checks"] if c["name"] == "fastmcp"]
+    assert len(fastmcp_checks) == 1
+    assert fastmcp_checks[0]["status"] == "blocker"
+    assert result["status"] == "fail"
+
+
+def test_cli_doctor_text_output():
+    proc = _run(["doctor"])
+    assert "python_version" in proc.stdout
+    assert "PASS" in proc.stdout or "BLOCKER" in proc.stdout
+
+
+def test_cli_doctor_help_lists_doctor():
+    proc = _run(["--help"])
+    assert "doctor" in proc.stdout + proc.stderr

@@ -197,7 +197,8 @@ def test_check_memory_server_running(tmp_path: Path) -> None:
 
 
 def test_ensure_memory_server_already_running() -> None:
-    with patch("runtime.mcp_lifecycle.is_server_running", return_value=True):
+    with patch("runtime.mcp_lifecycle.is_server_running", return_value=True), \
+         patch.dict(os.environ, {"OMG_PRESET": "interop"}):
         result = ensure_memory_server()
     assert result["status"] == "already_running"
     assert "url" in result
@@ -210,8 +211,39 @@ def test_ensure_memory_server_starts_if_not_running() -> None:
         "url": "http://127.0.0.1:8765/mcp",
     }
     with patch("runtime.mcp_lifecycle.is_server_running", return_value=False), \
-         patch("runtime.mcp_lifecycle.start_memory_server", return_value=expected):
+         patch("runtime.mcp_lifecycle.start_memory_server", return_value=expected), \
+         patch.dict(os.environ, {"OMG_PRESET": "interop"}):
         result = ensure_memory_server()
 
     assert result["status"] == "started"
     assert result["pid"] == 99
+
+
+# -- Preset-based HTTP memory gating ---------------------------------
+
+
+def test_ensure_memory_server_skipped_for_safe_preset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OMG_PRESET", "safe")
+    result = ensure_memory_server()
+    assert result["status"] == "skipped"
+    assert "safe" in result["reason"]
+
+
+def test_ensure_memory_server_skipped_for_balanced_preset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OMG_PRESET", "balanced")
+    result = ensure_memory_server()
+    assert result["status"] == "skipped"
+    assert "balanced" in result["reason"]
+
+
+def test_ensure_memory_server_proceeds_for_interop_preset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OMG_PRESET", "interop")
+    with patch("runtime.mcp_lifecycle.is_server_running", return_value=True):
+        result = ensure_memory_server()
+    assert result["status"] == "already_running"
+
+
+def test_ensure_memory_server_defaults_to_safe_when_no_preset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OMG_PRESET", raising=False)
+    result = ensure_memory_server()
+    assert result["status"] == "skipped"

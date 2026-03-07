@@ -7,7 +7,7 @@
 
 OMG keeps verification visible instead of burying it in implementation details.
 
-- Current local full-suite result: `2466 passed, 2 skipped` on March 7, 2026.
+- Current local full-suite result: See `.omg/evidence/` for machine-generated verification artifacts.
 - Releases are expected to pass the compat gate, the standalone verification path, and the public-readiness check.
 - Setup, presets, and native adoption behavior have targeted regression tests.
 - `security-check`, `api-twin`, runtime profiles, and the stdio `omg-control` MCP have targeted regression coverage.

@@ -22,7 +22,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 
 ## Canonical Contract
 
-OMG now ships a production control-plane contract and generated host artifacts.
+OMG now ships a production control-plane contract and generated host artifacts. Same-machine production support is anchored by the stdio-first `omg-control` MCP. HTTP control-plane exposure is intended for development and local HUD use only.
 
 - Normative spec: `OMG_COMPAT_CONTRACT.md`
 - Executable registry: `registry/omg-capability.schema.json` and `registry/bundles/*.yaml`
@@ -87,7 +87,7 @@ Compatibility references to OMC, OMX, and Superpowers are documented here: [docs
 
 ## Proof
 
-Current local verification for this release: `2466 passed, 2 skipped` on March 7, 2026.
+Current local verification for this release: See `.omg/evidence/` for machine-generated verification artifacts.
 
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
