@@ -99,6 +99,11 @@ def test_explicit_deep_plan_route_keyword():
     assert "deep-plan" in ctx.lower()
     assert "execute /omg:deep-plan" in ctx.lower()
 
+def test_explicit_deep_plan_slash_command():
+    ctx = run_enhancer("run /omg:deep-plan for the new feature")
+    assert "@route-lock" in ctx
+    assert "route=deep-plan" in ctx.lower()
+
 def test_deep_plan_keyword_takes_priority_over_model_keywords():
     ctx = run_enhancer("deep-plan then use codex and gemini for implementation")
     assert "route=deep-plan" in ctx.lower()
