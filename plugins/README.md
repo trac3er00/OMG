@@ -50,5 +50,5 @@ Public migration commands are intentionally avoided. OMG uses `/OMG:setup` and `
 
 ## Public Docs
 
-- Install guides live in [docs/install/claude-code.md](../docs/install/claude-code.md), [docs/install/codex.md](../docs/install/codex.md), and [docs/install/opencode.md](../docs/install/opencode.md).
+- Install guides live in [docs/install/claude-code.md](../docs/install/claude-code.md) and [docs/install/codex.md](../docs/install/codex.md).
 - Proof surface lives in [docs/proof.md](../docs/proof.md).

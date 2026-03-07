@@ -5,7 +5,6 @@
 
 Detected hosts:
 - codex: installed, authenticated
-- opencode: installed, authenticated
 - gemini: not found
 - kimi: not found
 

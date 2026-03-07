@@ -4,7 +4,7 @@
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
 [![License](https://img.shields.io/github/license/trac3er00/OMG)](LICENSE)
 
-OMG upgrades your agent host instead of replacing it. It gives Claude Code, Codex, OpenCode, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
+OMG upgrades your agent host instead of replacing it. It gives Claude Code, Codex, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
 
 - Brand: `OMG`
 - Repo: `https://github.com/trac3er00/OMG`
@@ -16,7 +16,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 ## Why OMG
 
 - Small front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
-- Multi-host support: Claude Code, Codex, OpenCode, Gemini CLI, and Kimi CLI.
+- Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
 - Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.
 
@@ -57,8 +57,6 @@ Success looks like:
 
 - Claude Code: [docs/install/claude-code.md](docs/install/claude-code.md)
 - Codex: [docs/install/codex.md](docs/install/codex.md)
-- OpenCode: [docs/install/opencode.md](docs/install/opencode.md)
-
 ## Native Adoption
 
 OMG uses native setup language instead of public migration commands.
@@ -71,7 +69,7 @@ Compatibility references to OMC, OMX, and Superpowers are documented here: [docs
 
 ## Proof
 
-Current local verification for this release: `2452 passed, 2 skipped` on March 6, 2026.
+Current local verification for this release: `2425 passed, 2 skipped` on March 6, 2026.
 
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)

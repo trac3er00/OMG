@@ -11,7 +11,6 @@ from runtime.mcp_config_writers import (
     write_codex_mcp_config,
     write_gemini_mcp_config,
     write_kimi_mcp_config,
-    write_opencode_mcp_config,
 )
 
 
@@ -117,41 +116,6 @@ def test_write_gemini_mcp_config_merges_and_is_idempotent(
     }
 
     write_gemini_mcp_config("http://localhost:8765")
-    second_data = _read_json(config_path)
-    assert second_data == first_data
-
-
-def test_write_opencode_mcp_config_merges_and_is_idempotent(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
-    config_path = tmp_path / ".config" / "opencode" / "opencode.json"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    _ = config_path.write_text(
-        json.dumps(
-            {
-                "telemetry": True,
-                "mcp": {
-                    "existing-server": {
-                        "type": "remote",
-                        "url": "http://localhost:2222",
-                    }
-                },
-            }
-        )
-    )
-
-    write_opencode_mcp_config("http://localhost:8765")
-    first_data = _read_json(config_path)
-    first_servers = _as_dict(first_data["mcp"])
-    assert first_data["telemetry"] is True
-    assert "existing-server" in first_servers
-    assert first_servers["memory-server"] == {
-        "type": "remote",
-        "url": "http://localhost:8765",
-    }
-
-    write_opencode_mcp_config("http://localhost:8765")
     second_data = _read_json(config_path)
     assert second_data == first_data
 

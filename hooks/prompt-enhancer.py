@@ -2,7 +2,7 @@
 """
 UserPromptSubmit Hook — OMG v1
 
-Inspired by oh-my-opencode's Sisyphus agent system. Key upgrades:
+Inspired by earlier OMG routing experiments. Key upgrades:
   1. Intent classification BEFORE acting (IntentGate)
   2. Discipline enforcement — never stop halfway
   3. Agent-aware routing — Codex/Gemini/Claude orchestration

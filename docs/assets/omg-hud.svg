@@ -8,7 +8,7 @@
   <text x="105" y="240" fill="#f8fafc" font-family="monospace" font-size="22">Hosts</text>
   <text x="105" y="280" fill="#cbd5e1" font-family="monospace" font-size="18">Claude Code</text>
   <text x="105" y="310" fill="#cbd5e1" font-family="monospace" font-size="18">Codex</text>
-  <text x="105" y="340" fill="#cbd5e1" font-family="monospace" font-size="18">OpenCode</text>
+  <text x="105" y="340" fill="#cbd5e1" font-family="monospace" font-size="18">Kimi CLI</text>
 
   <rect x="440" y="200" width="320" height="180" rx="18" fill="#1e293b"/>
   <text x="465" y="240" fill="#f8fafc" font-family="monospace" font-size="22">Adoption</text>
@@ -25,7 +25,7 @@
   <rect x="80" y="430" width="1040" height="190" rx="18" fill="#0b1220" stroke="#334155" stroke-width="1"/>
   <text x="105" y="470" fill="#f8fafc" font-family="monospace" font-size="22">Session</text>
   <text x="105" y="515" fill="#5eead4" font-family="monospace" font-size="18">/OMG:setup</text>
-  <text x="245" y="515" fill="#cbd5e1" font-family="monospace" font-size="18">detected codex, opencode</text>
+  <text x="245" y="515" fill="#cbd5e1" font-family="monospace" font-size="18">detected codex, kimi</text>
   <text x="105" y="550" fill="#5eead4" font-family="monospace" font-size="18">/OMG:crazy</text>
   <text x="245" y="550" fill="#cbd5e1" font-family="monospace" font-size="18">launched 5-worker orchestration</text>
   <text x="105" y="585" fill="#cbd5e1" font-family="monospace" font-size="18">evidence required before completion</text>
