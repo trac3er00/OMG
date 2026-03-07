@@ -60,7 +60,8 @@ def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_pat
     assert "bundle/.agents/skills/omg/control-plane/SKILL.md" in output_paths
 
 
-def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path) -> None:
+def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     public_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
