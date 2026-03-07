@@ -69,3 +69,11 @@ The command emits a final summary that includes:
 - selected preset
 - selected adoption mode
 - adoption report path
+
+## Public Path
+
+The public OMG journey is:
+
+1. install for your host
+2. run `/OMG:setup`
+3. run `/OMG:crazy <goal>`

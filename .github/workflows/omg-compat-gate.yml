@@ -33,6 +33,9 @@ jobs:
       - name: Check standalone naming hygiene
         run: python3 scripts/check-omg-standalone-clean.py
 
+      - name: Check public-readiness hygiene
+        run: python3 scripts/check-omg-public-ready.py
+
       - name: Run regression tests
         run: python3 -m pytest -q
 

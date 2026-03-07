@@ -227,7 +227,7 @@ class TestSetPreferencesIntegration:
         assert config_file.exists()
 
         data = yaml.safe_load(config_file.read_text())
-        assert data["version"] == "2.0.1"
+        assert data["version"] == "2.0.2"
         assert "cli_configs" in data
         assert len(data["cli_configs"]) == 4
 
@@ -364,7 +364,7 @@ class TestFullPipelineIntegration:
         config_yaml = tmp_path / ".omg" / "state" / "cli-config.yaml"
         assert config_yaml.exists()
         prefs_data = yaml.safe_load(config_yaml.read_text())
-        assert prefs_data["version"] == "2.0.1"
+        assert prefs_data["version"] == "2.0.2"
         assert len(prefs_data["cli_configs"]) == 4
 
     def test_wizard_detects_existing_ecosystems_and_writes_adoption_report(

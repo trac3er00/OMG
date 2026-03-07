@@ -22,7 +22,8 @@ chmod +x OMG-setup.sh
 ./OMG-setup.sh install --mode=coexist --preset=interop
 ```
 
-## Notes
+## Verify
 
 - `coexist` is useful when OpenCode already owns parts of your workflow.
 - Re-run `/OMG:setup` after provider auth changes.
+- Run `/OMG:crazy <goal>` after setup to confirm orchestration is active.

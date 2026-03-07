@@ -41,6 +41,7 @@ htmlcov/
 *.tmp
 *.bak
 *.backup
+:memory:
 
 # Node
 node_modules/

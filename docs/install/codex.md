@@ -22,7 +22,8 @@ chmod +x OMG-setup.sh
 ./OMG-setup.sh install --mode=omg-only --preset=interop
 ```
 
-## Notes
+## Verify
 
 - OMG detects `codex` during setup and configures shared MCP state.
-- Use `interop` when you want a stronger multi-host bridge.
+- `interop` is the recommended preset when Codex is part of a multi-host workflow.
+- Run `/OMG:crazy <goal>` once setup confirms host detection and MCP wiring.

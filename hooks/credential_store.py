@@ -8,7 +8,7 @@ at .omg/state/credentials.meta.
 CLI: python hooks/credential_store.py {add,list,remove,rotate} [options]
 
 Feature flag: OMG_MULTI_CREDENTIAL_ENABLED (default off)
-Design ref: .sisyphus/credential-store-design.md
+Design note: encrypted credentials live in OMG-managed state under .omg/state
 """
 from __future__ import annotations
 

@@ -1,12 +1,21 @@
 # Native Adoption for OMC, OMX, and Superpowers
 
-OMG does not expose public `migrate` commands. Adoption is handled through `/OMG:setup` and `OMG-setup.sh`.
+OMG keeps adoption native to OMG. There is no public `migrate` command to memorize or map back to another project.
+
+Use either:
+
+- `/OMG:setup`
+- `./OMG-setup.sh install --adopt=auto`
 
 ## What Setup Detects
 
-- OMC-style markers
-- OMX-style markers
-- Superpowers-style command and skill surfaces
+Setup can detect compatibility markers from:
+
+- OMC-style environments
+- OMX-style environments
+- Superpowers-style command, skill, or workspace surfaces
+
+Those detections are treated as adoption context, not as public implementation detail.
 
 ## Adoption Modes
 
@@ -15,7 +24,7 @@ OMG does not expose public `migrate` commands. Adoption is handled through `/OMG
 Recommended for most users.
 
 - OMG becomes the primary hooks, HUD, MCP, and orchestration layer.
-- Overlapping surfaces are backed up before OMG disables or replaces them where safe.
+- Portable state is preserved where safe and overlapping surfaces are backed up before replacement.
 - `compat` remains available for legacy skill routing only.
 
 ### coexist
@@ -40,3 +49,9 @@ Native adoption writes:
 - `balanced`: recommended daily workflow
 - `interop`: stronger shared-memory and multi-host interop
 - `labs`: enables the most opinionated experimentation surfaces
+
+## What Changes for Existing Users
+
+- OMG-native setup language replaces public migration language.
+- Compatibility references remain documented so users coming from OMC, OMX, or Superpowers can understand what setup detected.
+- Public onboarding stays focused on `/OMG:setup` and `/OMG:crazy`.
