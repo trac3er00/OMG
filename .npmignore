@@ -22,18 +22,9 @@ pytest.ini
 *.bak
 *.bak.*
 
-# Development and internal tooling
-docs/
-
 # Rust crates (optional native extensions, not needed for npm)
 crates/
 omg_natives/
-
-# Control plane (server component, not needed for npm)
-control_plane/
-
-# Registry (artifact verification, not needed for npm)
-registry/
 
 # Runtime config (not distributable)
 settings.json.bak.*

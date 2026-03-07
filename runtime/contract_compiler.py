@@ -7,10 +7,15 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
+import tempfile
 from typing import Any, Iterable
+import zipfile
 
 import yaml
 
+from runtime.asset_loader import resolve_asset, resolve_assets
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -31,6 +36,19 @@ DEFAULT_REQUIRED_BUNDLES = (
     "mcp-fabric",
     "lsp-pack",
     "secure-worktree-pipeline",
+    "security-check",
+    "api-twin",
+    "preflight",
+    "robotics",
+    "vision",
+    "algorithms",
+    "health",
+    "tracebank",
+    "eval-gate",
+    "delta-classifier",
+    "incident-replay",
+    "data-lineage",
+    "remote-supervisor",
 )
 REQUIRED_DOC_TOKENS = (
     "execution_contract",
@@ -96,24 +114,36 @@ def _sha256_file(path: Path) -> str:
 
 
 def load_contract_doc(root_dir: str | Path | None = None) -> str:
-    root = _resolve_root(root_dir)
-    return (root / CONTRACT_DOC_PATH).read_text(encoding="utf-8")
+    if root_dir is not None:
+        root = _resolve_root(root_dir)
+        candidate = root / CONTRACT_DOC_PATH
+        if candidate.exists():
+            return candidate.read_text(encoding="utf-8")
+    return resolve_asset(CONTRACT_DOC_PATH).read_text(encoding="utf-8")
 
 
 def load_contract_schema(root_dir: str | Path | None = None) -> dict[str, Any]:
-    root = _resolve_root(root_dir)
-    return _load_json(root / SCHEMA_PATH)
+    if root_dir is not None:
+        root = _resolve_root(root_dir)
+        candidate = root / SCHEMA_PATH
+        if candidate.exists():
+            return _load_json(candidate)
+    return _load_json(resolve_asset(SCHEMA_PATH))
 
 
 def load_contract_bundles(root_dir: str | Path | None = None) -> list[dict[str, Any]]:
     root = _resolve_root(root_dir)
     bundles: list[dict[str, Any]] = []
-    for path in sorted((root / BUNDLES_DIR).glob("*.yaml")):
+    paths = sorted((root / BUNDLES_DIR).glob("*.yaml")) if (root / BUNDLES_DIR).exists() else resolve_assets(BUNDLES_DIR, suffix=".yaml")
+    for path in paths:
         parsed = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(parsed, dict):
             raise ValueError(f"Expected mapping bundle manifest in {path}")
         bundle = dict(parsed)
-        bundle["_path"] = str(path.relative_to(root))
+        try:
+            bundle["_path"] = str(path.relative_to(root))
+        except ValueError:
+            bundle["_path"] = str(Path(BUNDLES_DIR) / path.name)
         bundles.append(bundle)
     return bundles
 
@@ -133,34 +163,30 @@ def validate_contract_registry(root_dir: str | Path | None = None) -> dict[str, 
     root = _resolve_root(root_dir)
     errors: list[str] = []
 
-    doc_path = root / CONTRACT_DOC_PATH
-    schema_path = root / SCHEMA_PATH
-    bundles_path = root / BUNDLES_DIR
-
-    if not doc_path.exists():
+    try:
+        doc_text = load_contract_doc(root)
+    except FileNotFoundError:
         errors.append(f"missing contract doc: {CONTRACT_DOC_PATH}")
         doc_text = ""
     else:
-        doc_text = doc_path.read_text(encoding="utf-8")
         for token in REQUIRED_DOC_TOKENS:
             if token not in doc_text:
                 errors.append(f"contract doc missing token: {token}")
         if CANONICAL_VERSION not in doc_text:
             errors.append(f"contract doc missing version: {CANONICAL_VERSION}")
 
-    if not schema_path.exists():
+    try:
+        schema_payload = load_contract_schema(root)
+    except FileNotFoundError:
         errors.append(f"missing contract schema: {SCHEMA_PATH}")
         schema_payload: dict[str, Any] = {}
     else:
-        schema_payload = _load_json(schema_path)
         if str(schema_payload.get("version", "")) != CANONICAL_VERSION:
             errors.append(f"contract schema version drift: {schema_payload.get('version')!r}")
 
-    if not bundles_path.exists():
+    bundles = load_contract_bundles(root)
+    if not bundles:
         errors.append(f"missing bundles directory: {BUNDLES_DIR}")
-        bundles: list[dict[str, Any]] = []
-    else:
-        bundles = load_contract_bundles(root)
 
     bundle_ids = set()
     bundle_summaries: list[dict[str, Any]] = []
@@ -208,14 +234,15 @@ def validate_contract_registry(root_dir: str | Path | None = None) -> dict[str, 
 def _copy_contract_inputs(root: Path, output_root: Path) -> list[Path]:
     copied: list[Path] = []
     for rel_path in [CONTRACT_DOC_PATH, SCHEMA_PATH]:
-        src = root / rel_path
+        src = resolve_asset(rel_path)
         dst = output_root / rel_path
         _write_text(dst, src.read_text(encoding="utf-8"))
         copied.append(dst)
-    for path in sorted((root / BUNDLES_DIR).glob("*.yaml")):
-        rel_path = path.relative_to(root)
+    for bundle in load_contract_bundles(root):
+        rel_path = Path(str(bundle["_path"]))
+        src = resolve_asset(rel_path)
         dst = output_root / rel_path
-        _write_text(dst, path.read_text(encoding="utf-8"))
+        _write_text(dst, src.read_text(encoding="utf-8"))
         copied.append(dst)
     return copied
 
@@ -368,6 +395,8 @@ def _compile_claude_outputs(
     artifacts.append(output_root / ".mcp.json")
 
     settings_path = root / "settings.json"
+    if not settings_path.exists():
+        settings_path = resolve_asset("settings.json")
     settings = _load_json(settings_path)
     hook_bundle = _bundle_map(bundles)["hook-governor"]
     settings["hooks"] = _compile_hook_settings(hook_bundle)
@@ -673,6 +702,31 @@ def build_release_readiness(
         blockers.append(f"missing compiled outputs: {', '.join(missing_outputs)}")
     checks["compiled_outputs"] = {"missing": missing_outputs}
 
+    required_bundle_outputs: list[Path] = []
+    for bundle_id in DEFAULT_REQUIRED_BUNDLES:
+        required_bundle_outputs.extend(
+            [
+                output / ".agents" / "skills" / "omg" / bundle_id / "SKILL.md",
+                output / ".agents" / "skills" / "omg" / bundle_id / "openai.yaml",
+            ]
+        )
+    missing_bundle_outputs = [str(path.relative_to(output)) for path in required_bundle_outputs if not path.exists()]
+    if missing_bundle_outputs:
+        blockers.append(f"missing bundle outputs: {', '.join(missing_bundle_outputs)}")
+    checks["bundle_outputs"] = {"missing": missing_bundle_outputs}
+
+    evidence_check = _check_recent_evidence(output)
+    checks["evidence"] = evidence_check
+    blockers.extend(evidence_check.get("blockers", []))
+
+    eval_check = _check_eval_gate(output)
+    checks["eval_gate"] = eval_check
+    blockers.extend(eval_check.get("blockers", []))
+
+    package_check = _check_packaged_install_smoke(root)
+    checks["package_smoke"] = package_check
+    blockers.extend(package_check.get("blockers", []))
+
     providers = _provider_statuses()
     checks["providers"] = providers
     for provider_name, status in providers.items():
@@ -696,3 +750,98 @@ def build_release_readiness(
         "blockers": blockers,
         "checks": checks,
     }
+
+
+def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
+    evidence_dir = output_root / ".omg" / "evidence"
+    if not evidence_dir.exists():
+        return {"status": "missing", "blockers": []}
+
+    evidence_files = sorted(path for path in evidence_dir.glob("*.json") if path.is_file())
+    if not evidence_files:
+        return {"status": "missing", "blockers": []}
+
+    evidence_payloads: list[tuple[Path, dict[str, Any]]] = []
+    for path in evidence_files:
+        try:
+            payload = _load_json(path)
+        except Exception:
+            continue
+        if payload.get("schema") == "EvidencePack":
+            evidence_payloads.append((path, payload))
+
+    if not evidence_payloads:
+        return {"status": "missing", "blockers": []}
+
+    evidence_path, payload = evidence_payloads[-1]
+    blockers: list[str] = []
+    if not payload.get("security_scans"):
+        blockers.append("cosmetic evidence: security_scans is empty")
+    if not payload.get("provenance"):
+        blockers.append("cosmetic evidence: provenance is empty")
+    if not payload.get("trace_ids"):
+        blockers.append("missing trace ids in evidence")
+    if not payload.get("lineage"):
+        blockers.append("missing lineage in evidence")
+    tests = payload.get("tests", [])
+    if isinstance(tests, list):
+        for item in tests:
+            if isinstance(item, dict) and item.get("name") == "worker_implementation" and not item.get("passed", False):
+                blockers.append("simulated worker evidence detected")
+                break
+    return {
+        "status": "ok" if not blockers else "error",
+        "evidence_file": str(evidence_path.relative_to(output_root)),
+        "blockers": blockers,
+    }
+
+
+def _check_eval_gate(output_root: Path) -> dict[str, Any]:
+    latest_path = output_root / ".omg" / "evals" / "latest.json"
+    if not latest_path.exists():
+        return {"status": "missing", "blockers": []}
+    payload = _load_json(latest_path)
+    blockers: list[str] = []
+    if payload.get("status") != "ok" or bool(payload.get("summary", {}).get("regressed")):
+        blockers.append("eval regression detected")
+    return {
+        "status": "ok" if not blockers else "error",
+        "path": str(latest_path.relative_to(output_root)),
+        "blockers": blockers,
+    }
+
+
+def _check_packaged_install_smoke(root: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="omg-wheel-") as tmp_dir:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "-w", tmp_dir],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        if proc.returncode != 0:
+            return {
+                "status": "error",
+                "blockers": ["package smoke failed to build wheel"],
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+            }
+        wheels = sorted(Path(tmp_dir).glob("*.whl"))
+        if not wheels:
+            return {"status": "error", "blockers": ["package smoke did not produce a wheel"]}
+        with zipfile.ZipFile(wheels[-1]) as archive:
+            names = set(archive.namelist())
+        required_suffixes = (
+            "control_plane/service.py",
+            "registry/verify_artifact.py",
+            "plugins/dephealth/cve_scanner.py",
+            "OMG_COMPAT_CONTRACT.md",
+            ".agents/skills/omg/security-check/SKILL.md",
+        )
+        for suffix in required_suffixes:
+            if not any(name.endswith(suffix) for name in names):
+                blockers.append(f"package parity missing {suffix}")
+    return {"status": "ok" if not blockers else "error", "blockers": blockers}

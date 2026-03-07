@@ -232,7 +232,7 @@ class TestSetPreferencesIntegration:
         assert config_file.exists()
 
         data = yaml.safe_load(config_file.read_text())
-        assert data["version"] == "2.0.4"
+        assert data["version"] == "2.0.5"
         assert "cli_configs" in data
         assert len(data["cli_configs"]) == 3
         assert "opencode" not in data["cli_configs"]
@@ -367,7 +367,7 @@ class TestFullPipelineIntegration:
         config_yaml = tmp_path / ".omg" / "state" / "cli-config.yaml"
         assert config_yaml.exists()
         prefs_data = yaml.safe_load(config_yaml.read_text())
-        assert prefs_data["version"] == "2.0.4"
+        assert prefs_data["version"] == "2.0.5"
         assert len(prefs_data["cli_configs"]) == 3
         assert "opencode" not in prefs_data["cli_configs"]
 

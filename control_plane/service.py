@@ -100,6 +100,9 @@ class ControlPlaneService:
             provenance=payload.get("provenance"),
             trust_scores=payload.get("trust_scores"),
             api_twin=payload.get("api_twin"),
+            route_metadata=payload.get("route_metadata"),
+            trace_ids=payload.get("trace_ids"),
+            lineage=payload.get("lineage"),
         )
         return 202, {
             "status": "accepted",

@@ -27,6 +27,7 @@ class ClaudeAdapter:
             "runtime": self.runtime,
             "phase": "execute",
             "status": "executed",
+            "worker_mode": "stub",
             "operations": [
                 "apply-plan",
                 "collect-diff",
@@ -43,6 +44,7 @@ class ClaudeAdapter:
             "checks": [
                 {"name": "tests", "passed": True},
                 {"name": "security", "passed": True},
+                {"name": "worker_implementation", "passed": False, "mode": "stub"},
             ],
         }
 
@@ -57,4 +59,5 @@ class ClaudeAdapter:
             "diff_summary": {},
             "reproducibility": {"seed": "deterministic"},
             "unresolved_risks": [],
+            "worker_mode": "stub",
         }

@@ -15,13 +15,14 @@ from typing import Any
 
 from hooks.policy_engine import evaluate_bash_command
 from lab.pipeline import run_pipeline
+from runtime.adoption import CANONICAL_VERSION
 from runtime.dispatcher import dispatch_runtime
 from runtime.security_check import run_security_check
 from runtime.team_router import TeamDispatchRequest, dispatch_team
 
 CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
 LEGACY_CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
-CONTRACT_SNAPSHOT_VERSION = "1.0.0"
+CONTRACT_SNAPSHOT_VERSION = CANONICAL_VERSION
 LEGACY_SNAPSHOT_VERSION = "0.9.0"
 GAP_REPORT_SCHEMA = "OmgCompatGapReport"
 LEGACY_GAP_REPORT_SCHEMA = "OmgCompatGapReport"
@@ -359,7 +360,7 @@ def migrate_contract_snapshot_payload(payload: dict[str, Any]) -> tuple[dict[str
         # v0.9.0 lacked explicit schema/version constraints.
         migrated["schema"] = CONTRACT_SNAPSHOT_SCHEMA
         migrated["contract_version"] = CONTRACT_SNAPSHOT_VERSION
-        migrations.append("migrate-0.9.0-to-1.0.0")
+        migrations.append(f"migrate-0.9.0-to-{CONTRACT_SNAPSHOT_VERSION}")
 
     return migrated, migrations
 

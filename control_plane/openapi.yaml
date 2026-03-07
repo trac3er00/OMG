@@ -1,12 +1,12 @@
 openapi: 3.1.0
 info:
   title: OMG Control Plane API
-  version: 1.0.0
-  description: Policy/trust/evidence/runtime/registry/lab endpoints for OMG v1.
+  version: 2.0.5
+  description: Policy/trust/evidence/runtime/registry/lab endpoints for OMG v2, with deprecated v1 aliases for one release.
 servers:
   - url: https://api.omg.local
 paths:
-  /v1/policy/evaluate:
+  /v2/policy/evaluate:
     post:
       summary: Evaluate policy decision
       requestBody:
@@ -22,7 +22,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PolicyDecision'
-  /v1/trust/review:
+  /v1/policy/evaluate:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/policy/evaluate
+      responses:
+        '200':
+          description: Decision result
+  /v2/trust/review:
     post:
       summary: Review trust-sensitive config changes
       responses:
@@ -32,13 +39,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TrustReview'
-  /v1/evidence/ingest:
+  /v1/trust/review:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/trust/review
+      responses:
+        '200':
+          description: Trust review report
+  /v2/evidence/ingest:
     post:
       summary: Ingest evidence pack
       responses:
         '202':
           description: Accepted
-  /v1/security/check:
+  /v1/evidence/ingest:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/evidence/ingest
+      responses:
+        '202':
+          description: Accepted
+  /v2/security/check:
     post:
       summary: Run canonical OMG security check
       responses:
@@ -48,7 +69,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SecurityCheckResult'
-  /v1/guide/assert:
+  /v1/security/check:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/security/check
+      responses:
+        '200':
+          description: Security check result
+  /v2/guide/assert:
     post:
       summary: Assert output against explicit project rules
       responses:
@@ -58,27 +86,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GuideAssertionResult'
-  /v1/runtime/dispatch:
+  /v1/guide/assert:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/guide/assert
+      responses:
+        '200':
+          description: Guide assertion result
+  /v2/runtime/dispatch:
     post:
       summary: Dispatch job to runtime adapter
       responses:
         '200':
           description: Runtime dispatch result
-  /v1/registry/verify:
+  /v1/runtime/dispatch:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/runtime/dispatch
+      responses:
+        '200':
+          description: Runtime dispatch result
+  /v2/registry/verify:
     post:
       summary: Verify supply-chain artifact
       responses:
         '200':
           description: Verification decision
-  /v1/lab/jobs:
+  /v1/registry/verify:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/registry/verify
+      responses:
+        '200':
+          description: Verification decision
+  /v2/lab/jobs:
     post:
       summary: Create lab pipeline job
       responses:
         '201':
           description: Created
-  /v1/scoreboard/baseline:
+  /v1/lab/jobs:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/lab/jobs
+      responses:
+        '201':
+          description: Created
+  /v2/scoreboard/baseline:
     get:
       summary: Return baseline scorecard
+      responses:
+        '200':
+          description: KPI baseline snapshot
+  /v1/scoreboard/baseline:
+    get:
+      deprecated: true
+      summary: Deprecated alias of /v2/scoreboard/baseline
       responses:
         '200':
           description: KPI baseline snapshot
@@ -129,7 +192,7 @@ components:
           type: string
     SecurityCheckResult:
       type: object
-      required: [schema, status, scope, findings, summary]
+      required: [schema, status, scope, findings, summary, provenance, trust_scores]
       properties:
         schema:
           type: string
@@ -142,6 +205,12 @@ components:
           items:
             type: object
         summary:
+          type: object
+        provenance:
+          type: array
+          items:
+            type: object
+        trust_scores:
           type: object
     GuideAssertionResult:
       type: object
