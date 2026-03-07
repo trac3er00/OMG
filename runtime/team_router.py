@@ -363,12 +363,12 @@ def _read_working_memory(project_dir: str) -> str:
         return ""
 
     try:
-        with open(working_memory_path, "r") as f:
+        with open(working_memory_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         if len(content) > 500:
             content = content[:500] + "..."
         return content
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return ""
 
 
@@ -379,12 +379,12 @@ def _read_profile_context(project_dir: str) -> str:
         return ""
 
     try:
-        with open(profile_path, "r") as f:
+        with open(profile_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         if len(content) > 300:
             content = content[:300] + "..."
         return content
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return ""
 
 
@@ -402,7 +402,7 @@ def _read_failure_history(project_dir: str) -> str:
         failures = []
         for file_path in failure_files[-5:]:
             try:
-                with open(file_path, "r") as f:
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                     for line in f:
                         if line.strip():
                             entry = json.loads(line)
@@ -410,7 +410,7 @@ def _read_failure_history(project_dir: str) -> str:
                             failures.append(f"- {error_msg}")
                             if len(failures) >= 5:
                                 break
-            except (OSError, json.JSONDecodeError):
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
                 continue
 
         if failures:
