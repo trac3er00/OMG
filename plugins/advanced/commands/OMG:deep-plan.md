@@ -59,6 +59,7 @@ If DDD reference patterns exist (see .omg/knowledge/ or existing domain modules)
 ## Step 3: Create the Deep Plan (Plan Council Artifacts)
 
 Generate the canonical `plan-council` artifacts. Use Bash heredoc to write these files.
+Required artifacts: `.omg/plans/deep-plan.md`, `.omg/plans/deep-plan.json`, `.omg/plans/dissent.json`, `.omg/evidence/plan-council.json`.
 
 ### Artifact 1: `.omg/plans/deep-plan.md` (Human-readable)
 ```markdown
@@ -111,26 +112,32 @@ Key interfaces: [list the interfaces/types this touches]
 
 ## Plan Council Requirements
 ### Assumptions
+List your assumptions below:
 - [Assumption 1]
 - [Assumption 2]
 
 ### Objections and Dissent
+Record any objections or dissent:
 - [Dissent 1]
 - [Dissent 2]
 
 ### Rollback Plan
+Define the rollback plan:
 - [Step 1 to revert]
 - [Step 2 to revert]
 
 ### Verification Commands
+List the verification commands:
 - [Command 1]
 - [Command 2]
 
 ### Evidence Requirements
+Define the evidence requirements:
 - [Requirement 1]
 - [Requirement 2]
 
 ### What would falsify this plan?
+Define what would falsify this plan:
 - [Condition 1]
 - [Condition 2]
 ```
