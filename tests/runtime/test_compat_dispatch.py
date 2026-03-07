@@ -88,8 +88,11 @@ def test_compat_setup_and_doctor_routes_create_bootstrap(tmp_path: Path):
     doctor = dispatch_compat_skill(skill="omg-doctor", project_dir=str(tmp_path))
     assert doctor["status"] == "ok"
     snapshot = doctor["result"]
-    assert snapshot["status"] in {"pass", "warn"}
+    assert snapshot["status"] in {"pass", "fail"}
     assert "checks" in snapshot
+    check_names = {c["name"] for c in snapshot["checks"]}
+    assert "python_version" in check_names
+    assert "fastmcp" in check_names
 
 
 def test_project_session_manager_writes_session_state(tmp_path: Path):

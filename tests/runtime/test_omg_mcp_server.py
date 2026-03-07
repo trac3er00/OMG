@@ -13,7 +13,7 @@ import pytest
 class _MCPOMGServerModule(Protocol):
     mcp: object
 
-    def omg_security_check(self, scope: str = ".", include_live_enrichment: bool = False) -> dict: ...
+    def omg_security_check(self, scope: str = ".", include_live_enrichment: bool = False, external_inputs: list[dict] | None = None) -> dict: ...
 
     def omg_guide_assert(self, candidate: str, rules: dict) -> dict: ...
 
@@ -112,3 +112,15 @@ def test_mcp_fallback_stub_exposes_prompts_and_resources_without_fastmcp() -> No
     assert "omg_contract_summary" in prompt_names
     assert "resource://omg/contract" in resource_uris
     assert "resource://omg/release-checklist" in resource_uris
+
+
+def test_omg_security_check_tool_forwards_external_inputs(tmp_path: pytest.TempPathFactory) -> None:
+    module = _load_module()
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    external_inputs = [{"source": "browser", "content": "user input"}]
+    result = module.omg_security_check(scope=str(tmp_path), external_inputs=external_inputs)
+    assert result["schema"] == "SecurityCheckResult"
+    assert result["summary"]["finding_count"] >= 1
+    assert result["provenance"] is not None

@@ -1,0 +1,49 @@
+id: remote-supervisor
+kind: orchestration
+version: 2.0.5
+title: OMG Remote Supervisor
+description: Local-only authenticated supervisor sessions for worker orchestration.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/remote_supervisor.py
+invocation_policy:
+  user_invocable: true
+  model_invocable: false
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: high
+  allowed_tools:
+    claude:
+      - Read
+      - Bash(python3:*)
+    codex:
+      - Read
+      - Bash(python3:*)
+lifecycle_hooks:
+  native:
+    - SessionStart
+    - Stop
+  emulated:
+    - SubagentStart
+    - SubagentStop
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - python
+evidence_outputs:
+  artifacts:
+    - .omg/supervisor/sessions/*.json
+execution_contract:
+  modes:
+    - local_supervisor
+channel_overrides:
+  public:
+    remote: disabled
+  enterprise:
+    remote: disabled

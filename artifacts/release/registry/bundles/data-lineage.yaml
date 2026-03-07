@@ -1,0 +1,47 @@
+id: data-lineage
+kind: provenance
+version: 2.0.5
+title: OMG Data Lineage
+description: Provenance and privacy tracking for traces, fixtures, examples, and synthetic artifacts.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/data_lineage.py
+invocation_policy:
+  user_invocable: true
+  model_invocable: true
+  allow_implicit_invocation: true
+tool_policy:
+  side_effect_level: medium
+  allowed_tools:
+    claude:
+      - Read
+      - Bash(python3:*)
+    codex:
+      - Read
+      - Bash(python3:*)
+lifecycle_hooks:
+  native:
+    - PostToolUse
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - python
+evidence_outputs:
+  artifacts:
+    - .omg/lineage/*.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+channel_overrides:
+  public:
+    provenance: required
+  enterprise:
+    provenance: required

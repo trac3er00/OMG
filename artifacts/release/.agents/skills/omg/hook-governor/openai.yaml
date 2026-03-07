@@ -1,0 +1,11 @@
+name: omg-hook-governor
+description: "Canonical hook ordering, policy reinjection, and protected-path governance."
+allow_implicit_invocation: true
+metadata:
+  channel: enterprise
+  bundle_id: hook-governor
+  title: "OMG Hook Governor"
+mcp_servers:
+  - omg-control
+allowed_tools:
+  - "Read"

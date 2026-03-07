@@ -10,7 +10,14 @@ echo "[verify-standalone] workdir: $TMP_DIR"
 tar --exclude="./.omc" --exclude="./.pytest_cache" -cf - -C "$ROOT_DIR" . | (cd "$TMP_DIR" && tar -xf -)
 
 cd "$TMP_DIR"
+mkdir -p .omg/evidence
+python3 scripts/omg.py doctor --format json > .omg/evidence/doctor.json
+python3 scripts/omg.py contract validate
+python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root .
+python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root .
+OMG_RELEASE_READY_PROVIDERS=claude,codex python3 scripts/omg.py release readiness --channel dual --output-root .
 python3 scripts/omg.py compat gate --max-bridge 0 --output .omg/evidence/omg-compat-gap.json
+python3 scripts/check-omg-public-ready.py
 
 if command -v pyenv >/dev/null 2>&1 && pyenv prefix 3.12.7 >/dev/null 2>&1; then
   PYENV_VERSION=3.12.7 python -m pytest -q

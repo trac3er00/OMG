@@ -68,6 +68,32 @@ def test_cli_security_check_runs_canonical_engine(tmp_path: Path):
     assert out["schema"] == "SecurityCheckResult"
     assert out["summary"]["finding_count"] >= 1
     assert any(finding["category"] == "python_ast" for finding in out["findings"])
+    assert out["evidence"]["sarif_path"].endswith(".sarif")
+    assert out["evidence"]["sbom_path"].endswith(".cdx.json")
+    assert out["evidence"]["license_path"].endswith(".json")
+
+
+def test_cli_security_check_honors_waiver_json(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    first = _run(["security", "check", "--scope", str(tmp_path)])
+    first_out = json.loads(first.stdout)
+    finding_id = first_out["findings"][0]["finding_id"]
+
+    waived = _run(
+        [
+            "security",
+            "check",
+            "--scope",
+            str(tmp_path),
+            "--waivers-json",
+            json.dumps([{"finding_id": finding_id, "justification": "approved mitigation window"}]),
+        ]
+    )
+    waived_out = json.loads(waived.stdout)
+    assert waived_out["status"] == "ok"
+    assert waived_out["release_blocked"] is False
 
 
 def test_cli_teams_command():
@@ -314,6 +340,83 @@ def test_cli_release_readiness_dual_channel(tmp_path: Path):
     )
     assert compile_enterprise.returncode == 0
 
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / "doctor.json").write_text(
+        json.dumps(
+            {
+                "schema": "DoctorResult",
+                "status": "pass",
+                "checks": [
+                    {"name": "python_version", "status": "ok", "required": True},
+                    {"name": "fastmcp", "status": "ok", "required": True},
+                    {"name": "omg_control_reachable", "status": "ok", "required": True},
+                    {"name": "policy_files", "status": "ok", "required": True},
+                    {"name": "metadata_drift", "status": "ok", "required": True},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (evidence_root / "run-1.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "run_id": "run-1",
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "tests": [{"name": "worker_implementation", "passed": True}],
+                "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
+                "diff_summary": {"files": 1},
+                "reproducibility": {"cmd": "pytest -q"},
+                "unresolved_risks": [],
+                "provenance": [{"source": "security-check"}],
+                "trust_scores": {"overall": 1.0},
+                "api_twin": {},
+                "trace_ids": ["trace-1"],
+                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    eval_root = tmp_path / ".omg" / "evals"
+    eval_root.mkdir(parents=True, exist_ok=True)
+    (eval_root / "latest.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvalGateResult",
+                "eval_id": "eval-1",
+                "trace_id": "trace-1",
+                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "status": "ok",
+                "summary": {"regressed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    tracebank_root = tmp_path / ".omg" / "tracebank"
+    tracebank_root.mkdir(parents=True, exist_ok=True)
+    (tracebank_root / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "schema": "TracebankRecord",
+                "trace_id": "trace-1",
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "path": ".omg/tracebank/events.jsonl",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
     readiness = _run(
         [
             "release",
@@ -363,3 +466,62 @@ def test_cli_ecosystem_list_status_and_noop_sync(tmp_path: Path):
     sync_out = json.loads(sync.stdout)
     assert sync_out["status"] == "ok"
     assert sync_out["unknown"] == ["unknown-plugin"]
+
+
+def test_cli_doctor_json_output_has_named_checks():
+    proc = _run(["doctor", "--format", "json"])
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "DoctorResult"
+    assert "checks" in out
+    check_names = {c["name"] for c in out["checks"]}
+    assert "python_version" in check_names
+    assert "fastmcp" in check_names
+    assert "omg_control_reachable" in check_names
+    assert "policy_files" in check_names
+    assert "metadata_drift" in check_names
+    for check in out["checks"]:
+        assert check["status"] in {"ok", "blocker", "warning"}
+        assert "message" in check
+        assert "required" in check
+
+
+def test_cli_doctor_clean_state_exits_zero_or_reports_blockers():
+    proc = _run(["doctor", "--format", "json"])
+    out = json.loads(proc.stdout)
+    blockers = [c for c in out["checks"] if c["status"] == "blocker"]
+    if not blockers:
+        assert proc.returncode == 0
+        assert out["status"] == "pass"
+    else:
+        assert proc.returncode != 0
+        assert out["status"] == "fail"
+
+
+def test_cli_doctor_missing_fastmcp_produces_blocker(monkeypatch):
+    import importlib
+    original_import = importlib.import_module
+
+    def _block_fastmcp(name, *args, **kwargs):
+        if name == "fastmcp":
+            raise ImportError("mocked: fastmcp not installed")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", _block_fastmcp)
+
+    from runtime.compat import run_doctor
+    result = run_doctor(root_dir=ROOT)
+    fastmcp_checks = [c for c in result["checks"] if c["name"] == "fastmcp"]
+    assert len(fastmcp_checks) == 1
+    assert fastmcp_checks[0]["status"] == "blocker"
+    assert result["status"] == "fail"
+
+
+def test_cli_doctor_text_output():
+    proc = _run(["doctor"])
+    assert "python_version" in proc.stdout
+    assert "PASS" in proc.stdout or "BLOCKER" in proc.stdout
+
+
+def test_cli_doctor_help_lists_doctor():
+    proc = _run(["--help"])
+    assert "doctor" in proc.stdout + proc.stderr

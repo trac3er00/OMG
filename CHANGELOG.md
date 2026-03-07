@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.0.5 - 2026-03-07
+
+- expanded release identity and version-drift gate across full public surface (README.md, package.json, pyproject.toml, settings.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, plugins/core/plugin.json, plugins/advanced/plugin.json, CHANGELOG.md)
+- fixed plugins/advanced/plugin.json version drift from 1.0.5 to 2.0.5
+- added canonical version source of truth in runtime/adoption.py with comprehensive drift detection
+
 ## 2.0.4 - 2026-03-07
 
 - shipped the OMG production control plane contract, executable bundle registry, host compiler, and dual-channel public and enterprise release bundles

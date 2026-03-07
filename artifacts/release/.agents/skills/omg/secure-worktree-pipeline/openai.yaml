@@ -1,0 +1,12 @@
+name: omg-secure-worktree-pipeline
+description: "Ephemeral worktree execution and supervisor-safe worker dispatch for production jobs."
+allow_implicit_invocation: false
+metadata:
+  channel: enterprise
+  bundle_id: secure-worktree-pipeline
+  title: "OMG Secure Worktree Pipeline"
+mcp_servers:
+  - omg-control
+allowed_tools:
+  - "Read"
+  - "Bash(git:*)"

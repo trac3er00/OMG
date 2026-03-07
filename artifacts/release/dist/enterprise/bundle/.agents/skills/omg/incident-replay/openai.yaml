@@ -1,0 +1,12 @@
+name: omg-incident-replay
+description: "Replayable bug packs built from logs, failing tests, traces, and diffs."
+allow_implicit_invocation: false
+metadata:
+  channel: enterprise
+  bundle_id: incident-replay
+  title: "OMG Incident Replay"
+mcp_servers:
+  - omg-control
+allowed_tools:
+  - "Read"
+  - "Bash(python3:*)"

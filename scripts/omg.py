@@ -55,6 +55,7 @@ from runtime.compat import (
     get_compat_skill_contract,
     list_compat_skill_contracts,
     list_compat_skills,
+    run_doctor,
 )
 from runtime.adoption import CANONICAL_VERSION
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
@@ -168,16 +169,10 @@ def cmd_ship(args: argparse.Namespace) -> int:
         project_dir,
         run_id,
         tests=checks if isinstance(checks, list) else [],
-        security_scans=[
-            {
-                "tool": "security-check",
-                "finding_count": security_result["summary"]["finding_count"],
-                "path": security_result["evidence"]["path"],
-            }
-        ],
+        security_scans=security_result.get("security_scans", []),
         diff_summary={"runtime": runtime, "goal": idea.get("goal", "")},
         reproducibility={"command": f"omg ship --runtime {runtime} --idea {idea_path}"},
-        unresolved_risks=[],
+        unresolved_risks=security_result.get("unresolved_risks", []),
         provenance=security_result["provenance"],
         trust_scores=security_result["trust_scores"],
         api_twin={"recommended_route": preflight["route"] if preflight["route"] == "api-twin" else ""},
@@ -214,10 +209,12 @@ def cmd_secure(args: argparse.Namespace) -> int:
 
 
 def cmd_security_check(args: argparse.Namespace) -> int:
+    waivers = json.loads(args.waivers_json) if args.waivers_json else None
     result = run_security_check(
         project_dir=_ensure_project_dir(),
         scope=args.scope,
         include_live_enrichment=bool(args.live_enrichment),
+        waivers=waivers,
     )
     print(json.dumps(result, indent=2))
     return 0
@@ -650,6 +647,23 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
     contract_compile.set_defaults(func=cmd_contract_compile)
 
 
+def cmd_doctor(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "text")
+    result = run_doctor(root_dir=ROOT_DIR)
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        for check in result["checks"]:
+            marker = "PASS" if check["status"] == "ok" else ("BLOCKER" if check["status"] == "blocker" else "WARN")
+            req_tag = "" if check["required"] else " (optional)"
+            print(f"  {marker:>7} {check['name']}: {check['message']}{req_tag}")
+        blockers = sum(1 for c in result["checks"] if c["status"] == "blocker")
+        warnings = sum(1 for c in result["checks"] if c["status"] == "warning")
+        passed = sum(1 for c in result["checks"] if c["status"] == "ok")
+        print(f"\nPASS [{passed}] | WARN [{warnings}] | BLOCKER [{blockers}]")
+    return 0 if result["status"] == "pass" else 1
+
+
 def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     release_sub = parent.add_subparsers(dest=dest, required=True)
 
@@ -683,6 +697,7 @@ def build_parser() -> argparse.ArgumentParser:
     security_check = security_sub.add_parser("check", help="Run canonical OMG security check")
     security_check.add_argument("--scope", default=".")
     security_check.add_argument("--live-enrichment", action="store_true")
+    security_check.add_argument("--waivers-json", default="")
     security_check.set_defaults(func=cmd_security_check)
 
     api_twin = sub.add_parser("api-twin", help="Contract replay and fixture-based API simulation")
@@ -836,6 +851,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     release = sub.add_parser("release", help="OMG release-readiness checks")
     _add_release_subcommands(release, dest="release_command")
+
+    doctor = sub.add_parser("doctor", help="Canonical install and runtime verification")
+    doctor.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    doctor.set_defaults(func=cmd_doctor)
 
     return parser
 

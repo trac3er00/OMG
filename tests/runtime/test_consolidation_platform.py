@@ -12,9 +12,10 @@ from runtime.delta_classifier import classify_project_changes
 from runtime.eval_gate import evaluate_trace
 from runtime.incident_replay import build_incident_pack
 from runtime.data_lineage import build_lineage_manifest, validate_lineage_manifest
+from runtime.contract_compiler import _check_high_risk_security_waivers
 from runtime.preflight import run_preflight
 from runtime.remote_supervisor import issue_local_supervisor_session, verify_local_supervisor_token
-from runtime.security_check import run_security_check
+from runtime.security_check import run_security_check, security_check
 from runtime.tracebank import record_trace
 
 
@@ -54,8 +55,82 @@ def test_security_check_emits_provenance_trust_scores_and_evidence_file(tmp_path
     assert result["summary"]["scan_status"] == "completed"
     assert result["provenance"]
     assert "overall" in result["trust_scores"]
+    assert result["security_scans"]
+    assert result["unresolved_risks"]
+    assert all("exploitability" in finding and "reachability" in finding for finding in result["findings"])
+    assert result["evidence"]["sarif_path"].endswith(".sarif")
+    assert result["evidence"]["sbom_path"].endswith(".cdx.json")
+    assert result["evidence"]["license_path"].endswith(".json")
     evidence_path = Path(tmp_path, result["evidence"]["path"])
+    sarif_path = Path(tmp_path, result["evidence"]["sarif_path"])
+    sbom_path = Path(tmp_path, result["evidence"]["sbom_path"])
+    license_path = Path(tmp_path, result["evidence"]["license_path"])
     assert evidence_path.exists()
+    assert sarif_path.exists()
+    assert sbom_path.exists()
+    assert license_path.exists()
+
+    sarif_payload = json.loads(sarif_path.read_text(encoding="utf-8"))
+    assert sarif_payload["version"] == "2.1.0"
+    assert sarif_payload["runs"]
+    assert sarif_payload["runs"][0]["tool"]["driver"]["name"] == "omg-security-check"
+
+    sbom_payload = json.loads(sbom_path.read_text(encoding="utf-8"))
+    assert sbom_payload["bomFormat"] == "CycloneDX"
+    assert sbom_payload["specVersion"] == "1.4"
+    assert sbom_payload["metadata"]["tools"]
+
+    license_payload = json.loads(license_path.read_text(encoding="utf-8"))
+    assert "timestamp" in license_payload
+    assert isinstance(license_payload["licenses"], list)
+    assert {"name", "spdx_id", "packages"}.issubset(set(license_payload["licenses"][0]))
+
+
+def test_security_check_waiver_prevents_release_blocking(tmp_path: Path) -> None:
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    initial = run_security_check(project_dir=str(tmp_path), scope=".")
+    assert initial["release_blocked"] is True
+    finding_id = initial["findings"][0]["finding_id"]
+
+    waived = run_security_check(
+        project_dir=str(tmp_path),
+        scope=".",
+        waivers=[{"finding_id": finding_id, "justification": "accepted short-term risk"}],
+    )
+
+    assert waived["release_blocked"] is False
+    assert waived["status"] == "ok"
+    assert any(finding.get("waived") for finding in waived["findings"])
+
+
+def test_security_check_alias_accepts_waivers_and_feeds_release_blocker(tmp_path: Path) -> None:
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    baseline = security_check(project_dir=str(tmp_path), scope=".")
+    finding_id = baseline["findings"][0]["finding_id"]
+    assert _check_high_risk_security_waivers(
+        {
+            "unresolved_risks": baseline["unresolved_risks"],
+            "security_scans": baseline["security_scans"],
+        }
+    )
+
+    waived = security_check(
+        project_dir=str(tmp_path),
+        scope=".",
+        waivers=[{"id": finding_id, "justification": "accepted mitigation window"}],
+    )
+
+    assert waived["release_blocked"] is False
+    assert _check_high_risk_security_waivers(
+        {
+            "unresolved_risks": waived["unresolved_risks"],
+            "security_scans": waived["security_scans"],
+        }
+    ) == []
 
 
 def test_api_twin_supports_versioned_endpoint_cassettes_latency_and_saved_costs(tmp_path: Path) -> None:

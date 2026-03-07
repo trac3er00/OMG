@@ -7,11 +7,14 @@
 
 OMG keeps verification visible instead of burying it in implementation details.
 
-- Current local full-suite result: `2466 passed, 2 skipped` on March 7, 2026.
-- Releases are expected to pass the compat gate, the standalone verification path, and the public-readiness check.
-- Setup, presets, and native adoption behavior have targeted regression tests.
-- `security-check`, `api-twin`, runtime profiles, and the stdio `omg-control` MCP have targeted regression coverage.
-- `compat` remains covered, but it is not the public onboarding path.
+- Runtime evidence root: `.omg/evidence/`
+- Doctor output: `.omg/evidence/doctor.json`
+- Security-check artifacts: `.omg/evidence/security-check-*.json`
+- Trust and external input artifacts: `.omg/evidence/trust-*.json`
+- Trace records and evidence links: `.omg/tracebank/events.jsonl`, `.omg/tracebank/evidence-links.jsonl`
+- Eval gate artifacts and trace links: `.omg/evals/latest.json`, `.omg/evals/history.jsonl`, `.omg/evals/trace-links.jsonl`
+- Lineage manifests: `.omg/lineage/*.json`
+- Release readiness output links these machine artifacts instead of prose-only pass counts.
 
 ## Provider Matrix
 

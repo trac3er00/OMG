@@ -161,3 +161,53 @@ def test_scoreboard_baseline_shape():
         "pr_throughput",
         "adoption_velocity",
     }
+
+
+def test_security_check_forwards_external_inputs(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    external_inputs = [{"source": "browser", "content": "user input"}]
+    status, out = service.security_check({
+        "scope": ".",
+        "external_inputs": external_inputs,
+    })
+    assert status == 200
+    assert out["schema"] == "SecurityCheckResult"
+    assert out["provenance"] is not None
+
+
+def test_security_check_rejects_malformed_external_inputs_not_list(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({
+        "scope": ".",
+        "external_inputs": "not a list",
+    })
+    assert status == 400
+    assert out["error_code"] == "INVALID_EXTERNAL_INPUTS"
+    assert "must be a list" in out["message"]
+
+
+def test_security_check_rejects_malformed_external_inputs_non_dict_items(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({
+        "scope": ".",
+        "external_inputs": ["not a dict"],
+    })
+    assert status == 400
+    assert out["error_code"] == "INVALID_EXTERNAL_INPUTS"
+    assert "must be an object" in out["message"]
+
+
+def test_security_check_accepts_none_external_inputs(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({
+        "scope": ".",
+        "external_inputs": None,
+    })
+    assert status == 200
+    assert out["schema"] == "SecurityCheckResult"

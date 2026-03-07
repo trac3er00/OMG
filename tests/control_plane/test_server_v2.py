@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 from http.server import HTTPServer
 from threading import Thread
+from unittest.mock import patch
 from urllib.request import Request, urlopen
 
-from control_plane.server import make_handler
+from control_plane.server import _main, make_handler
 from control_plane.service import ControlPlaneService
 
 
@@ -47,3 +48,33 @@ def test_server_supports_v2_endpoints_and_v1_aliases(tmp_path) -> None:
     finally:
         server.shutdown()
         thread.join(timeout=5)
+
+
+def test_nonloopback_blocked_without_flag() -> None:
+    with patch("sys.argv", ["server.py", "--host", "0.0.0.0"]):
+        rc = _main()
+    assert rc == 1
+
+
+def test_nonloopback_allowed_with_unsafe_flag() -> None:
+    with patch("sys.argv", ["server.py", "--host", "0.0.0.0", "--unsafe"]), \
+         patch("control_plane.server.run_server") as mock_run:
+        rc = _main()
+    assert rc == 0
+    mock_run.assert_called_once_with("0.0.0.0", 8787, None)
+
+
+def test_nonloopback_allowed_with_dev_flag() -> None:
+    with patch("sys.argv", ["server.py", "--host", "0.0.0.0", "--dev"]), \
+         patch("control_plane.server.run_server") as mock_run:
+        rc = _main()
+    assert rc == 0
+    mock_run.assert_called_once_with("0.0.0.0", 8787, None)
+
+
+def test_loopback_allowed_without_flag() -> None:
+    with patch("sys.argv", ["server.py", "--host", "127.0.0.1"]), \
+         patch("control_plane.server.run_server") as mock_run:
+        rc = _main()
+    assert rc == 0
+    mock_run.assert_called_once_with("127.0.0.1", 8787, None)
