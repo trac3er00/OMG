@@ -340,6 +340,83 @@ def test_cli_release_readiness_dual_channel(tmp_path: Path):
     )
     assert compile_enterprise.returncode == 0
 
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / "doctor.json").write_text(
+        json.dumps(
+            {
+                "schema": "DoctorResult",
+                "status": "pass",
+                "checks": [
+                    {"name": "python_version", "status": "ok", "required": True},
+                    {"name": "fastmcp", "status": "ok", "required": True},
+                    {"name": "omg_control_reachable", "status": "ok", "required": True},
+                    {"name": "policy_files", "status": "ok", "required": True},
+                    {"name": "metadata_drift", "status": "ok", "required": True},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (evidence_root / "run-1.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "run_id": "run-1",
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "tests": [{"name": "worker_implementation", "passed": True}],
+                "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
+                "diff_summary": {"files": 1},
+                "reproducibility": {"cmd": "pytest -q"},
+                "unresolved_risks": [],
+                "provenance": [{"source": "security-check"}],
+                "trust_scores": {"overall": 1.0},
+                "api_twin": {},
+                "trace_ids": ["trace-1"],
+                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    eval_root = tmp_path / ".omg" / "evals"
+    eval_root.mkdir(parents=True, exist_ok=True)
+    (eval_root / "latest.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvalGateResult",
+                "eval_id": "eval-1",
+                "trace_id": "trace-1",
+                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "status": "ok",
+                "summary": {"regressed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    tracebank_root = tmp_path / ".omg" / "tracebank"
+    tracebank_root.mkdir(parents=True, exist_ok=True)
+    (tracebank_root / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "schema": "TracebankRecord",
+                "trace_id": "trace-1",
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "path": ".omg/tracebank/events.jsonl",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
     readiness = _run(
         [
             "release",
