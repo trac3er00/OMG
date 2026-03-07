@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import hashlib
 import asyncio
+import importlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from typing import Any, Iterable
+from urllib.parse import urlparse
 import zipfile
 
 import yaml
@@ -1286,7 +1289,6 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
     
     # Files to check with their JSON paths to extract version
     files_to_check = [
-        ("README.md", None),  # Special case: extract from "# OMG X.Y.Z"
         ("package.json", ["version"]),
         ("pyproject.toml", None),  # Special case: extract from version = "X.Y.Z"
         ("settings.json", ["_omg", "_version"]),
@@ -1306,14 +1308,7 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
         found_version = None
         
         try:
-            if file_path == "README.md":
-                # Extract from "# OMG X.Y.Z"
-                content = full_path.read_text(encoding="utf-8")
-                for line in content.split("\n"):
-                    if line.startswith("# OMG "):
-                        found_version = line.replace("# OMG ", "").strip()
-                        break
-            elif file_path == "pyproject.toml":
+            if file_path == "pyproject.toml":
                 # Extract from version = "X.Y.Z"
                 content = full_path.read_text(encoding="utf-8")
                 for line in content.split("\n"):
@@ -1359,6 +1354,213 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
         "blockers": blockers,
         "drift_details": drift_details,
     }
+
+
+def _check_doctor_output(output_root: Path) -> dict[str, Any]:
+    evidence_dir = output_root / ".omg" / "evidence"
+    doctor_path = evidence_dir / "doctor.json"
+    if not doctor_path.exists():
+        return {
+            "status": "error",
+            "path": "",
+            "doctor": {},
+            "blockers": ["doctor_check_missing: missing .omg/evidence/doctor.json"],
+        }
+    try:
+        payload = _load_json(doctor_path)
+    except Exception as exc:
+        return {
+            "status": "error",
+            "path": str(doctor_path.relative_to(output_root)),
+            "doctor": {},
+            "blockers": [f"doctor_check_missing: invalid doctor output ({exc})"],
+        }
+
+    blockers: list[str] = []
+    if payload.get("schema") != "DoctorResult":
+        blockers.append("doctor_check_missing: doctor evidence schema mismatch")
+    if payload.get("status") != "pass":
+        blockers.append("doctor_check_missing: doctor status is not pass")
+    checks = payload.get("checks", [])
+    if not isinstance(checks, list) or not checks:
+        blockers.append("doctor_check_missing: doctor checks missing")
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "path": str(doctor_path.relative_to(output_root)),
+        "doctor": payload,
+        "blockers": blockers,
+    }
+
+
+def _check_proof_surface(root: Path) -> dict[str, Any]:
+    proof_path = root / "docs" / "proof.md"
+    if not proof_path.exists():
+        return {
+            "status": "error",
+            "path": "docs/proof.md",
+            "blockers": ["prose_only_proof: docs/proof.md missing"],
+        }
+
+    content = proof_path.read_text(encoding="utf-8")
+    lowered = content.lower()
+    hardcoded_counts = bool(
+        re.search(r"\b\d+\s*/\s*\d+\b", lowered)
+        or re.search(r"\b\d+\s+(tests?|checks?|providers?)\s+(passed|pass|green|successful)\b", lowered)
+        or re.search(r"\ball\s+tests?\s+passed\b", lowered)
+    )
+    artifact_refs = (
+        ".omg/evidence/",
+        ".omg/tracebank/",
+        ".omg/evals/",
+        ".omg/lineage/",
+    )
+    has_artifact_refs = any(token in content for token in artifact_refs)
+
+    blockers: list[str] = []
+    if hardcoded_counts and not has_artifact_refs:
+        blockers.append("prose_only_proof: hardcoded proof counts without machine artifact references")
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "path": str(proof_path.relative_to(root)),
+        "hardcoded_counts": hardcoded_counts,
+        "has_artifact_refs": has_artifact_refs,
+        "blockers": blockers,
+    }
+
+
+def _is_loopback_hostname(hostname: str) -> bool:
+    lowered = hostname.strip().lower()
+    return lowered in {"localhost", "127.0.0.1", "::1"}
+
+
+def _collect_http_urls(line: str) -> list[str]:
+    return re.findall(r"https?://[^\s)\]>'\"]+", line)
+
+
+def _check_same_machine_scope(root: Path, output_root: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    scanned: list[str] = []
+
+    for rel_path in ("README.md", "docs/proof.md", "OMG_COMPAT_CONTRACT.md"):
+        path = root / rel_path
+        if not path.exists():
+            continue
+        scanned.append(rel_path)
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if "production" not in line.lower():
+                continue
+            for url in _collect_http_urls(line):
+                parsed = urlparse(url)
+                if parsed.scheme != "http":
+                    continue
+                host = parsed.hostname or ""
+                if host and not _is_loopback_hostname(host):
+                    blockers.append(
+                        f"same_machine_scope_violation: {rel_path} claims production over non-loopback HTTP ({url})"
+                    )
+
+    mcp_path = output_root / ".mcp.json"
+    if mcp_path.exists():
+        scanned.append(str(mcp_path.relative_to(output_root)))
+        mcp_payload = _load_json(mcp_path)
+        servers = mcp_payload.get("mcpServers", {})
+        if isinstance(servers, dict):
+            for server_name, server_cfg in servers.items():
+                if not isinstance(server_cfg, dict):
+                    continue
+                for key in ("url", "httpUrl"):
+                    raw_url = str(server_cfg.get(key, "")).strip()
+                    if not raw_url:
+                        continue
+                    parsed = urlparse(raw_url)
+                    if parsed.scheme != "http":
+                        continue
+                    host = parsed.hostname or ""
+                    if host and not _is_loopback_hostname(host):
+                        blockers.append(
+                            "same_machine_scope_violation: "
+                            f".mcp.json server '{server_name}' uses non-loopback HTTP endpoint ({raw_url})"
+                        )
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "scanned": scanned,
+        "blockers": blockers,
+    }
+
+
+def _check_provider_host_parity(output_root: Path, providers: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    blockers: list[str] = []
+    required_for_provider = {
+        "claude": (
+            output_root / "settings.json",
+            output_root / ".claude-plugin" / "plugin.json",
+        ),
+        "codex": (
+            output_root / ".agents" / "skills" / "omg" / "AGENTS.fragment.md",
+            output_root / ".agents" / "skills" / "omg" / "codex-mcp.toml",
+        ),
+    }
+    for provider, status in providers.items():
+        if not status.get("ready"):
+            continue
+        for required_path in required_for_provider.get(provider, ()):
+            if not required_path.exists():
+                blockers.append(
+                    "provider_host_parity: "
+                    f"provider '{provider}' ready but host artifact missing {required_path.relative_to(output_root)}"
+                )
+    return {
+        "status": "ok" if not blockers else "error",
+        "blockers": blockers,
+    }
+
+
+def _has_waiver(risk: dict[str, Any]) -> bool:
+    return bool(
+        risk.get("waived")
+        or risk.get("waiver")
+        or risk.get("waiver_id")
+        or risk.get("waiver_evidence")
+    )
+
+
+def _check_high_risk_security_waivers(payload: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    unresolved = payload.get("unresolved_risks", [])
+    if isinstance(unresolved, list):
+        for item in unresolved:
+            if isinstance(item, dict):
+                severity = str(item.get("severity") or item.get("risk_level") or "").lower()
+                if severity in {"high", "critical"} and not _has_waiver(item):
+                    blockers.append("security_blocker_unwaived: unresolved high-risk item without waiver evidence")
+                    break
+            elif isinstance(item, str):
+                lowered = item.lower()
+                is_high = "high" in lowered or "critical" in lowered
+                waived = "waiv" in lowered
+                if is_high and not waived:
+                    blockers.append("security_blocker_unwaived: unresolved high-risk item without waiver evidence")
+                    break
+
+    scans = payload.get("security_scans", [])
+    if isinstance(scans, list):
+        for scan in scans:
+            if not isinstance(scan, dict):
+                continue
+            findings = scan.get("findings", [])
+            if not isinstance(findings, list):
+                continue
+            for finding in findings:
+                if not isinstance(finding, dict):
+                    continue
+                severity = str(finding.get("severity", "")).lower()
+                if severity in {"high", "critical"} and not _has_waiver(finding):
+                    blockers.append("security_blocker_unwaived: high-risk security finding without waiver evidence")
+                    return blockers
+    return blockers
 
 
 def build_release_readiness(
@@ -1432,9 +1634,35 @@ def build_release_readiness(
     checks["evidence"] = evidence_check
     blockers.extend(evidence_check.get("blockers", []))
 
+    doctor_check = _check_doctor_output(output)
+    checks["doctor"] = doctor_check
+    blockers.extend(doctor_check.get("blockers", []))
+
     eval_check = _check_eval_gate(output)
     checks["eval_gate"] = eval_check
     blockers.extend(eval_check.get("blockers", []))
+
+    proof_chain_check = _check_proof_chain(output)
+    checks["proof_chain"] = proof_chain_check
+    blockers.extend(proof_chain_check.get("blockers", []))
+
+    security_blockers = [
+        blocker
+        for blocker in evidence_check.get("blockers", [])
+        if isinstance(blocker, str) and blocker.startswith("security_blocker_unwaived:")
+    ]
+    checks["security_blocker_unwaived"] = {
+        "status": "ok" if not security_blockers else "error",
+        "blockers": security_blockers,
+    }
+
+    proof_surface_check = _check_proof_surface(root)
+    checks["proof_surface"] = proof_surface_check
+    blockers.extend(proof_surface_check.get("blockers", []))
+
+    same_machine_scope = _check_same_machine_scope(root, output)
+    checks["same_machine_scope"] = same_machine_scope
+    blockers.extend(same_machine_scope.get("blockers", []))
 
     package_check = _check_packaged_install_smoke(root)
     checks["package_smoke"] = package_check
@@ -1449,6 +1677,10 @@ def build_release_readiness(
     for provider_name, status in providers.items():
         if not status.get("ready"):
             blockers.append(f"provider not ready: {provider_name}")
+
+    provider_parity = _check_provider_host_parity(output, providers)
+    checks["provider_host_parity"] = provider_parity
+    blockers.extend(provider_parity.get("blockers", []))
 
     worktree_ready = shutil.which("git") is not None and (root / ".git").exists()
     checks["worktree"] = {"ready": worktree_ready}
@@ -1496,8 +1728,16 @@ def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
         blockers.append("cosmetic evidence: security_scans is empty")
     if not payload.get("provenance"):
         blockers.append("cosmetic evidence: provenance is empty")
+    if not payload.get("timestamp") and not payload.get("created_at"):
+        blockers.append("missing_attribution: evidence missing timestamp")
+    if not payload.get("executor"):
+        blockers.append("missing_attribution: evidence missing executor")
+    if not payload.get("environment"):
+        blockers.append("missing_attribution: evidence missing environment")
     if not payload.get("trace_ids"):
         blockers.append("missing trace ids in evidence")
+    if not payload.get("trace_id") and not payload.get("trace_ids"):
+        blockers.append("missing trace_id in evidence")
     if not payload.get("lineage"):
         blockers.append("missing lineage in evidence")
     tests = payload.get("tests", [])
@@ -1506,6 +1746,7 @@ def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
             if isinstance(item, dict) and item.get("name") == "worker_implementation" and not item.get("passed", False):
                 blockers.append("simulated worker evidence detected")
                 break
+    blockers.extend(_check_high_risk_security_waivers(payload))
     return {
         "status": "ok" if not blockers else "error",
         "evidence_file": str(evidence_path.relative_to(output_root)),
@@ -1524,6 +1765,21 @@ def _check_eval_gate(output_root: Path) -> dict[str, Any]:
     return {
         "status": "ok" if not blockers else "error",
         "path": str(latest_path.relative_to(output_root)),
+        "blockers": blockers,
+    }
+
+
+def _check_proof_chain(output_root: Path) -> dict[str, Any]:
+    module = importlib.import_module("runtime.proof_chain")
+    chain = module.assemble_proof_chain(str(output_root))
+    chain_status = str(chain.get("status", "error"))
+    raw_blockers = chain.get("blockers", [])
+    blockers = [f"proof_chain_linkage: {item}" for item in raw_blockers] if isinstance(raw_blockers, list) else ["proof_chain_linkage: invalid blockers"]
+    if chain_status == "ok":
+        blockers = []
+    return {
+        "status": "ok" if not blockers else "error",
+        "proof_chain": chain,
         "blockers": blockers,
     }
 

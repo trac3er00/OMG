@@ -8,7 +8,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 import shutil
+import socket
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -185,9 +187,26 @@ def create_evidence_pack(
     route_metadata: dict[str, Any] | None = None,
     trace_ids: list[str] | None = None,
     lineage: dict[str, Any] | None = None,
+    executor: dict[str, Any] | None = None,
+    environment: dict[str, Any] | None = None,
 ) -> str:
     ensure_shadow_dirs(project_dir)
     run_id = _validated_run_id(run_id)
+    
+    # Default executor if not provided
+    if executor is None:
+        executor = {
+            "user": os.getenv("USER", "unknown"),
+            "pid": str(os.getpid()),
+        }
+    
+    # Default environment if not provided
+    if environment is None:
+        environment = {
+            "hostname": socket.gethostname(),
+            "platform": platform.system(),
+        }
+    
     evidence = {
         "schema": "EvidencePack",
         "run_id": run_id,
@@ -203,6 +222,8 @@ def create_evidence_pack(
         "route_metadata": route_metadata or {},
         "trace_ids": trace_ids or [],
         "lineage": lineage or {},
+        "executor": executor,
+        "environment": environment,
     }
     evidence_path = ensure_path_within_dir(
         _evidence_root(project_dir),

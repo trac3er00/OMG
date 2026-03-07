@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OMG Control Plane API
-  version: 2.0.5
+  version: 2.0.7
   description: Policy/trust/evidence/runtime/registry/lab endpoints for OMG v2, with deprecated v1 aliases for one release.
 servers:
   - url: https://api.omg.local
