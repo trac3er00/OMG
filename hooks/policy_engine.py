@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from fnmatch import fnmatch
+import importlib
 import os
 import re
 from typing import Any
@@ -122,12 +123,89 @@ UNTRUSTED_MUTATION_PATTERNS = [
     r"\b(mv|cp|tee|sed\s+-i|touch|mkdir)\b",
 ]
 
+TRUSTED_CONTENT_TIERS = frozenset({"local", "balanced"})
+UNTRUSTED_EXTERNAL_TIERS = frozenset({"research", "browser"})
+
+
+def _project_dir() -> str:
+    return os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+
+
+def _load_untrusted_provenance_entries() -> list[dict[str, Any]]:
+    try:
+        from runtime.untrusted_content import get_untrusted_content_state
+
+        state = get_untrusted_content_state(_project_dir())
+        provenance = state.get("provenance", [])
+        if isinstance(provenance, list):
+            return [entry for entry in provenance if isinstance(entry, dict)]
+    except Exception:
+        return []
+    return []
+
+
+def _is_state_changing_action(action: str) -> bool:
+    normalized = str(action).strip().lower()
+    return normalized in {
+        "state_change",
+        "state-changing",
+        "bash_mutation",
+        "file_mutation",
+        "write",
+        "edit",
+        "delete",
+    }
+
+
+def evaluate_action_justification(
+    *,
+    action: str,
+    evidence: list[dict[str, Any]],
+    require_explicit_approval: bool = True,
+) -> PolicyDecision:
+    if not _is_state_changing_action(action):
+        return allow("non-mutating action")
+    if not evidence:
+        return ask(
+            "State-changing action lacks trust-scored evidence.",
+            "high",
+            ["manual-approval", "trusted-evidence-required"],
+        )
+
+    tiers = {
+        str(item.get("_trust_tier") or item.get("trust_tier") or "").strip().lower()
+        for item in evidence
+        if isinstance(item, dict)
+    }
+    tiers.discard("")
+    has_trusted = bool(tiers & TRUSTED_CONTENT_TIERS)
+    has_external_only = bool(tiers) and tiers.issubset(UNTRUSTED_EXTERNAL_TIERS)
+
+    if has_trusted:
+        return allow("trusted local evidence present")
+
+    if has_external_only:
+        reason = (
+            "State-changing action is justified only by UNTRUSTED_EXTERNAL_CONTENT "
+            "(research/browser tier)."
+        )
+        controls = ["manual-approval", "trusted-corroboration", "review-provenance"]
+        if require_explicit_approval:
+            return ask(reason, "high", controls)
+        return deny(reason, "high", controls)
+
+    return ask(
+        "State-changing action has unknown trust provenance.",
+        "high",
+        ["manual-approval", "review-provenance"],
+    )
+
 
 def _is_untrusted_content_mode_active() -> bool:
     try:
         from runtime.untrusted_content import is_untrusted_content_mode_active
 
-        project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+        project_dir = _project_dir()
         return is_untrusted_content_mode_active(project_dir)
     except Exception:
         return False
@@ -175,14 +253,25 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
         if re.search(pat, cmd):
             return ask(f"{label}: {cmd[:120]}", "med", ["human-approval"])
 
-    if _is_untrusted_content_mode_active():
-        for pat in UNTRUSTED_MUTATION_PATTERNS:
-            if re.search(pat, cmd):
-                return ask(
-                    "Untrusted external content mode is active. Review before running state-changing commands.",
-                    "high",
-                    ["manual-approval", "review-provenance"],
-                )
+    for pat in UNTRUSTED_MUTATION_PATTERNS:
+        if not re.search(pat, cmd):
+            continue
+        provenance_entries = _load_untrusted_provenance_entries()
+        if provenance_entries:
+            decision = evaluate_action_justification(
+                action="state_change",
+                evidence=provenance_entries,
+                require_explicit_approval=True,
+            )
+            if decision.action != "allow":
+                return decision
+        if _is_untrusted_content_mode_active():
+            return ask(
+                "Untrusted external content mode is active. Review before running state-changing commands.",
+                "high",
+                ["manual-approval", "review-provenance"],
+            )
+        break
 
     return allow("command allowed")
 
@@ -232,7 +321,10 @@ def _is_omg_credential_path(normalized_path: str) -> bool:
     This is deliberately narrow to prevent path traversal attacks.
     """
     # Import here to avoid circular dependency at module level
-    from _common import get_feature_flag
+    try:
+        get_feature_flag = getattr(importlib.import_module("hooks._common"), "get_feature_flag")
+    except Exception:
+        get_feature_flag = getattr(importlib.import_module("_common"), "get_feature_flag")
 
     # Only exempt if feature is enabled
     if not get_feature_flag("MULTI_CREDENTIAL", default=False):
@@ -413,7 +505,10 @@ def _log_allowlist_bypass(path: str, tool: str, reason: str) -> None:
     Silently fails — never raises exceptions (crash isolation invariant).
     """
     try:
-        from secret_audit import log_secret_access
+        try:
+            log_secret_access = getattr(importlib.import_module("hooks.secret_audit"), "log_secret_access")
+        except Exception:
+            log_secret_access = getattr(importlib.import_module("secret_audit"), "log_secret_access")
 
         project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
         log_secret_access(
@@ -472,12 +567,22 @@ def evaluate_file_access(
         if re.search(pat, lowpath):
             return deny(f"Sensitive path blocked: {file_path}", "critical", ["secret-access"])
 
-    if tool in {"Write", "Edit", "MultiEdit"} and _is_untrusted_content_mode_active():
-        return ask(
-            "Untrusted external content mode is active. Review before mutating files.",
-            "high",
-            ["manual-approval", "review-provenance"],
-        )
+    if tool in {"Write", "Edit", "MultiEdit"}:
+        provenance_entries = _load_untrusted_provenance_entries()
+        if provenance_entries:
+            decision = evaluate_action_justification(
+                action="file_mutation",
+                evidence=provenance_entries,
+                require_explicit_approval=True,
+            )
+            if decision.action != "allow":
+                return decision
+        if _is_untrusted_content_mode_active():
+            return ask(
+                "Untrusted external content mode is active. Review before mutating files.",
+                "high",
+                ["manual-approval", "review-provenance"],
+            )
 
     if allowlist and is_allowlisted(file_path, tool, allowlist):
         return allow(f"Allowlisted: {file_path}")

@@ -19,9 +19,9 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT / "hooks"))
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-import _common
+from hooks import _common
 import runtime.cli_provider
-import setup_wizard
+from hooks import setup_wizard
 
 
 # ---------------------------------------------------------------------------
@@ -53,12 +53,12 @@ def _clear_feature_cache():
 @pytest.fixture()
 def _patch_cli_writers():
     """Mock all non-Claude MCP config writers (they write to HOME dirs)."""
-    with patch("setup_wizard.write_codex_mcp_config"), \
-         patch("setup_wizard.write_codex_mcp_stdio_config"), \
-         patch("setup_wizard.write_gemini_mcp_config"), \
-         patch("setup_wizard.write_gemini_mcp_stdio_config"), \
-         patch("setup_wizard.write_kimi_mcp_stdio_config"), \
-         patch("setup_wizard.write_kimi_mcp_config"):
+    with patch("hooks.setup_wizard.write_codex_mcp_config"), \
+         patch("hooks.setup_wizard.write_codex_mcp_stdio_config"), \
+         patch("hooks.setup_wizard.write_gemini_mcp_config"), \
+         patch("hooks.setup_wizard.write_gemini_mcp_stdio_config"), \
+         patch("hooks.setup_wizard.write_kimi_mcp_stdio_config"), \
+         patch("hooks.setup_wizard.write_kimi_mcp_config"):
         yield
 
 
@@ -175,7 +175,7 @@ class TestConfigureMcpIntegration:
         assert mcp_json.exists()
         data = json.loads(mcp_json.read_text())
         assert "mcpServers" in data
-        assert "omg-memory" in data["mcpServers"]
+        assert "omg-memory" not in data["mcpServers"]
         assert "omg-control" in data["mcpServers"]
 
     def test_configure_mcp_claude_content_correct(self, tmp_path, _patch_cli_writers):
@@ -185,6 +185,7 @@ class TestConfigureMcpIntegration:
             {},
             server_url="http://127.0.0.1:8765/mcp",
             server_name="omg-memory",
+            preset="interop",
         )
 
         mcp_json = tmp_path / ".mcp.json"
@@ -200,19 +201,20 @@ class TestConfigureMcpIntegration:
             "gemini": {"detected": True, "auth_ok": True},
         }
 
-        with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
-             patch("setup_wizard.write_codex_mcp_stdio_config"), \
-             patch("setup_wizard.write_gemini_mcp_config") as mock_gemini, \
-             patch("setup_wizard.write_gemini_mcp_stdio_config"), \
-             patch("setup_wizard.write_kimi_mcp_stdio_config"), \
-             patch("setup_wizard.write_kimi_mcp_config"), \
-             patch("setup_wizard.write_claude_mcp_config"):
+        with patch("hooks.setup_wizard.write_codex_mcp_config") as mock_codex, \
+             patch("hooks.setup_wizard.write_codex_mcp_stdio_config"), \
+             patch("hooks.setup_wizard.write_gemini_mcp_config") as mock_gemini, \
+             patch("hooks.setup_wizard.write_gemini_mcp_stdio_config") as mock_gemini_stdio, \
+             patch("hooks.setup_wizard.write_kimi_mcp_stdio_config"), \
+             patch("hooks.setup_wizard.write_kimi_mcp_config"), \
+             patch("hooks.setup_wizard.write_claude_mcp_config"):
             result = setup_wizard.configure_mcp(str(tmp_path), detected)
 
         assert "codex" not in result["configured"]
         assert "gemini" in result["configured"]
         mock_codex.assert_not_called()
-        mock_gemini.assert_called_once()
+        mock_gemini.assert_not_called()
+        mock_gemini_stdio.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

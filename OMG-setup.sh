@@ -269,11 +269,65 @@ preflight() {
     py_ver=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
     py_maj=$(echo "$py_ver" | cut -d. -f1)
     py_min=$(echo "$py_ver" | cut -d. -f2)
-    if [ "$py_maj" -lt 3 ] || { [ "$py_maj" -eq 3 ] && [ "$py_min" -lt 8 ]; }; then
-        echo "  ❌ Python $py_ver found, 3.8+ required"
+    if [ "$py_maj" -lt 3 ] || { [ "$py_maj" -eq 3 ] && [ "$py_min" -lt 10 ]; }; then
+        echo "  ❌ Python $py_ver is not supported. OMG requires Python 3.10 or newer."
+        echo "     Python 3.8 and 3.9 are unsupported because OMG depends on"
+        echo "     libraries (fastmcp >=2.0) that require Python >= 3.10."
+        echo "     Upgrade at: https://www.python.org/downloads/"
         exit 1
     fi
     echo "  ✓ Python $py_ver"
+}
+
+provision_managed_venv() {
+    local venv_dir="$CLAUDE_DIR/omg-runtime/.venv"
+
+    if [ ! -f "$venv_dir/bin/python" ]; then
+        python3 -m venv "$venv_dir" || {
+            echo "  ⚠ Could not create managed venv (continuing without it)"
+            return 0
+        }
+    fi
+
+    if $USE_SYMLINK; then
+        "$venv_dir/bin/pip" install --quiet -e "${SCRIPT_DIR}[mcp]" 2>/dev/null || true
+    else
+        "$venv_dir/bin/pip" install --quiet "${SCRIPT_DIR}[mcp]" 2>/dev/null || true
+    fi
+
+    echo "  ✓ Managed venv → $venv_dir"
+}
+
+patch_omg_control_mcp_python() {
+    local mcp_path="$CLAUDE_DIR/.mcp.json"
+    local venv_python="$CLAUDE_DIR/omg-runtime/.venv/bin/python"
+
+    if [ ! -f "$mcp_path" ]; then
+        return 0
+    fi
+
+    python3 - "$mcp_path" "$venv_python" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+mcp_path = Path(sys.argv[1])
+venv_python = sys.argv[2]
+
+try:
+    data = json.loads(mcp_path.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(0)
+
+servers = data.get("mcpServers")
+if not isinstance(servers, dict):
+    raise SystemExit(0)
+
+omg_control = servers.get("omg-control")
+if isinstance(omg_control, dict) and omg_control.get("command") in ("python3", "python"):
+    omg_control["command"] = venv_python
+    mcp_path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
 }
 
 ensure_backup() {
@@ -1223,6 +1277,9 @@ run_install_like() {
             install_plugin_bundle
         fi
 
+        provision_managed_venv
+        patch_omg_control_mcp_python
+
         local adoption_report_path=""
         adoption_report_path=$(write_native_adoption_report)
         echo "  ✓ Adoption report → $adoption_report_path"
@@ -1231,6 +1288,7 @@ run_install_like() {
         if $INSTALL_AS_PLUGIN; then
             install_plugin_bundle
         fi
+        echo "  (would provision managed Python venv at $CLAUDE_DIR/omg-runtime/.venv)"
         echo "  (would write adoption report and apply preset/mode markers)"
     fi
 

@@ -3,6 +3,7 @@
 import os
 
 from hooks.policy_engine import (
+    evaluate_action_justification,
     evaluate_bash_command,
     evaluate_file_access,
     evaluate_supply_artifact,
@@ -78,3 +79,32 @@ def test_policy_engine_asks_for_file_write_when_untrusted_content_mode_active(tm
     assert decision.risk_level == "high"
 
     clear_untrusted_content(str(tmp_path), reason="reviewed")
+
+
+def test_policy_engine_external_only_state_change_requires_approval():
+    decision = evaluate_action_justification(
+        action="state_change",
+        evidence=[
+            {
+                "_trust_tier": "research",
+                "_trust_label": "UNTRUSTED_EXTERNAL_CONTENT",
+                "_trust_score": 0.0,
+            }
+        ],
+        require_explicit_approval=True,
+    )
+    assert decision.action == "ask"
+    assert "untrusted_external_content" in decision.reason.lower()
+
+
+def test_policy_engine_allows_state_change_with_local_evidence(tmp_path):
+    os.environ["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    mark_untrusted_content(
+        str(tmp_path),
+        source_type="local",
+        content="Apply local diff from repository analysis.",
+        tier="local",
+    )
+
+    decision = evaluate_bash_command("git commit -m 'local corroborated change'")
+    assert decision.action == "allow"

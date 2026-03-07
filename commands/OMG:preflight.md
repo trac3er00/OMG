@@ -23,4 +23,4 @@ Use `preflight` when the goal is clear but the safest execution route is not.
 - `security-check` for security-sensitive or trust-bound work
 - `api-twin` for contract replay and offline integration work
 - `crazy` for parallel execution
-- `teams` for targeted model routing
+- `teams` for targeted agent dispatch

@@ -106,14 +106,38 @@ def run_server(host: str = "127.0.0.1", port: int = 8787, project_dir: str | Non
         server.server_close()
 
 
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
 def _main() -> int:
     parser = argparse.ArgumentParser(description="Run OMG control-plane API server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--project-dir", default=None)
+    parser.add_argument(
+        "--unsafe", action="store_true",
+        help="Allow binding to non-loopback addresses (no auth; use at own risk)",
+    )
+    parser.add_argument(
+        "--dev", action="store_true",
+        help="Development mode — implies --unsafe for non-loopback binding",
+    )
     args = parser.parse_args()
-    if args.host != "127.0.0.1":
-        print(f"⚠ WARNING: Binding to {args.host} exposes the control plane to the network. No authentication is configured.", file=sys.stderr)
+
+    if args.host not in _LOOPBACK_HOSTS:
+        if not (args.unsafe or args.dev):
+            print(
+                f"ERROR: Binding to '{args.host}' exposes the control plane to the network.\n"
+                "No authentication is configured. This is blocked by default.\n"
+                "Pass --unsafe or --dev to override.",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            f"⚠ WARNING: Binding to {args.host} with {'--unsafe' if args.unsafe else '--dev'} flag. "
+            "No authentication is configured.",
+            file=sys.stderr,
+        )
 
     run_server(args.host, args.port, args.project_dir)
     return 0

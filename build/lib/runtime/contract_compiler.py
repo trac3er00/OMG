@@ -74,6 +74,237 @@ REQUIRED_BUNDLE_FIELDS = (
     "execution_contract",
     "channel_overrides",
 )
+REQUIRED_POLICY_MODEL_FIELDS = (
+    "trust_tiers",
+    "tool_policies",
+    "protected_paths",
+    "evidence_contract",
+    "host_rules",
+)
+REQUIRED_CLAUDE_HOOK_EVENTS = (
+    "UserPromptSubmit",
+    "PreToolUse",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "InstructionsLoaded",
+)
+REQUIRED_CLAUDE_SUBAGENT_NAMES = ("security-reviewer", "release-manager")
+REQUIRED_CODEX_AGENTS_SECTIONS = (
+    "## Build & Test",
+    "## Protected Paths",
+    "## Evidence Contract",
+    "## Required Skills",
+    "## Web Search Policy",
+    "## Approval Constraints",
+)
+REQUIRED_CODEX_OUTPUTS = (
+    "AGENTS.fragment.md",
+    "codex-rules.md",
+    "codex-mcp.toml",
+)
+
+
+def _ensure_list(
+    *,
+    bundle_id: str,
+    path: str,
+    value: Any,
+    errors: list[str],
+    min_items: int = 1,
+) -> list[Any]:
+    if not isinstance(value, list):
+        errors.append(f"{bundle_id}: {path} must be a list")
+        return []
+    if len(value) < min_items:
+        errors.append(f"{bundle_id}: {path} must contain at least {min_items} item(s)")
+    return value
+
+
+def _ensure_dict(*, bundle_id: str, path: str, value: Any, errors: list[str]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        errors.append(f"{bundle_id}: {path} must be an object")
+        return {}
+    return value
+
+
+def _validate_host_rule(
+    *,
+    bundle_id: str,
+    host_name: str,
+    host_rule: Any,
+    required_fields: tuple[str, ...],
+    errors: list[str],
+) -> None:
+    path = f"policy_model.host_rules.{host_name}"
+    host_payload = _ensure_dict(bundle_id=bundle_id, path=path, value=host_rule, errors=errors)
+    if not host_payload:
+        return
+    for field in required_fields:
+        if field not in host_payload:
+            errors.append(f"{bundle_id}: malformed host_rules entry for {host_name}: missing '{field}'")
+            continue
+        _ensure_list(
+            bundle_id=bundle_id,
+            path=f"{path}.{field}",
+            value=host_payload[field],
+            errors=errors,
+            min_items=1,
+        )
+
+
+def _validate_policy_model(bundle_id: str, policy_model: Any) -> list[str]:
+    errors: list[str] = []
+    payload = _ensure_dict(bundle_id=bundle_id, path="policy_model", value=policy_model, errors=errors)
+    if not payload:
+        return errors
+
+    for field in REQUIRED_POLICY_MODEL_FIELDS:
+        if field not in payload:
+            errors.append(f"{bundle_id}: policy_model missing field {field}")
+
+    tier_names: set[str] = set()
+    for index, tier in enumerate(
+        _ensure_list(
+            bundle_id=bundle_id,
+            path="policy_model.trust_tiers",
+            value=payload.get("trust_tiers", []),
+            errors=errors,
+        )
+    ):
+        tier_payload = _ensure_dict(
+            bundle_id=bundle_id,
+            path=f"policy_model.trust_tiers[{index}]",
+            value=tier,
+            errors=errors,
+        )
+        if not tier_payload:
+            continue
+        for field in ("name", "level", "label", "allowed_sources"):
+            if field not in tier_payload:
+                errors.append(f"{bundle_id}: policy_model.trust_tiers[{index}] missing field {field}")
+        if isinstance(tier_payload.get("name"), str) and tier_payload["name"].strip():
+            tier_names.add(tier_payload["name"].strip())
+        if "allowed_sources" in tier_payload:
+            _ensure_list(
+                bundle_id=bundle_id,
+                path=f"policy_model.trust_tiers[{index}].allowed_sources",
+                value=tier_payload.get("allowed_sources"),
+                errors=errors,
+                min_items=1,
+            )
+
+    for index, tool in enumerate(
+        _ensure_list(
+            bundle_id=bundle_id,
+            path="policy_model.tool_policies",
+            value=payload.get("tool_policies", []),
+            errors=errors,
+        )
+    ):
+        tool_payload = _ensure_dict(
+            bundle_id=bundle_id,
+            path=f"policy_model.tool_policies[{index}]",
+            value=tool,
+            errors=errors,
+        )
+        if not tool_payload:
+            continue
+        for field in ("tool_name", "allowed_tiers", "requires_approval"):
+            if field not in tool_payload:
+                errors.append(f"{bundle_id}: policy_model.tool_policies[{index}] missing field {field}")
+        allowed_tiers = _ensure_list(
+            bundle_id=bundle_id,
+            path=f"policy_model.tool_policies[{index}].allowed_tiers",
+            value=tool_payload.get("allowed_tiers", []),
+            errors=errors,
+            min_items=1,
+        )
+        if tier_names:
+            unknown_tiers = sorted(
+                tier_name
+                for tier_name in allowed_tiers
+                if isinstance(tier_name, str) and tier_name not in tier_names
+            )
+            if unknown_tiers:
+                errors.append(
+                    f"{bundle_id}: policy_model.tool_policies[{index}] references unknown tiers {unknown_tiers}"
+                )
+
+    for index, item in enumerate(
+        _ensure_list(
+            bundle_id=bundle_id,
+            path="policy_model.protected_paths",
+            value=payload.get("protected_paths", []),
+            errors=errors,
+        )
+    ):
+        path_payload = _ensure_dict(
+            bundle_id=bundle_id,
+            path=f"policy_model.protected_paths[{index}]",
+            value=item,
+            errors=errors,
+        )
+        if not path_payload:
+            continue
+        for field in ("path_pattern", "required_tier"):
+            if field not in path_payload:
+                errors.append(f"{bundle_id}: policy_model.protected_paths[{index}] missing field {field}")
+        required_tier = path_payload.get("required_tier")
+        if tier_names and isinstance(required_tier, str) and required_tier not in tier_names:
+            errors.append(
+                f"{bundle_id}: policy_model.protected_paths[{index}] references unknown tier '{required_tier}'"
+            )
+
+    evidence_contract = _ensure_dict(
+        bundle_id=bundle_id,
+        path="policy_model.evidence_contract",
+        value=payload.get("evidence_contract", {}),
+        errors=errors,
+    )
+    for field in ("timestamp", "executor", "trace_id", "lineage"):
+        if field not in evidence_contract:
+            errors.append(f"{bundle_id}: policy_model.evidence_contract missing field {field}")
+
+    host_rules = _ensure_dict(
+        bundle_id=bundle_id,
+        path="policy_model.host_rules",
+        value=payload.get("host_rules", {}),
+        errors=errors,
+    )
+    _validate_host_rule(
+        bundle_id=bundle_id,
+        host_name="claude",
+        host_rule=host_rules.get("claude"),
+        required_fields=("compilation_targets", "hooks", "subagents", "skills"),
+        errors=errors,
+    )
+    _validate_host_rule(
+        bundle_id=bundle_id,
+        host_name="codex",
+        host_rule=host_rules.get("codex"),
+        required_fields=("compilation_targets", "skills", "agents_fragments", "rules", "automations"),
+        errors=errors,
+    )
+    return errors
+
+
+def _policy_model_for_bundle(bundles: Iterable[dict[str, Any]], bundle_id: str) -> dict[str, Any] | None:
+    for bundle in bundles:
+        if str(bundle.get("id", "")) == bundle_id and isinstance(bundle.get("policy_model"), dict):
+            return dict(bundle["policy_model"])
+    return None
+
+
+def _policy_protected_paths(policy_model: dict[str, Any] | None, *, channel: str) -> list[str]:
+    if not policy_model:
+        return _protected_paths_for_channel(channel)
+    values: list[str] = []
+    for item in policy_model.get("protected_paths", []):
+        if isinstance(item, dict):
+            pattern = str(item.get("path_pattern", "")).strip()
+            if pattern:
+                values.append(pattern)
+    return values or _protected_paths_for_channel(channel)
 
 
 def _resolve_root(root_dir: str | Path | None) -> Path:
@@ -211,6 +442,8 @@ def validate_contract_registry(root_dir: str | Path | None = None) -> dict[str, 
             bad_hosts = [host for host in hosts if host not in SUPPORTED_HOSTS]
             if bad_hosts:
                 errors.append(f"{bundle_id}: unsupported hosts {bad_hosts}")
+        if "policy_model" in bundle:
+            errors.extend(_validate_policy_model(bundle_id, bundle.get("policy_model")))
 
     missing_bundles = [bundle_id for bundle_id in DEFAULT_REQUIRED_BUNDLES if bundle_id not in bundle_ids]
     for bundle_id in missing_bundles:
@@ -306,7 +539,7 @@ def _build_claude_marketplace() -> dict[str, Any]:
         "description": "Marketplace metadata for the OMG Claude plugin",
         "owner": {"name": "trac3er00"},
         "metadata": {
-            "description": "OMG - Oh-My-God for Claude Code",
+            "description": "OMG - Oh-My-God for Claude Code and supported agent hosts",
             "version": CANONICAL_VERSION,
             "homepage": CANONICAL_REPO_URL,
             "repository": CANONICAL_REPO_URL,
@@ -314,7 +547,7 @@ def _build_claude_marketplace() -> dict[str, Any]:
         "plugins": [
             {
                 "name": CANONICAL_PLUGIN_ID,
-                "description": "OMG plugin layer for Claude Code with native setup, orchestration, and interop.",
+        "description": "OMG plugin layer for Claude Code and supported agent hosts with native setup, orchestration, and interop.",
                 "version": CANONICAL_VERSION,
                 "source": "./",
                 "author": {"name": "trac3er00"},
@@ -375,12 +608,166 @@ def _protected_paths_for_channel(channel: str) -> list[str]:
     return paths
 
 
+def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
+    """Default OMG hook registrations for each required Claude event."""
+    return {
+        "UserPromptSubmit": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/user-prompt-submit.py"',
+                        "timeout": 10,
+                    }
+                ],
+            }
+        ],
+        "PreToolUse": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/firewall.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Bash",
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/secret-guard.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Read|Write|Edit|MultiEdit",
+            },
+        ],
+        "PostToolUse": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/tool-ledger.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Write|Edit|MultiEdit",
+            },
+        ],
+        "PostToolUseFailure": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/post-tool-failure.py"',
+                    }
+                ],
+            }
+        ],
+        "InstructionsLoaded": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/instructions-loaded.py"',
+                        "timeout": 10,
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def _build_claude_subagents(protected_paths: list[str]) -> list[dict[str, Any]]:
+    """Build narrow-tool Claude subagent definitions. No bypassPermissions allowed."""
+    return [
+        {
+            "name": "security-reviewer",
+            "description": "Read-only security review subagent with scoped tool access.",
+            "tools": [
+                "Read",
+                "Grep",
+                "Glob",
+                "Bash(grep *)",
+                "Bash(find *)",
+                "Bash(git log *)",
+                "Bash(git diff *)",
+            ],
+            "bypassPermissions": False,
+        },
+        {
+            "name": "release-manager",
+            "description": "Release management subagent with write access governed by protected-path policy.",
+            "tools": [
+                "Read",
+                "Write",
+                "Edit",
+                "Grep",
+                "Glob",
+                "Bash(git *)",
+                "Bash(python3 scripts/omg.py *)",
+            ],
+            "bypassPermissions": False,
+            "protectedPaths": protected_paths,
+        },
+    ]
+
+
+def _build_claude_skills(policy_model: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Build Claude skill definitions from the policy model host_rules."""
+    skill_refs: list[str] = []
+    if isinstance(policy_model, dict):
+        host_rules = policy_model.get("host_rules", {})
+        if isinstance(host_rules, dict):
+            claude_rules = host_rules.get("claude", {})
+            if isinstance(claude_rules, dict):
+                skill_refs = [str(s) for s in claude_rules.get("skills", []) if str(s).strip()]
+    skills: list[dict[str, Any]] = []
+    for ref in skill_refs:
+        skills.append({"name": ref, "source": f".agents/skills/{ref}/"})
+    return skills
+
+
+def _validate_compiled_claude_output(output_root: Path) -> list[str]:
+    """Validate compiled Claude settings.json contains required hooks and subagents."""
+    settings_path = output_root / "settings.json"
+    if not settings_path.exists():
+        return ["claude: missing compiled settings.json"]
+
+    settings = _load_json(settings_path)
+    errors: list[str] = []
+
+    hooks = settings.get("hooks", {})
+    for event in REQUIRED_CLAUDE_HOOK_EVENTS:
+        if event not in hooks or not hooks[event]:
+            errors.append(f"claude: missing required hook event '{event}'")
+
+    omg = settings.get("_omg", {})
+    generated = omg.get("generated", {})
+    subagents = generated.get("subagents", [])
+    subagent_names = {sa.get("name") for sa in subagents if isinstance(sa, dict)}
+    for name in REQUIRED_CLAUDE_SUBAGENT_NAMES:
+        if name not in subagent_names:
+            errors.append(f"claude: missing required subagent '{name}'")
+
+    for sa in subagents:
+        if isinstance(sa, dict) and sa.get("bypassPermissions"):
+            errors.append(
+                f"claude: subagent '{sa.get('name', '<unknown>')}' has bypassPermissions enabled"
+            )
+
+    return errors
+
+
 def _compile_claude_outputs(
     *,
     root: Path,
     output_root: Path,
     bundles: list[dict[str, Any]],
     channel: str,
+    policy_model: dict[str, Any] | None,
 ) -> list[Path]:
     artifacts: list[Path] = []
 
@@ -399,15 +786,28 @@ def _compile_claude_outputs(
         settings_path = resolve_asset("settings.json")
     settings = _load_json(settings_path)
     hook_bundle = _bundle_map(bundles)["hook-governor"]
-    settings["hooks"] = _compile_hook_settings(hook_bundle)
+    compiled_hooks = _compile_hook_settings(hook_bundle)
+    defaults = _default_claude_hook_registrations()
+    for event in REQUIRED_CLAUDE_HOOK_EVENTS:
+        if event not in compiled_hooks or not compiled_hooks[event]:
+            compiled_hooks[event] = defaults[event]
+    settings["hooks"] = compiled_hooks
+
+    protected_paths = _policy_protected_paths(policy_model, channel=channel)
+    subagents = _build_claude_subagents(protected_paths)
+    skills = _build_claude_skills(policy_model)
+
     omg_settings = dict(settings.get("_omg", {}))
     omg_settings["_version"] = CANONICAL_VERSION
     omg_settings["generated"] = {
         "contract_version": CANONICAL_VERSION,
         "channel": channel,
         "required_bundles": list(DEFAULT_REQUIRED_BUNDLES),
-        "protected_paths": _protected_paths_for_channel(channel),
+        "protected_paths": protected_paths,
         "emulated_events": list(hook_bundle.get("lifecycle_hooks", {}).get("emulated", [])),
+        "policy_model": policy_model or {},
+        "subagents": subagents,
+        "skills": skills,
     }
     settings["_omg"] = omg_settings
     _write_json(output_root / "settings.json", settings)
@@ -458,24 +858,212 @@ def _render_openai_yaml(bundle: dict[str, Any], channel: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _codex_skill_refs(policy_model: dict[str, Any] | None) -> list[str]:
+    """Extract skill references from policy_model.host_rules.codex.skills."""
+    if not isinstance(policy_model, dict):
+        return []
+    host_rules = policy_model.get("host_rules", {})
+    if not isinstance(host_rules, dict):
+        return []
+    codex_rules = host_rules.get("codex", {})
+    if not isinstance(codex_rules, dict):
+        return []
+    return [str(s) for s in codex_rules.get("skills", []) if str(s).strip()]
+
+
+def _codex_evidence_fields(policy_model: dict[str, Any] | None) -> list[str]:
+    """Extract required evidence contract fields from the policy model."""
+    if not isinstance(policy_model, dict):
+        return []
+    ec = policy_model.get("evidence_contract", {})
+    if not isinstance(ec, dict):
+        return []
+    return sorted(ec.keys())
+
+
+def _render_codex_agents_fragment(
+    *,
+    channel: str,
+    protected_paths: list[str],
+    codex_rules: list[str],
+    codex_automations: list[str],
+    codex_skills: list[str],
+    evidence_fields: list[str],
+) -> str:
+    """Render a comprehensive AGENTS.fragment.md for Codex host."""
+    sections: list[str] = []
+
+    # Header
+    sections.append(f"# OMG Codex Governance (channel: {channel})\n")
+
+    # Build & Test
+    sections.append("## Build & Test\n")
+    sections.append("```bash")
+    sections.append("python3 -m pytest tests -q")
+    sections.append("python3 scripts/omg.py contract validate")
+    sections.append(f"python3 scripts/omg.py contract compile --host codex --channel {channel}")
+    sections.append("```\n")
+
+    # Protected Paths
+    sections.append("## Protected Paths\n")
+    sections.append("The following paths require tier-gated review before mutation:\n")
+    for path in protected_paths:
+        sections.append(f"- `{path}`")
+    sections.append("")
+
+    # Evidence Contract
+    sections.append("## Evidence Contract\n")
+    sections.append("Every production action must emit evidence containing these fields:\n")
+    if evidence_fields:
+        for field in evidence_fields:
+            sections.append(f"- `{field}`")
+    else:
+        sections.append("- `timestamp`")
+        sections.append("- `executor`")
+        sections.append("- `trace_id`")
+        sections.append("- `lineage`")
+    sections.append("")
+
+    # Required Skills
+    sections.append("## Required Skills\n")
+    if codex_skills:
+        for skill in codex_skills:
+            sections.append(f"- `{skill}`")
+    else:
+        sections.append("- `omg/control-plane`")
+    sections.append("")
+
+    # Web Search Policy
+    sections.append("## Web Search Policy\n")
+    sections.append("- Prefer cached results over live network requests.")
+    sections.append("- Do NOT initiate live web searches unless explicitly instructed.")
+    sections.append("- Use `context7` or local documentation before external lookups.")
+    sections.append("- Set `cached_web_search: prefer_cached` as the default.\n")
+
+    # Approval Constraints
+    sections.append("## Approval Constraints\n")
+    sections.append("- Destructive file operations require explicit user approval.")
+    sections.append("- `git push --force` and branch deletions require explicit approval.")
+    sections.append("- Production deployments require explicit approval.")
+    sections.append("- Mutations to protected paths require tier-gated approval.\n")
+
+    # Rules & Automations (compact summary)
+    sections.append("## Rules & Automations\n")
+    rules_str = ", ".join(codex_rules) if codex_rules else "protected_paths, explicit_invocation"
+    auto_str = ", ".join(codex_automations) if codex_automations else "contract-compile"
+    sections.append(f"- Rules: `{rules_str}`")
+    sections.append(f"- Automations: `{auto_str}`")
+    sections.append("- Require explicit invocation for production-control-plane skills.")
+    sections.append("")
+
+    return "\n".join(sections)
+
+
+def _render_codex_rules(
+    *,
+    channel: str,
+    protected_paths: list[str],
+    codex_skills: list[str],
+) -> str:
+    """Render a codex-rules.md config fragment encoding defaults."""
+    lines: list[str] = []
+    lines.append(f"# OMG Codex Rules (channel: {channel})\n")
+
+    lines.append("## Defaults\n")
+    lines.append("- `cached_web_search: prefer_cached`")
+    lines.append("- `live_network: deny_by_default`")
+    lines.append("- `destructive_approval: required`\n")
+
+    lines.append("## Protected Paths\n")
+    for path in protected_paths:
+        lines.append(f"- `{path}`")
+    lines.append("")
+
+    lines.append("## Required Skills\n")
+    for skill in (codex_skills or ["omg/control-plane"]):
+        lines.append(f"- `{skill}`")
+    lines.append("")
+
+    lines.append("## Approval Matrix\n")
+    lines.append("| Action | Approval Required |")
+    lines.append("|--------|------------------|")
+    lines.append("| Read / Grep | No |")
+    lines.append("| Write to protected paths | Yes |")
+    lines.append("| Bash (python3:*) | Yes (balanced+ tier) |")
+    lines.append("| git push --force | Yes |")
+    lines.append("| Production deploy | Yes |")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def _validate_compiled_codex_output(output_root: Path) -> list[str]:
+    """Validate compiled Codex output contains required AGENTS sections and artifacts."""
+    errors: list[str] = []
+    shared_dir = output_root / ".agents" / "skills" / "omg"
+
+    for required_file in REQUIRED_CODEX_OUTPUTS:
+        path = shared_dir / required_file
+        if not path.exists():
+            errors.append(f"codex: missing required output '{required_file}'")
+
+    agents_path = shared_dir / "AGENTS.fragment.md"
+    if agents_path.exists():
+        content = agents_path.read_text(encoding="utf-8")
+        for section in REQUIRED_CODEX_AGENTS_SECTIONS:
+            if section not in content:
+                errors.append(f"codex: AGENTS.fragment.md missing required section '{section}'")
+    else:
+        errors.append("codex: cannot validate AGENTS.fragment.md — file missing")
+
+    return errors
+
+
 def _compile_codex_outputs(
     *,
     output_root: Path,
     bundles: list[dict[str, Any]],
     channel: str,
+    policy_model: dict[str, Any] | None,
 ) -> list[Path]:
     artifacts: list[Path] = []
     shared_dir = output_root / ".agents" / "skills" / "omg"
     shared_dir.mkdir(parents=True, exist_ok=True)
 
-    rules_fragment = (
-        "# OMG Codex Protection Rules\n\n"
-        f"- Channel: `{channel}`\n"
-        "- Protect `.omg/`, `.agents/`, `.codex/`, and `.claude/` from unreviewed mutation.\n"
-        "- Require explicit invocation for production-control-plane skills.\n"
+    protected_paths = _policy_protected_paths(policy_model, channel=channel)
+    codex_rules: list[str] = []
+    codex_automations: list[str] = []
+    if isinstance(policy_model, dict):
+        host_rules = policy_model.get("host_rules", {})
+        if isinstance(host_rules, dict):
+            codex_policy = host_rules.get("codex", {})
+            if isinstance(codex_policy, dict):
+                codex_rules = [str(item) for item in codex_policy.get("rules", []) if str(item).strip()]
+                codex_automations = [
+                    str(item) for item in codex_policy.get("automations", []) if str(item).strip()
+                ]
+
+    codex_skills = _codex_skill_refs(policy_model)
+    evidence_fields = _codex_evidence_fields(policy_model)
+
+    agents_fragment = _render_codex_agents_fragment(
+        channel=channel,
+        protected_paths=protected_paths,
+        codex_rules=codex_rules,
+        codex_automations=codex_automations,
+        codex_skills=codex_skills,
+        evidence_fields=evidence_fields,
     )
-    _write_text(shared_dir / "AGENTS.fragment.md", rules_fragment)
+    _write_text(shared_dir / "AGENTS.fragment.md", agents_fragment)
     artifacts.append(shared_dir / "AGENTS.fragment.md")
+
+    rules_content = _render_codex_rules(
+        channel=channel,
+        protected_paths=protected_paths,
+        codex_skills=codex_skills,
+    )
+    _write_text(shared_dir / "codex-rules.md", rules_content)
+    artifacts.append(shared_dir / "codex-rules.md")
 
     from runtime.mcp_config_writers import write_codex_mcp_stdio_config
 
@@ -580,12 +1168,48 @@ def compile_contract_outputs(
         }
 
     bundles = load_contract_bundles(root)
+    policy_model = _policy_model_for_bundle(bundles, "control-plane")
     artifacts = _copy_contract_inputs(root, output)
 
     if "claude" in selected_hosts:
-        artifacts.extend(_compile_claude_outputs(root=root, output_root=output, bundles=bundles, channel=channel))
+        artifacts.extend(
+            _compile_claude_outputs(
+                root=root,
+                output_root=output,
+                bundles=bundles,
+                channel=channel,
+                policy_model=policy_model,
+            )
+        )
+        claude_errors = _validate_compiled_claude_output(output)
+        if claude_errors:
+            return {
+                "schema": "OmgContractCompileResult",
+                "status": "error",
+                "channel": channel,
+                "hosts": selected_hosts,
+                "errors": claude_errors,
+                "artifacts": [],
+            }
     if "codex" in selected_hosts:
-        artifacts.extend(_compile_codex_outputs(output_root=output, bundles=bundles, channel=channel))
+        artifacts.extend(
+            _compile_codex_outputs(
+                output_root=output,
+                bundles=bundles,
+                channel=channel,
+                policy_model=policy_model,
+            )
+        )
+        codex_errors = _validate_compiled_codex_output(output)
+        if codex_errors:
+            return {
+                "schema": "OmgContractCompileResult",
+                "status": "error",
+                "channel": channel,
+                "hosts": selected_hosts,
+                "errors": codex_errors,
+                "artifacts": [],
+            }
 
     bundled_artifacts = _copy_release_bundle(output_root=output, channel=channel, artifacts=artifacts)
     manifest_path = _build_dist_manifest(output, channel=channel, artifacts=bundled_artifacts)
@@ -645,6 +1269,95 @@ def _check_mcp_fabric() -> dict[str, Any]:
         "ready": isinstance(instructions, str) and bool(instructions.strip()) and len(prompts) >= 1 and len(resources) >= 1,
         "prompt_count": len(prompts),
         "resource_count": len(resources),
+    }
+
+
+def _check_version_identity_drift(root: Path) -> dict[str, Any]:
+    """Check version/identity drift across all public surface files.
+    
+    Returns a dict with:
+    - status: "ok" or "error"
+    - blockers: list of named blockers for each mismatch
+    - drift_details: dict mapping file paths to their found versions
+    """
+    canonical_version = CANONICAL_VERSION
+    blockers: list[str] = []
+    drift_details: dict[str, str] = {}
+    
+    # Files to check with their JSON paths to extract version
+    files_to_check = [
+        ("README.md", None),  # Special case: extract from "# OMG X.Y.Z"
+        ("package.json", ["version"]),
+        ("pyproject.toml", None),  # Special case: extract from version = "X.Y.Z"
+        ("settings.json", ["_omg", "_version"]),
+        (".claude-plugin/plugin.json", ["version"]),
+        (".claude-plugin/marketplace.json", ["version"]),
+        ("plugins/core/plugin.json", ["version"]),
+        ("plugins/advanced/plugin.json", ["version"]),
+        ("CHANGELOG.md", None),  # Special case: check for version in header
+    ]
+    
+    for file_path, json_path in files_to_check:
+        full_path = root / file_path
+        if not full_path.exists():
+            blockers.append(f"version_drift: missing file {file_path}")
+            continue
+        
+        found_version = None
+        
+        try:
+            if file_path == "README.md":
+                # Extract from "# OMG X.Y.Z"
+                content = full_path.read_text(encoding="utf-8")
+                for line in content.split("\n"):
+                    if line.startswith("# OMG "):
+                        found_version = line.replace("# OMG ", "").strip()
+                        break
+            elif file_path == "pyproject.toml":
+                # Extract from version = "X.Y.Z"
+                content = full_path.read_text(encoding="utf-8")
+                for line in content.split("\n"):
+                    if line.startswith("version = "):
+                        found_version = line.split('"')[1]
+                        break
+            elif file_path == "CHANGELOG.md":
+                # Extract from "## X.Y.Z -" header (skip "Unreleased" section)
+                content = full_path.read_text(encoding="utf-8")
+                for line in content.split("\n"):
+                    if line.startswith("## ") and " - " in line:
+                        version_str = line.split(" - ")[0].replace("## ", "").strip()
+                        if version_str.lower() != "unreleased":
+                            found_version = version_str
+                            break
+            else:
+                # JSON file: use json_path to navigate
+                data = _load_json(full_path)
+                current = data
+                if json_path:
+                    for key in json_path:
+                        current = current.get(key)
+                        if current is None:
+                            break
+                found_version = current
+        except Exception as e:
+            blockers.append(f"version_drift: failed to parse {file_path}: {e}")
+            continue
+        
+        if found_version is None:
+            blockers.append(f"version_drift: could not extract version from {file_path}")
+        elif str(found_version) != canonical_version:
+            blockers.append(
+                f"version_drift: {file_path} has version {found_version}, expected {canonical_version}"
+            )
+            drift_details[file_path] = str(found_version)
+        else:
+            drift_details[file_path] = str(found_version)
+    
+    return {
+        "status": "ok" if not blockers else "error",
+        "canonical_version": canonical_version,
+        "blockers": blockers,
+        "drift_details": drift_details,
     }
 
 
@@ -726,6 +1439,10 @@ def build_release_readiness(
     package_check = _check_packaged_install_smoke(root)
     checks["package_smoke"] = package_check
     blockers.extend(package_check.get("blockers", []))
+
+    version_drift_check = _check_version_identity_drift(root)
+    checks["version_identity_drift"] = version_drift_check
+    blockers.extend(version_drift_check.get("blockers", []))
 
     providers = _provider_statuses()
     checks["providers"] = providers

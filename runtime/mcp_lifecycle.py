@@ -141,13 +141,27 @@ def check_memory_server() -> dict[str, Any]:
     }
 
 
+_HTTP_MEMORY_RESTRICTED_PRESETS = frozenset({"safe", "balanced"})
+
+
+def _get_current_preset() -> str:
+    return os.environ.get("OMG_PRESET", "safe")
+
+
 def ensure_memory_server() -> dict[str, Any]:
-    """Ensure the memory server is running (idempotent)."""
+    """Ensure the memory server is running (idempotent).
+
+    Skips startup when the active preset is ``safe`` or ``balanced`` —
+    HTTP memory is an opt-in surface starting at the ``interop`` tier.
+    """
+    preset = _get_current_preset()
+    if preset in _HTTP_MEMORY_RESTRICTED_PRESETS:
+        return {"status": "skipped", "reason": f"HTTP memory disabled for preset '{preset}'"}
     if is_server_running():
         return {"status": "already_running", "url": get_server_url()}
     return start_memory_server()
 
 
-# Feature flag: auto-start on import
+# Feature flag: auto-start on import (respects preset restrictions)
 if os.environ.get("OMG_MEMORY_AUTOSTART") == "1":
     ensure_memory_server()
