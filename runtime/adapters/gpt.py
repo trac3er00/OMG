@@ -23,6 +23,7 @@ class GPTAdapter:
             "runtime": self.runtime,
             "phase": "execute",
             "status": "executed",
+            "worker_mode": "stub",
             "operations": ["apply-plan", "collect-diff"],
             "errors": [],
         }
@@ -36,6 +37,7 @@ class GPTAdapter:
             "checks": [
                 {"name": "tests", "passed": True},
                 {"name": "security", "passed": True},
+                {"name": "worker_implementation", "passed": False, "mode": "stub"},
             ],
         }
 
@@ -50,4 +52,5 @@ class GPTAdapter:
             "diff_summary": {},
             "reproducibility": {"seed": "deterministic"},
             "unresolved_risks": [],
+            "worker_mode": "stub",
         }

@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from runtime.asset_loader import resolve_asset
+
 _MCP_IMPORT_ERROR: ModuleNotFoundError | None = None
 
 try:
@@ -112,7 +114,7 @@ def _service() -> ControlPlaneService:
 
 
 def _read_repo_text(rel_path: str) -> str:
-    return (_root_dir() / rel_path).read_text(encoding="utf-8")
+    return resolve_asset(rel_path).read_text(encoding="utf-8")
 
 
 @mcp.tool()

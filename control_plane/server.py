@@ -33,49 +33,58 @@ def _read_json(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
         return {}
 
 
+_POST_ROUTE_TABLE = {
+    "/v2/policy/evaluate": ("policy_evaluate", False),
+    "/v1/policy/evaluate": ("policy_evaluate", True),
+    "/v2/trust/review": ("trust_review", False),
+    "/v1/trust/review": ("trust_review", True),
+    "/v2/evidence/ingest": ("evidence_ingest", False),
+    "/v1/evidence/ingest": ("evidence_ingest", True),
+    "/v2/security/check": ("security_check", False),
+    "/v1/security/check": ("security_check", True),
+    "/v2/guide/assert": ("guide_assert", False),
+    "/v1/guide/assert": ("guide_assert", True),
+    "/v2/runtime/dispatch": ("runtime_dispatch", False),
+    "/v1/runtime/dispatch": ("runtime_dispatch", True),
+    "/v2/registry/verify": ("registry_verify", False),
+    "/v1/registry/verify": ("registry_verify", True),
+    "/v2/lab/jobs": ("lab_jobs", False),
+    "/v1/lab/jobs": ("lab_jobs", True),
+}
+
+_GET_ROUTE_TABLE = {
+    "/v2/scoreboard/baseline": ("scoreboard_baseline", False),
+    "/v1/scoreboard/baseline": ("scoreboard_baseline", True),
+}
+
+
+def _decorate_payload(payload: dict[str, Any], *, deprecated: bool) -> dict[str, Any]:
+    decorated = dict(payload)
+    decorated["api_version"] = "v2"
+    if deprecated:
+        decorated["deprecated"] = True
+        decorated["deprecated_alias"] = "v1"
+    return decorated
+
+
 def make_handler(service: ControlPlaneService):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
-            if self.path == "/v1/scoreboard/baseline":
-                status, payload = service.scoreboard_baseline()
-                _json_response(self, status, payload)
+            route = _GET_ROUTE_TABLE.get(self.path)
+            if route is not None:
+                method_name, deprecated = route
+                status, payload = getattr(service, method_name)()
+                _json_response(self, status, _decorate_payload(payload, deprecated=deprecated))
                 return
             _json_response(self, 404, {"status": "error", "message": "Not found"})
 
         def do_POST(self) -> None:  # noqa: N802
             payload = _read_json(self)
-
-            if self.path == "/v1/policy/evaluate":
-                status, out = service.policy_evaluate(payload)
-                _json_response(self, status, out)
-                return
-            if self.path == "/v1/trust/review":
-                status, out = service.trust_review(payload)
-                _json_response(self, status, out)
-                return
-            if self.path == "/v1/evidence/ingest":
-                status, out = service.evidence_ingest(payload)
-                _json_response(self, status, out)
-                return
-            if self.path == "/v1/security/check":
-                status, out = service.security_check(payload)
-                _json_response(self, status, out)
-                return
-            if self.path == "/v1/guide/assert":
-                status, out = service.guide_assert(payload)
-                _json_response(self, status, out)
-                return
-            if self.path == "/v1/runtime/dispatch":
-                status, out = service.runtime_dispatch(payload)
-                _json_response(self, status, out)
-                return
-            if self.path == "/v1/registry/verify":
-                status, out = service.registry_verify(payload)
-                _json_response(self, status, out)
-                return
-            if self.path == "/v1/lab/jobs":
-                status, out = service.lab_jobs(payload)
-                _json_response(self, status, out)
+            route = _POST_ROUTE_TABLE.get(self.path)
+            if route is not None:
+                method_name, deprecated = route
+                status, out = getattr(service, method_name)(payload)
+                _json_response(self, status, _decorate_payload(out, deprecated=deprecated))
                 return
 
             _json_response(self, 404, {"status": "error", "message": "Not found"})

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OMG 2.0.4 CLI entrypoint.
+"""OMG 2.0.5 CLI entrypoint.
 
 Implements practical command-line flows for:
 - omg ship
@@ -33,14 +33,19 @@ from hooks.trust_review import review_config_change, write_trust_manifest
 from lab.pipeline import publish_artifact, run_pipeline
 from runtime.dispatcher import dispatch_runtime
 from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, verify_fixture
+from runtime.data_lineage import build_lineage_manifest
+from runtime.eval_gate import evaluate_trace
+from runtime.incident_replay import build_incident_pack
 from runtime.domain_packs import get_domain_pack_contract
 from runtime.preflight import run_preflight
+from runtime.remote_supervisor import issue_local_supervisor_session, verify_local_supervisor_token
 from runtime.security_check import run_security_check
 from runtime.contract_compiler import (
     build_release_readiness,
     compile_contract_outputs,
     validate_contract_registry,
 )
+from runtime.tracebank import record_trace
 from runtime.compat import (
     DEFAULT_CONTRACT_SNAPSHOT_PATH,
     DEFAULT_GAP_REPORT_PATH,
@@ -130,14 +135,55 @@ def cmd_ship(args: argparse.Namespace) -> int:
     run_id = args.run_id or _now_run_id()
     verification = dispatched.get("verification", {})
     checks = verification.get("checks", []) if isinstance(verification, dict) else []
+    preflight = run_preflight(project_dir, goal=str(idea.get("goal", "")))
+    security_result = run_security_check(project_dir=project_dir, scope=".")
+    trace = record_trace(
+        project_dir,
+        trace_type="ship",
+        route=preflight["route"],
+        status="ok",
+        plan=dispatched.get("plan", {}),
+        verify=verification if isinstance(verification, dict) else {},
+        metadata={"runtime": runtime, "run_id": run_id},
+    )
+    eval_result = evaluate_trace(
+        project_dir,
+        trace_id=trace["trace_id"],
+        suites=["planning", "security"],
+        metrics={
+            "planning": 1.0 if dispatched.get("status") == "ok" else 0.0,
+            "security": max(float(security_result["trust_scores"].get("overall", 0.0)), 0.0),
+        },
+    )
+    lineage = build_lineage_manifest(
+        project_dir,
+        artifact_type="evidence-pack",
+        sources=[{"kind": "repo", "path": ".", "license": "MIT"}],
+        privacy="internal",
+        license="MIT",
+        derivation={"trace_id": trace["trace_id"], "route": preflight["route"], "eval_path": eval_result["path"]},
+        trace_id=trace["trace_id"],
+    )
     evidence_path = create_evidence_pack(
         project_dir,
         run_id,
         tests=checks if isinstance(checks, list) else [],
-        security_scans=[],
+        security_scans=[
+            {
+                "tool": "security-check",
+                "finding_count": security_result["summary"]["finding_count"],
+                "path": security_result["evidence"]["path"],
+            }
+        ],
         diff_summary={"runtime": runtime, "goal": idea.get("goal", "")},
         reproducibility={"command": f"omg ship --runtime {runtime} --idea {idea_path}"},
         unresolved_risks=[],
+        provenance=security_result["provenance"],
+        trust_scores=security_result["trust_scores"],
+        api_twin={"recommended_route": preflight["route"] if preflight["route"] == "api-twin" else ""},
+        route_metadata=preflight,
+        trace_ids=[trace["trace_id"]],
+        lineage=lineage,
     )
 
     out = {
@@ -147,6 +193,8 @@ def cmd_ship(args: argparse.Namespace) -> int:
         "run_id": run_id,
         "goal": idea.get("goal", ""),
         "evidence_path": os.path.relpath(evidence_path, project_dir),
+        "trace_id": trace["trace_id"],
+        "eval_path": eval_result["path"],
     }
     print(json.dumps(out, indent=2))
     return 0
@@ -185,9 +233,12 @@ def cmd_api_twin_record(args: argparse.Namespace) -> int:
     result = record_fixture(
         _ensure_project_dir(),
         name=args.name,
+        endpoint=args.endpoint,
+        cassette_version=args.cassette_version,
         request=json.loads(args.request_json),
         response=json.loads(args.response_json),
         validated=bool(args.validated),
+        redactions=json.loads(args.redactions_json) if args.redactions_json else None,
     )
     print(json.dumps(result, indent=2))
     return 0
@@ -197,6 +248,8 @@ def cmd_api_twin_serve(args: argparse.Namespace) -> int:
     result = serve_fixture(
         _ensure_project_dir(),
         name=args.name,
+        endpoint=args.endpoint,
+        cassette_version=args.cassette_version,
         latency_ms=int(args.latency_ms),
         failure_mode=args.failure_mode,
         schema_drift=bool(args.schema_drift),
@@ -209,6 +262,8 @@ def cmd_api_twin_verify(args: argparse.Namespace) -> int:
     result = verify_fixture(
         _ensure_project_dir(),
         name=args.name,
+        endpoint=args.endpoint,
+        cassette_version=args.cassette_version,
         live_response=json.loads(args.live_response_json),
     )
     print(json.dumps(result, indent=2))
@@ -225,6 +280,82 @@ def cmd_domain_pack(args: argparse.Namespace) -> int:
     result = get_domain_pack_contract(args.name)
     print(json.dumps(result, indent=2))
     return 0
+
+
+def cmd_trace_record(args: argparse.Namespace) -> int:
+    result = record_trace(
+        _ensure_project_dir(),
+        trace_type=args.trace_type,
+        route=args.route,
+        status=args.status,
+        plan=json.loads(args.plan_json) if args.plan_json else {},
+        verify=json.loads(args.verify_json) if args.verify_json else {},
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_eval_gate(args: argparse.Namespace) -> int:
+    result = evaluate_trace(
+        _ensure_project_dir(),
+        trace_id=args.trace_id,
+        suites=args.suites.split(","),
+        metrics=json.loads(args.metrics_json),
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result["status"] == "ok" else 2
+
+
+def cmd_delta_classify(args: argparse.Namespace) -> int:
+    from runtime.delta_classifier import classify_project_changes
+
+    touched_files = [item for item in args.files.split(",") if item]
+    result = classify_project_changes(_ensure_project_dir(), touched_files=touched_files or None, goal=args.goal)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_incident_replay(args: argparse.Namespace) -> int:
+    result = build_incident_pack(
+        _ensure_project_dir(),
+        title=args.title,
+        failing_tests=[item for item in args.failing_tests.split(",") if item],
+        logs=[item for item in args.logs.split("|") if item],
+        diff_summary=json.loads(args.diff_summary_json),
+        trace_id=args.trace_id or None,
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_lineage(args: argparse.Namespace) -> int:
+    result = build_lineage_manifest(
+        _ensure_project_dir(),
+        artifact_type=args.artifact_type,
+        sources=json.loads(args.sources_json),
+        privacy=args.privacy,
+        license=args.license_name,
+        derivation=json.loads(args.derivation_json),
+        trace_id=args.trace_id or None,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result["status"] == "ok" else 2
+
+
+def cmd_supervisor_issue(args: argparse.Namespace) -> int:
+    result = issue_local_supervisor_session(
+        _ensure_project_dir(),
+        worker_id=args.worker_id,
+        shared_secret=args.shared_secret,
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_supervisor_verify(args: argparse.Namespace) -> int:
+    result = verify_local_supervisor_token(args.token, shared_secret=args.shared_secret)
+    print(json.dumps(result, indent=2))
+    return 0 if result["status"] == "ok" else 2
 
 
 def cmd_maintainer(args: argparse.Namespace) -> int:
@@ -562,18 +693,25 @@ def build_parser() -> argparse.ArgumentParser:
     api_twin_ingest.set_defaults(func=cmd_api_twin_ingest)
     api_twin_record = api_twin_sub.add_parser("record", help="Record approved fixture response")
     api_twin_record.add_argument("--name", required=True)
+    api_twin_record.add_argument("--endpoint", default="default")
+    api_twin_record.add_argument("--cassette-version", default="v1")
     api_twin_record.add_argument("--request-json", required=True)
     api_twin_record.add_argument("--response-json", required=True)
     api_twin_record.add_argument("--validated", action="store_true")
+    api_twin_record.add_argument("--redactions-json", default="")
     api_twin_record.set_defaults(func=cmd_api_twin_record)
     api_twin_serve = api_twin_sub.add_parser("serve", help="Replay a fixture with optional drift/failure injection")
     api_twin_serve.add_argument("--name", required=True)
+    api_twin_serve.add_argument("--endpoint", default="default")
+    api_twin_serve.add_argument("--cassette-version", default="v1")
     api_twin_serve.add_argument("--latency-ms", type=int, default=0)
     api_twin_serve.add_argument("--failure-mode", default="")
     api_twin_serve.add_argument("--schema-drift", action="store_true")
     api_twin_serve.set_defaults(func=cmd_api_twin_serve)
     api_twin_verify = api_twin_sub.add_parser("verify", help="Validate a fixture against a live response")
     api_twin_verify.add_argument("--name", required=True)
+    api_twin_verify.add_argument("--endpoint", default="default")
+    api_twin_verify.add_argument("--cassette-version", default="v1")
     api_twin_verify.add_argument("--live-response-json", required=True)
     api_twin_verify.set_defaults(func=cmd_api_twin_verify)
 
@@ -584,6 +722,53 @@ def build_parser() -> argparse.ArgumentParser:
     domain_pack = sub.add_parser("domain-pack", help="Inspect optional domain pack contracts")
     domain_pack.add_argument("--name", required=True, choices=["robotics", "vision", "algorithms", "health"])
     domain_pack.set_defaults(func=cmd_domain_pack)
+
+    tracebank = sub.add_parser("tracebank", help="Record structured route traces")
+    tracebank.add_argument("--trace-type", required=True)
+    tracebank.add_argument("--route", required=True)
+    tracebank.add_argument("--status", default="ok")
+    tracebank.add_argument("--plan-json", default="")
+    tracebank.add_argument("--verify-json", default="")
+    tracebank.set_defaults(func=cmd_trace_record)
+
+    eval_gate = sub.add_parser("eval-gate", help="Evaluate a trace for release gating")
+    eval_gate.add_argument("--trace-id", required=True)
+    eval_gate.add_argument("--suites", required=True, help="Comma-separated suite names")
+    eval_gate.add_argument("--metrics-json", required=True)
+    eval_gate.set_defaults(func=cmd_eval_gate)
+
+    delta = sub.add_parser("delta-classifier", help="Classify repo changes for routing and policy")
+    delta.add_argument("--goal", default="")
+    delta.add_argument("--files", default="")
+    delta.set_defaults(func=cmd_delta_classify)
+
+    incident = sub.add_parser("incident-replay", help="Build an incident replay pack")
+    incident.add_argument("--title", required=True)
+    incident.add_argument("--failing-tests", default="")
+    incident.add_argument("--logs", default="")
+    incident.add_argument("--diff-summary-json", required=True)
+    incident.add_argument("--trace-id", default="")
+    incident.set_defaults(func=cmd_incident_replay)
+
+    lineage = sub.add_parser("data-lineage", help="Build lineage metadata for generated artifacts")
+    lineage.add_argument("--artifact-type", required=True)
+    lineage.add_argument("--sources-json", required=True)
+    lineage.add_argument("--privacy", required=True)
+    lineage.add_argument("--license-name", required=True)
+    lineage.add_argument("--derivation-json", required=True)
+    lineage.add_argument("--trace-id", default="")
+    lineage.set_defaults(func=cmd_lineage)
+
+    supervisor = sub.add_parser("remote-supervisor", help="Local-only authenticated supervisor session helpers")
+    supervisor_sub = supervisor.add_subparsers(dest="remote_supervisor_command", required=True)
+    supervisor_issue = supervisor_sub.add_parser("issue", help="Issue a local supervisor session")
+    supervisor_issue.add_argument("--worker-id", required=True)
+    supervisor_issue.add_argument("--shared-secret", required=True)
+    supervisor_issue.set_defaults(func=cmd_supervisor_issue)
+    supervisor_verify = supervisor_sub.add_parser("verify", help="Verify a supervisor session token")
+    supervisor_verify.add_argument("--token", required=True)
+    supervisor_verify.add_argument("--shared-secret", required=True)
+    supervisor_verify.set_defaults(func=cmd_supervisor_verify)
 
     maintainer = sub.add_parser("maintainer", help="OSS maintainer evidence helper")
     maintainer.add_argument("--mode", default="impact", choices=["triage", "release", "review", "impact"])

@@ -3,11 +3,15 @@ from __future__ import annotations
 
 import ast
 from collections import Counter
+from hashlib import sha256
+import json
 from pathlib import Path
 import subprocess
 from typing import Any
 
 from hooks.security_validators import ensure_path_within_dir
+from runtime.delta_classifier import classify_project_changes
+from runtime.tracebank import record_trace
 from plugins.dephealth.cve_scanner import scan_for_cves
 from plugins.dephealth.manifest_detector import detect_manifests
 from plugins.dephealth.vuln_analyzer import analyze_reachability
@@ -33,9 +37,11 @@ def run_security_check(
     project_dir: str,
     scope: str = ".",
     include_live_enrichment: bool = False,
+    external_inputs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     scope_path = _resolve_scope(project_dir, scope)
     findings: list[dict[str, Any]] = []
+    manifests = detect_manifests(str(scope_path))
 
     findings.extend(_scan_python_ast(scope_path))
     findings.extend(_scan_dependency_health(scope_path, include_live_enrichment))
@@ -44,6 +50,33 @@ def run_security_check(
     severity_counts = Counter(finding["severity"] for finding in findings)
     source_counts = Counter(finding["source"] for finding in findings)
     relative_scope = _display_scope(project_dir, scope_path)
+    delta = classify_project_changes(project_dir, touched_files=[relative_scope], goal="security check")
+    provenance = _build_provenance(
+        scope=relative_scope,
+        manifests=manifests.manifests,
+        findings=findings,
+        include_live_enrichment=include_live_enrichment,
+        external_inputs=external_inputs or [],
+    )
+    trust_scores = _build_trust_scores(findings)
+    trace = record_trace(
+        project_dir,
+        trace_type="security-check",
+        route="security-check",
+        status="ok",
+        plan={"scope": relative_scope, "delta_categories": delta["categories"]},
+        verify={"finding_count": len(findings)},
+        failures=[],
+        rejections=[],
+    )
+    evidence_path = _write_evidence_record(
+        project_dir,
+        scope=relative_scope,
+        findings=findings,
+        provenance=provenance,
+        trust_scores=trust_scores,
+        include_live_enrichment=include_live_enrichment,
+    )
     return {
         "schema": "SecurityCheckResult",
         "status": "ok",
@@ -54,9 +87,14 @@ def run_security_check(
             "by_severity": dict(sorted(severity_counts.items())),
             "by_source": dict(sorted(source_counts.items())),
             "live_enrichment": include_live_enrichment,
+            "scan_status": "completed",
+            "manifest_count": len(manifests.manifests),
+            "delta_categories": delta["categories"],
         },
-        "provenance": [],
-        "trust_scores": {},
+        "provenance": provenance,
+        "trust_scores": trust_scores,
+        "evidence": {"path": evidence_path},
+        "trace": {"trace_id": trace["trace_id"], "path": trace["path"]},
     }
 
 
@@ -345,3 +383,82 @@ def _finding(
         "recommendation": recommendation,
         "message": message,
     }
+
+
+def _build_provenance(
+    *,
+    scope: str,
+    manifests: list[Any],
+    findings: list[dict[str, Any]],
+    include_live_enrichment: bool,
+    external_inputs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    provenance = [
+        {
+            "source": "bandit-lite",
+            "scope": scope,
+            "mode": "static",
+            "finding_count": len([finding for finding in findings if finding["source"] == "bandit-lite"]),
+        },
+        {
+            "source": "manifest-detector",
+            "scope": scope,
+            "manifest_count": len(manifests),
+            "mode": "live" if include_live_enrichment else "offline",
+        },
+    ]
+    if include_live_enrichment:
+        provenance.append(
+            {
+                "source": "osv",
+                "scope": scope,
+                "mode": "live-enrichment",
+            }
+        )
+    if external_inputs:
+        provenance.append(
+            {
+                "source": "external-content",
+                "scope": scope,
+                "mode": "zero-trust",
+                "count": len(external_inputs),
+            }
+        )
+    return provenance
+
+
+def _build_trust_scores(findings: list[dict[str, Any]]) -> dict[str, float]:
+    if not findings:
+        return {"overall": 1.0}
+    weighted = 0.0
+    for finding in findings:
+        severity = finding.get("severity", "medium")
+        weighted += {"critical": 0.4, "high": 0.25, "medium": 0.1, "low": 0.05}.get(str(severity), 0.1)
+    overall = max(0.0, round(1.0 - min(weighted, 0.95), 3))
+    return {"overall": overall}
+
+
+def _write_evidence_record(
+    project_dir: str,
+    *,
+    scope: str,
+    findings: list[dict[str, Any]],
+    provenance: list[dict[str, Any]],
+    trust_scores: dict[str, float],
+    include_live_enrichment: bool,
+) -> str:
+    rel_name = f"security-check-{sha256(scope.encode('utf-8')).hexdigest()[:12]}.json"
+    rel_path = Path(".omg") / "evidence" / rel_name
+    path = Path(project_dir) / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema": "SecurityCheckEvidence",
+        "scope": scope,
+        "scan_status": "completed",
+        "live_enrichment": include_live_enrichment,
+        "findings": findings,
+        "provenance": provenance,
+        "trust_scores": trust_scores,
+    }
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return rel_path.as_posix()

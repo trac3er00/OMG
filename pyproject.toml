@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oh-my-god"
-version = "2.0.4"
+version = "2.0.5"
 description = "OMG (Oh My God) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -42,7 +42,43 @@ Repository = "https://github.com/trac3er00/OMG.git"
 Issues = "https://github.com/trac3er00/OMG/issues"
 
 [tool.setuptools]
-packages = ["hooks", "runtime", "agents", "commands"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agents*", "commands*", "control_plane*", "hooks*", "plugins*", "registry*", "runtime*"]
+
+[tool.setuptools.package-data]
+agents = ["*.md"]
+commands = ["*.md"]
+control_plane = ["*.yaml"]
+plugins = ["**/*.json", "**/*.md"]
+registry = ["*.json", "bundles/*.yaml"]
+runtime = ["*.json"]
+
+[tool.setuptools.data-files]
+"." = ["OMG_COMPAT_CONTRACT.md", "settings.json", ".mcp.json"]
+".claude-plugin" = [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]
+"docs" = ["docs/release-checklist.md"]
+".agents/skills/omg" = [".agents/skills/omg/AGENTS.fragment.md", ".agents/skills/omg/codex-mcp.toml"]
+".agents/skills/omg/control-plane" = [".agents/skills/omg/control-plane/SKILL.md", ".agents/skills/omg/control-plane/openai.yaml"]
+".agents/skills/omg/hook-governor" = [".agents/skills/omg/hook-governor/SKILL.md", ".agents/skills/omg/hook-governor/openai.yaml"]
+".agents/skills/omg/lsp-pack" = [".agents/skills/omg/lsp-pack/SKILL.md", ".agents/skills/omg/lsp-pack/openai.yaml"]
+".agents/skills/omg/mcp-fabric" = [".agents/skills/omg/mcp-fabric/SKILL.md", ".agents/skills/omg/mcp-fabric/openai.yaml"]
+".agents/skills/omg/secure-worktree-pipeline" = [".agents/skills/omg/secure-worktree-pipeline/SKILL.md", ".agents/skills/omg/secure-worktree-pipeline/openai.yaml"]
+".agents/skills/omg/security-check" = [".agents/skills/omg/security-check/SKILL.md", ".agents/skills/omg/security-check/openai.yaml"]
+".agents/skills/omg/api-twin" = [".agents/skills/omg/api-twin/SKILL.md", ".agents/skills/omg/api-twin/openai.yaml"]
+".agents/skills/omg/preflight" = [".agents/skills/omg/preflight/SKILL.md", ".agents/skills/omg/preflight/openai.yaml"]
+".agents/skills/omg/robotics" = [".agents/skills/omg/robotics/SKILL.md", ".agents/skills/omg/robotics/openai.yaml"]
+".agents/skills/omg/vision" = [".agents/skills/omg/vision/SKILL.md", ".agents/skills/omg/vision/openai.yaml"]
+".agents/skills/omg/algorithms" = [".agents/skills/omg/algorithms/SKILL.md", ".agents/skills/omg/algorithms/openai.yaml"]
+".agents/skills/omg/health" = [".agents/skills/omg/health/SKILL.md", ".agents/skills/omg/health/openai.yaml"]
+".agents/skills/omg/tracebank" = [".agents/skills/omg/tracebank/SKILL.md", ".agents/skills/omg/tracebank/openai.yaml"]
+".agents/skills/omg/eval-gate" = [".agents/skills/omg/eval-gate/SKILL.md", ".agents/skills/omg/eval-gate/openai.yaml"]
+".agents/skills/omg/delta-classifier" = [".agents/skills/omg/delta-classifier/SKILL.md", ".agents/skills/omg/delta-classifier/openai.yaml"]
+".agents/skills/omg/incident-replay" = [".agents/skills/omg/incident-replay/SKILL.md", ".agents/skills/omg/incident-replay/openai.yaml"]
+".agents/skills/omg/data-lineage" = [".agents/skills/omg/data-lineage/SKILL.md", ".agents/skills/omg/data-lineage/openai.yaml"]
+".agents/skills/omg/remote-supervisor" = [".agents/skills/omg/remote-supervisor/SKILL.md", ".agents/skills/omg/remote-supervisor/openai.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

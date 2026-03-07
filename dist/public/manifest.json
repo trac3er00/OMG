@@ -1,11 +1,27 @@
 {
   "schema": "OmgCompiledArtifactManifest",
   "channel": "public",
-  "contract_version": "2.0.4",
+  "contract_version": "2.0.5",
   "artifacts": [
     {
       "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
       "sha256": "603430cb291632105fda7444ae018da521cc3a57c71c1a1c98179efea42ce0f2"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/algorithms/SKILL.md",
+      "sha256": "48042e7ab674ef67c2d8a71a75abdd81aeee4363cb5e97c775c320d4edab33fb"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/algorithms/openai.yaml",
+      "sha256": "6196d26b4daf429292565142d3ed7233024402cc9206fd5df9e5f848231a79c6"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/api-twin/SKILL.md",
+      "sha256": "b394b7779173318ed29662c3c11bfa05b5d037d3a927b16bea28560a62752437"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/api-twin/openai.yaml",
+      "sha256": "8b711205c230c16695702b1eeeb426d844aa76a87c55f220298cdaf105ceee1d"
     },
     {
       "path": "bundle/.agents/skills/omg/codex-mcp.toml",
@@ -20,12 +36,52 @@
       "sha256": "a7ba723d34839c6a444b6ee4416223103cd9b2bbd9caed0d4c0aa1e7d5a523fc"
     },
     {
+      "path": "bundle/.agents/skills/omg/data-lineage/SKILL.md",
+      "sha256": "91352eee8b6a51d2e6a50d36de58e167344cce065fcbbf0c290c6ccd25a592f4"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/data-lineage/openai.yaml",
+      "sha256": "beb0bbc2e3313784b03e633e02ee894b4bc57d992296ebbfe63186fcfbf8a344"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/delta-classifier/SKILL.md",
+      "sha256": "a4ab3112459178d08d6f54b83c38c6638833e97479808f0d88bba8e56c50b20c"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/delta-classifier/openai.yaml",
+      "sha256": "b06422d0afc62af4085b38ead53ab28096beec5ae943ed317207bd7edacfc59c"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/eval-gate/SKILL.md",
+      "sha256": "5d6a18ad9ca08923c13096ee8457eb7ccfa75752679be0be3e105112e5f5a94b"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/eval-gate/openai.yaml",
+      "sha256": "43f4939ce1b6e51ec853f79cea0af80706bb8df6730e8854981cfdf3ee088822"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/health/SKILL.md",
+      "sha256": "93806b8c1848b55240de4697692b21516aebc2ca905d049eb6ca5104a372f88e"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/health/openai.yaml",
+      "sha256": "5f60504efb464cbcf130e183d3991b6fe9bc90ef12c21c4ffc2e8900ae1cd6e2"
+    },
+    {
       "path": "bundle/.agents/skills/omg/hook-governor/SKILL.md",
       "sha256": "852df4b5f787f2a885e87cb8ad8dbb8d877e018e14083cfd5e5b98deb9dd19b5"
     },
     {
       "path": "bundle/.agents/skills/omg/hook-governor/openai.yaml",
       "sha256": "8b4e219662bd9a12e89cdcd9a1828c1ff14810fa09cbfff9a6d9f932fb42ec85"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/incident-replay/SKILL.md",
+      "sha256": "fe4538481bed5a924e9b2155bb84b5d36863a9c380014d7e5ec6185dbff0fb49"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/incident-replay/openai.yaml",
+      "sha256": "6685c86104f4257514dd25d3102baaba309020120bce925e6f40f6e5f43713f0"
     },
     {
       "path": "bundle/.agents/skills/omg/lsp-pack/SKILL.md",
@@ -44,6 +100,30 @@
       "sha256": "18dc35b4d6fb598b572ec933153e80de5449be9e07ef07178e4f875e39a8915c"
     },
     {
+      "path": "bundle/.agents/skills/omg/preflight/SKILL.md",
+      "sha256": "1f7783ff53f59a4368f1ec7746faa3f1a66805312291851f43ae2fe6a7d58f30"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/preflight/openai.yaml",
+      "sha256": "1074dff95ae9f6951cdd9bb3d6b5c4add7d6a688b0ceed3d79d365dff42bfca6"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/remote-supervisor/SKILL.md",
+      "sha256": "506988d9eb379dad027ad1dd0087e81f12594faed16a91dbda021975de28e19f"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/remote-supervisor/openai.yaml",
+      "sha256": "f4a87ea5ed5759c073adbdc9704d7bf75b16ba5ba3e5ceaa3c926c44e6d84dd2"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/robotics/SKILL.md",
+      "sha256": "fa191d7d7662321fa48cd1bbd25af59282c95d396ee959fd65fa873db4aa53c3"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/robotics/openai.yaml",
+      "sha256": "d6c28424bbcf9457da1fa5a0aff3952a5aca8a6e66257b633962c58e3e365f5c"
+    },
+    {
       "path": "bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md",
       "sha256": "1eebd557d77cc084161c3ffe11ed3a9ea5d78caa65b1021a992ac8b835fc6a0d"
     },
@@ -52,12 +132,36 @@
       "sha256": "1f82a05b2fcad17c126e34541c995dedf3ed242fa499539ab693cc60a0d41c77"
     },
     {
+      "path": "bundle/.agents/skills/omg/security-check/SKILL.md",
+      "sha256": "5d2131c7d93780b139917149017ffa696ea17da403506ab6077aff4e4a52e69a"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/security-check/openai.yaml",
+      "sha256": "cf06bd8b852ad6c4694d8aeadd05ae4c9b63d32fa5cee085152683c65a3343e5"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/tracebank/SKILL.md",
+      "sha256": "c4ba5cbe7acca1be333f376f27f800482c1080eb8e95b34744313f1d64a84fcd"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/tracebank/openai.yaml",
+      "sha256": "556e2ec3ac5a8e1b9bd40ecb7a744e85b49e34c5af899101070e7e72c9f45621"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/vision/SKILL.md",
+      "sha256": "a96b2fce777f5d9e6895c83b8d5d6eba98d5383d1c54f60a877ed22ec6a79011"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/vision/openai.yaml",
+      "sha256": "ea3b553bed57095f44103c154315e2f6017e1767708339a8760fb3a735d15075"
+    },
+    {
       "path": "bundle/.claude-plugin/marketplace.json",
-      "sha256": "cf1a17ce1e8db6814209126a79d5a05d057f354ef3ee49a74da4f18f2ec04597"
+      "sha256": "2c1e7ffe83d11c464662aba58720c52b3b136d3564c32b83019a7aeecd6a982c"
     },
     {
       "path": "bundle/.claude-plugin/plugin.json",
-      "sha256": "6ad6db257f9e46528d94760ef895b6ffc87c78a8ec5ca05b430a46b46ee3dc08"
+      "sha256": "fe79af472d21bd47da149116ff1ed5c82b08c4bfd60b470e5d4faf6799f9abf7"
     },
     {
       "path": "bundle/.mcp.json",
@@ -65,35 +169,87 @@
     },
     {
       "path": "bundle/OMG_COMPAT_CONTRACT.md",
-      "sha256": "fa91ec0dbff58d543df5a9e3a86a1fe1629104a383d4e1bd440a36cb5522189c"
+      "sha256": "fa7a4a16097b35170784e136f8ff9eae64c825a07f55413fb8fea3e7ab40c2e5"
+    },
+    {
+      "path": "bundle/registry/bundles/algorithms.yaml",
+      "sha256": "cc589c80d47ab2eb1bb2f142d462e40fc1c5f108e175360b40929326966de723"
+    },
+    {
+      "path": "bundle/registry/bundles/api-twin.yaml",
+      "sha256": "6952f8d45dbfa29afac88de0f110b2941804c4543dae4c0f5562cb876de376b7"
     },
     {
       "path": "bundle/registry/bundles/control-plane.yaml",
-      "sha256": "bb58e1d21a7f545548da10e7f9b83898d6ece8010a921b66d0f94a08c8ae0d8e"
+      "sha256": "fd624b518e20e48b7dc68378c95493a4f88e07c759ea53f3b9c82646b263d80c"
+    },
+    {
+      "path": "bundle/registry/bundles/data-lineage.yaml",
+      "sha256": "602a1906d976ff93beb961affd7b5f6d4dc6486cd960ad47aa2a2b6c65724585"
+    },
+    {
+      "path": "bundle/registry/bundles/delta-classifier.yaml",
+      "sha256": "d08df8acb9713c58767a0c1a390fd35a61b7e1a290cfb13376a8f5517cbcc7f3"
+    },
+    {
+      "path": "bundle/registry/bundles/eval-gate.yaml",
+      "sha256": "c3de322fece33b91f503740f828e318264d0388d3403b98f09c2d73486a57b81"
+    },
+    {
+      "path": "bundle/registry/bundles/health.yaml",
+      "sha256": "3192a27f326656732fe83ed6e725366bc2c9bb7e5009de07b9097b864357383b"
     },
     {
       "path": "bundle/registry/bundles/hook-governor.yaml",
-      "sha256": "93b13ea1e2098328349d33373595144f2f863274548bef47fd266d6cab210260"
+      "sha256": "ccb6edc43da2594eb93ad00abe3447879923f83067201d82927a942bb25f412d"
+    },
+    {
+      "path": "bundle/registry/bundles/incident-replay.yaml",
+      "sha256": "aeaee69df8fdb8652707f3a228e4556e3a42a1487f4b77d33f47197370bd24a6"
     },
     {
       "path": "bundle/registry/bundles/lsp-pack.yaml",
-      "sha256": "6c2ca235bdca31635d89c428c48a35a5414250e98c7349cd67ba900870203d9a"
+      "sha256": "b0e6f74fd0b52cf37960defc3c9a0b66b722d98b7db15f6b1d4e11eae9a96707"
     },
     {
       "path": "bundle/registry/bundles/mcp-fabric.yaml",
-      "sha256": "2cb71fc331820b19c60c3275f521fb49d099ed7c31539fab9959a55d29ae0fe9"
+      "sha256": "40766fb1fed2fbd29ae029915d2c883f3c3f38157fa3c0d72018381c75df6e31"
+    },
+    {
+      "path": "bundle/registry/bundles/preflight.yaml",
+      "sha256": "f12fd6b4aaa045141dcaaf62b51f5de7d31de2625f819ad368adc1a6e2010b18"
+    },
+    {
+      "path": "bundle/registry/bundles/remote-supervisor.yaml",
+      "sha256": "ac727c3074ae4a95e66b7e023f38ad22c3ae903db8af079b8b66c83fad57e650"
+    },
+    {
+      "path": "bundle/registry/bundles/robotics.yaml",
+      "sha256": "8748fdb84285c2131685626182ba86806d3cffecfe5c94c6438a791f983afd2b"
     },
     {
       "path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
-      "sha256": "b93e752cef8b5cbc76fb7aa32ebe80d30ce390193183bb0c79dedfa1ce89c4e9"
+      "sha256": "f62b4d9daee055362e013883f86479d2ddc2b22f8a97be84342a1b2979b9d584"
+    },
+    {
+      "path": "bundle/registry/bundles/security-check.yaml",
+      "sha256": "768f412af9696b8c83320c4d1d92c0703ed553296bbf54aff9c0c387f7a86cf0"
+    },
+    {
+      "path": "bundle/registry/bundles/tracebank.yaml",
+      "sha256": "500b996f7c55e652e9b4b677fefa472b49b4f61c052b7996738ed1389a575f3a"
+    },
+    {
+      "path": "bundle/registry/bundles/vision.yaml",
+      "sha256": "9f8b8be109d791954e6da97c0caed9234a58c15f1e9a189c445d0a55ec2591d8"
     },
     {
       "path": "bundle/registry/omg-capability.schema.json",
-      "sha256": "b5a52c03c6d42c0ce0297a2d8c22f34ed1075062cc5434d3a85b9f4fa6a0f121"
+      "sha256": "ac5ce4663ae343785c844b0404cc5745f329df1cd12674201929f82d1e6332c9"
     },
     {
       "path": "bundle/settings.json",
-      "sha256": "60fb4f9e2bedd4d67af41a2e442ef37c9a89cd2077bf6dfe40761eec01586824"
+      "sha256": "7a2f1d2f501a6db4d57e9863b510c7dadcc4ed7826012783506d10d4514bed5a"
     }
   ]
 }
