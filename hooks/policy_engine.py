@@ -409,8 +409,8 @@ def evaluate_file_access(
 ) -> PolicyDecision:
     """Evaluate file access policy.
 
-    If an allowlist is provided, matching entries override deny decisions
-    for the given path and tool combination.
+    If an allowlist is provided, matching entries may override non-secret-file
+    deny decisions for the given path and tool combination.
     """
     if not file_path:
         return allow("no file")
@@ -423,11 +423,6 @@ def evaluate_file_access(
         pass
     basename = os.path.basename(normalized).lower()
     lowpath = normalized.lower()
-
-    # --- Allowlist check (before deny rules) ---
-    # Check allowlist early: if path+tool is allowlisted, override deny.
-    if allowlist and is_allowlisted(file_path, tool, allowlist):
-        return allow(f"Allowlisted: {file_path}")
 
     if basename in EXAMPLE_FILES and tool in ("Write", "Edit", "MultiEdit"):
         return deny(
@@ -450,6 +445,9 @@ def evaluate_file_access(
     for pat in BLOCKED_PATH_PATTERNS:
         if re.search(pat, lowpath):
             return deny(f"Sensitive path blocked: {file_path}", "critical", ["secret-access"])
+
+    if allowlist and is_allowlisted(file_path, tool, allowlist):
+        return allow(f"Allowlisted: {file_path}")
 
     return allow("file allowed")
 
