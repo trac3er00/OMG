@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.3 - 2026-03-06
+
+- removed OpenCode runtime, setup wiring, docs, and tests from the supported OMG host surface
+- merged the remaining security and trust-review hardening work into `main` and cleaned up the finished `codex/*` branches
+- published the post-merge patch release after the `v2.0.2` release target became immutable
+
 ## 2.0.2 - 2026-03-06
 
 - cleaned the repo for public launch by removing internal planning docs and stale private references

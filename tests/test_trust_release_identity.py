@@ -21,7 +21,7 @@ def test_trust_release_identity_is_canonical():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert package["name"] == "@trac3er/oh-my-god"
-    assert package["version"] == "2.0.2"
+    assert package["version"] == "2.0.3"
     assert package["repository"] == {
         "type": "git",
         "url": "git+https://github.com/trac3er00/OMG.git",
@@ -29,27 +29,27 @@ def test_trust_release_identity_is_canonical():
     assert package["homepage"] == "https://github.com/trac3er00/OMG#readme"
 
     omg_settings = settings["_omg"]
-    assert omg_settings["_version"] == "2.0.2"
+    assert omg_settings["_version"] == "2.0.3"
     assert omg_settings["preset"] == "safe"
 
     assert plugin["name"] == "omg"
-    assert plugin["version"] == "2.0.2"
+    assert plugin["version"] == "2.0.3"
     assert plugin["repository"] == "https://github.com/trac3er00/OMG"
 
     assert marketplace["name"] == "omg"
-    assert marketplace["version"] == "2.0.2"
-    assert marketplace["metadata"]["version"] == "2.0.2"
+    assert marketplace["version"] == "2.0.3"
+    assert marketplace["metadata"]["version"] == "2.0.3"
     assert marketplace["metadata"]["repository"] == "https://github.com/trac3er00/OMG"
 
     plugins = marketplace["plugins"]
     assert isinstance(plugins, list)
     assert plugins[0]["name"] == "omg"
-    assert plugins[0]["version"] == "2.0.2"
+    assert plugins[0]["version"] == "2.0.3"
 
-    assert core_plugin["version"] == "2.0.2"
+    assert core_plugin["version"] == "2.0.3"
     assert "setup" in core_plugin["commands"]
     assert "compat" in core_plugin["commands"]
 
-    assert readme.startswith("# OMG 2.0.2")
+    assert readme.startswith("# OMG 2.0.3")
     assert "https://github.com/trac3er00/OMG" in readme
     assert "@trac3er/oh-my-god" in readme
