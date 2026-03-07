@@ -306,7 +306,7 @@ def _build_claude_marketplace() -> dict[str, Any]:
         "description": "Marketplace metadata for the OMG Claude plugin",
         "owner": {"name": "trac3er00"},
         "metadata": {
-            "description": "OMG - Oh-My-God for Claude Code",
+            "description": "OMG - Oh-My-God for Claude Code and supported agent hosts",
             "version": CANONICAL_VERSION,
             "homepage": CANONICAL_REPO_URL,
             "repository": CANONICAL_REPO_URL,
@@ -314,7 +314,7 @@ def _build_claude_marketplace() -> dict[str, Any]:
         "plugins": [
             {
                 "name": CANONICAL_PLUGIN_ID,
-                "description": "OMG plugin layer for Claude Code with native setup, orchestration, and interop.",
+        "description": "OMG plugin layer for Claude Code and supported agent hosts with native setup, orchestration, and interop.",
                 "version": CANONICAL_VERSION,
                 "source": "./",
                 "author": {"name": "trac3er00"},

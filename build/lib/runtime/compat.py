@@ -674,6 +674,131 @@ def _health_snapshot(project_dir: str) -> dict[str, Any]:
     }
 
 
+def _doctor_check(name: str, *, ok: bool, message: str, required: bool = True) -> dict[str, Any]:
+    if ok:
+        status = "ok"
+    elif required:
+        status = "blocker"
+    else:
+        status = "warning"
+    return {"name": name, "status": status, "message": message, "required": required}
+
+
+def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
+    """Canonical install/runtime verification engine.
+
+    Called by both ``omg doctor`` CLI and the ``omg-doctor`` compat route.
+    """
+    from runtime.contract_compiler import _check_version_identity_drift
+
+    repo_root = root_dir or Path(__file__).resolve().parent.parent
+    checks: list[dict[str, Any]] = []
+
+    # 1. Python version >= 3.10
+    py_ok = sys.version_info >= (3, 10)
+    checks.append(_doctor_check(
+        "python_version",
+        ok=py_ok,
+        message=f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        + ("" if py_ok else " (requires >=3.10)"),
+    ))
+
+    # 2. fastmcp availability
+    fastmcp_ok = False
+    fastmcp_msg = ""
+    try:
+        import importlib
+        importlib.import_module("fastmcp")
+        fastmcp_ok = True
+        fastmcp_msg = "fastmcp importable"
+    except ImportError:
+        fastmcp_msg = "fastmcp not installed — required for MCP server"
+    checks.append(_doctor_check("fastmcp", ok=fastmcp_ok, message=fastmcp_msg))
+
+    # 3. omg-control reachable (stdio config present in .mcp.json)
+    mcp_json_path = repo_root / ".mcp.json"
+    omg_control_ok = False
+    omg_control_msg = ".mcp.json not found"
+    if mcp_json_path.exists():
+        try:
+            with open(mcp_json_path, "r", encoding="utf-8") as f:
+                mcp_data = json.load(f)
+            servers = mcp_data.get("mcpServers", {})
+            if "omg-control" in servers:
+                ctrl = servers["omg-control"]
+                if ctrl.get("command"):
+                    omg_control_ok = True
+                    omg_control_msg = f"omg-control configured (stdio: {ctrl['command']})"
+                else:
+                    omg_control_ok = True
+                    omg_control_msg = "omg-control configured (non-stdio)"
+            else:
+                omg_control_msg = "omg-control not found in .mcp.json mcpServers"
+        except (json.JSONDecodeError, KeyError) as exc:
+            omg_control_msg = f".mcp.json parse error: {exc}"
+    checks.append(_doctor_check("omg_control_reachable", ok=omg_control_ok, message=omg_control_msg))
+
+    # 4. Policy files present
+    policy_path = repo_root / ".omg" / "policy.yaml"
+    commands_dir = repo_root / "commands"
+    policy_ok = policy_path.exists() or commands_dir.exists()
+    if policy_path.exists() and commands_dir.exists():
+        policy_msg = "policy.yaml and commands/ present"
+    elif policy_path.exists():
+        policy_msg = "policy.yaml present (commands/ missing)"
+    elif commands_dir.exists():
+        policy_msg = "commands/ present (policy.yaml missing)"
+    else:
+        policy_msg = "neither policy.yaml nor commands/ found"
+    checks.append(_doctor_check("policy_files", ok=policy_ok, message=policy_msg))
+
+    # 5. Metadata drift (release identity)
+    drift_result = _check_version_identity_drift(repo_root)
+    drift_ok = drift_result.get("status") == "ok"
+    drift_blockers = drift_result.get("blockers", [])
+    drift_msg = "all version surfaces aligned" if drift_ok else f"{len(drift_blockers)} drift(s): {'; '.join(drift_blockers[:3])}"
+    checks.append(_doctor_check("metadata_drift", ok=drift_ok, message=drift_msg))
+
+    # 6. Compiled bundles exist (optional)
+    bundles_dir = repo_root / "dist"
+    bundles_ok = bundles_dir.exists() and any(bundles_dir.iterdir()) if bundles_dir.exists() else False
+    bundles_msg = "dist/ contains compiled bundles" if bundles_ok else "dist/ missing or empty"
+    checks.append(_doctor_check("compiled_bundles", ok=bundles_ok, message=bundles_msg, required=False))
+
+    # 7. Host compatibility (optional)
+    claude_dir = os.environ.get("CLAUDE_DIR", os.path.expanduser("~/.claude"))
+    host_ok = os.path.isdir(claude_dir)
+    host_msg = f"host config dir exists ({claude_dir})" if host_ok else f"host config dir not found ({claude_dir})"
+    checks.append(_doctor_check("host_compatibility", ok=host_ok, message=host_msg, required=False))
+
+    # 8. HTTP memory — optional, never required
+    memory_msg = "HTTP memory not configured (optional)"
+    if mcp_json_path.exists():
+        try:
+            with open(mcp_json_path, "r", encoding="utf-8") as f:
+                mcp_data = json.load(f)
+            mem_cfg = mcp_data.get("mcpServers", {}).get("omg-memory", {})
+            if mem_cfg.get("type") == "http" and mem_cfg.get("url"):
+                memory_msg = f"omg-memory configured at {mem_cfg['url']} (optional, not probed)"
+        except (json.JSONDecodeError, KeyError):
+            pass
+    checks.append(_doctor_check("memory_reachable", ok=True, message=memory_msg, required=False))
+
+    # 9. Managed runtime venv (optional)
+    managed_venv_path = Path(claude_dir) / "omg-runtime" / ".venv"
+    venv_ok = managed_venv_path.exists()
+    venv_msg = f"managed venv at {managed_venv_path}" if venv_ok else f"managed venv not found at {managed_venv_path} (install via OMG-setup.sh)"
+    checks.append(_doctor_check("managed_runtime", ok=venv_ok, message=venv_msg, required=False))
+
+    has_blocker = any(c["status"] == "blocker" for c in checks)
+    return {
+        "schema": "DoctorResult",
+        "status": "fail" if has_blocker else "pass",
+        "checks": checks,
+        "version": CANONICAL_VERSION,
+    }
+
+
 def _write_release_artifact(project_dir: str, message: str) -> str:
     _ensure_state_layout(project_dir)
     out = os.path.join(project_dir, ".omg", "evidence", "release-draft.md")
@@ -1111,6 +1236,20 @@ def dispatch_compat_skill(
         )
 
     if route == "health":
+        if normalized == "omg-doctor":
+            doctor_result = run_doctor(root_dir=Path(root))
+            snapshot = {
+                "project_dir": root,
+                "status": doctor_result["status"],
+                "checks": doctor_result["checks"],
+            }
+            return _res(
+                skill=normalized,
+                route=route,
+                findings=["Doctor verification completed."],
+                actions=["Fix any blocker checks before shipping."],
+                result=snapshot,
+            )
         snapshot = _health_snapshot(root)
         return _res(
             skill=normalized,
