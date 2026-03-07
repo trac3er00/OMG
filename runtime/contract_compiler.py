@@ -53,6 +53,11 @@ DEFAULT_REQUIRED_BUNDLES = (
     "data-lineage",
     "remote-supervisor",
 )
+REQUIRED_ADVANCED_PLUGIN_ARTIFACTS = (
+    "bundle/plugins/advanced/plugin.json",
+    "bundle/plugins/advanced/commands/OMG:deep-plan.md",
+    "bundle/plugins/advanced/commands/OMG:security-review.md",
+)
 REQUIRED_DOC_TOKENS = (
     "execution_contract",
     "tool_policy",
@@ -480,6 +485,24 @@ def _copy_contract_inputs(root: Path, output_root: Path) -> list[Path]:
         dst = output_root / rel_path
         _write_text(dst, src.read_text(encoding="utf-8"))
         copied.append(dst)
+
+    # Copy advanced plugin artifacts (plugin.json + all command markdown files)
+    advanced_plugin_json = Path("plugins") / "advanced" / "plugin.json"
+    try:
+        src = resolve_asset(advanced_plugin_json)
+        dst = output_root / advanced_plugin_json
+        _write_text(dst, src.read_text(encoding="utf-8"))
+        copied.append(dst)
+    except FileNotFoundError:
+        pass
+
+    advanced_commands = resolve_assets(Path("plugins") / "advanced" / "commands", suffix=".md")
+    for src in advanced_commands:
+        rel = Path("plugins") / "advanced" / "commands" / src.name
+        dst = output_root / rel
+        _write_text(dst, src.read_text(encoding="utf-8"))
+        copied.append(dst)
+
     return copied
 
 
@@ -1599,6 +1622,10 @@ def build_release_readiness(
                 continue
             if _sha256_file(artifact_path) != expected_sha:
                 manifest_errors.append(f"{required_channel}: sha mismatch for {rel_path}")
+        manifest_paths = {str(a.get("path", "")) for a in manifest.get("artifacts", []) if isinstance(a, dict)}
+        for req_path in REQUIRED_ADVANCED_PLUGIN_ARTIFACTS:
+            if req_path not in manifest_paths:
+                manifest_errors.append(f"{required_channel}: advanced_plugin_missing {req_path}")
         if manifest_errors:
             blockers.extend(manifest_errors)
         manifest["integrity_errors"] = manifest_errors

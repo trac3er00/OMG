@@ -9,6 +9,7 @@ import yaml
 from runtime.adoption import CANONICAL_VERSION
 from runtime import contract_compiler as contract_compiler_module
 from runtime.contract_compiler import (
+    REQUIRED_ADVANCED_PLUGIN_ARTIFACTS,
     REQUIRED_CLAUDE_HOOK_EVENTS,
     REQUIRED_CLAUDE_SUBAGENT_NAMES,
     REQUIRED_CODEX_AGENTS_SECTIONS,
@@ -788,3 +789,75 @@ def test_codex_compile_fails_on_stripped_agents_fragment(tmp_path: Path, monkeyp
     )
     assert result["status"] == "error"
     assert any("AGENTS.fragment.md" in e for e in result["errors"])
+
+
+def test_compile_includes_advanced_plugin_artifacts(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert result["status"] == "ok"
+
+    manifest_path = tmp_path / "dist" / "public" / "manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_paths = {a["path"] for a in manifest["artifacts"]}
+
+    for req in REQUIRED_ADVANCED_PLUGIN_ARTIFACTS:
+        assert req in manifest_paths, f"Missing required advanced artifact: {req}"
+
+
+def test_advanced_command_path_integrity(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert result["status"] == "ok"
+
+    bundle_root = tmp_path / "dist" / "public" / "bundle"
+    plugin_json_path = bundle_root / "plugins" / "advanced" / "plugin.json"
+    assert plugin_json_path.exists()
+
+    plugin_data = json.loads(plugin_json_path.read_text(encoding="utf-8"))
+    commands = plugin_data.get("commands", {})
+    assert len(commands) > 0
+
+    for cmd_name, cmd_info in commands.items():
+        cmd_rel_path = cmd_info.get("path", "")
+        cmd_full_path = plugin_json_path.parent / cmd_rel_path
+        assert cmd_full_path.exists(), (
+            f"Command '{cmd_name}' references '{cmd_rel_path}' which is missing from bundle"
+        )
+
+
+def test_release_readiness_blocks_missing_advanced_artifacts(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    manifest_path = tmp_path / "dist" / "public" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"] = [
+        a for a in manifest["artifacts"]
+        if not str(a.get("path", "")).startswith("bundle/plugins/advanced/")
+    ]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("advanced_plugin_missing" in b for b in readiness["blockers"])

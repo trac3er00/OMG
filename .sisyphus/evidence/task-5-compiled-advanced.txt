@@ -1,0 +1,51 @@
+Task 5: Compile Advanced Plugin Artifacts into Release Bundles
+================================================================
+
+Date: 2026-03-07
+Status: PASS
+
+## Changes Made
+
+### runtime/contract_compiler.py
+1. Added `REQUIRED_ADVANCED_PLUGIN_ARTIFACTS` constant with 3 required paths:
+   - bundle/plugins/advanced/plugin.json
+   - bundle/plugins/advanced/commands/OMG:deep-plan.md
+   - bundle/plugins/advanced/commands/OMG:security-review.md
+2. Extended `_copy_contract_inputs()` to copy:
+   - plugins/advanced/plugin.json via resolve_asset()
+   - All plugins/advanced/commands/*.md via resolve_assets()
+3. Added advanced plugin artifact validation in `build_release_readiness()`:
+   - Checks REQUIRED_ADVANCED_PLUGIN_ARTIFACTS are present in manifest
+   - Produces `advanced_plugin_missing` blocker on failure
+
+### tests/runtime/test_contract_compiler.py
+1. Added import for REQUIRED_ADVANCED_PLUGIN_ARTIFACTS
+2. test_compile_includes_advanced_plugin_artifacts — verifies all 3 required artifacts in manifest
+3. test_advanced_command_path_integrity — verifies plugin.json command paths resolve in bundle
+4. test_release_readiness_blocks_missing_advanced_artifacts — verifies gate blocks when artifacts stripped
+
+## Verification
+
+### pytest
+$ python3 -m pytest tests/runtime/test_contract_compiler.py -q
+26 passed in 5.93s
+
+### Compile public channel
+$ python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root /tmp/omg-v207
+status: ok
+Total artifacts in manifest: 74
+Advanced artifacts: 11 (1 plugin.json + 10 command markdown files)
+
+### Required artifact checks
+PASS: bundle/plugins/advanced/plugin.json
+PASS: bundle/plugins/advanced/commands/OMG:deep-plan.md
+PASS: bundle/plugins/advanced/commands/OMG:security-review.md
+
+### Enterprise channel
+$ python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root /tmp/omg-v207
+status: ok
+artifacts: 75
+
+### LSP diagnostics
+runtime/contract_compiler.py: 0 errors
+tests/runtime/test_contract_compiler.py: 0 errors
