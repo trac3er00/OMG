@@ -54,6 +54,96 @@ execution_contract:
   modes:
     - embedded
     - local_supervisor
+policy_model:
+  trust_tiers:
+    - name: safe
+      level: 0
+      label: Safe
+      allowed_sources:
+        - local_repo
+        - trusted_registry
+    - name: balanced
+      level: 1
+      label: Balanced
+      allowed_sources:
+        - local_repo
+        - trusted_registry
+        - reviewed_external
+    - name: interop
+      level: 2
+      label: Interop
+      allowed_sources:
+        - local_repo
+        - trusted_registry
+        - reviewed_external
+        - migration_bridge
+    - name: labs
+      level: 3
+      label: Labs
+      allowed_sources:
+        - local_repo
+        - trusted_registry
+        - reviewed_external
+        - experimental
+  tool_policies:
+    - tool_name: Read
+      allowed_tiers: [safe, balanced, interop, labs]
+      requires_approval: false
+    - tool_name: Grep
+      allowed_tiers: [safe, balanced, interop, labs]
+      requires_approval: false
+    - tool_name: Bash(python3:*)
+      allowed_tiers: [balanced, interop, labs]
+      requires_approval: true
+  protected_paths:
+    - path_pattern: .omg/**
+      required_tier: balanced
+    - path_pattern: .agents/**
+      required_tier: balanced
+    - path_pattern: .codex/**
+      required_tier: balanced
+    - path_pattern: .claude/**
+      required_tier: balanced
+  evidence_contract:
+    timestamp: timestamp
+    executor: executor
+    trace_id: trace_id
+    lineage: lineage
+  host_rules:
+    claude:
+      compilation_targets:
+        - .claude-plugin/plugin.json
+        - .claude-plugin/marketplace.json
+        - .mcp.json
+        - settings.json
+      hooks:
+        - SessionStart
+        - PreToolUse
+        - PostToolUse
+        - PreCompact
+      subagents:
+        - local_supervisor
+        - workers
+      skills:
+        - omg/control-plane
+        - omg/hook-governor
+    codex:
+      compilation_targets:
+        - .agents/skills/omg/<bundle>/SKILL.md
+        - .agents/skills/omg/<bundle>/openai.yaml
+        - .agents/skills/omg/AGENTS.fragment.md
+        - .agents/skills/omg/codex-mcp.toml
+      skills:
+        - omg/control-plane
+        - omg/mcp-fabric
+      agents_fragments:
+        - .agents/skills/omg/AGENTS.fragment.md
+      rules:
+        - protected_paths
+        - explicit_invocation
+      automations:
+        - contract-compile
+        - release-readiness
 channel_overrides:
   public:
     posture: self-serve

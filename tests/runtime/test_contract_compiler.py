@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import shutil
 
+import yaml
 from runtime.adoption import CANONICAL_VERSION
 from runtime.contract_compiler import build_release_readiness, compile_contract_outputs, validate_contract_registry
 
@@ -38,6 +40,36 @@ def test_validate_contract_registry_reports_expected_bundles() -> None:
         "data-lineage",
         "remote-supervisor",
     }.issubset(bundle_ids)
+
+
+def test_validate_contract_registry_accepts_valid_policy_model() -> None:
+    result = validate_contract_registry(ROOT)
+
+    assert result["status"] == "ok"
+    assert not [error for error in result["errors"] if "policy_model" in error]
+
+
+def test_validate_contract_registry_rejects_malformed_host_rules(tmp_path: Path) -> None:
+    fixture_root = tmp_path / "repo"
+    (fixture_root / "registry").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "OMG_COMPAT_CONTRACT.md", fixture_root / "OMG_COMPAT_CONTRACT.md")
+    shutil.copy2(ROOT / "registry" / "omg-capability.schema.json", fixture_root / "registry" / "omg-capability.schema.json")
+    shutil.copytree(ROOT / "registry" / "bundles", fixture_root / "registry" / "bundles")
+
+    control_plane_path = fixture_root / "registry" / "bundles" / "control-plane.yaml"
+    control_plane = yaml.safe_load(control_plane_path.read_text(encoding="utf-8"))
+    del control_plane["policy_model"]["host_rules"]["codex"]["automations"]
+    dumped = yaml.safe_dump(control_plane, sort_keys=False)
+    assert isinstance(dumped, str)
+    control_plane_path.write_text(dumped, encoding="utf-8")
+
+    result = validate_contract_registry(fixture_root)
+
+    assert result["status"] == "error"
+    assert any(
+        error == "control-plane: malformed host_rules entry for codex: missing 'automations'"
+        for error in result["errors"]
+    )
 
 
 def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_path: Path) -> None:
