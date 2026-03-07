@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OMG Browser Smoke Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .status { padding: 1rem; background: #e0f2fe; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>OMG Browser Smoke Test</h1>
+        <div class="status" id="status-indicator">
+            Ready for testing.
+        </div>
+        <button id="test-button" onclick="document.getElementById('status-indicator').innerText = 'Clicked!'">
+            Click Me
+        </button>
+    </div>
+</body>
+</html>
