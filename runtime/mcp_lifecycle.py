@@ -87,16 +87,24 @@ def start_memory_server() -> dict[str, Any]:
             stderr=subprocess.DEVNULL,
         )
 
-        pid_path.write_text(str(proc.pid))
-
         health_url = get_server_url().replace("/mcp", "/health")
         if _wait_for_health(health_url):
+            pid_path.write_text(str(proc.pid))
             return {"status": "started", "pid": proc.pid, "url": get_server_url()}
-        else:
-            return {
-                "status": "error",
-                "message": "Server did not respond within timeout",
-            }
+        try:
+            proc.terminate()
+            proc.wait(timeout=2)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        if pid_path.exists():
+            pid_path.unlink()
+        return {
+            "status": "error",
+            "message": "Server did not respond within timeout",
+        }
     except Exception as exc:
         return {"status": "error", "message": str(exc)}
 
