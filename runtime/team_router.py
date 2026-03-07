@@ -26,7 +26,6 @@ _logger = logging.getLogger(__name__)
 try:
     import runtime.providers.codex_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
     import runtime.providers.gemini_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
-    import runtime.providers.opencode_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
     import runtime.providers.kimi_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
 except ImportError:
     pass
@@ -550,7 +549,6 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
         provider_name_map = {
             "codex-cli": "codex",
             "gemini-cli": "gemini",
-            "opencode-cli": "opencode",
             "kimi-cli": "kimi",
         }
         provider_name = provider_name_map.get(preferred)

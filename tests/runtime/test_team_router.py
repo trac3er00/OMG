@@ -8,9 +8,6 @@ import sys
 import types
 from pathlib import Path
 
-import runtime.cli_provider as cli_provider
-
-
 _MODULE_PATH = Path(__file__).resolve().parents[2] / "runtime" / "team_router.py"
 _SPEC = importlib.util.spec_from_file_location("runtime_team_router_for_tests", _MODULE_PATH)
 assert _SPEC is not None and _SPEC.loader is not None
@@ -63,41 +60,6 @@ def test_dispatch_team_reports_live_connection_when_auth_ok(monkeypatch):
     assert gemini["available"] is True
     assert gemini["auth_ok"] is True
     assert gemini["live_connection"] is True
-
-
-def test_dispatch_to_model_opencode_uses_registered_provider(monkeypatch):
-    class _FakeProvider:
-        def detect(self):
-            return True
-
-        def invoke(self, prompt, project_dir, timeout=120):
-            return {"model": "opencode-cli", "output": f"ok:{prompt}", "exit_code": 0}
-
-        def invoke_tmux(self, prompt, project_dir, timeout=120):
-            return {"model": "opencode-cli", "output": f"tmux:{prompt}", "exit_code": 0}
-
-    fake_registry = types.ModuleType("_agent_registry")
-    setattr(
-        fake_registry,
-        "AGENT_REGISTRY",
-        {
-            "opencode-agent": {
-                "preferred_model": "opencode-cli",
-                "task_category": "quick",
-                "skills": ["coding-standards"],
-                "description": "OpenCode specialist",
-            }
-        },
-    )
-    setattr(fake_registry, "detect_available_models", lambda: {"opencode-cli": True, "claude": True})
-    monkeypatch.setitem(sys.modules, "_agent_registry", fake_registry)
-    monkeypatch.setattr(cli_provider, "get_provider", lambda name: _FakeProvider() if name == "opencode" else None)
-    monkeypatch.setattr(team_router, "_should_use_tmux", lambda: False)
-
-    result = team_router.dispatch_to_model("opencode-agent", "test", "/tmp/project")
-
-    assert result["model"] == "opencode-cli"
-    assert result["exit_code"] == 0
 
 
 def test_execute_crazy_mode_launches_five_workers(monkeypatch):

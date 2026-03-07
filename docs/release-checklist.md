@@ -23,7 +23,7 @@ Use this checklist before making OMG public or cutting a release tag.
 ## Docs
 
 - README matches the current product surface
-- install guides for Claude Code, Codex, and OpenCode are current
+- install guides for Claude Code and Codex are current
 - proof page includes current verification evidence
 - changelog includes the release entry
 

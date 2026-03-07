@@ -93,17 +93,6 @@ def write_gemini_mcp_config(server_url: str, server_name: str = "memory-server")
     _write_json(config_path, config)
 
 
-def write_opencode_mcp_config(server_url: str, server_name: str = "memory-server") -> None:
-    config_path = Path.home() / ".config" / "opencode" / "opencode.json"
-    config = _load_json(config_path)
-    mcp = config.get("mcp")
-    if not isinstance(mcp, dict):
-        mcp = {}
-        config["mcp"] = mcp
-    mcp[server_name] = {"type": "remote", "url": server_url}
-    _write_json(config_path, config)
-
-
 def write_kimi_mcp_config(server_url: str, server_name: str = "memory-server") -> None:
     config_path = Path.home() / ".kimi" / "mcp.json"
     config = _load_json(config_path)

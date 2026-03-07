@@ -38,18 +38,17 @@ def _isolate_provider_registry():
 
 
 def test_all_providers_registered():
-    """All 4 CLI providers register into the global registry on import."""
+    """Only supported CLI providers register into the global registry on import."""
     import runtime.providers.codex_provider  # noqa: F401
     import runtime.providers.gemini_provider  # noqa: F401
     import runtime.providers.kimi_provider  # noqa: F401
-    import runtime.providers.opencode_provider  # noqa: F401
     from runtime.cli_provider import list_available_providers
 
     providers = list_available_providers()
     assert "codex" in providers
     assert "gemini" in providers
-    assert "opencode" in providers
     assert "kimi" in providers
+    assert "opencode" not in providers
 
 
 def test_get_provider_returns_registered_instance():
@@ -89,17 +88,6 @@ def test_gemini_detect_when_installed(monkeypatch):
     assert GeminiProvider().detect() is True
 
 
-def test_opencode_detect_when_installed(monkeypatch):
-    """OpenCodeProvider.detect() → True when opencode binary on PATH."""
-    from runtime.providers.opencode_provider import OpenCodeProvider
-
-    monkeypatch.setattr(
-        "shutil.which",
-        lambda x: "/usr/local/bin/opencode" if x == "opencode" else None,
-    )
-    assert OpenCodeProvider().detect() is True
-
-
 def test_kimi_detect_when_installed(monkeypatch):
     """KimiCodeProvider.detect() → True when kimi binary on PATH."""
     from runtime.providers.kimi_provider import KimiCodeProvider
@@ -121,12 +109,10 @@ def test_provider_detect_when_cli_missing(monkeypatch):
     from runtime.providers.codex_provider import CodexProvider
     from runtime.providers.gemini_provider import GeminiProvider
     from runtime.providers.kimi_provider import KimiCodeProvider
-    from runtime.providers.opencode_provider import OpenCodeProvider
 
     monkeypatch.setattr("shutil.which", lambda x: None)
     assert CodexProvider().detect() is False
     assert GeminiProvider().detect() is False
-    assert OpenCodeProvider().detect() is False
     assert KimiCodeProvider().detect() is False
 
 
@@ -159,19 +145,6 @@ def test_gemini_provider_invoke_success(monkeypatch):
     )
     result = GeminiProvider().invoke("test prompt", "/tmp/project")
     assert result["model"] == "gemini-cli"
-    assert result["exit_code"] == 0
-
-
-def test_opencode_provider_invoke_success(monkeypatch):
-    """OpenCodeProvider.invoke() returns model/output/exit_code on success."""
-    from runtime.providers.opencode_provider import OpenCodeProvider
-
-    mock_result = MagicMock(returncode=0, stdout="opencode output", stderr="")
-    monkeypatch.setattr(
-        "runtime.cli_provider.subprocess.run", lambda *a, **kw: mock_result
-    )
-    result = OpenCodeProvider().invoke("test prompt", "/tmp/project")
-    assert result["model"] == "opencode-cli"
     assert result["exit_code"] == 0
 
 
@@ -217,23 +190,23 @@ def test_dispatch_to_model_uses_provider_registry(monkeypatch):
     _mock_agent_registry(
         monkeypatch,
         agent_name="test-agent",
-        preferred_model="opencode-cli",
-        available_models={"opencode-cli": True},
+        preferred_model="kimi-cli",
+        available_models={"kimi-cli": True},
     )
 
     mock_provider = MagicMock()
     mock_provider.detect.return_value = True
     mock_provider.invoke.return_value = {
-        "model": "opencode-cli",
+        "model": "kimi-cli",
         "output": "done",
         "exit_code": 0,
     }
-    _PROVIDER_REGISTRY["opencode"] = mock_provider
+    _PROVIDER_REGISTRY["kimi"] = mock_provider
 
     monkeypatch.setattr("runtime.team_router._should_use_tmux", lambda: False)
 
     result = dispatch_to_model("test-agent", "test prompt", "/tmp/project")
-    assert result.get("model") == "opencode-cli"
+    assert result.get("model") == "kimi-cli"
     mock_provider.invoke.assert_called_once()
 
 
@@ -250,8 +223,8 @@ def test_dispatch_falls_back_when_provider_unavailable(monkeypatch):
     _mock_agent_registry(
         monkeypatch,
         agent_name="test-agent",
-        preferred_model="opencode-cli",
-        available_models={"opencode-cli": True},
+        preferred_model="kimi-cli",
+        available_models={"kimi-cli": True},
     )
 
     # Clear all providers so get_provider returns None
@@ -274,11 +247,9 @@ def test_provider_names_are_correct():
     from runtime.providers.codex_provider import CodexProvider
     from runtime.providers.gemini_provider import GeminiProvider
     from runtime.providers.kimi_provider import KimiCodeProvider
-    from runtime.providers.opencode_provider import OpenCodeProvider
 
     assert CodexProvider().get_name() == "codex"
     assert GeminiProvider().get_name() == "gemini"
-    assert OpenCodeProvider().get_name() == "opencode"
     assert KimiCodeProvider().get_name() == "kimi"
 
 
@@ -302,15 +273,6 @@ def test_gemini_non_interactive_cmd():
 
     cmd = GeminiProvider().get_non_interactive_cmd("hello world")
     assert cmd[0] == "gemini"
-    assert "hello world" in " ".join(cmd)
-
-
-def test_opencode_non_interactive_cmd():
-    """OpenCodeProvider command includes 'opencode' binary and the prompt text."""
-    from runtime.providers.opencode_provider import OpenCodeProvider
-
-    cmd = OpenCodeProvider().get_non_interactive_cmd("hello world")
-    assert cmd[0] == "opencode"
     assert "hello world" in " ".join(cmd)
 
 
@@ -356,22 +318,6 @@ def test_gemini_write_mcp_config_json(monkeypatch, tmp_path):
     data = json.loads(config_file.read_text())
     assert "mcpServers" in data
     assert data["mcpServers"]["mem-server"]["httpUrl"] == "http://localhost:4000"
-
-
-def test_opencode_write_mcp_config_json(monkeypatch, tmp_path):
-    """OpenCodeProvider writes JSON MCP config with mcp key and remote type."""
-    from runtime.providers.opencode_provider import OpenCodeProvider
-
-    config_file = tmp_path / "opencode" / "opencode.json"
-    p = OpenCodeProvider()
-    monkeypatch.setattr(p, "get_config_path", lambda: str(config_file))
-
-    p.write_mcp_config("http://localhost:5000", "oc-server")
-
-    data = json.loads(config_file.read_text())
-    assert "mcp" in data
-    assert data["mcp"]["oc-server"]["type"] == "remote"
-    assert data["mcp"]["oc-server"]["url"] == "http://localhost:5000"
 
 
 def test_kimi_write_mcp_config_json(monkeypatch, tmp_path):

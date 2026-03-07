@@ -55,7 +55,6 @@ def _patch_cli_writers():
     """Mock all non-Claude MCP config writers (they write to HOME dirs)."""
     with patch("setup_wizard.write_codex_mcp_config"), \
          patch("setup_wizard.write_gemini_mcp_config"), \
-         patch("setup_wizard.write_opencode_mcp_config"), \
          patch("setup_wizard.write_kimi_mcp_config"):
         yield
 
@@ -117,7 +116,6 @@ class TestDetectClisIntegration:
         providers = {
             "codex": _mock_provider("codex", detected=True, auth_ok=True),
             "gemini": _mock_provider("gemini", detected=True, auth_ok=True),
-            "opencode": _mock_provider("opencode", detected=False),
             "kimi": _mock_provider("kimi", detected=True, auth_ok=False, auth_msg="no token"),
         }
 
@@ -127,7 +125,8 @@ class TestDetectClisIntegration:
             result = setup_wizard.detect_clis()
 
         assert isinstance(result, dict)
-        assert len(result) == 4
+        assert len(result) == 3
+        assert "opencode" not in result
         for cli_name in result:
             assert "detected" in result[cli_name]
             assert "auth_ok" in result[cli_name]
@@ -199,7 +198,6 @@ class TestConfigureMcpIntegration:
 
         with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
              patch("setup_wizard.write_gemini_mcp_config") as mock_gemini, \
-             patch("setup_wizard.write_opencode_mcp_config"), \
              patch("setup_wizard.write_kimi_mcp_config"), \
              patch("setup_wizard.write_claude_mcp_config"):
             result = setup_wizard.configure_mcp(str(tmp_path), detected)
@@ -229,7 +227,8 @@ class TestSetPreferencesIntegration:
         data = yaml.safe_load(config_file.read_text())
         assert data["version"] == "2.0.2"
         assert "cli_configs" in data
-        assert len(data["cli_configs"]) == 4
+        assert len(data["cli_configs"]) == 3
+        assert "opencode" not in data["cli_configs"]
 
     def test_set_preferences_merges_custom_prefs(self, tmp_path):
         """Custom preferences override defaults while preserving others."""
@@ -244,6 +243,7 @@ class TestSetPreferencesIntegration:
         assert data["cli_configs"]["codex"]["max_parallel_agents"] == 5
         # Other CLIs keep defaults
         assert data["cli_configs"]["gemini"]["subscription"] == "free"
+        assert "opencode" not in data["cli_configs"]
         assert data["preset"] == "safe"
 
 
@@ -301,14 +301,12 @@ class TestConfigureMcpSkipsUndetected:
         detected = {
             "codex": {"detected": False, "auth_ok": None},
             "gemini": {"detected": True, "auth_ok": True},
-            "opencode": {"detected": False, "auth_ok": None},
             "kimi": {"detected": True, "auth_ok": True},
         }
 
         result = setup_wizard.configure_mcp(str(tmp_path), detected)
 
         assert "codex" not in result["configured"]
-        assert "opencode" not in result["configured"]
         assert "gemini" in result["configured"]
         assert "kimi" in result["configured"]
 
@@ -327,7 +325,6 @@ class TestFullPipelineIntegration:
         providers = {
             "codex": _mock_provider("codex", detected=True, auth_ok=True),
             "gemini": _mock_provider("gemini", detected=True, auth_ok=True),
-            "opencode": _mock_provider("opencode", detected=True, auth_ok=True),
             "kimi": _mock_provider("kimi", detected=True, auth_ok=True),
         }
 
@@ -339,11 +336,11 @@ class TestFullPipelineIntegration:
         # Verify pipeline completed
         assert result["status"] == "complete"
 
-        # Verify all 4 providers detected
+        # Verify all detected providers are present
         clis = result["clis_detected"]
         assert all(
             clis[name]["detected"]
-            for name in ["codex", "gemini", "opencode", "kimi"]
+            for name in ["codex", "gemini", "kimi"]
         )
 
         # Verify MCP configured for all detected CLIs
@@ -351,7 +348,6 @@ class TestFullPipelineIntegration:
         configured = result["mcp_configured"]["configured"]
         assert "codex" in configured
         assert "gemini" in configured
-        assert "opencode" in configured
         assert "kimi" in configured
 
         # Verify Claude .mcp.json exists on disk
@@ -365,7 +361,8 @@ class TestFullPipelineIntegration:
         assert config_yaml.exists()
         prefs_data = yaml.safe_load(config_yaml.read_text())
         assert prefs_data["version"] == "2.0.2"
-        assert len(prefs_data["cli_configs"]) == 4
+        assert len(prefs_data["cli_configs"]) == 3
+        assert "opencode" not in prefs_data["cli_configs"]
 
     def test_wizard_detects_existing_ecosystems_and_writes_adoption_report(
         self,

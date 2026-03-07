@@ -24,14 +24,12 @@ from runtime.mcp_config_writers import (  # noqa: E402
     write_claude_mcp_config,
     write_codex_mcp_config,
     write_gemini_mcp_config,
-    write_opencode_mcp_config,
     write_kimi_mcp_config,
 )
 
 # Trigger provider auto-registration on import
 import runtime.providers.codex_provider  # noqa: E402, F401
 import runtime.providers.gemini_provider  # noqa: E402, F401
-import runtime.providers.opencode_provider  # noqa: E402, F401
 import runtime.providers.kimi_provider  # noqa: E402, F401
 from runtime.adoption import (  # noqa: E402
     CANONICAL_VERSION,
@@ -46,7 +44,6 @@ _logger = logging.getLogger(__name__)
 _INSTALL_HINTS: dict[str, str] = {
     "codex": "npm install -g @openai/codex",
     "gemini": "npm install -g @google/gemini-cli",
-    "opencode": "npm install -g opencode-ai  (or: curl -fsSL https://opencode.ai/install | bash)",
     "kimi": "uv tool install --python 3.13 kimi-cli",
 }
 
@@ -325,7 +322,7 @@ def get_cli_auth_instructions(provider: str) -> dict[str, str]:
     or store credentials.
 
     Args:
-        provider: CLI provider name (e.g. "codex", "gemini", "kimi", "opencode").
+        provider: CLI provider name (e.g. "codex", "gemini", or "kimi").
 
     Returns:
         Dict with keys: install, auth, verify, subscription.
@@ -349,12 +346,6 @@ def get_cli_auth_instructions(provider: str) -> dict[str, str]:
             "auth": "Add token to ~/.kimi/config.toml",
             "verify": "kimi --version",
             "subscription": "Requires Kimi API key from platform.moonshot.cn",
-        },
-        "opencode": {
-            "install": "npm install -g opencode-ai",
-            "auth": "opencode auth login",
-            "verify": "opencode --version",
-            "subscription": "Requires Anthropic API key or Claude subscription",
         },
     }
 
@@ -412,7 +403,6 @@ def configure_mcp(
     cli_writers = {
         "codex": write_codex_mcp_config,
         "gemini": write_gemini_mcp_config,
-        "opencode": write_opencode_mcp_config,
         "kimi": write_kimi_mcp_config,
     }
 
@@ -460,7 +450,6 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
     default_cli_configs: dict[str, Any] = {
         "codex": {"subscription": "free", "max_parallel_agents": 1},
         "gemini": {"subscription": "free", "max_parallel_agents": 1},
-        "opencode": {"subscription": "free", "max_parallel_agents": 1},
         "kimi": {"subscription": "free", "max_parallel_agents": 1},
     }
     preset = resolve_preset(cast(str | None, preferences.get("preset")))

@@ -10,7 +10,7 @@ Feature-gated: requires `OMG_SETUP_ENABLED=1` or `settings.json._omg.features.SE
 
 ## Overview
 
-Native OMG setup for Claude Code, Codex, OpenCode, and other supported CLIs.
+Native OMG setup for Claude Code, Codex, and other supported CLIs.
 The command keeps migration logic internal and focuses the user on a small adoption flow:
 
 1. Detect supported CLIs.
@@ -25,7 +25,6 @@ The command keeps migration logic internal and focuses the user on a small adopt
 Step 1: Detect CLIs
   - codex
   - gemini
-  - opencode
   - kimi
 
 Step 2: Detect adoption context
