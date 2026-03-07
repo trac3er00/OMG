@@ -35,6 +35,7 @@ SUPPORTED_HOSTS = ("claude", "codex")
 SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
+    "plan-council",
     "hook-governor",
     "mcp-fabric",
     "lsp-pack",
@@ -891,6 +892,21 @@ def _codex_evidence_fields(policy_model: dict[str, Any] | None) -> list[str]:
     return sorted(ec.keys())
 
 
+def _codex_protected_planning_skills(bundles: Iterable[dict[str, Any]]) -> list[str]:
+    protected: list[str] = []
+    for bundle in bundles:
+        if "codex" not in bundle.get("hosts", []):
+            continue
+        if str(bundle.get("kind", "")).strip().lower() != "planning":
+            continue
+        invocation = bundle.get("invocation_policy", {})
+        if not isinstance(invocation, dict):
+            continue
+        if invocation.get("allow_implicit_invocation") is False:
+            protected.append(f"omg/{bundle['id']}")
+    return sorted(set(protected))
+
+
 def _render_codex_agents_fragment(
     *,
     channel: str,
@@ -899,6 +915,7 @@ def _render_codex_agents_fragment(
     codex_automations: list[str],
     codex_skills: list[str],
     evidence_fields: list[str],
+    protected_planning_skills: list[str],
 ) -> str:
     """Render a comprehensive AGENTS.fragment.md for Codex host."""
     sections: list[str] = []
@@ -943,6 +960,16 @@ def _render_codex_agents_fragment(
         sections.append("- `omg/control-plane`")
     sections.append("")
 
+    sections.append("## Protected Planning Surface\n")
+    if protected_planning_skills:
+        sections.append("Council planning skills are protected and explicit-invocation only:")
+        sections.append("")
+        for skill in protected_planning_skills:
+            sections.append(f"- `{skill}`")
+    else:
+        sections.append("- No protected planning skills configured.")
+    sections.append("")
+
     # Web Search Policy
     sections.append("## Web Search Policy\n")
     sections.append("- Prefer cached results over live network requests.")
@@ -963,7 +990,7 @@ def _render_codex_agents_fragment(
     auto_str = ", ".join(codex_automations) if codex_automations else "contract-compile"
     sections.append(f"- Rules: `{rules_str}`")
     sections.append(f"- Automations: `{auto_str}`")
-    sections.append("- Require explicit invocation for production-control-plane skills.")
+    sections.append("- Require explicit invocation for protected production planning skills.")
     sections.append("")
 
     return "\n".join(sections)
@@ -974,6 +1001,7 @@ def _render_codex_rules(
     channel: str,
     protected_paths: list[str],
     codex_skills: list[str],
+    protected_planning_skills: list[str],
 ) -> str:
     """Render a codex-rules.md config fragment encoding defaults."""
     lines: list[str] = []
@@ -992,6 +1020,14 @@ def _render_codex_rules(
     lines.append("## Required Skills\n")
     for skill in (codex_skills or ["omg/control-plane"]):
         lines.append(f"- `{skill}`")
+    lines.append("")
+
+    lines.append("## Protected Planning Surface\n")
+    if protected_planning_skills:
+        for skill in protected_planning_skills:
+            lines.append(f"- `{skill}` (explicit invocation only)")
+    else:
+        lines.append("- none")
     lines.append("")
 
     lines.append("## Approval Matrix\n")
@@ -1055,6 +1091,7 @@ def _compile_codex_outputs(
 
     codex_skills = _codex_skill_refs(policy_model)
     evidence_fields = _codex_evidence_fields(policy_model)
+    protected_planning_skills = _codex_protected_planning_skills(bundles)
 
     agents_fragment = _render_codex_agents_fragment(
         channel=channel,
@@ -1063,6 +1100,7 @@ def _compile_codex_outputs(
         codex_automations=codex_automations,
         codex_skills=codex_skills,
         evidence_fields=evidence_fields,
+        protected_planning_skills=protected_planning_skills,
     )
     _write_text(shared_dir / "AGENTS.fragment.md", agents_fragment)
     artifacts.append(shared_dir / "AGENTS.fragment.md")
@@ -1071,6 +1109,7 @@ def _compile_codex_outputs(
         channel=channel,
         protected_paths=protected_paths,
         codex_skills=codex_skills,
+        protected_planning_skills=protected_planning_skills,
     )
     _write_text(shared_dir / "codex-rules.md", rules_content)
     artifacts.append(shared_dir / "codex-rules.md")

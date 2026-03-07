@@ -61,6 +61,22 @@ def test_compiled_codex_surfaces_encode_safe_defaults(tmp_path: Path) -> None:
         assert path_pattern in agents_content or path_pattern in rules_content
 
 
+def test_compiled_codex_plan_council_requires_explicit_invocation(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    skill = tmp_path / ".agents" / "skills" / "omg" / "plan-council" / "openai.yaml"
+    frag = tmp_path / ".agents" / "skills" / "omg" / "AGENTS.fragment.md"
+    assert skill.exists()
+    assert "allow_implicit_invocation: false" in skill.read_text(encoding="utf-8")
+    assert "plan-council" in frag.read_text(encoding="utf-8")
+
+
 def test_absent_required_codex_output_causes_validation_failure(tmp_path: Path) -> None:
     from runtime.contract_compiler import _validate_compiled_codex_output
 

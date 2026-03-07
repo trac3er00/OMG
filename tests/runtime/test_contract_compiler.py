@@ -112,6 +112,7 @@ def test_validate_contract_registry_reports_expected_bundles() -> None:
     bundle_ids = {bundle["id"] for bundle in result["bundles"]}
     assert {
         "control-plane",
+        "plan-council",
         "hook-governor",
         "mcp-fabric",
         "lsp-pack",
@@ -193,9 +194,27 @@ def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_pat
     output_paths = {entry["path"] for entry in manifest["artifacts"]}
     assert "bundle/.claude-plugin/plugin.json" in output_paths
     assert "bundle/.agents/skills/omg/control-plane/SKILL.md" in output_paths
+    assert "bundle/.agents/skills/omg/plan-council/SKILL.md" in output_paths
     assert "bundle/.agents/skills/omg/security-check/SKILL.md" in output_paths
     assert "bundle/.agents/skills/omg/tracebank/SKILL.md" in output_paths
     assert "bundle/.agents/skills/omg/remote-supervisor/SKILL.md" in output_paths
+
+
+def test_codex_compile_marks_plan_council_as_explicit_invocation(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    skill_path = tmp_path / ".agents" / "skills" / "omg" / "plan-council" / "openai.yaml"
+    agents_path = tmp_path / ".agents" / "skills" / "omg" / "AGENTS.fragment.md"
+
+    assert skill_path.exists()
+    assert "allow_implicit_invocation: false" in skill_path.read_text(encoding="utf-8")
+    assert "plan-council" in agents_path.read_text(encoding="utf-8")
 
 
 def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatch) -> None:
