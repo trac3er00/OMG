@@ -7,7 +7,14 @@ import shutil
 
 import yaml
 from runtime.adoption import CANONICAL_VERSION
-from runtime.contract_compiler import build_release_readiness, compile_contract_outputs, validate_contract_registry
+from runtime.contract_compiler import (
+    REQUIRED_CLAUDE_HOOK_EVENTS,
+    REQUIRED_CLAUDE_SUBAGENT_NAMES,
+    build_release_readiness,
+    compile_contract_outputs,
+    validate_contract_registry,
+    _validate_compiled_claude_output,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -297,3 +304,83 @@ def test_version_drift_blocker_on_plugin_mismatch(tmp_path: Path, monkeypatch) -
     assert len(version_drift_blockers) > 0, "Expected at least one version_drift blocker"
     assert any("plugins/advanced/plugin.json" in b for b in version_drift_blockers), \
         f"Expected blocker mentioning plugins/advanced/plugin.json, got: {version_drift_blockers}"
+
+
+def test_claude_compile_includes_required_hooks_and_subagents(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    settings = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
+
+    for event in REQUIRED_CLAUDE_HOOK_EVENTS:
+        assert event in settings["hooks"], f"Missing hook event: {event}"
+        assert len(settings["hooks"][event]) > 0, f"Empty registrations for {event}"
+
+    subagents = settings["_omg"]["generated"]["subagents"]
+    names = {sa["name"] for sa in subagents}
+    assert "security-reviewer" in names
+    assert "release-manager" in names
+
+    for sa in subagents:
+        assert sa.get("bypassPermissions") is not True, f"{sa['name']} has bypassPermissions"
+
+    reviewer = next(sa for sa in subagents if sa["name"] == "security-reviewer")
+    assert "Read" in reviewer["tools"]
+    assert "Write" not in reviewer["tools"]
+
+    manager = next(sa for sa in subagents if sa["name"] == "release-manager")
+    assert "Write" in manager["tools"]
+    assert "protectedPaths" in manager
+
+    skills = settings["_omg"]["generated"]["skills"]
+    assert len(skills) >= 1
+
+
+def test_claude_compile_rejects_missing_required_hook(tmp_path: Path) -> None:
+    settings = {
+        "hooks": {
+            "PreToolUse": [{"hooks": [{"type": "command", "command": "echo ok"}]}],
+        },
+        "_omg": {
+            "generated": {
+                "subagents": [
+                    {"name": "security-reviewer", "bypassPermissions": False},
+                    {"name": "release-manager", "bypassPermissions": False},
+                ],
+            },
+        },
+    }
+    (tmp_path / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
+
+    errors = _validate_compiled_claude_output(tmp_path)
+    assert len(errors) > 0
+    missing_events = {e for e in REQUIRED_CLAUDE_HOOK_EVENTS if e != "PreToolUse"}
+    for event in missing_events:
+        assert any(event in err for err in errors), f"Expected error for missing {event}"
+
+
+def test_claude_compile_fails_on_broken_hook_defaults(tmp_path: Path, monkeypatch) -> None:
+    from runtime import contract_compiler
+
+    original_fn = contract_compiler._default_claude_hook_registrations
+
+    def broken_defaults():
+        d = original_fn()
+        d["InstructionsLoaded"] = []
+        return d
+
+    monkeypatch.setattr(contract_compiler, "_default_claude_hook_registrations", broken_defaults)
+
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude"],
+        channel="enterprise",
+    )
+    assert result["status"] == "error"
+    assert any("InstructionsLoaded" in e for e in result["errors"])

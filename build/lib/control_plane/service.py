@@ -113,10 +113,30 @@ class ControlPlaneService:
     def security_check(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         scope = str(payload.get("scope", "."))
         include_live_enrichment = bool(payload.get("include_live_enrichment", False))
+        external_inputs = payload.get("external_inputs")
+        
+        # Normalize external_inputs: must be list of dicts or None
+        if external_inputs is not None:
+            if not isinstance(external_inputs, list):
+                return 400, {
+                    "status": "error",
+                    "error_code": "INVALID_EXTERNAL_INPUTS",
+                    "message": "external_inputs must be a list of objects or null",
+                }
+            # Validate each item is a dict
+            for item in external_inputs:
+                if not isinstance(item, dict):
+                    return 400, {
+                        "status": "error",
+                        "error_code": "INVALID_EXTERNAL_INPUTS",
+                        "message": "each item in external_inputs must be an object",
+                    }
+        
         result = run_security_check(
             project_dir=self.project_dir,
             scope=scope,
             include_live_enrichment=include_live_enrichment,
+            external_inputs=external_inputs,
         )
         return 200, result
 

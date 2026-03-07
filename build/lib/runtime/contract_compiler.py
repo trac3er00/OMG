@@ -74,6 +74,224 @@ REQUIRED_BUNDLE_FIELDS = (
     "execution_contract",
     "channel_overrides",
 )
+REQUIRED_POLICY_MODEL_FIELDS = (
+    "trust_tiers",
+    "tool_policies",
+    "protected_paths",
+    "evidence_contract",
+    "host_rules",
+)
+REQUIRED_CLAUDE_HOOK_EVENTS = (
+    "UserPromptSubmit",
+    "PreToolUse",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "InstructionsLoaded",
+)
+REQUIRED_CLAUDE_SUBAGENT_NAMES = ("security-reviewer", "release-manager")
+
+
+def _ensure_list(
+    *,
+    bundle_id: str,
+    path: str,
+    value: Any,
+    errors: list[str],
+    min_items: int = 1,
+) -> list[Any]:
+    if not isinstance(value, list):
+        errors.append(f"{bundle_id}: {path} must be a list")
+        return []
+    if len(value) < min_items:
+        errors.append(f"{bundle_id}: {path} must contain at least {min_items} item(s)")
+    return value
+
+
+def _ensure_dict(*, bundle_id: str, path: str, value: Any, errors: list[str]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        errors.append(f"{bundle_id}: {path} must be an object")
+        return {}
+    return value
+
+
+def _validate_host_rule(
+    *,
+    bundle_id: str,
+    host_name: str,
+    host_rule: Any,
+    required_fields: tuple[str, ...],
+    errors: list[str],
+) -> None:
+    path = f"policy_model.host_rules.{host_name}"
+    host_payload = _ensure_dict(bundle_id=bundle_id, path=path, value=host_rule, errors=errors)
+    if not host_payload:
+        return
+    for field in required_fields:
+        if field not in host_payload:
+            errors.append(f"{bundle_id}: malformed host_rules entry for {host_name}: missing '{field}'")
+            continue
+        _ensure_list(
+            bundle_id=bundle_id,
+            path=f"{path}.{field}",
+            value=host_payload[field],
+            errors=errors,
+            min_items=1,
+        )
+
+
+def _validate_policy_model(bundle_id: str, policy_model: Any) -> list[str]:
+    errors: list[str] = []
+    payload = _ensure_dict(bundle_id=bundle_id, path="policy_model", value=policy_model, errors=errors)
+    if not payload:
+        return errors
+
+    for field in REQUIRED_POLICY_MODEL_FIELDS:
+        if field not in payload:
+            errors.append(f"{bundle_id}: policy_model missing field {field}")
+
+    tier_names: set[str] = set()
+    for index, tier in enumerate(
+        _ensure_list(
+            bundle_id=bundle_id,
+            path="policy_model.trust_tiers",
+            value=payload.get("trust_tiers", []),
+            errors=errors,
+        )
+    ):
+        tier_payload = _ensure_dict(
+            bundle_id=bundle_id,
+            path=f"policy_model.trust_tiers[{index}]",
+            value=tier,
+            errors=errors,
+        )
+        if not tier_payload:
+            continue
+        for field in ("name", "level", "label", "allowed_sources"):
+            if field not in tier_payload:
+                errors.append(f"{bundle_id}: policy_model.trust_tiers[{index}] missing field {field}")
+        if isinstance(tier_payload.get("name"), str) and tier_payload["name"].strip():
+            tier_names.add(tier_payload["name"].strip())
+        if "allowed_sources" in tier_payload:
+            _ensure_list(
+                bundle_id=bundle_id,
+                path=f"policy_model.trust_tiers[{index}].allowed_sources",
+                value=tier_payload.get("allowed_sources"),
+                errors=errors,
+                min_items=1,
+            )
+
+    for index, tool in enumerate(
+        _ensure_list(
+            bundle_id=bundle_id,
+            path="policy_model.tool_policies",
+            value=payload.get("tool_policies", []),
+            errors=errors,
+        )
+    ):
+        tool_payload = _ensure_dict(
+            bundle_id=bundle_id,
+            path=f"policy_model.tool_policies[{index}]",
+            value=tool,
+            errors=errors,
+        )
+        if not tool_payload:
+            continue
+        for field in ("tool_name", "allowed_tiers", "requires_approval"):
+            if field not in tool_payload:
+                errors.append(f"{bundle_id}: policy_model.tool_policies[{index}] missing field {field}")
+        allowed_tiers = _ensure_list(
+            bundle_id=bundle_id,
+            path=f"policy_model.tool_policies[{index}].allowed_tiers",
+            value=tool_payload.get("allowed_tiers", []),
+            errors=errors,
+            min_items=1,
+        )
+        if tier_names:
+            unknown_tiers = sorted(
+                tier_name
+                for tier_name in allowed_tiers
+                if isinstance(tier_name, str) and tier_name not in tier_names
+            )
+            if unknown_tiers:
+                errors.append(
+                    f"{bundle_id}: policy_model.tool_policies[{index}] references unknown tiers {unknown_tiers}"
+                )
+
+    for index, item in enumerate(
+        _ensure_list(
+            bundle_id=bundle_id,
+            path="policy_model.protected_paths",
+            value=payload.get("protected_paths", []),
+            errors=errors,
+        )
+    ):
+        path_payload = _ensure_dict(
+            bundle_id=bundle_id,
+            path=f"policy_model.protected_paths[{index}]",
+            value=item,
+            errors=errors,
+        )
+        if not path_payload:
+            continue
+        for field in ("path_pattern", "required_tier"):
+            if field not in path_payload:
+                errors.append(f"{bundle_id}: policy_model.protected_paths[{index}] missing field {field}")
+        required_tier = path_payload.get("required_tier")
+        if tier_names and isinstance(required_tier, str) and required_tier not in tier_names:
+            errors.append(
+                f"{bundle_id}: policy_model.protected_paths[{index}] references unknown tier '{required_tier}'"
+            )
+
+    evidence_contract = _ensure_dict(
+        bundle_id=bundle_id,
+        path="policy_model.evidence_contract",
+        value=payload.get("evidence_contract", {}),
+        errors=errors,
+    )
+    for field in ("timestamp", "executor", "trace_id", "lineage"):
+        if field not in evidence_contract:
+            errors.append(f"{bundle_id}: policy_model.evidence_contract missing field {field}")
+
+    host_rules = _ensure_dict(
+        bundle_id=bundle_id,
+        path="policy_model.host_rules",
+        value=payload.get("host_rules", {}),
+        errors=errors,
+    )
+    _validate_host_rule(
+        bundle_id=bundle_id,
+        host_name="claude",
+        host_rule=host_rules.get("claude"),
+        required_fields=("compilation_targets", "hooks", "subagents", "skills"),
+        errors=errors,
+    )
+    _validate_host_rule(
+        bundle_id=bundle_id,
+        host_name="codex",
+        host_rule=host_rules.get("codex"),
+        required_fields=("compilation_targets", "skills", "agents_fragments", "rules", "automations"),
+        errors=errors,
+    )
+    return errors
+
+
+def _policy_model_for_bundle(bundles: Iterable[dict[str, Any]], bundle_id: str) -> dict[str, Any] | None:
+    for bundle in bundles:
+        if str(bundle.get("id", "")) == bundle_id and isinstance(bundle.get("policy_model"), dict):
+            return dict(bundle["policy_model"])
+    return None
+
+
+def _policy_protected_paths(policy_model: dict[str, Any] | None, *, channel: str) -> list[str]:
+    if not policy_model:
+        return _protected_paths_for_channel(channel)
+    values: list[str] = []
+    for item in policy_model.get("protected_paths", []):
+        if isinstance(item, dict):
+            pattern = str(item.get("path_pattern", "")).strip()
+            if pattern:
+                values.append(pattern)
+    return values or _protected_paths_for_channel(channel)
 
 
 def _resolve_root(root_dir: str | Path | None) -> Path:
@@ -211,6 +429,8 @@ def validate_contract_registry(root_dir: str | Path | None = None) -> dict[str, 
             bad_hosts = [host for host in hosts if host not in SUPPORTED_HOSTS]
             if bad_hosts:
                 errors.append(f"{bundle_id}: unsupported hosts {bad_hosts}")
+        if "policy_model" in bundle:
+            errors.extend(_validate_policy_model(bundle_id, bundle.get("policy_model")))
 
     missing_bundles = [bundle_id for bundle_id in DEFAULT_REQUIRED_BUNDLES if bundle_id not in bundle_ids]
     for bundle_id in missing_bundles:
@@ -375,12 +595,166 @@ def _protected_paths_for_channel(channel: str) -> list[str]:
     return paths
 
 
+def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
+    """Default OMG hook registrations for each required Claude event."""
+    return {
+        "UserPromptSubmit": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/user-prompt-submit.py"',
+                        "timeout": 10,
+                    }
+                ],
+            }
+        ],
+        "PreToolUse": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/firewall.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Bash",
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/secret-guard.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Read|Write|Edit|MultiEdit",
+            },
+        ],
+        "PostToolUse": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/tool-ledger.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Write|Edit|MultiEdit",
+            },
+        ],
+        "PostToolUseFailure": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/post-tool-failure.py"',
+                    }
+                ],
+            }
+        ],
+        "InstructionsLoaded": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/instructions-loaded.py"',
+                        "timeout": 10,
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def _build_claude_subagents(protected_paths: list[str]) -> list[dict[str, Any]]:
+    """Build narrow-tool Claude subagent definitions. No bypassPermissions allowed."""
+    return [
+        {
+            "name": "security-reviewer",
+            "description": "Read-only security review subagent with scoped tool access.",
+            "tools": [
+                "Read",
+                "Grep",
+                "Glob",
+                "Bash(grep *)",
+                "Bash(find *)",
+                "Bash(git log *)",
+                "Bash(git diff *)",
+            ],
+            "bypassPermissions": False,
+        },
+        {
+            "name": "release-manager",
+            "description": "Release management subagent with write access governed by protected-path policy.",
+            "tools": [
+                "Read",
+                "Write",
+                "Edit",
+                "Grep",
+                "Glob",
+                "Bash(git *)",
+                "Bash(python3 scripts/omg.py *)",
+            ],
+            "bypassPermissions": False,
+            "protectedPaths": protected_paths,
+        },
+    ]
+
+
+def _build_claude_skills(policy_model: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Build Claude skill definitions from the policy model host_rules."""
+    skill_refs: list[str] = []
+    if isinstance(policy_model, dict):
+        host_rules = policy_model.get("host_rules", {})
+        if isinstance(host_rules, dict):
+            claude_rules = host_rules.get("claude", {})
+            if isinstance(claude_rules, dict):
+                skill_refs = [str(s) for s in claude_rules.get("skills", []) if str(s).strip()]
+    skills: list[dict[str, Any]] = []
+    for ref in skill_refs:
+        skills.append({"name": ref, "source": f".agents/skills/{ref}/"})
+    return skills
+
+
+def _validate_compiled_claude_output(output_root: Path) -> list[str]:
+    """Validate compiled Claude settings.json contains required hooks and subagents."""
+    settings_path = output_root / "settings.json"
+    if not settings_path.exists():
+        return ["claude: missing compiled settings.json"]
+
+    settings = _load_json(settings_path)
+    errors: list[str] = []
+
+    hooks = settings.get("hooks", {})
+    for event in REQUIRED_CLAUDE_HOOK_EVENTS:
+        if event not in hooks or not hooks[event]:
+            errors.append(f"claude: missing required hook event '{event}'")
+
+    omg = settings.get("_omg", {})
+    generated = omg.get("generated", {})
+    subagents = generated.get("subagents", [])
+    subagent_names = {sa.get("name") for sa in subagents if isinstance(sa, dict)}
+    for name in REQUIRED_CLAUDE_SUBAGENT_NAMES:
+        if name not in subagent_names:
+            errors.append(f"claude: missing required subagent '{name}'")
+
+    for sa in subagents:
+        if isinstance(sa, dict) and sa.get("bypassPermissions"):
+            errors.append(
+                f"claude: subagent '{sa.get('name', '<unknown>')}' has bypassPermissions enabled"
+            )
+
+    return errors
+
+
 def _compile_claude_outputs(
     *,
     root: Path,
     output_root: Path,
     bundles: list[dict[str, Any]],
     channel: str,
+    policy_model: dict[str, Any] | None,
 ) -> list[Path]:
     artifacts: list[Path] = []
 
@@ -399,15 +773,28 @@ def _compile_claude_outputs(
         settings_path = resolve_asset("settings.json")
     settings = _load_json(settings_path)
     hook_bundle = _bundle_map(bundles)["hook-governor"]
-    settings["hooks"] = _compile_hook_settings(hook_bundle)
+    compiled_hooks = _compile_hook_settings(hook_bundle)
+    defaults = _default_claude_hook_registrations()
+    for event in REQUIRED_CLAUDE_HOOK_EVENTS:
+        if event not in compiled_hooks or not compiled_hooks[event]:
+            compiled_hooks[event] = defaults[event]
+    settings["hooks"] = compiled_hooks
+
+    protected_paths = _policy_protected_paths(policy_model, channel=channel)
+    subagents = _build_claude_subagents(protected_paths)
+    skills = _build_claude_skills(policy_model)
+
     omg_settings = dict(settings.get("_omg", {}))
     omg_settings["_version"] = CANONICAL_VERSION
     omg_settings["generated"] = {
         "contract_version": CANONICAL_VERSION,
         "channel": channel,
         "required_bundles": list(DEFAULT_REQUIRED_BUNDLES),
-        "protected_paths": _protected_paths_for_channel(channel),
+        "protected_paths": protected_paths,
         "emulated_events": list(hook_bundle.get("lifecycle_hooks", {}).get("emulated", [])),
+        "policy_model": policy_model or {},
+        "subagents": subagents,
+        "skills": skills,
     }
     settings["_omg"] = omg_settings
     _write_json(output_root / "settings.json", settings)
@@ -463,16 +850,32 @@ def _compile_codex_outputs(
     output_root: Path,
     bundles: list[dict[str, Any]],
     channel: str,
+    policy_model: dict[str, Any] | None,
 ) -> list[Path]:
     artifacts: list[Path] = []
     shared_dir = output_root / ".agents" / "skills" / "omg"
     shared_dir.mkdir(parents=True, exist_ok=True)
 
+    protected_paths = _policy_protected_paths(policy_model, channel=channel)
+    codex_rules: list[str] = []
+    codex_automations: list[str] = []
+    if isinstance(policy_model, dict):
+        host_rules = policy_model.get("host_rules", {})
+        if isinstance(host_rules, dict):
+            codex_policy = host_rules.get("codex", {})
+            if isinstance(codex_policy, dict):
+                codex_rules = [str(item) for item in codex_policy.get("rules", []) if str(item).strip()]
+                codex_automations = [
+                    str(item) for item in codex_policy.get("automations", []) if str(item).strip()
+                ]
+
     rules_fragment = (
         "# OMG Codex Protection Rules\n\n"
         f"- Channel: `{channel}`\n"
-        "- Protect `.omg/`, `.agents/`, `.codex/`, and `.claude/` from unreviewed mutation.\n"
+        f"- Protect `{', '.join(protected_paths)}` from unreviewed mutation.\n"
         "- Require explicit invocation for production-control-plane skills.\n"
+        f"- Rules: `{', '.join(codex_rules) if codex_rules else 'protected_paths, explicit_invocation'}`\n"
+        f"- Automations: `{', '.join(codex_automations) if codex_automations else 'contract-compile'}`\n"
     )
     _write_text(shared_dir / "AGENTS.fragment.md", rules_fragment)
     artifacts.append(shared_dir / "AGENTS.fragment.md")
@@ -580,12 +983,38 @@ def compile_contract_outputs(
         }
 
     bundles = load_contract_bundles(root)
+    policy_model = _policy_model_for_bundle(bundles, "control-plane")
     artifacts = _copy_contract_inputs(root, output)
 
     if "claude" in selected_hosts:
-        artifacts.extend(_compile_claude_outputs(root=root, output_root=output, bundles=bundles, channel=channel))
+        artifacts.extend(
+            _compile_claude_outputs(
+                root=root,
+                output_root=output,
+                bundles=bundles,
+                channel=channel,
+                policy_model=policy_model,
+            )
+        )
+        claude_errors = _validate_compiled_claude_output(output)
+        if claude_errors:
+            return {
+                "schema": "OmgContractCompileResult",
+                "status": "error",
+                "channel": channel,
+                "hosts": selected_hosts,
+                "errors": claude_errors,
+                "artifacts": [],
+            }
     if "codex" in selected_hosts:
-        artifacts.extend(_compile_codex_outputs(output_root=output, bundles=bundles, channel=channel))
+        artifacts.extend(
+            _compile_codex_outputs(
+                output_root=output,
+                bundles=bundles,
+                channel=channel,
+                policy_model=policy_model,
+            )
+        )
 
     bundled_artifacts = _copy_release_bundle(output_root=output, channel=channel, artifacts=artifacts)
     manifest_path = _build_dist_manifest(output, channel=channel, artifacts=bundled_artifacts)

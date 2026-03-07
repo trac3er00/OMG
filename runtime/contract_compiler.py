@@ -81,6 +81,14 @@ REQUIRED_POLICY_MODEL_FIELDS = (
     "evidence_contract",
     "host_rules",
 )
+REQUIRED_CLAUDE_HOOK_EVENTS = (
+    "UserPromptSubmit",
+    "PreToolUse",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "InstructionsLoaded",
+)
+REQUIRED_CLAUDE_SUBAGENT_NAMES = ("security-reviewer", "release-manager")
 
 
 def _ensure_list(
@@ -587,6 +595,159 @@ def _protected_paths_for_channel(channel: str) -> list[str]:
     return paths
 
 
+def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
+    """Default OMG hook registrations for each required Claude event."""
+    return {
+        "UserPromptSubmit": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/user-prompt-submit.py"',
+                        "timeout": 10,
+                    }
+                ],
+            }
+        ],
+        "PreToolUse": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/firewall.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Bash",
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/secret-guard.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Read|Write|Edit|MultiEdit",
+            },
+        ],
+        "PostToolUse": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/tool-ledger.py"',
+                        "timeout": 10,
+                    }
+                ],
+                "matcher": "Write|Edit|MultiEdit",
+            },
+        ],
+        "PostToolUseFailure": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/post-tool-failure.py"',
+                    }
+                ],
+            }
+        ],
+        "InstructionsLoaded": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": 'python3 "$HOME/.claude/hooks/instructions-loaded.py"',
+                        "timeout": 10,
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def _build_claude_subagents(protected_paths: list[str]) -> list[dict[str, Any]]:
+    """Build narrow-tool Claude subagent definitions. No bypassPermissions allowed."""
+    return [
+        {
+            "name": "security-reviewer",
+            "description": "Read-only security review subagent with scoped tool access.",
+            "tools": [
+                "Read",
+                "Grep",
+                "Glob",
+                "Bash(grep *)",
+                "Bash(find *)",
+                "Bash(git log *)",
+                "Bash(git diff *)",
+            ],
+            "bypassPermissions": False,
+        },
+        {
+            "name": "release-manager",
+            "description": "Release management subagent with write access governed by protected-path policy.",
+            "tools": [
+                "Read",
+                "Write",
+                "Edit",
+                "Grep",
+                "Glob",
+                "Bash(git *)",
+                "Bash(python3 scripts/omg.py *)",
+            ],
+            "bypassPermissions": False,
+            "protectedPaths": protected_paths,
+        },
+    ]
+
+
+def _build_claude_skills(policy_model: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Build Claude skill definitions from the policy model host_rules."""
+    skill_refs: list[str] = []
+    if isinstance(policy_model, dict):
+        host_rules = policy_model.get("host_rules", {})
+        if isinstance(host_rules, dict):
+            claude_rules = host_rules.get("claude", {})
+            if isinstance(claude_rules, dict):
+                skill_refs = [str(s) for s in claude_rules.get("skills", []) if str(s).strip()]
+    skills: list[dict[str, Any]] = []
+    for ref in skill_refs:
+        skills.append({"name": ref, "source": f".agents/skills/{ref}/"})
+    return skills
+
+
+def _validate_compiled_claude_output(output_root: Path) -> list[str]:
+    """Validate compiled Claude settings.json contains required hooks and subagents."""
+    settings_path = output_root / "settings.json"
+    if not settings_path.exists():
+        return ["claude: missing compiled settings.json"]
+
+    settings = _load_json(settings_path)
+    errors: list[str] = []
+
+    hooks = settings.get("hooks", {})
+    for event in REQUIRED_CLAUDE_HOOK_EVENTS:
+        if event not in hooks or not hooks[event]:
+            errors.append(f"claude: missing required hook event '{event}'")
+
+    omg = settings.get("_omg", {})
+    generated = omg.get("generated", {})
+    subagents = generated.get("subagents", [])
+    subagent_names = {sa.get("name") for sa in subagents if isinstance(sa, dict)}
+    for name in REQUIRED_CLAUDE_SUBAGENT_NAMES:
+        if name not in subagent_names:
+            errors.append(f"claude: missing required subagent '{name}'")
+
+    for sa in subagents:
+        if isinstance(sa, dict) and sa.get("bypassPermissions"):
+            errors.append(
+                f"claude: subagent '{sa.get('name', '<unknown>')}' has bypassPermissions enabled"
+            )
+
+    return errors
+
+
 def _compile_claude_outputs(
     *,
     root: Path,
@@ -612,16 +773,28 @@ def _compile_claude_outputs(
         settings_path = resolve_asset("settings.json")
     settings = _load_json(settings_path)
     hook_bundle = _bundle_map(bundles)["hook-governor"]
-    settings["hooks"] = _compile_hook_settings(hook_bundle)
+    compiled_hooks = _compile_hook_settings(hook_bundle)
+    defaults = _default_claude_hook_registrations()
+    for event in REQUIRED_CLAUDE_HOOK_EVENTS:
+        if event not in compiled_hooks or not compiled_hooks[event]:
+            compiled_hooks[event] = defaults[event]
+    settings["hooks"] = compiled_hooks
+
+    protected_paths = _policy_protected_paths(policy_model, channel=channel)
+    subagents = _build_claude_subagents(protected_paths)
+    skills = _build_claude_skills(policy_model)
+
     omg_settings = dict(settings.get("_omg", {}))
     omg_settings["_version"] = CANONICAL_VERSION
     omg_settings["generated"] = {
         "contract_version": CANONICAL_VERSION,
         "channel": channel,
         "required_bundles": list(DEFAULT_REQUIRED_BUNDLES),
-        "protected_paths": _policy_protected_paths(policy_model, channel=channel),
+        "protected_paths": protected_paths,
         "emulated_events": list(hook_bundle.get("lifecycle_hooks", {}).get("emulated", [])),
         "policy_model": policy_model or {},
+        "subagents": subagents,
+        "skills": skills,
     }
     settings["_omg"] = omg_settings
     _write_json(output_root / "settings.json", settings)
@@ -823,6 +996,16 @@ def compile_contract_outputs(
                 policy_model=policy_model,
             )
         )
+        claude_errors = _validate_compiled_claude_output(output)
+        if claude_errors:
+            return {
+                "schema": "OmgContractCompileResult",
+                "status": "error",
+                "channel": channel,
+                "hosts": selected_hosts,
+                "errors": claude_errors,
+                "artifacts": [],
+            }
     if "codex" in selected_hosts:
         artifacts.extend(
             _compile_codex_outputs(
