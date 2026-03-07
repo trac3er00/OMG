@@ -89,6 +89,19 @@ REQUIRED_CLAUDE_HOOK_EVENTS = (
     "InstructionsLoaded",
 )
 REQUIRED_CLAUDE_SUBAGENT_NAMES = ("security-reviewer", "release-manager")
+REQUIRED_CODEX_AGENTS_SECTIONS = (
+    "## Build & Test",
+    "## Protected Paths",
+    "## Evidence Contract",
+    "## Required Skills",
+    "## Web Search Policy",
+    "## Approval Constraints",
+)
+REQUIRED_CODEX_OUTPUTS = (
+    "AGENTS.fragment.md",
+    "codex-rules.md",
+    "codex-mcp.toml",
+)
 
 
 def _ensure_list(
@@ -845,6 +858,167 @@ def _render_openai_yaml(bundle: dict[str, Any], channel: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _codex_skill_refs(policy_model: dict[str, Any] | None) -> list[str]:
+    """Extract skill references from policy_model.host_rules.codex.skills."""
+    if not isinstance(policy_model, dict):
+        return []
+    host_rules = policy_model.get("host_rules", {})
+    if not isinstance(host_rules, dict):
+        return []
+    codex_rules = host_rules.get("codex", {})
+    if not isinstance(codex_rules, dict):
+        return []
+    return [str(s) for s in codex_rules.get("skills", []) if str(s).strip()]
+
+
+def _codex_evidence_fields(policy_model: dict[str, Any] | None) -> list[str]:
+    """Extract required evidence contract fields from the policy model."""
+    if not isinstance(policy_model, dict):
+        return []
+    ec = policy_model.get("evidence_contract", {})
+    if not isinstance(ec, dict):
+        return []
+    return sorted(ec.keys())
+
+
+def _render_codex_agents_fragment(
+    *,
+    channel: str,
+    protected_paths: list[str],
+    codex_rules: list[str],
+    codex_automations: list[str],
+    codex_skills: list[str],
+    evidence_fields: list[str],
+) -> str:
+    """Render a comprehensive AGENTS.fragment.md for Codex host."""
+    sections: list[str] = []
+
+    # Header
+    sections.append(f"# OMG Codex Governance (channel: {channel})\n")
+
+    # Build & Test
+    sections.append("## Build & Test\n")
+    sections.append("```bash")
+    sections.append("python3 -m pytest tests -q")
+    sections.append("python3 scripts/omg.py contract validate")
+    sections.append(f"python3 scripts/omg.py contract compile --host codex --channel {channel}")
+    sections.append("```\n")
+
+    # Protected Paths
+    sections.append("## Protected Paths\n")
+    sections.append("The following paths require tier-gated review before mutation:\n")
+    for path in protected_paths:
+        sections.append(f"- `{path}`")
+    sections.append("")
+
+    # Evidence Contract
+    sections.append("## Evidence Contract\n")
+    sections.append("Every production action must emit evidence containing these fields:\n")
+    if evidence_fields:
+        for field in evidence_fields:
+            sections.append(f"- `{field}`")
+    else:
+        sections.append("- `timestamp`")
+        sections.append("- `executor`")
+        sections.append("- `trace_id`")
+        sections.append("- `lineage`")
+    sections.append("")
+
+    # Required Skills
+    sections.append("## Required Skills\n")
+    if codex_skills:
+        for skill in codex_skills:
+            sections.append(f"- `{skill}`")
+    else:
+        sections.append("- `omg/control-plane`")
+    sections.append("")
+
+    # Web Search Policy
+    sections.append("## Web Search Policy\n")
+    sections.append("- Prefer cached results over live network requests.")
+    sections.append("- Do NOT initiate live web searches unless explicitly instructed.")
+    sections.append("- Use `context7` or local documentation before external lookups.")
+    sections.append("- Set `cached_web_search: prefer_cached` as the default.\n")
+
+    # Approval Constraints
+    sections.append("## Approval Constraints\n")
+    sections.append("- Destructive file operations require explicit user approval.")
+    sections.append("- `git push --force` and branch deletions require explicit approval.")
+    sections.append("- Production deployments require explicit approval.")
+    sections.append("- Mutations to protected paths require tier-gated approval.\n")
+
+    # Rules & Automations (compact summary)
+    sections.append("## Rules & Automations\n")
+    rules_str = ", ".join(codex_rules) if codex_rules else "protected_paths, explicit_invocation"
+    auto_str = ", ".join(codex_automations) if codex_automations else "contract-compile"
+    sections.append(f"- Rules: `{rules_str}`")
+    sections.append(f"- Automations: `{auto_str}`")
+    sections.append("- Require explicit invocation for production-control-plane skills.")
+    sections.append("")
+
+    return "\n".join(sections)
+
+
+def _render_codex_rules(
+    *,
+    channel: str,
+    protected_paths: list[str],
+    codex_skills: list[str],
+) -> str:
+    """Render a codex-rules.md config fragment encoding defaults."""
+    lines: list[str] = []
+    lines.append(f"# OMG Codex Rules (channel: {channel})\n")
+
+    lines.append("## Defaults\n")
+    lines.append("- `cached_web_search: prefer_cached`")
+    lines.append("- `live_network: deny_by_default`")
+    lines.append("- `destructive_approval: required`\n")
+
+    lines.append("## Protected Paths\n")
+    for path in protected_paths:
+        lines.append(f"- `{path}`")
+    lines.append("")
+
+    lines.append("## Required Skills\n")
+    for skill in (codex_skills or ["omg/control-plane"]):
+        lines.append(f"- `{skill}`")
+    lines.append("")
+
+    lines.append("## Approval Matrix\n")
+    lines.append("| Action | Approval Required |")
+    lines.append("|--------|------------------|")
+    lines.append("| Read / Grep | No |")
+    lines.append("| Write to protected paths | Yes |")
+    lines.append("| Bash (python3:*) | Yes (balanced+ tier) |")
+    lines.append("| git push --force | Yes |")
+    lines.append("| Production deploy | Yes |")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def _validate_compiled_codex_output(output_root: Path) -> list[str]:
+    """Validate compiled Codex output contains required AGENTS sections and artifacts."""
+    errors: list[str] = []
+    shared_dir = output_root / ".agents" / "skills" / "omg"
+
+    for required_file in REQUIRED_CODEX_OUTPUTS:
+        path = shared_dir / required_file
+        if not path.exists():
+            errors.append(f"codex: missing required output '{required_file}'")
+
+    agents_path = shared_dir / "AGENTS.fragment.md"
+    if agents_path.exists():
+        content = agents_path.read_text(encoding="utf-8")
+        for section in REQUIRED_CODEX_AGENTS_SECTIONS:
+            if section not in content:
+                errors.append(f"codex: AGENTS.fragment.md missing required section '{section}'")
+    else:
+        errors.append("codex: cannot validate AGENTS.fragment.md — file missing")
+
+    return errors
+
+
 def _compile_codex_outputs(
     *,
     output_root: Path,
@@ -869,16 +1043,27 @@ def _compile_codex_outputs(
                     str(item) for item in codex_policy.get("automations", []) if str(item).strip()
                 ]
 
-    rules_fragment = (
-        "# OMG Codex Protection Rules\n\n"
-        f"- Channel: `{channel}`\n"
-        f"- Protect `{', '.join(protected_paths)}` from unreviewed mutation.\n"
-        "- Require explicit invocation for production-control-plane skills.\n"
-        f"- Rules: `{', '.join(codex_rules) if codex_rules else 'protected_paths, explicit_invocation'}`\n"
-        f"- Automations: `{', '.join(codex_automations) if codex_automations else 'contract-compile'}`\n"
+    codex_skills = _codex_skill_refs(policy_model)
+    evidence_fields = _codex_evidence_fields(policy_model)
+
+    agents_fragment = _render_codex_agents_fragment(
+        channel=channel,
+        protected_paths=protected_paths,
+        codex_rules=codex_rules,
+        codex_automations=codex_automations,
+        codex_skills=codex_skills,
+        evidence_fields=evidence_fields,
     )
-    _write_text(shared_dir / "AGENTS.fragment.md", rules_fragment)
+    _write_text(shared_dir / "AGENTS.fragment.md", agents_fragment)
     artifacts.append(shared_dir / "AGENTS.fragment.md")
+
+    rules_content = _render_codex_rules(
+        channel=channel,
+        protected_paths=protected_paths,
+        codex_skills=codex_skills,
+    )
+    _write_text(shared_dir / "codex-rules.md", rules_content)
+    artifacts.append(shared_dir / "codex-rules.md")
 
     from runtime.mcp_config_writers import write_codex_mcp_stdio_config
 
@@ -1015,6 +1200,16 @@ def compile_contract_outputs(
                 policy_model=policy_model,
             )
         )
+        codex_errors = _validate_compiled_codex_output(output)
+        if codex_errors:
+            return {
+                "schema": "OmgContractCompileResult",
+                "status": "error",
+                "channel": channel,
+                "hosts": selected_hosts,
+                "errors": codex_errors,
+                "artifacts": [],
+            }
 
     bundled_artifacts = _copy_release_bundle(output_root=output, channel=channel, artifacts=artifacts)
     manifest_path = _build_dist_manifest(output, channel=channel, artifacts=bundled_artifacts)

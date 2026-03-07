@@ -10,10 +10,13 @@ from runtime.adoption import CANONICAL_VERSION
 from runtime.contract_compiler import (
     REQUIRED_CLAUDE_HOOK_EVENTS,
     REQUIRED_CLAUDE_SUBAGENT_NAMES,
+    REQUIRED_CODEX_AGENTS_SECTIONS,
+    REQUIRED_CODEX_OUTPUTS,
     build_release_readiness,
     compile_contract_outputs,
     validate_contract_registry,
     _validate_compiled_claude_output,
+    _validate_compiled_codex_output,
 )
 
 
@@ -384,3 +387,114 @@ def test_claude_compile_fails_on_broken_hook_defaults(tmp_path: Path, monkeypatc
     )
     assert result["status"] == "error"
     assert any("InstructionsLoaded" in e for e in result["errors"])
+
+
+def test_codex_compile_includes_all_agents_fragment_sections(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    agents_path = tmp_path / ".agents" / "skills" / "omg" / "AGENTS.fragment.md"
+    assert agents_path.exists()
+    content = agents_path.read_text(encoding="utf-8")
+
+    for section in REQUIRED_CODEX_AGENTS_SECTIONS:
+        assert section in content, f"Missing section: {section}"
+
+    assert "python3 -m pytest tests -q" in content
+    assert "prefer_cached" in content or "cached" in content.lower()
+    assert "Destructive" in content or "approval" in content.lower()
+    assert ".omg/**" in content
+
+
+def test_codex_compile_produces_rules_fragment(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    rules_path = tmp_path / ".agents" / "skills" / "omg" / "codex-rules.md"
+    assert rules_path.exists()
+    content = rules_path.read_text(encoding="utf-8")
+
+    assert "cached_web_search: prefer_cached" in content
+    assert "live_network: deny_by_default" in content
+    assert "destructive_approval: required" in content
+    assert "omg/control-plane" in content
+
+
+def test_codex_compile_includes_skills_and_evidence(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    agents_path = tmp_path / ".agents" / "skills" / "omg" / "AGENTS.fragment.md"
+    content = agents_path.read_text(encoding="utf-8")
+
+    assert "omg/control-plane" in content
+    assert "omg/mcp-fabric" in content
+
+    assert "timestamp" in content
+    assert "executor" in content
+    assert "trace_id" in content
+    assert "lineage" in content
+
+
+def test_codex_compile_rejects_missing_agents_section(tmp_path: Path) -> None:
+    shared_dir = tmp_path / ".agents" / "skills" / "omg"
+    shared_dir.mkdir(parents=True, exist_ok=True)
+
+    (shared_dir / "AGENTS.fragment.md").write_text(
+        "# Minimal\n\nNo sections here.\n",
+        encoding="utf-8",
+    )
+    (shared_dir / "codex-rules.md").write_text("# Rules\n", encoding="utf-8")
+    (shared_dir / "codex-mcp.toml").write_text("[servers]\n", encoding="utf-8")
+
+    errors = _validate_compiled_codex_output(tmp_path)
+    assert len(errors) > 0
+    missing_sections = {s for s in REQUIRED_CODEX_AGENTS_SECTIONS if s != "## Build & Test"}
+    for section in missing_sections:
+        assert any(section in err for err in errors), f"Expected error for missing {section}"
+
+
+def test_codex_compile_rejects_missing_required_outputs(tmp_path: Path) -> None:
+    shared_dir = tmp_path / ".agents" / "skills" / "omg"
+    shared_dir.mkdir(parents=True, exist_ok=True)
+
+    (shared_dir / "AGENTS.fragment.md").write_text("# Stub\n", encoding="utf-8")
+
+    errors = _validate_compiled_codex_output(tmp_path)
+    assert any("codex-rules.md" in err for err in errors)
+    assert any("codex-mcp.toml" in err for err in errors)
+
+
+def test_codex_compile_fails_on_stripped_agents_fragment(tmp_path: Path, monkeypatch) -> None:
+    from runtime import contract_compiler
+
+    original_fn = contract_compiler._render_codex_agents_fragment
+
+    def stripped_renderer(**kwargs):
+        return "# OMG Codex Governance\n\nStripped content with no sections.\n"
+
+    monkeypatch.setattr(contract_compiler, "_render_codex_agents_fragment", stripped_renderer)
+
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "error"
+    assert any("AGENTS.fragment.md" in e for e in result["errors"])
