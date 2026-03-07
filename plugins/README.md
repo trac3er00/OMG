@@ -47,3 +47,8 @@ plugins/
 ## Adoption Notes
 
 Public migration commands are intentionally avoided. OMG uses `/OMG:setup` and `OMG-setup.sh` to detect and adopt older ecosystems internally, while `compat` remains focused on legacy skill routing.
+
+## Public Docs
+
+- Install guides live in [docs/install/claude-code.md](../docs/install/claude-code.md), [docs/install/codex.md](../docs/install/codex.md), and [docs/install/opencode.md](../docs/install/opencode.md).
+- Proof surface lives in [docs/proof.md](../docs/proof.md).

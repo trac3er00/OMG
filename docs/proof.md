@@ -1,13 +1,16 @@
 # OMG Proof Surface
 
-## Verification
+[![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
+[![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
+
+## Verification Status
 
 OMG keeps verification visible instead of burying it in implementation details.
 
-- Current local full-suite result: `2444 passed, 2 skipped` on March 6, 2026.
-- Full-suite verification is run before release.
-- Setup and trust-release behavior have targeted regression tests.
-- Compatibility remains covered, but `compat` is no longer the onboarding story.
+- Current local full-suite result: `2452 passed, 2 skipped` on March 6, 2026.
+- Releases are expected to pass the compat gate, the standalone verification path, and the public-readiness check.
+- Setup, presets, and native adoption behavior have targeted regression tests.
+- `compat` remains covered, but it is not the public onboarding path.
 
 ## Provider Matrix
 
@@ -24,16 +27,15 @@ OMG keeps verification visible instead of burying it in implementation details.
 - Native setup writes `.omg/state/adoption-report.json`
 - Native setup writes `.omg/state/cli-config.yaml`
 - `OMG-only` and `coexist` are both covered in setup tests
+- OMC, OMX, and Superpowers references stay limited to compatibility and adoption guidance
 
-## HUD
+## HUD Artifact
 
-Reference artifact:
+![OMG HUD](assets/omg-hud.svg)
 
-![OMG HUD](/Users/cminseo/Documents/scripts/Shell/OMG/docs/assets/omg-hud.svg)
+## Benchmark Tasks
 
-## Benchmarks
-
-Representative benchmark tasks for this trust release:
+Representative benchmark tasks for this release:
 
 - host detection and auth wiring
 - adoption detection with overlapping ecosystems
@@ -42,5 +44,10 @@ Representative benchmark tasks for this trust release:
 
 ## Sample Transcripts
 
-- Setup: [docs/transcripts/setup.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/transcripts/setup.md)
-- Crazy: [docs/transcripts/crazy.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/transcripts/crazy.md)
+- Setup: [docs/transcripts/setup.md](transcripts/setup.md)
+- Crazy: [docs/transcripts/crazy.md](transcripts/crazy.md)
+
+## Release Discipline
+
+- Public launch checklist: [docs/release-checklist.md](release-checklist.md)
+- Changelog: [CHANGELOG.md](../CHANGELOG.md)

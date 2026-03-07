@@ -21,8 +21,9 @@ chmod +x OMG-setup.sh
 ./OMG-setup.sh install --mode=omg-only --preset=balanced
 ```
 
-## Notes
+## Verify
 
 - `OMG-only` is the recommended adoption mode.
-- Use `--mode=coexist` when you need a non-destructive landing with other plugin stacks.
+- You should see `.mcp.json` plus `.omg/state/cli-config.yaml`.
+- If Claude Code already has overlapping plugins, OMG will emit `.omg/state/adoption-report.json`.
 - Run `/OMG:crazy <goal>` after setup.

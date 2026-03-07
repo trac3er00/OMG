@@ -1,110 +1,105 @@
-# OMG 2.0.1
+# OMG 2.0.2
 
-OMG upgrades your agent host instead of replacing it. It gives Claude Code, Codex, OpenCode, and other supported CLIs a tighter setup flow, stronger orchestration, adoption paths from older plugin stacks, and proof-backed verification.
+[![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
+[![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
+[![License](https://img.shields.io/github/license/trac3er00/OMG)](LICENSE)
+
+OMG upgrades your agent host instead of replacing it. It gives Claude Code, Codex, OpenCode, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
 
 - Brand: `OMG`
 - Repo: `https://github.com/trac3er00/OMG`
 - npm: `@trac3er/oh-my-god`
 - Plugin id: `omg`
 - Marketplace id: `omg`
-- Version: `2.0.1`
+- Version: `2.0.2`
 
-## The Front Door
+## Why OMG
 
-OMG keeps the public journey small:
+- Small front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
+- Multi-host support: Claude Code, Codex, OpenCode, Gemini CLI, and Kimi CLI.
+- Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
+- Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.
 
-1. Install for your host.
-2. Run `/OMG:setup`.
-3. Run `/OMG:crazy <goal>`.
+![OMG HUD](docs/assets/omg-hud.svg)
 
-Everything else is still available, but `setup` and `crazy` are the native OMG entrypoints.
+## Quickstart
 
-## What OMG Does
-
-- Upgrades Claude Code, Codex, and OpenCode with a shared orchestration layer.
-- Detects overlapping ecosystems and offers native OMG adoption instead of public migration commands.
-- Supports two adoption modes:
-  - `OMG-only`: recommended. OMG becomes the primary hooks, HUD, MCP, and orchestration layer.
-  - `coexist`: advanced. OMG preserves other ecosystems where possible and avoids destructive overlap.
-- Presets reduce feature-flag sprawl:
-  - `safe`
-  - `balanced`
-  - `interop`
-  - `labs`
-- Keeps `compat` available for legacy skill routing without making it the main onboarding story.
-
-## Supported Hosts
-
-- Claude Code
-- Codex
-- OpenCode
-- Gemini CLI
-- Kimi CLI
-
-Claude Code, Codex, and OpenCode are the primary top-level install journeys in this release.
-
-## Install
-
-### npm
+Install with npm:
 
 ```bash
 npm install @trac3er/oh-my-god
 ```
 
-### git
+Or clone and run the setup manager:
 
 ```bash
 git clone https://github.com/trac3er00/OMG
 cd OMG
 chmod +x OMG-setup.sh
-./OMG-setup.sh install
+./OMG-setup.sh install --mode=omg-only --preset=balanced
 ```
 
-### Host Guides
+Then run:
 
-- Claude Code: [docs/install/claude-code.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/install/claude-code.md)
-- Codex: [docs/install/codex.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/install/codex.md)
-- OpenCode: [docs/install/opencode.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/install/opencode.md)
+```text
+/OMG:setup
+/OMG:crazy stabilize auth and dashboard flows
+```
+
+Success looks like:
+
+- supported hosts are detected
+- `.mcp.json` is configured
+- `.omg/state/adoption-report.json` is written when another ecosystem is present
+- OMG reports the selected preset and next step
+
+## Install Guides
+
+- Claude Code: [docs/install/claude-code.md](docs/install/claude-code.md)
+- Codex: [docs/install/codex.md](docs/install/codex.md)
+- OpenCode: [docs/install/opencode.md](docs/install/opencode.md)
 
 ## Native Adoption
 
-OMG can adopt setups coming from OMC, OMX, and Superpowers-style environments through `/OMG:setup` and `OMG-setup.sh`.
+OMG uses native setup language instead of public migration commands.
 
-- It detects overlapping ecosystems internally.
-- It writes an adoption report to `.omg/state/adoption-report.json`.
-- It recommends `OMG-only` and keeps `coexist` available when you want a non-destructive landing.
+- `OMG-only`: recommended. OMG becomes the primary hooks, HUD, MCP, and orchestration layer.
+- `coexist`: advanced. OMG preserves non-conflicting third-party surfaces and records overlap instead of overwriting it.
+- Presets: `safe`, `balanced`, `interop`, `labs`.
 
-Details: [docs/migration/native-adoption.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/migration/native-adoption.md)
+Compatibility references to OMC, OMX, and Superpowers are documented here: [docs/migration/native-adoption.md](docs/migration/native-adoption.md)
 
 ## Proof
 
-Trust is a product surface. OMG publishes proof for:
+Current local verification for this release: `2452 passed, 2 skipped` on March 6, 2026.
 
-- current verification results
-- verification status
-- provider coverage
-- adoption evidence
-- HUD artifact
-- sample transcripts
+- Verification and provider matrix: [docs/proof.md](docs/proof.md)
+- Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
+- Sample crazy transcript: [docs/transcripts/crazy.md](docs/transcripts/crazy.md)
+- Release process: [docs/release-checklist.md](docs/release-checklist.md)
 
-Current local verification for this release: `2444 passed, 2 skipped` on March 6, 2026.
+## Command Surface
 
-See [docs/proof.md](/Users/cminseo/Documents/scripts/Shell/OMG/docs/proof.md).
-
-## Commands
-
-Primary:
+Primary entry points:
 
 - `/OMG:setup`
 - `/OMG:crazy`
 
-Advanced:
+Advanced surfaces stay available for deeper workflows:
 
 - `/OMG:teams`
 - `/OMG:ccg`
 - `/OMG:compat`
 - `/OMG:ship`
 - `/OMG:security-review`
+
+## Contributing
+
+Public contributions are welcome.
+
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security reporting: [SECURITY.md](SECURITY.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ## Positioning
 
