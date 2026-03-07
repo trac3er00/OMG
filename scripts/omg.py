@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OMG 2.0.2 CLI entrypoint.
+"""OMG 2.0.3 CLI entrypoint.
 
 Implements practical command-line flows for:
 - omg ship

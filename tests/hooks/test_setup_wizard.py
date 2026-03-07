@@ -399,7 +399,7 @@ class TestSetPreferences:
             with open(config_path) as f:
                 data = yaml.safe_load(f)
             assert "version" in data
-            assert data["version"] == "2.0.2"
+            assert data["version"] == "2.0.3"
 
     def test_set_preferences_includes_cli_configs_key(self):
         """Config should include cli_configs key."""
