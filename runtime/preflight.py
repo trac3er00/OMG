@@ -6,6 +6,33 @@ from runtime.tracebank import record_trace
 from typing import Any
 
 
+_HIGH_RISK_DELTA_TOKENS = (
+    "auth",
+    "payment",
+    "billing",
+    "checkout",
+    "db",
+    "database",
+    "schema",
+    "migration",
+    "infra",
+    "terraform",
+    ".tf",
+    "helm",
+    "k8s",
+    "docker",
+    "manifest",
+    "package.json",
+    "requirements.txt",
+    "pyproject.toml",
+    "cargo.toml",
+    "go.mod",
+    "gemfile",
+    "policy",
+    "config",
+)
+
+
 def run_preflight(project_dir: str, *, goal: str) -> dict[str, Any]:
     lowered = goal.lower()
     task_class = "implementation"
@@ -13,9 +40,10 @@ def run_preflight(project_dir: str, *, goal: str) -> dict[str, Any]:
     route = "teams"
     delta = classify_project_changes(project_dir, goal=goal)
     categories = set(delta["categories"])
+    requires_security_check = _requires_security_check(delta)
     domain_packs = [category for category in delta["categories"] if category in {"robotics", "vision", "algorithms", "health"}]
 
-    if categories & {"auth", "payment", "health", "compliance"}:
+    if requires_security_check:
         task_class = "security"
         risk_class = "high"
         route = "security-check"
@@ -47,6 +75,7 @@ def run_preflight(project_dir: str, *, goal: str) -> dict[str, Any]:
         "task_class": task_class,
         "risk_class": risk_class,
         "route": route,
+        "requires_security_check": requires_security_check,
         "required_tools": _required_tools(route),
         "required_mcps": ["omg-control"] if route in {"security-check", "api-twin", "crazy"} else [],
         "missing_constraints": [],
@@ -55,6 +84,18 @@ def run_preflight(project_dir: str, *, goal: str) -> dict[str, Any]:
         "domain_packs": domain_packs,
         "trace": {"trace_id": trace["trace_id"], "path": trace["path"]},
     }
+
+
+def _requires_security_check(delta: dict[str, Any]) -> bool:
+    categories = {str(item).lower() for item in delta.get("categories", [])}
+    if categories & {"auth", "payment", "db", "infra", "compliance", "health"}:
+        return True
+
+    touched_files = [str(path).lower() for path in delta.get("touched_files", [])]
+    for file_path in touched_files:
+        if any(token in file_path for token in _HIGH_RISK_DELTA_TOKENS):
+            return True
+    return False
 
 
 def _required_tools(route: str) -> list[str]:

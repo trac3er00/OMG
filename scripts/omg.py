@@ -215,10 +215,12 @@ def cmd_secure(args: argparse.Namespace) -> int:
 
 
 def cmd_security_check(args: argparse.Namespace) -> int:
+    waivers = json.loads(args.waivers_json) if args.waivers_json else None
     result = run_security_check(
         project_dir=_ensure_project_dir(),
         scope=args.scope,
         include_live_enrichment=bool(args.live_enrichment),
+        waivers=waivers,
     )
     print(json.dumps(result, indent=2))
     return 0
@@ -701,6 +703,7 @@ def build_parser() -> argparse.ArgumentParser:
     security_check = security_sub.add_parser("check", help="Run canonical OMG security check")
     security_check.add_argument("--scope", default=".")
     security_check.add_argument("--live-enrichment", action="store_true")
+    security_check.add_argument("--waivers-json", default="")
     security_check.set_defaults(func=cmd_security_check)
 
     api_twin = sub.add_parser("api-twin", help="Contract replay and fixture-based API simulation")

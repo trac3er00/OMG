@@ -68,6 +68,32 @@ def test_cli_security_check_runs_canonical_engine(tmp_path: Path):
     assert out["schema"] == "SecurityCheckResult"
     assert out["summary"]["finding_count"] >= 1
     assert any(finding["category"] == "python_ast" for finding in out["findings"])
+    assert out["evidence"]["sarif_path"].endswith(".sarif")
+    assert out["evidence"]["sbom_path"].endswith(".cdx.json")
+    assert out["evidence"]["license_path"].endswith(".json")
+
+
+def test_cli_security_check_honors_waiver_json(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    first = _run(["security", "check", "--scope", str(tmp_path)])
+    first_out = json.loads(first.stdout)
+    finding_id = first_out["findings"][0]["finding_id"]
+
+    waived = _run(
+        [
+            "security",
+            "check",
+            "--scope",
+            str(tmp_path),
+            "--waivers-json",
+            json.dumps([{"finding_id": finding_id, "justification": "approved mitigation window"}]),
+        ]
+    )
+    waived_out = json.loads(waived.stdout)
+    assert waived_out["status"] == "ok"
+    assert waived_out["release_blocked"] is False
 
 
 def test_cli_teams_command():

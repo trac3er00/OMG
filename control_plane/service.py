@@ -114,6 +114,7 @@ class ControlPlaneService:
         scope = str(payload.get("scope", "."))
         include_live_enrichment = bool(payload.get("include_live_enrichment", False))
         external_inputs = payload.get("external_inputs")
+        waivers = payload.get("waivers")
         
         # Normalize external_inputs: must be list of dicts or None
         if external_inputs is not None:
@@ -131,12 +132,28 @@ class ControlPlaneService:
                         "error_code": "INVALID_EXTERNAL_INPUTS",
                         "message": "each item in external_inputs must be an object",
                     }
-        
+
+        if waivers is not None:
+            if not isinstance(waivers, list):
+                return 400, {
+                    "status": "error",
+                    "error_code": "INVALID_WAIVERS",
+                    "message": "waivers must be a list of finding identifiers or objects",
+                }
+            for item in waivers:
+                if not isinstance(item, (str, dict)):
+                    return 400, {
+                        "status": "error",
+                        "error_code": "INVALID_WAIVERS",
+                        "message": "each waiver must be a string or object",
+                    }
+
         result = run_security_check(
             project_dir=self.project_dir,
             scope=scope,
             include_live_enrichment=include_live_enrichment,
             external_inputs=external_inputs,
+            waivers=waivers,
         )
         return 200, result
 

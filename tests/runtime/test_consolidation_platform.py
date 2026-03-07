@@ -54,8 +54,47 @@ def test_security_check_emits_provenance_trust_scores_and_evidence_file(tmp_path
     assert result["summary"]["scan_status"] == "completed"
     assert result["provenance"]
     assert "overall" in result["trust_scores"]
+    assert result["evidence"]["sarif_path"].endswith(".sarif")
+    assert result["evidence"]["sbom_path"].endswith(".cdx.json")
+    assert result["evidence"]["license_path"].endswith(".json")
     evidence_path = Path(tmp_path, result["evidence"]["path"])
+    sarif_path = Path(tmp_path, result["evidence"]["sarif_path"])
+    sbom_path = Path(tmp_path, result["evidence"]["sbom_path"])
+    license_path = Path(tmp_path, result["evidence"]["license_path"])
     assert evidence_path.exists()
+    assert sarif_path.exists()
+    assert sbom_path.exists()
+    assert license_path.exists()
+
+    sarif_payload = json.loads(sarif_path.read_text(encoding="utf-8"))
+    assert sarif_payload["version"] == "2.1.0"
+    assert sarif_payload["runs"]
+
+    sbom_payload = json.loads(sbom_path.read_text(encoding="utf-8"))
+    assert sbom_payload["bomFormat"] == "CycloneDX"
+    assert sbom_payload["specVersion"] == "1.4"
+
+    license_payload = json.loads(license_path.read_text(encoding="utf-8"))
+    assert license_payload["schema"] == "LicenseCompatibilityArtifact"
+
+
+def test_security_check_waiver_prevents_release_blocking(tmp_path: Path) -> None:
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    initial = run_security_check(project_dir=str(tmp_path), scope=".")
+    assert initial["release_blocked"] is True
+    finding_id = initial["findings"][0]["finding_id"]
+
+    waived = run_security_check(
+        project_dir=str(tmp_path),
+        scope=".",
+        waivers=[{"finding_id": finding_id, "justification": "accepted short-term risk"}],
+    )
+
+    assert waived["release_blocked"] is False
+    assert waived["status"] == "ok"
+    assert any(finding.get("waived") for finding in waived["findings"])
 
 
 def test_api_twin_supports_versioned_endpoint_cassettes_latency_and_saved_costs(tmp_path: Path) -> None:

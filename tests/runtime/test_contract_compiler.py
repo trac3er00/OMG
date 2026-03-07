@@ -286,6 +286,74 @@ def test_release_readiness_rejects_cosmetic_evidence_and_eval_regressions(
     assert readiness["status"] == "error"
     assert any("cosmetic evidence" in blocker for blocker in readiness["blockers"])
     assert any("eval regression" in blocker for blocker in readiness["blockers"])
+    assert "security_blocker_unwaived" in readiness["checks"]
+
+
+def test_release_readiness_security_blocker_unwaived_fails(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / "run-1.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "run_id": "run-1",
+                "tests": [{"name": "worker_implementation", "passed": True}],
+                "security_scans": [
+                    {
+                        "tool": "security-check",
+                        "findings": [
+                            {
+                                "id": "B602",
+                                "severity": "high",
+                                "message": "shell=True detected",
+                                "waived": False,
+                            }
+                        ],
+                    }
+                ],
+                "diff_summary": {"files": 1},
+                "reproducibility": {"cmd": "pytest -q"},
+                "unresolved_risks": [],
+                "provenance": [{"source": "security-check"}],
+                "trust_scores": {"overall": 0.6},
+                "api_twin": {},
+                "trace_ids": ["trace-1"],
+                "lineage": {"lineage_id": "lineage-1"},
+                "timestamp": "2026-01-01T00:00:00+00:00",
+                "executor": {"user": "ci", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    eval_root = tmp_path / ".omg" / "evals"
+    eval_root.mkdir(parents=True, exist_ok=True)
+    (eval_root / "latest.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvalGateResult",
+                "status": "ok",
+                "summary": {"regressed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("security_blocker_unwaived" in blocker for blocker in readiness["blockers"])
+    assert readiness["checks"]["security_blocker_unwaived"]["status"] == "error"
 
 
 def test_version_drift_blocker_on_plugin_mismatch(tmp_path: Path, monkeypatch) -> None:
