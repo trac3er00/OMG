@@ -22,6 +22,7 @@ _HIGH_RISK_DELTA_TOKENS = (
     "k8s",
     "docker",
     "manifest",
+    "manifests",
     "package.json",
     "requirements.txt",
     "pyproject.toml",
@@ -29,7 +30,9 @@ _HIGH_RISK_DELTA_TOKENS = (
     "go.mod",
     "gemfile",
     "policy",
+    "policies",
     "config",
+    "configs",
 )
 
 
@@ -88,7 +91,7 @@ def run_preflight(project_dir: str, *, goal: str) -> dict[str, Any]:
 
 def _requires_security_check(delta: dict[str, Any]) -> bool:
     categories = {str(item).lower() for item in delta.get("categories", [])}
-    if categories & {"auth", "payment", "db", "infra", "compliance", "health"}:
+    if categories & {"auth", "payment", "db", "infra", "compliance", "health", "security"}:
         return True
 
     touched_files = [str(path).lower() for path in delta.get("touched_files", [])]

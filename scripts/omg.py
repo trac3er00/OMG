@@ -169,16 +169,10 @@ def cmd_ship(args: argparse.Namespace) -> int:
         project_dir,
         run_id,
         tests=checks if isinstance(checks, list) else [],
-        security_scans=[
-            {
-                "tool": "security-check",
-                "finding_count": security_result["summary"]["finding_count"],
-                "path": security_result["evidence"]["path"],
-            }
-        ],
+        security_scans=security_result.get("security_scans", []),
         diff_summary={"runtime": runtime, "goal": idea.get("goal", "")},
         reproducibility={"command": f"omg ship --runtime {runtime} --idea {idea_path}"},
-        unresolved_risks=[],
+        unresolved_risks=security_result.get("unresolved_risks", []),
         provenance=security_result["provenance"],
         trust_scores=security_result["trust_scores"],
         api_twin={"recommended_route": preflight["route"] if preflight["route"] == "api-twin" else ""},

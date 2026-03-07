@@ -27,3 +27,15 @@ def test_preflight_auto_triggers_security_for_infra_and_manifest_deltas(tmp_path
 
     assert result["requires_security_check"] is True
     assert result["route"] == "security-check"
+
+
+def test_preflight_auto_triggers_security_for_policy_and_config_deltas(tmp_path):
+    (tmp_path / "policy").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "policy" / "runtime-policy.yaml").write_text("allow_privilege_escalation: true\n", encoding="utf-8")
+    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "config" / "app-config.yaml").write_text("verify: false\n", encoding="utf-8")
+
+    result = run_preflight(str(tmp_path), goal="small docs cleanup")
+
+    assert result["requires_security_check"] is True
+    assert result["route"] == "security-check"

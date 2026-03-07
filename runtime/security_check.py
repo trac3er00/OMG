@@ -25,7 +25,7 @@ SEVERITY_ORDER = {
     "high": 1,
     "medium": 2,
     "low": 3,
-}
+    }
 
 _PYTHON_AST_RULES: tuple[tuple[str, str, str, str], ...] = (
     ("B602", "subprocess-shell-true", "high", "Avoid shell=True in subprocess calls."),
@@ -114,7 +114,26 @@ def run_security_check(
     )
     trust_scores = _build_trust_scores(findings)
     generated_at = datetime.now(timezone.utc).isoformat()
-    license_artifact = _build_license_artifact(project_dir=project_dir, scope_path=scope_path, manifests=manifests)
+    license_artifact = _build_license_artifact(
+        project_dir=project_dir,
+        scope_path=scope_path,
+        manifests=manifests,
+        generated_at=generated_at,
+    )
+    unresolved_risks = [
+        {
+            "finding_id": finding.get("finding_id"),
+            "id": finding.get("id"),
+            "severity": finding.get("severity"),
+            "exploitability": finding.get("exploitability", "unknown"),
+            "reachability": finding.get("reachability", "unknown"),
+            "waived": bool(finding.get("waived")),
+            "waiver_justification": finding.get("waiver_justification", ""),
+            "message": finding.get("message", ""),
+        }
+        for finding in findings
+        if finding.get("severity") in {"critical", "high"}
+    ]
     trace = record_trace(
         project_dir,
         trace_type="security-check",
@@ -136,6 +155,7 @@ def run_security_check(
         waivers=waivers or [],
         license_artifact=license_artifact,
         manifests=manifests,
+        unresolved_risks=unresolved_risks,
     )
     return {
         "schema": "SecurityCheckResult",
@@ -147,6 +167,17 @@ def run_security_check(
             "applied": len([finding for finding in findings if finding.get("waived")]),
         },
         "release_blocked": bool(unresolved_high_risk),
+        "unresolved_risks": unresolved_risks,
+        "security_scans": [
+            {
+                "tool": "security-check",
+                "path": artifacts["json_path"],
+                "sarif_path": artifacts["sarif_path"],
+                "sbom_path": artifacts["sbom_path"],
+                "license_path": artifacts["license_path"],
+                "findings": findings,
+            }
+        ],
         "summary": {
             "finding_count": len(findings),
             "unresolved_high_risk_count": len(unresolved_high_risk),
@@ -169,7 +200,24 @@ def run_security_check(
             "license_path": artifacts["license_path"],
         },
         "trace": {"trace_id": trace["trace_id"], "path": trace["path"]},
-    }
+}
+
+
+def security_check(
+    *,
+    project_dir: str,
+    scope: str = ".",
+    include_live_enrichment: bool = False,
+    external_inputs: list[dict[str, Any]] | None = None,
+    waivers: list[dict[str, Any] | str] | None = None,
+) -> dict[str, Any]:
+    return run_security_check(
+        project_dir=project_dir,
+        scope=scope,
+        include_live_enrichment=include_live_enrichment,
+        external_inputs=external_inputs,
+        waivers=waivers,
+    )
 
 
 def _resolve_scope(project_dir: str, scope: str) -> Path:
@@ -731,6 +779,15 @@ def _build_sarif_payload(findings: list[dict[str, Any]]) -> dict[str, Any]:
             "ruleId": rule_id,
             "level": level,
             "message": {"text": str(finding.get("message", "Security finding"))},
+            "partialFingerprints": {
+                "findingId": str(finding.get("finding_id", "")),
+            },
+            "properties": {
+                "severity": str(finding.get("severity", "medium")),
+                "exploitability": str(finding.get("exploitability", "unknown")),
+                "reachability": str(finding.get("reachability", "unknown")),
+                "waived": bool(finding.get("waived", False)),
+            },
             "locations": [location],
         }
         if finding.get("waived"):
@@ -788,16 +845,35 @@ def _build_sbom_payload(*, generated_at: str, manifests: Any) -> dict[str, Any]:
     }
 
 
-def _build_license_artifact(*, project_dir: str, scope_path: Path, manifests: Any) -> dict[str, Any]:
+def _build_license_artifact(*, project_dir: str, scope_path: Path, manifests: Any, generated_at: str) -> dict[str, Any]:
     project_license = _detect_project_license(project_dir=project_dir, scope_path=scope_path)
     dependencies = [{"name": package.name, "license": "UNKNOWN"} for package in manifests.packages]
     compatibility = check_license_compatibility(project_license, dependencies)
+    packages_by_license: dict[str, list[str]] = {}
+    for dependency in dependencies:
+        package_name = str(dependency.get("name", "")).strip()
+        if not package_name:
+            continue
+        spdx_id = str(dependency.get("license", "UNKNOWN") or "UNKNOWN").strip() or "UNKNOWN"
+        packages_by_license.setdefault(spdx_id, []).append(package_name)
+
+    licenses = [
+        {
+            "name": spdx_id,
+            "spdx_id": spdx_id,
+            "packages": sorted(packages),
+        }
+        for spdx_id, packages in sorted(packages_by_license.items())
+    ]
+
+    if not licenses:
+        licenses = [{"name": project_license, "spdx_id": project_license, "packages": []}]
+
     return {
-        "schema": "LicenseCompatibilityArtifact",
+        "timestamp": generated_at,
+        "licenses": licenses,
         "project_license": project_license,
-        "dependency_count": len(dependencies),
         "compatibility": compatibility,
-        "dependencies": dependencies,
     }
 
 
@@ -834,6 +910,7 @@ def _write_evidence_artifacts(
     waivers: list[dict[str, Any] | str],
     license_artifact: dict[str, Any],
     manifests: Any,
+    unresolved_risks: list[dict[str, Any]],
 ) -> dict[str, str]:
     stamp = _timestamp_slug()
     evidence_dir = Path(project_dir) / ".omg" / "evidence"
@@ -859,6 +936,14 @@ def _write_evidence_artifacts(
         "findings": findings,
         "waivers": waivers,
         "unresolved_high_risk": [finding.get("finding_id") for finding in unresolved_high_risk],
+        "unresolved_risks": unresolved_risks,
+        "security_scans": [
+            {
+                "tool": "security-check",
+                "path": json_rel.as_posix(),
+                "findings": findings,
+            }
+        ],
         "provenance": provenance,
         "trust_scores": trust_scores,
         "artifacts": {
