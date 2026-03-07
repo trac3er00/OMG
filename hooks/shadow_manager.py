@@ -17,6 +17,7 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 from _common import _resolve_project_dir
+from security_validators import ensure_path_within_dir, validate_opaque_identifier
 
 
 def _project_dir() -> str:
@@ -43,6 +44,10 @@ def _new_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
 
+def _validated_run_id(run_id: str) -> str:
+    return validate_opaque_identifier(run_id, "run_id")
+
+
 def _hash_file(path: str) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -61,6 +66,7 @@ def ensure_shadow_dirs(project_dir: str) -> None:
 
 def set_active_run_id(project_dir: str, run_id: str) -> None:
     ensure_shadow_dirs(project_dir)
+    run_id = _validated_run_id(run_id)
     with open(_active_run_path(project_dir), "w", encoding="utf-8") as f:
         f.write(run_id)
 
@@ -81,7 +87,7 @@ def get_active_run_id(project_dir: str) -> str | None:
 
 
 def begin_shadow_run(project_dir: str, metadata: dict[str, Any] | None = None) -> str:
-    run_id = get_active_run_id(project_dir) or _new_run_id()
+    run_id = _validated_run_id(get_active_run_id(project_dir) or _new_run_id())
     run_dir = os.path.join(_shadow_root(project_dir), run_id)
     os.makedirs(run_dir, exist_ok=True)
 
@@ -124,12 +130,14 @@ def _save_manifest(run_dir: str, manifest: dict[str, Any]) -> None:
 
 
 def map_shadow_path(project_dir: str, run_id: str, file_path: str) -> str:
+    run_id = _validated_run_id(run_id)
     rel = os.path.relpath(os.path.abspath(file_path), os.path.abspath(project_dir))
     rel = rel.replace("..", "_up_")
     return os.path.join(_shadow_root(project_dir), run_id, "overlay", rel)
 
 
 def record_shadow_write(project_dir: str, run_id: str, file_path: str, source: str = "tool") -> dict[str, Any]:
+    run_id = _validated_run_id(run_id)
     run_dir = os.path.join(_shadow_root(project_dir), run_id)
     os.makedirs(run_dir, exist_ok=True)
 
@@ -173,6 +181,7 @@ def create_evidence_pack(
     unresolved_risks: list[str] | None = None,
 ) -> str:
     ensure_shadow_dirs(project_dir)
+    run_id = _validated_run_id(run_id)
     evidence = {
         "schema": "EvidencePack",
         "run_id": run_id,
@@ -183,7 +192,10 @@ def create_evidence_pack(
         "reproducibility": reproducibility or {},
         "unresolved_risks": unresolved_risks or [],
     }
-    evidence_path = os.path.join(_evidence_root(project_dir), f"{run_id}.json")
+    evidence_path = ensure_path_within_dir(
+        _evidence_root(project_dir),
+        os.path.join(_evidence_root(project_dir), f"{run_id}.json"),
+    )
     with open(evidence_path, "w", encoding="utf-8") as f:
         json.dump(evidence, f, indent=2)
     return evidence_path
@@ -211,6 +223,7 @@ def has_recent_evidence(project_dir: str, hours: int = 24) -> bool:
 
 
 def apply_shadow(project_dir: str, run_id: str) -> dict[str, Any]:
+    run_id = _validated_run_id(run_id)
     run_dir = os.path.join(_shadow_root(project_dir), run_id)
     manifest = _load_manifest(run_dir)
     applied = []
@@ -236,6 +249,7 @@ def apply_shadow(project_dir: str, run_id: str) -> dict[str, Any]:
 
 
 def drop_shadow(project_dir: str, run_id: str) -> dict[str, Any]:
+    run_id = _validated_run_id(run_id)
     run_dir = os.path.join(_shadow_root(project_dir), run_id)
     if os.path.isdir(run_dir):
         print(f"[OMG] Deleting: {run_dir}", file=sys.stderr)

@@ -10,6 +10,7 @@ from hooks.policy_engine import (
     evaluate_file_access,
     evaluate_supply_artifact,
 )
+from hooks.security_validators import validate_opaque_identifier
 from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change
 from lab.pipeline import run_pipeline
@@ -70,6 +71,14 @@ class ControlPlaneService:
                 "status": "error",
                 "error_code": "INVALID_EVIDENCE_INPUT",
                 "message": "run_id is required",
+            }
+        try:
+            run_id = validate_opaque_identifier(run_id, "run_id")
+        except ValueError as exc:
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_EVIDENCE_INPUT",
+                "message": str(exc),
             }
         if missing:
             return 400, {
@@ -145,4 +154,3 @@ class ControlPlaneService:
             },
             "target_policy": "non-regression-or-better",
         }
-

@@ -181,22 +181,20 @@ class TestGetConfigPath:
 # ---------------------------------------------------------------------------
 
 class TestWriteMcpConfig:
-    def test_writes_toml_entry(self, provider: CodexProvider, tmp_path: object) -> None:
-        config_path = os.path.join(str(tmp_path), ".codex", "config.toml")
-        with patch.object(provider, "get_config_path", return_value=config_path):
+    @patch("runtime.providers.codex_provider.write_codex_mcp_config")
+    def test_delegates_to_shared_writer(self, mock_writer: MagicMock, provider: CodexProvider) -> None:
+        with patch.object(provider, "get_config_path", return_value="/tmp/test-codex.toml"):
             provider.write_mcp_config("http://localhost:8080", server_name="test-server")
+        mock_writer.assert_called_once_with(
+            "http://localhost:8080",
+            "test-server",
+            config_path="/tmp/test-codex.toml",
+        )
 
-        assert os.path.exists(config_path)
-        content = open(config_path).read()
-        assert "test-server" in content
-        assert "http://localhost:8080" in content
-
-    def test_creates_parent_directory(self, provider: CodexProvider, tmp_path: object) -> None:
-        config_path = os.path.join(str(tmp_path), "deep", "nested", "config.toml")
-        with patch.object(provider, "get_config_path", return_value=config_path):
-            provider.write_mcp_config("http://localhost:9090")
-
-        assert os.path.exists(config_path)
+    @patch("runtime.providers.codex_provider.write_codex_mcp_config", side_effect=ValueError("invalid server_name"))
+    def test_propagates_validation_error(self, _mock_writer: MagicMock, provider: CodexProvider) -> None:
+        with pytest.raises(ValueError, match="server_name"):
+            provider.write_mcp_config("http://localhost:8080", server_name="../escape")
 
 
 # ---------------------------------------------------------------------------

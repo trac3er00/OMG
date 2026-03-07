@@ -154,3 +154,26 @@ def test_write_kimi_mcp_config_merges_and_is_idempotent(
     write_kimi_mcp_config("http://localhost:8765")
     second_data = _read_json(config_path)
     assert second_data == first_data
+
+
+def test_write_codex_mcp_config_rejects_invalid_server_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    with pytest.raises(ValueError, match="server_name"):
+        write_codex_mcp_config("http://localhost:8765", 'evil"]\n[mcp_servers.bad]')
+
+
+def test_write_codex_mcp_config_rejects_invalid_server_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    with pytest.raises(ValueError, match="server_url"):
+        write_codex_mcp_config('http://localhost:8765"\n[mcp_servers.bad]\nurl="http://evil"')
+
+
+def test_write_claude_mcp_config_rejects_invalid_server_name(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="server_name"):
+        write_claude_mcp_config(str(tmp_path), "http://localhost:8765", "../escape")

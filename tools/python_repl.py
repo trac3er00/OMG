@@ -25,11 +25,13 @@ from typing import Any, Dict, Generator, List, Optional, Union
 
 _get_feature_flag = None
 _atomic_json_write = None
+_validate_opaque_identifier = None
+_ensure_path_within_dir = None
 
 
 def _ensure_imports():
     """Lazy import feature flag and atomic write from hooks/_common.py."""
-    global _get_feature_flag, _atomic_json_write
+    global _get_feature_flag, _atomic_json_write, _validate_opaque_identifier, _ensure_path_within_dir
     if _get_feature_flag is not None:
         return
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,8 +40,12 @@ def _ensure_imports():
     try:
         from hooks._common import get_feature_flag as _gff
         from hooks._common import atomic_json_write as _ajw
+        from hooks.security_validators import ensure_path_within_dir as _epwd
+        from hooks.security_validators import validate_opaque_identifier as _voi
         _get_feature_flag = _gff
         _atomic_json_write = _ajw
+        _validate_opaque_identifier = _voi
+        _ensure_path_within_dir = _epwd
     except ImportError:
         pass
 
@@ -217,6 +223,23 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _validate_session_id(session_id: str) -> str:
+    """Validate a caller-supplied session identifier."""
+    _ensure_imports()
+    if _validate_opaque_identifier is None:
+        raise ValueError("Invalid session_id: validator unavailable")
+    return _validate_opaque_identifier(session_id, "session_id")
+
+
+def _resolve_session_path(session_id: str) -> str:
+    """Resolve the on-disk session path and reject directory escapes."""
+    _ensure_imports()
+    if _ensure_path_within_dir is None:
+        raise ValueError("Invalid session_id: path validator unavailable")
+    state_dir = os.path.abspath(_STATE_DIR)
+    return _ensure_path_within_dir(state_dir, os.path.join(state_dir, f"{session_id}.json"))
+
+
 def _persist_session(session_id: str) -> None:
     """Persist session metadata to disk (best-effort)."""
     if session_id not in _sessions:
@@ -232,10 +255,11 @@ def _persist_session(session_id: str) -> None:
         "exec_count": session["exec_count"],
         "backend": session.get("backend", "stdlib"),
     }
-    path = os.path.join(_STATE_DIR, f"{session_id}.json")
     try:
+        safe_session_id = _validate_session_id(session_id)
+        path = _resolve_session_path(safe_session_id)
         _atomic_json_write(path, meta)
-    except Exception:
+    except (OSError, ValueError):
         pass  # best-effort
 
 
@@ -410,6 +434,12 @@ def start_repl_session(session_id: Optional[str] = None) -> Dict[str, Any]:
     """
     if not _is_enabled():
         return {"error": _DISABLED_MSG}
+
+    if session_id is not None:
+        try:
+            session_id = _validate_session_id(session_id)
+        except ValueError as exc:
+            return {"error": str(exc)}
 
     # Resume existing session
     if session_id and session_id in _sessions:

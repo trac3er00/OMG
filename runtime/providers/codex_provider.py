@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 from runtime.cli_provider import CLIProvider, register_provider
+from runtime.mcp_config_writers import write_codex_mcp_config
 from runtime.tmux_session_manager import TmuxSessionManager
 
 _logger = logging.getLogger(__name__)
@@ -94,18 +95,7 @@ class CodexProvider(CLIProvider):
 
     def write_mcp_config(self, server_url: str, server_name: str = "memory-server") -> None:
         """Write an MCP server entry to ``~/.codex/config.toml``."""
-        config_path = self.get_config_path()
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
-
-        entry = (
-            f'[mcp_servers."{server_name}"]\n'
-            f'url = "{server_url}"\n'
-        )
-
-        # Append or create
-        mode = "a" if os.path.exists(config_path) else "w"
-        with open(config_path, mode) as fh:
-            fh.write(entry)
+        write_codex_mcp_config(server_url, server_name, config_path=self.get_config_path())
 
 
 # -- auto-register on import -----------------------------------------------

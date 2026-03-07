@@ -60,6 +60,23 @@ def test_evidence_ingest_writes_file(tmp_path: Path):
     assert ev_file.exists()
 
 
+def test_evidence_ingest_rejects_invalid_run_id(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.evidence_ingest(
+        {
+            "run_id": "../../pwned",
+            "tests": [],
+            "security_scans": [],
+            "diff_summary": {},
+            "reproducibility": {},
+            "unresolved_risks": [],
+        }
+    )
+    assert status == 400
+    assert out["error_code"] == "INVALID_EVIDENCE_INPUT"
+    assert not (tmp_path / "pwned.json").exists()
+
+
 def test_runtime_dispatch_unknown_runtime():
     service = ControlPlaneService(project_dir=".")
     status, out = service.runtime_dispatch({"runtime": "unknown", "idea": {"goal": "x"}})

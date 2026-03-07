@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import shlex
@@ -12,6 +11,7 @@ import uuid
 from typing import Any
 
 from runtime.cli_provider import CLIProvider, register_provider
+from runtime.mcp_config_writers import write_kimi_mcp_config
 from runtime.tmux_session_manager import TmuxSessionManager
 
 _logger = logging.getLogger(__name__)
@@ -125,26 +125,7 @@ class KimiCodeProvider(CLIProvider):
         Uses standard ``mcpServers`` JSON format with ``type: "http"`` and ``url`` field,
         merging into any existing configuration.
         """
-        config_path = self.get_config_path()
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
-
-        # Load existing config or start fresh
-        existing: dict[str, Any] = {}  # pyright: ignore[reportExplicitAny]
-        if os.path.exists(config_path):
-            with open(config_path) as fh:
-                try:
-                    existing = json.load(fh)
-                except (json.JSONDecodeError, ValueError):
-                    existing = {}
-
-        # Ensure mcpServers dict exists
-        if "mcpServers" not in existing:
-            existing["mcpServers"] = {}
-
-        existing["mcpServers"][server_name] = {"type": "http", "url": server_url}
-
-        with open(config_path, "w") as fh:
-            json.dump(existing, fh, indent=2)
+        write_kimi_mcp_config(server_url, server_name, config_path=self.get_config_path())
 
 
 # -- auto-register on import -----------------------------------------------

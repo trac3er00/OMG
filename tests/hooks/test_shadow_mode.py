@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from hooks.shadow_manager import (
     begin_shadow_run,
     record_shadow_write,
@@ -50,3 +52,16 @@ def test_shadow_apply_copies_overlay(tmp_path: Path):
     result = apply_shadow(str(project), run_id)
     assert "src/b.txt" in result["applied"]
     assert file_path.read_text(encoding="utf-8") == "v1"
+
+
+def test_create_evidence_pack_rejects_path_escape_run_id(tmp_path: Path):
+    with pytest.raises(ValueError, match="run_id"):
+        create_evidence_pack(
+            str(tmp_path),
+            "../../pwned",
+            tests=[],
+            security_scans=[],
+            diff_summary={},
+            reproducibility={},
+            unresolved_risks=[],
+        )
