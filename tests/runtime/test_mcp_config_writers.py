@@ -7,6 +7,7 @@ from typing import cast
 import pytest
 
 from runtime.mcp_config_writers import (
+    get_managed_python_path,
     write_claude_mcp_config,
     write_claude_mcp_stdio_config,
     write_codex_mcp_config,
@@ -240,3 +241,36 @@ def test_write_gemini_and_kimi_mcp_stdio_config_merge_entries(
         "command": "python3",
         "args": ["-m", "runtime.omg_mcp_server"],
     }
+
+
+def test_get_managed_python_path_returns_venv_path(tmp_path: Path) -> None:
+    result = get_managed_python_path(str(tmp_path / ".claude"))
+    expected = str(tmp_path / ".claude" / "omg-runtime" / ".venv" / "bin" / "python")
+    assert result == expected
+
+
+def test_get_managed_python_path_falls_back_to_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / ".claude"))
+    result = get_managed_python_path()
+    expected = str(tmp_path / ".claude" / "omg-runtime" / ".venv" / "bin" / "python")
+    assert result == expected
+
+
+def test_managed_python_path_in_claude_stdio_config(tmp_path: Path) -> None:
+    managed_python = get_managed_python_path(str(tmp_path / ".claude"))
+    write_claude_mcp_stdio_config(
+        str(tmp_path),
+        server_name="omg-control",
+        command=managed_python,
+        args=["-m", "runtime.omg_mcp_server"],
+    )
+    config_path = tmp_path / ".mcp.json"
+    payload = _read_json(config_path)
+    servers = _as_dict(payload["mcpServers"])
+    assert servers["omg-control"] == {
+        "command": managed_python,
+        "args": ["-m", "runtime.omg_mcp_server"],
+    }
+    assert "omg-runtime/.venv/bin/python" in managed_python

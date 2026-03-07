@@ -594,3 +594,73 @@ def test_plugin_install_script_has_install_as_plugin_flag():
     install_sh = (ROOT / ".claude-plugin" / "scripts" / "install.sh").read_text(encoding="utf-8")
     assert "--install-as-plugin" in install_sh
     assert "--non-interactive" in install_sh
+
+
+# --- Python version and managed runtime regression tests ---
+
+
+def test_setup_rejects_python_below_3_10(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+
+    fake_python = fake_bin / "python3"
+    _ = fake_python.write_text(
+        '#!/bin/bash\n'
+        'if [[ "$1" == "-c" ]]; then\n'
+        '  echo "3.9"\n'
+        '  exit 0\n'
+        'fi\n'
+        'exit 1\n',
+        encoding="utf-8",
+    )
+    fake_python.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+    proc = _run_script(SETUP, ["install", "--non-interactive"], env=env)
+    assert proc.returncode != 0
+    out = proc.stdout + proc.stderr
+    assert "3.10" in out
+    assert "3.9" in out
+    assert "not supported" in out.lower() or "unsupported" in out.lower()
+
+
+def test_setup_install_provisions_managed_venv(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    venv_python = claude_dir / "omg-runtime" / ".venv" / "bin" / "python"
+    assert venv_python.exists(), "Managed venv python interpreter must exist"
+
+
+def test_setup_plugin_install_patches_omg_control_to_managed_python(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    mcp_path = claude_dir / ".mcp.json"
+    assert mcp_path.exists()
+    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
+    servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
+    omg_control = cast(dict[str, object], servers.get("omg-control") or {})
+
+    expected_python = str(claude_dir / "omg-runtime" / ".venv" / "bin" / "python")
+    assert omg_control.get("command") == expected_python, (
+        f"omg-control command should be managed venv python, got: {omg_control.get('command')}"
+    )

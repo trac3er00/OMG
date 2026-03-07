@@ -35,6 +35,18 @@ def _write_json(path: Path, data: dict[str, object]) -> None:
     _atomic_write_text(path, json.dumps(data, indent=2) + "\n")
 
 
+def get_managed_python_path(claude_config_dir: str | None = None) -> str:
+    """Return the absolute path to the managed OMG venv Python interpreter.
+
+    Falls back to ``CLAUDE_CONFIG_DIR`` env var, then ``~/.claude``.
+    """
+    if claude_config_dir is None:
+        claude_config_dir = os.environ.get(
+            "CLAUDE_CONFIG_DIR", str(Path.home() / ".claude")
+        )
+    return str(Path(claude_config_dir) / "omg-runtime" / ".venv" / "bin" / "python")
+
+
 def _validated_server_input(server_url: str, server_name: str) -> tuple[str, str]:
     return validate_server_url(server_url), validate_server_name(server_name)
 
