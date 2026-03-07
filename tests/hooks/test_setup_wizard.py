@@ -16,7 +16,7 @@ class TestIsSetupEnabled:
 
     def test_disabled_by_default(self):
         """Setup wizard should be disabled when no env var or settings are set."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         # Ensure env var is not set
         env = os.environ.copy()
@@ -24,7 +24,7 @@ class TestIsSetupEnabled:
 
         with patch.dict(os.environ, env, clear=True):
             # Clear feature flag cache
-            import _common
+            from hooks import _common
             _common._FEATURE_CACHE.clear()
 
             result = setup_wizard.is_setup_enabled()
@@ -32,8 +32,8 @@ class TestIsSetupEnabled:
 
     def test_enabled_via_env_var(self):
         """Setup wizard should be enabled when OMG_SETUP_ENABLED=1."""
-        import setup_wizard
-        import _common
+        from hooks import setup_wizard
+        from hooks import _common
 
         _common._FEATURE_CACHE.clear()
 
@@ -43,8 +43,8 @@ class TestIsSetupEnabled:
 
     def test_disabled_via_env_var_zero(self):
         """Setup wizard should be disabled when OMG_SETUP_ENABLED=0."""
-        import setup_wizard
-        import _common
+        from hooks import setup_wizard
+        from hooks import _common
 
         _common._FEATURE_CACHE.clear()
 
@@ -58,8 +58,8 @@ class TestRunSetupWizard:
 
     def test_returns_disabled_when_feature_off(self):
         """Wizard should return disabled status when feature flag is off."""
-        import setup_wizard
-        import _common
+        from hooks import setup_wizard
+        from hooks import _common
 
         _common._FEATURE_CACHE.clear()
 
@@ -74,8 +74,8 @@ class TestRunSetupWizard:
 
     def test_returns_dict_with_expected_keys_when_enabled(self):
         """Wizard should return dict with all expected step keys."""
-        import setup_wizard
-        import _common
+        from hooks import setup_wizard
+        from hooks import _common
 
         _common._FEATURE_CACHE.clear()
 
@@ -93,8 +93,8 @@ class TestRunSetupWizard:
 
     def test_non_interactive_mode(self):
         """Wizard should accept non_interactive flag."""
-        import setup_wizard
-        import _common
+        from hooks import setup_wizard
+        from hooks import _common
 
         _common._FEATURE_CACHE.clear()
 
@@ -113,7 +113,7 @@ class TestWizardStubs:
 
     def test_detect_clis_returns_dict(self):
         """detect_clis() should return a dict (real detection via registry)."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
         from unittest.mock import patch
 
@@ -123,7 +123,7 @@ class TestWizardStubs:
 
     def test_check_auth_returns_pending(self):
         """check_auth() stub should return pending status."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         result = setup_wizard.check_auth()
         assert isinstance(result, dict)
@@ -131,7 +131,7 @@ class TestWizardStubs:
 
     def test_configure_mcp_returns_ok_status(self):
         """configure_mcp() should return status=ok."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         result = setup_wizard.configure_mcp(
             project_dir="/tmp/test",
@@ -142,7 +142,7 @@ class TestWizardStubs:
 
     def test_build_mcp_config_includes_omg_control_command(self):
         """Default MCP catalog should include the stdio OMG control server."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         result = setup_wizard.select_mcps()
         servers = result["mcpServers"]
@@ -151,7 +151,7 @@ class TestWizardStubs:
 
     def test_set_preferences_returns_ok(self):
         """set_preferences() should return ok status."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = setup_wizard.set_preferences(tmpdir, {})
@@ -173,7 +173,7 @@ class TestDetectClis:
 
     def test_returns_entry_per_registered_provider(self):
         """detect_clis should return dict with one entry per registered provider."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_a = self._mock_provider("alpha")
@@ -189,7 +189,7 @@ class TestDetectClis:
 
     def test_detected_and_authenticated(self):
         """Detected + authenticated provider reports detected=True, auth_ok=True."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = self._mock_provider("codex", detected=True, auth_ok=True, auth_msg="authenticated")
@@ -204,7 +204,7 @@ class TestDetectClis:
 
     def test_detected_not_authenticated(self):
         """Detected but not authenticated reports auth_ok=False."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = self._mock_provider("gemini", detected=True, auth_ok=False, auth_msg="not logged in")
@@ -219,7 +219,7 @@ class TestDetectClis:
 
     def test_not_detected_shows_install_hint_for_codex(self):
         """Undetected codex provider should include npm install hint."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = self._mock_provider("codex", detected=False)
@@ -233,7 +233,7 @@ class TestDetectClis:
 
     def test_not_detected_shows_install_hint_for_gemini(self):
         """Undetected gemini provider should include npm install hint."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = self._mock_provider("gemini", detected=False)
@@ -247,7 +247,7 @@ class TestDetectClis:
 
     def test_detect_clis_excludes_opencode(self):
         """OpenCode should not appear in setup wizard detection results."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = self._mock_provider("codex", detected=False)
@@ -261,7 +261,7 @@ class TestDetectClis:
 
     def test_not_detected_shows_install_hint_for_kimi(self):
         """Undetected kimi provider should include uv install hint."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = self._mock_provider("kimi", detected=False)
@@ -275,7 +275,7 @@ class TestDetectClis:
 
     def test_auth_none_status(self):
         """Provider with None auth status should report auth_ok=None."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = self._mock_provider("kimi", detected=True, auth_ok=None, auth_msg="check failed")
@@ -289,7 +289,7 @@ class TestDetectClis:
 
     def test_detect_exception_handled_gracefully(self):
         """Exception in detect() should mark provider as not detected."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = Mock()
@@ -303,7 +303,7 @@ class TestDetectClis:
 
     def test_auth_exception_handled_gracefully(self):
         """Exception in check_auth() should set auth_ok=None."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         mock_p = Mock()
@@ -319,7 +319,7 @@ class TestDetectClis:
 
     def test_empty_registry_returns_empty_dict(self):
         """No registered providers should return empty dict."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
 
         with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True):
@@ -329,9 +329,9 @@ class TestDetectClis:
 
     def test_run_setup_wizard_uses_detect_clis_results(self):
         """run_setup_wizard should include real detect_clis results when enabled."""
-        import setup_wizard
+        from hooks import setup_wizard
         import runtime.cli_provider
-        import _common
+        from hooks import _common
 
         mock_p = self._mock_provider("codex", detected=True, auth_ok=True, auth_msg="ready")
 
@@ -353,7 +353,7 @@ class TestSetPreferences:
 
     def test_set_preferences_returns_dict_with_status_ok(self):
         """set_preferences() should return dict with status='ok'."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = setup_wizard.set_preferences(tmpdir, {})
@@ -363,7 +363,7 @@ class TestSetPreferences:
 
     def test_set_preferences_returns_path_to_config_file(self):
         """set_preferences() should return path to saved config file."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = setup_wizard.set_preferences(tmpdir, {})
@@ -373,7 +373,7 @@ class TestSetPreferences:
 
     def test_set_preferences_creates_state_directory(self):
         """set_preferences() should create .omg/state/ if missing."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         with tempfile.TemporaryDirectory() as tmpdir:
             setup_wizard.set_preferences(tmpdir, {})
@@ -383,7 +383,7 @@ class TestSetPreferences:
 
     def test_set_preferences_writes_valid_yaml(self):
         """set_preferences() should write valid YAML file."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -398,7 +398,7 @@ class TestSetPreferences:
 
     def test_set_preferences_includes_version(self):
         """Config should include version field."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -412,7 +412,7 @@ class TestSetPreferences:
 
     def test_set_preferences_includes_cli_configs_key(self):
         """Config should include cli_configs key."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -426,7 +426,7 @@ class TestSetPreferences:
 
     def test_set_preferences_default_config_has_all_clis(self):
         """Default config should have entries for codex, gemini, and kimi only."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -444,7 +444,7 @@ class TestSetPreferences:
 
     def test_set_preferences_default_subscription_is_free(self):
         """Default subscription tier should be 'free' for all CLIs."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -459,7 +459,7 @@ class TestSetPreferences:
 
     def test_set_preferences_default_max_parallel_agents_is_one(self):
         """Default max_parallel_agents should be 1 for all CLIs."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -474,7 +474,7 @@ class TestSetPreferences:
 
     def test_set_preferences_accepts_custom_preferences(self):
         """set_preferences() should accept custom preferences dict."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         custom_prefs = {
@@ -496,7 +496,7 @@ class TestSetPreferences:
 
     def test_set_preferences_returns_config_in_result(self):
         """set_preferences() should return the saved config in result['config']."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = setup_wizard.set_preferences(tmpdir, {})
@@ -509,7 +509,7 @@ class TestSetPreferences:
 
     def test_set_preferences_idempotent(self):
         """Calling set_preferences() twice should produce same file."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -528,7 +528,7 @@ class TestSetPreferences:
 
     def test_set_preferences_writes_requested_preset(self):
         """Preset should be persisted in cli-config.yaml."""
-        import setup_wizard
+        from hooks import setup_wizard
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -546,7 +546,7 @@ class TestConfigureMcp:
 
     def test_configure_mcp_returns_ok_status(self):
         """configure_mcp() should return status=ok."""
-        import setup_wizard
+        from hooks import setup_wizard
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = setup_wizard.configure_mcp(
@@ -558,47 +558,50 @@ class TestConfigureMcp:
 
     def test_configure_mcp_always_writes_claude_config(self):
         """Claude config should be written even with empty detected_clis."""
-        import setup_wizard
+        from hooks import setup_wizard
         from unittest.mock import patch, MagicMock
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_claude = MagicMock()
-            with patch("setup_wizard.write_claude_mcp_config", mock_claude), \
-                 patch("setup_wizard.write_claude_mcp_stdio_config"):
+            with patch("hooks.setup_wizard.write_claude_mcp_config", mock_claude), \
+                 patch("hooks.setup_wizard.write_claude_mcp_stdio_config") as mock_claude_stdio:
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={}
                 )
-            mock_claude.assert_called_once()
+            mock_claude.assert_not_called()
+            mock_claude_stdio.assert_called_once()
 
     def test_configure_mcp_writes_detected_cli_configs(self):
         """Detected CLI should have its config writer called."""
-        import setup_wizard
+        from hooks import setup_wizard
         from unittest.mock import patch, MagicMock
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_codex = MagicMock()
-            with patch("setup_wizard.write_codex_mcp_config", mock_codex), \
-                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
-                 patch("setup_wizard.write_claude_mcp_config"), \
-                 patch("setup_wizard.write_claude_mcp_stdio_config"):
+            mock_codex_stdio = MagicMock()
+            with patch("hooks.setup_wizard.write_codex_mcp_config", mock_codex), \
+                 patch("hooks.setup_wizard.write_codex_mcp_stdio_config", mock_codex_stdio), \
+                 patch("hooks.setup_wizard.write_claude_mcp_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"codex": {"detected": True}}
                 )
-            mock_codex.assert_called_once()
+            mock_codex.assert_not_called()
+            mock_codex_stdio.assert_called_once()
 
     def test_configure_mcp_skips_undetected_clis(self):
         """Undetected CLI should NOT have its config writer called."""
-        import setup_wizard
+        from hooks import setup_wizard
         from unittest.mock import patch, MagicMock
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_gemini = MagicMock()
-            with patch("setup_wizard.write_gemini_mcp_config", mock_gemini), \
-                 patch("setup_wizard.write_gemini_mcp_stdio_config"), \
-                 patch("setup_wizard.write_claude_mcp_config"), \
-                 patch("setup_wizard.write_claude_mcp_stdio_config"):
+            with patch("hooks.setup_wizard.write_gemini_mcp_config", mock_gemini), \
+                 patch("hooks.setup_wizard.write_gemini_mcp_stdio_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"gemini": {"detected": False}}
@@ -607,16 +610,16 @@ class TestConfigureMcp:
 
     def test_configure_mcp_returns_configured_list(self):
         """Result should include list of successfully configured CLIs."""
-        import setup_wizard
+        from hooks import setup_wizard
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch("setup_wizard.write_codex_mcp_config"), \
-                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
-                 patch("setup_wizard.write_gemini_mcp_config"), \
-                 patch("setup_wizard.write_gemini_mcp_stdio_config"), \
-                 patch("setup_wizard.write_claude_mcp_config"), \
-                 patch("setup_wizard.write_claude_mcp_stdio_config"):
+            with patch("hooks.setup_wizard.write_codex_mcp_config"), \
+                 patch("hooks.setup_wizard.write_codex_mcp_stdio_config"), \
+                 patch("hooks.setup_wizard.write_gemini_mcp_config"), \
+                 patch("hooks.setup_wizard.write_gemini_mcp_stdio_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_stdio_config"):
                 result = setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={
@@ -631,20 +634,21 @@ class TestConfigureMcp:
 
     def test_configure_mcp_handles_writer_error(self):
         """Writer exception should be caught and added to errors dict."""
-        import setup_wizard
+        from hooks import setup_wizard
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmpdir:
             def raise_error(*args, **kwargs):
                 raise RuntimeError("write failed")
 
-            with patch("setup_wizard.write_codex_mcp_config", side_effect=raise_error), \
-                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
-                 patch("setup_wizard.write_claude_mcp_config"), \
-                 patch("setup_wizard.write_claude_mcp_stdio_config"):
+            with patch("hooks.setup_wizard.write_codex_mcp_config", side_effect=raise_error), \
+                 patch("hooks.setup_wizard.write_codex_mcp_stdio_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_stdio_config"):
                 result = setup_wizard.configure_mcp(
                     project_dir=tmpdir,
-                    detected_clis={"codex": {"detected": True}}
+                    detected_clis={"codex": {"detected": True}},
+                    preset="interop",
                 )
         assert result["status"] == "ok"
         assert "errors" in result
@@ -653,18 +657,19 @@ class TestConfigureMcp:
 
     def test_configure_mcp_custom_server_url(self):
         """Custom server URL should be passed to writers."""
-        import setup_wizard
+        from hooks import setup_wizard
         from unittest.mock import patch, call
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
-                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
-                 patch("setup_wizard.write_claude_mcp_config") as mock_claude, \
-                 patch("setup_wizard.write_claude_mcp_stdio_config"):
+            with patch("hooks.setup_wizard.write_codex_mcp_config") as mock_codex, \
+                 patch("hooks.setup_wizard.write_codex_mcp_stdio_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_config") as mock_claude, \
+                 patch("hooks.setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"codex": {"detected": True}},
-                    server_url="http://custom:9999/mcp"
+                    server_url="http://custom:9999/mcp",
+                    preset="interop",
                 )
             # Check that custom URL was passed
             calls = mock_codex.call_args_list
@@ -672,18 +677,19 @@ class TestConfigureMcp:
 
     def test_configure_mcp_custom_server_name(self):
         """Custom server name should be passed to writers."""
-        import setup_wizard
+        from hooks import setup_wizard
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
-                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
-                 patch("setup_wizard.write_claude_mcp_config") as mock_claude, \
-                 patch("setup_wizard.write_claude_mcp_stdio_config"):
+            with patch("hooks.setup_wizard.write_codex_mcp_config") as mock_codex, \
+                 patch("hooks.setup_wizard.write_codex_mcp_stdio_config"), \
+                 patch("hooks.setup_wizard.write_claude_mcp_config") as mock_claude, \
+                 patch("hooks.setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"codex": {"detected": True}},
-                    server_name="custom-server"
+                    server_name="custom-server",
+                    preset="interop",
                 )
             # Check that custom name was passed
             calls = mock_codex.call_args_list
