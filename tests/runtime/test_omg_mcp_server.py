@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import importlib
 import sys
 from typing import Protocol, cast
+from unittest.mock import patch
 
 import pytest
 
@@ -23,6 +25,26 @@ def _load_module() -> _MCPOMGServerModule:
     try:
         _ = sys.modules.pop("runtime.omg_mcp_server", None)
         module = importlib.import_module("runtime.omg_mcp_server")
+        return cast(_MCPOMGServerModule, cast(object, module))
+    finally:
+        sys.path[:] = original_sys_path
+
+
+def _load_module_without_fastmcp() -> _MCPOMGServerModule:
+    original_import = builtins.__import__
+
+    def _guarded_import(name: str, globals=None, locals=None, fromlist=(), level: int = 0):
+        if name == "fastmcp":
+            raise ModuleNotFoundError("No module named 'fastmcp'")
+        return original_import(name, globals, locals, fromlist, level)
+
+    original_sys_path = list(sys.path)
+    sys.path[:] = [path for path in sys.path if not path.endswith("/omg_natives")]
+
+    try:
+        _ = sys.modules.pop("runtime.omg_mcp_server", None)
+        with patch("builtins.__import__", side_effect=_guarded_import):
+            module = importlib.import_module("runtime.omg_mcp_server")
         return cast(_MCPOMGServerModule, cast(object, module))
     finally:
         sys.path[:] = original_sys_path
@@ -79,3 +101,14 @@ def test_mcp_contract_resource_reads_contract_doc() -> None:
 
     assert "OMG Production Control Plane" in text
     assert "execution_contract" in text
+
+
+def test_mcp_fallback_stub_exposes_prompts_and_resources_without_fastmcp() -> None:
+    module = _load_module_without_fastmcp()
+
+    prompt_names = {prompt.name for prompt in asyncio.run(module.mcp.list_prompts())}
+    resource_uris = {str(resource.uri) for resource in asyncio.run(module.mcp.list_resources())}
+
+    assert "omg_contract_summary" in prompt_names
+    assert "resource://omg/contract" in resource_uris
+    assert "resource://omg/release-checklist" in resource_uris

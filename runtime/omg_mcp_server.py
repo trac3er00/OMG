@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -19,11 +20,66 @@ except ModuleNotFoundError as exc:
 
         return decorator
 
+    @dataclass
+    class _StubPrompt:
+        name: str
+        description: str
+        handler: Any
+
+    @dataclass
+    class _StubResource:
+        uri: str
+        name: str
+        description: str
+        mime_type: str
+        handler: Any
+
     class FastMCP:  # type: ignore[override]
         def __init__(self, *_args: Any, **_kwargs: Any) -> None:
             self._import_error = _MCP_IMPORT_ERROR
+            self.instructions = str(_kwargs.get("instructions", ""))
+            self._prompts: list[_StubPrompt] = []
+            self._resources: dict[str, _StubResource] = {}
 
-        tool = staticmethod(_passthrough_decorator)
+        def tool(self, *_args: Any, **_kwargs: Any):
+            return _passthrough_decorator(*_args, **_kwargs)
+
+        def prompt(self, *, name: str, description: str = ""):
+            def decorator(func: Any) -> Any:
+                self._prompts.append(_StubPrompt(name=name, description=description, handler=func))
+                return func
+
+            return decorator
+
+        def resource(
+            self,
+            uri: str,
+            *,
+            name: str = "",
+            description: str = "",
+            mime_type: str = "text/plain",
+        ):
+            def decorator(func: Any) -> Any:
+                self._resources[uri] = _StubResource(
+                    uri=uri,
+                    name=name,
+                    description=description,
+                    mime_type=mime_type,
+                    handler=func,
+                )
+                return func
+
+            return decorator
+
+        async def list_prompts(self) -> list[_StubPrompt]:
+            return list(self._prompts)
+
+        async def list_resources(self) -> list[_StubResource]:
+            return list(self._resources.values())
+
+        async def read_resource(self, uri: str) -> Any:
+            resource = self._resources[str(uri)]
+            return resource.handler()
 
         def run(self, *_args: Any, **_kwargs: Any) -> None:
             raise RuntimeError("fastmcp is required to run the OMG MCP server") from self._import_error
