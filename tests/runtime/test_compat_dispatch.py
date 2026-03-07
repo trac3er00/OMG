@@ -63,6 +63,21 @@ def test_contract_is_attached_and_has_core_fields(tmp_path: Path):
     assert contract["maturity"] in {"native", "bridge"}
 
 
+def test_security_review_alias_routes_to_canonical_security_check(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    result = dispatch_compat_skill(
+        skill="security-review",
+        problem=str(tmp_path),
+        project_dir=str(tmp_path),
+    )
+    assert result["status"] == "ok"
+    assert result["contract"]["route"] == "security_check"
+    assert result["result"]["schema"] == "SecurityCheckResult"
+    assert result["result"]["summary"]["finding_count"] >= 1
+
+
 def test_compat_setup_and_doctor_routes_create_bootstrap(tmp_path: Path):
     setup = dispatch_compat_skill(skill="omg-setup", problem="bootstrap", project_dir=str(tmp_path))
     assert setup["status"] == "ok"

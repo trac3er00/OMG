@@ -26,6 +26,7 @@ def test_plugin_mcp_config_includes_required_servers():
     assert "filesystem" in servers
     assert "websearch" in servers
     assert "chrome-devtools" in servers
+    assert "omg-control" in servers
 
 
 def test_plugin_manifest_mcp_servers_reference_exists():

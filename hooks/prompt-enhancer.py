@@ -386,7 +386,7 @@ SECURITY_SIGNALS = [
 ]
 if not route_lock and any(signal_matches_text(sig, prompt) for sig in SECURITY_SIGNALS) and budget_ok():
     if detected_intent in ("fix", "implement", "refactor"):
-        add("@security: CRITICAL DOMAIN — No hardcoded secrets. Run /OMG:security-review after.")
+        add("@security: CRITICAL DOMAIN — No hardcoded secrets. Run /OMG:security-check after.")
 
 # ═══════════════════════════════════════════════════════════
 # 5. VISION DETECTION

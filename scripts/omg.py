@@ -5,6 +5,7 @@ Implements practical command-line flows for:
 - omg ship
 - omg fix --issue
 - omg secure
+- omg security check
 - omg maintainer
 - omg trust review
 - omg runtime dispatch
@@ -31,6 +32,10 @@ from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change, write_trust_manifest
 from lab.pipeline import publish_artifact, run_pipeline
 from runtime.dispatcher import dispatch_runtime
+from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, verify_fixture
+from runtime.domain_packs import get_domain_pack_contract
+from runtime.preflight import run_preflight
+from runtime.security_check import run_security_check
 from runtime.compat import (
     DEFAULT_CONTRACT_SNAPSHOT_PATH,
     DEFAULT_GAP_REPORT_PATH,
@@ -153,6 +158,68 @@ def cmd_secure(args: argparse.Namespace) -> int:
     decision = evaluate_bash_command(args.command)
     print(json.dumps(decision.to_dict(), indent=2))
     return 0 if decision.action != "deny" else 3
+
+
+def cmd_security_check(args: argparse.Namespace) -> int:
+    result = run_security_check(
+        project_dir=_ensure_project_dir(),
+        scope=args.scope,
+        include_live_enrichment=bool(args.live_enrichment),
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_api_twin_ingest(args: argparse.Namespace) -> int:
+    result = ingest_contract(_ensure_project_dir(), name=args.name, source_path=args.source)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_api_twin_record(args: argparse.Namespace) -> int:
+    result = record_fixture(
+        _ensure_project_dir(),
+        name=args.name,
+        request=json.loads(args.request_json),
+        response=json.loads(args.response_json),
+        validated=bool(args.validated),
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_api_twin_serve(args: argparse.Namespace) -> int:
+    result = serve_fixture(
+        _ensure_project_dir(),
+        name=args.name,
+        latency_ms=int(args.latency_ms),
+        failure_mode=args.failure_mode,
+        schema_drift=bool(args.schema_drift),
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_api_twin_verify(args: argparse.Namespace) -> int:
+    result = verify_fixture(
+        _ensure_project_dir(),
+        name=args.name,
+        live_response=json.loads(args.live_response_json),
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_preflight(args: argparse.Namespace) -> int:
+    result = run_preflight(_ensure_project_dir(), goal=args.goal)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_domain_pack(args: argparse.Namespace) -> int:
+    result = get_domain_pack_contract(args.name)
+    print(json.dumps(result, indent=2))
+    return 0
 
 
 def cmd_maintainer(args: argparse.Namespace) -> int:
@@ -417,6 +484,44 @@ def build_parser() -> argparse.ArgumentParser:
     secure = sub.add_parser("secure", help="Evaluate command risk")
     secure.add_argument("--command", required=True)
     secure.set_defaults(func=cmd_secure)
+
+    security = sub.add_parser("security", help="Canonical OMG security workflows")
+    security_sub = security.add_subparsers(dest="security_command", required=True)
+    security_check = security_sub.add_parser("check", help="Run canonical OMG security check")
+    security_check.add_argument("--scope", default=".")
+    security_check.add_argument("--live-enrichment", action="store_true")
+    security_check.set_defaults(func=cmd_security_check)
+
+    api_twin = sub.add_parser("api-twin", help="Contract replay and fixture-based API simulation")
+    api_twin_sub = api_twin.add_subparsers(dest="api_twin_command", required=True)
+    api_twin_ingest = api_twin_sub.add_parser("ingest", help="Ingest OpenAPI/Postman/example contract input")
+    api_twin_ingest.add_argument("--name", required=True)
+    api_twin_ingest.add_argument("--source", required=True)
+    api_twin_ingest.set_defaults(func=cmd_api_twin_ingest)
+    api_twin_record = api_twin_sub.add_parser("record", help="Record approved fixture response")
+    api_twin_record.add_argument("--name", required=True)
+    api_twin_record.add_argument("--request-json", required=True)
+    api_twin_record.add_argument("--response-json", required=True)
+    api_twin_record.add_argument("--validated", action="store_true")
+    api_twin_record.set_defaults(func=cmd_api_twin_record)
+    api_twin_serve = api_twin_sub.add_parser("serve", help="Replay a fixture with optional drift/failure injection")
+    api_twin_serve.add_argument("--name", required=True)
+    api_twin_serve.add_argument("--latency-ms", type=int, default=0)
+    api_twin_serve.add_argument("--failure-mode", default="")
+    api_twin_serve.add_argument("--schema-drift", action="store_true")
+    api_twin_serve.set_defaults(func=cmd_api_twin_serve)
+    api_twin_verify = api_twin_sub.add_parser("verify", help="Validate a fixture against a live response")
+    api_twin_verify.add_argument("--name", required=True)
+    api_twin_verify.add_argument("--live-response-json", required=True)
+    api_twin_verify.set_defaults(func=cmd_api_twin_verify)
+
+    preflight = sub.add_parser("preflight", help="Structured OMG preflight routing")
+    preflight.add_argument("--goal", required=True)
+    preflight.set_defaults(func=cmd_preflight)
+
+    domain_pack = sub.add_parser("domain-pack", help="Inspect optional domain pack contracts")
+    domain_pack.add_argument("--name", required=True, choices=["robotics", "vision", "algorithms", "health"])
+    domain_pack.set_defaults(func=cmd_domain_pack)
 
     maintainer = sub.add_parser("maintainer", help="OSS maintainer evidence helper")
     maintainer.add_argument("--mode", default="impact", choices=["triage", "release", "review", "impact"])

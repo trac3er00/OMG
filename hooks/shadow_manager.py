@@ -179,6 +179,9 @@ def create_evidence_pack(
     diff_summary: dict[str, Any] | None = None,
     reproducibility: dict[str, Any] | None = None,
     unresolved_risks: list[str] | None = None,
+    provenance: list[dict[str, Any]] | None = None,
+    trust_scores: dict[str, Any] | None = None,
+    api_twin: dict[str, Any] | None = None,
 ) -> str:
     ensure_shadow_dirs(project_dir)
     run_id = _validated_run_id(run_id)
@@ -191,6 +194,9 @@ def create_evidence_pack(
         "diff_summary": diff_summary or {},
         "reproducibility": reproducibility or {},
         "unresolved_risks": unresolved_risks or [],
+        "provenance": provenance or [],
+        "trust_scores": trust_scores or {},
+        "api_twin": api_twin or {},
     }
     evidence_path = ensure_path_within_dir(
         _evidence_root(project_dir),

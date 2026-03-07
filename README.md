@@ -50,6 +50,7 @@ Success looks like:
 
 - supported hosts are detected
 - `.mcp.json` is configured
+- `.mcp.json` includes both `omg-memory` and stdio `omg-control`
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
 
@@ -91,11 +92,13 @@ Primary entry points:
 
 Advanced surfaces stay available for deeper workflows:
 
+- `/OMG:security-check`
+- `/OMG:api-twin`
+- `/OMG:preflight`
 - `/OMG:teams`
 - `/OMG:ccg`
 - `/OMG:compat`
 - `/OMG:ship`
-- `/OMG:security-review`
 
 ## Contributing
 

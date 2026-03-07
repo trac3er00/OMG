@@ -15,7 +15,9 @@ from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change
 from lab.pipeline import run_pipeline
 from registry.verify_artifact import verify_artifact
+from runtime.guide_assert import guide_assert
 from runtime.dispatcher import dispatch_runtime
+from runtime.security_check import run_security_check
 
 
 class ControlPlaneService:
@@ -95,12 +97,36 @@ class ControlPlaneService:
             diff_summary=payload.get("diff_summary"),
             reproducibility=payload.get("reproducibility"),
             unresolved_risks=payload.get("unresolved_risks"),
+            provenance=payload.get("provenance"),
+            trust_scores=payload.get("trust_scores"),
+            api_twin=payload.get("api_twin"),
         )
         return 202, {
             "status": "accepted",
             "run_id": run_id,
             "evidence_path": os.path.relpath(path, self.project_dir),
         }
+
+    def security_check(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        scope = str(payload.get("scope", "."))
+        include_live_enrichment = bool(payload.get("include_live_enrichment", False))
+        result = run_security_check(
+            project_dir=self.project_dir,
+            scope=scope,
+            include_live_enrichment=include_live_enrichment,
+        )
+        return 200, result
+
+    def guide_assert(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        candidate = str(payload.get("candidate", ""))
+        rules = payload.get("rules", {})
+        if not isinstance(rules, dict):
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_GUIDE_INPUT",
+                "message": "rules must be an object",
+            }
+        return 200, guide_assert(candidate, rules)
 
     def runtime_dispatch(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         runtime = str(payload.get("runtime", "")).strip()

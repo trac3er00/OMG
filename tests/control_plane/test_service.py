@@ -1,6 +1,7 @@
 """Control-plane service endpoint tests."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from control_plane.service import ControlPlaneService
@@ -52,12 +53,19 @@ def test_evidence_ingest_writes_file(tmp_path: Path):
             "diff_summary": {"files": 1},
             "reproducibility": {"cmd": "pytest -q"},
             "unresolved_risks": [],
+            "provenance": [],
+            "trust_scores": {},
+            "api_twin": {},
         }
     )
     assert status == 202
     assert out["status"] == "accepted"
     ev_file = tmp_path / out["evidence_path"]
     assert ev_file.exists()
+    payload = json.loads(ev_file.read_text(encoding="utf-8"))
+    assert payload["provenance"] == []
+    assert payload["trust_scores"] == {}
+    assert payload["api_twin"] == {}
 
 
 def test_evidence_ingest_rejects_invalid_run_id(tmp_path: Path):
@@ -82,6 +90,36 @@ def test_runtime_dispatch_unknown_runtime():
     status, out = service.runtime_dispatch({"runtime": "unknown", "idea": {"goal": "x"}})
     assert status == 400
     assert out["error_code"] == "RUNTIME_NOT_FOUND"
+
+
+def test_security_check_returns_structured_findings(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({"scope": "."})
+    assert status == 200
+    assert out["schema"] == "SecurityCheckResult"
+    assert out["summary"]["finding_count"] >= 1
+    assert any(finding["category"] == "python_ast" for finding in out["findings"])
+
+
+def test_guide_assert_reports_rule_violations():
+    service = ControlPlaneService(project_dir=".")
+    status, out = service.guide_assert(
+        {
+            "candidate": "Uses TODO markers and insecure defaults.",
+            "rules": {
+                "goals": ["Avoid TODO markers in final output"],
+                "non_goals": ["Do not mention insecure defaults"],
+                "acceptance_criteria": ["Must be production-ready prose"],
+            },
+        }
+    )
+    assert status == 200
+    assert out["schema"] == "GuideAssertionResult"
+    assert out["verdict"] == "fail"
+    assert out["violations"]
 
 
 def test_registry_verify_blocks_critical():

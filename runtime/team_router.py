@@ -30,6 +30,8 @@ try:
 except ImportError:
     pass
 
+from runtime.runtime_profile import resolve_parallel_workers
+
 @dataclass
 class TeamDispatchRequest:
     target: str  # codex | gemini | ccg | auto
@@ -659,7 +661,7 @@ def execute_agents_parallel(
     if not sorted_tasks:
         return []
 
-    max_workers = min(len(sorted_tasks), 5)
+    max_workers = resolve_parallel_workers(project_dir, requested_workers=min(len(sorted_tasks), 5))
     results_by_index: dict[int, dict[str, Any]] = {}
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:

@@ -57,6 +57,14 @@ def make_handler(service: ControlPlaneService):
                 status, out = service.evidence_ingest(payload)
                 _json_response(self, status, out)
                 return
+            if self.path == "/v1/security/check":
+                status, out = service.security_check(payload)
+                _json_response(self, status, out)
+                return
+            if self.path == "/v1/guide/assert":
+                status, out = service.guide_assert(payload)
+                _json_response(self, status, out)
+                return
             if self.path == "/v1/runtime/dispatch":
                 status, out = service.runtime_dispatch(payload)
                 _json_response(self, status, out)
@@ -104,4 +112,3 @@ def _main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(_main())
-

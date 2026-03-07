@@ -87,7 +87,7 @@ Key interfaces: [list the interfaces/types this touches]
 
 ### Phase 3: Integration + Security [N files, ~M lines]
 5. [ ] [specific action]
-6. [ ] Security review: /OMG:security-review [affected files]
+6. [ ] Security review: /OMG:security-check [affected files]
 
 ### Phase 4: Verification
 7. [ ] Tests: [what to test, how]

@@ -115,6 +115,23 @@ ASK_PATTERNS = [
     (r"node\s+-e\s+", "Inline Node execution"),
 ]
 
+UNTRUSTED_MUTATION_PATTERNS = [
+    r"\bgit\s+(commit|push|tag)\b",
+    r"\bnpm\s+(install|publish)\b",
+    r"\bpython[23]?\s+.*\b(setup\.py|manage\.py)\b",
+    r"\b(mv|cp|tee|sed\s+-i|touch|mkdir)\b",
+]
+
+
+def _is_untrusted_content_mode_active() -> bool:
+    try:
+        from runtime.untrusted_content import is_untrusted_content_mode_active
+
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+        return is_untrusted_content_mode_active(project_dir)
+    except Exception:
+        return False
+
 
 def evaluate_bash_command(cmd: str) -> PolicyDecision:
     if not cmd:
@@ -157,6 +174,15 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
     for pat, label in ASK_PATTERNS:
         if re.search(pat, cmd):
             return ask(f"{label}: {cmd[:120]}", "med", ["human-approval"])
+
+    if _is_untrusted_content_mode_active():
+        for pat in UNTRUSTED_MUTATION_PATTERNS:
+            if re.search(pat, cmd):
+                return ask(
+                    "Untrusted external content mode is active. Review before running state-changing commands.",
+                    "high",
+                    ["manual-approval", "review-provenance"],
+                )
 
     return allow("command allowed")
 
@@ -445,6 +471,13 @@ def evaluate_file_access(
     for pat in BLOCKED_PATH_PATTERNS:
         if re.search(pat, lowpath):
             return deny(f"Sensitive path blocked: {file_path}", "critical", ["secret-access"])
+
+    if tool in {"Write", "Edit", "MultiEdit"} and _is_untrusted_content_mode_active():
+        return ask(
+            "Untrusted external content mode is active. Review before mutating files.",
+            "high",
+            ["manual-approval", "review-provenance"],
+        )
 
     if allowlist and is_allowlisted(file_path, tool, allowlist):
         return allow(f"Allowlisted: {file_path}")

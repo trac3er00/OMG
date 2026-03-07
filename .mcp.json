@@ -19,6 +19,13 @@
     "omg-memory": {
       "type": "http",
       "url": "http://127.0.0.1:8765/mcp"
+    },
+    "omg-control": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "runtime.omg_mcp_server"
+      ]
     }
   }
 }

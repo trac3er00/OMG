@@ -38,6 +38,26 @@ paths:
       responses:
         '202':
           description: Accepted
+  /v1/security/check:
+    post:
+      summary: Run canonical OMG security check
+      responses:
+        '200':
+          description: Security check result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityCheckResult'
+  /v1/guide/assert:
+    post:
+      summary: Assert output against explicit project rules
+      responses:
+        '200':
+          description: Guide assertion result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuideAssertionResult'
   /v1/runtime/dispatch:
     post:
       summary: Dispatch job to runtime adapter
@@ -107,3 +127,33 @@ components:
           type: integer
         verdict:
           type: string
+    SecurityCheckResult:
+      type: object
+      required: [schema, status, scope, findings, summary]
+      properties:
+        schema:
+          type: string
+        status:
+          type: string
+        scope:
+          type: string
+        findings:
+          type: array
+          items:
+            type: object
+        summary:
+          type: object
+    GuideAssertionResult:
+      type: object
+      required: [schema, verdict, violations, summary]
+      properties:
+        schema:
+          type: string
+        verdict:
+          type: string
+        violations:
+          type: array
+          items:
+            type: object
+        summary:
+          type: object

@@ -39,16 +39,44 @@ def _validated_server_input(server_url: str, server_name: str) -> tuple[str, str
     return validate_server_url(server_url), validate_server_name(server_name)
 
 
-def write_claude_mcp_config(project_dir: str, server_url: str, server_name: str = "memory-server") -> None:
-    server_url, server_name = _validated_server_input(server_url, server_name)
-    config_path = Path(project_dir) / ".mcp.json"
-    config = _load_json(config_path)
+def _validated_stdio_input(command: str, args: list[str], server_name: str) -> tuple[str, list[str], str]:
+    normalized_name = validate_server_name(server_name)
+    normalized_command = str(command).strip()
+    if not normalized_command or "\n" in normalized_command or "\r" in normalized_command:
+        raise ValueError("Invalid command: newline characters are not allowed")
+    normalized_args = [str(arg) for arg in args]
+    for arg in normalized_args:
+        if "\n" in arg or "\r" in arg:
+            raise ValueError("Invalid args: newline characters are not allowed")
+    return normalized_command, normalized_args, normalized_name
+
+
+def _write_json_mcp_server(path: Path, server_name: str, payload: dict[str, object]) -> None:
+    config = _load_json(path)
     mcp_servers = config.get("mcpServers")
     if not isinstance(mcp_servers, dict):
         mcp_servers = {}
         config["mcpServers"] = mcp_servers
-    mcp_servers[server_name] = {"type": "http", "url": server_url}
-    _write_json(config_path, config)
+    mcp_servers[server_name] = payload
+    _write_json(path, config)
+
+
+def write_claude_mcp_config(project_dir: str, server_url: str, server_name: str = "memory-server") -> None:
+    server_url, server_name = _validated_server_input(server_url, server_name)
+    config_path = Path(project_dir) / ".mcp.json"
+    _write_json_mcp_server(config_path, server_name, {"type": "http", "url": server_url})
+
+
+def write_claude_mcp_stdio_config(
+    project_dir: str,
+    *,
+    command: str,
+    args: list[str],
+    server_name: str = "omg-control",
+) -> None:
+    command, args, server_name = _validated_stdio_input(command, args, server_name)
+    config_path = Path(project_dir) / ".mcp.json"
+    _write_json_mcp_server(config_path, server_name, {"command": command, "args": args})
 
 
 def write_codex_mcp_config(
@@ -99,6 +127,54 @@ def write_codex_mcp_config(
     _atomic_write_text(target_path, "".join(updated_lines))
 
 
+def write_codex_mcp_stdio_config(
+    *,
+    command: str,
+    args: list[str],
+    server_name: str = "omg-control",
+    config_path: str | Path | None = None,
+) -> None:
+    command, args, server_name = _validated_stdio_input(command, args, server_name)
+    target_path = Path(config_path) if config_path is not None else Path.home() / ".codex" / "config.toml"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    existing = target_path.read_text() if target_path.exists() else ""
+    lines = existing.splitlines(keepends=True)
+    header_unquoted = f"[mcp_servers.{server_name}]"
+    header_quoted = f"[mcp_servers.\"{server_name}\"]"
+    headers = {header_unquoted, header_quoted}
+
+    start_idx: int | None = None
+    for idx, line in enumerate(lines):
+        if line.strip() in headers:
+            start_idx = idx
+            break
+
+    args_text = ", ".join(f'"{toml_quote_string(arg)}"' for arg in args)
+    block = [
+        f"{header_unquoted}\n",
+        f'command = "{toml_quote_string(command)}"\n',
+        f"args = [{args_text}]\n",
+        "\n",
+    ]
+
+    if start_idx is None:
+        if existing and not existing.endswith("\n"):
+            existing += "\n"
+        _atomic_write_text(target_path, existing + "".join(block))
+        return
+
+    end_idx = len(lines)
+    for idx in range(start_idx + 1, len(lines)):
+        stripped = lines[idx].strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            end_idx = idx
+            break
+
+    updated_lines = lines[:start_idx] + block + lines[end_idx:]
+    _atomic_write_text(target_path, "".join(updated_lines))
+
+
 def write_gemini_mcp_config(
     server_url: str,
     server_name: str = "memory-server",
@@ -107,13 +183,19 @@ def write_gemini_mcp_config(
 ) -> None:
     server_url, server_name = _validated_server_input(server_url, server_name)
     target_path = Path(config_path) if config_path is not None else Path.home() / ".gemini" / "settings.json"
-    config = _load_json(target_path)
-    mcp_servers = config.get("mcpServers")
-    if not isinstance(mcp_servers, dict):
-        mcp_servers = {}
-        config["mcpServers"] = mcp_servers
-    mcp_servers[server_name] = {"httpUrl": server_url}
-    _write_json(target_path, config)
+    _write_json_mcp_server(target_path, server_name, {"httpUrl": server_url})
+
+
+def write_gemini_mcp_stdio_config(
+    *,
+    command: str,
+    args: list[str],
+    server_name: str = "omg-control",
+    config_path: str | Path | None = None,
+) -> None:
+    command, args, server_name = _validated_stdio_input(command, args, server_name)
+    target_path = Path(config_path) if config_path is not None else Path.home() / ".gemini" / "settings.json"
+    _write_json_mcp_server(target_path, server_name, {"command": command, "args": args})
 
 
 def write_kimi_mcp_config(
@@ -124,10 +206,16 @@ def write_kimi_mcp_config(
 ) -> None:
     server_url, server_name = _validated_server_input(server_url, server_name)
     target_path = Path(config_path) if config_path is not None else Path.home() / ".kimi" / "mcp.json"
-    config = _load_json(target_path)
-    mcp_servers = config.get("mcpServers")
-    if not isinstance(mcp_servers, dict):
-        mcp_servers = {}
-        config["mcpServers"] = mcp_servers
-    mcp_servers[server_name] = {"type": "http", "url": server_url}
-    _write_json(target_path, config)
+    _write_json_mcp_server(target_path, server_name, {"type": "http", "url": server_url})
+
+
+def write_kimi_mcp_stdio_config(
+    *,
+    command: str,
+    args: list[str],
+    server_name: str = "omg-control",
+    config_path: str | Path | None = None,
+) -> None:
+    command, args, server_name = _validated_stdio_input(command, args, server_name)
+    target_path = Path(config_path) if config_path is not None else Path.home() / ".kimi" / "mcp.json"
+    _write_json_mcp_server(target_path, server_name, {"command": command, "args": args})

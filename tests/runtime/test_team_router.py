@@ -132,6 +132,47 @@ def test_execute_agents_parallel_preserves_all_results_when_orders_collide(monke
     assert [row["output"] for row in results] == ["a:one", "b:two", "c:three"]
 
 
+def test_execute_agents_parallel_uses_runtime_profile_budget(tmp_path, monkeypatch):
+    (tmp_path / ".omg").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".omg" / "runtime.yaml").write_text("profile: eco\n", encoding="utf-8")
+
+    captured: dict[str, int] = {}
+
+    class _FakePool:
+        def __init__(self, max_workers):
+            captured["max_workers"] = max_workers
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def submit(self, fn, *args, **kwargs):
+            class _Future:
+                def result(self, timeout=None):
+                    return fn(*args, **kwargs)
+
+            return _Future()
+
+    monkeypatch.setattr(team_router, "ThreadPoolExecutor", _FakePool)
+    monkeypatch.setattr(team_router, "as_completed", lambda futures: list(futures))
+    monkeypatch.setattr(
+        team_router,
+        "dispatch_to_model",
+        lambda agent_name, user_prompt, _project_dir: {"model": "codex-cli", "output": f"{agent_name}:{user_prompt}", "exit_code": 0},
+    )
+
+    tasks = [
+        {"agent_name": "a", "prompt": "one", "order": 0},
+        {"agent_name": "b", "prompt": "two", "order": 1},
+        {"agent_name": "c", "prompt": "three", "order": 2},
+    ]
+    team_router.execute_agents_parallel(tasks, str(tmp_path))
+
+    assert captured["max_workers"] == 2
+
+
 # ============================================================================
 # Tests for package_prompt() rich context enrichment (Task 5)
 # ============================================================================

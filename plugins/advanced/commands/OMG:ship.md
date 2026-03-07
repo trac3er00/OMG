@@ -24,7 +24,7 @@ argument-hint: "[goal or optional path to .omg/idea.yml]"
   - `tests[]`, `security_scans[]`, `diff_summary`, `reproducibility`, `unresolved_risks[]`.
 
 ## Step 4: Security and trust checks
-- Run `/OMG:security-review` for auth/payment/database/sensitive changes.
+- Run `/OMG:security-check` for auth/payment/database/sensitive changes.
 - If config/hook/MCP changes are involved, ensure trust manifest is updated at `.omg/trust/manifest.lock.json`.
 
 ## Step 5: PR-ready output
