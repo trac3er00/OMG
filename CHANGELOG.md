@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- wired shipped `safe` preset `PreToolUse` security enforcement so `firewall.py` runs for `Bash` and `secret-guard.py` runs for file reads and edits before the helper hook
+- moved raw `env`, interpreter, and permission-changing shell commands from `allow` to `ask` in the shipped `safe` preset
+- blocked allowlist overrides for secret and sensitive file denies, sanitized `run_id` and REPL `session_id` values, and added path-containment checks for evidence and REPL state writes
+- centralized MCP config writing validation across Claude, Codex, Gemini, and Kimi writers to reject invalid server names and URLs
+- added regression coverage for the shipped settings, policy engine, evidence ingest, REPL session persistence, and MCP config writers/providers
+
 ## 2.0.3 - 2026-03-06
 
 - removed OpenCode runtime, setup wiring, docs, and tests from the supported OMG host surface

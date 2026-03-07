@@ -23,3 +23,9 @@ Include:
 ## Supported Versions
 
 Security fixes are prioritized for the latest released version.
+
+## Maintainer Notes
+
+- The shipped `safe` preset is expected to enforce pre-tool security hooks before helper hooks run.
+- `firewall.py` should screen `Bash` usage and `secret-guard.py` should screen `Read`, `Write`, `Edit`, and `MultiEdit`.
+- Sensitive shell commands such as raw `env` dumps, interpreter entry points, and direct permission changes should require approval in the `safe` preset rather than being silently allowed.

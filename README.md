@@ -65,6 +65,12 @@ OMG uses native setup language instead of public migration commands.
 - `coexist`: advanced. OMG preserves non-conflicting third-party surfaces and records overlap instead of overwriting it.
 - Presets: `safe`, `balanced`, `interop`, `labs`.
 
+## Security Notes
+
+- The shipped `safe` preset now registers pre-tool security hooks before the planning helper.
+- `Bash` requests are screened by `firewall.py`, and file reads or edits are screened by `secret-guard.py`.
+- Raw environment dumps, interpreters, and permission-changing commands such as `env`, `node`, `python`, `python3`, `chmod`, and `chown` now require approval instead of being silently allowed.
+
 Compatibility references to OMC, OMX, and Superpowers are documented here: [docs/migration/native-adoption.md](docs/migration/native-adoption.md)
 
 ## Proof
