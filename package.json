@@ -1,7 +1,7 @@
 {
   "name": "@trac3er/oh-my-god",
   "version": "2.0.5",
-  "description": "OMG (Oh My God) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code, Codex, and supported agent hosts",
+  "description": "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts",
   "main": "OMG-setup.sh",
   "scripts": {
     "postinstall": "./OMG-setup.sh install --non-interactive",

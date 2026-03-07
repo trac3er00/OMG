@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "oh-my-god"
 version = "2.0.5"
-description = "OMG (Oh My God) — Multi-agent orchestration, intelligent model routing, and durable session state for Claude Code, Codex, and supported agent hosts"
+description = "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
