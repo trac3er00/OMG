@@ -35,7 +35,9 @@ def _get_feature_flag(flag_name: str, default: bool = False) -> bool:
         return True
     # Try full get_feature_flag if available
     try:
-        _sys.path.insert(0, str(_Path(__file__).resolve().parent))
+        project_root = str(_Path(__file__).resolve().parent.parent)
+        if project_root not in _sys.path:
+            _sys.path.insert(0, project_root)
         from hooks._common import get_feature_flag  # type: ignore[import-untyped]
         return get_feature_flag(flag_name, default=default)
     except Exception:

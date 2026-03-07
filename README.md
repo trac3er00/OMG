@@ -20,6 +20,17 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
 - Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.
 
+## Canonical Contract
+
+OMG now ships a production control-plane contract and generated host artifacts.
+
+- Normative spec: `OMG_COMPAT_CONTRACT.md`
+- Executable registry: `registry/omg-capability.schema.json` and `registry/bundles/*.yaml`
+- Generated Codex pack: `.agents/skills/omg/`
+- Validation: `python3 scripts/omg.py contract validate`
+- Compilation: `python3 scripts/omg.py contract compile --host claude --host codex --channel public`
+- Release gate: `python3 scripts/omg.py release readiness --channel dual`
+
 ![OMG HUD](docs/assets/omg-hud.svg)
 
 ## Quickstart
@@ -76,7 +87,7 @@ Compatibility references to OMC, OMX, and Superpowers are documented here: [docs
 
 ## Proof
 
-Current local verification for this release: `2425 passed, 2 skipped` on March 6, 2026.
+Current local verification for this release: `2465 passed, 2 skipped` on March 7, 2026.
 
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)

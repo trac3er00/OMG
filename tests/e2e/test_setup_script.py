@@ -270,7 +270,9 @@ def test_setup_install_provisions_portable_omg_runtime(tmp_path: Path):
     assert proc.returncode == 0
 
     runtime_script = claude_dir / "omg-runtime" / "scripts" / "omg.py"
+    dephealth_plugin = claude_dir / "omg-runtime" / "plugins" / "dephealth" / "cve_scanner.py"
     assert runtime_script.exists()
+    assert dephealth_plugin.exists()
 
     run = subprocess.run(
         [sys.executable, str(runtime_script), "teams", "--target", "gemini", "--problem", "ui layout review"],

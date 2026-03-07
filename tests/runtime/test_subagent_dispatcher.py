@@ -387,10 +387,16 @@ class TestListJobs:
 
 
 class TestRunJob:
-    """Tests for _run_job() function (simulated execution)."""
+    """Tests for _run_job() function."""
 
+    @patch("runtime.subagent_dispatcher._dispatch_job_task", return_value={
+        "status": "ok",
+        "worker": "codex",
+        "exit_code": 0,
+        "output": "{\"status\":\"ok\"}",
+    })
     @patch("runtime.subagent_dispatcher._persist_job")
-    def test_run_completes_job(self, mock_persist):
+    def test_run_completes_job(self, mock_persist, mock_dispatch):
         """_run_job should transition job from queued → running → completed."""
         _jobs["test01"] = {
             "job_id": "test01",
@@ -404,9 +410,61 @@ class TestRunJob:
 
         _run_job("test01")
 
+        mock_dispatch.assert_called_once()
         assert _jobs["test01"]["status"] == "completed"
         assert len(_jobs["test01"]["artifacts"]) == 1
-        assert _jobs["test01"]["artifacts"][0]["type"] == "result"
+        assert _jobs["test01"]["artifacts"][0]["type"] == "worker-result"
+
+    @patch("runtime.subagent_dispatcher._dispatch_job_task", return_value={
+        "status": "ok",
+        "worker": "codex",
+        "exit_code": 0,
+        "output": "{\"status\":\"ok\"}",
+    })
+    @patch("runtime.subagent_dispatcher._persist_job")
+    def test_run_records_worker_result_artifact(self, mock_persist, mock_dispatch):
+        """_run_job should capture structured worker output instead of a simulated placeholder."""
+        _jobs["real01"] = {
+            "job_id": "real01",
+            "agent_name": "backend-engineer",
+            "task_text": "stabilize auth",
+            "isolation": "none",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+        }
+
+        _run_job("real01")
+
+        mock_dispatch.assert_called_once()
+        artifact = _jobs["real01"]["artifacts"][0]
+        assert artifact["type"] == "worker-result"
+        assert artifact["worker"] == "codex"
+        assert artifact["exit_code"] == 0
+
+    @patch("runtime.subagent_dispatcher._dispatch_job_task", return_value={
+        "status": "error",
+        "worker": "claude",
+        "message": "worker unavailable",
+    })
+    @patch("runtime.subagent_dispatcher._persist_job")
+    def test_run_marks_job_failed_when_worker_dispatch_fails(self, mock_persist, mock_dispatch):
+        """_run_job should fail the job when the worker dispatch returns an error payload."""
+        _jobs["fail01"] = {
+            "job_id": "fail01",
+            "agent_name": "architect-mode",
+            "task_text": "produce design",
+            "isolation": "none",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+        }
+
+        _run_job("fail01")
+
+        mock_dispatch.assert_called_once()
+        assert _jobs["fail01"]["status"] == "failed"
+        assert "worker unavailable" in (_jobs["fail01"]["error"] or "")
 
     @patch("runtime.subagent_dispatcher._persist_job")
     def test_run_skips_cancelled_job(self, mock_persist):
@@ -432,10 +490,16 @@ class TestRunJob:
         # Should not raise
         _run_job("nonexistent")
 
+    @patch("runtime.subagent_dispatcher._dispatch_job_task", return_value={
+        "status": "ok",
+        "worker": "codex",
+        "exit_code": 0,
+        "output": "{\"status\":\"ok\"}",
+    })
     @patch("runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/fake-worktree")
     @patch("runtime.subagent_dispatcher._cleanup_worktree")
     @patch("runtime.subagent_dispatcher._persist_job")
-    def test_run_with_worktree_isolation(self, mock_persist, mock_cleanup, mock_setup):
+    def test_run_with_worktree_isolation(self, mock_persist, mock_cleanup, mock_setup, mock_dispatch):
         """_run_job should setup and cleanup worktree when isolation='worktree'."""
         _jobs["wt01"] = {
             "job_id": "wt01",
@@ -450,6 +514,7 @@ class TestRunJob:
         _run_job("wt01")
 
         mock_setup.assert_called_once_with("wt01")
+        mock_dispatch.assert_called_once()
         mock_cleanup.assert_called_once_with("/tmp/fake-worktree")
         assert _jobs["wt01"]["status"] == "completed"
         assert _jobs["wt01"].get("worktree") == "/tmp/fake-worktree"

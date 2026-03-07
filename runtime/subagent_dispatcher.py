@@ -8,8 +8,10 @@ Feature flag: OMG_PARALLEL_SUBAGENTS_ENABLED (default: False)
 from __future__ import annotations
 
 import os
+import json
+import shlex
+import subprocess
 import sys
-import time
 import uuid
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -100,7 +102,6 @@ def _load_job_from_disk(job_id: str) -> dict[str, Any] | None:
     if not os.path.exists(path):
         return None
     try:
-        import json
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
@@ -175,6 +176,92 @@ def _check_git_available() -> bool:
     return shutil.which("git") is not None
 
 
+def _write_job_evidence(job_id: str, payload: dict[str, Any], *, project_dir: str) -> str:
+    evidence_dir = os.path.join(project_dir, ".omg", "evidence", "subagents")
+    os.makedirs(evidence_dir, exist_ok=True)
+    out_path = os.path.join(evidence_dir, f"{job_id}.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=True)
+    return out_path
+
+
+def _run_configured_worker(command_text: str, prompt: str, *, project_dir: str, worker: str) -> dict[str, Any]:
+    command_text = command_text.strip()
+    if not command_text:
+        return {"status": "error", "worker": worker, "message": "worker command not configured"}
+
+    if "{prompt}" in command_text or "{project_dir}" in command_text:
+        rendered = command_text.format(prompt=prompt, project_dir=project_dir)
+        cmd = shlex.split(rendered)
+    else:
+        cmd = shlex.split(command_text) + [prompt]
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "worker": worker,
+            "output": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode,
+        }
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "worker": worker, "message": f"{worker} worker timed out"}
+    except OSError as exc:
+        return {"status": "error", "worker": worker, "message": str(exc)}
+
+
+def _dispatch_job_task(record: dict[str, Any], *, project_dir: str) -> dict[str, Any]:
+    runner_mode = os.environ.get("OMG_SUBAGENT_RUNNER", "").strip().lower()
+    if runner_mode == "stub":
+        return {
+            "status": "ok",
+            "worker": os.environ.get("OMG_SUBAGENT_STUB_WORKER", "stub"),
+            "output": os.environ.get("OMG_SUBAGENT_STUB_OUTPUT", record["task_text"]),
+            "exit_code": 0,
+        }
+
+    if runner_mode == "claude":
+        return _run_configured_worker(
+            os.environ.get("OMG_CLAUDE_WORKER_CMD", ""),
+            record["task_text"],
+            project_dir=project_dir,
+            worker="claude",
+        )
+
+    from runtime.team_router import dispatch_to_model
+
+    dispatched = dispatch_to_model(str(record["agent_name"]), str(record["task_text"]), project_dir)
+    if "output" in dispatched or "exit_code" in dispatched:
+        worker = str(dispatched.get("model", "unknown")).replace("-cli", "")
+        return {
+            "status": "ok" if int(dispatched.get("exit_code", 0) or 0) == 0 else "error",
+            "worker": worker,
+            "output": str(dispatched.get("output", "")),
+            "exit_code": int(dispatched.get("exit_code", 0) or 0),
+        }
+
+    if dispatched.get("fallback") == "claude":
+        return _run_configured_worker(
+            os.environ.get("OMG_CLAUDE_WORKER_CMD", ""),
+            record["task_text"],
+            project_dir=project_dir,
+            worker="claude",
+        )
+
+    return {
+        "status": "error",
+        "worker": str(dispatched.get("fallback", "unknown")),
+        "message": str(dispatched.get("error", "worker unavailable")),
+    }
+
+
 def _setup_worktree(job_id: str) -> str | None:
     """Attempt to create a git worktree for job isolation.
 
@@ -232,8 +319,7 @@ def _cleanup_worktree(worktree_dir: str) -> None:
 def _run_job(job_id: str) -> None:
     """Execute a subagent job in the thread pool.
 
-    Updates job status and persists artifacts as they are produced.
-    NOTE: Does NOT actually spawn Claude — simulates execution for now.
+    Updates job status, dispatches to a local worker, and persists artifacts/evidence.
     """
     with _lock:
         record = _jobs.get(job_id)
@@ -247,6 +333,7 @@ def _run_job(job_id: str) -> None:
     _persist_job(job_id, record)
 
     worktree_dir: str | None = None
+    project_dir = _get_project_dir()
     try:
         # Setup isolation if requested
         if record.get("isolation") == "worktree":
@@ -256,17 +343,32 @@ def _run_job(job_id: str) -> None:
                     record["worktree"] = worktree_dir
                 _persist_job(job_id, record)
 
-        # --- Simulated execution ---
-        # Real implementation would dispatch to an agent here.
-        # For now, simulate work + produce an artifact.
-        time.sleep(0.05)  # Simulate brief work
+        active_project_dir = worktree_dir or project_dir
+        dispatch_result = _dispatch_job_task(record, project_dir=active_project_dir)
+        if dispatch_result.get("status") != "ok":
+            raise RuntimeError(str(dispatch_result.get("message", "worker dispatch failed")))
 
         artifact = {
-            "type": "result",
+            "type": "worker-result",
             "agent": record["agent_name"],
-            "content": f"Simulated output for: {record['task_text'][:100]}",
+            "worker": dispatch_result.get("worker", "unknown"),
+            "exit_code": dispatch_result.get("exit_code", 0),
+            "output": dispatch_result.get("output", ""),
             "produced_at": datetime.now(timezone.utc).isoformat(),
         }
+        evidence_payload = {
+            "schema": "OmgSubagentEvidence",
+            "job_id": job_id,
+            "agent_name": record["agent_name"],
+            "task_text": record["task_text"],
+            "worker": dispatch_result.get("worker", "unknown"),
+            "exit_code": dispatch_result.get("exit_code", 0),
+            "output": dispatch_result.get("output", ""),
+            "worktree": worktree_dir,
+            "project_dir": active_project_dir,
+        }
+        evidence_path = _write_job_evidence(job_id, evidence_payload, project_dir=project_dir)
+        artifact["evidence_path"] = os.path.relpath(evidence_path, project_dir)
 
         with _lock:
             # Check for cancellation mid-execution

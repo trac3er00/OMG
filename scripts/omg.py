@@ -36,6 +36,11 @@ from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, ver
 from runtime.domain_packs import get_domain_pack_contract
 from runtime.preflight import run_preflight
 from runtime.security_check import run_security_check
+from runtime.contract_compiler import (
+    build_release_readiness,
+    compile_contract_outputs,
+    validate_contract_registry,
+)
 from runtime.compat import (
     DEFAULT_CONTRACT_SNAPSHOT_PATH,
     DEFAULT_GAP_REPORT_PATH,
@@ -424,6 +429,34 @@ def cmd_ecosystem_sync(args: argparse.Namespace) -> int:
     return 0 if not errors else 2
 
 
+def cmd_contract_validate(args: argparse.Namespace) -> int:
+    result = validate_contract_registry(ROOT_DIR)
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
+def cmd_contract_compile(args: argparse.Namespace) -> int:
+    hosts = args.hosts or []
+    result = compile_contract_outputs(
+        root_dir=ROOT_DIR,
+        output_root=args.output_root,
+        hosts=hosts,
+        channel=args.channel,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
+def cmd_release_readiness(args: argparse.Namespace) -> int:
+    result = build_release_readiness(
+        root_dir=ROOT_DIR,
+        output_root=args.output_root,
+        channel=args.channel,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
 def _add_compat_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     compat_sub = parent.add_subparsers(dest=dest, required=True)
     compat_list = compat_sub.add_parser("list", help="List supported legacy skill names")
@@ -464,6 +497,35 @@ def _add_ecosystem_subcommands(parent: argparse.ArgumentParser, *, dest: str) ->
     ecosystem_sync.add_argument("--update", action="store_true", help="Fetch latest refs for existing clones")
     ecosystem_sync.add_argument("--depth", type=int, default=1, help="Git depth for shallow clone/fetch")
     ecosystem_sync.set_defaults(func=cmd_ecosystem_sync)
+
+
+def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    contract_sub = parent.add_subparsers(dest=dest, required=True)
+
+    contract_validate = contract_sub.add_parser("validate", help="Validate contract doc, schema, and bundle registry")
+    contract_validate.set_defaults(func=cmd_contract_validate)
+
+    contract_compile = contract_sub.add_parser("compile", help="Compile Claude/Codex artifacts from the canonical contract")
+    contract_compile.add_argument(
+        "--host",
+        dest="hosts",
+        action="append",
+        choices=["claude", "codex"],
+        required=True,
+        help="Host to compile (repeat for multiple hosts)",
+    )
+    contract_compile.add_argument("--channel", default="public", choices=["public", "enterprise"])
+    contract_compile.add_argument("--output-root", default="", help="Write outputs to this root instead of the repo root")
+    contract_compile.set_defaults(func=cmd_contract_compile)
+
+
+def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    release_sub = parent.add_subparsers(dest=dest, required=True)
+
+    release_readiness = release_sub.add_parser("readiness", help="Check production release readiness for compiled artifacts")
+    release_readiness.add_argument("--channel", default="dual", choices=["public", "enterprise", "dual"])
+    release_readiness.add_argument("--output-root", default="", help="Check compiled outputs from this root instead of the repo root")
+    release_readiness.set_defaults(func=cmd_release_readiness)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -583,6 +645,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     ecosystem = sub.add_parser("ecosystem", help="Upstream ecosystem sync and status")
     _add_ecosystem_subcommands(ecosystem, dest="ecosystem_command")
+
+    contract = sub.add_parser("contract", help="Canonical OMG contract validation and compilation")
+    _add_contract_subcommands(contract, dest="contract_command")
+
+    release = sub.add_parser("release", help="OMG release-readiness checks")
+    _add_release_subcommands(release, dest="release_command")
 
     return parser
 

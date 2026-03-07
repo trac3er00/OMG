@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "OMG 2.0.3 - project-level config with hook registrations, presets, and feature flags.",
+  "permissions": {
+    "allow": [
+      "Agent",
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Grep",
+      "Glob",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(which *)",
+      "Bash(echo *)",
+      "Bash(printf *)",
+      "Bash(pwd)",
+      "Bash(whoami)",
+      "Bash(date *)",
+      "Bash(basename *)",
+      "Bash(dirname *)",
+      "Bash(realpath *)",
+      "Bash(stat *)",
+      "Bash(file *)",
+      "Bash(diff *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(awk *)",
+      "Bash(sed *)",
+      "Bash(tr *)",
+      "Bash(cut *)",
+      "Bash(tee *)",
+      "Bash(xargs *)",
+      "Bash(jq *)",
+      "Bash(yq *)",
+      "Bash(tree *)",
+      "Bash(du *)",
+      "Bash(df *)",
+      "Bash(type *)",
+      "Bash(command *)",
+      "Bash(test *)",
+      "Bash([ *)",
+      "Bash(mkdir *)",
+      "Bash(touch *)",
+      "Bash(ln *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(yarn *)",
+      "Bash(pnpm *)",
+      "Bash(bun *)",
+      "Bash(pip *)",
+      "Bash(pip3 *)",
+      "Bash(uv *)",
+      "Bash(go *)",
+      "Bash(cargo *)",
+      "Bash(rustc *)",
+      "Bash(tsc *)",
+      "Bash(eslint *)",
+      "Bash(prettier *)",
+      "Bash(mypy *)",
+      "Bash(ruff *)",
+      "Bash(ruff format *)",
+      "Bash(pytest *)",
+      "Bash(jest *)",
+      "Bash(vitest *)",
+      "Bash(shellcheck *)",
+      "Bash(terraform validate *)",
+      "Bash(terraform fmt *)",
+      "Bash(terraform plan *)",
+      "Bash(terraform show *)",
+      "Bash(terraform state list *)",
+      "Bash(tmux *)",
+      "Bash(zip *)",
+      "Bash(unzip *)",
+      "Bash(tar *)",
+      "Bash(gzip *)",
+      "Bash(rg *)",
+      "Bash(gh *)"
+    ],
+    "ask": [
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(rsync *)",
+      "Bash(rm *)",
+      "Bash(sudo *)",
+      "Bash(kill *)",
+      "Bash(pkill *)",
+      "Bash(systemctl *)",
+      "Bash(reboot)",
+      "Bash(shutdown *)",
+      "Bash(dd *)",
+      "Bash(fdisk *)",
+      "Bash(mkfs *)",
+      "Bash(mount *)",
+      "Bash(umount *)",
+      "Bash(iptables *)",
+      "Bash(ufw *)",
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)",
+      "Bash(terraform import *)",
+      "Bash(env *)",
+      "Bash(node *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(chmod *)",
+      "Bash(chown *)",
+      "Bash(docker *)",
+      "Bash(docker-compose *)",
+      "Bash(kubectl get *)",
+      "Bash(kubectl describe *)",
+      "Bash(kubectl logs *)",
+      "Bash(kubectl apply *)",
+      "Bash(kubectl exec *)",
+      "Bash(kubectl edit *)",
+      "Bash(kubectl patch *)",
+      "Bash(kubectl rollout *)",
+      "Bash(kubectl scale *)",
+      "Bash(kubectl port-forward *)",
+      "Bash(kubectl config *)",
+      "Bash(kubectl top *)",
+      "Bash(kubectl delete *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/*)",
+      "Bash(sudo rm *)",
+      "Bash(sudo dd *)",
+      "Bash(sudo mkfs *)",
+      "Bash(:(){ :|:& };:)",
+      "Read(./.env)",
+      "Read(./secrets/**)",
+      "Read(**/.env)",
+      "Read(**/secrets/**)",
+      "Read(**/.aws/credentials)",
+      "Read(**/.aws/config)",
+      "Read(**/.kube/config)",
+      "Read(**/.ssh/*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/.npmrc)",
+      "Read(**/.pypirc)",
+      "Read(**/.netrc)",
+      "Read(**/id_rsa*)",
+      "Read(**/id_ed25519*)",
+      "Read(**/id_ecdsa*)",
+      "Write(./.env)",
+      "Read(./.env.*)",
+      "Read(**/.env.*)",
+      "Write(./.env.*)",
+      "Write(./secrets/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/session-start.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/session-end-capture.py\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/firewall.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/secret-guard.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": "Read|Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/pre-tool-inject.py\""
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/circuit-breaker.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/tool-ledger.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/test_generator_hook.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/budget_governor.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/post-tool-failure.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/stop_dispatcher.py\"",
+            "timeout": 90
+          }
+        ],
+        "matcher": ""
+      }
+    ]
+  },
+  "_omg": {
+    "_version": "2.0.3",
+    "preset": "safe",
+    "default_mode": "ulw+ralph",
+    "vision_auto": true,
+    "false_fix_detection": true,
+    "cost_budget": {
+      "session_limit_usd": 5.0,
+      "thresholds": [
+        50,
+        80,
+        95
+      ],
+      "pricing": {
+        "input_per_mtok": 3.0,
+        "output_per_mtok": 15.0
+      }
+    },
+    "context_budget": {
+      "session_start_max_chars": 2000,
+      "prompt_enhancer_max_chars": 800,
+      "prompt_enhancer_max_injections": 10,
+      "full_turns": 10,
+      "summarize_turns": 50,
+      "batch_size": 21
+    },
+    "credentials": {
+      "rotation_schedule_days": 90,
+      "expiry_warning_days": 14
+    },
+    "features": {
+      "memory": false,
+      "ralph_loop": true,
+      "planning_enforcement": true,
+      "compound_learning": false,
+      "simplifier": true,
+      "model_routing": true,
+      "agent_registry": true,
+      "circuit_breaker_v2": true,
+      "cognitive_modes": true,
+      "agent_routing": true,
+      "SETUP": false,
+      "SETUP_WIZARD": false,
+      "MEMORY_SERVER": false,
+      "MEMORY_AUTOSTART": false,
+      "COST_TRACKING": false,
+      "GIT_WORKFLOW": false,
+      "SESSION_ANALYTICS": false,
+      "TEST_GENERATION": false,
+      "DEP_HEALTH": false,
+      "CODEBASE_VIZ": false,
+      "CONTEXT_MANAGER": false
+    },
+    "generated": {
+      "contract_version": "2.0.3",
+      "channel": "public",
+      "required_bundles": [
+        "control-plane",
+        "hook-governor",
+        "mcp-fabric",
+        "lsp-pack",
+        "secure-worktree-pipeline"
+      ],
+      "protected_paths": [
+        ".omg/**",
+        ".agents/**",
+        ".codex/**",
+        ".claude/**"
+      ],
+      "emulated_events": [
+        "PreCompact",
+        "ConfigChange",
+        "WorktreeCreate",
+        "WorktreeRemove",
+        "SubagentStart",
+        "SubagentStop",
+        "TaskCompleted"
+      ]
+    }
+  }
+}

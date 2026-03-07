@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import sys
 from typing import Protocol, cast
@@ -55,3 +56,26 @@ def test_omg_guide_assert_tool_runs() -> None:
     assert result["schema"] == "GuideAssertionResult"
     assert result["verdict"] == "fail"
 
+
+def test_mcp_server_exposes_instructions_prompts_and_resources() -> None:
+    module = _load_module()
+
+    assert isinstance(module.mcp.instructions, str)
+    assert "OMG production control plane" in module.mcp.instructions
+
+    prompt_names = {prompt.name for prompt in asyncio.run(module.mcp.list_prompts())}
+    resource_uris = {str(resource.uri) for resource in asyncio.run(module.mcp.list_resources())}
+
+    assert "omg_contract_summary" in prompt_names
+    assert "resource://omg/contract" in resource_uris
+    assert "resource://omg/release-checklist" in resource_uris
+
+
+def test_mcp_contract_resource_reads_contract_doc() -> None:
+    module = _load_module()
+
+    resource = asyncio.run(module.mcp.read_resource("resource://omg/contract"))
+    text = str(resource)
+
+    assert "OMG Production Control Plane" in text
+    assert "execution_contract" in text

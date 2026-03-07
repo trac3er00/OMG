@@ -1,0 +1,50 @@
+name: OMG Release Readiness
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  release-readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install pytest
+
+      - name: Prepare artifact roots
+        run: mkdir -p artifacts/release
+
+      - name: Validate contract registry
+        run: python3 scripts/omg.py contract validate
+
+      - name: Compile public Claude and Codex artifacts
+        run: python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root artifacts/release
+
+      - name: Compile enterprise Claude and Codex artifacts
+        run: python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root artifacts/release
+
+      - name: Run release readiness gate
+        env:
+          OMG_RELEASE_READY_PROVIDERS: claude,codex
+        run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release
+
+      - name: Run public-readiness hygiene
+        run: python3 scripts/check-omg-public-ready.py
+
+      - name: Run standalone verification
+        run: ./scripts/verify-standalone.sh
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: omg-release-artifacts
+          path: artifacts/release/
+          if-no-files-found: error

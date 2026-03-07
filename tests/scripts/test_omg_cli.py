@@ -253,6 +253,85 @@ def test_cli_compat_snapshot_and_gate_output(tmp_path: Path):
     assert gap_payload["schema"] == "OmgCompatGapReport"
 
 
+def test_cli_contract_validate_and_compile(tmp_path: Path):
+    validate = _run(["contract", "validate"])
+    assert validate.returncode == 0
+    validate_out = json.loads(validate.stdout)
+    assert validate_out["schema"] == "OmgContractValidationResult"
+    assert validate_out["status"] == "ok"
+
+    compile_proc = _run(
+        [
+            "contract",
+            "compile",
+            "--host",
+            "claude",
+            "--host",
+            "codex",
+            "--channel",
+            "enterprise",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert compile_proc.returncode == 0
+    compile_out = json.loads(compile_proc.stdout)
+    assert compile_out["schema"] == "OmgContractCompileResult"
+    assert compile_out["status"] == "ok"
+    assert (tmp_path / ".agents" / "skills" / "omg" / "control-plane" / "openai.yaml").exists()
+
+
+def test_cli_release_readiness_dual_channel(tmp_path: Path):
+    compile_public = _run(
+        [
+            "contract",
+            "compile",
+            "--host",
+            "claude",
+            "--host",
+            "codex",
+            "--channel",
+            "public",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert compile_public.returncode == 0
+
+    compile_enterprise = _run(
+        [
+            "contract",
+            "compile",
+            "--host",
+            "claude",
+            "--host",
+            "codex",
+            "--channel",
+            "enterprise",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert compile_enterprise.returncode == 0
+
+    readiness = _run(
+        [
+            "release",
+            "readiness",
+            "--channel",
+            "dual",
+            "--output-root",
+            str(tmp_path),
+        ],
+        env={"OMG_RELEASE_READY_PROVIDERS": "claude,codex"},
+    )
+    assert readiness.returncode == 0
+    readiness_out = json.loads(readiness.stdout)
+    assert readiness_out["schema"] == "OmgReleaseReadinessResult"
+    assert readiness_out["status"] == "ok"
+    assert readiness_out["blockers"] == []
+
+
 def test_cli_omc_alias_routes_to_compat():
     listed = _run(["compat", "list"])
     assert listed.returncode == 0

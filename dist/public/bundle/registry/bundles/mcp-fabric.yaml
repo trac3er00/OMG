@@ -1,0 +1,53 @@
+id: mcp-fabric
+kind: mcp
+version: 2.0.3
+title: OMG MCP Fabric
+description: Tools, prompts, resources, and server instructions for the OMG control plane.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/omg_mcp_server.py
+invocation_policy:
+  user_invocable: false
+  model_invocable: true
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: medium
+  allowed_tools:
+    claude:
+      - Read
+      - Bash(python3:*)
+    codex:
+      - Read
+      - Bash(python3:*)
+lifecycle_hooks:
+  native:
+    - SessionStart
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+    - omg-memory
+  prompts:
+    - omg_contract_summary
+  resources:
+    - resource://omg/contract
+    - resource://omg/release-checklist
+lsp_contract:
+  languages:
+    - python
+evidence_outputs:
+  artifacts:
+    - .omg/evidence/mcp-fabric.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+channel_overrides:
+  public:
+    transport: stdio
+  enterprise:
+    transport: stdio

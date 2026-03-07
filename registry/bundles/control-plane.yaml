@@ -1,0 +1,61 @@
+id: control-plane
+kind: skill
+version: 2.0.3
+title: OMG Control Plane
+description: Canonical production control plane bundle for Claude and Codex.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - OMG_COMPAT_CONTRACT.md
+    - docs/release-checklist.md
+invocation_policy:
+  user_invocable: true
+  model_invocable: false
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: medium
+  allowed_tools:
+    claude:
+      - Read
+      - Grep
+      - Bash(python3:*)
+    codex:
+      - Read
+      - Grep
+      - Bash(python3:*)
+lifecycle_hooks:
+  native:
+    - SessionStart
+    - PreToolUse
+    - PostToolUse
+  emulated:
+    - PreCompact
+    - WorktreeCreate
+    - WorktreeRemove
+mcp_contract:
+  servers:
+    - omg-control
+    - omg-memory
+  prompts:
+    - omg_contract_summary
+  resources:
+    - resource://omg/contract
+    - resource://omg/release-checklist
+lsp_contract:
+  languages:
+    - python
+    - typescript
+evidence_outputs:
+  artifacts:
+    - .omg/evidence/control-plane-compile.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+channel_overrides:
+  public:
+    posture: self-serve
+  enterprise:
+    posture: managed

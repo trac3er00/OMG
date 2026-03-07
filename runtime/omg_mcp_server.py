@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 _MCP_IMPORT_ERROR: ModuleNotFoundError | None = None
@@ -32,16 +33,30 @@ except ModuleNotFoundError as exc:
 from control_plane.service import ControlPlaneService
 
 
+MCP_INSTRUCTIONS = (
+    "OMG production control plane MCP. Prefer omg-control prompts and resources for "
+    "contract, release-readiness, and governance context before using direct tools."
+)
+
+
+def _root_dir() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
 @asynccontextmanager
 async def lifespan(_: object) -> AsyncIterator[None]:
     yield
 
 
-mcp = FastMCP("OMG Control MCP", lifespan=lifespan)
+mcp = FastMCP("OMG Control MCP", lifespan=lifespan, instructions=MCP_INSTRUCTIONS)
 
 
 def _service() -> ControlPlaneService:
     return ControlPlaneService(project_dir=os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+
+
+def _read_repo_text(rel_path: str) -> str:
+    return (_root_dir() / rel_path).read_text(encoding="utf-8")
 
 
 @mcp.tool()
@@ -100,6 +115,30 @@ def omg_security_check(scope: str = ".", include_live_enrichment: bool = False) 
 def omg_guide_assert(candidate: str, rules: dict[str, Any]) -> dict[str, Any]:
     _status, payload = _service().guide_assert({"candidate": candidate, "rules": rules})
     return payload
+
+
+@mcp.prompt(name="omg_contract_summary", description="Summarize the OMG production contract and generated host outputs")
+def omg_contract_summary(channel: str = "public") -> str:
+    return (
+        "Summarize the OMG production control plane contract for channel "
+        f"`{channel}`. Include execution_contract, host_compilation_rules, "
+        "MCP resources, prompts, and release-readiness expectations."
+    )
+
+
+@mcp.resource("resource://omg/contract", name="omg_contract", description="Canonical OMG production contract document", mime_type="text/markdown")
+def omg_contract_resource() -> str:
+    return _read_repo_text("OMG_COMPAT_CONTRACT.md")
+
+
+@mcp.resource(
+    "resource://omg/release-checklist",
+    name="omg_release_checklist",
+    description="Public release checklist for OMG",
+    mime_type="text/markdown",
+)
+def omg_release_checklist_resource() -> str:
+    return _read_repo_text("docs/release-checklist.md")
 
 
 def run_server() -> None:
