@@ -17,6 +17,9 @@ OMG exposes a small native front door and keeps the rest of the surface availabl
 | `/OMG:escalate` | Route to Codex, Gemini, or CCG |
 | `/OMG:teams` | Team routing for internal OMG execution |
 | `/OMG:ccg` | Tri-track synthesis |
+| `/OMG:security-check` | Canonical security pipeline |
+| `/OMG:api-twin` | Contract replay and fixture-based API simulation |
+| `/OMG:preflight` | Structured route selection and evidence planning |
 | `/OMG:compat` | Legacy compatibility routing |
 | `/OMG:health-check` | Verify setup and tool integration |
 | `/OMG:mode` | Set cognitive mode for the session |
@@ -28,7 +31,6 @@ OMG exposes a small native front door and keeps the rest of the surface availabl
 | `/OMG:deep-plan` | Planning | Strategic planning with domain awareness |
 | `/OMG:learn` | Knowledge | Convert patterns into OMG-native instincts and skills |
 | `/OMG:code-review` | Quality | Deep review flow |
-| `/OMG:security-review` | Security | Security-focused review |
 | `/OMG:ship` | Delivery | Idea to evidence to release |
 | `/OMG:handoff` | Collaboration | Session transfer and continuity |
 

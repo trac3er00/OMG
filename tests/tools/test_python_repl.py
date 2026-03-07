@@ -84,6 +84,19 @@ class TestStartReplSession:
         assert s1["session_id"] == s2["session_id"]
         assert s1["created_at"] == s2["created_at"]
 
+    def test_rejects_invalid_session_id(self, tmp_path, monkeypatch):
+        """Traversal-style session IDs are rejected and never persisted."""
+        monkeypatch.chdir(tmp_path)
+        escaped = tmp_path.parent / "owned-security-regression.json"
+        if escaped.exists():
+            escaped.unlink()
+
+        result = start_repl_session(session_id="../../../../owned-security-regression")
+
+        assert "error" in result
+        assert "session_id" in result["error"]
+        assert not escaped.exists()
+
 
 # --- TestExecuteCode (5 tests) ---
 

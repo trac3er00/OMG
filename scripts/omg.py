@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""OMG 2.0.3 CLI entrypoint.
+"""OMG 2.0.4 CLI entrypoint.
 
 Implements practical command-line flows for:
 - omg ship
 - omg fix --issue
 - omg secure
+- omg security check
 - omg maintainer
 - omg trust review
 - omg runtime dispatch
@@ -31,6 +32,15 @@ from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change, write_trust_manifest
 from lab.pipeline import publish_artifact, run_pipeline
 from runtime.dispatcher import dispatch_runtime
+from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, verify_fixture
+from runtime.domain_packs import get_domain_pack_contract
+from runtime.preflight import run_preflight
+from runtime.security_check import run_security_check
+from runtime.contract_compiler import (
+    build_release_readiness,
+    compile_contract_outputs,
+    validate_contract_registry,
+)
 from runtime.compat import (
     DEFAULT_CONTRACT_SNAPSHOT_PATH,
     DEFAULT_GAP_REPORT_PATH,
@@ -153,6 +163,68 @@ def cmd_secure(args: argparse.Namespace) -> int:
     decision = evaluate_bash_command(args.command)
     print(json.dumps(decision.to_dict(), indent=2))
     return 0 if decision.action != "deny" else 3
+
+
+def cmd_security_check(args: argparse.Namespace) -> int:
+    result = run_security_check(
+        project_dir=_ensure_project_dir(),
+        scope=args.scope,
+        include_live_enrichment=bool(args.live_enrichment),
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_api_twin_ingest(args: argparse.Namespace) -> int:
+    result = ingest_contract(_ensure_project_dir(), name=args.name, source_path=args.source)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_api_twin_record(args: argparse.Namespace) -> int:
+    result = record_fixture(
+        _ensure_project_dir(),
+        name=args.name,
+        request=json.loads(args.request_json),
+        response=json.loads(args.response_json),
+        validated=bool(args.validated),
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_api_twin_serve(args: argparse.Namespace) -> int:
+    result = serve_fixture(
+        _ensure_project_dir(),
+        name=args.name,
+        latency_ms=int(args.latency_ms),
+        failure_mode=args.failure_mode,
+        schema_drift=bool(args.schema_drift),
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_api_twin_verify(args: argparse.Namespace) -> int:
+    result = verify_fixture(
+        _ensure_project_dir(),
+        name=args.name,
+        live_response=json.loads(args.live_response_json),
+    )
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_preflight(args: argparse.Namespace) -> int:
+    result = run_preflight(_ensure_project_dir(), goal=args.goal)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_domain_pack(args: argparse.Namespace) -> int:
+    result = get_domain_pack_contract(args.name)
+    print(json.dumps(result, indent=2))
+    return 0
 
 
 def cmd_maintainer(args: argparse.Namespace) -> int:
@@ -357,6 +429,34 @@ def cmd_ecosystem_sync(args: argparse.Namespace) -> int:
     return 0 if not errors else 2
 
 
+def cmd_contract_validate(args: argparse.Namespace) -> int:
+    result = validate_contract_registry(ROOT_DIR)
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
+def cmd_contract_compile(args: argparse.Namespace) -> int:
+    hosts = args.hosts or []
+    result = compile_contract_outputs(
+        root_dir=ROOT_DIR,
+        output_root=args.output_root,
+        hosts=hosts,
+        channel=args.channel,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
+def cmd_release_readiness(args: argparse.Namespace) -> int:
+    result = build_release_readiness(
+        root_dir=ROOT_DIR,
+        output_root=args.output_root,
+        channel=args.channel,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
 def _add_compat_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     compat_sub = parent.add_subparsers(dest=dest, required=True)
     compat_list = compat_sub.add_parser("list", help="List supported legacy skill names")
@@ -399,6 +499,35 @@ def _add_ecosystem_subcommands(parent: argparse.ArgumentParser, *, dest: str) ->
     ecosystem_sync.set_defaults(func=cmd_ecosystem_sync)
 
 
+def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    contract_sub = parent.add_subparsers(dest=dest, required=True)
+
+    contract_validate = contract_sub.add_parser("validate", help="Validate contract doc, schema, and bundle registry")
+    contract_validate.set_defaults(func=cmd_contract_validate)
+
+    contract_compile = contract_sub.add_parser("compile", help="Compile Claude/Codex artifacts from the canonical contract")
+    contract_compile.add_argument(
+        "--host",
+        dest="hosts",
+        action="append",
+        choices=["claude", "codex"],
+        required=True,
+        help="Host to compile (repeat for multiple hosts)",
+    )
+    contract_compile.add_argument("--channel", default="public", choices=["public", "enterprise"])
+    contract_compile.add_argument("--output-root", default="", help="Write outputs to this root instead of the repo root")
+    contract_compile.set_defaults(func=cmd_contract_compile)
+
+
+def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    release_sub = parent.add_subparsers(dest=dest, required=True)
+
+    release_readiness = release_sub.add_parser("readiness", help="Check production release readiness for compiled artifacts")
+    release_readiness.add_argument("--channel", default="dual", choices=["public", "enterprise", "dual"])
+    release_readiness.add_argument("--output-root", default="", help="Check compiled outputs from this root instead of the repo root")
+    release_readiness.set_defaults(func=cmd_release_readiness)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="omg", description=f"OMG {CANONICAL_VERSION} CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -417,6 +546,44 @@ def build_parser() -> argparse.ArgumentParser:
     secure = sub.add_parser("secure", help="Evaluate command risk")
     secure.add_argument("--command", required=True)
     secure.set_defaults(func=cmd_secure)
+
+    security = sub.add_parser("security", help="Canonical OMG security workflows")
+    security_sub = security.add_subparsers(dest="security_command", required=True)
+    security_check = security_sub.add_parser("check", help="Run canonical OMG security check")
+    security_check.add_argument("--scope", default=".")
+    security_check.add_argument("--live-enrichment", action="store_true")
+    security_check.set_defaults(func=cmd_security_check)
+
+    api_twin = sub.add_parser("api-twin", help="Contract replay and fixture-based API simulation")
+    api_twin_sub = api_twin.add_subparsers(dest="api_twin_command", required=True)
+    api_twin_ingest = api_twin_sub.add_parser("ingest", help="Ingest OpenAPI/Postman/example contract input")
+    api_twin_ingest.add_argument("--name", required=True)
+    api_twin_ingest.add_argument("--source", required=True)
+    api_twin_ingest.set_defaults(func=cmd_api_twin_ingest)
+    api_twin_record = api_twin_sub.add_parser("record", help="Record approved fixture response")
+    api_twin_record.add_argument("--name", required=True)
+    api_twin_record.add_argument("--request-json", required=True)
+    api_twin_record.add_argument("--response-json", required=True)
+    api_twin_record.add_argument("--validated", action="store_true")
+    api_twin_record.set_defaults(func=cmd_api_twin_record)
+    api_twin_serve = api_twin_sub.add_parser("serve", help="Replay a fixture with optional drift/failure injection")
+    api_twin_serve.add_argument("--name", required=True)
+    api_twin_serve.add_argument("--latency-ms", type=int, default=0)
+    api_twin_serve.add_argument("--failure-mode", default="")
+    api_twin_serve.add_argument("--schema-drift", action="store_true")
+    api_twin_serve.set_defaults(func=cmd_api_twin_serve)
+    api_twin_verify = api_twin_sub.add_parser("verify", help="Validate a fixture against a live response")
+    api_twin_verify.add_argument("--name", required=True)
+    api_twin_verify.add_argument("--live-response-json", required=True)
+    api_twin_verify.set_defaults(func=cmd_api_twin_verify)
+
+    preflight = sub.add_parser("preflight", help="Structured OMG preflight routing")
+    preflight.add_argument("--goal", required=True)
+    preflight.set_defaults(func=cmd_preflight)
+
+    domain_pack = sub.add_parser("domain-pack", help="Inspect optional domain pack contracts")
+    domain_pack.add_argument("--name", required=True, choices=["robotics", "vision", "algorithms", "health"])
+    domain_pack.set_defaults(func=cmd_domain_pack)
 
     maintainer = sub.add_parser("maintainer", help="OSS maintainer evidence helper")
     maintainer.add_argument("--mode", default="impact", choices=["triage", "release", "review", "impact"])
@@ -478,6 +645,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     ecosystem = sub.add_parser("ecosystem", help="Upstream ecosystem sync and status")
     _add_ecosystem_subcommands(ecosystem, dest="ecosystem_command")
+
+    contract = sub.add_parser("contract", help="Canonical OMG contract validation and compilation")
+    _add_contract_subcommands(contract, dest="contract_command")
+
+    release = sub.add_parser("release", help="OMG release-readiness checks")
+    _add_release_subcommands(release, dest="release_command")
 
     return parser
 

@@ -36,7 +36,9 @@ def test_mcp_json_has_five_servers():
     mcp_path = os.path.join(WORKTREE_ROOT, ".mcp.json")
     with open(mcp_path) as f:
         cfg = json.load(f)
-    assert len(cfg["mcpServers"]) == 5
+    assert len(cfg["mcpServers"]) == 6
+    assert "omg-memory" in cfg["mcpServers"]
+    assert "omg-control" in cfg["mcpServers"]
 
 
 def test_build_mcp_config_filesystem_scopes_to_project_root():

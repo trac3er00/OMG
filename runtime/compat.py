@@ -16,6 +16,7 @@ from typing import Any
 from hooks.policy_engine import evaluate_bash_command
 from lab.pipeline import run_pipeline
 from runtime.dispatcher import dispatch_runtime
+from runtime.security_check import run_security_check
 from runtime.team_router import TeamDispatchRequest, dispatch_team
 
 CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
@@ -103,7 +104,7 @@ LEGACY_SKILL_ROUTES: dict[str, str] = {
     "release": "runtime_ship",
     "review": "review",
     "sci-omg": "maintainer",
-    "security-review": "secure",
+    "security-review": "security_check",
     "skill": "learn",
     "omg-superpowers": "plan",
     "tdd": "plan",
@@ -129,6 +130,7 @@ ROUTE_MATURITY: dict[str, str] = {
     "review": "native",
     "plan": "native",
     "secure": "native",
+    "security_check": "native",
     "learn": "native",
     "maintainer": "native",
     "cancel": "native",
@@ -183,6 +185,7 @@ ROUTE_INPUTS: dict[str, dict[str, Any]] = {
     "review": {"required": ["problem"], "optional": ["context", "files"]},
     "plan": {"required": ["problem"], "optional": ["expected_outcome"]},
     "secure": {"required": ["problem"], "optional": []},
+    "security_check": {"required": [], "optional": ["problem"]},
     "learn": {"required": ["problem"], "optional": ["context"]},
     "maintainer": {"required": ["problem"], "optional": ["context"]},
     "cancel": {"required": [], "optional": []},
@@ -200,6 +203,7 @@ ROUTE_OUTPUTS: dict[str, dict[str, Any]] = {
     "review": {"schema": "TeamDispatchResult"},
     "plan": {"schema": "PlanningArtifacts"},
     "secure": {"schema": "PolicyDecision"},
+    "security_check": {"schema": "SecurityCheckResult"},
     "learn": {"schema": "LearningArtifact"},
     "maintainer": {"schema": "MaintainerCompatArtifact"},
     "cancel": {"schema": "CancelResult"},
@@ -217,6 +221,7 @@ ROUTE_SIDE_EFFECTS: dict[str, list[str]] = {
     "review": [],
     "plan": [".omg/state/_plan.md", ".omg/state/_checklist.md", ".omg/idea.yml"],
     "secure": [],
+    "security_check": [],
     "learn": [".omg/state/working-memory.md"],
     "maintainer": [".omg/evidence/compat-*.json"],
     "cancel": [".omg/shadow/active-run (removed when exists)"],
@@ -268,6 +273,7 @@ SKILL_ROUTE_NOTES: dict[str, str] = {
     "pipeline": "Routes to OMG lab policy+pipeline executor.",
     "release": "Routes to runtime ship and emits release draft artifact.",
     "tdd": "Generates plan/checklist scaffolding for red-green-refactor workflow.",
+    "security-review": "Deprecated alias to the canonical OMG security-check engine.",
     "build-fix": "Creates targeted fix checklist and routes execution to runtime.",
     "analyze": "Writes structured analysis evidence artifact.",
     "trace": "Writes trace evidence artifact for debugging chain.",
@@ -1175,6 +1181,20 @@ def dispatch_compat_skill(
             findings=["Security policy evaluation completed."],
             actions=["If action is deny, revise command and retry."],
             result=decision.to_dict(),
+        )
+
+    if route == "security_check":
+        check = run_security_check(
+            project_dir=root,
+            scope=msg or ".",
+            include_live_enrichment=False,
+        )
+        return _res(
+            skill=normalized,
+            route=route,
+            findings=["Canonical OMG security check completed."],
+            actions=["Review high-severity findings before ship/release."],
+            result=check,
         )
 
     if route == "learn":

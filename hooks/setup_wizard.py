@@ -22,9 +22,13 @@ if _PROJECT_ROOT not in sys.path:
 from runtime.cli_provider import get_provider, list_available_providers  # noqa: E402
 from runtime.mcp_config_writers import (  # noqa: E402
     write_claude_mcp_config,
+    write_claude_mcp_stdio_config,
     write_codex_mcp_config,
+    write_codex_mcp_stdio_config,
     write_gemini_mcp_config,
+    write_gemini_mcp_stdio_config,
     write_kimi_mcp_config,
+    write_kimi_mcp_stdio_config,
 )
 
 # Trigger provider auto-registration on import
@@ -40,6 +44,10 @@ from runtime.adoption import (  # noqa: E402
 )
 
 _logger = logging.getLogger(__name__)
+
+OMG_CONTROL_COMMAND = "python3"
+OMG_CONTROL_ARGS = ["-m", "runtime.omg_mcp_server"]
+OMG_CONTROL_SERVER_NAME = "omg-control"
 
 _INSTALL_HINTS: dict[str, str] = {
     "codex": "npm install -g @openai/codex",
@@ -108,6 +116,15 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "url": "http://127.0.0.1:8765/mcp",
         "default": True,
         "category": "memory",
+    },
+    {
+        "id": OMG_CONTROL_SERVER_NAME,
+        "name": "OMG Control",
+        "description": "OMG control plane MCP server via stdio",
+        "command": OMG_CONTROL_COMMAND,
+        "args": OMG_CONTROL_ARGS,
+        "default": True,
+        "category": "control",
     },
     {
         "id": "github",
@@ -371,8 +388,11 @@ def configure_mcp(
     detected_clis: dict[str, Any],
     server_url: str = "http://127.0.0.1:8765/mcp",
     server_name: str = "omg-memory",
+    control_command: str = OMG_CONTROL_COMMAND,
+    control_args: list[str] | None = None,
+    control_server_name: str = OMG_CONTROL_SERVER_NAME,
 ) -> dict[str, Any]:
-    """Configure MCP memory server for authenticated CLIs.
+    """Configure OMG MCP servers for authenticated CLIs.
 
     For each CLI in detected_clis where detected_clis[cli]["detected"] == True,
     calls the appropriate writer from runtime.mcp_config_writers.
@@ -382,6 +402,9 @@ def configure_mcp(
         detected_clis: Dict of CLI detection results from detect_clis().
         server_url: MCP server URL (default: http://127.0.0.1:8765/mcp).
         server_name: MCP server name (default: omg-memory).
+        control_command: stdio command for the OMG control MCP server.
+        control_args: stdio args for the OMG control MCP server.
+        control_server_name: MCP server name for the OMG control surface.
 
     Returns:
         Dict with keys:
@@ -391,28 +414,40 @@ def configure_mcp(
     """
     configured: list[str] = []
     errors: dict[str, str] = {}
+    resolved_control_args = list(control_args or OMG_CONTROL_ARGS)
 
-    # Always write Claude config
+    # Always write Claude project config for both memory and control surfaces.
     try:
         write_claude_mcp_config(project_dir, server_url, server_name)
+        write_claude_mcp_stdio_config(
+            project_dir,
+            command=control_command,
+            args=resolved_control_args,
+            server_name=control_server_name,
+        )
     except Exception as exc:
         _logger.warning("Failed to write Claude MCP config: %s", exc)
         errors["claude"] = str(exc)
 
-    # Write configs for detected CLIs
+    # Write both memory and control surfaces for detected external CLIs.
     cli_writers = {
-        "codex": write_codex_mcp_config,
-        "gemini": write_gemini_mcp_config,
-        "kimi": write_kimi_mcp_config,
+        "codex": (write_codex_mcp_config, write_codex_mcp_stdio_config),
+        "gemini": (write_gemini_mcp_config, write_gemini_mcp_stdio_config),
+        "kimi": (write_kimi_mcp_config, write_kimi_mcp_stdio_config),
     }
 
-    for cli_name, writer_func in cli_writers.items():
+    for cli_name, (http_writer, stdio_writer) in cli_writers.items():
         cli_info = detected_clis.get(cli_name, {})
         if not cli_info.get("detected", False):
             continue
 
         try:
-            writer_func(server_url, server_name)
+            http_writer(server_url, server_name)
+            stdio_writer(
+                command=control_command,
+                args=resolved_control_args,
+                server_name=control_server_name,
+            )
             configured.append(cli_name)
         except Exception as exc:
             _logger.warning("Failed to write %s MCP config: %s", cli_name, exc)

@@ -1,7 +1,7 @@
 {
   "name": "omg-advanced",
   "version": "1.0.5",
-  "description": "Advanced OMG commands - deep planning, learning, code review, security review, and specialized workflows",
+  "description": "Advanced OMG commands - deep planning, learning, code review, and specialized workflows",
   "type": "omg-plugin",
   "commands": {
     "deep-plan": {
@@ -18,11 +18,6 @@
       "path": "commands/OMG:code-review.md",
       "description": "Deep code review with line-by-line analysis",
       "category": "quality"
-    },
-    "security-review": {
-      "path": "commands/OMG:security-review.md",
-      "description": "Security vulnerability scanning",
-      "category": "security"
     },
     "ship": {
       "path": "commands/OMG:ship.md",
@@ -68,10 +63,6 @@
     "quality": {
       "description": "Code quality and review",
       "commands": ["code-review"]
-    },
-    "security": {
-      "description": "Security analysis and review",
-      "commands": ["security-review"]
     },
     "knowledge": {
       "description": "Learning and skill creation",

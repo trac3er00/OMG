@@ -140,6 +140,15 @@ class TestWizardStubs:
         assert isinstance(result, dict)
         assert result["status"] == "ok"
 
+    def test_build_mcp_config_includes_omg_control_command(self):
+        """Default MCP catalog should include the stdio OMG control server."""
+        import setup_wizard
+
+        result = setup_wizard.select_mcps()
+        servers = result["mcpServers"]
+        assert "omg-control" in servers
+        assert servers["omg-control"]["command"] == "python3"
+
     def test_set_preferences_returns_ok(self):
         """set_preferences() should return ok status."""
         import setup_wizard
@@ -399,7 +408,7 @@ class TestSetPreferences:
             with open(config_path) as f:
                 data = yaml.safe_load(f)
             assert "version" in data
-            assert data["version"] == "2.0.3"
+            assert data["version"] == "2.0.4"
 
     def test_set_preferences_includes_cli_configs_key(self):
         """Config should include cli_configs key."""
@@ -554,7 +563,8 @@ class TestConfigureMcp:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_claude = MagicMock()
-            with patch("setup_wizard.write_claude_mcp_config", mock_claude):
+            with patch("setup_wizard.write_claude_mcp_config", mock_claude), \
+                 patch("setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={}
@@ -569,7 +579,9 @@ class TestConfigureMcp:
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_codex = MagicMock()
             with patch("setup_wizard.write_codex_mcp_config", mock_codex), \
-                 patch("setup_wizard.write_claude_mcp_config"):
+                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
+                 patch("setup_wizard.write_claude_mcp_config"), \
+                 patch("setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"codex": {"detected": True}}
@@ -584,7 +596,9 @@ class TestConfigureMcp:
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_gemini = MagicMock()
             with patch("setup_wizard.write_gemini_mcp_config", mock_gemini), \
-                 patch("setup_wizard.write_claude_mcp_config"):
+                 patch("setup_wizard.write_gemini_mcp_stdio_config"), \
+                 patch("setup_wizard.write_claude_mcp_config"), \
+                 patch("setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"gemini": {"detected": False}}
@@ -598,8 +612,11 @@ class TestConfigureMcp:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("setup_wizard.write_codex_mcp_config"), \
+                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
                  patch("setup_wizard.write_gemini_mcp_config"), \
-                 patch("setup_wizard.write_claude_mcp_config"):
+                 patch("setup_wizard.write_gemini_mcp_stdio_config"), \
+                 patch("setup_wizard.write_claude_mcp_config"), \
+                 patch("setup_wizard.write_claude_mcp_stdio_config"):
                 result = setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={
@@ -622,7 +639,9 @@ class TestConfigureMcp:
                 raise RuntimeError("write failed")
 
             with patch("setup_wizard.write_codex_mcp_config", side_effect=raise_error), \
-                 patch("setup_wizard.write_claude_mcp_config"):
+                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
+                 patch("setup_wizard.write_claude_mcp_config"), \
+                 patch("setup_wizard.write_claude_mcp_stdio_config"):
                 result = setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"codex": {"detected": True}}
@@ -639,7 +658,9 @@ class TestConfigureMcp:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
-                 patch("setup_wizard.write_claude_mcp_config") as mock_claude:
+                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
+                 patch("setup_wizard.write_claude_mcp_config") as mock_claude, \
+                 patch("setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"codex": {"detected": True}},
@@ -656,7 +677,9 @@ class TestConfigureMcp:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
-                 patch("setup_wizard.write_claude_mcp_config") as mock_claude:
+                 patch("setup_wizard.write_codex_mcp_stdio_config"), \
+                 patch("setup_wizard.write_claude_mcp_config") as mock_claude, \
+                 patch("setup_wizard.write_claude_mcp_stdio_config"):
                 setup_wizard.configure_mcp(
                     project_dir=tmpdir,
                     detected_clis={"codex": {"detected": True}},

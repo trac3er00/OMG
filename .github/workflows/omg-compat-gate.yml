@@ -30,6 +30,12 @@ jobs:
       - name: Check committed snapshot drift
         run: python3 scripts/check-omg-compat-contract-snapshot.py --strict-version
 
+      - name: Validate canonical contract registry
+        run: python3 scripts/omg.py contract validate
+
+      - name: Compile public Claude and Codex artifacts
+        run: python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root artifacts/public
+
       - name: Check standalone naming hygiene
         run: python3 scripts/check-omg-standalone-clean.py
 

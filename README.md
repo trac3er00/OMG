@@ -1,4 +1,4 @@
-# OMG 2.0.3
+# OMG 2.0.4
 
 [![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
@@ -11,7 +11,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 - npm: `@trac3er/oh-my-god`
 - Plugin id: `omg`
 - Marketplace id: `omg`
-- Version: `2.0.3`
+- Version: `2.0.4`
 
 ## Why OMG
 
@@ -19,6 +19,17 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 - Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
 - Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.
+
+## Canonical Contract
+
+OMG now ships a production control-plane contract and generated host artifacts.
+
+- Normative spec: `OMG_COMPAT_CONTRACT.md`
+- Executable registry: `registry/omg-capability.schema.json` and `registry/bundles/*.yaml`
+- Generated Codex pack: `.agents/skills/omg/`
+- Validation: `python3 scripts/omg.py contract validate`
+- Compilation: `python3 scripts/omg.py contract compile --host claude --host codex --channel public`
+- Release gate: `python3 scripts/omg.py release readiness --channel dual`
 
 ![OMG HUD](docs/assets/omg-hud.svg)
 
@@ -50,6 +61,7 @@ Success looks like:
 
 - supported hosts are detected
 - `.mcp.json` is configured
+- `.mcp.json` includes both `omg-memory` and stdio `omg-control`
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
 
@@ -65,11 +77,17 @@ OMG uses native setup language instead of public migration commands.
 - `coexist`: advanced. OMG preserves non-conflicting third-party surfaces and records overlap instead of overwriting it.
 - Presets: `safe`, `balanced`, `interop`, `labs`.
 
+## Security Notes
+
+- The shipped `safe` preset now registers pre-tool security hooks before the planning helper.
+- `Bash` requests are screened by `firewall.py`, and file reads or edits are screened by `secret-guard.py`.
+- Raw environment dumps, interpreters, and permission-changing commands such as `env`, `node`, `python`, `python3`, `chmod`, and `chown` now require approval instead of being silently allowed.
+
 Compatibility references to OMC, OMX, and Superpowers are documented here: [docs/migration/native-adoption.md](docs/migration/native-adoption.md)
 
 ## Proof
 
-Current local verification for this release: `2425 passed, 2 skipped` on March 6, 2026.
+Current local verification for this release: `2466 passed, 2 skipped` on March 7, 2026.
 
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
@@ -85,11 +103,13 @@ Primary entry points:
 
 Advanced surfaces stay available for deeper workflows:
 
+- `/OMG:security-check`
+- `/OMG:api-twin`
+- `/OMG:preflight`
 - `/OMG:teams`
 - `/OMG:ccg`
 - `/OMG:compat`
 - `/OMG:ship`
-- `/OMG:security-review`
 
 ## Contributing
 

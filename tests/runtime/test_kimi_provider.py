@@ -225,63 +225,20 @@ class TestGetConfigPath:
 # ---------------------------------------------------------------------------
 
 class TestWriteMcpConfig:
-    def test_writes_json_entry_new_file(self, provider: KimiCodeProvider, tmp_path: object) -> None:
-        config_path = os.path.join(str(tmp_path), ".kimi", "mcp.json")
-        with patch.object(provider, "get_config_path", return_value=config_path):
+    @patch("runtime.providers.kimi_provider.write_kimi_mcp_config")
+    def test_delegates_to_shared_writer(self, mock_writer: MagicMock, provider: KimiCodeProvider) -> None:
+        with patch.object(provider, "get_config_path", return_value="/tmp/test-kimi.json"):
             provider.write_mcp_config("http://localhost:8080", server_name="test-server")
+        mock_writer.assert_called_once_with(
+            "http://localhost:8080",
+            "test-server",
+            config_path="/tmp/test-kimi.json",
+        )
 
-        assert os.path.exists(config_path)
-        data = json.loads(open(config_path).read())
-        assert "mcpServers" in data
-        assert "test-server" in data["mcpServers"]
-        assert data["mcpServers"]["test-server"]["type"] == "http"
-        assert data["mcpServers"]["test-server"]["url"] == "http://localhost:8080"
-
-    def test_creates_parent_directory(self, provider: KimiCodeProvider, tmp_path: object) -> None:
-        config_path = os.path.join(str(tmp_path), "deep", "nested", "mcp.json")
-        with patch.object(provider, "get_config_path", return_value=config_path):
-            provider.write_mcp_config("http://localhost:9090")
-
-        assert os.path.exists(config_path)
-
-    def test_merges_into_existing_config(self, provider: KimiCodeProvider, tmp_path: object) -> None:
-        config_path = os.path.join(str(tmp_path), ".kimi", "mcp.json")
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
-        existing = {"mcpServers": {"old-server": {"type": "http", "url": "http://old:1234"}}, "otherKey": True}
-        with open(config_path, "w") as fh:
-            json.dump(existing, fh)
-
-        with patch.object(provider, "get_config_path", return_value=config_path):
-            provider.write_mcp_config("http://localhost:5555", server_name="new-server")
-
-        data = json.loads(open(config_path).read())
-        # Old entry preserved
-        assert data["mcpServers"]["old-server"]["url"] == "http://old:1234"
-        # New entry added
-        assert data["mcpServers"]["new-server"]["type"] == "http"
-        assert data["mcpServers"]["new-server"]["url"] == "http://localhost:5555"
-        # Other keys preserved
-        assert data["otherKey"] is True
-
-    def test_uses_default_server_name(self, provider: KimiCodeProvider, tmp_path: object) -> None:
-        config_path = os.path.join(str(tmp_path), ".kimi", "mcp.json")
-        with patch.object(provider, "get_config_path", return_value=config_path):
-            provider.write_mcp_config("http://localhost:7777")
-
-        data = json.loads(open(config_path).read())
-        assert "memory-server" in data["mcpServers"]
-
-    def test_handles_corrupt_json_gracefully(self, provider: KimiCodeProvider, tmp_path: object) -> None:
-        config_path = os.path.join(str(tmp_path), ".kimi", "mcp.json")
-        os.makedirs(os.path.dirname(config_path), exist_ok=True)
-        with open(config_path, "w") as fh:
-            fh.write("{corrupted json!!")
-
-        with patch.object(provider, "get_config_path", return_value=config_path):
-            provider.write_mcp_config("http://localhost:6666", server_name="fresh")
-
-        data = json.loads(open(config_path).read())
-        assert data["mcpServers"]["fresh"]["url"] == "http://localhost:6666"
+    @patch("runtime.providers.kimi_provider.write_kimi_mcp_config", side_effect=ValueError("invalid server_name"))
+    def test_propagates_validation_error(self, _mock_writer: MagicMock, provider: KimiCodeProvider) -> None:
+        with pytest.raises(ValueError, match="server_name"):
+            provider.write_mcp_config("http://localhost:8080", server_name="../escape")
 
 
 # ---------------------------------------------------------------------------

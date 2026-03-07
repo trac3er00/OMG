@@ -7,9 +7,10 @@
 
 OMG keeps verification visible instead of burying it in implementation details.
 
-- Current local full-suite result: `2425 passed, 2 skipped` on March 6, 2026.
+- Current local full-suite result: `2466 passed, 2 skipped` on March 7, 2026.
 - Releases are expected to pass the compat gate, the standalone verification path, and the public-readiness check.
 - Setup, presets, and native adoption behavior have targeted regression tests.
+- `security-check`, `api-twin`, runtime profiles, and the stdio `omg-control` MCP have targeted regression coverage.
 - `compat` remains covered, but it is not the public onboarding path.
 
 ## Provider Matrix
@@ -37,6 +38,8 @@ OMG keeps verification visible instead of burying it in implementation details.
 Representative benchmark tasks for this release:
 
 - host detection and auth wiring
+- canonical security-check routing and evidence emission
+- stdio OMG control MCP wiring
 - adoption detection with overlapping ecosystems
 - plugin install and uninstall correctness
 - `crazy` orchestration smoke coverage

@@ -1,0 +1,99 @@
+{
+  "schema": "OmgCompiledArtifactManifest",
+  "channel": "enterprise",
+  "contract_version": "2.0.4",
+  "artifacts": [
+    {
+      "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
+      "sha256": "ac0d35aa2a8d27a246627c7e9bbbe8cab5a50b7b25b2a16bb451f4c79f263d7d"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/codex-mcp.toml",
+      "sha256": "a56de208a369a2b318d2e66e150eef4cba1fac1ecf32bda6db1a1e4b65db7311"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/control-plane/SKILL.md",
+      "sha256": "e3a53f89e15018895691657eb3962f942558475d6faaae760e7d48774ce6a47e"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/control-plane/openai.yaml",
+      "sha256": "e7ed793f93c54683ef34e7f43b5c0d9409ad203b77f26cda699a448a13037e6c"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/hook-governor/SKILL.md",
+      "sha256": "7c745315ed02595fe0f6c927118dae49ddcb7a412ddff0c06cb0973f1d7b77ca"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/hook-governor/openai.yaml",
+      "sha256": "a7c54e5933bcb7eddc1e0e901ca05174f9cd37065f3195d97839733a43bea30b"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/lsp-pack/SKILL.md",
+      "sha256": "d5c6773fa614fe6747f205283a82374b2167d1d9b32e7fd75f429072fadb8a3a"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/lsp-pack/openai.yaml",
+      "sha256": "6e99216f7b228e300a16ac3cbe4ae4fcbba6082b622387e6087b76a6cb76d3dc"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/mcp-fabric/SKILL.md",
+      "sha256": "fc17847f79397dba144ddbb40a8ad3207494c3a7f0b2dde1dc55dce2e5b117a9"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/mcp-fabric/openai.yaml",
+      "sha256": "2165ff298b110ef7fb6c42b6b539f8397b8772218de3fa2b8c2332fdd8db6d48"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md",
+      "sha256": "a11292d0122844f7c185e21943d3a39ef3213cf5348f40f006c8fdc8b62f252f"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml",
+      "sha256": "c766a383969893fd29fcd1da712e29e0422709a7b9f665e53e1ca8187c2bd207"
+    },
+    {
+      "path": "bundle/.claude-plugin/marketplace.json",
+      "sha256": "cf1a17ce1e8db6814209126a79d5a05d057f354ef3ee49a74da4f18f2ec04597"
+    },
+    {
+      "path": "bundle/.claude-plugin/plugin.json",
+      "sha256": "6ad6db257f9e46528d94760ef895b6ffc87c78a8ec5ca05b430a46b46ee3dc08"
+    },
+    {
+      "path": "bundle/.mcp.json",
+      "sha256": "d8249fdd26e0df0a9b7cabcb34256d7e33578e1d0e9878cc91d43452a10f7c24"
+    },
+    {
+      "path": "bundle/OMG_COMPAT_CONTRACT.md",
+      "sha256": "fa91ec0dbff58d543df5a9e3a86a1fe1629104a383d4e1bd440a36cb5522189c"
+    },
+    {
+      "path": "bundle/registry/bundles/control-plane.yaml",
+      "sha256": "bb58e1d21a7f545548da10e7f9b83898d6ece8010a921b66d0f94a08c8ae0d8e"
+    },
+    {
+      "path": "bundle/registry/bundles/hook-governor.yaml",
+      "sha256": "93b13ea1e2098328349d33373595144f2f863274548bef47fd266d6cab210260"
+    },
+    {
+      "path": "bundle/registry/bundles/lsp-pack.yaml",
+      "sha256": "6c2ca235bdca31635d89c428c48a35a5414250e98c7349cd67ba900870203d9a"
+    },
+    {
+      "path": "bundle/registry/bundles/mcp-fabric.yaml",
+      "sha256": "2cb71fc331820b19c60c3275f521fb49d099ed7c31539fab9959a55d29ae0fe9"
+    },
+    {
+      "path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
+      "sha256": "b93e752cef8b5cbc76fb7aa32ebe80d30ce390193183bb0c79dedfa1ce89c4e9"
+    },
+    {
+      "path": "bundle/registry/omg-capability.schema.json",
+      "sha256": "b5a52c03c6d42c0ce0297a2d8c22f34ed1075062cc5434d3a85b9f4fa6a0f121"
+    },
+    {
+      "path": "bundle/settings.json",
+      "sha256": "60fb4f9e2bedd4d67af41a2e442ef37c9a89cd2077bf6dfe40761eec01586824"
+    }
+  ]
+}

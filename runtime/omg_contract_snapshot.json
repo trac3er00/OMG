@@ -736,19 +736,19 @@
     },
     {
       "skill": "security-review",
-      "route": "secure",
+      "route": "security_check",
       "maturity": "native",
       "inputs": {
-        "required": [
+        "required": [],
+        "optional": [
           "problem"
-        ],
-        "optional": []
+        ]
       },
       "outputs": {
-        "schema": "PolicyDecision"
+        "schema": "SecurityCheckResult"
       },
       "side_effects": [],
-      "notes": ""
+      "notes": "Deprecated alias to the canonical OMG security-check engine."
     },
     {
       "skill": "skill",
@@ -911,5 +911,6 @@
       ],
       "notes": "Writes long-form memory artifact for writing workflows."
     }
-  ]
+  ],
+  "generated_at": "2026-03-07T04:51:08.940453+00:00"
 }

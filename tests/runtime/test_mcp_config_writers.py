@@ -8,9 +8,13 @@ import pytest
 
 from runtime.mcp_config_writers import (
     write_claude_mcp_config,
+    write_claude_mcp_stdio_config,
     write_codex_mcp_config,
+    write_codex_mcp_stdio_config,
     write_gemini_mcp_config,
+    write_gemini_mcp_stdio_config,
     write_kimi_mcp_config,
+    write_kimi_mcp_stdio_config,
 )
 
 
@@ -154,3 +158,85 @@ def test_write_kimi_mcp_config_merges_and_is_idempotent(
     write_kimi_mcp_config("http://localhost:8765")
     second_data = _read_json(config_path)
     assert second_data == first_data
+
+
+def test_write_codex_mcp_config_rejects_invalid_server_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    with pytest.raises(ValueError, match="server_name"):
+        write_codex_mcp_config("http://localhost:8765", 'evil"]\n[mcp_servers.bad]')
+
+
+def test_write_codex_mcp_config_rejects_invalid_server_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    with pytest.raises(ValueError, match="server_url"):
+        write_codex_mcp_config('http://localhost:8765"\n[mcp_servers.bad]\nurl="http://evil"')
+
+
+def test_write_claude_mcp_config_rejects_invalid_server_name(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="server_name"):
+        write_claude_mcp_config(str(tmp_path), "http://localhost:8765", "../escape")
+
+
+def test_write_claude_mcp_stdio_config_merges_command_entry(tmp_path: Path) -> None:
+    write_claude_mcp_stdio_config(
+        str(tmp_path),
+        server_name="omg-control",
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+    )
+    config_path = tmp_path / ".mcp.json"
+    payload = _read_json(config_path)
+    servers = _as_dict(payload["mcpServers"])
+    assert servers["omg-control"] == {
+        "command": "python3",
+        "args": ["-m", "runtime.omg_mcp_server"],
+    }
+
+
+def test_write_codex_mcp_stdio_config_writes_toml_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    write_codex_mcp_stdio_config(
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+        server_name="omg-control",
+    )
+    config_path = tmp_path / ".codex" / "config.toml"
+    content = config_path.read_text()
+    assert '[mcp_servers.omg-control]' in content
+    assert 'command = "python3"' in content
+    assert 'args = ["-m", "runtime.omg_mcp_server"]' in content
+
+
+def test_write_gemini_and_kimi_mcp_stdio_config_merge_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    write_gemini_mcp_stdio_config(
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+        server_name="omg-control",
+    )
+    write_kimi_mcp_stdio_config(
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+        server_name="omg-control",
+    )
+
+    gemini = _read_json(tmp_path / ".gemini" / "settings.json")
+    kimi = _read_json(tmp_path / ".kimi" / "mcp.json")
+    assert _as_dict(gemini["mcpServers"])["omg-control"] == {
+        "command": "python3",
+        "args": ["-m", "runtime.omg_mcp_server"],
+    }
+    assert _as_dict(kimi["mcpServers"])["omg-control"] == {
+        "command": "python3",
+        "args": ["-m", "runtime.omg_mcp_server"],
+    }

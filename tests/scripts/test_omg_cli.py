@@ -31,7 +31,7 @@ def test_cli_help_uses_canonical_identity():
     proc = _run(["--help"])
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
-    assert "OMG 2.0.3 CLI" in out
+    assert "OMG 2.0.4 CLI" in out
     assert "OMG v1 CLI" not in out
     assert "crazy" in out
     assert "compat" in out
@@ -58,12 +58,74 @@ def test_cli_trust_review(tmp_path: Path):
     assert out["review"]["risk_level"] == "critical"
 
 
+def test_cli_security_check_runs_canonical_engine(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    proc = _run(["security", "check", "--scope", str(tmp_path)])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "SecurityCheckResult"
+    assert out["summary"]["finding_count"] >= 1
+    assert any(finding["category"] == "python_ast" for finding in out["findings"])
+
+
 def test_cli_teams_command():
     teams = _run(["teams", "--problem", "debug api auth bug"])
     assert teams.returncode == 0
     teams_out = json.loads(teams.stdout)
     assert teams_out["status"] == "ok"
     assert teams_out["schema"] == "TeamDispatchResult"
+
+
+def test_cli_api_twin_ingest_record_serve_and_verify(tmp_path: Path):
+    contract = tmp_path / "openapi.json"
+    contract.write_text(json.dumps({"openapi": "3.1.0", "info": {"title": "Demo", "version": "1.0.0"}}), encoding="utf-8")
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+
+    ingest = _run(["api-twin", "ingest", "--name", "demo", "--source", str(contract)], env=env)
+    assert ingest.returncode == 0
+    ingest_out = json.loads(ingest.stdout)
+    assert ingest_out["fidelity"] == "schema-only"
+
+    record = _run(
+        [
+            "api-twin",
+            "record",
+            "--name",
+            "demo",
+            "--request-json",
+            '{"path":"/users"}',
+            "--response-json",
+            '{"users":[]}',
+        ],
+        env=env,
+    )
+    assert record.returncode == 0
+    record_out = json.loads(record.stdout)
+    assert record_out["fidelity"] == "recorded"
+
+    serve = _run(["api-twin", "serve", "--name", "demo", "--schema-drift"], env=env)
+    assert serve.returncode == 0
+    serve_out = json.loads(serve.stdout)
+    assert serve_out["schema"] == "ApiTwinServeResult"
+    assert serve_out["fidelity"] == "stale"
+
+    verify = _run(["api-twin", "verify", "--name", "demo", "--live-response-json", '{"users":[]}'], env=env)
+    assert verify.returncode == 0
+    verify_out = json.loads(verify.stdout)
+    assert verify_out["fidelity"] == "recorded-validated"
+    assert verify_out["live_verification_required"] is True
+
+
+def test_cli_preflight_returns_structured_route(tmp_path: Path):
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+    proc = _run(["preflight", "--goal", "stabilize auth flow and verify secrets handling"], env=env)
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "PreflightResult"
+    assert out["route"] == "security-check"
+    assert "omg-control" in out["required_mcps"]
 
 
 def test_cli_ccg_launches_two_worker_tracks():
@@ -189,6 +251,85 @@ def test_cli_compat_snapshot_and_gate_output(tmp_path: Path):
     assert gate_out.exists()
     gap_payload = json.loads(gate_out.read_text(encoding="utf-8"))
     assert gap_payload["schema"] == "OmgCompatGapReport"
+
+
+def test_cli_contract_validate_and_compile(tmp_path: Path):
+    validate = _run(["contract", "validate"])
+    assert validate.returncode == 0
+    validate_out = json.loads(validate.stdout)
+    assert validate_out["schema"] == "OmgContractValidationResult"
+    assert validate_out["status"] == "ok"
+
+    compile_proc = _run(
+        [
+            "contract",
+            "compile",
+            "--host",
+            "claude",
+            "--host",
+            "codex",
+            "--channel",
+            "enterprise",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert compile_proc.returncode == 0
+    compile_out = json.loads(compile_proc.stdout)
+    assert compile_out["schema"] == "OmgContractCompileResult"
+    assert compile_out["status"] == "ok"
+    assert (tmp_path / ".agents" / "skills" / "omg" / "control-plane" / "openai.yaml").exists()
+
+
+def test_cli_release_readiness_dual_channel(tmp_path: Path):
+    compile_public = _run(
+        [
+            "contract",
+            "compile",
+            "--host",
+            "claude",
+            "--host",
+            "codex",
+            "--channel",
+            "public",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert compile_public.returncode == 0
+
+    compile_enterprise = _run(
+        [
+            "contract",
+            "compile",
+            "--host",
+            "claude",
+            "--host",
+            "codex",
+            "--channel",
+            "enterprise",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert compile_enterprise.returncode == 0
+
+    readiness = _run(
+        [
+            "release",
+            "readiness",
+            "--channel",
+            "dual",
+            "--output-root",
+            str(tmp_path),
+        ],
+        env={"OMG_RELEASE_READY_PROVIDERS": "claude,codex"},
+    )
+    assert readiness.returncode == 0
+    readiness_out = json.loads(readiness.stdout)
+    assert readiness_out["schema"] == "OmgReleaseReadinessResult"
+    assert readiness_out["status"] == "ok"
+    assert readiness_out["blockers"] == []
 
 
 def test_cli_omc_alias_routes_to_compat():

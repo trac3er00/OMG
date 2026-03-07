@@ -249,28 +249,28 @@ class TestLoadAllowlist:
 
 
 # ---------------------------------------------------------------------------
-# Integration: allowlist overrides deny
+# Integration: allowlist cannot override secret-file deny
 # ---------------------------------------------------------------------------
 
 
-class TestAllowlistOverridesDeny:
-    """Integration test: allowlist entries override deny decisions."""
+class TestAllowlistDoesNotOverrideSecretDeny:
+    """Integration test: secret files remain denied even when allowlisted."""
 
-    def test_allowlisted_path_overrides_file_deny(self):
-        """A denied file (.env.test) is allowed when in the allowlist."""
+    def test_allowlisted_secret_path_stays_denied(self):
+        """A denied file (.env.test) must stay denied even when allowlisted."""
         # Without allowlist: .env.test is denied
         decision_no_allowlist = evaluate_file_access("Read", ".env.test")
         assert decision_no_allowlist.action == "deny"
 
-        # With allowlist: .env.test is allowed
+        # With allowlist: .env.test must still be denied
         allowlist = [
             {"path": ".env.test", "tools": ["Read"], "reason": "test env safe"},
         ]
         decision_with_allowlist = evaluate_file_access(
             "Read", ".env.test", allowlist=allowlist
         )
-        assert decision_with_allowlist.action == "allow"
-        assert "Allowlisted" in decision_with_allowlist.reason
+        assert decision_with_allowlist.action == "deny"
+        assert "Allowlisted" not in decision_with_allowlist.reason
 
     def test_allowlist_does_not_override_for_wrong_tool(self):
         """Allowlist for Read does not override deny for Write."""

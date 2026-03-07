@@ -54,7 +54,10 @@ def _clear_feature_cache():
 def _patch_cli_writers():
     """Mock all non-Claude MCP config writers (they write to HOME dirs)."""
     with patch("setup_wizard.write_codex_mcp_config"), \
+         patch("setup_wizard.write_codex_mcp_stdio_config"), \
          patch("setup_wizard.write_gemini_mcp_config"), \
+         patch("setup_wizard.write_gemini_mcp_stdio_config"), \
+         patch("setup_wizard.write_kimi_mcp_stdio_config"), \
          patch("setup_wizard.write_kimi_mcp_config"):
         yield
 
@@ -173,6 +176,7 @@ class TestConfigureMcpIntegration:
         data = json.loads(mcp_json.read_text())
         assert "mcpServers" in data
         assert "omg-memory" in data["mcpServers"]
+        assert "omg-control" in data["mcpServers"]
 
     def test_configure_mcp_claude_content_correct(self, tmp_path, _patch_cli_writers):
         """Claude .mcp.json has correct server type and URL."""
@@ -197,7 +201,10 @@ class TestConfigureMcpIntegration:
         }
 
         with patch("setup_wizard.write_codex_mcp_config") as mock_codex, \
+             patch("setup_wizard.write_codex_mcp_stdio_config"), \
              patch("setup_wizard.write_gemini_mcp_config") as mock_gemini, \
+             patch("setup_wizard.write_gemini_mcp_stdio_config"), \
+             patch("setup_wizard.write_kimi_mcp_stdio_config"), \
              patch("setup_wizard.write_kimi_mcp_config"), \
              patch("setup_wizard.write_claude_mcp_config"):
             result = setup_wizard.configure_mcp(str(tmp_path), detected)
@@ -225,7 +232,7 @@ class TestSetPreferencesIntegration:
         assert config_file.exists()
 
         data = yaml.safe_load(config_file.read_text())
-        assert data["version"] == "2.0.3"
+        assert data["version"] == "2.0.4"
         assert "cli_configs" in data
         assert len(data["cli_configs"]) == 3
         assert "opencode" not in data["cli_configs"]
@@ -360,7 +367,7 @@ class TestFullPipelineIntegration:
         config_yaml = tmp_path / ".omg" / "state" / "cli-config.yaml"
         assert config_yaml.exists()
         prefs_data = yaml.safe_load(config_yaml.read_text())
-        assert prefs_data["version"] == "2.0.3"
+        assert prefs_data["version"] == "2.0.4"
         assert len(prefs_data["cli_configs"]) == 3
         assert "opencode" not in prefs_data["cli_configs"]
 

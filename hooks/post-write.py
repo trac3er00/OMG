@@ -213,7 +213,7 @@ for i, line in enumerate(content.split("\n"), 1):
 
 if sec_warnings:
     msg = f"SECURITY WARNINGS in {file_path}:\n" + "\n".join(sec_warnings[:5])
-    msg += "\n\nConsider running /OMG:security-review for a full audit."
+    msg += "\n\nConsider running /OMG:security-check for the canonical audit pipeline."
     print(msg, file=sys.stderr)
 
 sys.exit(0)

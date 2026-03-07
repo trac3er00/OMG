@@ -1,6 +1,6 @@
 {
   "name": "omg-core",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Core OMG commands - native setup, routing, orchestration, and verification surfaces",
   "type": "omg-plugin",
   "commands": {
@@ -38,6 +38,21 @@
       "path": "commands/OMG:compat.md",
       "description": "Legacy skill compatibility dispatcher",
       "category": "compatibility"
+    },
+    "security-check": {
+      "path": "commands/OMG:security-check.md",
+      "description": "Canonical security pipeline with normalized findings and evidence",
+      "category": "security"
+    },
+    "api-twin": {
+      "path": "commands/OMG:api-twin.md",
+      "description": "Contract replay and fixture-based API simulation",
+      "category": "contracts"
+    },
+    "preflight": {
+      "path": "commands/OMG:preflight.md",
+      "description": "Structured routing and evidence planning before execution",
+      "category": "routing"
     },
     "health-check": {
       "path": "commands/OMG:health-check.md",
@@ -90,7 +105,7 @@
     },
     "routing": {
       "description": "Model routing and escalation",
-      "commands": ["escalate", "teams", "ccg"]
+      "commands": ["escalate", "teams", "ccg", "preflight"]
     },
     "orchestration": {
       "description": "Multi-agent orchestration modes",
@@ -107,6 +122,14 @@
     "observability": {
       "description": "Cost tracking and session observability",
       "commands": ["cost", "stats", "deps"]
+    },
+    "security": {
+      "description": "Canonical security and trust checks",
+      "commands": ["security-check"]
+    },
+    "contracts": {
+      "description": "Contract replay and API simulation",
+      "commands": ["api-twin"]
     },
     "visualization": {
       "description": "Codebase visualization and architecture diagrams",

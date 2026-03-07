@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/trac3er00/OMG/registry/omg-capability.schema.json",
+  "title": "OMG Capability Bundle",
+  "version": "2.0.4",
+  "type": "object",
+  "required": [
+    "id",
+    "kind",
+    "version",
+    "title",
+    "description",
+    "hosts",
+    "assets",
+    "invocation_policy",
+    "tool_policy",
+    "lifecycle_hooks",
+    "mcp_contract",
+    "lsp_contract",
+    "evidence_outputs",
+    "execution_contract",
+    "channel_overrides"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "hosts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "claude",
+          "codex"
+        ]
+      },
+      "minItems": 1
+    },
+    "assets": {
+      "type": "object"
+    },
+    "invocation_policy": {
+      "type": "object"
+    },
+    "tool_policy": {
+      "type": "object"
+    },
+    "lifecycle_hooks": {
+      "type": "object"
+    },
+    "mcp_contract": {
+      "type": "object"
+    },
+    "lsp_contract": {
+      "type": "object"
+    },
+    "evidence_outputs": {
+      "type": "object"
+    },
+    "execution_contract": {
+      "type": "object"
+    },
+    "channel_overrides": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
