@@ -1,0 +1,96 @@
+{
+  "name": "omg-advanced",
+  "version": "1.0.5",
+  "description": "Advanced OMG commands - deep planning, learning, code review, and specialized workflows",
+  "type": "omg-plugin",
+  "commands": {
+    "deep-plan": {
+      "path": "commands/OMG:deep-plan.md",
+      "description": "Deep strategic planning with domain awareness",
+      "category": "planning"
+    },
+    "learn": {
+      "path": "commands/OMG:learn.md",
+      "description": "Create reusable skills from patterns",
+      "category": "knowledge"
+    },
+    "code-review": {
+      "path": "commands/OMG:code-review.md",
+      "description": "Deep code review with line-by-line analysis",
+      "category": "quality"
+    },
+    "ship": {
+      "path": "commands/OMG:ship.md",
+      "description": "Ship pipeline - idea to PR-ready summary",
+      "category": "delivery"
+    },
+    "handoff": {
+      "path": "commands/OMG:handoff.md",
+      "description": "Intelligent session transfer",
+      "category": "collaboration"
+    },
+    "maintainer": {
+      "path": "commands/OMG:maintainer.md",
+      "description": "Open-source maintainer workflows",
+      "category": "oss"
+    },
+    "sequential-thinking": {
+      "path": "commands/OMG:sequential-thinking.md",
+      "description": "Structured multi-step reasoning",
+      "category": "thinking"
+    },
+    "ralph-start": {
+      "path": "commands/OMG:ralph-start.md",
+      "description": "Start Ralph autonomous loop",
+      "category": "automation"
+    },
+    "ralph-stop": {
+      "path": "commands/OMG:ralph-stop.md",
+      "description": "Stop Ralph autonomous loop",
+      "category": "automation"
+    },
+    "theme": {
+      "path": "commands/OMG:theme.md",
+      "description": "Interactive theme selector with list, preview, set, and auto modes",
+      "category": "config"
+    }
+  },
+  "categories": {
+    "planning": {
+      "description": "Strategic planning and architecture",
+      "commands": ["deep-plan"]
+    },
+    "quality": {
+      "description": "Code quality and review",
+      "commands": ["code-review"]
+    },
+    "knowledge": {
+      "description": "Learning and skill creation",
+      "commands": ["learn"]
+    },
+    "delivery": {
+      "description": "Shipping and release workflows",
+      "commands": ["ship"]
+    },
+    "collaboration": {
+      "description": "Team collaboration and handoff",
+      "commands": ["handoff"]
+    },
+    "automation": {
+      "description": "Autonomous execution modes",
+      "commands": ["ralph-start", "ralph-stop"]
+    },
+    "thinking": {
+      "description": "Structured thinking tools",
+      "commands": ["sequential-thinking"]
+    },
+    "oss": {
+      "description": "Open source maintainer tools",
+      "commands": ["maintainer"]
+    },
+    "config": {
+      "description": "Configuration and settings",
+      "commands": ["theme"]
+    }
+  }
+}
