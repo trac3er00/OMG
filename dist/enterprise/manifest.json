@@ -1,7 +1,7 @@
 {
   "schema": "OmgCompiledArtifactManifest",
   "channel": "enterprise",
-  "contract_version": "2.0.3",
+  "contract_version": "2.0.4",
   "artifacts": [
     {
       "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
@@ -53,11 +53,11 @@
     },
     {
       "path": "bundle/.claude-plugin/marketplace.json",
-      "sha256": "4b1c9c9f4ccd9d8d9ba02885ff2518cbfaaac85770fb296b8d39772e2ab2bb66"
+      "sha256": "cf1a17ce1e8db6814209126a79d5a05d057f354ef3ee49a74da4f18f2ec04597"
     },
     {
       "path": "bundle/.claude-plugin/plugin.json",
-      "sha256": "e9aee586aa064ab66e909f9d55c8b086cf2be1c88e7269c396a26e9d29187903"
+      "sha256": "6ad6db257f9e46528d94760ef895b6ffc87c78a8ec5ca05b430a46b46ee3dc08"
     },
     {
       "path": "bundle/.mcp.json",
@@ -65,35 +65,35 @@
     },
     {
       "path": "bundle/OMG_COMPAT_CONTRACT.md",
-      "sha256": "79effd86beafc4520c97e1f64e02d8e37480486d0f0aa2cc2a3c804f1ca7a6dd"
+      "sha256": "fa91ec0dbff58d543df5a9e3a86a1fe1629104a383d4e1bd440a36cb5522189c"
     },
     {
       "path": "bundle/registry/bundles/control-plane.yaml",
-      "sha256": "c129006ae8c5d51ebf16be193a9f2406f7d797a588a4533303f0399c01cb9ee5"
+      "sha256": "bb58e1d21a7f545548da10e7f9b83898d6ece8010a921b66d0f94a08c8ae0d8e"
     },
     {
       "path": "bundle/registry/bundles/hook-governor.yaml",
-      "sha256": "5ab15a958859db32d79cc447578d72a2e5e3e1810d8fa0c8dae5b9b581bd4cad"
+      "sha256": "93b13ea1e2098328349d33373595144f2f863274548bef47fd266d6cab210260"
     },
     {
       "path": "bundle/registry/bundles/lsp-pack.yaml",
-      "sha256": "e76967010d462c89a72403d13ffc0e4866ed66ffa5c3584dc7ab0e0100dfcd0f"
+      "sha256": "6c2ca235bdca31635d89c428c48a35a5414250e98c7349cd67ba900870203d9a"
     },
     {
       "path": "bundle/registry/bundles/mcp-fabric.yaml",
-      "sha256": "f0097e97fd029c085b1a807655353393a50b576635c3d40a946bcfa20441b365"
+      "sha256": "2cb71fc331820b19c60c3275f521fb49d099ed7c31539fab9959a55d29ae0fe9"
     },
     {
       "path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
-      "sha256": "e421aca0def779598c266b61af9305ee65788f89786e26095919cee5d92b0363"
+      "sha256": "b93e752cef8b5cbc76fb7aa32ebe80d30ce390193183bb0c79dedfa1ce89c4e9"
     },
     {
       "path": "bundle/registry/omg-capability.schema.json",
-      "sha256": "4afc32a02147b9e5507e116e0ba554d6ccc9784a299aea0905436be40bcf04a8"
+      "sha256": "b5a52c03c6d42c0ce0297a2d8c22f34ed1075062cc5434d3a85b9f4fa6a0f121"
     },
     {
       "path": "bundle/settings.json",
-      "sha256": "02a8fd983dc8d1f1bf0cff410ff0ef4bb269f6b35d12b87a5e0b534b027a9bfe"
+      "sha256": "60fb4f9e2bedd4d67af41a2e442ef37c9a89cd2077bf6dfe40761eec01586824"
     }
   ]
 }

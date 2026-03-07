@@ -1,4 +1,4 @@
-# OMG 2.0.3
+# OMG 2.0.4
 
 [![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
@@ -11,7 +11,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 - npm: `@trac3er/oh-my-god`
 - Plugin id: `omg`
 - Marketplace id: `omg`
-- Version: `2.0.3`
+- Version: `2.0.4`
 
 ## Why OMG
 
@@ -87,7 +87,7 @@ Compatibility references to OMC, OMX, and Superpowers are documented here: [docs
 
 ## Proof
 
-Current local verification for this release: `2465 passed, 2 skipped` on March 7, 2026.
+Current local verification for this release: `2466 passed, 2 skipped` on March 7, 2026.
 
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)

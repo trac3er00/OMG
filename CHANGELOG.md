@@ -2,11 +2,13 @@
 
 ## Unreleased
 
-- wired shipped `safe` preset `PreToolUse` security enforcement so `firewall.py` runs for `Bash` and `secret-guard.py` runs for file reads and edits before the helper hook
-- moved raw `env`, interpreter, and permission-changing shell commands from `allow` to `ask` in the shipped `safe` preset
-- blocked allowlist overrides for secret and sensitive file denies, sanitized `run_id` and REPL `session_id` values, and added path-containment checks for evidence and REPL state writes
-- centralized MCP config writing validation across Claude, Codex, Gemini, and Kimi writers to reject invalid server names and URLs
-- added regression coverage for the shipped settings, policy engine, evidence ingest, REPL session persistence, and MCP config writers/providers
+## 2.0.4 - 2026-03-07
+
+- shipped the OMG production control plane contract, executable bundle registry, host compiler, and dual-channel public and enterprise release bundles
+- generated Codex skill packs and Claude release artifacts from the canonical contract, and added CI release-readiness coverage for validation, compile, standalone, and public-readiness gates
+- extended the stdio `omg-control` MCP with prompts, resources, and server instructions, and upgraded subagent execution to record real worker evidence with secure worktree handling
+- hardened the shipped `safe` preset so `firewall.py` runs before Bash tools, `secret-guard.py` runs before file mutations, and raw env or interpreter surfaces require approval
+- fixed portable runtime provisioning to include `plugins/`, prevented worker command prompt placeholders from breaking argv boundaries, and corrected `omg_natives` import-path shadowing of stdlib modules
 
 ## 2.0.3 - 2026-03-06
 

@@ -191,8 +191,13 @@ def _run_configured_worker(command_text: str, prompt: str, *, project_dir: str, 
         return {"status": "error", "worker": worker, "message": "worker command not configured"}
 
     if "{prompt}" in command_text or "{project_dir}" in command_text:
-        rendered = command_text.format(prompt=prompt, project_dir=project_dir)
-        cmd = shlex.split(rendered)
+        try:
+            cmd = [
+                token.format(prompt=prompt, project_dir=project_dir)
+                for token in shlex.split(command_text)
+            ]
+        except (ValueError, KeyError) as exc:
+            return {"status": "error", "worker": worker, "message": f"invalid worker command template: {exc}"}
     else:
         cmd = shlex.split(command_text) + [prompt]
     try:

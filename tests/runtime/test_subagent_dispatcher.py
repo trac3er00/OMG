@@ -36,6 +36,7 @@ from runtime.subagent_dispatcher import (
     get_executor,
     shutdown,
     _run_job,
+    _run_configured_worker,
     _check_git_available,
 )
 
@@ -518,6 +519,31 @@ class TestRunJob:
         mock_cleanup.assert_called_once_with("/tmp/fake-worktree")
         assert _jobs["wt01"]["status"] == "completed"
         assert _jobs["wt01"].get("worktree") == "/tmp/fake-worktree"
+
+
+class TestConfiguredWorkerCommand:
+    """Tests for configured worker command argument handling."""
+
+    @patch("runtime.subagent_dispatcher.subprocess.run")
+    def test_prompt_placeholder_stays_single_argv_entry(self, mock_run):
+        """Prompt placeholders must remain a single argv item even when prompt contains spaces."""
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
+
+        _run_configured_worker(
+            "claude --prompt {prompt} --cwd {project_dir}",
+            "--unsafe flag with spaces",
+            project_dir="/tmp/project",
+            worker="claude",
+        )
+
+        cmd = mock_run.call_args.args[0]
+        assert cmd == [
+            "claude",
+            "--prompt",
+            "--unsafe flag with spaces",
+            "--cwd",
+            "/tmp/project",
+        ]
 
 
 # =============================================================================
