@@ -10,7 +10,11 @@ import urllib.request
 
 
 OSV_BATCH_URL = "https://api.osv.dev/v1/querybatch"
+KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+EPSS_URL_TEMPLATE = "https://api.first.org/data/v1/epss?cve={cve_id}"
 CACHE_REL_PATH = Path(".omg") / "state" / "cve-cache.json"
+KEV_CACHE_REL_PATH = Path(".omg") / "state" / "kev-cache.json"
+EPSS_CACHE_REL_PATH = Path(".omg") / "state" / "epss-cache.json"
 CACHE_TTL_HOURS = 24
 
 
@@ -70,6 +74,93 @@ def scan_for_cves(dependency_list: list[dict[str, str]], project_dir: str = ".")
     }
     _save_cache(cache_path, scan_result)
     return scan_result
+
+
+def enrich_with_kev(finding: dict[str, Any], cache_dir: str) -> dict[str, Any]:
+    result = dict(finding)
+    if not _dep_health_enabled():
+        result["kev_listed"] = False
+        return result
+
+    cve_id = str(finding.get("id", "")).strip()
+    if not cve_id:
+        result["kev_listed"] = False
+        return result
+
+    cache_path = Path(cache_dir) / KEV_CACHE_REL_PATH
+    cached = _load_cache(cache_path)
+
+    if cached and _is_cache_fresh(cached.get("fetched_at")):
+        result["kev_listed"] = cve_id in cached.get("cve_ids", [])
+        return result
+
+    try:
+        kev_data = _fetch_kev_catalog()
+        kev_ids = [v.get("cveID", "") for v in kev_data.get("vulnerabilities", [])]
+        _save_cache(cache_path, {
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "cve_ids": kev_ids,
+        })
+        result["kev_listed"] = cve_id in kev_ids
+    except (urllib.error.URLError, OSError, json.JSONDecodeError):
+        if cached:
+            result["kev_listed"] = cve_id in cached.get("cve_ids", [])
+        else:
+            result["kev_listed"] = False
+    return result
+
+
+def enrich_with_epss(finding: dict[str, Any], cache_dir: str) -> dict[str, Any]:
+    result = dict(finding)
+    if not _dep_health_enabled():
+        result["epss_score"] = None
+        return result
+
+    cve_id = str(finding.get("id", "")).strip()
+    if not cve_id:
+        result["epss_score"] = None
+        return result
+
+    cache_path = Path(cache_dir) / EPSS_CACHE_REL_PATH
+    cached = _load_cache(cache_path) or {}
+    entries = cached.get("entries", {})
+
+    entry = entries.get(cve_id)
+    if entry and _is_cache_fresh(entry.get("fetched_at")):
+        result["epss_score"] = entry.get("epss")
+        return result
+
+    try:
+        epss_data = _fetch_epss_score(cve_id)
+        data_list = epss_data.get("data", [])
+        score = float(data_list[0].get("epss", 0)) if data_list else None
+        entries[cve_id] = {
+            "epss": score,
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+        }
+        _save_cache(cache_path, {"entries": entries})
+        result["epss_score"] = score
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, ValueError, TypeError):
+        if entry:
+            result["epss_score"] = entry.get("epss")
+        else:
+            result["epss_score"] = None
+    return result
+
+
+def _fetch_kev_catalog() -> dict[str, Any]:
+    request = urllib.request.Request(KEV_URL, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        body = response.read().decode("utf-8")
+    return json.loads(body)
+
+
+def _fetch_epss_score(cve_id: str) -> dict[str, Any]:
+    url = EPSS_URL_TEMPLATE.format(cve_id=cve_id)
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        body = response.read().decode("utf-8")
+    return json.loads(body)
 
 
 def _query_osv_batch(dependency_list: list[dict[str, str]]) -> dict[str, Any]:

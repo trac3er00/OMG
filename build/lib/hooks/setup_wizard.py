@@ -12,7 +12,7 @@ from typing import Any, cast
 
 import yaml
 
-from _common import get_feature_flag
+from hooks._common import get_feature_flag
 
 # Ensure project root is on sys.path for runtime imports
 _PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -36,8 +36,10 @@ import runtime.providers.codex_provider  # noqa: E402, F401
 import runtime.providers.gemini_provider  # noqa: E402, F401
 import runtime.providers.kimi_provider  # noqa: E402, F401
 from runtime.adoption import (  # noqa: E402
+    CANONICAL_MODE_NAMES,
     CANONICAL_VERSION,
     build_adoption_report,
+    get_mode_profile,
     get_preset_features,
     resolve_preset,
     write_adoption_report,
@@ -416,6 +418,17 @@ def check_auth() -> dict[str, Any]:
 _HTTP_MEMORY_MIN_LEVEL: int = _PRESET_LEVEL["interop"]
 
 
+def get_mode_choices() -> list[str]:
+    return list(CANONICAL_MODE_NAMES)
+
+
+def select_setup_mode(mode: str | None) -> str:
+    candidate = (mode or "").strip().lower()
+    if candidate in CANONICAL_MODE_NAMES:
+        return candidate
+    return "focused"
+
+
 def configure_mcp(
     project_dir: str,
     detected_clis: dict[str, Any],
@@ -599,6 +612,7 @@ def run_setup_wizard(
     non_interactive: bool = False,
     *,
     mode: str | None = None,
+    setup_mode: str | None = None,
     adopt: str = "auto",
     preset: str | None = None,
 ) -> dict[str, Any]:
@@ -622,6 +636,7 @@ def run_setup_wizard(
         }
 
     selected_preset = resolve_preset(preset or ("balanced" if non_interactive else "safe"))
+    selected_setup_mode = select_setup_mode(setup_mode)
     adoption = build_adoption_report(
         project_dir,
         requested_mode=mode,
@@ -638,6 +653,11 @@ def run_setup_wizard(
 
     return {
         "status": "complete",
+        "setup_mode": {
+            "choices": get_mode_choices(),
+            "selected": selected_setup_mode,
+            "profile": get_mode_profile(selected_setup_mode),
+        },
         "clis_detected": clis,
         "auth_status": auth,
         "mcp_configured": mcp,
