@@ -38,6 +38,7 @@ DEFAULT_REQUIRED_BUNDLES = (
     "plan-council",
     "claim-judge",
     "test-intent-lock",
+    "proof-gate",
     "hook-governor",
     "mcp-fabric",
     "lsp-pack",
@@ -1854,16 +1855,29 @@ def _check_eval_gate(output_root: Path) -> dict[str, Any]:
 
 
 def _check_proof_chain(output_root: Path) -> dict[str, Any]:
-    module = importlib.import_module("runtime.proof_chain")
-    chain = module.assemble_proof_chain(str(output_root))
+    chain_module = importlib.import_module("runtime.proof_chain")
+    gate_module = importlib.import_module("runtime.proof_gate")
+
+    gate_input = chain_module.build_proof_gate_input(str(output_root))
+    chain = gate_input.get("proof_chain", {}) if isinstance(gate_input, dict) else {}
     chain_status = str(chain.get("status", "error"))
     raw_blockers = chain.get("blockers", [])
     blockers = [f"proof_chain_linkage: {item}" for item in raw_blockers] if isinstance(raw_blockers, list) else ["proof_chain_linkage: invalid blockers"]
     if chain_status == "ok":
         blockers = []
+
+    proof_gate = gate_module.evaluate_proof_gate(gate_input if isinstance(gate_input, dict) else {})
+    if str(proof_gate.get("verdict", "fail")) != "pass":
+        gate_blockers = proof_gate.get("blockers", [])
+        if isinstance(gate_blockers, list) and gate_blockers:
+            blockers.extend(f"proof_gate_blocked: {item}" for item in gate_blockers)
+        else:
+            blockers.append("proof_gate_blocked: verdict_fail")
+
     return {
         "status": "ok" if not blockers else "error",
         "proof_chain": chain,
+        "proof_gate": proof_gate,
         "blockers": blockers,
     }
 

@@ -74,6 +74,7 @@ def _write_evidence(
     include_lineage: bool = True,
     include_attribution: bool = True,
     unresolved_risks: list[dict[str, object] | str] | None = None,
+    include_claims: bool = True,
 ) -> None:
     payload: dict[str, object] = {
         "schema": "EvidencePack",
@@ -89,6 +90,19 @@ def _write_evidence(
         "trace_ids": ["trace-1"],
         "lineage": {"lineage_id": "lineage-1"} if include_lineage else {},
     }
+    if include_claims:
+        payload["claims"] = [
+            {
+                "claim_type": "release_ready",
+                "artifacts": [
+                    "reports/junit.xml",
+                    "reports/coverage.xml",
+                    ".omg/evidence/security-check.sarif",
+                    ".omg/evidence/playwright-trace.zip",
+                ],
+                "trace_ids": ["trace-1"],
+            }
+        ]
     if include_attribution:
         payload.update(
             {
@@ -130,6 +144,7 @@ def test_validate_contract_registry_reports_expected_bundles() -> None:
         "incident-replay",
         "data-lineage",
         "remote-supervisor",
+        "proof-gate",
     }.issubset(bundle_ids)
 
 
@@ -880,3 +895,25 @@ def test_release_readiness_blocks_missing_advanced_artifacts(tmp_path: Path, mon
 
     assert readiness["status"] == "error"
     assert any("advanced_plugin_missing" in b for b in readiness["blockers"])
+
+
+def test_release_readiness_blocks_missing_proof_gate_claims(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True, include_claims=False)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert readiness["checks"]["proof_chain"]["proof_gate"]["verdict"] == "fail"
+    assert any("proof_gate_blocked" in blocker for blocker in readiness["blockers"])
