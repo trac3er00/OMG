@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 
 CANONICAL_BRAND = "OMG"
@@ -15,6 +14,8 @@ CANONICAL_VERSION = "2.0.8"
 
 VALID_ADOPTION_MODES = ("omg-only", "coexist")
 VALID_PRESETS = ("safe", "balanced", "interop", "labs")
+CANONICAL_MODE_NAMES = ("chill", "focused", "exploratory")
+"""Cross-surface user-facing mode names reserved for the shared mode system."""
 
 MANAGED_PRESET_FLAGS = (
     "SETUP",
@@ -180,7 +181,7 @@ def build_adoption_report(
     requested_mode: str | None = None,
     preset: str | None = None,
     adopt: str = "auto",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     detected_ecosystems = detect_ecosystems(project_dir) if adopt == "auto" else []
     recommended_mode = recommend_mode(detected_ecosystems)
     selected_mode = requested_mode if requested_mode in VALID_ADOPTION_MODES else recommended_mode
@@ -204,9 +205,9 @@ def build_adoption_report(
     }
 
 
-def write_adoption_report(project_dir: str | Path, report: dict[str, Any]) -> str:
+def write_adoption_report(project_dir: str | Path, report: dict[str, object]) -> str:
     state_dir = Path(project_dir) / ".omg" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     report_path = state_dir / "adoption-report.json"
-    report_path.write_text(json.dumps(report, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    _ = report_path.write_text(json.dumps(report, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     return str(report_path)

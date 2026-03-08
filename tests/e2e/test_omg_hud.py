@@ -135,6 +135,50 @@ def test_hud_applies_legacy_preset_overrides(tmp_path: Path):
     assert "ctx:" not in out.stdout.lower()
 
 
+def test_hud_supports_standard_preset_name(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+    _ = (claude / "settings.json").write_text(
+        json.dumps({"omcHud": {"preset": "standard"}}),
+        encoding="utf-8",
+    )
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    payload = _stdin_payload(project)
+
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    assert "context:[" in out.stdout.lower()
+
+
+def test_hud_treats_focused_as_alias_of_standard(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    payload = _stdin_payload(project)
+
+    _ = (claude / "settings.json").write_text(
+        json.dumps({"omcHud": {"preset": "standard"}}),
+        encoding="utf-8",
+    )
+    standard_out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+
+    _ = (claude / "settings.json").write_text(
+        json.dumps({"omcHud": {"preset": "focused"}}),
+        encoding="utf-8",
+    )
+    focused_out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+
+    assert standard_out.returncode == 0
+    assert focused_out.returncode == 0
+    assert focused_out.stdout == standard_out.stdout
+
+
 def test_hud_shows_session_used_tokens_from_stdin_usage(tmp_path: Path):
     home = tmp_path / "home"
     claude = home / ".claude"

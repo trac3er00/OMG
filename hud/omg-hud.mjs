@@ -55,7 +55,7 @@ function readOmgVersion() {
 const OMG_VERSION = readOmgVersion();
 
 const DEFAULT_HUD_CONFIG = {
-  preset: "focused",
+  preset: "standard",
   elements: {
     cwd: true,
     cwdFormat: "relative",
@@ -129,7 +129,7 @@ const PRESET_CONFIGS = {
     safeMode: true,
     inventory: true,
   },
-  focused: {
+  standard: {
     cwd: true,
     cwdFormat: "relative",
     gitRepo: false,
@@ -250,6 +250,17 @@ const PRESET_CONFIGS = {
     inventory: true,
   },
 };
+
+const HUD_PRESET_ALIASES = {
+  focused: "standard",
+};
+
+function resolveHudPreset(preset) {
+  const requested = typeof preset === "string" ? preset : DEFAULT_HUD_CONFIG.preset;
+  const canonical = HUD_PRESET_ALIASES[requested] || requested;
+  if (PRESET_CONFIGS[canonical]) return canonical;
+  return DEFAULT_HUD_CONFIG.preset;
+}
 
 function countByExt(dirPath, ext) {
   if (!existsSync(dirPath)) return 0;
@@ -373,7 +384,7 @@ function readRawHudConfig() {
 
 function readHudConfig() {
   const source = readRawHudConfig();
-  const preset = source.preset || DEFAULT_HUD_CONFIG.preset;
+  const preset = resolveHudPreset(source.preset);
   const presetElements = PRESET_CONFIGS[preset] || {};
   const elements = {
     ...DEFAULT_HUD_CONFIG.elements,

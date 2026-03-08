@@ -2,31 +2,55 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TypedDict, cast
 
 import yaml
 
+from .adoption import CANONICAL_MODE_NAMES
 
-PROFILE_PRESETS: dict[str, dict[str, Any]] = {
+
+class RuntimeProfile(TypedDict):
+    profile: str
+    max_workers: int
+    background_polling: bool
+
+
+PROFILE_PRESETS: dict[str, RuntimeProfile] = {
     "eco": {"profile": "eco", "max_workers": 2, "background_polling": False},
     "balanced": {"profile": "balanced", "max_workers": 3, "background_polling": False},
     "turbo": {"profile": "turbo", "max_workers": 5, "background_polling": True},
 }
 
+RUNTIME_CONCURRENCY_PROFILE_NAMES = tuple(PROFILE_PRESETS.keys())
+RESERVED_CANONICAL_MODE_NAMES = CANONICAL_MODE_NAMES
 
-def load_runtime_profile(project_dir: str) -> dict[str, Any]:
+
+def load_runtime_profile(project_dir: str) -> RuntimeProfile:
     runtime_path = Path(project_dir) / ".omg" / "runtime.yaml"
     profile_name = "balanced"
     if runtime_path.exists():
         try:
-            payload = yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
+            raw_payload: object = yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
         except Exception:
-            payload = {}
-        if isinstance(payload, dict):
-            candidate = str(payload.get("profile", profile_name)).strip()
-            if candidate in PROFILE_PRESETS:
+            raw_payload = {}
+        if isinstance(raw_payload, dict):
+            payload_map = cast(dict[object, object], raw_payload)
+            payload: dict[str, object] = {}
+            for key, value in payload_map.items():
+                if isinstance(key, str):
+                    payload[key] = value
+            candidate_obj = payload.get("profile", profile_name)
+            candidate = candidate_obj.strip() if isinstance(candidate_obj, str) else profile_name
+            if candidate in RUNTIME_CONCURRENCY_PROFILE_NAMES:
                 profile_name = candidate
-    return dict(PROFILE_PRESETS[profile_name])
+
+    preset = PROFILE_PRESETS[profile_name]
+    result: RuntimeProfile = {
+        "profile": preset["profile"],
+        "max_workers": preset["max_workers"],
+        "background_polling": preset["background_polling"],
+    }
+    return result
 
 
 def resolve_parallel_workers(project_dir: str, *, requested_workers: int) -> int:
@@ -43,19 +67,29 @@ def _load_cli_parallel_cap(project_dir: str) -> int | None:
     if not config_path.exists():
         return None
     try:
-        payload = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        raw_payload: object = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     except Exception:
         return None
-    if not isinstance(payload, dict):
+    if not isinstance(raw_payload, dict):
         return None
-    cli_configs = payload.get("cli_configs", {})
-    if not isinstance(cli_configs, dict):
+
+    payload_map = cast(dict[object, object], raw_payload)
+    payload: dict[str, object] = {}
+    for key, value in payload_map.items():
+        if isinstance(key, str):
+            payload[key] = value
+
+    cli_configs_obj = payload.get("cli_configs")
+    if not isinstance(cli_configs_obj, dict):
         return None
-    caps = []
+
+    cli_configs = cast(dict[object, object], cli_configs_obj)
+    caps: list[int] = []
     for config in cli_configs.values():
         if not isinstance(config, dict):
             continue
-        value = config.get("max_parallel_agents")
+        config_map = cast(dict[object, object], config)
+        value = config_map.get("max_parallel_agents")
         if isinstance(value, int) and value > 0:
             caps.append(value)
     return min(caps) if caps else None
