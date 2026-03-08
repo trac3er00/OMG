@@ -1,5 +1,9 @@
 """Regression tests for hooks/firewall.py policy decisions."""
+# pyright: reportArgumentType=false, reportOptionalSubscript=false, reportOptionalMemberAccess=false
+import json
+
 from tests.hooks.helpers import run_hook_json, get_decision, make_bash_payload
+from runtime.rollback_manifest import classify_side_effect
 
 
 # ── .env.example / .env.sample / .env.template: ALLOWED for read ──
@@ -105,3 +109,108 @@ def test_firewall_has_os_import():
     # (actual execution needs stdin, so just check syntax)
     import py_compile
     py_compile.compile("hooks/firewall.py", doraise=True)
+
+
+def test_firewall_irreversible_command_is_blocked() -> None:
+    out = run_hook_json("hooks/firewall.py", make_bash_payload("rm -rf /"))
+    classification = classify_side_effect(tool="bash", metadata={"command": "rm -rf /"})
+
+    assert get_decision(out) == "deny"
+    assert classification["category"] == "irreversible"
+    assert classification["decision"] == "blocked"
+
+
+def test_firewall_irreversible_network_without_compensation_requires_escalation() -> None:
+    command = "curl -X POST https://api.example.test/v1/resource"
+    out = run_hook_json("hooks/firewall.py", make_bash_payload(command))
+    classification = classify_side_effect(tool="bash", metadata={"command": command})
+
+    assert get_decision(out) == "ask"
+    assert classification["category"] == "irreversible"
+    assert classification["decision"] == "escalation_required"
+
+
+def test_firewall_reports_council_and_defense_risk_context(tmp_path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    (state_dir / "defense_state").mkdir(parents=True, exist_ok=True)
+    (state_dir / "council_verdicts").mkdir(parents=True, exist_ok=True)
+
+    (state_dir / "defense_state" / "current.json").write_text(
+        json.dumps({"risk_level": "high", "actions": ["warn", "flag"]}),
+        encoding="utf-8",
+    )
+    (state_dir / "council_verdicts" / "run-risk.json").write_text(
+        json.dumps(
+            {
+                "schema": "CouncilVerdicts",
+                "schema_version": "1.0.0",
+                "run_id": "run-risk",
+                "status": "blocked",
+                "verification_status": "blocked",
+                "updated_at": "2026-03-08T00:00:00Z",
+                "verdicts": {
+                    "evidence_completeness": {
+                        "verdict": "fail",
+                        "findings": ["missing test evidence"],
+                        "confidence": 0.9,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("curl https://example.com"),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-risk"},
+    )
+
+    assert get_decision(out) == "ask"
+    reason = (out.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
+    assert "defense" in reason.lower()
+    assert "council" in reason.lower()
+
+
+def test_firewall_bash_strict_tdd_gate_blocks_mutation_without_lock(tmp_path) -> None:
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("mkdir generated"),
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_TDD_GATE_STRICT": "1",
+            "OMG_RUN_ID": "run-strict",
+        },
+    )
+
+    assert get_decision(out) == "deny"
+    reason = (out.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
+    assert "test_intent_lock" in reason or "no_active_test_intent_lock" in reason
+
+
+def test_firewall_journals_mutation_capable_bash_after_allow(tmp_path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("mkdir build-output"),
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_RUN_ID": "run-journal",
+            "OMG_TDD_GATE_STRICT": "0",
+        },
+    )
+
+    assert get_decision(out) is None
+
+    journal_dir = state_dir / "interaction_journal"
+    entries = sorted(journal_dir.glob("*.json"))
+    assert entries, "expected mutation-capable bash command to be journaled"
+
+    payload = json.loads(entries[-1].read_text(encoding="utf-8"))
+    assert payload.get("tool") == "bash"
+    assert payload.get("run_id") == "run-journal"
+    metadata = payload.get("metadata")
+    assert isinstance(metadata, dict)
+    assert metadata.get("command") == "mkdir build-output"

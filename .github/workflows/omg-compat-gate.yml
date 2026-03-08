@@ -36,6 +36,14 @@ jobs:
       - name: Compile public Claude and Codex artifacts
         run: python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root artifacts/public
 
+      - name: Seed release-readiness fixtures for compat gate
+        run: python3 scripts/prepare-release-proof-fixtures.py --output-root artifacts/public
+
+      - name: Run release readiness gate for public channel
+        env:
+          OMG_RELEASE_READY_PROVIDERS: claude,codex
+        run: python3 scripts/omg.py release readiness --channel public --output-root artifacts/public > artifacts/omg-release-readiness-public.json
+
       - name: Check standalone naming hygiene
         run: python3 scripts/check-omg-standalone-clean.py
 

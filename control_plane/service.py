@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import os
+from pathlib import Path
 from typing import Any
 
 from hooks.policy_engine import (
@@ -20,6 +21,7 @@ from runtime.guide_assert import guide_assert
 from runtime.dispatcher import dispatch_runtime
 from runtime.claim_judge import judge_claims
 from runtime.mutation_gate import check_mutation_allowed
+from runtime.runtime_contracts import read_run_state
 from runtime.security_check import run_security_check
 from runtime.test_intent_lock import lock_intent, verify_intent
 
@@ -275,15 +277,24 @@ class ControlPlaneService:
         file_path = payload.get("file_path")
         lock_id = payload.get("lock_id")
         exemption = payload.get("exemption")
+        command = payload.get("command")
+        run_id = payload.get("run_id")
+        metadata = payload.get("metadata")
 
         if not isinstance(tool, str) or not tool.strip():
             raise ValueError("tool is required")
-        if not isinstance(file_path, str) or not file_path.strip():
+        if not isinstance(file_path, str) or (tool != "Bash" and not file_path.strip()):
             raise ValueError("file_path is required")
         if lock_id is not None and not isinstance(lock_id, str):
             raise ValueError("lock_id must be a string when provided")
         if exemption is not None and not isinstance(exemption, str):
             raise ValueError("exemption must be a string when provided")
+        if command is not None and not isinstance(command, str):
+            raise ValueError("command must be a string when provided")
+        if run_id is not None and not isinstance(run_id, str):
+            raise ValueError("run_id must be a string when provided")
+        if metadata is not None and not isinstance(metadata, dict):
+            raise ValueError("metadata must be an object when provided")
 
         result = check_mutation_allowed(
             tool=tool,
@@ -291,8 +302,36 @@ class ControlPlaneService:
             project_dir=self.project_dir,
             lock_id=lock_id,
             exemption=exemption,
+            command=command,
+            run_id=run_id,
+            metadata=metadata,
         )
         return 200, result
+
+    def session_health(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        run_id = payload.get("run_id")
+        if isinstance(run_id, str) and run_id.strip():
+            state = read_run_state(self.project_dir, "session_health", run_id.strip())
+            if state is None:
+                return 404, {"status": "error", "message": f"No session health for run_id: {run_id}"}
+            return 200, dict(state)
+
+        health_dir = Path(self.project_dir) / ".omg" / "state" / "session_health"
+        if not health_dir.exists():
+            return 404, {"status": "error", "message": "No session health state found"}
+
+        candidates = sorted(
+            (f for f in health_dir.iterdir() if f.suffix == ".json" and not f.name.endswith(".tmp")),
+            key=lambda p: p.stat().st_mtime,
+        )
+        if not candidates:
+            return 404, {"status": "error", "message": "No session health state found"}
+
+        latest_run_id = candidates[-1].stem
+        state = read_run_state(self.project_dir, "session_health", latest_run_id)
+        if state is None:
+            return 404, {"status": "error", "message": "Failed to read session health state"}
+        return 200, dict(state)
 
     def scoreboard_baseline(self) -> tuple[int, dict[str, Any]]:
         return 200, {

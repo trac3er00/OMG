@@ -8,6 +8,10 @@ from uuid import uuid4
 
 import json
 
+from runtime.context_engine import ContextEngine
+from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
+from runtime.runtime_contracts import read_run_state
+
 
 _TOOL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "context7": ("doc", "docs", "documentation", "library", "api reference", "reference"),
@@ -21,9 +25,17 @@ def build_tool_plan(
     goal: str,
     available_tools: list[str],
     context_packet: dict[str, object] | None = None,
+    run_id: str | None = None,
 ) -> dict[str, object]:
     normalized_goal = str(goal or "").strip()
     normalized_tools = _normalize_tools(available_tools)
+    canonical_run_id = run_id or resolve_current_run_id(project_dir=None)
+    bounded_context = _resolve_bounded_context_packet(
+        project_dir=str(_project_dir()),
+        run_id=canonical_run_id,
+        fallback_context=context_packet,
+    )
+    council = _read_council_verdicts(str(_project_dir()), canonical_run_id)
 
     selected_tools: list[dict[str, object]] = []
     for tool_name in normalized_tools:
@@ -31,7 +43,7 @@ def build_tool_plan(
             selected_tools.append(
                 {
                     "name": tool_name,
-                    "args": _default_args(tool_name, normalized_goal, context_packet),
+                    "args": _default_args(tool_name, normalized_goal, bounded_context),
                     "rationale": _rationale(tool_name),
                 }
             )
@@ -41,23 +53,25 @@ def build_tool_plan(
         selected_tools.append(
             {
                 "name": fallback,
-                "args": _default_args(fallback, normalized_goal, context_packet),
+                "args": _default_args(fallback, normalized_goal, bounded_context),
                 "rationale": "fallback: no explicit keyword match; keep single minimal tool",
             }
         )
 
-    run_id = resolve_current_run_id(project_dir=None)
-    plan_id = _new_plan_id(run_id=run_id)
+    selected_tools = _apply_context_optimization(selected_tools, bounded_context, council)
+    plan_id = _new_plan_id(run_id=canonical_run_id)
     payload: dict[str, object] = {
         "plan_id": plan_id,
         "goal": normalized_goal,
         "tools": selected_tools,
         "budget_estimate": {
             "estimated_calls": len(selected_tools),
-            "estimated_context_chars": _estimate_context_chars(context_packet),
+            "estimated_context_chars": _estimate_context_chars(bounded_context),
             "goal_complexity": _goal_complexity(normalized_goal),
         },
-        "run_id": run_id,
+        "context_packet": bounded_context,
+        "council_verdicts": council.get("verdicts", {}),
+        "run_id": canonical_run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _persist_plan(_project_dir(), plan_id, payload)
@@ -65,19 +79,8 @@ def build_tool_plan(
 
 
 def resolve_current_run_id(project_dir: str | None = None) -> str | None:
-    run_id = str(os.environ.get("OMG_RUN_ID", "")).strip()
-    if run_id:
-        return run_id
-
-    root = _project_dir(project_dir)
-    active_run = root / ".omg" / "shadow" / "active-run"
-    if not active_run.exists():
-        return None
-    try:
-        value = active_run.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    return value or None
+    run_id = resolve_coordinator_run_id(project_dir=project_dir)
+    return run_id or None
 
 
 def has_tool_plan_for_run(project_dir: str, run_id: str | None) -> bool:
@@ -94,6 +97,18 @@ def tool_plan_gate_check(project_dir: str, run_id: str | None, tool: str) -> dic
     if not run_id:
         return {"status": "allowed", "reason": "run_id unavailable; skip tool plan gate"}
     if has_tool_plan_for_run(project_dir, run_id):
+        council = _read_council_verdicts(project_dir, run_id)
+        verdict = _council_gate_verdict(council)
+        if verdict["blocked"]:
+            reason = str(verdict["reason"])
+            _persist_gate_error(project_dir, run_id, tool, reason)
+            return {
+                "status": "blocked",
+                "reason": reason,
+                "run_id": run_id,
+                "tool": tool,
+                "council_verdicts": council.get("verdicts", {}),
+            }
         return {"status": "allowed", "reason": "tool plan present", "run_id": run_id}
 
     reason = "tool plan required before mutation-capable MCP evaluation"
@@ -197,7 +212,109 @@ def _atomic_write_json(path: Path, payload: Mapping[str, object]) -> None:
     _ = os.replace(temp_path, path)
 
 
+def journal_mutation_bash(
+    project_dir: str,
+    command: str,
+    run_id: str | None = None,
+    metadata: dict[str, object] | None = None,
+) -> dict[str, object] | None:
+    try:
+        from runtime.interaction_journal import InteractionJournal
+        from runtime.rollback_manifest import classify_side_effect
+    except ImportError:
+        return None
+
+    canonical_run_id = run_id or resolve_current_run_id(project_dir)
+    if not canonical_run_id:
+        return None
+
+    meta: dict[str, object] = dict(metadata or {})
+    meta["command"] = command
+    meta["run_id"] = canonical_run_id
+
+    side_effect = classify_side_effect("bash", meta)
+    meta["side_effect_scope"] = str(side_effect.get("category", "unknown"))
+    meta["side_effect_classification"] = side_effect
+
+    journal = InteractionJournal(project_dir)
+    return journal.record_step("bash", meta)
+
+
 def _safe_token(value: str) -> str:
     chars = [ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in value.strip()]
     token = "".join(chars).strip("-")
     return token or "run"
+
+
+def _resolve_bounded_context_packet(
+    *,
+    project_dir: str,
+    run_id: str | None,
+    fallback_context: dict[str, object] | None,
+) -> dict[str, object]:
+    if run_id:
+        packet = ContextEngine(project_dir).build_packet(run_id=run_id, delta_only=True)
+        if isinstance(fallback_context, dict) and str(fallback_context.get("summary", "")).strip():
+            summary = str(packet.get("summary", "")).strip()
+            if not summary or summary == "no context signals available":
+                packet["summary"] = str(fallback_context.get("summary", ""))
+        return packet
+    return dict(fallback_context or {"summary": "", "artifact_pointers": []})
+
+
+def _read_council_verdicts(project_dir: str, run_id: str | None) -> dict[str, object]:
+    if not run_id:
+        return {}
+    payload = read_run_state(project_dir, "council_verdicts", run_id)
+    if isinstance(payload, dict):
+        return dict(payload)
+    return {}
+
+
+def _council_gate_verdict(council: dict[str, object]) -> dict[str, object]:
+    verdicts = council.get("verdicts")
+    if not isinstance(verdicts, dict):
+        return {"blocked": False, "reason": ""}
+
+    for critic_name, critic_payload in verdicts.items():
+        if not isinstance(critic_payload, dict):
+            continue
+        token = str(critic_payload.get("verdict", "")).strip().lower()
+        if token == "fail":
+            return {
+                "blocked": True,
+                "reason": f"council critic '{critic_name}' failed; block mutation-capable tool execution",
+            }
+    return {"blocked": False, "reason": ""}
+
+
+def _apply_context_optimization(
+    tools: list[dict[str, object]],
+    context_packet: dict[str, object],
+    council: dict[str, object],
+) -> list[dict[str, object]]:
+    if len(tools) <= 1:
+        return tools
+
+    budget = context_packet.get("budget")
+    used_chars = 0
+    max_chars = 0
+    if isinstance(budget, dict):
+        try:
+            used_chars = int(budget.get("used_chars", 0))
+            max_chars = int(budget.get("max_chars", 0))
+        except (TypeError, ValueError):
+            used_chars = 0
+            max_chars = 0
+
+    verdicts = council.get("verdicts")
+    evidence_warn = False
+    if isinstance(verdicts, dict):
+        evidence = verdicts.get("evidence_completeness")
+        if isinstance(evidence, dict):
+            evidence_warn = str(evidence.get("verdict", "")).strip().lower() in {"warn", "fail"}
+
+    pressure_high = max_chars > 0 and used_chars >= int(max_chars * 0.9)
+    if pressure_high or evidence_warn:
+        return tools[:1]
+    return tools

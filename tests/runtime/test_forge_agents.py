@@ -67,8 +67,114 @@ def test_dispatch_specialists_blocks_when_contract_mismatch(tmp_path: Path) -> N
     result = dispatch_specialists(job, str(tmp_path))
 
     assert result["status"] == "blocked"
-    assert "missing required specialists" in str(result["reason"])
+    assert result["reason"] == "invalid_specialist_domain_combination"
     assert result["evidence_path"] == ""
+
+
+def test_dispatch_invalid_domain_returns_combination_reason(tmp_path: Path) -> None:
+    """Unknown domain + specialists → invalid_specialist_domain_combination."""
+    job = _valid_job()
+    job["domain"] = "nonexistent-domain"
+    job["specialists"] = ["data-curator"]
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "invalid_specialist_domain_combination"
+
+
+def test_dispatch_mismatched_specialists_returns_combination_reason(tmp_path: Path) -> None:
+    """Specialists not valid for domain → invalid_specialist_domain_combination."""
+    job = _valid_job()
+    job["domain"] = "algorithms"
+    job["specialists"] = ["simulator-engineer"]
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "invalid_specialist_domain_combination"
+
+
+def test_dispatch_missing_required_specialists_returns_combination_reason(tmp_path: Path) -> None:
+    """Requesting subset of required specialists → invalid_specialist_domain_combination."""
+    job = _valid_job()
+    job["domain"] = "vision"
+    job["specialists"] = ["data-curator"]
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "invalid_specialist_domain_combination"
+
+
+def test_dispatch_unknown_specialist_blocked(tmp_path: Path) -> None:
+    """Unknown specialist names still blocked with specific reason."""
+    job = _valid_job()
+    job["domain"] = "vision"
+    job["specialists"] = ["data-curator", "unknown-specialist", "training-architect", "simulator-engineer"]
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "blocked"
+    assert "unknown" in str(result["reason"]).lower()
+
+
+def test_dispatch_evidence_includes_proof_backed_fields(tmp_path: Path) -> None:
+    """Dispatch evidence must contain proof-backed starter fields."""
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    assert payload["proof_backed"] is True
+    assert payload["contract"]["labs_only"] is True
+    assert payload["specialist"] == "data-curator,training-architect,simulator-engineer"
+    assert payload["domain"] == "vision"
+
+
+def test_dispatch_evidence_includes_causal_chain_stub(tmp_path: Path) -> None:
+    """Evidence must include causal chain fields for claim judge compat."""
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    assert "causal_chain" in payload
+    chain = payload["causal_chain"]
+    assert "lock_id" in chain or "waiver_artifact_path" in chain
+
+
+def test_dispatch_evidence_includes_defense_session_state(tmp_path: Path) -> None:
+    """Evidence should include defense and session health state when available."""
+    defense_dir = tmp_path / ".omg" / "state" / "defense_state"
+    defense_dir.mkdir(parents=True, exist_ok=True)
+    defense_payload = {
+        "schema": "DefenseState", "schema_version": "1.0.0",
+        "run_id": "test-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
+        "controls": {"firewall": "active"}, "findings": [],
+    }
+    (defense_dir / "latest.json").write_text(json.dumps(defense_payload), encoding="utf-8")
+
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    health_payload = {
+        "schema": "SessionHealth", "schema_version": "1.0.0",
+        "run_id": "test-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
+        "contamination_risk": "low", "overthinking_score": 0.1,
+        "context_health": "green", "verification_status": "ok",
+        "recommended_action": "continue",
+    }
+    (health_dir / "latest.json").write_text(json.dumps(health_payload), encoding="utf-8")
+
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    assert "defense_state" in payload
+    assert "session_health" in payload
 
 
 def test_forge_vision_agent_labs_only_enforcement() -> None:

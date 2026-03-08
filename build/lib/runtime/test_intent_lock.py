@@ -69,6 +69,79 @@ def verify_intent(project_dir: str, lock_id: str, results: dict[str, Any]) -> di
     return {"status": status, "lock_id": lock_id, "reasons": reasons}
 
 
+def verify_lock(project_dir: str, run_id: str | None, lock_id: str | None = None) -> dict[str, Any]:
+    normalized_run_id = str(run_id or "").strip()
+    normalized_lock_id = str(lock_id or "").strip()
+
+    if normalized_lock_id:
+        payload = _load_lock_payload_from_project(project_dir, normalized_lock_id)
+        if payload is None:
+            return {
+                "status": "missing_lock",
+                "reason": "no_active_test_intent_lock",
+                "run_id": normalized_run_id or None,
+                "lock_id": normalized_lock_id,
+            }
+
+        contract_check = _check_run_contract(payload, normalized_run_id)
+        if contract_check is not None:
+            return {
+                "status": "lock_contract_mismatch",
+                "reason": contract_check,
+                "run_id": normalized_run_id or None,
+                "lock_id": normalized_lock_id,
+            }
+
+        return {
+            "status": "ok",
+            "reason": "active_test_intent_lock",
+            "run_id": normalized_run_id or None,
+            "lock_id": normalized_lock_id,
+        }
+
+    if not normalized_run_id:
+        return {
+            "status": "missing_lock",
+            "reason": "no_active_test_intent_lock",
+            "run_id": None,
+            "lock_id": None,
+        }
+
+    lock_dir = Path(project_dir) / ".omg" / "state" / "test-intent-lock"
+    if not lock_dir.exists():
+        return {
+            "status": "missing_lock",
+            "reason": "no_active_test_intent_lock",
+            "run_id": normalized_run_id,
+            "lock_id": None,
+        }
+
+    for path in sorted(lock_dir.glob("*.json"), key=lambda candidate: candidate.stat().st_mtime, reverse=True):
+        payload = _load_lock_payload_from_path(path)
+        if payload is None:
+            continue
+        intent = payload.get("intent")
+        intent_run_id = ""
+        if isinstance(intent, dict):
+            intent_run_id = str(intent.get("run_id", "")).strip()
+        if intent_run_id != normalized_run_id:
+            continue
+        lock_id_candidate = str(payload.get("lock_id", "")).strip() or path.stem
+        return {
+            "status": "ok",
+            "reason": "active_test_intent_lock",
+            "run_id": normalized_run_id,
+            "lock_id": lock_id_candidate,
+        }
+
+    return {
+        "status": "missing_lock",
+        "reason": "no_active_test_intent_lock",
+        "run_id": normalized_run_id,
+        "lock_id": None,
+    }
+
+
 def evaluate_test_delta(delta: dict[str, Any]) -> dict[str, Any]:
     override = delta.get("override")
     waiver_artifact = delta.get("waiver_artifact")
@@ -242,6 +315,35 @@ def _load_lock_payload(lock_id: str) -> dict[str, Any] | None:
     if not isinstance(payload, dict):
         return None
     return payload
+
+
+def _load_lock_payload_from_project(project_dir: str, lock_id: str) -> dict[str, Any] | None:
+    lock_path = Path(project_dir) / ".omg" / "state" / "test-intent-lock" / f"{lock_id}.json"
+    return _load_lock_payload_from_path(lock_path)
+
+
+def _load_lock_payload_from_path(lock_path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _check_run_contract(payload: dict[str, Any], run_id: str) -> str | None:
+    if not run_id:
+        return None
+    intent = payload.get("intent")
+    if not isinstance(intent, dict):
+        return "run_id_mismatch"
+    intent_run_id = str(intent.get("run_id", "")).strip()
+    if not intent_run_id:
+        return "run_id_mismatch"
+    if intent_run_id != run_id:
+        return "run_id_mismatch"
+    return None
 
 
 def _evaluate_locked_contract(

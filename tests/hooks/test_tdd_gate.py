@@ -6,7 +6,8 @@ from hashlib import sha256
 from runtime.mutation_gate import check_mutation_allowed
 
 
-def test_mutation_gate_blocks_without_lock(tmp_path) -> None:
+def test_mutation_gate_blocks_without_lock_in_strict_mode(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
     result = check_mutation_allowed(
         tool="Write",
         file_path="src/app.py",
@@ -14,6 +15,7 @@ def test_mutation_gate_blocks_without_lock(tmp_path) -> None:
         lock_id=None,
     )
     assert result["status"] == "blocked"
+    assert result["reason"] == "no_active_test_intent_lock"
     assert result["lock_id"] is None
 
 
@@ -54,7 +56,20 @@ def test_mutation_gate_does_not_block_read_only_tools(tmp_path) -> None:
     assert result["status"] == "allowed"
 
 
-def test_mutation_gate_writes_block_artifact(tmp_path) -> None:
+def test_mutation_gate_warns_without_lock_when_not_strict(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/app.py",
+        project_dir=str(tmp_path),
+        lock_id=None,
+    )
+    assert result["status"] == "allowed"
+    assert result["reason"] == "no_active_test_intent_lock"
+
+
+def test_mutation_gate_writes_block_artifact(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
     file_path = "src/app.py"
     result = check_mutation_allowed(
         tool="MultiEdit",
@@ -74,3 +89,42 @@ def test_mutation_gate_writes_block_artifact(tmp_path) -> None:
     assert payload["file_path"] == file_path
     assert isinstance(payload.get("reason"), str)
     assert isinstance(payload.get("ts"), str)
+
+
+def test_mutation_gate_blocks_mutating_bash_without_lock_in_strict_mode(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    result = check_mutation_allowed(
+        tool="Bash",
+        file_path=".",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        command="touch runtime/new_file.py",
+        run_id="run-123",
+    )
+    assert result["status"] == "blocked"
+    assert result["reason"] == "no_active_test_intent_lock"
+
+
+def test_mutation_gate_allows_read_only_bash_without_lock(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    result = check_mutation_allowed(
+        tool="Bash",
+        file_path=".",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        command="git status",
+        run_id="run-123",
+    )
+    assert result["status"] == "allowed"
+
+
+def test_mutation_gate_allows_explicit_exempt_metadata(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/app.py",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        metadata={"exempt": True},
+    )
+    assert result["status"] == "exempt"

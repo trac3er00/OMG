@@ -32,12 +32,17 @@ except ImportError:
     pass
 
 from runtime.runtime_profile import resolve_parallel_workers
+from runtime.runtime_contracts import write_run_state
+from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
+from runtime.context_engine import ContextEngine
+from runtime.defense_state import DefenseState
 from runtime.equalizer import select_provider
 from runtime.router_executor import WorkerTask, execute_workers
 from runtime.router_critics import run_critics
 from runtime.router_selector import collect_cli_health as _selector_collect_cli_health
 from runtime.router_selector import infer_target as _selector_infer_target
 from runtime.router_selector import select_target
+from runtime.session_health import compute_session_health
 
 @dataclass
 class TeamDispatchRequest:
@@ -507,9 +512,10 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
         detect_available_models = getattr(agent_registry, "detect_available_models", lambda: {"claude": True})
         get_provider_with_equalizer = getattr(agent_registry, "get_provider_with_equalizer", None)
 
-        agent = AGENT_REGISTRY.get(agent_name)
-        if not agent:
+        agent_obj = AGENT_REGISTRY.get(agent_name)
+        if not isinstance(agent_obj, dict):
             return {"error": f"Unknown agent: {agent_name}", "fallback": "claude"}
+        agent = agent_obj
 
         available = detect_available_models()
         preferred = agent.get("preferred_model", "claude")
@@ -519,7 +525,8 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
                 project_dir=project_dir,
                 agent_name=agent_name,
             )
-            preferred = equalizer_info.get("preferred_model", preferred)
+            if isinstance(equalizer_info, dict):
+                preferred = str(equalizer_info.get("preferred_model", preferred))
         packaged = package_prompt(agent_name, user_prompt, project_dir)
 
         provider_name_map = {
@@ -692,11 +699,22 @@ def execute_crazy_mode(
         + "\n\nProvide a unified action plan with dependency ordering."
     )
 
-    _ = run_critics(
+    run_id = resolve_coordinator_run_id(project_dir=project_dir)
+    context_packet = _build_router_context_packet(
+        project_dir=project_dir,
+        run_id=run_id,
+        summary=full_context,
+        files=files,
+    )
+
+    council_verdicts = run_critics(
         candidate={"output": synthesis_prompt},
-        context_packet={"summary": full_context},
+        context_packet=context_packet,
         project_dir=project_dir,
     )
+    _persist_council_verdicts(project_dir, run_id, council_verdicts)
+    _update_post_council_state(project_dir=project_dir, run_id=run_id)
+    council_status = _council_status(council_verdicts)
 
     model_mix = {
         "gpt": [r.get("agent") for r in results if r.get("model") == "codex-cli"],
@@ -730,7 +748,9 @@ def execute_crazy_mode(
             f"GPT tracks: {len(model_mix['gpt'])}",
             f"Gemini tracks: {len(model_mix['gemini'])}",
             f"Claude tracks: {len(model_mix['claude'])}",
+            f"Council status: {council_status}",
         ],
+        "council_verdicts": council_verdicts,
     }
 
 
@@ -793,11 +813,22 @@ def execute_ccg_mode(
         + "\n\nProvide a unified action plan merging backend and frontend perspectives."
     )
 
-    _ = run_critics(
+    run_id = resolve_coordinator_run_id(project_dir=project_dir)
+    context_packet = _build_router_context_packet(
+        project_dir=project_dir,
+        run_id=run_id,
+        summary=full_context,
+        files=files,
+    )
+
+    council_verdicts = run_critics(
         candidate={"output": synthesis_prompt},
-        context_packet={"summary": full_context},
+        context_packet=context_packet,
         project_dir=project_dir,
     )
+    _persist_council_verdicts(project_dir, run_id, council_verdicts)
+    _update_post_council_state(project_dir=project_dir, run_id=run_id)
+    council_status = _council_status(council_verdicts)
 
     model_mix = {
         "gpt": [r.get("agent") for r in results if r.get("model") == "codex-cli"],
@@ -831,8 +862,61 @@ def execute_ccg_mode(
             f"GPT tracks: {len(model_mix['gpt'])}",
             f"Gemini tracks: {len(model_mix['gemini'])}",
             f"Claude tracks: {len(model_mix['claude'])}",
+            f"Council status: {council_status}",
         ],
+        "council_verdicts": council_verdicts,
     }
+
+
+def _build_router_context_packet(
+    *,
+    project_dir: str,
+    run_id: str | None,
+    summary: str,
+    files: list[str] | None,
+) -> dict[str, object]:
+    if run_id:
+        packet = ContextEngine(project_dir).build_packet(run_id=run_id, delta_only=True)
+        if summary and not str(packet.get("summary", "")).strip():
+            packet["summary"] = summary
+        return packet
+    return {
+        "summary": summary,
+        "artifact_pointers": [],
+        "files": list(files or []),
+    }
+
+
+def _persist_council_verdicts(project_dir: str, run_id: str | None, verdicts: dict[str, dict[str, Any]]) -> None:
+    if not run_id:
+        return
+
+    payload: dict[str, object] = {
+        "status": _council_status(verdicts),
+        "verification_status": _council_status(verdicts),
+        "verdicts": verdicts,
+    }
+    write_run_state(project_dir, "council_verdicts", run_id, payload)
+
+
+def _update_post_council_state(*, project_dir: str, run_id: str | None) -> None:
+    DefenseState(project_dir).update()
+    compute_session_health(project_dir, run_id=run_id or "default")
+
+
+def _council_status(verdicts: dict[str, dict[str, Any]]) -> str:
+    verdict_tokens = {
+        str(item.get("verdict", "")).strip().lower()
+        for item in verdicts.values()
+        if isinstance(item, dict)
+    }
+    if "fail" in verdict_tokens:
+        return "blocked"
+    if "warn" in verdict_tokens:
+        return "running"
+    if "pass" in verdict_tokens:
+        return "ok"
+    return "pending"
 
 
 # =============================================================================

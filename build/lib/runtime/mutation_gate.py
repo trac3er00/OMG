@@ -2,13 +2,25 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import warnings
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 
+from runtime.release_run_coordinator import resolve_current_run_id
+from runtime.test_intent_lock import verify_lock
+
 
 _MUTATING_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
 _EXEMPTIONS = frozenset({"docs", "config", "generated", "test"})
+_MUTATION_BASH_PATTERNS = (
+    r"\b(git\s+(add|commit|push|rebase|cherry-pick|merge|tag))\b",
+    r"\b(rm|mv|cp|tee|touch|mkdir|rmdir|ln)\b",
+    r"\b(sed\s+-i|perl\s+-pi)\b",
+    r"\b(chmod|chown)\b",
+    r">\s*[^\s]",
+)
 
 
 def check_mutation_allowed(
@@ -18,11 +30,25 @@ def check_mutation_allowed(
     lock_id: str | None,
     *,
     exemption: str | None = None,
+    command: str | None = None,
+    run_id: str | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> dict[str, str | None]:
     normalized_tool = str(tool or "").strip()
     normalized_file_path = str(file_path or "").strip()
     normalized_lock_id = str(lock_id or "").strip() or None
     normalized_exemption = str(exemption or "").strip().lower() or None
+    normalized_command = str(command or "").strip()
+    metadata_obj = metadata if isinstance(metadata, dict) else {}
+    explicit_exempt = bool(metadata_obj.get("exempt") is True)
+    strict_mode = os.environ.get("OMG_TDD_GATE_STRICT", "0").strip() == "1"
+
+    if explicit_exempt:
+        return {
+            "status": "exempt",
+            "reason": "metadata exemption allows mutation without lock",
+            "lock_id": normalized_lock_id,
+        }
 
     if normalized_exemption in _EXEMPTIONS:
         return {
@@ -31,36 +57,56 @@ def check_mutation_allowed(
             "lock_id": normalized_lock_id,
         }
 
-    if normalized_tool not in _MUTATING_TOOLS:
+    requires_lock = normalized_tool in _MUTATING_TOOLS
+    if normalized_tool == "Bash":
+        requires_lock = _is_mutation_capable_bash(normalized_command)
+
+    if not requires_lock:
         return {
             "status": "allowed",
             "reason": "tool is read-only for mutation gate",
             "lock_id": normalized_lock_id,
         }
 
-    if normalized_lock_id and _lock_exists(project_dir, normalized_lock_id):
+    resolved_run_id = str(run_id or "").strip() or resolve_current_run_id(project_dir=project_dir)
+    verification = verify_lock(project_dir, run_id=resolved_run_id, lock_id=normalized_lock_id)
+    if verification.get("status") == "ok":
         return {
             "status": "allowed",
             "reason": "active test intent lock found",
+            "lock_id": str(verification.get("lock_id") or normalized_lock_id or "") or None,
+        }
+
+    reason = str(verification.get("reason", "no_active_test_intent_lock"))
+    if strict_mode:
+        _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+        return {
+            "status": "blocked",
+            "reason": reason,
             "lock_id": normalized_lock_id,
         }
 
-    reason = (
-        "mutation denied: active test intent lock is required for mutation tools"
-        if not normalized_lock_id
-        else f"mutation denied: lock_id '{normalized_lock_id}' not found"
+    warnings.warn(
+        f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
+        RuntimeWarning,
+        stacklevel=2,
     )
-    _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
     return {
-        "status": "blocked",
+        "status": "allowed",
         "reason": reason,
         "lock_id": normalized_lock_id,
     }
 
 
-def _lock_exists(project_dir: str, lock_id: str) -> bool:
-    lock_path = Path(project_dir) / ".omg" / "state" / "test-intent-lock" / f"{lock_id}.json"
-    return lock_path.is_file()
+def _is_mutation_capable_bash(command: str) -> bool:
+    normalized_command = str(command or "").strip()
+    if not normalized_command:
+        return False
+    lowered = normalized_command.lower()
+    for pattern in _MUTATION_BASH_PATTERNS:
+        if re.search(pattern, lowered):
+            return True
+    return False
 
 
 def _write_block_artifact(project_dir: str, tool: str, file_path: str, reason: str) -> None:

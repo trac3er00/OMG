@@ -723,6 +723,15 @@ function readSessionHealthFromStdin(stdin) {
   return null;
 }
 
+const STALENESS_THRESHOLD_MS = 5 * 60 * 1000;
+
+function isSessionHealthStale(health) {
+  if (!health || !health.updated_at) return false;
+  const updatedMs = new Date(health.updated_at).getTime();
+  if (isNaN(updatedMs)) return false;
+  return Date.now() - updatedMs > STALENESS_THRESHOLD_MS;
+}
+
 function renderSessionHealth(health) {
   if (!health) return null;
   const contamination = typeof health.contamination_risk === "number" ? health.contamination_risk : 0;
@@ -734,14 +743,16 @@ function renderSessionHealth(health) {
   const overPct = Math.round(overthinking * 100);
   const healthPct = Math.round(ctxHealth * 100);
 
-  const contColor = contamination >= 0.7 ? red : contamination >= 0.3 ? yellow : green;
-  const overColor = overthinking >= 0.85 ? red : overthinking >= 0.5 ? yellow : green;
-  const healthColor = ctxHealth <= 0.2 ? red : ctxHealth <= 0.4 ? yellow : green;
+  const stale = isSessionHealthStale(health);
+  const contColor = stale ? dim : contamination >= 0.7 ? red : contamination >= 0.3 ? yellow : green;
+  const overColor = stale ? dim : overthinking >= 0.85 ? red : overthinking >= 0.5 ? yellow : green;
+  const healthColor = stale ? dim : ctxHealth <= 0.2 ? red : ctxHealth <= 0.4 ? yellow : green;
 
   let badge = "";
   if (action === "block") badge = ` ${red("BLOCK")}`;
   else if (action === "reflect") badge = ` ${yellow("REFLECT")}`;
   else if (action === "warn") badge = ` ${yellow("WARN")}`;
+  if (stale) badge += ` ${yellow("[STALE]")}`;
 
   return (
     `contam:${contColor(`${contPct}%`)} ` +

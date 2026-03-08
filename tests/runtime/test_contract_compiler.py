@@ -121,6 +121,110 @@ def _write_evidence(
     (evidence_root / "run-1.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _write_execution_primitives(output_root: Path, *, run_id: str = "run-1") -> None:
+    state_root = output_root / ".omg" / "state"
+    (state_root / "release_run_coordinator").mkdir(parents=True, exist_ok=True)
+    (state_root / "release_run_coordinator" / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "ReleaseRunCoordinatorState",
+                "schema_version": "1.0.0",
+                "run_id": run_id,
+                "status": "ok",
+                "phase": "finalize",
+                "resolution_source": "test",
+                "resolution_reason": "fixture",
+                "updated_at": "2026-01-01T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    (state_root / "test-intent-lock").mkdir(parents=True, exist_ok=True)
+    (state_root / "test-intent-lock" / "lock-1.json").write_text(
+        json.dumps(
+            {
+                "schema": "TestIntentLock",
+                "schema_version": "1.0.0",
+                "lock_id": "lock-1",
+                "run_id": run_id,
+                "status": "ok",
+                "intent": {"run_id": run_id},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    (state_root / "rollback_manifest").mkdir(parents=True, exist_ok=True)
+    (state_root / "rollback_manifest" / f"{run_id}-step-1.json").write_text(
+        json.dumps(
+            {
+                "schema": "RollbackManifest",
+                "schema_version": "1.0.0",
+                "run_id": run_id,
+                "status": "ok",
+                "step_id": "step-1",
+                "local_restores": [],
+                "compensating_actions": [],
+                "side_effects": [],
+                "updated_at": "2026-01-01T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    (state_root / "session_health").mkdir(parents=True, exist_ok=True)
+    (state_root / "session_health" / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "SessionHealth",
+                "schema_version": "1.0.0",
+                "run_id": run_id,
+                "status": "ok",
+                "contamination_risk": 0.1,
+                "overthinking_score": 0.1,
+                "context_health": 0.9,
+                "verification_status": "ok",
+                "recommended_action": "continue",
+                "updated_at": "2026-01-01T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    (state_root / "council_verdicts").mkdir(parents=True, exist_ok=True)
+    (state_root / "council_verdicts" / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "CouncilVerdicts",
+                "schema_version": "1.0.0",
+                "run_id": run_id,
+                "status": "ok",
+                "verification_status": "ok",
+                "verdicts": {"skeptic": {"verdict": "pass"}},
+                "updated_at": "2026-01-01T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    evidence_root = output_root / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / f"forge-specialists-{run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "ForgeSpecialistDispatchEvidence",
+                "schema_version": "1.0.0",
+                "run_id": run_id,
+                "status": "ok",
+                "proof_backed": True,
+                "specialists_dispatched": ["training-architect"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     _patch_fast_release_checks(monkeypatch)
@@ -136,6 +240,7 @@ def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, mo
     fixture_payload = json.loads(
         (ROOT / "tests" / "runtime" / "fixtures" / "evidence_v2_sample.json").read_text(encoding="utf-8")
     )
+    fixture_run_id = str(fixture_payload.get("run_id", "run-v2"))
     fixture_payload["provenance"] = [{"source": "security-check"}]
     fixture_payload["tests"] = [{"name": "worker_implementation", "passed": True}]
     fixture_payload["claims"] = [
@@ -154,6 +259,7 @@ def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, mo
     evidence_root = tmp_path / ".omg" / "evidence"
     evidence_root.mkdir(parents=True, exist_ok=True)
     (evidence_root / "run-v2.json").write_text(json.dumps(fixture_payload), encoding="utf-8")
+    _write_execution_primitives(tmp_path, run_id=fixture_run_id)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
@@ -168,7 +274,7 @@ def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, mo
 
     readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
 
-    assert readiness["status"] == "ok"
+    assert readiness["status"] == "ok", readiness["blockers"]
     assert normalize_calls["count"] >= 1
 
 
@@ -392,6 +498,7 @@ def test_release_readiness_blocks_missing_gemini_host_artifact(tmp_path: Path, m
         gemini_path.unlink()
 
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
@@ -447,6 +554,7 @@ def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatc
             assert actual_sha == artifact["sha256"]
 
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
@@ -742,6 +850,7 @@ def test_release_readiness_blocks_prose_only_proof_claims(tmp_path: Path, monkey
     )
     assert compile_result["status"] == "ok"
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
@@ -783,6 +892,7 @@ def test_release_readiness_blocks_non_loopback_http_production_claim(tmp_path: P
     )
     assert compile_result["status"] == "ok"
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
@@ -1074,6 +1184,7 @@ def test_release_readiness_blocks_missing_advanced_artifacts(tmp_path: Path, mon
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
@@ -1148,12 +1259,13 @@ def test_release_readiness_dual_bundle_promotion_parity_happy_path(
     assert enterprise_result["status"] == "ok"
 
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
     readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="dual")
 
-    assert readiness["status"] == "ok"
+    assert readiness["status"] == "ok", readiness["blockers"]
     assert readiness["checks"]["bundle_promotion_parity"]["status"] == "ok"
     assert "bundle_promotion_parity" not in readiness["blockers"]
 

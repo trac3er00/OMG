@@ -21,6 +21,8 @@ class _MCPOMGServerModule(Protocol):
 
     def omg_test_intent_lock(self, action: str, intent: dict | None = None, lock_id: str | None = None, results: dict | None = None) -> dict: ...
 
+    def omg_get_session_health(self, run_id: str | None = None) -> dict: ...
+
 
 def _load_module() -> _MCPOMGServerModule:
     original_sys_path = list(sys.path)
@@ -173,3 +175,56 @@ def test_omg_test_intent_lock_tool_lock_and_verify(tmp_path: pytest.TempPathFact
         )
         assert verify_result["status"] == "ok"
         assert verify_result["lock_id"] == lock_id
+
+
+def test_omg_get_session_health_reads_state(tmp_path: pytest.TempPathFactory) -> None:
+    import json
+
+    module = _load_module()
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "mcp-1.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "mcp-1",
+            "status": "ok",
+            "contamination_risk": 0.1,
+            "overthinking_score": 0.2,
+            "context_health": 0.9,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "updated_at": "2026-03-08T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        result = module.omg_get_session_health(run_id="mcp-1")
+    assert result["schema"] == "SessionHealth"
+    assert result["run_id"] == "mcp-1"
+
+
+def test_omg_get_session_health_latest_without_run_id(tmp_path: pytest.TempPathFactory) -> None:
+    import json
+
+    module = _load_module()
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "latest-1.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "latest-1",
+            "status": "ok",
+            "contamination_risk": 0.05,
+            "overthinking_score": 0.1,
+            "context_health": 0.95,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "updated_at": "2026-03-08T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        result = module.omg_get_session_health()
+    assert result["schema"] == "SessionHealth"

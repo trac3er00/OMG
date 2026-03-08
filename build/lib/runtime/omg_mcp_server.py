@@ -125,7 +125,7 @@ def _read_repo_text(rel_path: str) -> str:
 
 @mcp.tool()
 def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
-    if tool in {"Write", "Edit", "MultiEdit"}:
+    if tool in {"Write", "Edit", "MultiEdit", "Bash"}:
         run_id_candidate = input.get("run_id") if isinstance(input, dict) else None
         run_id: str | None = None
         if isinstance(run_id_candidate, str) and run_id_candidate.strip():
@@ -138,9 +138,10 @@ def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
         if not run_id:
             run_id = resolve_current_run_id()
 
-        tool_plan_result = tool_plan_gate_check(_service().project_dir, run_id, tool)
-        if tool_plan_result.get("status") == "blocked":
-            return tool_plan_result
+        if tool in {"Write", "Edit", "MultiEdit"}:
+            tool_plan_result = tool_plan_gate_check(_service().project_dir, run_id, tool)
+            if tool_plan_result.get("status") == "blocked":
+                return tool_plan_result
 
         lock_id: str | None = None
         if isinstance(metadata, dict):
@@ -158,6 +159,9 @@ def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
                 "file_path": str(input.get("file_path", "")) if isinstance(input, dict) else "",
                 "lock_id": lock_id,
                 "exemption": exemption,
+                "command": str(input.get("command", "")) if isinstance(input, dict) else "",
+                "run_id": run_id,
+                "metadata": metadata if isinstance(metadata, dict) else None,
             }
         )
         if gate_status == 200 and gate_payload.get("status") == "blocked":
@@ -235,6 +239,12 @@ def omg_test_intent_lock(
 @mcp.tool()
 def omg_guide_assert(candidate: str, rules: dict[str, Any]) -> dict[str, Any]:
     _status, payload = _service().guide_assert({"candidate": candidate, "rules": rules})
+    return payload
+
+
+@mcp.tool()
+def omg_get_session_health(run_id: str | None = None) -> dict[str, Any]:
+    _status, payload = _service().session_health({"run_id": run_id})
     return payload
 
 

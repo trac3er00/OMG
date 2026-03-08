@@ -275,3 +275,84 @@ def test_proof_gate_accepts_browser_cli_trace_linked_by_claims() -> None:
 
     assert "proof_gate_browser_trace_not_linked_by_claims" not in result["blockers"]
     assert "proof_gate_browser_trace_mismatch" not in result["blockers"]
+
+
+def test_proof_gate_fails_without_lock_evidence_in_strict_mode(monkeypatch) -> None:
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+    result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "release_ready",
+                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                    "trace_ids": ["trace-1"],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-1"},
+            "eval_output": {"trace_id": "trace-1", "status": "ok"},
+            "test_delta": {"flags": []},
+        }
+    )
+
+    assert result["verdict"] == "fail"
+    assert "proof_gate_missing_lock_evidence" in result["blockers"]
+
+
+def test_proof_gate_requires_waiver_artifact_for_weakened_delta_in_strict_mode(monkeypatch) -> None:
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+    result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "release_ready",
+                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                    "trace_ids": ["trace-1"],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-1"},
+            "eval_output": {"trace_id": "trace-1", "status": "ok"},
+            "test_intent_lock": {"status": "ok", "lock_id": "lock-1"},
+            "test_delta": {"flags": ["weakened_assertions"]},
+        }
+    )
+
+    assert result["verdict"] == "fail"
+    assert "proof_gate_missing_waiver_artifact" in result["blockers"]
+
+
+def test_forge_proof_gate_passes_with_complete_evidence() -> None:
+    result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "forge_dispatch",
+                    "artifacts": [
+                        "junit.xml", "coverage.xml", "scan.sarif", "trace.zip",
+                        ".omg/evidence/forge-specialists-run-1.json",
+                    ],
+                    "trace_ids": ["forge-run-1"],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "forge-run-1"},
+        }
+    )
+
+    assert result["verdict"] == "pass"
+
+
+def test_forge_proof_gate_fails_without_evidence() -> None:
+    result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "forge_dispatch",
+                    "artifacts": [],
+                    "trace_ids": [],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "forge-run-1"},
+        }
+    )
+
+    assert result["verdict"] == "fail"
+    assert any("missing" in b for b in result["blockers"])

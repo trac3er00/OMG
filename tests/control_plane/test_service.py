@@ -404,3 +404,58 @@ def test_mutation_gate_check_rejects_invalid_payload(tmp_path: Path):
     service = ControlPlaneService(project_dir=str(tmp_path))
     with pytest.raises(ValueError, match="tool is required"):
         _ = service.mutation_gate_check({"file_path": "src/app.py"})
+
+
+def test_session_health_returns_state_by_run_id(tmp_path: Path):
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "svc-1.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "svc-1",
+            "status": "ok",
+            "contamination_risk": 0.15,
+            "overthinking_score": 0.2,
+            "context_health": 0.85,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "updated_at": "2026-03-08T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, result = service.session_health({"run_id": "svc-1"})
+    assert status == 200
+    assert result["schema"] == "SessionHealth"
+    assert result["run_id"] == "svc-1"
+
+
+def test_session_health_returns_latest_when_no_run_id(tmp_path: Path):
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "auto-1.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "auto-1",
+            "status": "ok",
+            "contamination_risk": 0.1,
+            "overthinking_score": 0.1,
+            "context_health": 0.9,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "updated_at": "2026-03-08T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, result = service.session_health({})
+    assert status == 200
+    assert result["schema"] == "SessionHealth"
+
+
+def test_session_health_returns_404_when_missing(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, result = service.session_health({"run_id": "nonexistent"})
+    assert status == 404

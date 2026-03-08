@@ -83,4 +83,6 @@ def run_pipeline_with_evidence(project_dir: str, job: dict[str, Any], run_id: st
     evidence_path = build_forge_evidence(project_dir=project_dir, run_id=run_id, job=job, result=result)
     out = dict(result)
     out["evidence_path"] = evidence_path
+    out["labs_only"] = True
+    out["proof_backed"] = True
     return out

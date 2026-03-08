@@ -61,7 +61,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str) -> dict[str, Any
             "status": "blocked",
             "specialists_dispatched": [],
             "evidence_path": "",
-            "reason": f"domain '{domain}' has no specialist contract",
+            "reason": "invalid_specialist_domain_combination",
         }
 
     if requested_specialists:
@@ -79,7 +79,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str) -> dict[str, Any
                 "status": "blocked",
                 "specialists_dispatched": [],
                 "evidence_path": "",
-                "reason": f"specialists not allowed for domain '{domain}': {', '.join(invalid_for_domain)}",
+                "reason": "invalid_specialist_domain_combination",
             }
         missing_required = [name for name in expected_specialists if name not in requested_specialists]
         if missing_required:
@@ -87,7 +87,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str) -> dict[str, Any
                 "status": "blocked",
                 "specialists_dispatched": [],
                 "evidence_path": "",
-                "reason": f"missing required specialists for domain '{domain}': {', '.join(missing_required)}",
+                "reason": "invalid_specialist_domain_combination",
             }
 
     specialists_dispatched = requested_specialists if requested_specialists else expected_specialists
@@ -140,12 +140,15 @@ def _write_dispatch_evidence(
     evidence_dir.mkdir(parents=True, exist_ok=True)
     evidence_path = evidence_dir / f"forge-specialists-{run_id}.json"
     contract = load_forge_mvp()
-    payload = {
+    payload: dict[str, Any] = {
         "schema": "ForgeSpecialistDispatchEvidence",
         "schema_version": "1.0.0",
         "run_id": run_id,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": status,
+        "labs_only": True,
+        "proof_backed": True,
+        "specialist": ",".join(specialists_dispatched),
         "domain": domain,
         "requested_specialists": requested_specialists,
         "expected_specialists": expected_specialists,
@@ -155,10 +158,39 @@ def _write_dispatch_evidence(
             "axolotl_hook": contract.get("axolotl_hook", ""),
             "pybullet_hook": contract.get("pybullet_hook", ""),
         },
+        "causal_chain": {
+            "lock_id": "",
+            "waiver_artifact_path": f".omg/evidence/forge-specialists-{run_id}.json",
+            "delta_summary": {"forge_dispatch": domain, "specialists": specialists_dispatched},
+            "verification_status": status,
+        },
         "job": job,
     }
+
+    defense_state = _load_latest_state(project_dir, "defense_state")
+    session_health = _load_latest_state(project_dir, "session_health")
+    if defense_state is not None:
+        payload["defense_state"] = defense_state
+    if session_health is not None:
+        payload["session_health"] = session_health
 
     tmp_path = evidence_path.with_name(f"{evidence_path.name}.tmp")
     _ = tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
     _ = os.replace(tmp_path, evidence_path)
     return str(evidence_path)
+
+
+def _load_latest_state(project_dir: str, module: str) -> dict[str, Any] | None:
+    state_dir = Path(project_dir) / ".omg" / "state" / module
+    if not state_dir.is_dir():
+        return None
+    latest = state_dir / "latest.json"
+    if not latest.exists():
+        return None
+    try:
+        payload: object = json.loads(latest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if isinstance(payload, dict):
+        return payload
+    return None

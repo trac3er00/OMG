@@ -40,7 +40,31 @@ jobs:
       - name: Run release readiness gate
         env:
           OMG_RELEASE_READY_PROVIDERS: claude,codex
-        run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release
+        run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release > artifacts/release/.omg/evidence/release-readiness.json
+
+      - name: Assert execution primitive evidence surfaced
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("artifacts/release/.omg/evidence/release-readiness.json").read_text(encoding="utf-8"))
+          checks = payload.get("checks", {}).get("execution_primitives", {})
+          required = {
+              "release_run_coordinator_state",
+              "tdd_proof_chain_lock",
+              "rollback_manifest",
+              "session_health_state",
+              "council_verdicts",
+              "forge_starter_proof",
+          }
+          evidence_paths = checks.get("evidence_paths", {})
+          missing = sorted(item for item in required if not str(evidence_paths.get(item, "")).strip())
+          if payload.get("status") != "ok":
+              raise SystemExit("release readiness not ok")
+          if missing:
+              raise SystemExit(f"missing execution primitive evidence paths: {missing}")
+          PY
 
       - name: Run public-readiness hygiene
         run: python3 scripts/check-omg-public-ready.py

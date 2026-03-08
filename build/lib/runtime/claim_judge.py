@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,11 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             }
 
         result = judge_claim(resolved_claim)
+        council_reasons = _load_council_reasons(project_dir=project_dir, run_id=run_id)
+        if council_reasons:
+            updated_reasons = list(result.get("reasons", []))
+            updated_reasons.extend(council_reasons)
+            result = {**result, "reasons": updated_reasons, "verdict": "block"}
         result_with_run = {**result, "run_id": run_id}
         results.append(result_with_run)
         aggregate_tokens.append(str(result.get("verdict", "")).strip().lower())
@@ -63,8 +69,10 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
     trace_ids = _as_non_empty_str_list(normalized_claim.get("trace_ids"))
     security_scans = normalized_claim.get("security_scans")
     browser_evidence = normalized_claim.get("browser_evidence")
+    causal_chain = _as_dict(normalized_claim.get("causal_chain"))
 
     reasons: list[dict[str, Any]] = []
+    advisories: list[str] = []
 
     if not artifacts:
         reasons.append(
@@ -118,6 +126,21 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    causal_chain_errors = _validate_causal_chain(causal_chain)
+    if causal_chain_errors:
+        strict_mode = os.environ.get("OMG_PROOF_CHAIN_STRICT", "0").strip() == "1"
+        if strict_mode:
+            reasons.append(
+                {
+                    "code": "missing_causal_chain",
+                    "message": "Claim must include lock->delta->verification causal chain evidence: "
+                    + "; ".join(causal_chain_errors),
+                    "field": "causal_chain",
+                }
+            )
+        else:
+            advisories.append("claim_judge_causal_chain_missing_permissive")
+
     hard_fail_codes = {"missing_artifacts", "missing_trace_ids"}
     if any(reason.get("code") in hard_fail_codes for reason in reasons):
         verdict = "fail"
@@ -138,6 +161,8 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             "lineage": normalized_claim.get("lineage") if isinstance(normalized_claim.get("lineage"), dict) else {},
             "security_scans": security_scans if isinstance(security_scans, list) else [],
             "browser_evidence": browser_evidence if isinstance(browser_evidence, list) else [],
+            "causal_chain": causal_chain,
+            "advisories": advisories,
         },
     }
 
@@ -160,6 +185,15 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
     claim_browser_evidence = claim.get("browser_evidence")
     browser_evidence = claim_browser_evidence if isinstance(claim_browser_evidence, list) else _as_non_empty_dict_list(evidence.get("browser_evidence"))
 
+    lock_verification = claim.get("lock_verification") if isinstance(claim.get("lock_verification"), dict) else _as_dict(evidence.get("lock_verification"))
+    causal_chain = {
+        "lock_id": str(claim.get("lock_id", evidence.get("lock_id", ""))).strip(),
+        "delta_summary": claim.get("delta_summary") if isinstance(claim.get("delta_summary"), dict) else _as_dict(evidence.get("delta_summary")),
+        "verification_status": str(claim.get("verification_status", evidence.get("verification_status", ""))).strip(),
+        "waiver_artifact_path": str(claim.get("waiver_artifact_path", evidence.get("waiver_artifact_path", ""))).strip(),
+        "lock_verification": lock_verification,
+    }
+
     return {
         "schema_version": claim.get("schema_version", 1),
         "claim_type": claim.get("claim_type", ""),
@@ -169,7 +203,31 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
         "lineage": lineage,
         "security_scans": security_scans,
         "browser_evidence": browser_evidence,
+        "causal_chain": causal_chain,
     }
+
+
+def _validate_causal_chain(causal_chain: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    lock_id = str(causal_chain.get("lock_id", "")).strip()
+    delta_summary = causal_chain.get("delta_summary")
+    verification_status = str(causal_chain.get("verification_status", "")).strip()
+    waiver_artifact_path = str(causal_chain.get("waiver_artifact_path", "")).strip()
+    lock_verification = _as_dict(causal_chain.get("lock_verification"))
+
+    if not lock_id:
+        errors.append("missing_lock_id")
+    if not isinstance(delta_summary, dict) or not delta_summary:
+        errors.append("missing_delta_summary")
+    if not verification_status:
+        errors.append("missing_verification_status")
+
+    lock_status = str(lock_verification.get("status", "")).strip().lower()
+    lock_satisfied = lock_status == "ok"
+    if not waiver_artifact_path and not lock_satisfied:
+        errors.append("missing_waiver_or_lock_satisfied_proof")
+
+    return errors
 
 
 def _normalize_artifact_records(value: Any) -> list[str]:
@@ -270,3 +328,35 @@ _PARSERS: dict[str, Any] = {
 def _sanitize_run_id(value: str) -> str:
     cleaned = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "-" for ch in value.strip())
     return cleaned or "unknown"
+
+
+def _load_council_reasons(project_dir: str, run_id: str) -> list[dict[str, Any]]:
+    if not run_id:
+        return []
+    path = Path(project_dir) / ".omg" / "state" / "council_verdicts" / f"{run_id}.json"
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+
+    verdicts = _as_dict(payload.get("verdicts"))
+    evidence_completeness = _as_dict(verdicts.get("evidence_completeness"))
+    verdict = str(evidence_completeness.get("verdict", "")).strip().lower()
+    if verdict not in {"fail", "block", "blocked", "error"}:
+        return []
+    findings = evidence_completeness.get("findings")
+    finding_items = findings if isinstance(findings, list) else []
+    message = "council evidence completeness failed"
+    if finding_items:
+        message = "; ".join(str(item).strip() for item in finding_items if str(item).strip()) or message
+    return [
+        {
+            "code": "council_evidence_incomplete",
+            "message": message,
+            "field": "council_verdicts.evidence_completeness",
+        }
+    ]

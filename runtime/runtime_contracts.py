@@ -8,9 +8,14 @@ from typing import TypedDict, cast
 
 _MODULES = (
     "verification_controller",
+    "release_run_coordinator",
     "interaction_journal",
     "context_engine",
     "defense_state",
+    "session_health",
+    "council_verdicts",
+    "rollback_manifest",
+    "release_run",
 )
 
 _STATUS_VALUES = frozenset({"pending", "running", "ok", "error", "blocked"})
@@ -43,6 +48,11 @@ def schema_versions() -> dict[str, SchemaVersion]:
             "version": "1.0.0",
             "required_fields": base_required + ["blockers", "evidence_links", "progress"],
         },
+        "release_run_coordinator": {
+            "schema_name": "ReleaseRunCoordinatorState",
+            "version": "1.0.0",
+            "required_fields": base_required + ["phase", "resolution_source", "resolution_reason"],
+        },
         "interaction_journal": {
             "schema_name": "InteractionJournalState",
             "version": "1.0.0",
@@ -57,6 +67,43 @@ def schema_versions() -> dict[str, SchemaVersion]:
             "schema_name": "DefenseState",
             "version": "1.0.0",
             "required_fields": base_required + ["controls", "findings"],
+        },
+        "session_health": {
+            "schema_name": "SessionHealth",
+            "version": "1.0.0",
+            "required_fields": base_required + [
+                "contamination_risk",
+                "overthinking_score",
+                "context_health",
+                "verification_status",
+                "recommended_action",
+            ],
+        },
+        "council_verdicts": {
+            "schema_name": "CouncilVerdicts",
+            "version": "1.0.0",
+            "required_fields": base_required + ["verdicts", "verification_status"],
+        },
+        "rollback_manifest": {
+            "schema_name": "RollbackManifest",
+            "version": "1.0.0",
+            "required_fields": base_required + [
+                "step_id",
+                "local_restores",
+                "compensating_actions",
+                "side_effects",
+            ],
+        },
+        "release_run": {
+            "schema_name": "ReleaseRunState",
+            "version": "1.0.0",
+            "required_fields": base_required + [
+                "phase",
+                "resolution_source",
+                "resolution_reason",
+                "release_evidence",
+                "health_action",
+            ],
         },
     }
 

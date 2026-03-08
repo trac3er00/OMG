@@ -161,6 +161,54 @@ def _run_hallucination_auditor(
     }
 
 
+def _run_evidence_completeness(
+    candidate: dict[str, Any],
+    context_packet: dict[str, Any],
+    project_dir: str,
+) -> dict[str, Any]:
+    output_text = _extract_output_text(candidate).lower()
+    artifact_pointers = context_packet.get("artifact_pointers")
+    pointers: list[str] = []
+    if isinstance(artifact_pointers, list):
+        pointers = [str(item).strip() for item in artifact_pointers if isinstance(item, str) and str(item).strip()]
+
+    required_claim_tokens = ("implemented", "fixed", "tested", "verified", "release")
+    expects_evidence = any(token in output_text for token in required_claim_tokens)
+
+    existing_pointers: list[str] = []
+    missing_pointers: list[str] = []
+    for pointer in pointers:
+        full_path = os.path.join(project_dir, pointer.lstrip("./"))
+        if os.path.exists(full_path):
+            existing_pointers.append(pointer)
+        else:
+            missing_pointers.append(pointer)
+
+    findings: list[str] = []
+    if missing_pointers:
+        findings.append("missing evidence artifacts: " + ", ".join(missing_pointers[:6]))
+
+    if expects_evidence and not existing_pointers:
+        findings.append("claim-like output requires evidence artifacts but none were present")
+        return {"verdict": "fail", "findings": findings, "confidence": 0.92}
+
+    if findings:
+        return {"verdict": "warn", "findings": findings, "confidence": 0.76}
+
+    if existing_pointers:
+        return {
+            "verdict": "pass",
+            "findings": ["required evidence artifacts are present in bounded context packet"],
+            "confidence": 0.84,
+        }
+
+    return {
+        "verdict": "pass",
+        "findings": ["no evidence artifacts required for non-assertive output"],
+        "confidence": 0.78,
+    }
+
+
 def run_critics(candidate: dict[str, object], context_packet: dict[str, object], project_dir: str) -> dict[str, dict[str, Any]]:
     bounded_context = {
         "summary": context_packet.get("summary", ""),
@@ -173,7 +221,9 @@ def run_critics(candidate: dict[str, object], context_packet: dict[str, object],
 
     skeptic = _run_skeptic(candidate, bounded_context)
     hallucination_auditor = _run_hallucination_auditor(candidate, bounded_context, project_dir)
+    evidence_completeness = _run_evidence_completeness(candidate, bounded_context, project_dir)
     return {
         "skeptic": skeptic,
         "hallucination_auditor": hallucination_auditor,
+        "evidence_completeness": evidence_completeness,
     }

@@ -91,3 +91,34 @@ def test_build_forge_evidence_writes_atomic_json(tmp_path: Path) -> None:
     assert payload["status"] == "ready"
     result_payload = cast(dict[str, object], payload["result"])
     assert result_payload["stage"] == "complete"
+
+
+def test_build_forge_evidence_includes_proof_backed_starter_fields(tmp_path: Path) -> None:
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-proof-1", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    assert payload["labs_only"] is True
+    assert payload["proof_backed"] is True
+    assert isinstance(payload.get("specialist"), str)
+    assert isinstance(payload.get("domain"), str)
+
+
+def test_build_forge_evidence_includes_causal_chain_stub(tmp_path: Path) -> None:
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-chain-1", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    assert "causal_chain" in payload
+    chain = cast(dict[str, object], payload["causal_chain"])
+    has_lock = bool(str(chain.get("lock_id", "")).strip())
+    has_waiver = bool(str(chain.get("waiver_artifact_path", "")).strip())
+    assert has_lock or has_waiver
+
+
+def test_load_forge_mvp_includes_starter_templates() -> None:
+    contract = load_forge_mvp()
+    assert "starter_templates" in contract
+    templates = cast(dict[str, object], contract["starter_templates"])
+    assert "vision-agent" in templates
+    assert "robotics" in templates

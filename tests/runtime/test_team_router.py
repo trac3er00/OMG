@@ -110,6 +110,181 @@ def test_execute_crazy_mode_launches_five_workers(monkeypatch):
     assert result["model_mix"]["claude"] == ["architect-mode", "testing-engineer"]
 
 
+def test_execute_crazy_mode_persists_council_verdicts(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_RUN_ID", "run-crazy")
+
+    monkeypatch.setattr(
+        team_router,
+        "execute_agents_parallel",
+        lambda *_args, **_kwargs: [{"agent": "backend-engineer", "status": "completed", "output": "ok", "model": "codex-cli"}],
+    )
+
+    council = {
+        "skeptic": {"verdict": "pass", "findings": ["ok"], "confidence": 0.8},
+        "hallucination_auditor": {"verdict": "pass", "findings": ["ok"], "confidence": 0.8},
+        "evidence_completeness": {"verdict": "pass", "findings": ["ok"], "confidence": 0.9},
+    }
+    monkeypatch.setattr(team_router, "run_critics", lambda **_kwargs: council)
+
+    persisted: dict[str, object] = {}
+
+    def _fake_write(project_dir, module, run_id, payload):
+        persisted["project_dir"] = project_dir
+        persisted["module"] = module
+        persisted["run_id"] = run_id
+        persisted["payload"] = payload
+        return "ok"
+
+    monkeypatch.setattr(team_router, "write_run_state", _fake_write, raising=False)
+
+    result = team_router.execute_crazy_mode(
+        problem="stabilize auth",
+        project_dir=str(tmp_path),
+        context="ctx",
+        files=["auth.py"],
+    )
+
+    assert result["council_verdicts"] == council
+    assert persisted["module"] == "council_verdicts"
+    assert persisted["run_id"] == "run-crazy"
+    payload = persisted["payload"]
+    assert isinstance(payload, dict)
+    assert payload["verdicts"] == council
+
+
+def test_execute_crazy_mode_updates_health_and_defense_after_council_persist(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_RUN_ID", "run-crazy-health")
+    monkeypatch.setattr(
+        team_router,
+        "execute_agents_parallel",
+        lambda *_args, **_kwargs: [{"agent": "backend-engineer", "status": "completed", "output": "ok", "model": "codex-cli"}],
+    )
+    monkeypatch.setattr(
+        team_router,
+        "run_critics",
+        lambda **_kwargs: {"evidence_completeness": {"verdict": "pass", "findings": [], "confidence": 0.9}},
+    )
+
+    events: list[str] = []
+
+    def _fake_persist(project_dir, module, run_id, payload):
+        _ = (project_dir, module, run_id, payload)
+        events.append("persist")
+        return "ok"
+
+    class _FakeDefenseState:
+        def __init__(self, _project_dir: str):
+            pass
+
+        def update(self, **_kwargs):
+            events.append("defense")
+            return {}
+
+    def _fake_health(project_dir: str, *, run_id: str = "default"):
+        _ = (project_dir, run_id)
+        events.append("health")
+        return {"recommended_action": "continue"}
+
+    monkeypatch.setattr(team_router, "write_run_state", _fake_persist, raising=False)
+    monkeypatch.setattr(team_router, "DefenseState", _FakeDefenseState)
+    monkeypatch.setattr(team_router, "compute_session_health", _fake_health)
+
+    team_router.execute_crazy_mode(
+        problem="stabilize auth",
+        project_dir=str(tmp_path),
+        context="ctx",
+        files=["auth.py"],
+    )
+
+    assert events == ["persist", "defense", "health"]
+
+
+def test_execute_ccg_mode_persists_council_verdicts(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_RUN_ID", "run-ccg")
+
+    monkeypatch.setattr(
+        team_router,
+        "execute_agents_parallel",
+        lambda *_args, **_kwargs: [{"agent": "frontend-designer", "status": "completed", "output": "ok", "model": "gemini-cli"}],
+    )
+    council = {
+        "skeptic": {"verdict": "pass", "findings": ["ok"], "confidence": 0.8},
+        "hallucination_auditor": {"verdict": "pass", "findings": ["ok"], "confidence": 0.8},
+        "evidence_completeness": {"verdict": "warn", "findings": ["missing artifacts"], "confidence": 0.7},
+    }
+    monkeypatch.setattr(team_router, "run_critics", lambda **_kwargs: council)
+
+    persisted: dict[str, object] = {}
+    monkeypatch.setattr(
+        team_router,
+        "write_run_state",
+        lambda project_dir, module, run_id, payload: persisted.update(
+            {"project_dir": project_dir, "module": module, "run_id": run_id, "payload": payload}
+        )
+        or "ok",
+        raising=False,
+    )
+
+    result = team_router.execute_ccg_mode(
+        problem="review ui+api",
+        project_dir=str(tmp_path),
+        context="ctx",
+        files=["ui.tsx"],
+    )
+
+    assert result["council_verdicts"] == council
+    assert persisted["module"] == "council_verdicts"
+    assert persisted["run_id"] == "run-ccg"
+
+
+def test_execute_ccg_mode_updates_health_and_defense_after_council_persist(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_RUN_ID", "run-ccg-health")
+
+    monkeypatch.setattr(
+        team_router,
+        "execute_agents_parallel",
+        lambda *_args, **_kwargs: [{"agent": "frontend-designer", "status": "completed", "output": "ok", "model": "gemini-cli"}],
+    )
+    monkeypatch.setattr(
+        team_router,
+        "run_critics",
+        lambda **_kwargs: {"evidence_completeness": {"verdict": "warn", "findings": ["missing artifacts"], "confidence": 0.7}},
+    )
+
+    events: list[str] = []
+
+    monkeypatch.setattr(
+        team_router,
+        "write_run_state",
+        lambda *_args, **_kwargs: events.append("persist") or "ok",
+        raising=False,
+    )
+
+    class _FakeDefenseState:
+        def __init__(self, _project_dir: str):
+            pass
+
+        def update(self, **_kwargs):
+            events.append("defense")
+            return {}
+
+    monkeypatch.setattr(team_router, "DefenseState", _FakeDefenseState)
+    monkeypatch.setattr(
+        team_router,
+        "compute_session_health",
+        lambda *_args, **_kwargs: events.append("health") or {"recommended_action": "continue"},
+    )
+
+    team_router.execute_ccg_mode(
+        problem="review ui+api",
+        project_dir=str(tmp_path),
+        context="ctx",
+        files=["ui.tsx"],
+    )
+
+    assert events == ["persist", "defense", "health"]
+
+
 def test_execute_agents_parallel_preserves_all_results_when_orders_collide(monkeypatch):
     def _fake_dispatch(agent_name: str, user_prompt: str, _project_dir: str):
         return {

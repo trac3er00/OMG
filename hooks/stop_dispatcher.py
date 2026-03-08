@@ -9,10 +9,12 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+import warnings
 
 sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from _common import (  # noqa: E402
+from hooks._common import (  # noqa: E402
     atomic_json_write,
     block_decision,
     check_performance_budget,
@@ -27,7 +29,10 @@ from _common import (  # noqa: E402
     should_skip_stop_hooks,
     STOP_CHECK_MAX_MS,
 )
-from state_migration import resolve_state_file  # noqa: E402
+from hooks.state_migration import resolve_state_file  # noqa: E402
+
+from runtime.release_run_coordinator import resolve_current_run_id  # noqa: E402
+from runtime import test_intent_lock  # noqa: E402
 
 
 setup_crash_handler("stop_dispatcher")
@@ -132,7 +137,7 @@ def _is_internal_control_path(file_path: str) -> bool:
 
 
 try:
-    from shadow_manager import has_recent_evidence  # type: ignore
+    from hooks.shadow_manager import has_recent_evidence  # type: ignore
 except Exception:  # intentional: optional feature — shadow_manager may not exist
     has_recent_evidence = None
 
@@ -621,6 +626,104 @@ def check_bare_done(data, project_dir):
 
     return []
 
+
+def _proof_chain_strict_enabled() -> bool:
+    return os.environ.get("OMG_PROOF_CHAIN_STRICT", "0").strip() == "1"
+
+
+def _load_test_delta_from_evidence(project_dir: str, run_id: str | None) -> dict[str, object]:
+    evidence_dir = os.path.join(project_dir, ".omg", "evidence")
+    if not os.path.isdir(evidence_dir):
+        return {}
+
+    candidates = sorted(
+        [
+            os.path.join(evidence_dir, name)
+            for name in os.listdir(evidence_dir)
+            if name.endswith(".json")
+        ],
+        key=os.path.getmtime,
+        reverse=True,
+    )
+    for path in candidates:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as handle:
+                payload = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("schema") != "EvidencePack":
+            continue
+        payload_run_id = str(payload.get("run_id", "")).strip()
+        if run_id and payload_run_id and payload_run_id != run_id:
+            continue
+        test_delta = payload.get("test_delta")
+        if isinstance(test_delta, dict):
+            return test_delta
+    return {}
+
+
+def _has_waiver_artifact(delta_summary: dict[str, object]) -> bool:
+    waiver = delta_summary.get("waiver_artifact")
+    if isinstance(waiver, dict):
+        for field in ("artifact_path", "path", "id", "reason"):
+            if str(waiver.get(field, "")).strip():
+                return True
+    return False
+
+
+def _has_weakened_or_drift(delta_summary: dict[str, object]) -> bool:
+    flags = delta_summary.get("flags")
+    if not isinstance(flags, list):
+        return False
+    risk_flags = {
+        "weakened_assertions",
+        "tests_mismatch",
+        "selector_drift",
+        "removed_touched_area_coverage",
+        "integration_to_mock_downgrade",
+        "snapshot_only_refresh",
+    }
+    normalized = {str(item).strip().lower() for item in flags if str(item).strip()}
+    return bool(normalized & risk_flags)
+
+
+def check_tdd_proof_chain(data, project_dir):
+    if not get_feature_flag("tdd_proof_chain", True):
+        return []
+
+    context = data["_stop_ctx"]
+    if not context.get("has_source_writes", False):
+        return []
+
+    run_id = resolve_current_run_id(project_dir=project_dir)
+    lock_verdict = test_intent_lock.verify_lock(project_dir, run_id=run_id)
+    delta_summary = data.get("_test_delta") if isinstance(data.get("_test_delta"), dict) else {}
+    if not delta_summary:
+        delta_summary = _load_test_delta_from_evidence(project_dir, run_id)
+
+    lock_missing = str(lock_verdict.get("status", "")).strip() != "ok"
+    weakened_without_waiver = _has_weakened_or_drift(delta_summary) and not _has_waiver_artifact(delta_summary)
+    if not lock_missing and not weakened_without_waiver:
+        return []
+
+    strict_mode = _proof_chain_strict_enabled()
+    if strict_mode:
+        return [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+
+    warnings.warn(
+        "tdd_proof_chain_incomplete_permissive",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    advisories = data.setdefault("_stop_advisories", [])
+    advisories.append(
+        "[OMG advisory] tdd proof chain incomplete: active lock evidence or waiver artifact is missing. "
+        "Set OMG_PROOF_CHAIN_STRICT=1 to hard-block completion."
+    )
+    return []
+
 def check_simplifier(data, project_dir):
     """CHECK 7: Code simplifier — advisory only, never blocks."""
     if not get_feature_flag("simplifier", True):
@@ -832,7 +935,7 @@ def check_scope_drift(project_dir):
 
 
 
-def check_todo_continuation(data: dict) -> dict | None:
+def check_todo_continuation(data: dict[str, object]) -> dict[str, str] | None:
     """Check if agent should continue due to incomplete todos.
     Returns a dict with continuation response if idle, None otherwise.
     Budget: STOP_CHECK_MAX_MS (15s)
@@ -911,6 +1014,7 @@ def main():
         check_diff_budget,
         check_recent_failures,
         check_test_execution,
+        check_tdd_proof_chain,
         check_test_validator_coverage,
         check_false_fix,
         check_write_failures,
