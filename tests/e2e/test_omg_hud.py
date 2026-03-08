@@ -410,6 +410,118 @@ def test_hud_renders_blocker_count_when_blockers_present(tmp_path: Path):
     assert "2 blockers" in lowered
 
 
+def test_hud_renders_session_health_from_state_file(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    health_dir = project / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "run-1.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "run-1",
+            "contamination_risk": 0.15,
+            "overthinking_score": 0.32,
+            "context_health": 0.85,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "thresholds": {},
+            "updated_at": "2026-03-08T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "contam:" in lowered
+    assert "overthink:" in lowered
+    assert "health:" in lowered
+
+
+def test_hud_renders_session_health_block_badge(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    health_dir = project / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "run-2.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "run-2",
+            "contamination_risk": 0.8,
+            "overthinking_score": 0.1,
+            "context_health": 0.6,
+            "verification_status": "ok",
+            "recommended_action": "block",
+            "thresholds": {},
+            "updated_at": "2026-03-08T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "block" in lowered
+    assert "contam:80%" in lowered
+
+
+def test_hud_renders_session_health_from_stdin(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+
+    payload = _stdin_payload(project)
+    payload["session_health"] = {
+        "schema": "SessionHealth",
+        "schema_version": "1.0.0",
+        "run_id": "stdin-1",
+        "contamination_risk": 0.45,
+        "overthinking_score": 0.55,
+        "context_health": 0.7,
+        "verification_status": "running",
+        "recommended_action": "reflect",
+        "thresholds": {},
+        "updated_at": "2026-03-08T12:00:00Z",
+    }
+
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "contam:45%" in lowered
+    assert "overthink:55%" in lowered
+    assert "health:70%" in lowered
+    assert "reflect" in lowered
+
+
+def test_hud_omits_session_health_when_no_state(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "contam:" not in lowered
+    assert "overthink:" not in lowered
+
+
 def test_hud_displays_mode_from_mode_state_file(tmp_path: Path):
     home = tmp_path / "home"
     claude = home / ".claude"
