@@ -541,6 +541,7 @@ function readOmgState(cwd) {
   const stateDir = join(cwd, ".omg", "state");
   const result = {
     modes: [],
+    currentMode: null,
     hookCount: 0,
     profile: null,
     ralph: null,
@@ -572,6 +573,14 @@ function readOmgState(cwd) {
   if (persistent?.status === "active" && persistent?.mode) {
     if (!result.modes.includes(persistent.mode)) {
       result.modes.push(String(persistent.mode));
+    }
+  }
+
+  const modeState = readJsonSafe(join(stateDir, "mode.json"));
+  if (modeState && typeof modeState === "object") {
+    const candidate = modeState.mode || modeState.current_mode || modeState.name;
+    if (typeof candidate === "string" && candidate.trim()) {
+      result.currentMode = candidate.trim().toLowerCase();
     }
   }
 
@@ -1183,6 +1192,9 @@ async function main() {
 
     // Active skills (modes) + last skill
     if (cfg.elements.activeSkills !== false) {
+      if (omgState.currentMode) {
+        els.push(`mode:${cyan(omgState.currentMode)}`);
+      }
       const modeBadges = renderModeBadges(omgState.modes, {
         hideRalph: !!omgState.ralph,
         hideAutopilot: !!omgState.autopilot,

@@ -384,3 +384,19 @@ def test_hud_renders_blocker_count_when_blockers_present(tmp_path: Path):
     lowered = out.stdout.lower()
     assert "verification blocked" in lowered
     assert "2 blockers" in lowered
+
+
+def test_hud_displays_mode_from_mode_state_file(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+    (state_dir / "mode.json").write_text(json.dumps({"mode": "focused"}), encoding="utf-8")
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    assert "mode:focused" in out.stdout.lower()

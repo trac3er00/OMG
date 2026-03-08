@@ -1,0 +1,13 @@
+Task 11 - Canonical Mode-Profile Contract Verification
+
+Command:
+python3 -m pytest tests -q -k "mode or runtime_profile or setup_wizard or omg_hud"
+
+Result:
+171 passed, 2529 deselected in 40.54s
+
+Command:
+python3 -c "from runtime.runtime_profile import load_canonical_mode_profile; print('ok')"
+
+Result:
+ok

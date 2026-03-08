@@ -15,6 +15,13 @@ class RuntimeProfile(TypedDict):
     background_polling: bool
 
 
+class CanonicalModeProfile(TypedDict):
+    concurrency: int
+    background_verification: bool
+    context_window: str
+    noise_level: str
+
+
 PROFILE_PRESETS: dict[str, RuntimeProfile] = {
     "eco": {"profile": "eco", "max_workers": 2, "background_polling": False},
     "balanced": {"profile": "balanced", "max_workers": 3, "background_polling": False},
@@ -23,6 +30,37 @@ PROFILE_PRESETS: dict[str, RuntimeProfile] = {
 
 RUNTIME_CONCURRENCY_PROFILE_NAMES = tuple(PROFILE_PRESETS.keys())
 RESERVED_CANONICAL_MODE_NAMES = CANONICAL_MODE_NAMES
+
+_CANONICAL_MODE_PROFILES: dict[str, CanonicalModeProfile] = {
+    "chill": {
+        "concurrency": 1,
+        "background_verification": False,
+        "context_window": "minimal",
+        "noise_level": "quiet",
+    },
+    "focused": {
+        "concurrency": 2,
+        "background_verification": False,
+        "context_window": "standard",
+        "noise_level": "normal",
+    },
+    "exploratory": {
+        "concurrency": 4,
+        "background_verification": True,
+        "context_window": "extended",
+        "noise_level": "verbose",
+    },
+}
+
+
+def load_canonical_mode_profile(mode: str) -> dict[str, object]:
+    normalized_mode = mode.strip().lower()
+    profile = _CANONICAL_MODE_PROFILES.get(normalized_mode)
+    if profile is None:
+        raise ValueError(
+            f"Unknown canonical mode: {mode!r}. Valid: chill, focused, exploratory"
+        )
+    return dict(profile)
 
 
 def load_runtime_profile(project_dir: str) -> RuntimeProfile:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import importlib
 from pathlib import Path
 
 
@@ -90,6 +91,12 @@ def resolve_preset(preset: str | None) -> str:
 def get_preset_features(preset: str | None) -> dict[str, bool]:
     resolved = resolve_preset(preset)
     return dict(PRESET_FEATURES[resolved])
+
+
+def get_mode_profile(mode: str) -> dict[str, object]:
+    runtime_profile = importlib.import_module("runtime.runtime_profile")
+    loader = getattr(runtime_profile, "load_canonical_mode_profile")
+    return loader(mode)
 
 
 def _resolve_claude_dir(base_dir: Path) -> Path:
