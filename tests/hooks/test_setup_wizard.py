@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from runtime.adoption import CANONICAL_VERSION
+
 # Add hooks to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
 
@@ -456,7 +458,7 @@ class TestSetPreferences:
             with open(config_path) as f:
                 data = yaml.safe_load(f)
             assert "version" in data
-            assert data["version"] == "2.0.9"
+            assert data["version"] == CANONICAL_VERSION
 
     def test_set_preferences_includes_cli_configs_key(self):
         """Config should include cli_configs key."""

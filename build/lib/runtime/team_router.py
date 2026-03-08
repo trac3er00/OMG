@@ -15,6 +15,7 @@ import subprocess
 import threading
 import uuid
 from typing import Any
+from typing import cast
 
 # --- Path resolution (never relies on CWD) ---
 _ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,6 +32,12 @@ except ImportError:
     pass
 
 from runtime.runtime_profile import resolve_parallel_workers
+from runtime.equalizer import select_provider
+from runtime.router_executor import WorkerTask, execute_workers
+from runtime.router_critics import run_critics
+from runtime.router_selector import collect_cli_health as _selector_collect_cli_health
+from runtime.router_selector import infer_target as _selector_infer_target
+from runtime.router_selector import select_target
 
 @dataclass
 class TeamDispatchRequest:
@@ -55,46 +62,7 @@ class TeamDispatchResult:
 
 
 def _infer_target(problem: str) -> str:
-    p = problem.lower()
-    # Explicit target keywords should always win.
-    ccg_kw = bool(re.search(r"\bccg\b", p)) or "tri-track" in p or "tri track" in p
-    gemini_kw = bool(re.search(r"\bgemini\b", p))
-    codex_kw = bool(re.search(r"\bcodex\b", p))
-
-    if ccg_kw or (gemini_kw and codex_kw):
-        return "ccg"
-    if gemini_kw:
-        return "gemini"
-    if codex_kw:
-        return "codex"
-
-    ui_signals = ["ui", "ux", "layout", "css", "visual", "responsive", "frontend"]
-    code_signals = ["auth", "security", "backend", "debug", "performance", "algorithm"]
-    ccg_signals = [
-        "full-stack",
-        "full stack",
-        "front-end and back-end",
-        "frontend and backend",
-        "backend and frontend",
-        "cross-functional",
-        "review everything",
-        "architecture",
-        "system design",
-        "e2e",
-        "end-to-end",
-    ]
-
-    ui_hit = any(k in p for k in ui_signals)
-    code_hit = any(k in p for k in code_signals)
-    ccg_hit = any(k in p for k in ccg_signals)
-
-    if ccg_hit or (ui_hit and code_hit):
-        return "ccg"
-    if ui_hit:
-        return "gemini"
-    if code_hit:
-        return "codex"
-    return "codex"
+    return _selector_infer_target(problem)
 
 
 def _check_tool_available(tool_name: str) -> bool:
@@ -210,35 +178,19 @@ def _check_tool_auth(tool_name: str) -> tuple[bool | None, str]:
 
 
 def _collect_cli_health(target: str) -> dict[str, dict[str, Any]]:
-    if target == "ccg":
-        providers = ("codex", "gemini")
-    elif target in ("codex", "gemini"):
-        providers = (target,)
-    else:
-        providers = tuple()
-
-    health: dict[str, dict[str, Any]] = {}
-    for provider in providers:
-        available = _check_tool_available(provider)
-        auth_ok: bool | None = None
-        auth_message = "CLI is not installed"
-        if available:
-            auth_ok, auth_message = _check_tool_auth(provider)
-        live_connection = bool(available and auth_ok is True)
-        health[provider] = {
-            "available": available,
-            "auth_ok": auth_ok,
-            "live_connection": live_connection,
-            "status_message": auth_message,
-            "install_hint": _INSTALL_HINTS.get(provider, ""),
-        }
-    return health
+    return _selector_collect_cli_health(
+        target,
+        check_tool_available=_check_tool_available,
+        check_tool_auth=_check_tool_auth,
+        install_hints=_INSTALL_HINTS,
+    )
 
 
 def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
     target = req.target.lower().strip()
     if target == "auto":
-        target = _infer_target(req.problem)
+        selected = select_target(req.problem, req.context)
+        target = selected["target"]
 
     findings = [f"Target router selected: {target}", f"Problem: {req.problem}"]
     if req.files:
@@ -247,6 +199,15 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
         findings.append(f"Expected: {req.expected_outcome}")
 
     cli_health = _collect_cli_health(target)
+    equalizer_decision = select_provider(
+        task_text=req.problem,
+        project_dir=_OMG_ROOT,
+        context_packet={"summary": req.context},
+    )
+    findings.append(
+        "Equalizer preferred provider: "
+        f"{equalizer_decision['provider']} ({equalizer_decision['reason']})"
+    )
     for provider, info in cli_health.items():
         if info.get("live_connection"):
             findings.append(f"{provider} live connection: ready")
@@ -284,6 +245,7 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
 
     evidence = {
         "target": target,
+        "equalizer": equalizer_decision,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "context_length": len(req.context or ""),
         "file_count": len(req.files or []),
@@ -363,12 +325,12 @@ def _read_working_memory(project_dir: str) -> str:
         return ""
 
     try:
-        with open(working_memory_path, "r") as f:
+        with open(working_memory_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         if len(content) > 500:
             content = content[:500] + "..."
         return content
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return ""
 
 
@@ -379,12 +341,12 @@ def _read_profile_context(project_dir: str) -> str:
         return ""
 
     try:
-        with open(profile_path, "r") as f:
+        with open(profile_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         if len(content) > 300:
             content = content[:300] + "..."
         return content
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return ""
 
 
@@ -402,7 +364,7 @@ def _read_failure_history(project_dir: str) -> str:
         failures = []
         for file_path in failure_files[-5:]:
             try:
-                with open(file_path, "r") as f:
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
                     for line in f:
                         if line.strip():
                             entry = json.loads(line)
@@ -410,7 +372,7 @@ def _read_failure_history(project_dir: str) -> str:
                             failures.append(f"- {error_msg}")
                             if len(failures) >= 5:
                                 break
-            except (OSError, json.JSONDecodeError):
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
                 continue
 
         if failures:
@@ -538,7 +500,12 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
     if _hooks_dir not in _sys.path:
         _sys.path.insert(0, _hooks_dir)
     try:
-        from _agent_registry import AGENT_REGISTRY, detect_available_models  # pyright: ignore[reportMissingImports]
+        import importlib
+
+        agent_registry = importlib.import_module("_agent_registry")
+        AGENT_REGISTRY = getattr(agent_registry, "AGENT_REGISTRY", {})
+        detect_available_models = getattr(agent_registry, "detect_available_models", lambda: {"claude": True})
+        get_provider_with_equalizer = getattr(agent_registry, "get_provider_with_equalizer", None)
 
         agent = AGENT_REGISTRY.get(agent_name)
         if not agent:
@@ -546,6 +513,13 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
 
         available = detect_available_models()
         preferred = agent.get("preferred_model", "claude")
+        if callable(get_provider_with_equalizer):
+            equalizer_info = get_provider_with_equalizer(
+                task_text=user_prompt,
+                project_dir=project_dir,
+                agent_name=agent_name,
+            )
+            preferred = equalizer_info.get("preferred_model", preferred)
         packaged = package_prompt(agent_name, user_prompt, project_dir)
 
         provider_name_map = {
@@ -605,48 +579,18 @@ def execute_agents_sequentially(
     project_dir: str,
     timeout_per_agent: int = 120
 ) -> list[dict[str, Any]]:
-    """Execute agents sequentially (one at a time) for CRAZY mode.
-    
-    Args:
-        agent_tasks: List of {agent_name, prompt, order} dicts
-        project_dir: Working directory
-        timeout_per_agent: Timeout for each agent invocation
-        
-    Returns:
-        List of results in execution order
-    """
-    # Sort by order if specified
-    sorted_tasks = sorted(agent_tasks, key=lambda x: x.get("order", 0))
-    
-    results: list[dict[str, Any]] = []
-    
-    for task in sorted_tasks:
-        agent_name = task.get("agent_name", "executor")
-        prompt = task.get("prompt", "")
-        
-        print(f"[CRAZY] Launching {agent_name}...")
-        
-        # Dispatch to the appropriate model
-        result = dispatch_to_model(agent_name, prompt, project_dir)
-        
-        if result.get("fallback") == "claude":
-            print(f"[CRAZY] {agent_name} using Claude (native)")
-            status = "fallback-claude"
-        elif "error" in result:
-            print(f"[CRAZY] {agent_name} error: {result['error']}")
-            status = "error"
-        else:
-            print(f"[CRAZY] {agent_name} completed (exit={result.get('exit_code', 'unknown')})")
-            status = "completed" if result.get("exit_code") == 0 else "failed"
-        
-        results.append({
-            "agent": agent_name,
-            "order": task.get("order", 0),
-            "status": status,
-            **result
-        })
-    
-    return results
+    return execute_workers(
+        cast(list[WorkerTask], agent_tasks),
+        False,
+        project_dir=project_dir,
+        dispatch_fn=dispatch_to_model,
+        timeout_per_worker=timeout_per_agent,
+        resolve_workers_fn=lambda router_project_dir, requested_workers: resolve_parallel_workers(
+            router_project_dir,
+            requested_workers=requested_workers,
+        ),
+        thread_pool_cls=ThreadPoolExecutor,
+    )
 
 
 def execute_agents_parallel(
@@ -654,55 +598,18 @@ def execute_agents_parallel(
     project_dir: str,
     timeout_per_agent: int = 120,
 ) -> list[dict[str, Any]]:
-    indexed_tasks: list[tuple[int, int, dict[str, Any]]] = [
-        (idx, int(task.get("order", 0)), task) for idx, task in enumerate(agent_tasks)
-    ]
-    sorted_tasks = sorted(indexed_tasks, key=lambda x: (x[1], x[0]))
-    if not sorted_tasks:
-        return []
-
-    max_workers = resolve_parallel_workers(project_dir, requested_workers=min(len(sorted_tasks), 5))
-    results_by_index: dict[int, dict[str, Any]] = {}
-
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        future_map = {
-            pool.submit(
-                dispatch_to_model,
-                str(task_info[2].get("agent_name", "executor")),
-                str(task_info[2].get("prompt", "")),
-                project_dir,
-            ): task_info
-            for task_info in sorted_tasks
-        }
-
-        for future in as_completed(future_map):
-            task_info = future_map[future]
-            task = task_info[2]
-            order = task_info[1]
-            task_index = task_info[0]
-            agent_name = str(task.get("agent_name", "executor"))
-
-            try:
-                result = future.result(timeout=timeout_per_agent)
-            except Exception as exc:
-                result = {"error": str(exc), "fallback": "claude"}
-
-            if result.get("fallback") == "claude":
-                status = "fallback-claude"
-            elif "error" in result:
-                status = "error"
-            else:
-                status = "completed" if result.get("exit_code") == 0 else "failed"
-
-            results_by_index[task_index] = {
-                "agent": agent_name,
-                "order": order,
-                "status": status,
-                **result,
-            }
-
-    ordered_results = [results_by_index[task_info[0]] for task_info in sorted_tasks]
-    return ordered_results
+    return execute_workers(
+        cast(list[WorkerTask], agent_tasks),
+        True,
+        project_dir=project_dir,
+        dispatch_fn=dispatch_to_model,
+        timeout_per_worker=timeout_per_agent,
+        resolve_workers_fn=lambda router_project_dir, requested_workers: resolve_parallel_workers(
+            router_project_dir,
+            requested_workers=requested_workers,
+        ),
+        thread_pool_cls=ThreadPoolExecutor,
+    )
 
 
 def execute_crazy_mode(
@@ -783,6 +690,12 @@ def execute_crazy_mode(
         "Synthesize results from five specialized tracks:\n\n"
         + "\n\n".join(result_blocks)
         + "\n\nProvide a unified action plan with dependency ordering."
+    )
+
+    _ = run_critics(
+        candidate={"output": synthesis_prompt},
+        context_packet={"summary": full_context},
+        project_dir=project_dir,
     )
 
     model_mix = {
@@ -878,6 +791,12 @@ def execute_ccg_mode(
         "Synthesize results from two specialized CCG tracks:\n\n"
         + "\n\n".join(result_blocks)
         + "\n\nProvide a unified action plan merging backend and frontend perspectives."
+    )
+
+    _ = run_critics(
+        candidate={"output": synthesis_prompt},
+        context_packet={"summary": full_context},
+        project_dir=project_dir,
     )
 
     model_mix = {

@@ -8,6 +8,8 @@ import subprocess
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
+from runtime.adoption import CANONICAL_VERSION
+
 
 ROOT = Path(__file__).resolve().parents[2]
 HUD = ROOT / "hud" / "omg-hud.mjs"
@@ -85,7 +87,7 @@ def test_copied_hud_reads_version_from_installed_settings(tmp_path: Path):
     copied_hud = hud_dir / "omg-hud.mjs"
     copied_hud.write_text(HUD.read_text(encoding="utf-8"), encoding="utf-8")
     _ = (claude / "settings.json").write_text(
-        json.dumps({"_omg": {"_version": "2.0.9"}}),
+        json.dumps({"_omg": {"_version": CANONICAL_VERSION}}),
         encoding="utf-8",
     )
 
@@ -94,7 +96,24 @@ def test_copied_hud_reads_version_from_installed_settings(tmp_path: Path):
     payload = _stdin_payload(project)
     out = _run_hud_script(copied_hud, payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
     assert out.returncode == 0
-    assert "[omg#2.0.9]" in out.stdout.lower()
+    assert f"[omg#{CANONICAL_VERSION}]".lower() in out.stdout.lower()
+
+
+def test_copied_hud_static_fallback_matches_canonical_version(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    hud_dir = claude / "hud"
+    hud_dir.mkdir(parents=True)
+    copied_hud = hud_dir / "omg-hud.mjs"
+    copied_hud.write_text(HUD.read_text(encoding="utf-8"), encoding="utf-8")
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    payload = _stdin_payload(project)
+
+    out = _run_hud_script(copied_hud, payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    assert f"[omg#{CANONICAL_VERSION}]".lower() in out.stdout.lower()
 
 
 def test_hud_defaults_follow_omc_baseline(tmp_path: Path):

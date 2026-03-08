@@ -8,17 +8,19 @@ import os
 import sys
 
 HOOKS_DIR = os.path.dirname(__file__)
-if HOOKS_DIR not in sys.path:
-    sys.path.insert(0, HOOKS_DIR)
+PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
+for path in (HOOKS_DIR, PROJECT_ROOT):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
-from hooks._common import setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
+from _common import setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
 
 # Fail-closed: deny on crash (security hook)
 setup_crash_handler("secret-guard", fail_closed=True)
 
 try:
-    from hooks.policy_engine import evaluate_file_access, to_pretool_hook_output
-    from hooks.secret_audit import log_secret_access
+    from policy_engine import evaluate_file_access, to_pretool_hook_output
+    from secret_audit import log_secret_access
     from runtime.mutation_gate import check_mutation_allowed
 except Exception as _import_err:
     print(f"OMG secret-guard: policy_engine import failed: {_import_err}", file=sys.stderr)

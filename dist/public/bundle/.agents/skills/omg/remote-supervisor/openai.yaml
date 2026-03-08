@@ -2,7 +2,7 @@ name: omg-remote-supervisor
 description: "Local-only authenticated supervisor sessions for worker orchestration."
 allow_implicit_invocation: false
 metadata:
-  channel: enterprise
+  channel: public
   bundle_id: remote-supervisor
   title: "OMG Remote Supervisor"
 mcp_servers:

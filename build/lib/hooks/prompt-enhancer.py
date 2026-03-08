@@ -653,6 +653,11 @@ if any(signal_matches_text(sig, prompt) for sig in WRITE_ERROR_SIGNALS) and budg
         "NEVER say 'updated successfully' without reading the file first."
     )
 
+# Context engine packet pointer (if available, include pointer — not raw content)
+_ctx_engine_packet_path = os.path.join(project_dir, ".omg", "state", "context_engine_packet.json")
+if os.path.isfile(_ctx_engine_packet_path) and budget_ok():
+    add("@context-engine: see .omg/state/context_engine_packet.json")
+
 # ═══════════════════════════════════════════════════════════
 # OUTPUT
 # ═══════════════════════════════════════════════════════════

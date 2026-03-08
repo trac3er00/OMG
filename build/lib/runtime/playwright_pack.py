@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
@@ -135,6 +136,56 @@ class PlaywrightPack:
             "fixture": str(fixture),
             "artifacts": artifacts,
             "metadata": metadata,
+        }
+
+    def ingest_external_artifacts(
+        self,
+        *,
+        output_dir: str | Path,
+        trace_path: str | Path | None = None,
+        junit_path: str | Path | None = None,
+        screenshots: list[str | Path] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Copy upstream browser artifacts into the OMG evidence layout."""
+        output_root = Path(output_dir)
+        output_root.mkdir(parents=True, exist_ok=True)
+        screenshots_dir = output_root / "screenshots"
+        screenshots_dir.mkdir(exist_ok=True)
+
+        artifacts: dict[str, Any] = {}
+        if trace_path:
+            trace_target = output_root / Path(trace_path).name
+            shutil.copy2(trace_path, trace_target)
+            artifacts["trace"] = str(trace_target)
+
+        if junit_path:
+            junit_target = output_root / Path(junit_path).name
+            shutil.copy2(junit_path, junit_target)
+            artifacts["junit"] = str(junit_target)
+
+        if screenshots:
+            copied_screenshots: list[str] = []
+            for screenshot in screenshots:
+                screenshot_target = screenshots_dir / Path(screenshot).name
+                shutil.copy2(screenshot, screenshot_target)
+                copied_screenshots.append(str(screenshot_target))
+            artifacts["screenshots"] = copied_screenshots
+
+        final_metadata = self._build_metadata()
+        if metadata:
+            final_metadata.update(metadata)
+
+        evidence_path = _write_browser_evidence(
+            output_root,
+            fixture=Path(final_metadata.get("fixture", output_root / "playwright-cli")),
+            artifacts=artifacts,
+            metadata=final_metadata,
+        )
+        return {
+            "artifacts": artifacts,
+            "metadata": final_metadata,
+            "evidence_path": evidence_path,
         }
 
 

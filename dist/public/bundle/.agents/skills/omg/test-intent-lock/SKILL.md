@@ -5,7 +5,7 @@ description: "Structured test-delta guard that blocks weakened tests unless expl
 
 # OMG Test Intent Lock
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/test-intent-lock-*.json`

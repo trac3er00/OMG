@@ -54,6 +54,8 @@ _POST_ROUTE_TABLE = {
     "/v1/trust/claim-judge": ("claim_judge", True),
     "/v2/trust/test-intent-lock": ("test_intent_lock", False),
     "/v1/trust/test-intent-lock": ("test_intent_lock", True),
+    "/v2/trust/mutation-gate": ("mutation_gate_check", False),
+    "/v1/trust/mutation-gate": ("mutation_gate_check", True),
 }
 
 _GET_ROUTE_TABLE = {

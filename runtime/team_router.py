@@ -500,7 +500,12 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
     if _hooks_dir not in _sys.path:
         _sys.path.insert(0, _hooks_dir)
     try:
-        from _agent_registry import AGENT_REGISTRY, detect_available_models, get_provider_with_equalizer  # pyright: ignore[reportMissingImports]
+        import importlib
+
+        agent_registry = importlib.import_module("_agent_registry")
+        AGENT_REGISTRY = getattr(agent_registry, "AGENT_REGISTRY", {})
+        detect_available_models = getattr(agent_registry, "detect_available_models", lambda: {"claude": True})
+        get_provider_with_equalizer = getattr(agent_registry, "get_provider_with_equalizer", None)
 
         agent = AGENT_REGISTRY.get(agent_name)
         if not agent:
@@ -508,12 +513,13 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
 
         available = detect_available_models()
         preferred = agent.get("preferred_model", "claude")
-        equalizer_info = get_provider_with_equalizer(
-            task_text=user_prompt,
-            project_dir=project_dir,
-            agent_name=agent_name,
-        )
-        preferred = equalizer_info.get("preferred_model", preferred)
+        if callable(get_provider_with_equalizer):
+            equalizer_info = get_provider_with_equalizer(
+                task_text=user_prompt,
+                project_dir=project_dir,
+                agent_name=agent_name,
+            )
+            preferred = equalizer_info.get("preferred_model", preferred)
         packaged = package_prompt(agent_name, user_prompt, project_dir)
 
         provider_name_map = {

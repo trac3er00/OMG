@@ -8,6 +8,8 @@ import subprocess
 import sys
 import pytest
 
+from runtime.adoption import CANONICAL_VERSION
+
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "omg.py"
 
@@ -31,7 +33,7 @@ def test_cli_help_uses_canonical_identity():
     proc = _run(["--help"])
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
-    assert "OMG 2.0.9 CLI" in out
+    assert f"OMG {CANONICAL_VERSION} CLI" in out
     assert "OMG v1 CLI" not in out
     assert "crazy" in out
     assert "compat" in out

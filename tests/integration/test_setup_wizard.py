@@ -14,6 +14,8 @@ from unittest.mock import Mock, patch
 import pytest
 import yaml
 
+from runtime.adoption import CANONICAL_VERSION
+
 # Add hooks and project root to path for imports
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT / "hooks"))
@@ -264,7 +266,7 @@ class TestSetPreferencesIntegration:
         assert config_file.exists()
 
         data = yaml.safe_load(config_file.read_text())
-        assert data["version"] == "2.0.9"
+        assert data["version"] == CANONICAL_VERSION
         assert "cli_configs" in data
         assert len(data["cli_configs"]) == 3
         assert "opencode" not in data["cli_configs"]
@@ -402,7 +404,7 @@ class TestFullPipelineIntegration:
         config_yaml = tmp_path / ".omg" / "state" / "cli-config.yaml"
         assert config_yaml.exists()
         prefs_data = yaml.safe_load(config_yaml.read_text())
-        assert prefs_data["version"] == "2.0.9"
+        assert prefs_data["version"] == CANONICAL_VERSION
         assert len(prefs_data["cli_configs"]) == 3
         assert "opencode" not in prefs_data["cli_configs"]
 

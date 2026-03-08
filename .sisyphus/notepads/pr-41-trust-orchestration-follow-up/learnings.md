@@ -50,3 +50,24 @@
 - Loop continuation rules are bounded and deterministic: stop on iteration >= max_iterations, stop on status == "ok", continue otherwise with within_budget.
 - Next-step summaries preserve provided blockers and evidence_links and always emit a non-empty actionable next_action string for read-only guidance.
 - Added tests/runtime/test_verification_loop.py coverage for policy shape, continuation budget/status edges, and non-empty next-step action behavior.
+
+## [2026-03-08] Final Session: Version Drift Fix (PR #43)
+
+### Critical lesson: version bump PRs must include registry bundles
+- PR #42 bumped version in package.json, pyproject.toml, plugin manifests, adoption.py, etc.
+- But MISSED: registry/bundles/*.yaml (22 files), registry/omg-capability.schema.json, runtime/omg_compat_contract_snapshot.json
+- Also missed hardcoded version strings in: tests/hooks/test_setup_wizard.py, tests/integration/test_setup_wizard.py, tests/scripts/test_omg_cli.py, tests/scripts/test_settings_merge.py, tests/e2e/test_setup_script.py
+- The release readiness check (`python3 scripts/omg.py release readiness --channel dual`) catches bundle version drift — always run it after a version bump
+
+### Fix applied in PR #43
+- All 22 registry/bundles/*.yaml: version 2.0.8 → 2.0.9
+- registry/omg-capability.schema.json: "version" field
+- runtime/omg_compat_contract_snapshot.json: "contract_version" field
+- 5 test files: hardcoded version string assertions
+- build/lib/ mirror files updated too
+
+### Final state (2026-03-08)
+- release readiness --channel dual: status "ok", zero blockers
+- 1293 tests pass (tests/runtime + tests/control_plane + tests/hooks)
+- All PRs merged: #40, #41, #42, #43
+- Tag v2.0.9 on origin, GitHub Release published

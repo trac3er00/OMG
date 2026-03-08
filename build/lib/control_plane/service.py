@@ -1,4 +1,5 @@
 """Control plane service handlers for OMG v1."""
+# pyright: reportImportCycles=false
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -18,6 +19,7 @@ from registry.verify_artifact import verify_artifact
 from runtime.guide_assert import guide_assert
 from runtime.dispatcher import dispatch_runtime
 from runtime.claim_judge import judge_claims
+from runtime.mutation_gate import check_mutation_allowed
 from runtime.security_check import run_security_check
 from runtime.test_intent_lock import lock_intent, verify_intent
 
@@ -264,6 +266,33 @@ class ControlPlaneService:
             "error_code": "INVALID_INTENT_ACTION",
             "message": f"Unknown action: {action!r}; expected 'lock' or 'verify'",
         }
+
+    def mutation_gate_check(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        if not isinstance(payload, dict):
+            raise ValueError("payload must be an object")
+
+        tool = payload.get("tool")
+        file_path = payload.get("file_path")
+        lock_id = payload.get("lock_id")
+        exemption = payload.get("exemption")
+
+        if not isinstance(tool, str) or not tool.strip():
+            raise ValueError("tool is required")
+        if not isinstance(file_path, str) or not file_path.strip():
+            raise ValueError("file_path is required")
+        if lock_id is not None and not isinstance(lock_id, str):
+            raise ValueError("lock_id must be a string when provided")
+        if exemption is not None and not isinstance(exemption, str):
+            raise ValueError("exemption must be a string when provided")
+
+        result = check_mutation_allowed(
+            tool=tool,
+            file_path=file_path,
+            project_dir=self.project_dir,
+            lock_id=lock_id,
+            exemption=exemption,
+        )
+        return 200, result
 
     def scoreboard_baseline(self) -> tuple[int, dict[str, Any]]:
         return 200, {

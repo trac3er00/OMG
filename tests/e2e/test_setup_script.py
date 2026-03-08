@@ -11,6 +11,8 @@ import sys
 import time
 from typing import cast
 
+from runtime.adoption import CANONICAL_VERSION
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SETUP = ROOT / "OMG-setup.sh"
@@ -448,7 +450,7 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     installed_versions = sorted([p for p in plugin_cache_root.iterdir() if p.is_dir()])
     assert installed_versions
     plugin_dir = installed_versions[-1]
-    assert plugin_dir.name == "2.0.9"
+    assert plugin_dir.name == CANONICAL_VERSION
 
     assert (plugin_dir / ".claude-plugin" / "plugin.json").exists()
     assert (plugin_dir / ".claude-plugin" / "marketplace.json").exists()
@@ -488,7 +490,7 @@ def test_setup_install_as_plugin_registers_known_marketplace(tmp_path: Path):
     )
     assert proc.returncode == 0
 
-    plugin_root = claude_dir / "plugins" / "cache" / "omg" / "omg" / "2.0.9"
+    plugin_root = claude_dir / "plugins" / "cache" / "omg" / "omg" / CANONICAL_VERSION
     marketplaces_path = claude_dir / "plugins" / "known_marketplaces.json"
     assert marketplaces_path.exists()
 
@@ -975,7 +977,7 @@ def test_setup_plugin_install_patches_omg_control_to_managed_python(tmp_path: Pa
     )
     assert proc.returncode == 0
 
-    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / "2.0.9" / ".claude-plugin" / "mcp.json"
+    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / CANONICAL_VERSION / ".claude-plugin" / "mcp.json"
     assert mcp_path.exists()
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
@@ -1000,7 +1002,7 @@ def test_setup_plugin_mcp_server_starts_outside_repo_root(tmp_path: Path):
     )
     assert proc.returncode == 0
 
-    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / "2.0.9" / ".claude-plugin" / "mcp.json"
+    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / CANONICAL_VERSION / ".claude-plugin" / "mcp.json"
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
     omg_control = cast(dict[str, object], servers.get("omg-control") or {})
