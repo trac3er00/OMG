@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Security Sandbox for OMG Python REPL
+"""Security Sandbox for OMG Python REPL (REPL-only).
 
 Provides a restricted execution environment that blocks dangerous operations:
 - Dangerous imports (subprocess, socket, ctypes, etc.)
@@ -10,6 +9,10 @@ Provides a restricted execution environment that blocks dangerous operations:
 - Dangerous builtins (__import__, eval, exec, compile, etc.)
 
 Feature flag: OMG_REPL_SANDBOX_ENABLED (default: False)
+
+This module is the concrete REPL-only sandbox implementation. Broader sandbox
+policy is mediated by hook-level controls in hooks/firewall.py and
+hooks/secret-guard.py.
 
 Usage:
     from tools.python_sandbox import execute_sandboxed, is_safe_code, create_sandbox
@@ -67,7 +70,7 @@ def _is_sandbox_enabled() -> bool:
 
 # --- Blocked imports configuration ---
 
-_DEFAULT_BLOCKED_IMPORTS: frozenset = frozenset({
+_DEFAULT_BLOCKED_IMPORTS: frozenset[str] = frozenset({
     "subprocess",
     "socket",
     "ctypes",
@@ -91,13 +94,13 @@ def _get_blocked_imports() -> Set[str]:
     env_val = os.environ.get("OMG_SANDBOX_BLOCKED_IMPORTS", "").strip()
     if env_val:
         custom = frozenset(name.strip() for name in env_val.split(",") if name.strip())
-        return _DEFAULT_BLOCKED_IMPORTS | custom
+        return set(_DEFAULT_BLOCKED_IMPORTS | custom)
     return set(_DEFAULT_BLOCKED_IMPORTS)
 
 
 # --- Blocked builtins ---
 
-_DANGEROUS_BUILTINS: frozenset = frozenset({
+_DANGEROUS_BUILTINS: frozenset[str] = frozenset({
     "__import__",
     "eval",
     "exec",
@@ -278,7 +281,7 @@ def _check_string_escapes(code: str) -> Optional[str]:
 
 # --- Restricted open() ---
 
-_ALLOWED_READ_MODES: frozenset = frozenset({
+_ALLOWED_READ_MODES: frozenset[str] = frozenset({
     "r", "rb", "rt",
     "",  # default mode is 'r'
 })

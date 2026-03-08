@@ -10,6 +10,7 @@ import os
 import sys
 
 import pytest
+from unittest.mock import patch
 
 # Add project root to path
 project_root = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -17,6 +18,17 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from tools.python_sandbox import SandboxedExecutor, execute_sandboxed
+
+
+def test_semgrep_unavailable_returns_status_without_crashing(tmp_path):
+    from runtime.security_check import run_semgrep_scan
+
+    with patch("runtime.security_check.shutil.which", return_value=None):
+        result = run_semgrep_scan(str(tmp_path))
+
+    assert result["status"] == "unavailable"
+    assert result["findings"] == []
+    assert result["error"] == "semgrep not found"
 
 
 @pytest.fixture
