@@ -50,6 +50,7 @@ def test_trust_release_identity_is_canonical():
     assert core_plugin["version"] == CANONICAL_VERSION
     assert "setup" in core_plugin["commands"]
     assert "compat" in core_plugin["commands"]
+    assert "plan-council" in core_plugin["roles"]
 
     assert readme.startswith("# OMG")
     assert "https://github.com/trac3er00/OMG" in readme

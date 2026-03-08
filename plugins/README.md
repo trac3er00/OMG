@@ -28,11 +28,15 @@ OMG exposes a small native front door and keeps the rest of the surface availabl
 
 | Command | Category | Description |
 |---------|----------|-------------|
-| `/OMG:deep-plan` | Planning | Strategic planning with domain awareness |
+| `/OMG:deep-plan` | Planning | Strategic planning with domain awareness (routes to `plan-council`) |
 | `/OMG:learn` | Knowledge | Convert patterns into OMG-native instincts and skills |
 | `/OMG:code-review` | Quality | Deep review flow |
 | `/OMG:ship` | Delivery | Idea to evidence to release |
 | `/OMG:handoff` | Collaboration | Session transfer and continuity |
+| `/OMG:maintainer` | OSS | Open-source maintainer workflows |
+| `/OMG:sequential-thinking` | Thinking | Structured multi-step reasoning |
+| `/OMG:ralph-start` | Automation | Start Ralph autonomous loop |
+| `/OMG:ralph-stop` | Automation | Stop Ralph autonomous loop |
 
 ## Plugin Layout
 

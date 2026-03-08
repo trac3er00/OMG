@@ -11,6 +11,11 @@ OMG keeps verification visible instead of burying it in implementation details.
 - Doctor output: `.omg/evidence/doctor.json`
 - Security-check artifacts: `.omg/evidence/security-check-*.json`
 - Trust and external input artifacts: `.omg/evidence/trust-*.json`
+- Truth bundles:
+  - `claim-judge`: `.omg/evidence/claim-judge-*.json` (verifies claim-to-evidence mapping)
+  - `test-intent-lock`: `.omg/evidence/test-intent-lock-*.json` (verifies test-to-intent alignment)
+  - `proof-gate`: `.omg/evidence/proof-gate-*.json` (verifies final release readiness)
+- Browser evidence: `.omg/evidence/browser-*.png` and `.omg/evidence/browser-*.json` (Playwright-backed verification)
 - Trace records and evidence links: `.omg/tracebank/events.jsonl`, `.omg/tracebank/evidence-links.jsonl`
 - Eval gate artifacts and trace links: `.omg/evals/latest.json`, `.omg/evals/history.jsonl`, `.omg/evals/trace-links.jsonl`
 - Lineage manifests: `.omg/lineage/*.json`
@@ -42,7 +47,9 @@ Representative benchmark tasks for this release:
 
 - host detection and auth wiring
 - canonical security-check routing and evidence emission
-- stdio OMG control MCP wiring
+- narrowed stdio OMG control MCP wiring
+- truth bundle verification (claim-judge, test-intent-lock, proof-gate)
+- plan-council role compilation and execution
 - adoption detection with overlapping ecosystems
 - plugin install and uninstall correctness
 - `crazy` orchestration smoke coverage

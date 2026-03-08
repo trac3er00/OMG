@@ -43,8 +43,20 @@ def test_advanced_plugin_command_paths_resolve_relative_to_plugin_root():
         assert resolved.exists(), f"Command '{cmd_name}' path '{path}' does not resolve to {resolved}"
 
 
-def test_security_auditor_uses_canonical_security_check():
-    """Verify omg-security-auditor.md no longer references deprecated /OMG:security-review"""
-    auditor = (ROOT / "agents" / "omg-security-auditor.md").read_text(encoding="utf-8")
-    assert "/OMG:security-review" not in auditor
-    assert "/OMG:security-check" in auditor
+def test_readme_promotes_narrowed_mcp_and_truth_bundles():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "narrowed defaults" in readme
+    assert "claim-judge" in readme
+    assert "test-intent-lock" in readme
+    assert "proof-gate" in readme
+    assert "plan-council" in readme
+    assert "/OMG:deep-plan" in readme
+
+
+def test_proof_docs_include_truth_bundle_artifacts():
+    proof = (ROOT / "docs" / "proof.md").read_text(encoding="utf-8")
+    assert "claim-judge" in proof
+    assert "test-intent-lock" in proof
+    assert "proof-gate" in proof
+    assert "browser-*.png" in proof
+    assert "narrowed stdio OMG control" in proof

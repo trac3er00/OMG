@@ -16,6 +16,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 
 - Small front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
 - Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI.
+- Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
 - Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.
 
@@ -59,7 +60,7 @@ Then run:
 Success looks like:
 
 - supported hosts are detected
-- `.mcp.json` is configured with `filesystem` and stdio `omg-control` (the shipped defaults)
+- `.mcp.json` is configured with `filesystem` and stdio `omg-control` (the narrowed defaults)
 - additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
@@ -88,6 +89,7 @@ Compatibility references to OMC, OMX, and Superpowers are documented here: [docs
 
 Current local verification for this release: See `.omg/evidence/` for machine-generated verification artifacts.
 
+- Truth bundles: `claim-judge`, `test-intent-lock`, `proof-gate`
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
 - Sample crazy transcript: [docs/transcripts/crazy.md](docs/transcripts/crazy.md)
@@ -99,6 +101,7 @@ Primary entry points:
 
 - `/OMG:setup`
 - `/OMG:crazy`
+- `/OMG:deep-plan` (compatibility path to `plan-council`)
 
 Advanced surfaces stay available for deeper workflows:
 

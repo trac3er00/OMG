@@ -1,0 +1,51 @@
+id: plan-council
+kind: planning
+version: 2.0.7
+title: OMG Plan Council
+description: Canonical council-style planning bundle for explicit, evidence-backed deep plans.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - commands/OMG:deep-plan.md
+invocation_policy:
+  user_invocable: true
+  model_invocable: false
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: low
+  allowed_tools:
+    claude:
+      - Read
+      - Grep
+    codex:
+      - Read
+      - Grep
+lifecycle_hooks:
+  native:
+    - PostToolUse
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - markdown
+    - json
+evidence_outputs:
+  artifacts:
+    - .omg/plans/deep-plan.md
+    - .omg/plans/deep-plan.json
+    - .omg/plans/dissent.json
+    - .omg/evidence/plan-council.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+channel_overrides:
+  public:
+    posture: self-serve
+  enterprise:
+    posture: managed

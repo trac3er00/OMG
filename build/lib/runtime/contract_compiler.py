@@ -35,6 +35,10 @@ SUPPORTED_HOSTS = ("claude", "codex")
 SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
+    "plan-council",
+    "claim-judge",
+    "test-intent-lock",
+    "proof-gate",
     "hook-governor",
     "mcp-fabric",
     "lsp-pack",
@@ -891,6 +895,21 @@ def _codex_evidence_fields(policy_model: dict[str, Any] | None) -> list[str]:
     return sorted(ec.keys())
 
 
+def _codex_protected_planning_skills(bundles: Iterable[dict[str, Any]]) -> list[str]:
+    protected: list[str] = []
+    for bundle in bundles:
+        if "codex" not in bundle.get("hosts", []):
+            continue
+        if str(bundle.get("kind", "")).strip().lower() != "planning":
+            continue
+        invocation = bundle.get("invocation_policy", {})
+        if not isinstance(invocation, dict):
+            continue
+        if invocation.get("allow_implicit_invocation") is False:
+            protected.append(f"omg/{bundle['id']}")
+    return sorted(set(protected))
+
+
 def _render_codex_agents_fragment(
     *,
     channel: str,
@@ -899,6 +918,7 @@ def _render_codex_agents_fragment(
     codex_automations: list[str],
     codex_skills: list[str],
     evidence_fields: list[str],
+    protected_planning_skills: list[str],
 ) -> str:
     """Render a comprehensive AGENTS.fragment.md for Codex host."""
     sections: list[str] = []
@@ -943,6 +963,16 @@ def _render_codex_agents_fragment(
         sections.append("- `omg/control-plane`")
     sections.append("")
 
+    sections.append("## Protected Planning Surface\n")
+    if protected_planning_skills:
+        sections.append("Council planning skills are protected and explicit-invocation only:")
+        sections.append("")
+        for skill in protected_planning_skills:
+            sections.append(f"- `{skill}`")
+    else:
+        sections.append("- No protected planning skills configured.")
+    sections.append("")
+
     # Web Search Policy
     sections.append("## Web Search Policy\n")
     sections.append("- Prefer cached results over live network requests.")
@@ -963,7 +993,7 @@ def _render_codex_agents_fragment(
     auto_str = ", ".join(codex_automations) if codex_automations else "contract-compile"
     sections.append(f"- Rules: `{rules_str}`")
     sections.append(f"- Automations: `{auto_str}`")
-    sections.append("- Require explicit invocation for production-control-plane skills.")
+    sections.append("- Require explicit invocation for protected production planning skills.")
     sections.append("")
 
     return "\n".join(sections)
@@ -974,6 +1004,7 @@ def _render_codex_rules(
     channel: str,
     protected_paths: list[str],
     codex_skills: list[str],
+    protected_planning_skills: list[str],
 ) -> str:
     """Render a codex-rules.md config fragment encoding defaults."""
     lines: list[str] = []
@@ -992,6 +1023,14 @@ def _render_codex_rules(
     lines.append("## Required Skills\n")
     for skill in (codex_skills or ["omg/control-plane"]):
         lines.append(f"- `{skill}`")
+    lines.append("")
+
+    lines.append("## Protected Planning Surface\n")
+    if protected_planning_skills:
+        for skill in protected_planning_skills:
+            lines.append(f"- `{skill}` (explicit invocation only)")
+    else:
+        lines.append("- none")
     lines.append("")
 
     lines.append("## Approval Matrix\n")
@@ -1055,6 +1094,7 @@ def _compile_codex_outputs(
 
     codex_skills = _codex_skill_refs(policy_model)
     evidence_fields = _codex_evidence_fields(policy_model)
+    protected_planning_skills = _codex_protected_planning_skills(bundles)
 
     agents_fragment = _render_codex_agents_fragment(
         channel=channel,
@@ -1063,6 +1103,7 @@ def _compile_codex_outputs(
         codex_automations=codex_automations,
         codex_skills=codex_skills,
         evidence_fields=evidence_fields,
+        protected_planning_skills=protected_planning_skills,
     )
     _write_text(shared_dir / "AGENTS.fragment.md", agents_fragment)
     artifacts.append(shared_dir / "AGENTS.fragment.md")
@@ -1071,6 +1112,7 @@ def _compile_codex_outputs(
         channel=channel,
         protected_paths=protected_paths,
         codex_skills=codex_skills,
+        protected_planning_skills=protected_planning_skills,
     )
     _write_text(shared_dir / "codex-rules.md", rules_content)
     artifacts.append(shared_dir / "codex-rules.md")
@@ -1757,12 +1799,44 @@ def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
             if isinstance(item, dict) and item.get("name") == "worker_implementation" and not item.get("passed", False):
                 blockers.append("simulated worker evidence detected")
                 break
+    blockers.extend(_check_test_intent_claims(payload))
     blockers.extend(_check_high_risk_security_waivers(payload))
     return {
         "status": "ok" if not blockers else "error",
         "evidence_file": str(evidence_path.relative_to(output_root)),
         "blockers": blockers,
     }
+
+
+def _check_test_intent_claims(payload: dict[str, Any]) -> list[str]:
+    test_delta = payload.get("test_delta")
+    claims = payload.get("claims", [])
+    if not isinstance(claims, list):
+        return []
+
+    from runtime.test_intent_lock import evaluate_test_delta
+
+    blockers: list[str] = []
+    guarded_claims = {"tests passed", "tests_passed", "bug fixed", "bug_fixed"}
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        claim_type = str(claim.get("claim_type", "")).strip().lower()
+        if claim_type not in guarded_claims:
+            continue
+        delta = claim.get("test_delta")
+        if not isinstance(delta, dict):
+            delta = test_delta if isinstance(test_delta, dict) else None
+        if not isinstance(delta, dict):
+            blockers.append(f"test_intent_lock_missing_delta: claim '{claim_type}' requires test_delta evidence")
+            continue
+        result = evaluate_test_delta(delta)
+        if result.get("verdict") != "pass":
+            reasons = result.get("reasons", [])
+            reason_text = "; ".join(str(item) for item in reasons if str(item).strip())
+            suffix = f": {reason_text}" if reason_text else ""
+            blockers.append(f"test_intent_lock_blocked: claim '{claim_type}'{suffix}")
+    return blockers
 
 
 def _check_eval_gate(output_root: Path) -> dict[str, Any]:
@@ -1781,16 +1855,29 @@ def _check_eval_gate(output_root: Path) -> dict[str, Any]:
 
 
 def _check_proof_chain(output_root: Path) -> dict[str, Any]:
-    module = importlib.import_module("runtime.proof_chain")
-    chain = module.assemble_proof_chain(str(output_root))
+    chain_module = importlib.import_module("runtime.proof_chain")
+    gate_module = importlib.import_module("runtime.proof_gate")
+
+    gate_input = chain_module.build_proof_gate_input(str(output_root))
+    chain = gate_input.get("proof_chain", {}) if isinstance(gate_input, dict) else {}
     chain_status = str(chain.get("status", "error"))
     raw_blockers = chain.get("blockers", [])
     blockers = [f"proof_chain_linkage: {item}" for item in raw_blockers] if isinstance(raw_blockers, list) else ["proof_chain_linkage: invalid blockers"]
     if chain_status == "ok":
         blockers = []
+
+    proof_gate = gate_module.evaluate_proof_gate(gate_input if isinstance(gate_input, dict) else {})
+    if str(proof_gate.get("verdict", "fail")) != "pass":
+        gate_blockers = proof_gate.get("blockers", [])
+        if isinstance(gate_blockers, list) and gate_blockers:
+            blockers.extend(f"proof_gate_blocked: {item}" for item in gate_blockers)
+        else:
+            blockers.append("proof_gate_blocked: verdict_fail")
+
     return {
         "status": "ok" if not blockers else "error",
         "proof_chain": chain,
+        "proof_gate": proof_gate,
         "blockers": blockers,
     }
 

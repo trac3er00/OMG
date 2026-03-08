@@ -10,6 +10,8 @@ argument-hint: "[feature or goal to plan]"
 Regular planning = "what steps to take."
 Deep planning = "understand WHY the user wants this, WHAT direction they're heading, and HOW it fits the bigger picture."
 
+This command is the compatibility front door to the canonical `plan-council` bundle.
+
 ## Step 1: Direction Discovery (MANDATORY)
 
 Do not assume goals, constraints, or context. Extract direction from:
@@ -54,10 +56,12 @@ If DDD reference patterns exist (see .omg/knowledge/ or existing domain modules)
 - Plan the new feature to MATCH the pattern
 - Note any intentional deviations with WHY
 
-## Step 3: Create the Deep Plan
+## Step 3: Create the Deep Plan (Plan Council Artifacts)
 
-Use Bash heredoc to write `.omg/state/_plan.md` (and `.omg/idea.yml`). Do NOT use the `Write` tool — it requires a prior Read which is unnecessary for fresh plan creation:
+Generate the canonical `plan-council` artifacts. Use Bash heredoc to write these files.
+Required artifacts: `.omg/plans/deep-plan.md`, `.omg/plans/deep-plan.json`, `.omg/plans/dissent.json`, `.omg/evidence/plan-council.json`.
 
+### Artifact 1: `.omg/plans/deep-plan.md` (Human-readable)
 ```markdown
 # Deep Plan: [Feature Name]
 Created: [date]
@@ -85,9 +89,9 @@ Key interfaces: [list the interfaces/types this touches]
 3. [ ] [specific action]
 4. [ ] [specific action]
 
-### Phase 3: Integration + Security [N files, ~M lines]
+### Phase 3: Integration + Verification [N files, ~M lines]
 5. [ ] [specific action]
-6. [ ] Security review: /OMG:security-check [affected files]
+6. [ ] Verification: /OMG:security-check [affected files]
 
 ### Phase 4: Verification
 7. [ ] Tests: [what to test, how]
@@ -105,7 +109,47 @@ Key interfaces: [list the interfaces/types this touches]
 ## Files to Read Before Starting
 1. [file] — [why: contains the reference pattern]
 2. [file] — [why: defines the interface this must implement]
+
+## Plan Council Requirements
+### Assumptions
+List your assumptions below:
+- [Assumption 1]
+- [Assumption 2]
+
+### Objections and Dissent
+Record any objections or dissent:
+- [Dissent 1]
+- [Dissent 2]
+
+### Rollback Plan
+Define the rollback plan:
+- [Step 1 to revert]
+- [Step 2 to revert]
+
+### Verification Commands
+List the verification commands:
+- [Command 1]
+- [Command 2]
+
+### Evidence Requirements
+Define the evidence requirements:
+- [Requirement 1]
+- [Requirement 2]
+
+### What would falsify this plan?
+Define what would falsify this plan:
+- [Condition 1]
+- [Condition 2]
 ```
+
+### Artifact 2: `.omg/plans/deep-plan.json` (Machine-readable)
+Include the full task plan, workflow stages, and metadata.
+
+### Artifact 3: `.omg/plans/dissent.json` (Dissent log)
+Record all objections, risks, and counter-arguments raised during planning.
+
+### Artifact 4: `.omg/evidence/plan-council.json` (Planning evidence)
+Record the planning process evidence, including tool outputs and validation results.
 
 ## Step 4: Present and Iterate
 
@@ -191,8 +235,8 @@ Rules:
    - `production=ready` only when QA/simulation/final_test gates pass.
 
 Persist this contract into planning artifacts:
-- `.omg/state/_plan.md` (human-readable plan)
-- `.omg/state/_checklist.md` (atomic execution items)
+- `.omg/plans/deep-plan.md` (human-readable plan)
+- `.omg/plans/deep-plan.json` (machine-readable plan)
 - include structured task metadata in the plan output (`stage`, `title`, `detail`, `source`).
 
 ## Integration with DDD

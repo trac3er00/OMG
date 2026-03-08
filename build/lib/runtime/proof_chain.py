@@ -151,3 +151,78 @@ def validate_proof_chain(chain: dict[str, Any]) -> dict[str, Any]:
         "status": "ok" if not blockers else "error",
         "blockers": blockers,
     }
+
+
+def build_proof_gate_input(project_dir: str, *, evidence_path: str | None = None) -> dict[str, Any]:
+    output_root = Path(project_dir)
+    chain = assemble_proof_chain(project_dir, evidence_path=evidence_path)
+
+    eval_path = output_root / ".omg" / "evals" / "latest.json"
+    eval_output = _load_json(eval_path) if eval_path.exists() else {}
+
+    if evidence_path:
+        selected_path = str(evidence_path)
+        evidence_payload = _load_json(output_root / selected_path)
+    else:
+        selected_path, evidence_payload = _latest_evidence_pack(output_root)
+
+    security_evidence = _resolve_security_evidence(output_root=output_root, evidence_payload=evidence_payload)
+    browser_evidence = _resolve_browser_evidence(output_root=output_root, evidence_payload=evidence_payload)
+
+    return {
+        "claims": evidence_payload.get("claims", []),
+        "proof_chain": chain,
+        "eval_output": eval_output,
+        "security_evidence": security_evidence,
+        "browser_evidence": browser_evidence,
+        "evidence_path": selected_path,
+    }
+
+
+def _resolve_security_evidence(*, output_root: Path, evidence_payload: dict[str, Any]) -> dict[str, Any]:
+    scans = evidence_payload.get("security_scans", [])
+    if not isinstance(scans, list):
+        return {}
+    for item in scans:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path", "")).strip()
+        if not path:
+            continue
+        evidence_path = output_root / path
+        if evidence_path.exists():
+            payload = _load_json(evidence_path)
+            if isinstance(payload, dict):
+                return payload
+    return {}
+
+
+def _resolve_browser_evidence(*, output_root: Path, evidence_payload: dict[str, Any]) -> dict[str, Any]:
+    candidates: list[str] = []
+    browser_evidence = evidence_payload.get("browser_evidence")
+    if isinstance(browser_evidence, dict):
+        direct_path = str(browser_evidence.get("path", "")).strip()
+        if direct_path:
+            candidates.append(direct_path)
+        if browser_evidence.get("schema") == "BrowserEvidence":
+            return browser_evidence
+    browser_trace = evidence_payload.get("browser_trace")
+    if isinstance(browser_trace, dict):
+        path = str(browser_trace.get("evidence_path", "")).strip()
+        if path:
+            candidates.append(path)
+
+    candidates.extend(
+        [
+            ".omg/evidence/browser-evidence.json",
+            ".omg/evidence/browser-proof.json",
+        ]
+    )
+    for rel in candidates:
+        path = output_root / rel
+        if not path.exists():
+            continue
+        payload = _load_json(path)
+        if isinstance(payload, dict):
+            return payload
+    return {}
