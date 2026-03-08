@@ -214,7 +214,8 @@ class TestConfigureMcpIntegration:
         assert "gemini" in result["configured"]
         mock_codex.assert_not_called()
         mock_gemini.assert_not_called()
-        mock_gemini_stdio.assert_called_once()
+        written_server_names = [call.kwargs["server_name"] for call in mock_gemini_stdio.call_args_list]
+        assert written_server_names == ["filesystem", "omg-control"]
 
     def test_configure_mcp_persists_selected_mcp_preferences(self, tmp_path, monkeypatch, _patch_cli_writers):
         """Selected MCPs should be persisted in the saved preferences."""

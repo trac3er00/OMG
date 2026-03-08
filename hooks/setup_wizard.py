@@ -565,13 +565,30 @@ def configure_mcp(
             continue
 
         try:
-            if http_memory_allowed:
-                http_writer(server_url, server_name)
-            stdio_writer(
-                command=control_command,
-                args=resolved_control_args,
-                server_name=control_server_name,
-            )
+            for selected_server_name, payload in selected_servers.items():
+                if selected_server_name == "omg-memory":
+                    if not http_memory_allowed:
+                        continue
+                    http_writer(server_url, server_name)
+                    continue
+
+                if selected_server_name == OMG_CONTROL_SERVER_NAME:
+                    stdio_writer(
+                        command=control_command,
+                        args=resolved_control_args,
+                        server_name=control_server_name,
+                    )
+                    continue
+
+                if payload.get("type") == "http":
+                    http_writer(cast(str, payload["url"]), selected_server_name)
+                    continue
+
+                stdio_writer(
+                    command=cast(str, payload["command"]),
+                    args=[str(arg) for arg in cast(list[Any], payload.get("args", []))],
+                    server_name=selected_server_name,
+                )
             configured.append(cli_name)
         except Exception as exc:
             _logger.warning("Failed to write %s MCP config: %s", cli_name, exc)

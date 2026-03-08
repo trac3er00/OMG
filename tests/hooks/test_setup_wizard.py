@@ -637,7 +637,27 @@ class TestConfigureMcp:
                     detected_clis={"codex": {"detected": True}}
                 )
             mock_codex.assert_not_called()
-            mock_codex_stdio.assert_called_once()
+            written_server_names = [call.kwargs["server_name"] for call in mock_codex_stdio.call_args_list]
+            assert written_server_names == ["filesystem", "omg-control"]
+
+    def test_configure_mcp_propagates_selected_command_mcps_to_detected_hosts(self):
+        """Selected command-based MCPs should be written to detected host configs."""
+        from hooks import setup_wizard
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("hooks.setup_wizard.write_codex_mcp_config") as mock_codex_http, \
+                 patch("hooks.setup_wizard.write_codex_mcp_stdio_config") as mock_codex_stdio:
+                setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={"codex": {"detected": True}},
+                    preset="safe",
+                    selected_ids=["file-system", "context7", "grep"],
+                )
+
+        mock_codex_http.assert_not_called()
+        written_server_names = [call.kwargs["server_name"] for call in mock_codex_stdio.call_args_list]
+        assert written_server_names == ["context7", "filesystem", "grep-app"]
 
     def test_configure_mcp_skips_undetected_clis(self):
         """Undetected CLI should NOT have its config writer called."""
