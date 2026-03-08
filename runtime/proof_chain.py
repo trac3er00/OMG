@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Any
 
 
+_REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
+
+
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -24,6 +27,105 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         if isinstance(payload, dict):
             rows.append(payload)
     return rows
+
+
+def _hash_path(path: Path) -> str:
+    if not path.exists() or not path.is_file():
+        return ""
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(8192)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _normalize_evidence_pack(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("evidence_pack_invalid_payload")
+    schema_version = payload.get("schema_version")
+    if schema_version is None:
+        return payload
+    if schema_version != 2:
+        raise ValueError("evidence_pack_unsupported_schema_version")
+
+    artifacts = payload.get("artifacts", [])
+    if not isinstance(artifacts, list):
+        raise ValueError("evidence_pack_invalid_artifacts")
+
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, dict):
+            raise ValueError(f"evidence_pack_artifact_invalid_type:{index}")
+        for field in _REQUIRED_ARTIFACT_FIELDS:
+            value = str(artifact.get(field, "")).strip()
+            if not value:
+                raise ValueError(f"evidence_pack_artifact_missing_{field}:{index}")
+    return payload
+
+
+def _artifact_record(*, kind: str, path: str, parser: str, summary: str, trace_id: str, sha256: str = "") -> dict[str, str]:
+    return {
+        "kind": kind,
+        "path": path,
+        "sha256": sha256,
+        "parser": parser,
+        "summary": summary,
+        "trace_id": trace_id,
+    }
+
+
+def _build_chain_artifacts(
+    *,
+    output_root: Path,
+    selected_path: str,
+    evidence_payload: dict[str, Any],
+    trace_payload: dict[str, Any],
+    eval_payload: dict[str, Any],
+    lineage: dict[str, Any] | Any,
+    trace_id: str,
+) -> list[dict[str, str]]:
+    artifacts: list[dict[str, str]] = []
+    raw_artifacts = evidence_payload.get("artifacts", [])
+    if isinstance(raw_artifacts, list):
+        for item in raw_artifacts:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("path", "")).strip()
+            artifacts.append(
+                _artifact_record(
+                    kind=str(item.get("kind", "")).strip() or "artifact",
+                    path=path,
+                    sha256=str(item.get("sha256", "")).strip(),
+                    parser=str(item.get("parser", "")).strip() or "unknown",
+                    summary=str(item.get("summary", "")).strip() or "evidence artifact",
+                    trace_id=str(item.get("trace_id", "")).strip() or trace_id,
+                )
+            )
+
+    lineage_path = str((lineage or {}).get("path", "")).strip() if isinstance(lineage, dict) else ""
+    canonical_artifacts = [
+        ("trace", str(trace_payload.get("path", ".omg/tracebank/events.jsonl")).strip(), "jsonl", "tracebank event stream"),
+        ("eval", ".omg/evals/latest.json" if eval_payload else "", "json", "evaluation result"),
+        ("lineage", lineage_path, "json", "lineage manifest"),
+        ("evidence", selected_path, "json", "evidence pack"),
+    ]
+    for kind, path, parser, summary in canonical_artifacts:
+        if not path:
+            continue
+        file_path = output_root / path
+        artifacts.append(
+            _artifact_record(
+                kind=kind,
+                path=path,
+                sha256=_hash_path(file_path),
+                parser=parser,
+                summary=summary,
+                trace_id=trace_id,
+            )
+        )
+    return artifacts
 
 
 def _latest_evidence_pack(output_root: Path) -> tuple[str, dict[str, Any]]:
@@ -60,9 +162,10 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
 
     if evidence_path:
         selected_path = str(evidence_path)
-        evidence_payload = _load_json(output_root / selected_path)
+        evidence_payload = _normalize_evidence_pack(_load_json(output_root / selected_path))
     else:
         selected_path, evidence_payload = _latest_evidence_pack(output_root)
+        evidence_payload = _normalize_evidence_pack(evidence_payload)
 
     trace_id = ""
     trace_ids = evidence_payload.get("trace_ids", [])
@@ -79,6 +182,7 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
 
     chain = {
         "schema": "ProofChain",
+        "schema_version": 2,
         "trace_id": trace_id,
         "eval_id": eval_id,
         "eval_trace_id": str(eval_payload.get("trace_id", "")),
@@ -91,12 +195,15 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
         "environment": evidence_payload.get("environment") or trace_payload.get("environment") or eval_payload.get("environment") or {"hostname": "unknown", "platform": "unknown"},
         "ci_job_url": evidence_payload.get("ci_job_url") or "",
         "external_inputs": evidence_payload.get("external_inputs", []),
-        "artifacts": {
-            "trace": trace_payload.get("path", ".omg/tracebank/events.jsonl"),
-            "eval": ".omg/evals/latest.json" if eval_payload else "",
-            "lineage": str((lineage or {}).get("path", "")) if isinstance(lineage, dict) else "",
-            "evidence": selected_path,
-        },
+        "artifacts": _build_chain_artifacts(
+            output_root=output_root,
+            selected_path=selected_path,
+            evidence_payload=evidence_payload,
+            trace_payload=trace_payload,
+            eval_payload=eval_payload,
+            lineage=lineage,
+            trace_id=trace_id,
+        ),
     }
     validation = validate_proof_chain(chain)
     chain["status"] = validation["status"]
@@ -162,9 +269,10 @@ def build_proof_gate_input(project_dir: str, *, evidence_path: str | None = None
 
     if evidence_path:
         selected_path = str(evidence_path)
-        evidence_payload = _load_json(output_root / selected_path)
+        evidence_payload = _normalize_evidence_pack(_load_json(output_root / selected_path))
     else:
         selected_path, evidence_payload = _latest_evidence_pack(output_root)
+        evidence_payload = _normalize_evidence_pack(evidence_payload)
 
     security_evidence = _resolve_security_evidence(output_root=output_root, evidence_payload=evidence_payload)
     browser_evidence = _resolve_browser_evidence(output_root=output_root, evidence_payload=evidence_payload)

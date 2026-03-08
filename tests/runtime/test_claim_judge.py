@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from runtime.claim_judge import judge_claim
 
 
@@ -64,3 +66,52 @@ def test_claim_judge_blocks_on_security_scan_failure() -> None:
 
     assert result["verdict"] == "block"
     assert any(reason["code"] == "security_scan_failed" for reason in result["reasons"])
+
+
+def test_claim_judge_accepts_v2_claim_shape() -> None:
+    result = judge_claim(
+        {
+            "schema_version": 2,
+            "claim_type": "ready_to_ship",
+            "subject": "demo",
+            "evidence": {
+                "artifacts": [
+                    {
+                        "kind": "junit",
+                        "path": ".omg/evidence/junit.xml",
+                        "sha256": "abc123",
+                        "parser": "junit",
+                        "summary": "unit tests",
+                        "trace_id": "trace-1",
+                    }
+                ],
+                "trace_ids": ["trace-1"],
+            },
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert result["reasons"] == []
+
+
+def test_claim_judge_rejects_artifact_record_missing_sha256() -> None:
+    with pytest.raises(ValueError, match="claim_artifact_missing_sha256"):
+        judge_claim(
+            {
+                "schema_version": 2,
+                "claim_type": "ready_to_ship",
+                "subject": "demo",
+                "evidence": {
+                    "artifacts": [
+                        {
+                            "kind": "junit",
+                            "path": ".omg/evidence/junit.xml",
+                            "parser": "junit",
+                            "summary": "unit tests",
+                            "trace_id": "trace-1",
+                        }
+                    ],
+                    "trace_ids": ["trace-1"],
+                },
+            }
+        )

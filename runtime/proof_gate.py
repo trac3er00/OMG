@@ -3,12 +3,16 @@ from __future__ import annotations
 from typing import Any
 
 
+_REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
+
+
 def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
     claims = _as_claims(input.get("claims"))
     proof_chain = _as_dict(input.get("proof_chain"))
     eval_output = _as_dict(input.get("eval_output"))
     security_evidence = _as_dict(input.get("security_evidence"))
     browser_evidence = _as_dict(input.get("browser_evidence"))
+    evidence_pack = _as_dict(input.get("evidence_pack"))
 
     blockers: list[str] = []
     if not claims:
@@ -27,6 +31,7 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
     blockers.extend(_validate_claim_artifacts(claims))
     blockers.extend(_validate_trace_linkage(claims=claims, trace_id=trace_id, eval_output=eval_output, browser_evidence=browser_evidence))
     blockers.extend(_validate_security_and_browser_artifacts(claims=claims, security_evidence=security_evidence, browser_evidence=browser_evidence))
+    blockers.extend(_validate_evidence_pack(evidence_pack))
 
     unique_blockers = list(dict.fromkeys(item for item in blockers if str(item).strip()))
     evidence_summary = {
@@ -160,4 +165,32 @@ def _validate_security_and_browser_artifacts(
         if trace_path and not any("trace" in artifact or "playwright" in artifact for artifact in all_artifacts):
             blockers.append("proof_gate_browser_trace_not_linked_by_claims")
 
+    return blockers
+
+
+def _validate_evidence_pack(payload: dict[str, Any]) -> list[str]:
+    if not payload:
+        return []
+    if str(payload.get("schema", "")).strip() != "EvidencePack":
+        return ["proof_gate_invalid_evidence_pack"]
+
+    schema_version = payload.get("schema_version")
+    if schema_version is None:
+        return []
+    if schema_version != 2:
+        return ["proof_gate_unsupported_evidence_schema_version"]
+
+    artifacts = payload.get("artifacts", [])
+    if not isinstance(artifacts, list):
+        return ["proof_gate_invalid_evidence_pack"]
+
+    blockers: list[str] = []
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            blockers.append("proof_gate_invalid_evidence_pack")
+            continue
+        for field in _REQUIRED_ARTIFACT_FIELDS:
+            value = str(artifact.get(field, "")).strip()
+            if not value:
+                blockers.append(f"proof_gate_evidence_artifact_missing_{field}")
     return blockers

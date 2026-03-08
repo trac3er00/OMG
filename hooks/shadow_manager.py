@@ -6,6 +6,7 @@ Maintains overlay-style shadow writes and evidence artifacts.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import platform
@@ -18,8 +19,15 @@ from typing import Any
 HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
-from _common import _resolve_project_dir
-from security_validators import ensure_path_within_dir, validate_opaque_identifier
+try:
+    from hooks._common import _resolve_project_dir
+    from hooks.security_validators import ensure_path_within_dir, validate_opaque_identifier
+except ImportError:
+    _common = importlib.import_module("_common")
+    security_validators = importlib.import_module("security_validators")
+    _resolve_project_dir = _common._resolve_project_dir
+    ensure_path_within_dir = security_validators.ensure_path_within_dir
+    validate_opaque_identifier = security_validators.validate_opaque_identifier
 
 
 def _project_dir() -> str:
@@ -189,6 +197,7 @@ def create_evidence_pack(
     lineage: dict[str, Any] | None = None,
     executor: dict[str, Any] | None = None,
     environment: dict[str, Any] | None = None,
+    artifacts: list[dict[str, Any]] | None = None,
 ) -> str:
     ensure_shadow_dirs(project_dir)
     run_id = _validated_run_id(run_id)
@@ -209,6 +218,7 @@ def create_evidence_pack(
     
     evidence = {
         "schema": "EvidencePack",
+        "schema_version": 2,
         "run_id": run_id,
         "created_at": _utc_now(),
         "tests": tests or [],
@@ -224,6 +234,7 @@ def create_evidence_pack(
         "lineage": lineage or {},
         "executor": executor,
         "environment": environment,
+        "artifacts": artifacts or [],
     }
     evidence_path = ensure_path_within_dir(
         _evidence_root(project_dir),

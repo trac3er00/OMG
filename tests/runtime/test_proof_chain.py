@@ -12,6 +12,11 @@ from runtime.eval_gate import evaluate_trace
 
 
 ROOT = Path(__file__).resolve().parents[2]
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+
+def _load_fixture(name: str) -> dict[str, object]:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path) -> None:
@@ -47,6 +52,7 @@ def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path)
     evidence_path = tmp_path / evidence_rel_path
     evidence = {
         "schema": "EvidencePack",
+        "schema_version": 2,
         "run_id": "run-proof-chain",
         "timestamp": "2026-03-07T00:00:00+00:00",
         "executor": {"user": "tester", "pid": 1234},
@@ -56,6 +62,16 @@ def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path)
         "lineage": lineage,
         "security_scans": [{"tool": "security-check", "path": security_path.relative_to(tmp_path).as_posix()}],
         "provenance": [{"source": "security-check"}],
+        "artifacts": [
+            {
+                "kind": "evidence",
+                "path": evidence_rel_path,
+                "sha256": "abc123",
+                "parser": "json",
+                "summary": "evidence pack",
+                "trace_id": trace["trace_id"],
+            }
+        ],
         "claims": [
             {
                 "claim_type": "release_ready",
@@ -76,10 +92,29 @@ def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path)
     validation = proof_chain.validate_proof_chain(chain)
 
     assert chain["trace_id"] == trace["trace_id"]
+    assert chain["schema_version"] == 2
     assert chain["evidence_path"] == evidence_rel_path
     assert chain["lineage"]["lineage_id"] == lineage["lineage_id"]
+    assert isinstance(chain["artifacts"], list)
+    assert all("kind" in artifact for artifact in chain["artifacts"])
     assert validation["status"] == "ok"
     assert chain["status"] == "ok"
+
+
+def test_assemble_proof_chain_normalizes_v1_payload_fixture(tmp_path: Path) -> None:
+    evidence_payload = _load_fixture("evidence_v1_sample.json")
+    evidence_rel_path = ".omg/evidence/evidence-v1.json"
+    evidence_path = tmp_path / evidence_rel_path
+    evidence_path.parent.mkdir(parents=True, exist_ok=True)
+    _ = evidence_path.write_text(json.dumps(evidence_payload, indent=2), encoding="utf-8")
+
+    proof_chain = importlib.import_module("runtime.proof_chain")
+    chain = proof_chain.assemble_proof_chain(str(tmp_path), evidence_path=evidence_rel_path)
+
+    assert chain["schema"] == "ProofChain"
+    assert chain["schema_version"] == 2
+    assert chain["evidence_path"] == evidence_rel_path
+    assert chain["status"] in {"ok", "error"}
 
 
 def test_build_proof_gate_input_includes_claims_and_linked_evidence(tmp_path: Path) -> None:
