@@ -32,7 +32,7 @@ from runtime.adoption import (
 CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
 SCHEMA_PATH = Path("registry") / "omg-capability.schema.json"
 BUNDLES_DIR = Path("registry") / "bundles"
-SUPPORTED_HOSTS = ("claude", "codex")
+SUPPORTED_HOSTS = ("claude", "codex", "gemini", "kimi")
 SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
@@ -171,7 +171,12 @@ def _validate_host_rule(
         )
 
 
-def _validate_policy_model(bundle_id: str, policy_model: Any) -> list[str]:
+def _validate_policy_model(
+    bundle_id: str,
+    policy_model: Any,
+    *,
+    bundle_hosts: Iterable[str] = (),
+) -> list[str]:
     errors: list[str] = []
     payload = _ensure_dict(bundle_id=bundle_id, path="policy_model", value=policy_model, errors=errors)
     if not payload:
@@ -290,6 +295,8 @@ def _validate_policy_model(bundle_id: str, policy_model: Any) -> list[str]:
         value=payload.get("host_rules", {}),
         errors=errors,
     )
+    declared_hosts = {str(host).strip() for host in bundle_hosts if str(host).strip()}
+
     _validate_host_rule(
         bundle_id=bundle_id,
         host_name="claude",
@@ -304,6 +311,15 @@ def _validate_policy_model(bundle_id: str, policy_model: Any) -> list[str]:
         required_fields=("compilation_targets", "skills", "agents_fragments", "rules", "automations"),
         errors=errors,
     )
+    for host_name in ("gemini", "kimi"):
+        if host_name in host_rules or host_name in declared_hosts:
+            _validate_host_rule(
+                bundle_id=bundle_id,
+                host_name=host_name,
+                host_rule=host_rules.get(host_name),
+                required_fields=("compilation_targets", "mcp", "skills", "automations"),
+                errors=errors,
+            )
     return errors
 
 
@@ -462,7 +478,7 @@ def validate_contract_registry(root_dir: str | Path | None = None) -> dict[str, 
             if bad_hosts:
                 errors.append(f"{bundle_id}: unsupported hosts {bad_hosts}")
         if "policy_model" in bundle:
-            errors.extend(_validate_policy_model(bundle_id, bundle.get("policy_model")))
+            errors.extend(_validate_policy_model(bundle_id, bundle.get("policy_model"), bundle_hosts=hosts))
 
     missing_bundles = [bundle_id for bundle_id in DEFAULT_REQUIRED_BUNDLES if bundle_id not in bundle_ids]
     for bundle_id in missing_bundles:

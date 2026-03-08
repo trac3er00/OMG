@@ -16,6 +16,13 @@ from runtime.tmux_session_manager import TmuxSessionManager
 
 _logger = logging.getLogger(__name__)
 
+HOST_RULES = {
+    "compilation_targets": [".kimi/mcp.json"],
+    "mcp": ["omg-control"],
+    "skills": ["omg/control-plane", "omg/mcp-fabric"],
+    "automations": ["contract-validate", "provider-routing"],
+}
+
 
 class KimiCodeProvider(CLIProvider):
     """CLIProvider implementation for the Kimi Code CLI (``kimi``)."""

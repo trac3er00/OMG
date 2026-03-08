@@ -233,6 +233,73 @@ def test_validate_contract_registry_rejects_malformed_host_rules(tmp_path: Path)
     )
 
 
+def test_validate_contract_registry_accepts_gemini_kimi_host_rules(tmp_path: Path) -> None:
+    fixture_root = tmp_path / "repo"
+    (fixture_root / "registry").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "OMG_COMPAT_CONTRACT.md", fixture_root / "OMG_COMPAT_CONTRACT.md")
+    shutil.copy2(ROOT / "registry" / "omg-capability.schema.json", fixture_root / "registry" / "omg-capability.schema.json")
+    shutil.copytree(ROOT / "registry" / "bundles", fixture_root / "registry" / "bundles")
+
+    control_plane_path = fixture_root / "registry" / "bundles" / "control-plane.yaml"
+    control_plane = yaml.safe_load(control_plane_path.read_text(encoding="utf-8"))
+    assert isinstance(control_plane, dict)
+    control_plane["hosts"] = ["claude", "codex", "gemini", "kimi"]
+    host_rules = control_plane["policy_model"]["host_rules"]
+    host_rules["gemini"] = {
+        "compilation_targets": [".gemini/settings.json"],
+        "mcp": ["omg-control"],
+        "skills": ["omg/control-plane"],
+        "automations": ["contract-validate"],
+    }
+    host_rules["kimi"] = {
+        "compilation_targets": [".kimi/mcp.json"],
+        "mcp": ["omg-control"],
+        "skills": ["omg/control-plane"],
+        "automations": ["contract-validate"],
+    }
+    dumped = yaml.safe_dump(control_plane, sort_keys=False)
+    assert isinstance(dumped, str)
+    control_plane_path.write_text(dumped, encoding="utf-8")
+
+    result = validate_contract_registry(fixture_root)
+
+    assert result["status"] == "ok"
+    assert not [error for error in result["errors"] if "gemini" in error or "kimi" in error]
+
+
+def test_validate_contract_registry_rejects_incomplete_gemini_host_rules(tmp_path: Path) -> None:
+    fixture_root = tmp_path / "repo"
+    (fixture_root / "registry").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "OMG_COMPAT_CONTRACT.md", fixture_root / "OMG_COMPAT_CONTRACT.md")
+    shutil.copy2(ROOT / "registry" / "omg-capability.schema.json", fixture_root / "registry" / "omg-capability.schema.json")
+    shutil.copytree(ROOT / "registry" / "bundles", fixture_root / "registry" / "bundles")
+
+    control_plane_path = fixture_root / "registry" / "bundles" / "control-plane.yaml"
+    control_plane = yaml.safe_load(control_plane_path.read_text(encoding="utf-8"))
+    assert isinstance(control_plane, dict)
+    control_plane["hosts"] = ["claude", "codex", "gemini"]
+    host_rules = control_plane["policy_model"]["host_rules"]
+    host_rules["gemini"] = {
+        "skills": ["omg/control-plane"],
+        "automations": ["contract-validate"],
+    }
+    dumped = yaml.safe_dump(control_plane, sort_keys=False)
+    assert isinstance(dumped, str)
+    control_plane_path.write_text(dumped, encoding="utf-8")
+
+    result = validate_contract_registry(fixture_root)
+
+    assert result["status"] == "error"
+    assert any(
+        error == "control-plane: malformed host_rules entry for gemini: missing 'compilation_targets'"
+        for error in result["errors"]
+    )
+    assert any(
+        error == "control-plane: malformed host_rules entry for gemini: missing 'mcp'"
+        for error in result["errors"]
+    )
+
+
 def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_path: Path) -> None:
     result = compile_contract_outputs(
         root_dir=ROOT,
