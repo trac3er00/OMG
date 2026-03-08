@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 2.1.1 - 2026-03-08
+
+- shipped strict TDD-or-die enforcement: locked-tests-first mutation lifecycle with hard gate via `OMG_TDD_GATE_STRICT`, stop-dispatcher lock enforcement, waiver evidence requirement, and release-blocking proof chain
+- delivered granular per-interaction undo/rollback: `restore_shadow_entry` in shadow manager, rollback manifest schema with compensating actions for reversible external side effects, and `omg undo` CLI wired end-to-end
+- added live session health monitoring and HUD freshness: `compute_session_health()` and `DefenseState.update()` called after real mutations and verifications, 5-minute HUD staleness threshold with `[STALE]` badge, and MCP `get_session_health` tool with `/session_health` control-plane route
+- persisted and enforced defense-council verdicts: `run_critics()` result no longer silently discarded, council findings flow into routing, tool-plan gate, claim judge, and release blocking; new `evidence_completeness` critic added
+- hardened Forge starter: strict domain/specialist validation, proof-backed starter evidence, labs-only release proof integration
+- added canonical run-scoped release coordinator (`runtime/release_run_coordinator.py`) as single authority for `run_id` lifecycle across verification, journaling, health, council, and rollback artifacts
+- expanded runtime state contracts for `session_health`, `council_verdicts`, `rollback_manifest`, and `release_run` as first-class versioned schemas
+- all new hard gates are feature-flagged permissive by default (`OMG_TDD_GATE_STRICT=1`, `OMG_RUN_COORDINATOR_STRICT=1`, `OMG_PROOF_CHAIN_STRICT=1`)
+
 ## 2.1.0 - 2026-03-08
 
 - promoted the execution-primitives and browser-surface wave into the v2.1.0 release train
