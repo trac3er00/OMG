@@ -21,7 +21,7 @@ OMG exposes a small native front door and keeps the rest of the surface availabl
 | `/OMG:security-check` | Canonical security pipeline |
 | `/OMG:api-twin` | Contract replay and fixture-based API simulation |
 | `/OMG:preflight` | Structured route selection and evidence planning |
-| `/OMG:browser` | Browser automation and verification powered by upstream `playwright-cli` |
+| `/OMG:browser` | Browser automation and verification powered by the upstream Playwright CLI |
 | `/OMG:compat` | Legacy compatibility routing |
 | `/OMG:health-check` | Verify setup and tool integration |
 | `/OMG:mode` | Set cognitive mode for the session |

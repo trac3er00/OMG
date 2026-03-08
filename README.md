@@ -15,7 +15,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 ## Why OMG
 
 - Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
-- Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias.
+- Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
 - Multi-host support: Claude Code and Codex (canonical), Gemini CLI and Kimi CLI (compatibility providers).
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.

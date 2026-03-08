@@ -58,10 +58,12 @@ def test_readme_promotes_narrowed_mcp_and_truth_bundles():
 def test_readme_and_plugin_docs_promote_browser_command():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     plugins_readme = (ROOT / "plugins" / "README.md").read_text(encoding="utf-8")
+    proof = (ROOT / "docs" / "proof.md").read_text(encoding="utf-8")
 
     assert "/OMG:browser" in readme
     assert "/OMG:playwright" in readme
     assert "/OMG:browser" in plugins_readme
+    assert "/OMG:browser" in proof
 
 
 def test_deep_plan_is_compatibility_path_to_plan_council():
