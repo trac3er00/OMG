@@ -209,6 +209,14 @@ def cmd_secure(args: argparse.Namespace) -> int:
     return 0 if decision.action != "deny" else 3
 
 
+def cmd_undo(args: argparse.Namespace) -> int:
+    from runtime.interaction_journal import InteractionJournal
+
+    result = InteractionJournal(".").undo(args.step_id)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
 def cmd_security_check(args: argparse.Namespace) -> int:
     waivers = json.loads(args.waivers_json) if args.waivers_json else None
     result = run_security_check(
@@ -706,6 +714,10 @@ def build_parser() -> argparse.ArgumentParser:
     fix.add_argument("--issue", required=True)
     fix.add_argument("--runtime", default="claude", choices=["claude", "gpt", "local"])
     fix.set_defaults(func=cmd_fix)
+
+    undo = sub.add_parser("undo", help="Undo last interaction step")
+    undo.add_argument("--step-id", default="", help="Journal step ID to undo (latest if omitted)")
+    undo.set_defaults(func=cmd_undo)
 
     secure = sub.add_parser("secure", help="Evaluate command risk")
     secure.add_argument("--command", required=True)
