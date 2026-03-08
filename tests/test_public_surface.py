@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -51,6 +52,42 @@ def test_readme_promotes_narrowed_mcp_and_truth_bundles():
     assert "proof-gate" in readme
     assert "plan-council" in readme
     assert "/OMG:deep-plan" in readme
+
+
+def test_deep_plan_is_compatibility_path_to_plan_council():
+    """Assert the deep-plan/plan-council compatibility relationship end-to-end."""
+    # 1. plugin.json maps deep-plan to commands/OMG:deep-plan.md
+    manifest = json.loads(
+        (ROOT / "plugins" / "advanced" / "plugin.json").read_text(encoding="utf-8")
+    )
+    assert manifest["commands"]["deep-plan"]["path"] == "commands/OMG:deep-plan.md"
+
+    # 2. The command file itself mentions deep-plan and declares compatibility
+    cmd_text = (ROOT / "plugins" / "advanced" / "commands" / "OMG:deep-plan.md").read_text(
+        encoding="utf-8"
+    )
+    assert "deep-plan" in cmd_text.lower()
+    assert "compatibility" in cmd_text.lower()
+    assert "plan-council" in cmd_text
+
+    # 3. plan-council bundle references the plugin-relative command path
+    bundle = yaml.safe_load(
+        (ROOT / "registry" / "bundles" / "plan-council.yaml").read_text(encoding="utf-8")
+    )
+    refs = bundle["assets"]["references"]
+    assert any(
+        "plugins/advanced/commands/OMG:deep-plan.md" in str(r) for r in refs
+    ), f"plan-council bundle references do not include plugin-relative deep-plan path: {refs}"
+
+    # 4. README.md advertises /OMG:deep-plan as compatibility path to plan-council
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "/OMG:deep-plan" in readme
+    assert "compatibility path to `plan-council`" in readme
+
+    # 5. plugins/README.md uses the same framing
+    plugins_readme = (ROOT / "plugins" / "README.md").read_text(encoding="utf-8")
+    assert "/OMG:deep-plan" in plugins_readme
+    assert "compatibility path to `plan-council`" in plugins_readme
 
 
 def test_proof_docs_include_truth_bundle_artifacts():

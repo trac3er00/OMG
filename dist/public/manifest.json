@@ -1,11 +1,11 @@
 {
   "schema": "OmgCompiledArtifactManifest",
   "channel": "public",
-  "contract_version": "2.0.7",
+  "contract_version": "2.0.8",
   "artifacts": [
     {
       "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
-      "sha256": "201c33bffbb33eaba07157c2c0aff7e27c657dd76c216934a1aebc0de1822548"
+      "sha256": "0c6b1b74a746cabe933321d27541836a5526acda02da1131616dcb09c56101bc"
     },
     {
       "path": "bundle/.agents/skills/omg/algorithms/SKILL.md",
@@ -24,12 +24,20 @@
       "sha256": "8b711205c230c16695702b1eeeb426d844aa76a87c55f220298cdaf105ceee1d"
     },
     {
+      "path": "bundle/.agents/skills/omg/claim-judge/SKILL.md",
+      "sha256": "cc65993357813c41fb81502de8781743e84e529088da19dbf8735e0a22f8519c"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/claim-judge/openai.yaml",
+      "sha256": "b64dc801159a6e9adcd704326122f64c1bad7f71d87f22ada47918f7527151cc"
+    },
+    {
       "path": "bundle/.agents/skills/omg/codex-mcp.toml",
       "sha256": "a56de208a369a2b318d2e66e150eef4cba1fac1ecf32bda6db1a1e4b65db7311"
     },
     {
       "path": "bundle/.agents/skills/omg/codex-rules.md",
-      "sha256": "87663481b2d884ca680e4bd361fe3a39a423db1c137397c09e50f71e9248dbad"
+      "sha256": "939b128a1904e0d8b2b21208a308b558bcd51bd6c0de32e60e59d6744821e9d0"
     },
     {
       "path": "bundle/.agents/skills/omg/control-plane/SKILL.md",
@@ -104,12 +112,28 @@
       "sha256": "18dc35b4d6fb598b572ec933153e80de5449be9e07ef07178e4f875e39a8915c"
     },
     {
+      "path": "bundle/.agents/skills/omg/plan-council/SKILL.md",
+      "sha256": "0c7e92cebcfbb22a4f267008b97947ae80f880906a5593e0bdc1baa60bb6c054"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/plan-council/openai.yaml",
+      "sha256": "fee8d5ce4acc9cc03f5de73701bf0cfd866de7acaa1ff4c3cb518a47c1399a26"
+    },
+    {
       "path": "bundle/.agents/skills/omg/preflight/SKILL.md",
       "sha256": "1f7783ff53f59a4368f1ec7746faa3f1a66805312291851f43ae2fe6a7d58f30"
     },
     {
       "path": "bundle/.agents/skills/omg/preflight/openai.yaml",
       "sha256": "1074dff95ae9f6951cdd9bb3d6b5c4add7d6a688b0ceed3d79d365dff42bfca6"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/proof-gate/SKILL.md",
+      "sha256": "9f6c58e6c8c8c967cfa276e7efe06d1cce8d964ffd0ce8e131794496614ec759"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/proof-gate/openai.yaml",
+      "sha256": "5e9cac6f19099fc3ed6492551484570cabcba8b479cdee254721c05be296780d"
     },
     {
       "path": "bundle/.agents/skills/omg/remote-supervisor/SKILL.md",
@@ -144,6 +168,14 @@
       "sha256": "cf06bd8b852ad6c4694d8aeadd05ae4c9b63d32fa5cee085152683c65a3343e5"
     },
     {
+      "path": "bundle/.agents/skills/omg/test-intent-lock/SKILL.md",
+      "sha256": "ec04b427841b40bc390db1403d52933c24c26b7d3cabb762e39ccc508f33127a"
+    },
+    {
+      "path": "bundle/.agents/skills/omg/test-intent-lock/openai.yaml",
+      "sha256": "57ee74b4a518afb6d524038fb461f20892f295c7bae74f223acfe51a8f645199"
+    },
+    {
       "path": "bundle/.agents/skills/omg/tracebank/SKILL.md",
       "sha256": "c4ba5cbe7acca1be333f376f27f800482c1080eb8e95b34744313f1d64a84fcd"
     },
@@ -161,19 +193,19 @@
     },
     {
       "path": "bundle/.claude-plugin/marketplace.json",
-      "sha256": "4690a0c1785fa1401ad430a270726476d93bc3262ae3ab0f195b15302b24f4ab"
+      "sha256": "06549b994609245c5f13d6053f9049acce862c7a949f8ec63ce057b13206c0c4"
     },
     {
       "path": "bundle/.claude-plugin/plugin.json",
-      "sha256": "64532d6060c986ec4fec62f038d27dc7c89ba088269b17390f727aae53d64294"
+      "sha256": "fe7531e0527d288413151433ee5daa3106383442024d5dad072373f8f26d57d1"
     },
     {
       "path": "bundle/.mcp.json",
-      "sha256": "d8249fdd26e0df0a9b7cabcb34256d7e33578e1d0e9878cc91d43452a10f7c24"
+      "sha256": "e16897732dbd20ba7f47e5c0513b146a8d847454c8c13aa9e0a6031e5a498fa4"
     },
     {
       "path": "bundle/OMG_COMPAT_CONTRACT.md",
-      "sha256": "108ba784d61707ef22a58ff0898d84cdb867e5c2dcf5195eccadf30a6304437c"
+      "sha256": "4c628cf93698b051e183db0ddaa80dbdac7a3667071d048cba0f25419271e28d"
     },
     {
       "path": "bundle/plugins/advanced/commands/OMG:code-review.md",
@@ -181,7 +213,7 @@
     },
     {
       "path": "bundle/plugins/advanced/commands/OMG:deep-plan.md",
-      "sha256": "ab0b327d541289c219ffac27c70bcb48affb7dba540b5299a420a8754a3ca458"
+      "sha256": "ccc235efa52643afd5550765bb0a3b9697be40bf4731392fde3f1c0e5c43f9e0"
     },
     {
       "path": "bundle/plugins/advanced/commands/OMG:handoff.md",
@@ -213,91 +245,107 @@
     },
     {
       "path": "bundle/plugins/advanced/commands/OMG:ship.md",
-      "sha256": "47979d0dfb2e8be6cfe4ac2f4f5ee2308b426c849eb51511c09bbd100ea2088f"
+      "sha256": "3a44016f71a4d73de04043f0c13a6655541c090498908b2bc858c29514a653d4"
     },
     {
       "path": "bundle/plugins/advanced/plugin.json",
-      "sha256": "37bed96f0d9113b5055c87f8e8291a7518e1b471d9fdabcd37ce9750e9f2546c"
+      "sha256": "4968387bae13eaf91792a0c845c28a5007eeefd04d09320b0d783d9563f1481b"
     },
     {
       "path": "bundle/registry/bundles/algorithms.yaml",
-      "sha256": "210dca6fd5499ecf33109e6b9d72a26311f353cb9bda3faca408a3693b895c2d"
+      "sha256": "d52c36a0c18535eab9f45b37b0e835b1296ee2dc0d84f2925c23eb8d76390377"
     },
     {
       "path": "bundle/registry/bundles/api-twin.yaml",
-      "sha256": "247931ceb9c23d957561b0abf62bf07670e226921032ede652974556fafc9704"
+      "sha256": "1785a09173a380855d8d671d2e8c53b48a0c10ed79dd2d5647cac93fd95ef072"
+    },
+    {
+      "path": "bundle/registry/bundles/claim-judge.yaml",
+      "sha256": "681d69599a20b8172716eaf4290e10821594c4db0a3943147d17628e997cafe9"
     },
     {
       "path": "bundle/registry/bundles/control-plane.yaml",
-      "sha256": "f76ddc2c53be8cc8448903351cdbd9a8690d2386523822c1f538a8f1f4120443"
+      "sha256": "8a1677d622d2f660b7d1109579f026bd078f97eb624669c618247451bd07f172"
     },
     {
       "path": "bundle/registry/bundles/data-lineage.yaml",
-      "sha256": "b73b8ee4ab22b3aebf2e065108cac691d6ef028252f426050997b0fd707ed417"
+      "sha256": "5811a8cf765c73dac6990bebc5a4eaadf5e4be5b9418846efdb6289903b3c5e0"
     },
     {
       "path": "bundle/registry/bundles/delta-classifier.yaml",
-      "sha256": "554a14baae9c678da158cd7c6d5e012978f9c9cffbc755b006fd088790c61340"
+      "sha256": "ecf2e6fc8e07bc091d3d429c90b94b47ff0c96455467c82feae709bada388c29"
     },
     {
       "path": "bundle/registry/bundles/eval-gate.yaml",
-      "sha256": "c5071c2bb8f06b51173ea5fec8765c5f455af6805ee95745cde4fe626b8a4171"
+      "sha256": "3048cb1c18c3d7814c88689121e44bc54ce45e1478f33c395b247edc55727f76"
     },
     {
       "path": "bundle/registry/bundles/health.yaml",
-      "sha256": "b5764493f3bf3099bf4178cdee1e23bdb5122aa98590352c93a870c386e7aeb8"
+      "sha256": "7d52b0d460e4b72a37557b787ab328e5f6be03c313f2c3c58c2882b6c55168b4"
     },
     {
       "path": "bundle/registry/bundles/hook-governor.yaml",
-      "sha256": "50435af649637cc105813b3b0fc27fb4d8a9d54008385118ccf3bda15fbb7ee8"
+      "sha256": "5e5d6bc3f2f8a8fc5f7a461c46b1d4f9a76467098b057e5796cc70280c21bc0d"
     },
     {
       "path": "bundle/registry/bundles/incident-replay.yaml",
-      "sha256": "189980c25e986d6d30b67c8250e31dc687d55d293a41723833e04ee588bf422a"
+      "sha256": "af2480af08cbc2617f97561225f1b7dfa3f0d9897754c9e04dc9035655709772"
     },
     {
       "path": "bundle/registry/bundles/lsp-pack.yaml",
-      "sha256": "85539b633e5fb2c6058e5b2232abc5749d5aa26fe6827041efd3673e44ab44a9"
+      "sha256": "58963389f5c24eb88f3fef181ce8593733b856f8db75fad3f51c0006413a2381"
     },
     {
       "path": "bundle/registry/bundles/mcp-fabric.yaml",
-      "sha256": "560cbc610be709b177db60776adba502f4f6d14fd5935649f6b7ebfe49c78880"
+      "sha256": "d9d69f9a5b60c3eb2ffe59500696866f28deebb159aff9ccfc81468c4ba727c1"
+    },
+    {
+      "path": "bundle/registry/bundles/plan-council.yaml",
+      "sha256": "48ffc6d1549a4ce3d8a1a5fbb25fd37d7a6f7af0c1347315b7d2a66408627679"
     },
     {
       "path": "bundle/registry/bundles/preflight.yaml",
-      "sha256": "48cc963426dcfab2027e1cb6f189bbe4f363eb1e7d0545a2f0db766e907519f7"
+      "sha256": "716a47105e52bfae5fa69e520c2b3f0fb1cde63872837e817cd364e97b9bac11"
+    },
+    {
+      "path": "bundle/registry/bundles/proof-gate.yaml",
+      "sha256": "f0cd5d3916405e30b84069cda4348a9ba8dd073c22b259c6619cf55ebe07cde9"
     },
     {
       "path": "bundle/registry/bundles/remote-supervisor.yaml",
-      "sha256": "c1df55fadf42cc9598575b5cfcf74b6bfc0767e817c9c59990259b515c774007"
+      "sha256": "21ca5c27c01ec958aa17df08cf567b72d254a7ece628b6ef51452ef41541f8f8"
     },
     {
       "path": "bundle/registry/bundles/robotics.yaml",
-      "sha256": "87333553aebe6e89196665dc24ccdd0c71c68044c252d2f9f84b1047dbd66063"
+      "sha256": "c169d765137b80347c0d18c4bb4b462ed1797a7e13eb9c86bec2d4c4f5b8a28c"
     },
     {
       "path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
-      "sha256": "e7fdae261d9671be6ae32448cc2d20636eefd8bbbcee7379b98d911d2483c37d"
+      "sha256": "31c80af3b2cf589c338c8690880e330dcd9481b3a15ecb3f964aa2c6212df7aa"
     },
     {
       "path": "bundle/registry/bundles/security-check.yaml",
-      "sha256": "bb19a53192a7c8b476585b30724c0c114d0b62786b1f8e2147d9367ac5c344f9"
+      "sha256": "b2b4d4ec168acee3891cd0d6230909a2ba1544ea60a3df7b24957fd57405c711"
+    },
+    {
+      "path": "bundle/registry/bundles/test-intent-lock.yaml",
+      "sha256": "73f8eda6d0af194b334fa92c218c27b54d203db62ce7d9f2bf1ae6f9441535a2"
     },
     {
       "path": "bundle/registry/bundles/tracebank.yaml",
-      "sha256": "a6b1378a290a659f6eadbf9bb63e639539f7ca01d226af418a0504f69d7406cb"
+      "sha256": "1143e896f40d59f1732a0ce3260a620abec202b61c9e335ae6a2e1e58eda5893"
     },
     {
       "path": "bundle/registry/bundles/vision.yaml",
-      "sha256": "607c4c8582f79392adcf09e5a8f8f1eaf2550603749b162e70f8b7dc4eccb3de"
+      "sha256": "1d9903c943ad6c1ca4796125e97da1839b6f6c0bd3242919036df65dec5ae495"
     },
     {
       "path": "bundle/registry/omg-capability.schema.json",
-      "sha256": "2df3a4e2f2fc4c0a0e6c150669f463cc7f07e673a0759c15df4e8dd80572ae5b"
+      "sha256": "486751cecb434c5f169189528ebe5c7ddddadcb0549abdd59f09e7b10844aba1"
     },
     {
       "path": "bundle/settings.json",
-      "sha256": "425e95844b5eecf4344838d03289c3b71d78c23df539ec68b8d35e80bafba75f"
+      "sha256": "b9bb5303b8d0495cd9ef9933e5fef44b083587e745c7065be2007e197fde8f4b"
     }
   ]
 }

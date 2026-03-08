@@ -31,6 +31,12 @@ Every production action must emit evidence containing these fields:
 - `omg/control-plane`
 - `omg/mcp-fabric`
 
+## Protected Planning Surface
+
+Council planning skills are protected and explicit-invocation only:
+
+- `omg/plan-council`
+
 ## Web Search Policy
 
 - Prefer cached results over live network requests.
@@ -49,4 +55,4 @@ Every production action must emit evidence containing these fields:
 
 - Rules: `protected_paths, explicit_invocation`
 - Automations: `contract-compile, release-readiness`
-- Require explicit invocation for production-control-plane skills.
+- Require explicit invocation for protected production planning skills.

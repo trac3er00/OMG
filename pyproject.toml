@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oh-my-god"
-version = "2.0.7"
+version = "2.0.8"
 description = "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -79,6 +79,10 @@ runtime = ["*.json"]
 ".agents/skills/omg/incident-replay" = [".agents/skills/omg/incident-replay/SKILL.md", ".agents/skills/omg/incident-replay/openai.yaml"]
 ".agents/skills/omg/data-lineage" = [".agents/skills/omg/data-lineage/SKILL.md", ".agents/skills/omg/data-lineage/openai.yaml"]
 ".agents/skills/omg/remote-supervisor" = [".agents/skills/omg/remote-supervisor/SKILL.md", ".agents/skills/omg/remote-supervisor/openai.yaml"]
+".agents/skills/omg/plan-council" = [".agents/skills/omg/plan-council/SKILL.md", ".agents/skills/omg/plan-council/openai.yaml"]
+".agents/skills/omg/claim-judge" = [".agents/skills/omg/claim-judge/SKILL.md", ".agents/skills/omg/claim-judge/openai.yaml"]
+".agents/skills/omg/test-intent-lock" = [".agents/skills/omg/test-intent-lock/SKILL.md", ".agents/skills/omg/test-intent-lock/openai.yaml"]
+".agents/skills/omg/proof-gate" = [".agents/skills/omg/proof-gate/SKILL.md", ".agents/skills/omg/proof-gate/openai.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

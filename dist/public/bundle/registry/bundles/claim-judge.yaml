@@ -1,0 +1,49 @@
+id: claim-judge
+kind: proof
+version: 2.0.8
+title: OMG Claim Judge
+description: Evidence-backed claim validator for structured release and completion claims.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/claim_judge.py
+invocation_policy:
+  user_invocable: true
+  model_invocable: true
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: low
+  allowed_tools:
+    claude:
+      - Read
+      - Grep
+      - Bash(python3:*)
+    codex:
+      - Read
+      - Grep
+      - Bash(python3:*)
+lifecycle_hooks:
+  native:
+    - PostToolUse
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - python
+evidence_outputs:
+  artifacts:
+    - .omg/evidence/claim-judge-*.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+channel_overrides:
+  public:
+    posture: self-serve
+  enterprise:
+    posture: managed

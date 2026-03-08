@@ -9,6 +9,7 @@ import yaml
 from runtime.adoption import CANONICAL_VERSION
 from runtime import contract_compiler as contract_compiler_module
 from runtime.contract_compiler import (
+    DEFAULT_REQUIRED_BUNDLES,
     REQUIRED_ADVANCED_PLUGIN_ARTIFACTS,
     REQUIRED_CLAUDE_HOOK_EVENTS,
     REQUIRED_CLAUDE_SUBAGENT_NAMES,
@@ -20,6 +21,9 @@ from runtime.contract_compiler import (
     _validate_compiled_claude_output,
     _validate_compiled_codex_output,
 )
+
+# The four truth/council bundles that must always be present in canonical surfaces.
+TRUTH_COUNCIL_BUNDLES = ("plan-council", "claim-judge", "test-intent-lock", "proof-gate")
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -917,3 +921,197 @@ def test_release_readiness_blocks_missing_proof_gate_claims(tmp_path: Path, monk
     assert readiness["status"] == "error"
     assert readiness["checks"]["proof_chain"]["proof_gate"]["verdict"] == "fail"
     assert any("proof_gate_blocked" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_dual_bundle_promotion_parity_happy_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "validate_contract_registry",
+        lambda _root=None: {
+            "schema": "OmgContractValidationResult",
+            "status": "ok",
+            "errors": [],
+            "contract": {},
+            "bundles": [],
+        },
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_version_identity_drift",
+        lambda _root: {
+            "status": "ok",
+            "canonical_version": "",
+            "blockers": [],
+            "drift_details": {},
+        },
+    )
+    _patch_fast_release_checks(monkeypatch)
+
+    public_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    enterprise_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="enterprise",
+    )
+    assert public_result["status"] == "ok"
+    assert enterprise_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="dual")
+
+    assert readiness["status"] == "ok"
+    assert readiness["checks"]["bundle_promotion_parity"]["status"] == "ok"
+    assert "bundle_promotion_parity" not in readiness["blockers"]
+
+
+def test_release_readiness_dual_bundle_promotion_parity_blocks_missing_dist_bundle(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "validate_contract_registry",
+        lambda _root=None: {
+            "schema": "OmgContractValidationResult",
+            "status": "ok",
+            "errors": [],
+            "contract": {},
+            "bundles": [],
+        },
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_version_identity_drift",
+        lambda _root: {
+            "status": "ok",
+            "canonical_version": "",
+            "blockers": [],
+            "drift_details": {},
+        },
+    )
+    _patch_fast_release_checks(monkeypatch)
+
+    public_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    enterprise_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="enterprise",
+    )
+    assert public_result["status"] == "ok"
+    assert enterprise_result["status"] == "ok"
+
+    missing_skill = (
+        tmp_path
+        / "dist"
+        / "public"
+        / "bundle"
+        / ".agents"
+        / "skills"
+        / "omg"
+        / "proof-gate"
+        / "SKILL.md"
+    )
+    missing_skill.unlink()
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="dual")
+
+    assert readiness["status"] == "error"
+    assert "bundle_promotion_parity" in readiness["blockers"]
+    assert str(missing_skill.relative_to(tmp_path)) in readiness["checks"]["bundle_promotion_parity"]["missing_dist_public"]
+
+
+def test_default_required_bundles_includes_all_truth_council_bundles() -> None:
+    for bundle_id in TRUTH_COUNCIL_BUNDLES:
+        assert bundle_id in DEFAULT_REQUIRED_BUNDLES, (
+            f"Truth/council bundle '{bundle_id}' missing from DEFAULT_REQUIRED_BUNDLES"
+        )
+
+
+def test_compiled_settings_includes_truth_council_required_bundles(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    settings = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
+    required_bundles = settings["_omg"]["generated"]["required_bundles"]
+    for bundle_id in TRUTH_COUNCIL_BUNDLES:
+        assert bundle_id in required_bundles, (
+            f"Truth/council bundle '{bundle_id}' missing from compiled settings.json required_bundles"
+        )
+
+
+def test_compiled_manifest_includes_truth_council_bundle_skills(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert result["status"] == "ok"
+
+    manifest = json.loads(
+        (tmp_path / "dist" / "public" / "manifest.json").read_text(encoding="utf-8")
+    )
+    manifest_paths = {a["path"] for a in manifest["artifacts"]}
+    for bundle_id in TRUTH_COUNCIL_BUNDLES:
+        expected_path = f"bundle/.agents/skills/omg/{bundle_id}/SKILL.md"
+        assert expected_path in manifest_paths, (
+            f"Manifest missing SKILL.md artifact for truth/council bundle '{bundle_id}'"
+        )
+
+
+def test_protected_planning_surface_renders_council_bundles(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    agents_content = (
+        tmp_path / ".agents" / "skills" / "omg" / "AGENTS.fragment.md"
+    ).read_text(encoding="utf-8")
+    assert "## Protected Planning Surface" in agents_content
+    assert "omg/plan-council" in agents_content
+
+
+def test_removing_truth_council_bundle_from_constant_fails_parity(
+    tmp_path: Path, monkeypatch
+) -> None:
+    import pytest
+
+    stripped = tuple(b for b in DEFAULT_REQUIRED_BUNDLES if b != "claim-judge")
+    monkeypatch.setattr(contract_compiler_module, "DEFAULT_REQUIRED_BUNDLES", stripped)
+
+    with pytest.raises(AssertionError, match="claim-judge"):
+        for bundle_id in TRUTH_COUNCIL_BUNDLES:
+            assert bundle_id in contract_compiler_module.DEFAULT_REQUIRED_BUNDLES, (
+                f"Truth/council bundle '{bundle_id}' missing from DEFAULT_REQUIRED_BUNDLES"
+            )
