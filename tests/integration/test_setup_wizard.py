@@ -216,6 +216,21 @@ class TestConfigureMcpIntegration:
         mock_gemini.assert_not_called()
         mock_gemini_stdio.assert_called_once()
 
+    def test_configure_mcp_persists_selected_mcp_preferences(self, tmp_path, monkeypatch, _patch_cli_writers):
+        """Selected MCPs should be persisted in the saved preferences."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem", "context7", "grep_app", "websearch"],
+            )
+
+        data = yaml.safe_load((tmp_path / ".omg" / "state" / "cli-config.yaml").read_text())
+        assert result["preferences"]["config"]["selected_mcps"] == ["filesystem", "context7", "grep-app", "websearch"]
+        assert data["selected_mcps"] == ["filesystem", "context7", "grep-app", "websearch"]
+
 
 # ---------------------------------------------------------------------------
 # 4. Preferences writing integration
@@ -266,8 +281,10 @@ class TestWizardDisabledByDefault:
     def test_wizard_disabled_by_default(self, monkeypatch):
         """Wizard returns disabled status when feature flag is off."""
         monkeypatch.delenv("OMG_SETUP_ENABLED", raising=False)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", "/tmp/omg-disabled-feature-test")
+        _common._FEATURE_CACHE.clear()
 
-        result = setup_wizard.run_setup_wizard(project_dir="/tmp")
+        result = setup_wizard.run_setup_wizard(project_dir="/tmp/omg-disabled-feature-test")
 
         assert result["status"] == "disabled"
         assert "OMG_SETUP_ENABLED" in result["message"]

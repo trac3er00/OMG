@@ -193,6 +193,13 @@ MCP_CATALOG: list[dict[str, Any]] = [
     },
 ]
 
+_MCP_ID_ALIASES: dict[str, str] = {
+    "file-system": "filesystem",
+    "file_system": "filesystem",
+    "grep": "grep-app",
+    "grep_app": "grep-app",
+}
+
 
 def get_mcp_catalog() -> list[dict[str, Any]]:
     """Return the MCP catalog.
@@ -223,6 +230,30 @@ def get_default_mcps_for_preset(preset: str) -> list[str]:
     ]
 
 
+def _normalize_mcp_ids(selected_ids: list[str]) -> list[str]:
+    valid_ids = {cast(str, m["id"]) for m in MCP_CATALOG}
+    normalized_ids: list[str] = []
+    seen: set[str] = set()
+    unknown_ids: list[str] = []
+
+    for raw_id in selected_ids:
+        normalized = _MCP_ID_ALIASES.get(raw_id, raw_id)
+        if normalized not in valid_ids:
+            unknown_ids.append(raw_id)
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        normalized_ids.append(normalized)
+
+    if unknown_ids:
+        raise ValueError(
+            "Unsupported MCP server IDs: " + ", ".join(unknown_ids)
+        )
+
+    return normalized_ids
+
+
 def build_mcp_config(selected_ids: list[str]) -> dict[str, Any]:
     """Build .mcp.json configuration from selected MCP server IDs.
 
@@ -232,10 +263,11 @@ def build_mcp_config(selected_ids: list[str]) -> dict[str, Any]:
     Returns:
         Dict with 'mcpServers' key containing the MCP server configurations.
     """
+    normalized_ids = _normalize_mcp_ids(selected_ids)
     mcp_servers: dict[str, Any] = {}
 
     for mcp in MCP_CATALOG:
-        if mcp["id"] not in selected_ids:
+        if mcp["id"] not in normalized_ids:
             continue
 
         mcp_id = mcp["id"]
@@ -288,6 +320,8 @@ def select_mcps(selected_ids: list[str] | None = None, preset: str = "safe") -> 
     """
     if selected_ids is None:
         selected_ids = get_default_mcps_for_preset(preset)
+    else:
+        selected_ids = _normalize_mcp_ids(selected_ids)
     return build_mcp_config(selected_ids)
 
 
@@ -438,6 +472,7 @@ def configure_mcp(
     control_args: list[str] | None = None,
     control_server_name: str = OMG_CONTROL_SERVER_NAME,
     preset: str = "safe",
+    selected_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Configure OMG MCP servers for authenticated CLIs.
 
@@ -468,16 +503,52 @@ def configure_mcp(
     errors: dict[str, str] = {}
     resolved_control_args = list(control_args or OMG_CONTROL_ARGS)
     http_memory_allowed = _PRESET_LEVEL.get(preset, 0) >= _HTTP_MEMORY_MIN_LEVEL
+    selected_config = select_mcps(selected_ids=selected_ids, preset=preset)
+    selected_servers = cast(
+        dict[str, dict[str, Any]],
+        selected_config.get("mcpServers", {}),
+    )
 
     try:
-        if http_memory_allowed:
-            write_claude_mcp_config(project_dir, server_url, server_name)
-        write_claude_mcp_stdio_config(
-            project_dir,
-            command=control_command,
-            args=resolved_control_args,
-            server_name=control_server_name,
-        )
+        config_path = os.path.join(project_dir, ".mcp.json")
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                claude_config = json.load(f)
+            if not isinstance(claude_config, dict):
+                claude_config = {}
+        else:
+            claude_config = {}
+
+        existing_servers = claude_config.get("mcpServers")
+        if not isinstance(existing_servers, dict):
+            existing_servers = {}
+
+        managed_server_ids = {cast(str, m["id"]) for m in MCP_CATALOG}
+        for managed_server_id in managed_server_ids:
+            existing_servers.pop(managed_server_id, None)
+        existing_servers.pop(server_name, None)
+        existing_servers.pop(control_server_name, None)
+
+        for selected_server_name, payload in selected_servers.items():
+            if selected_server_name == "omg-memory":
+                if not http_memory_allowed:
+                    continue
+                target_name = server_name
+                payload = {"type": "http", "url": server_url}
+            elif selected_server_name == OMG_CONTROL_SERVER_NAME:
+                target_name = control_server_name
+                payload = {
+                    "command": control_command,
+                    "args": resolved_control_args,
+                }
+            else:
+                target_name = selected_server_name
+            existing_servers[target_name] = payload
+
+        claude_config["mcpServers"] = existing_servers
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(claude_config, f, indent=2, ensure_ascii=True)
+            f.write("\n")
     except Exception as exc:
         _logger.warning("Failed to write Claude MCP config: %s", exc)
         errors["claude"] = str(exc)
@@ -546,6 +617,7 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         "preset": preset,
         "resolved_features": get_preset_features(preset),
         "cli_configs": default_cli_configs,
+        "selected_mcps": get_default_mcps_for_preset(preset),
     }
 
     # Merge custom preferences if provided
@@ -553,6 +625,11 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         cli_configs = preferences.get("cli_configs")
         if isinstance(cli_configs, dict):
             default_cli_configs.update(cast(dict[str, Any], cli_configs))
+        selected_mcps = preferences.get("selected_mcps")
+        if isinstance(selected_mcps, list):
+            default_config["selected_mcps"] = _normalize_mcp_ids(
+                [str(item) for item in selected_mcps]
+            )
 
     _write_project_settings_preset(project_dir, preset)
 
@@ -615,6 +692,7 @@ def run_setup_wizard(
     setup_mode: str | None = None,
     adopt: str = "auto",
     preset: str | None = None,
+    selected_mcps: list[str] | None = None,
 ) -> dict[str, Any]:
     """Run the OMG setup wizard.
 
@@ -646,8 +724,11 @@ def run_setup_wizard(
 
     clis = detect_clis()
     auth = check_auth()
-    mcp = configure_mcp(project_dir, clis, preset=selected_preset)
-    prefs = set_preferences(project_dir, {"preset": selected_preset})
+    mcp = configure_mcp(project_dir, clis, preset=selected_preset, selected_ids=selected_mcps)
+    prefs = set_preferences(
+        project_dir,
+        {"preset": selected_preset, "selected_mcps": selected_mcps},
+    )
     report_path = write_adoption_report(project_dir, adoption)
     adoption["report_path"] = report_path
 
