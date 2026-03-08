@@ -151,6 +151,35 @@ def _read_mcp_servers(path: Path) -> dict[str, object]:
     return cast(dict[str, object], payload.get("mcpServers") or {})
 
 
+def _read_hook_command_targets(settings_path: Path) -> set[str]:
+    settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+    hooks = cast(dict[str, object], settings.get("hooks") or {})
+    targets: set[str] = set()
+    for entries in hooks.values():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            nested_hooks = entry.get("hooks") or []
+            if not isinstance(nested_hooks, list):
+                continue
+            for hook in nested_hooks:
+                if not isinstance(hook, dict):
+                    continue
+                command = hook.get("command")
+                if not isinstance(command, str):
+                    continue
+                marker = '$HOME/.claude/hooks/'
+                if marker not in command:
+                    continue
+                suffix = command.split(marker, 1)[1]
+                filename = suffix.split('"', 1)[0]
+                if filename.endswith(".py"):
+                    targets.add(filename)
+    return targets
+
+
 def test_setup_script_exists_and_help_lists_subcommands():
     assert SETUP.exists()
     proc = _run_script(SETUP, ["--help"])
@@ -460,6 +489,25 @@ def test_setup_install_registers_session_start_hook(tmp_path: Path):
         if isinstance(hook, dict)
     ]
     assert 'python3 "$HOME/.claude/hooks/session-start.py"' in commands
+
+
+def test_setup_install_copies_all_registered_hook_command_targets(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=apply"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    settings_path = claude_dir / "settings.json"
+    targets = _read_hook_command_targets(settings_path)
+    assert targets
+
+    missing = sorted(name for name in targets if not (claude_dir / "hooks" / name).exists())
+    assert not missing, f"Installed settings.json references missing hook files: {missing}"
 
 
 def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: Path):
