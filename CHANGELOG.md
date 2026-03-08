@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 2.0.8 - 2026-03-07
+
+- restored plan-council, claim-judge, test-intent-lock, and proof-gate to all required surfaces
+- clarified Gemini and Kimi as compatibility providers vs canonical hosts
+- aligned /OMG:deep-plan as compatibility path to plan-council
+- added bundle promotion parity drift blockers to release gate
+
 ## 2.0.7 - 2026-03-07
 
 - canonicalized v2.0.7 release identity across all source, tests, and generated security artifact metadata

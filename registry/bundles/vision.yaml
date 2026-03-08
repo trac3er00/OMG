@@ -1,6 +1,6 @@
 id: vision
 kind: domain-pack
-version: 2.0.7
+version: 2.0.8
 title: OMG Vision Pack
 description: Vision-specific lineage, drift, and replay attachments.
 hosts:
