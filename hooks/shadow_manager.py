@@ -198,6 +198,10 @@ def create_evidence_pack(
     executor: dict[str, Any] | None = None,
     environment: dict[str, Any] | None = None,
     artifacts: list[dict[str, Any]] | None = None,
+    claims: list[dict[str, Any]] | None = None,
+    test_delta: dict[str, Any] | None = None,
+    browser_evidence_path: str | None = None,
+    repro_pack_path: str | None = None,
 ) -> str:
     ensure_shadow_dirs(project_dir)
     run_id = _validated_run_id(run_id)
@@ -236,6 +240,14 @@ def create_evidence_pack(
         "environment": environment,
         "artifacts": artifacts or [],
     }
+    if claims is not None:
+        evidence["claims"] = claims
+    if test_delta is not None:
+        evidence["test_delta"] = test_delta
+    if browser_evidence_path is not None:
+        evidence["browser_evidence_path"] = browser_evidence_path
+    if repro_pack_path is not None:
+        evidence["repro_pack_path"] = repro_pack_path
     evidence_path = ensure_path_within_dir(
         _evidence_root(project_dir),
         os.path.join(_evidence_root(project_dir), f"{run_id}.json"),

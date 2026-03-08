@@ -105,6 +105,10 @@ class ControlPlaneService:
             route_metadata=payload.get("route_metadata"),
             trace_ids=payload.get("trace_ids"),
             lineage=payload.get("lineage"),
+            claims=payload.get("claims"),
+            test_delta=payload.get("test_delta"),
+            browser_evidence_path=payload.get("browser_evidence_path"),
+            repro_pack_path=payload.get("repro_pack_path"),
         )
         return 202, {
             "status": "accepted",

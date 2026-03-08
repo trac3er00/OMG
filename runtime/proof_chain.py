@@ -336,6 +336,10 @@ def _resolve_browser_evidence(*, output_root: Path, evidence_payload: dict[str, 
         if path:
             candidates.append(path)
 
+    adapter_matches = sorted(output_root.glob(".omg/evidence/playwright-adapter-*.json"))
+    if adapter_matches:
+        candidates.append(adapter_matches[0].relative_to(output_root).as_posix())
+
     candidates.extend(
         [
             ".omg/evidence/browser-evidence.json",

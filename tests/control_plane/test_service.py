@@ -56,6 +56,10 @@ def test_evidence_ingest_writes_file(tmp_path: Path):
             "provenance": [],
             "trust_scores": {},
             "api_twin": {},
+            "claims": [{"claim_type": "release_ready", "trace_ids": ["trace-1"]}],
+            "test_delta": {"changed": ["runtime/proof_chain.py"]},
+            "browser_evidence_path": ".omg/evidence/playwright-adapter-run-1.json",
+            "repro_pack_path": ".omg/evidence/repro-pack-run-1.json",
         }
     )
     assert status == 202
@@ -66,6 +70,10 @@ def test_evidence_ingest_writes_file(tmp_path: Path):
     assert payload["provenance"] == []
     assert payload["trust_scores"] == {}
     assert payload["api_twin"] == {}
+    assert payload["claims"] == [{"claim_type": "release_ready", "trace_ids": ["trace-1"]}]
+    assert payload["test_delta"] == {"changed": ["runtime/proof_chain.py"]}
+    assert payload["browser_evidence_path"] == ".omg/evidence/playwright-adapter-run-1.json"
+    assert payload["repro_pack_path"] == ".omg/evidence/repro-pack-run-1.json"
 
 
 def test_evidence_ingest_rejects_invalid_run_id(tmp_path: Path):
