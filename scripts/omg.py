@@ -10,6 +10,7 @@ Implements practical command-line flows for:
 - omg trust review
 - omg runtime dispatch
 - omg lab train / omg lab eval
+- omg forge run
 """
 from __future__ import annotations
 
@@ -57,7 +58,7 @@ from runtime.compat import (
     list_compat_skills,
     run_doctor,
 )
-from runtime.adoption import CANONICAL_VERSION
+from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
 
@@ -407,6 +408,22 @@ def cmd_lab_eval(args: argparse.Namespace) -> int:
     out = publish_artifact(result)
     print(json.dumps(out, indent=2))
     return 0 if out.get("status") == "published" else 2
+
+
+def cmd_forge_run(args: argparse.Namespace) -> int:
+    preset = args.preset
+    if preset != "labs":
+        print(
+            json.dumps(
+                {"status": "error", "message": f"forge requires labs preset, got: {preset}"},
+                indent=2,
+            )
+        )
+        return 2
+    job = json.loads(args.job_json) if args.job_json else _load_json(args.job)
+    result = run_pipeline(job)
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") in {"ready", "failed_evaluation"} else 2
 
 
 def cmd_teams(args: argparse.Namespace) -> int:
@@ -817,6 +834,14 @@ def build_parser() -> argparse.ArgumentParser:
     lab_eval.add_argument("--result", default="", help="Path to result json")
     lab_eval.add_argument("--result-json", default="", help="Inline result json")
     lab_eval.set_defaults(func=cmd_lab_eval)
+
+    forge = sub.add_parser("forge", help="Labs-only domain-model prototyping and evaluation")
+    forge_sub = forge.add_subparsers(dest="forge_command", required=True)
+    forge_run = forge_sub.add_parser("run", help="Run a forge job through the lab pipeline")
+    forge_run.add_argument("--job", default="", help="Path to job json")
+    forge_run.add_argument("--job-json", default="", help="Inline job json")
+    forge_run.add_argument("--preset", default="labs", choices=list(VALID_PRESETS), help="Adoption preset (must be labs)")
+    forge_run.set_defaults(func=cmd_forge_run)
 
     teams = sub.add_parser("teams", help="Internal OMG team routing")
     teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "ccg"])
