@@ -42,3 +42,11 @@
 - Added `runtime/repro_pack.py` with `build_repro_pack(project_dir, run_id)` to assemble deterministic sibling manifests at `.omg/evidence/repro-pack-<run_id>.json`
 - ReproPack includes path+sha256 references for EvidencePack, trace stream filtered by `trace_ids`, eval output, lineage, security scans, browser traces, verification state, incident artifacts, and carries `unresolved_risks`
 - Added `tests/runtime/test_repro_pack.py` covering happy path assembly, missing run-id error contract, and stable-reference-only manifest behavior (no duplicated payload content)
+
+- Created `playwright_adapter.py` to summarize browser artifacts without requiring Playwright binaries, enabling optional browser evidence integration.
+
+## [2026-03-08] Task 6 - bounded verification loop policy
+- Added runtime/verification_loop.py as a pure policy-only helper with build_loop_policy, should_continue_loop, and summarize_next_step (no I/O, network, or tool execution).
+- Loop continuation rules are bounded and deterministic: stop on iteration >= max_iterations, stop on status == "ok", continue otherwise with within_budget.
+- Next-step summaries preserve provided blockers and evidence_links and always emit a non-empty actionable next_action string for read-only guidance.
+- Added tests/runtime/test_verification_loop.py coverage for policy shape, continuation budget/status edges, and non-empty next-step action behavior.
