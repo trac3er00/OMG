@@ -1,0 +1,83 @@
+# Task 17 - Full Roadmap Verification Evidence
+Date: 2026-03-08
+Branch: release/v2.0.8
+
+## CLI verification commands
+
+### 1) python3 scripts/omg.py contract validate
+- exit_code: 0
+- duration_sec: 0.17
+- stdout.status: ok
+- stdout.contract.version: 2.0.8
+- stdout.contract.bundle_count: 22
+
+### 2) python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public
+- exit_code: 0
+- duration_sec: 0.19
+- stdout.status: ok
+- stdout.channel: public
+- stdout.hosts: ["claude", "codex", "gemini", "kimi"]
+- stdout.manifest: dist/public/manifest.json
+
+### 3) python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel enterprise
+- exit_code: 0
+- duration_sec: 0.19
+- stdout.status: ok
+- stdout.channel: enterprise
+- stdout.hosts: ["claude", "codex", "gemini", "kimi"]
+- stdout.manifest: dist/enterprise/manifest.json
+
+### 4) python3 scripts/omg.py release readiness --channel dual
+- exit_code: 0
+- duration_sec: 2.99
+- stdout.status: ok
+- stdout.channel: dual
+- stdout.blockers: []
+- stdout.checks.bundle_promotion_parity.status: ok
+- stdout.checks.provider_host_parity.status: ok
+
+### 5) python3 scripts/check-omg-public-ready.py
+- exit_code: 0
+- duration_sec: 0.14
+- stdout.status: ok
+- stdout.message: public readiness check passed
+
+## Targeted pytest suites
+
+### 6) python3 -m pytest tests/runtime/test_proof_chain.py tests/runtime/test_claim_judge.py tests/runtime/test_proof_gate.py -q --tb=short
+- exit_code: 0
+- duration_sec: 3.03
+- output: 18 passed in 2.59s
+
+### 7) python3 -m pytest tests/runtime/test_contract_compiler.py tests/test_public_surface.py -q --tb=short
+- exit_code: 0
+- duration_sec: 7.23
+- output: 50 passed in 6.80s
+
+### 8) python3 -m pytest tests -q -k "dephealth or security_check or semgrep" --tb=short
+- exit_code: 0
+- duration_sec: 8.95
+- output: 41 passed, 2675 deselected in 8.27s
+
+### 9) python3 -m pytest tests -q -k "background_verification or omg_hud" --tb=short
+- exit_code: 0
+- duration_sec: 2.64
+- output: 23 passed, 2693 deselected in 2.22s
+
+### 10) python3 -m pytest tests -q -k "session_snapshot or session_branch or session_merge" --tb=short
+- exit_code: 0
+- duration_sec: 2.55
+- output: 131 passed, 2585 deselected in 1.68s
+
+### 11) python3 -m pytest tests -q -k "runtime_profile or setup_wizard or mode" --tb=short
+- exit_code: 0
+- duration_sec: 43.07
+- output: 159 passed, 2557 deselected in 42.33s
+
+### 12) python3 -m pytest tests -q -k "lab or forge or domain_pack or policies" --tb=short
+- exit_code: 0
+- duration_sec: 1.93
+- output: 51 passed, 2665 deselected in 1.47s
+
+## Result
+All required CLI verification commands and targeted suites completed successfully.
