@@ -227,6 +227,44 @@ class TestForgeBlockedOutsideLabs:
             os.unlink(job_path)
 
 
+class TestForgeProofBackedEvidence:
+    def test_forge_run_evidence_path_contains_proof_fields(self):
+        job = _valid_job()
+        job["domain"] = "vision"
+        job["specialists"] = ["data-curator", "training-architect", "simulator-engineer"]
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge", "run",
+                "--preset", "labs",
+                "--job-json", json.dumps(job),
+            ],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output.get("labs_only") is True
+        assert output.get("proof_backed") is True
+
+    def test_forge_vision_agent_evidence_contains_proof_fields(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge", "vision-agent",
+                "--preset", "labs",
+            ],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output.get("labs_only") is True
+        assert output.get("proof_backed") is True
+
+
 class TestForgeSpecialists:
     def test_forge_run_with_specialists_dispatches(self):
         job = {

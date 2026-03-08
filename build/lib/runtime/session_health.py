@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from runtime.runtime_contracts import write_run_state
+
 
 _SESSION_HEALTH_REL = Path(".omg") / "state" / "session_health"
 _DEFENSE_STATE_REL = Path(".omg") / "state" / "defense_state" / "current.json"
@@ -65,10 +67,19 @@ def compute_session_health(
         verification_status=verification_status,
     )
 
+    _ACTION_TO_STATUS = {
+        "continue": "ok",
+        "warn": "running",
+        "reflect": "running",
+        "block": "blocked",
+    }
+    status = _ACTION_TO_STATUS.get(recommended_action, "pending")
+
     result: dict[str, Any] = {
         "schema": "SessionHealth",
         "schema_version": "1.0.0",
         "run_id": run_id,
+        "status": status,
         "contamination_risk": round(contamination_risk, 4),
         "overthinking_score": round(overthinking_score, 4),
         "context_health": round(context_health, 4),
@@ -85,7 +96,7 @@ def compute_session_health(
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    _write_atomic(root / _SESSION_HEALTH_REL / f"{run_id}.json", result)
+    write_run_state(project_dir, "session_health", run_id, result)
     return result
 
 

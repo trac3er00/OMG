@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,8 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
     security_evidence = _as_dict(input.get("security_evidence"))
     browser_evidence = _as_dict(input.get("browser_evidence"))
     evidence_pack = _as_dict(input.get("evidence_pack"))
+    test_intent_lock = _as_dict(input.get("test_intent_lock"))
+    test_delta = _as_dict(input.get("test_delta"))
 
     blockers: list[str] = []
     if not claims:
@@ -37,7 +40,18 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
     blockers.extend(_validate_security_and_browser_artifacts(claims=claims, security_evidence=security_evidence, browser_evidence=browser_evidence))
     blockers.extend(_validate_evidence_pack(evidence_pack))
 
+    strict_mode = os.environ.get("OMG_PROOF_CHAIN_STRICT", "0").strip() == "1"
+    causal_chain_blockers = _validate_lock_delta_chain(
+        claims=claims,
+        test_intent_lock=test_intent_lock,
+        test_delta=test_delta,
+        evidence_pack=evidence_pack,
+    )
+    if strict_mode:
+        blockers.extend(causal_chain_blockers)
+
     unique_blockers = list(dict.fromkeys(item for item in blockers if str(item).strip()))
+    advisories = [] if strict_mode else causal_chain_blockers
     evidence_summary = {
         "claim_count": len(claims),
         "proof_chain_status": proof_status,
@@ -47,6 +61,9 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
         "eval_trace_id": str(eval_output.get("trace_id", "")).strip(),
         "has_security_evidence": bool(security_evidence),
         "has_browser_evidence": bool(browser_evidence),
+        "has_lock_evidence": _has_lock_evidence(claims, test_intent_lock, evidence_pack),
+        "has_waiver_artifact": _has_waiver_artifact(test_delta or _as_dict(evidence_pack.get("test_delta"))),
+        "advisories": advisories,
     }
     return {
         "schema": "ProofGateResult",
@@ -254,6 +271,68 @@ def _validate_artifact_hash(artifact: dict[str, Any]) -> str | None:
     if digest != sha256_value:
         return f"proof_gate_artifact_hash_mismatch_{kind}"
     return None
+
+
+def _has_lock_evidence(claims: list[dict[str, Any]], test_intent_lock: dict[str, Any], evidence_pack: dict[str, Any]) -> bool:
+    lock_status = str(test_intent_lock.get("status", "")).strip().lower()
+    if lock_status == "ok":
+        return True
+    if str(test_intent_lock.get("lock_id", "")).strip():
+        return True
+
+    test_delta = _as_dict(evidence_pack.get("test_delta"))
+    if str(test_delta.get("lock_id", "")).strip():
+        return True
+
+    for claim in claims:
+        if str(claim.get("lock_id", "")).strip():
+            return True
+        lock_verification = _as_dict(claim.get("lock_verification"))
+        if str(lock_verification.get("status", "")).strip().lower() == "ok":
+            return True
+    return False
+
+
+def _has_waiver_artifact(delta_summary: dict[str, Any]) -> bool:
+    waiver = delta_summary.get("waiver_artifact")
+    if isinstance(waiver, dict):
+        for field in ("artifact_path", "path", "id", "reason"):
+            if str(waiver.get(field, "")).strip():
+                return True
+    return bool(str(delta_summary.get("waiver_artifact_path", "")).strip())
+
+
+def _is_weakened_or_drift_delta(delta_summary: dict[str, Any]) -> bool:
+    flags = delta_summary.get("flags")
+    if not isinstance(flags, list):
+        return False
+    risk_flags = {
+        "weakened_assertions",
+        "tests_mismatch",
+        "selector_drift",
+        "removed_touched_area_coverage",
+        "integration_to_mock_downgrade",
+        "snapshot_only_refresh",
+    }
+    normalized_flags = {str(item).strip().lower() for item in flags if str(item).strip()}
+    return bool(normalized_flags & risk_flags)
+
+
+def _validate_lock_delta_chain(
+    *,
+    claims: list[dict[str, Any]],
+    test_intent_lock: dict[str, Any],
+    test_delta: dict[str, Any],
+    evidence_pack: dict[str, Any],
+) -> list[str]:
+    blockers: list[str] = []
+    if not _has_lock_evidence(claims, test_intent_lock, evidence_pack):
+        blockers.append("proof_gate_missing_lock_evidence")
+
+    delta_summary = test_delta if test_delta else _as_dict(evidence_pack.get("test_delta"))
+    if _is_weakened_or_drift_delta(delta_summary) and not _has_waiver_artifact(delta_summary):
+        blockers.append("proof_gate_missing_waiver_artifact")
+    return blockers
 
 
 _PARSERS: dict[str, Any] = {

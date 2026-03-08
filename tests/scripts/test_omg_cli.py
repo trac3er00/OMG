@@ -9,6 +9,7 @@ import sys
 import pytest
 
 from runtime.adoption import CANONICAL_VERSION
+from runtime.interaction_journal import InteractionJournal
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "omg.py"
@@ -27,6 +28,235 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
         env=merged_env,
         timeout=30,
     )
+
+
+def _seed_release_readiness_fixtures(tmp_path: Path, *, include_primitives: bool = True, omit: set[str] | None = None) -> None:
+    omitted = omit or set()
+
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / "doctor.json").write_text(
+        json.dumps(
+            {
+                "schema": "DoctorResult",
+                "status": "pass",
+                "checks": [
+                    {"name": "python_version", "status": "ok", "required": True},
+                    {"name": "fastmcp", "status": "ok", "required": True},
+                    {"name": "omg_control_reachable", "status": "ok", "required": True},
+                    {"name": "policy_files", "status": "ok", "required": True},
+                    {"name": "metadata_drift", "status": "ok", "required": True},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (evidence_root / "run-1.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "run_id": "run-1",
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "tests": [{"name": "worker_implementation", "passed": True}],
+                "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
+                "diff_summary": {"files": 1},
+                "reproducibility": {"cmd": "pytest -q"},
+                "unresolved_risks": [],
+                "provenance": [{"source": "security-check"}],
+                "trust_scores": {"overall": 1.0},
+                "api_twin": {},
+                "test_delta": {
+                    "override": {"approved_by": "tester"},
+                    "lock_id": "lock-1",
+                    "waiver_artifact": {"artifact_path": ".omg/evidence/waiver-tests-lock-1.json", "reason": "approved"},
+                },
+                "claims": [
+                    {
+                        "claim_type": "tests_passed",
+                        "trace_ids": ["trace-1"],
+                        "artifacts": ["junit.xml", "coverage.xml", "results.sarif", "trace.zip"],
+                    }
+                ],
+                "trace_ids": ["trace-1"],
+                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (evidence_root / "security-check.json").write_text(
+        json.dumps(
+            {
+                "schema": "SecurityCheckResult",
+                "status": "ok",
+                "evidence": {"sarif_path": ".omg/evidence/results.sarif"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (evidence_root / "results.sarif").write_text("{}", encoding="utf-8")
+    (evidence_root / "forge-specialists-run-1.json").write_text(
+        json.dumps(
+            {
+                "schema": "ForgeSpecialistDispatchEvidence",
+                "schema_version": "1.0.0",
+                "run_id": "run-1",
+                "status": "ok",
+                "proof_backed": True,
+                "specialists_dispatched": ["training-architect"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    lineage_root = tmp_path / ".omg" / "lineage"
+    lineage_root.mkdir(parents=True, exist_ok=True)
+    (lineage_root / "lineage-1.json").write_text(
+        json.dumps({"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"}),
+        encoding="utf-8",
+    )
+
+    eval_root = tmp_path / ".omg" / "evals"
+    eval_root.mkdir(parents=True, exist_ok=True)
+    (eval_root / "latest.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvalGateResult",
+                "eval_id": "eval-1",
+                "trace_id": "trace-1",
+                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "status": "ok",
+                "summary": {"regressed": False},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    tracebank_root = tmp_path / ".omg" / "tracebank"
+    tracebank_root.mkdir(parents=True, exist_ok=True)
+    (tracebank_root / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "schema": "TracebankRecord",
+                "trace_id": "trace-1",
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "path": ".omg/tracebank/events.jsonl",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    if include_primitives:
+        state_root = tmp_path / ".omg" / "state"
+
+        if "release_run_coordinator" not in omitted:
+            release_state_dir = state_root / "release_run_coordinator"
+            release_state_dir.mkdir(parents=True, exist_ok=True)
+            (release_state_dir / "run-1.json").write_text(
+                json.dumps(
+                    {
+                        "schema": "ReleaseRunCoordinatorState",
+                        "schema_version": "1.0.0",
+                        "run_id": "run-1",
+                        "status": "ok",
+                        "phase": "finalize",
+                        "resolution_source": "cli",
+                        "resolution_reason": "explicit",
+                        "updated_at": "2026-03-07T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        if "test_intent_lock" not in omitted:
+            lock_dir = state_root / "test-intent-lock"
+            lock_dir.mkdir(parents=True, exist_ok=True)
+            (lock_dir / "lock-1.json").write_text(
+                json.dumps(
+                    {
+                        "schema": "TestIntentLock",
+                        "lock_id": "lock-1",
+                        "status": "ok",
+                        "intent": {"run_id": "run-1"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        if "rollback_manifest" not in omitted:
+            rollback_dir = state_root / "rollback_manifest"
+            rollback_dir.mkdir(parents=True, exist_ok=True)
+            (rollback_dir / "run-1-step-1.json").write_text(
+                json.dumps(
+                    {
+                        "schema": "RollbackManifest",
+                        "schema_version": "1.0.0",
+                        "run_id": "run-1",
+                        "status": "ok",
+                        "step_id": "step-1",
+                        "local_restores": [],
+                        "compensating_actions": [],
+                        "side_effects": [],
+                        "updated_at": "2026-03-07T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        if "session_health" not in omitted:
+            health_dir = state_root / "session_health"
+            health_dir.mkdir(parents=True, exist_ok=True)
+            (health_dir / "run-1.json").write_text(
+                json.dumps(
+                    {
+                        "schema": "SessionHealth",
+                        "schema_version": "1.0.0",
+                        "run_id": "run-1",
+                        "status": "ok",
+                        "contamination_risk": 0.1,
+                        "overthinking_score": 0.1,
+                        "context_health": 0.9,
+                        "verification_status": "ok",
+                        "recommended_action": "continue",
+                        "updated_at": "2026-03-07T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        if "council_verdicts" not in omitted:
+            council_dir = state_root / "council_verdicts"
+            council_dir.mkdir(parents=True, exist_ok=True)
+            (council_dir / "run-1.json").write_text(
+                json.dumps(
+                    {
+                        "schema": "CouncilVerdicts",
+                        "schema_version": "1.0.0",
+                        "run_id": "run-1",
+                        "status": "ok",
+                        "verification_status": "ok",
+                        "verdicts": {
+                            "skeptic": {"verdict": "pass"},
+                            "hallucination_auditor": {"verdict": "pass"},
+                            "evidence_completeness": {"verdict": "pass"},
+                        },
+                        "updated_at": "2026-03-07T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        if "forge_starter_proof" in omitted:
+            forge_path = evidence_root / "forge-specialists-run-1.json"
+            if forge_path.exists():
+                forge_path.unlink()
 
 
 def test_cli_help_uses_canonical_identity():
@@ -96,6 +326,75 @@ def test_cli_security_check_honors_waiver_json(tmp_path: Path):
     waived_out = json.loads(waived.stdout)
     assert waived_out["status"] == "ok"
     assert waived_out["release_blocked"] is False
+
+
+def test_cli_undo_restores_project_and_records_rollback_manifest(tmp_path: Path):
+    target = tmp_path / "README.md"
+    target.write_text("before\n", encoding="utf-8")
+    journal = InteractionJournal(str(tmp_path))
+    event = journal.record_step("write", {"file": "README.md", "run_id": "cli-undo-run"})
+    target.write_text("after\n", encoding="utf-8")
+
+    proc = _run(
+        ["undo", "--step-id", str(event["step_id"])],
+        env={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_RUN_ID": "cli-canonical-run",
+        },
+    )
+
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["status"] == "ok"
+    assert target.read_text(encoding="utf-8") == "before\n"
+    manifest_path = tmp_path / out["manifest_path"]
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["run_id"] == "cli-canonical-run"
+
+
+def test_cli_undo_failed_compensating_action_returns_nonzero(tmp_path: Path):
+    journal = InteractionJournal(str(tmp_path))
+    event = journal.record_step(
+        "bash",
+        {
+            "command": "curl -X POST https://api.example.test/v1/resource",
+            "run_id": "cli-undo-run-fail",
+            "compensating_action": {
+                "action": "fail",
+                "command": "python3 -c \"raise SystemExit(5)\"",
+            },
+        },
+    )
+
+    proc = _run(
+        ["undo", "--step-id", str(event["step_id"])],
+        env={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_RUN_ID": "cli-canonical-run-fail",
+        },
+    )
+
+    assert proc.returncode != 0
+    out = json.loads(proc.stdout)
+    assert out["status"] == "rollback_failed"
+    assert out["failed_actions"][0]["exit_code"] == 5
+
+
+def test_cli_waive_tests_emits_structured_waiver_artifact(tmp_path: Path):
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+    proc = _run(
+        ["waive-tests", "--lock-id", "lock-42", "--reason", "approved migration window"],
+        env=env,
+    )
+
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "WaiverEvidence"
+    assert out["lock_id"] == "lock-42"
+    assert out["reason"] == "approved migration window"
+    artifact_path = tmp_path / out["artifact_path"]
+    assert artifact_path.exists()
 
 
 def test_cli_teams_command():
@@ -342,108 +641,7 @@ def test_cli_release_readiness_dual_channel(tmp_path: Path):
     )
     assert compile_enterprise.returncode == 0
 
-    evidence_root = tmp_path / ".omg" / "evidence"
-    evidence_root.mkdir(parents=True, exist_ok=True)
-    (evidence_root / "doctor.json").write_text(
-        json.dumps(
-            {
-                "schema": "DoctorResult",
-                "status": "pass",
-                "checks": [
-                    {"name": "python_version", "status": "ok", "required": True},
-                    {"name": "fastmcp", "status": "ok", "required": True},
-                    {"name": "omg_control_reachable", "status": "ok", "required": True},
-                    {"name": "policy_files", "status": "ok", "required": True},
-                    {"name": "metadata_drift", "status": "ok", "required": True},
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    (evidence_root / "run-1.json").write_text(
-        json.dumps(
-            {
-                "schema": "EvidencePack",
-                "run_id": "run-1",
-                "timestamp": "2026-03-07T00:00:00Z",
-                "executor": {"user": "tester", "pid": 1},
-                "environment": {"hostname": "localhost", "platform": "darwin"},
-                "tests": [{"name": "worker_implementation", "passed": True}],
-                "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
-                "diff_summary": {"files": 1},
-                "reproducibility": {"cmd": "pytest -q"},
-                "unresolved_risks": [],
-                "provenance": [{"source": "security-check"}],
-                "trust_scores": {"overall": 1.0},
-                "api_twin": {},
-                "test_delta": {"override": {"approved_by": "tester"}},
-                "claims": [
-                    {
-                        "claim_type": "tests_passed",
-                        "trace_ids": ["trace-1"],
-                        "artifacts": ["junit.xml", "coverage.xml", "results.sarif", "trace.zip"],
-                    }
-                ],
-                "trace_ids": ["trace-1"],
-                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
-            }
-        ),
-        encoding="utf-8",
-    )
-    (evidence_root / "security-check.json").write_text(
-        json.dumps(
-            {
-                "schema": "SecurityCheckResult",
-                "status": "ok",
-                "evidence": {"sarif_path": ".omg/evidence/results.sarif"},
-            }
-        ),
-        encoding="utf-8",
-    )
-    (evidence_root / "results.sarif").write_text("{}", encoding="utf-8")
-
-    lineage_root = tmp_path / ".omg" / "lineage"
-    lineage_root.mkdir(parents=True, exist_ok=True)
-    (lineage_root / "lineage-1.json").write_text(
-        json.dumps({"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"}),
-        encoding="utf-8",
-    )
-
-    eval_root = tmp_path / ".omg" / "evals"
-    eval_root.mkdir(parents=True, exist_ok=True)
-    (eval_root / "latest.json").write_text(
-        json.dumps(
-            {
-                "schema": "EvalGateResult",
-                "eval_id": "eval-1",
-                "trace_id": "trace-1",
-                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
-                "timestamp": "2026-03-07T00:00:00Z",
-                "executor": {"user": "tester", "pid": 1},
-                "environment": {"hostname": "localhost", "platform": "darwin"},
-                "status": "ok",
-                "summary": {"regressed": False},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    tracebank_root = tmp_path / ".omg" / "tracebank"
-    tracebank_root.mkdir(parents=True, exist_ok=True)
-    (tracebank_root / "events.jsonl").write_text(
-        json.dumps(
-            {
-                "schema": "TracebankRecord",
-                "trace_id": "trace-1",
-                "timestamp": "2026-03-07T00:00:00Z",
-                "executor": {"user": "tester", "pid": 1},
-                "environment": {"hostname": "localhost", "platform": "darwin"},
-                "path": ".omg/tracebank/events.jsonl",
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    _seed_release_readiness_fixtures(tmp_path)
 
     readiness = _run(
         [
@@ -461,6 +659,62 @@ def test_cli_release_readiness_dual_channel(tmp_path: Path):
     assert readiness_out["schema"] == "OmgReleaseReadinessResult"
     assert readiness_out["status"] == "ok"
     assert readiness_out["blockers"] == []
+    primitives = readiness_out["checks"].get("execution_primitives", {})
+    assert primitives.get("status") == "ok"
+    assert primitives.get("missing") == []
+    assert primitives.get("invalid") == []
+
+
+def test_cli_release_readiness_blocks_missing_execution_primitive(tmp_path: Path):
+    compile_public = _run(
+        [
+            "contract",
+            "compile",
+            "--host",
+            "claude",
+            "--host",
+            "codex",
+            "--channel",
+            "public",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert compile_public.returncode == 0
+
+    compile_enterprise = _run(
+        [
+            "contract",
+            "compile",
+            "--host",
+            "claude",
+            "--host",
+            "codex",
+            "--channel",
+            "enterprise",
+            "--output-root",
+            str(tmp_path),
+        ]
+    )
+    assert compile_enterprise.returncode == 0
+
+    _seed_release_readiness_fixtures(tmp_path, omit={"session_health"})
+
+    readiness = _run(
+        [
+            "release",
+            "readiness",
+            "--channel",
+            "dual",
+            "--output-root",
+            str(tmp_path),
+        ],
+        env={"OMG_RELEASE_READY_PROVIDERS": "claude,codex"},
+    )
+    assert readiness.returncode != 0
+    readiness_out = json.loads(readiness.stdout)
+    assert readiness_out["status"] == "error"
+    assert "missing_execution_primitive: session_health_state" in readiness_out["blockers"]
 
 
 def test_cli_omc_alias_routes_to_compat():

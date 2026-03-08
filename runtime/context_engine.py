@@ -23,6 +23,7 @@ _STATE_PATHS = {
     "background_verification": Path(".omg") / "state" / "background-verification.json",
     "context_pressure": Path(".omg") / "state" / ".context-pressure.json",
 }
+_COUNCIL_REL_BASE = Path(".omg") / "state" / "council_verdicts"
 
 
 class ContextEngine:
@@ -61,8 +62,8 @@ class ContextEngine:
     # ------------------------------------------------------------------
 
     def _build(self, run_id: str, *, delta_only: bool) -> dict[str, Any]:
-        raw = self._read_all_state()
-        artifact_pointers = self._collect_artifact_pointers()
+        raw = self._read_all_state(run_id)
+        artifact_pointers = self._collect_artifact_pointers(run_id)
 
         if not artifact_pointers and all(v == {} for v in raw.values()):
             pkt = self._fallback(run_id)
@@ -99,11 +100,12 @@ class ContextEngine:
         self._persist_packet(packet)
         return packet
 
-    def _read_all_state(self) -> dict[str, Any]:
+    def _read_all_state(self, run_id: str) -> dict[str, Any]:
         """Read all state files, returning empty dicts for missing ones."""
         result: dict[str, Any] = {}
         for name, rel_path in _STATE_PATHS.items():
             result[name] = self._read_json(self.project_dir / rel_path)
+        result["council_verdicts"] = self._read_json(self.project_dir / _COUNCIL_REL_BASE / f"{run_id}.json")
         return result
 
     def _read_json(self, path: Path) -> dict[str, Any]:
@@ -115,13 +117,17 @@ class ContextEngine:
             return {}
         return payload if isinstance(payload, dict) else {}
 
-    def _collect_artifact_pointers(self) -> list[str]:
+    def _collect_artifact_pointers(self, run_id: str) -> list[str]:
         """Collect relative paths to existing state artifacts — NO raw content."""
         pointers: list[str] = []
         for rel_path in _STATE_PATHS.values():
             full = self.project_dir / rel_path
             if full.exists():
                 pointers.append(str(rel_path))
+
+        council_rel = _COUNCIL_REL_BASE / f"{run_id}.json"
+        if (self.project_dir / council_rel).exists():
+            pointers.append(str(council_rel))
         return pointers
 
     def _compose_summary(self, raw: dict[str, Any]) -> str:
@@ -156,6 +162,15 @@ class ContextEngine:
         is_high = pressure.get("is_high")
         if tool_count is not None:
             parts.append(f"pressure: tools={tool_count} high={is_high}")
+
+        council = raw.get("council_verdicts", {})
+        if isinstance(council, dict):
+            verdicts = council.get("verdicts")
+            if isinstance(verdicts, dict) and verdicts:
+                evidence = verdicts.get("evidence_completeness")
+                if isinstance(evidence, dict):
+                    token = str(evidence.get("verdict", "")).strip().lower() or "unknown"
+                    parts.append(f"council: evidence_completeness={token}")
 
         if not parts:
             return "no context signals available"

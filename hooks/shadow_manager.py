@@ -146,7 +146,13 @@ def map_shadow_path(project_dir: str, run_id: str, file_path: str) -> str:
     return os.path.join(_shadow_root(project_dir), run_id, "overlay", rel)
 
 
-def record_shadow_write(project_dir: str, run_id: str, file_path: str, source: str = "tool") -> dict[str, Any]:
+def record_shadow_write(
+    project_dir: str,
+    run_id: str,
+    file_path: str,
+    source: str = "tool",
+    step_id: str | None = None,
+) -> dict[str, Any]:
     run_id = _validated_run_id(run_id)
     run_dir = os.path.join(_shadow_root(project_dir), run_id)
     os.makedirs(run_dir, exist_ok=True)
@@ -155,7 +161,8 @@ def record_shadow_write(project_dir: str, run_id: str, file_path: str, source: s
     os.makedirs(os.path.dirname(shadow_path), exist_ok=True)
 
     abs_file = file_path if os.path.isabs(file_path) else os.path.join(project_dir, file_path)
-    if os.path.exists(abs_file):
+    file_existed_before = os.path.exists(abs_file)
+    if file_existed_before:
         shutil.copy2(abs_file, shadow_path)
         file_hash = _hash_file(abs_file)
     else:
@@ -169,7 +176,10 @@ def record_shadow_write(project_dir: str, run_id: str, file_path: str, source: s
         "recorded_at": _utc_now(),
         "source": source,
         "sha256": file_hash,
+        "file_existed_before": file_existed_before,
     }
+    if step_id:
+        entry["step_id"] = step_id
 
     files = manifest.get("files", [])
     # Replace existing entry for same file.
@@ -179,6 +189,72 @@ def record_shadow_write(project_dir: str, run_id: str, file_path: str, source: s
     _save_manifest(run_dir, manifest)
 
     return entry
+
+
+def restore_shadow_entry(project_dir: str, run_id: str, step_id: str) -> dict[str, Any]:
+    run_id = _validated_run_id(run_id)
+    run_dir = os.path.join(_shadow_root(project_dir), run_id)
+    manifest = _load_manifest(run_dir)
+    entries = manifest.get("files", [])
+
+    restored: list[str] = []
+    failed: list[dict[str, str]] = []
+
+    selected_entries: list[dict[str, Any]] = []
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        item_step_id = str(item.get("step_id", "")).strip()
+        if item_step_id == step_id:
+            selected_entries.append(item)
+
+    if not selected_entries and isinstance(entries, list) and len(entries) == 1:
+        single = entries[0]
+        if isinstance(single, dict):
+            selected_entries = [single]
+
+    if not selected_entries:
+        return {"restored": restored, "failed": failed, "reason": "step not found"}
+
+    for item in selected_entries:
+        rel = str(item.get("file", "")).strip()
+        shadow_rel = str(item.get("shadow_file", "")).strip()
+        file_existed_before = bool(item.get("file_existed_before", True))
+        if not rel:
+            failed.append({"file": "", "reason": "missing file path"})
+            continue
+
+        dst = os.path.join(project_dir, rel)
+        src = os.path.join(run_dir, shadow_rel) if shadow_rel else ""
+
+        if src and os.path.exists(src):
+            try:
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copy2(src, dst)
+                restored.append(rel)
+            except Exception as exc:
+                failed.append({"file": rel, "reason": f"copy failed: {exc}"})
+            continue
+
+        if not file_existed_before:
+            try:
+                if os.path.exists(dst):
+                    os.remove(dst)
+                restored.append(rel)
+            except Exception as exc:
+                failed.append({"file": rel, "reason": f"delete failed: {exc}"})
+            continue
+
+        failed.append({"file": rel, "reason": "shadow snapshot missing"})
+
+    manifest["status"] = "restored"
+    manifest["restored_at"] = _utc_now()
+    _save_manifest(run_dir, manifest)
+
+    reason = "shadow restore applied" if restored and not failed else "shadow restore partial"
+    if not restored and failed:
+        reason = "shadow restore failed"
+    return {"restored": restored, "failed": failed, "reason": reason}
 
 
 def create_evidence_pack(
@@ -321,6 +397,34 @@ def drop_shadow(project_dir: str, run_id: str) -> dict[str, Any]:
     return {"run_id": run_id, "dropped": True}
 
 
+def auto_journal_mutation(
+    project_dir: str,
+    tool: str,
+    file_path: str,
+    run_id: str,
+) -> dict[str, Any] | None:
+    try:
+        from runtime.interaction_journal import InteractionJournal
+        from runtime.release_run_coordinator import resolve_current_run_id
+    except ImportError:
+        return None
+
+    canonical_run_id = resolve_current_run_id(project_dir) or run_id
+    shadow_manifest = os.path.join(
+        _shadow_root(project_dir), run_id, "manifest.json"
+    )
+
+    journal = InteractionJournal(project_dir)
+    return journal.record_step(
+        tool.lower(),
+        {
+            "file_path": file_path,
+            "run_id": canonical_run_id,
+            "shadow_manifest": shadow_manifest,
+        },
+    )
+
+
 def _handle_post_tool_use(payload: dict[str, Any]) -> None:
     tool = payload.get("tool_name", "")
     if tool not in ("Write", "Edit", "MultiEdit"):
@@ -342,6 +446,11 @@ def _handle_post_tool_use(payload: dict[str, Any]) -> None:
     project_dir = _project_dir()
     run_id = begin_shadow_run(project_dir, metadata={"source": "post-tool-use"})
     record_shadow_write(project_dir, run_id, file_path)
+
+    try:
+        auto_journal_mutation(project_dir, tool, file_path, run_id)
+    except Exception:
+        pass
 
 
 def _main() -> int:

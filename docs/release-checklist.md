@@ -20,6 +20,14 @@ Use this checklist before making OMG public or cutting a release tag.
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root <tmp>` passes
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root <tmp>` passes
 - `python3 scripts/omg.py release readiness --channel dual --output-root <tmp>` passes
+- Release readiness fails with machine-readable blockers unless all execution primitives are present and valid:
+  - run coordinator state: `.omg/state/release_run_coordinator/<run_id>.json`
+  - TDD proof-chain lock evidence: `.omg/state/test-intent-lock/*.json` (linked to run id or lock id)
+  - rollback manifest: `.omg/state/rollback_manifest/*.json`
+  - session health state: `.omg/state/session_health/<run_id>.json`
+  - council verdicts: `.omg/state/council_verdicts/<run_id>.json`
+  - Forge starter proof (`proof_backed: true`): `.omg/evidence/forge-specialists-*.json`
+- Release readiness output exposes primitive evidence paths in `checks.execution_primitives.evidence_paths`
 - Truth bundles (`claim-judge`, `test-intent-lock`, `proof-gate`) are verified and present in `registry/bundles/`
 - `plan-council` role is compiled and verified in `registry/bundles/`
 - `python3 scripts/check-omg-standalone-clean.py` passes

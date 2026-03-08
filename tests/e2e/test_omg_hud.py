@@ -541,6 +541,73 @@ def test_hud_omits_session_health_when_no_state(tmp_path: Path):
     assert "overthink:" not in lowered
 
 
+def test_hud_marks_stale_session_health(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    health_dir = project / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+
+    stale_time = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+    (health_dir / "stale-1.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "stale-1",
+            "contamination_risk": 0.1,
+            "overthinking_score": 0.1,
+            "context_health": 0.9,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "thresholds": {},
+            "updated_at": stale_time,
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "[stale]" in lowered, f"Expected '[STALE]' marker in HUD output: {out.stdout}"
+
+
+def test_hud_fresh_session_health_no_stale_marker(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    health_dir = project / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+
+    fresh_time = (datetime.now(UTC) - timedelta(seconds=30)).isoformat()
+    (health_dir / "fresh-1.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "fresh-1",
+            "contamination_risk": 0.1,
+            "overthinking_score": 0.1,
+            "context_health": 0.9,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "thresholds": {},
+            "updated_at": fresh_time,
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "contam:" in lowered
+    assert "[stale]" not in lowered
+
+
 def test_hud_displays_mode_from_mode_state_file(tmp_path: Path):
     home = tmp_path / "home"
     claude = home / ".claude"

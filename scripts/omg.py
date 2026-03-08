@@ -62,6 +62,7 @@ from runtime.compat import (
 from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
+from runtime.release_run_coordinator import resolve_current_run_id
 
 
 def _now_run_id() -> str:
@@ -213,9 +214,11 @@ def cmd_secure(args: argparse.Namespace) -> int:
 def cmd_undo(args: argparse.Namespace) -> int:
     from runtime.interaction_journal import InteractionJournal
 
-    result = InteractionJournal(".").undo(args.step_id)
+    project_dir = _ensure_project_dir()
+    run_id = resolve_current_run_id(project_dir=project_dir)
+    result = InteractionJournal(project_dir).undo(args.step_id, run_id=run_id)
     print(json.dumps(result, indent=2))
-    return 0
+    return 2 if result.get("status") == "rollback_failed" else 0
 
 
 def cmd_security_check(args: argparse.Namespace) -> int:
@@ -227,6 +230,40 @@ def cmd_security_check(args: argparse.Namespace) -> int:
         waivers=waivers,
     )
     print(json.dumps(result, indent=2))
+    return 0
+
+
+def _sanitize_token(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in str(value).strip())
+    return cleaned or "unknown"
+
+
+def cmd_waive_tests(args: argparse.Namespace) -> int:
+    project_dir = _ensure_project_dir()
+    issued_at = datetime.now(timezone.utc).isoformat()
+    lock_id = str(args.lock_id).strip()
+    reason = str(args.reason).strip()
+    run_id = resolve_current_run_id(project_dir=project_dir)
+
+    evidence_dir = Path(project_dir) / ".omg" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    artifact_name = f"waiver-tests-{_sanitize_token(lock_id)}-{_now_run_id()}.json"
+    artifact_path = evidence_dir / artifact_name
+    artifact_rel_path = str(artifact_path.relative_to(project_dir)).replace("\\", "/")
+
+    payload = {
+        "schema": "WaiverEvidence",
+        "schema_version": 1,
+        "lock_id": lock_id,
+        "run_id": run_id,
+        "reason": reason,
+        "issued_at": issued_at,
+        "artifact_path": artifact_rel_path,
+    }
+    artifact_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    print(json.dumps(payload, indent=2))
     return 0
 
 
@@ -796,6 +833,11 @@ def build_parser() -> argparse.ArgumentParser:
     security_check.add_argument("--live-enrichment", action="store_true")
     security_check.add_argument("--waivers-json", default="")
     security_check.set_defaults(func=cmd_security_check)
+
+    waive_tests = sub.add_parser("waive-tests", help="Emit structured waiver evidence for test-intent lock exceptions")
+    waive_tests.add_argument("--lock-id", required=True)
+    waive_tests.add_argument("--reason", required=True)
+    waive_tests.set_defaults(func=cmd_waive_tests)
 
     api_twin = sub.add_parser("api-twin", help="Contract replay and fixture-based API simulation")
     api_twin_sub = api_twin.add_subparsers(dest="api_twin_command", required=True)

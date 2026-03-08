@@ -108,3 +108,89 @@ def test_create_evidence_pack_omits_optional_sibling_artifacts_when_not_provided
     assert "test_delta" not in payload
     assert "browser_evidence_path" not in payload
     assert "repro_pack_path" not in payload
+
+
+def test_auto_journal_mutation_creates_journal_entry_for_write(tmp_path: Path):
+    from hooks.shadow_manager import auto_journal_mutation
+
+    target = tmp_path / "src" / "main.py"
+    target.parent.mkdir(parents=True)
+    target.write_text("x = 1\n", encoding="utf-8")
+
+    run_id = begin_shadow_run(str(tmp_path))
+    record_shadow_write(str(tmp_path), run_id, str(target))
+
+    result = auto_journal_mutation(str(tmp_path), "Write", str(target), run_id)
+
+    assert result is not None
+    assert result["status"] == "recorded"
+    assert result["rollback_mode"] in {"branch+journal+repro", "journal+repro"}
+
+    journal_dir = tmp_path / ".omg" / "state" / "interaction_journal"
+    entries = list(journal_dir.glob("*.json"))
+    assert len(entries) >= 1
+
+    payload = json.loads(entries[-1].read_text(encoding="utf-8"))
+    assert payload["tool"] == "write"
+    assert payload["metadata"]["file_path"] == str(target)
+    assert payload["run_id"] == run_id
+
+
+def test_auto_journal_mutation_creates_journal_entry_for_edit(tmp_path: Path):
+    from hooks.shadow_manager import auto_journal_mutation
+
+    target = tmp_path / "lib.py"
+    target.write_text("y = 2\n", encoding="utf-8")
+
+    run_id = begin_shadow_run(str(tmp_path))
+    record_shadow_write(str(tmp_path), run_id, str(target))
+
+    result = auto_journal_mutation(str(tmp_path), "Edit", str(target), run_id)
+
+    assert result is not None
+    assert result["status"] == "recorded"
+
+    journal_dir = tmp_path / ".omg" / "state" / "interaction_journal"
+    entries = list(journal_dir.glob("*.json"))
+    payload = json.loads(entries[-1].read_text(encoding="utf-8"))
+    assert payload["tool"] == "edit"
+    assert payload["run_id"] == run_id
+
+
+def test_auto_journal_mutation_creates_journal_entry_for_multiedit(tmp_path: Path):
+    from hooks.shadow_manager import auto_journal_mutation
+
+    target = tmp_path / "multi.py"
+    target.write_text("z = 3\n", encoding="utf-8")
+
+    run_id = begin_shadow_run(str(tmp_path))
+    record_shadow_write(str(tmp_path), run_id, str(target))
+
+    result = auto_journal_mutation(str(tmp_path), "MultiEdit", str(target), run_id)
+
+    assert result is not None
+    assert result["status"] == "recorded"
+
+    journal_dir = tmp_path / ".omg" / "state" / "interaction_journal"
+    entries = list(journal_dir.glob("*.json"))
+    payload = json.loads(entries[-1].read_text(encoding="utf-8"))
+    assert payload["tool"] == "multiedit"
+    assert payload["run_id"] == run_id
+
+
+def test_auto_journal_mutation_not_triggered_for_read(tmp_path: Path):
+    from hooks.shadow_manager import _handle_post_tool_use
+
+    import hooks.shadow_manager as sm
+    original = sm._project_dir
+    sm._project_dir = lambda: str(tmp_path)
+    try:
+        _handle_post_tool_use({
+            "tool_name": "Read",
+            "tool_input": {"file_path": "README.md"},
+        })
+    finally:
+        sm._project_dir = original
+
+    journal_dir = tmp_path / ".omg" / "state" / "interaction_journal"
+    assert not journal_dir.exists() or len(list(journal_dir.glob("*.json"))) == 0

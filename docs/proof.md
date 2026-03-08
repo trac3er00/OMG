@@ -15,6 +15,14 @@ OMG keeps verification visible instead of burying it in implementation details.
   - `claim-judge`: `.omg/evidence/claim-judge-*.json` (verifies claim-to-evidence mapping)
   - `test-intent-lock`: `.omg/evidence/test-intent-lock-*.json` (verifies test-to-intent alignment)
   - `proof-gate`: `.omg/evidence/proof-gate-*.json` (verifies final release readiness)
+- Release execution primitives required by `omg release readiness`:
+  - run coordinator state: `.omg/state/release_run_coordinator/<run_id>.json`
+  - TDD lock evidence: `.omg/state/test-intent-lock/*.json`
+  - rollback manifest: `.omg/state/rollback_manifest/*.json`
+  - session health: `.omg/state/session_health/<run_id>.json`
+  - council verdicts: `.omg/state/council_verdicts/<run_id>.json`
+  - Forge starter proof (`proof_backed: true`): `.omg/evidence/forge-specialists-*.json`
+- Release readiness machine output includes `checks.execution_primitives` with `missing`, `invalid`, and `evidence_paths`
 - Browser evidence: `.omg/evidence/browser-*.png` and `.omg/evidence/browser-*.json` (Playwright-backed verification)
 - Canonical browser command: `/OMG:browser` with `/OMG:playwright` as a compatibility alias
 - Trace records and evidence links: `.omg/tracebank/events.jsonl`, `.omg/tracebank/evidence-links.jsonl`

@@ -19,6 +19,8 @@ def _write_text(path: Path, content: str) -> None:
 def prepare_release_proof_fixtures(output_root: Path) -> None:
     trace_id = "trace-1"
     eval_id = "eval-1"
+    run_id = "run-1"
+    lock_id = "lock-1"
 
     junit_path = output_root / ".omg" / "evidence" / "junit.xml"
     coverage_path = output_root / ".omg" / "evidence" / "coverage.xml"
@@ -28,6 +30,12 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
     eval_path = output_root / ".omg" / "evals" / "latest.json"
     security_path = output_root / ".omg" / "evidence" / "security-check.json"
     evidence_path = output_root / ".omg" / "evidence" / "run-1.json"
+    forge_path = output_root / ".omg" / "evidence" / "forge-specialists-run-1.json"
+    release_run_path = output_root / ".omg" / "state" / "release_run_coordinator" / "run-1.json"
+    lock_path = output_root / ".omg" / "state" / "test-intent-lock" / "lock-1.json"
+    rollback_path = output_root / ".omg" / "state" / "rollback_manifest" / "run-1-step-1.json"
+    session_health_path = output_root / ".omg" / "state" / "session_health" / "run-1.json"
+    council_verdicts_path = output_root / ".omg" / "state" / "council_verdicts" / "run-1.json"
     tracebank_path = output_root / ".omg" / "tracebank" / "events.jsonl"
 
     _write_text(
@@ -93,12 +101,12 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
     )
     _write_json(
         evidence_path,
-        {
-            "schema": "EvidencePack",
-            "run_id": "run-1",
-            "timestamp": "2026-03-07T00:00:00Z",
-            "executor": {"user": "release-bot", "pid": 1},
-            "environment": {"hostname": "localhost", "platform": "linux"},
+            {
+                "schema": "EvidencePack",
+                "run_id": run_id,
+                "timestamp": "2026-03-07T00:00:00Z",
+                "executor": {"user": "release-bot", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "linux"},
             "tests": [{"name": "release_readiness", "passed": True}],
             "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
             "diff_summary": {"files": 1},
@@ -120,7 +128,94 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             ],
             "trace_ids": [trace_id],
             "lineage": {"trace_id": trace_id, "path": ".omg/lineage/lineage-1.json"},
-            "test_delta": {"override": {"approved_by": "release-bot"}},
+                "test_delta": {
+                    "override": {"approved_by": "release-bot"},
+                    "lock_id": lock_id,
+                    "waiver_artifact": {
+                        "artifact_path": ".omg/evidence/waiver-tests-lock-1.json",
+                        "reason": "approved release fixture",
+                    },
+                },
+            },
+    )
+    _write_json(
+        forge_path,
+        {
+            "schema": "ForgeSpecialistDispatchEvidence",
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "generated_at": "2026-03-07T00:00:00Z",
+            "status": "ok",
+            "proof_backed": True,
+            "specialists_dispatched": ["training-architect"],
+        },
+    )
+    _write_json(
+        release_run_path,
+        {
+            "schema": "ReleaseRunCoordinatorState",
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "status": "ok",
+            "phase": "finalize",
+            "resolution_source": "fixtures",
+            "resolution_reason": "deterministic_release_seed",
+            "updated_at": "2026-03-07T00:00:00Z",
+        },
+    )
+    _write_json(
+        lock_path,
+        {
+            "schema": "TestIntentLock",
+            "schema_version": "1.0.0",
+            "lock_id": lock_id,
+            "status": "ok",
+            "intent": {"run_id": run_id},
+        },
+    )
+    _write_json(
+        rollback_path,
+        {
+            "schema": "RollbackManifest",
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "status": "ok",
+            "step_id": "step-1",
+            "local_restores": [],
+            "compensating_actions": [],
+            "side_effects": [],
+            "updated_at": "2026-03-07T00:00:00Z",
+        },
+    )
+    _write_json(
+        session_health_path,
+        {
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "status": "ok",
+            "contamination_risk": 0.0,
+            "overthinking_score": 0.0,
+            "context_health": 1.0,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "updated_at": "2026-03-07T00:00:00Z",
+        },
+    )
+    _write_json(
+        council_verdicts_path,
+        {
+            "schema": "CouncilVerdicts",
+            "schema_version": "1.0.0",
+            "run_id": run_id,
+            "status": "ok",
+            "verification_status": "ok",
+            "verdicts": {
+                "skeptic": {"verdict": "pass"},
+                "hallucination_auditor": {"verdict": "pass"},
+                "evidence_completeness": {"verdict": "pass"},
+            },
+            "updated_at": "2026-03-07T00:00:00Z",
         },
     )
     tracebank_path.parent.mkdir(parents=True, exist_ok=True)

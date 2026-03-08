@@ -4,7 +4,7 @@ import json
 from hashlib import sha256
 from pathlib import Path
 
-from runtime.test_intent_lock import evaluate_test_delta, lock_intent, verify_intent
+from runtime.test_intent_lock import evaluate_test_delta, lock_intent, verify_intent, verify_lock
 
 
 def test_weaker_assertions_fail() -> None:
@@ -238,3 +238,40 @@ def test_waiver_artifact_allows_lock_contract_bypass(tmp_path: Path, monkeypatch
 
     assert result["verdict"] == "pass"
     assert "waiver_artifact_present" in result["flags"]
+
+
+def test_verify_lock_returns_missing_lock_when_run_has_no_lock(tmp_path: Path) -> None:
+    verdict = verify_lock(tmp_path.as_posix(), run_id="run-123")
+
+    assert verdict["status"] == "missing_lock"
+    assert verdict["reason"] == "no_active_test_intent_lock"
+
+
+def test_verify_lock_reports_contract_mismatch_for_explicit_lock(tmp_path: Path) -> None:
+    lock = lock_intent(
+        tmp_path.as_posix(),
+        {
+            "goal": "fix auth",
+            "run_id": "run-a",
+            "tests": ["tests/test_auth.py::test_login"],
+        },
+    )
+
+    verdict = verify_lock(tmp_path.as_posix(), run_id="run-b", lock_id=lock["lock_id"])
+    assert verdict["status"] == "lock_contract_mismatch"
+    assert verdict["reason"] == "run_id_mismatch"
+
+
+def test_verify_lock_returns_ok_for_matching_run_and_lock(tmp_path: Path) -> None:
+    lock = lock_intent(
+        tmp_path.as_posix(),
+        {
+            "goal": "fix auth",
+            "run_id": "run-ok",
+            "tests": ["tests/test_auth.py::test_login"],
+        },
+    )
+
+    verdict = verify_lock(tmp_path.as_posix(), run_id="run-ok", lock_id=lock["lock_id"])
+    assert verdict["status"] == "ok"
+    assert verdict["lock_id"] == lock["lock_id"]

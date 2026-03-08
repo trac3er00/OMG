@@ -66,7 +66,7 @@ def test_run_critics_output_shape(tmp_path):
         project_dir=str(tmp_path),
     )
 
-    assert set(out.keys()) == {"skeptic", "hallucination_auditor"}
+    assert set(out.keys()) == {"skeptic", "hallucination_auditor", "evidence_completeness"}
     for critic_name in out:
         critic = out[critic_name]
         assert set(critic.keys()) == {"verdict", "findings", "confidence"}

@@ -240,3 +240,116 @@ def test_judge_claims_returns_fail_when_any_claim_fails(tmp_path: Path) -> None:
 
     assert result["verdict"] == "fail"
     assert result["results"][0]["verdict"] == "fail"
+
+
+def test_judge_claims_blocks_when_council_evidence_completeness_fails(tmp_path: Path) -> None:
+    run_id = "run-council-fail"
+    evidence_dir = tmp_path / ".omg" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    (evidence_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "schema_version": 2,
+                "run_id": run_id,
+                "trace_ids": ["trace-1"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    council_dir = tmp_path / ".omg" / "state" / "council_verdicts"
+    council_dir.mkdir(parents=True, exist_ok=True)
+    (council_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "CouncilVerdicts",
+                "schema_version": "1.0.0",
+                "run_id": run_id,
+                "status": "blocked",
+                "verification_status": "blocked",
+                "updated_at": "2026-03-08T00:00:00Z",
+                "verdicts": {
+                    "evidence_completeness": {
+                        "verdict": "fail",
+                        "findings": ["missing evidence artifacts: junit.xml"],
+                        "confidence": 0.93,
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = judge_claims(tmp_path.as_posix(), claims=[{"claim_type": "tests-passed", "run_id": run_id}])
+
+    assert result["verdict"] == "insufficient"
+    reasons = result["results"][0]["reasons"]
+    assert any(reason["code"] == "council_evidence_incomplete" for reason in reasons)
+
+
+def test_claim_judge_blocks_when_causal_chain_missing_in_strict_mode(monkeypatch) -> None:
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+    result = judge_claim(
+        {
+            "claim_type": "ready_to_ship",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+        }
+    )
+
+    assert result["verdict"] == "block"
+    assert any(reason["code"] == "missing_causal_chain" for reason in result["reasons"])
+
+
+def test_claim_judge_passes_when_causal_chain_includes_waiver_in_strict_mode(monkeypatch) -> None:
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+    result = judge_claim(
+        {
+            "claim_type": "ready_to_ship",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+            "lock_id": "lock-1",
+            "delta_summary": {"flags": ["weakened_assertions"]},
+            "verification_status": "ok",
+            "waiver_artifact_path": ".omg/evidence/waiver-lock-1.json",
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert result["reasons"] == []
+
+
+def test_forge_evidence_claim_passes_with_waiver_artifact() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "forge_dispatch",
+            "subject": "forge-vision-agent",
+            "artifacts": [".omg/evidence/forge-specialists-run-1.json"],
+            "trace_ids": ["forge-run-1"],
+            "lock_id": "",
+            "delta_summary": {"forge_dispatch": "vision", "specialists": ["data-curator"]},
+            "verification_status": "ok",
+            "waiver_artifact_path": ".omg/evidence/forge-specialists-run-1.json",
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert result["reasons"] == []
+
+
+def test_forge_evidence_claim_without_artifacts_fails() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "forge_dispatch",
+            "subject": "forge-vision-agent",
+            "artifacts": [],
+            "trace_ids": ["forge-run-1"],
+            "waiver_artifact_path": ".omg/evidence/forge-specialists-run-1.json",
+        }
+    )
+
+    assert result["verdict"] == "fail"
+    assert any(reason["code"] == "missing_artifacts" for reason in result["reasons"])

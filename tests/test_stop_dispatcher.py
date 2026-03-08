@@ -167,6 +167,42 @@ def test_check_simplifier_emits_stderr_advisory(monkeypatch, tmp_path, capsys):
     assert "comment lines" in captured.err
 
 
+def test_check_tdd_proof_chain_blocks_missing_lock_in_strict_mode(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(stop_dispatcher, "resolve_current_run_id", lambda **_kwargs: "run-123")
+    monkeypatch.setattr(
+        stop_dispatcher.test_intent_lock,
+        "verify_lock",
+        lambda *_args, **_kwargs: {"status": "missing_lock", "reason": "no_active_test_intent_lock", "lock_id": None},
+    )
+
+    data = _base_data()
+    data["_stop_ctx"]["has_source_writes"] = True
+    data["_test_delta"] = {"flags": []}
+    blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
+
+    assert blocks == [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+
+
+def test_check_tdd_proof_chain_blocks_weakened_assertions_without_waiver(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(stop_dispatcher, "resolve_current_run_id", lambda **_kwargs: "run-123")
+    monkeypatch.setattr(
+        stop_dispatcher.test_intent_lock,
+        "verify_lock",
+        lambda *_args, **_kwargs: {"status": "ok", "reason": "active_test_intent_lock", "lock_id": "lock-1"},
+    )
+
+    data = _base_data()
+    data["_stop_ctx"]["has_source_writes"] = True
+    data["_test_delta"] = {"flags": ["weakened_assertions"], "waiver_artifact": {}}
+    blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
+
+    assert blocks == [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+
+
 def test_stop_gate_wrapper_executes_dispatcher_guard():
     result = subprocess.run(
         [sys.executable, "hooks/stop-gate.py"],

@@ -20,6 +20,7 @@ import yaml
 
 from runtime.asset_loader import resolve_asset, resolve_assets
 from runtime.proof_chain import _normalize_evidence_pack
+from runtime.runtime_contracts import schema_versions
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -140,6 +141,15 @@ HOST_COMPILED_ARTIFACTS = {
         ".kimi/mcp.json",
     ),
 }
+
+_REQUIRED_EXECUTION_PRIMITIVES = (
+    "release_run_coordinator_state",
+    "tdd_proof_chain_lock",
+    "rollback_manifest",
+    "session_health_state",
+    "council_verdicts",
+    "forge_starter_proof",
+)
 
 
 def _ensure_list(
@@ -1811,6 +1821,10 @@ def build_release_readiness(
     checks["proof_chain"] = proof_chain_check
     blockers.extend(proof_chain_check.get("blockers", []))
 
+    execution_primitives = _check_execution_primitives(output_root=output)
+    checks["execution_primitives"] = execution_primitives
+    blockers.extend(execution_primitives.get("blockers", []))
+
     security_blockers = [
         blocker
         for blocker in evidence_check.get("blockers", [])
@@ -1879,35 +1893,11 @@ def build_release_readiness(
 
 
 def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
-    evidence_dir = output_root / ".omg" / "evidence"
-    if not evidence_dir.exists():
+    latest = _latest_evidence_pack(output_root)
+    if latest is None:
         return {"status": "missing", "blockers": []}
 
-    evidence_files = sorted(path for path in evidence_dir.glob("*.json") if path.is_file())
-    if not evidence_files:
-        return {"status": "missing", "blockers": []}
-
-    evidence_payloads: list[tuple[Path, dict[str, Any]]] = []
-    for path in evidence_files:
-        try:
-            payload = _load_json(path)
-        except Exception:
-            continue
-        if payload.get("schema") == "EvidencePack":
-            try:
-                payload = _normalize_evidence_pack(payload)
-            except ValueError as exc:
-                return {
-                    "status": "error",
-                    "evidence_file": str(path.relative_to(output_root)),
-                    "blockers": [f"invalid evidence pack: {exc}"],
-                }
-            evidence_payloads.append((path, payload))
-
-    if not evidence_payloads:
-        return {"status": "missing", "blockers": []}
-
-    evidence_path, payload = evidence_payloads[-1]
+    evidence_path, payload = latest
     blockers: list[str] = []
     if not payload.get("security_scans"):
         blockers.append("cosmetic evidence: security_scans is empty")
@@ -1936,8 +1926,240 @@ def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
     return {
         "status": "ok" if not blockers else "error",
         "evidence_file": str(evidence_path.relative_to(output_root)),
+        "run_id": str(payload.get("run_id", "")).strip(),
         "blockers": blockers,
     }
+
+
+def _latest_evidence_pack(output_root: Path) -> tuple[Path, dict[str, Any]] | None:
+    evidence_dir = output_root / ".omg" / "evidence"
+    if not evidence_dir.exists():
+        return None
+
+    evidence_files = sorted(path for path in evidence_dir.glob("*.json") if path.is_file())
+    evidence_payloads: list[tuple[Path, dict[str, Any]]] = []
+    for path in evidence_files:
+        try:
+            payload = _load_json(path)
+        except Exception:
+            continue
+        if payload.get("schema") != "EvidencePack":
+            continue
+        try:
+            payload = _normalize_evidence_pack(payload)
+        except ValueError as exc:
+            return path, {"schema": "EvidencePack", "invalid": f"invalid evidence pack: {exc}"}
+        evidence_payloads.append((path, payload))
+
+    if not evidence_payloads:
+        return None
+    return evidence_payloads[-1]
+
+
+def _required_fields_for_module(module: str) -> list[str]:
+    metadata = schema_versions().get(module, {})
+    required = metadata.get("required_fields", []) if isinstance(metadata, dict) else []
+    if isinstance(required, list):
+        return [str(field) for field in required if str(field).strip()]
+    return []
+
+
+def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    missing: list[str] = []
+    invalid: list[str] = []
+    evidence_paths: dict[str, str] = {key: "" for key in _REQUIRED_EXECUTION_PRIMITIVES}
+
+    latest = _latest_evidence_pack(output_root)
+    if latest is None:
+        missing.extend(
+            [
+                "release_run_coordinator_state",
+                "tdd_proof_chain_lock",
+                "rollback_manifest",
+                "session_health_state",
+                "council_verdicts",
+                "forge_starter_proof",
+            ]
+        )
+        blockers.extend(f"missing_execution_primitive: {item}" for item in missing)
+        return {
+            "status": "error",
+            "run_id": "",
+            "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
+            "missing": missing,
+            "invalid": invalid,
+            "evidence_paths": evidence_paths,
+            "blockers": blockers,
+        }
+
+    evidence_path, evidence_payload = latest
+    invalid_evidence = str(evidence_payload.get("invalid", "")).strip()
+    if invalid_evidence:
+        invalid.append(f"release_evidence_pack:{invalid_evidence}")
+        blockers.append(f"invalid_execution_primitive: release_evidence_pack: {invalid_evidence}")
+        return {
+            "status": "error",
+            "run_id": "",
+            "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
+            "missing": list(_REQUIRED_EXECUTION_PRIMITIVES),
+            "invalid": invalid,
+            "evidence_paths": evidence_paths,
+            "blockers": blockers,
+        }
+
+    run_id = str(evidence_payload.get("run_id", "")).strip()
+    if not run_id:
+        invalid.append("run_id_unresolved")
+        blockers.append("invalid_execution_primitive: run_id_unresolved")
+
+    checks: list[tuple[str, str, str]] = [
+        ("release_run_coordinator_state", "release_run_coordinator", "ReleaseRunCoordinatorState"),
+        ("rollback_manifest", "rollback_manifest", "RollbackManifest"),
+        ("session_health_state", "session_health", "SessionHealth"),
+        ("council_verdicts", "council_verdicts", "CouncilVerdicts"),
+    ]
+    for token, module, schema_name in checks:
+        matched_path, matched_payload = _find_state_for_run(output_root=output_root, module=module, run_id=run_id)
+        if matched_path is None or matched_payload is None:
+            missing.append(token)
+            blockers.append(f"missing_execution_primitive: {token}")
+            continue
+        evidence_paths[token] = str(matched_path.relative_to(output_root)).replace("\\", "/")
+        schema = str(matched_payload.get("schema", "")).strip()
+        if schema != schema_name:
+            invalid.append(f"{token}:schema_mismatch")
+            blockers.append(f"invalid_execution_primitive: {token}: schema_mismatch")
+            continue
+        required_fields = _required_fields_for_module(module)
+        missing_fields = [field for field in required_fields if field not in matched_payload]
+        if missing_fields:
+            invalid.append(f"{token}:missing_fields")
+            blockers.append(
+                f"invalid_execution_primitive: {token}: missing_fields={','.join(sorted(missing_fields))}"
+            )
+
+    lock_path, lock_payload = _find_test_intent_lock(output_root=output_root, run_id=run_id, evidence_payload=evidence_payload)
+    if lock_path is None or lock_payload is None:
+        missing.append("tdd_proof_chain_lock")
+        blockers.append("missing_execution_primitive: tdd_proof_chain_lock")
+    else:
+        evidence_paths["tdd_proof_chain_lock"] = str(lock_path.relative_to(output_root)).replace("\\", "/")
+        lock_status = str(lock_payload.get("status", "")).strip().lower()
+        if lock_status in {"", "error", "blocked"}:
+            invalid.append("tdd_proof_chain_lock:status_invalid")
+            blockers.append("invalid_execution_primitive: tdd_proof_chain_lock: status_invalid")
+
+    forge_path, forge_payload = _find_forge_starter_proof(output_root=output_root, run_id=run_id)
+    if forge_path is None or forge_payload is None:
+        missing.append("forge_starter_proof")
+        blockers.append("missing_execution_primitive: forge_starter_proof")
+    else:
+        evidence_paths["forge_starter_proof"] = str(forge_path.relative_to(output_root)).replace("\\", "/")
+        forge_schema = str(forge_payload.get("schema", "")).strip()
+        if forge_schema != "ForgeSpecialistDispatchEvidence":
+            invalid.append("forge_starter_proof:schema_mismatch")
+            blockers.append("invalid_execution_primitive: forge_starter_proof: schema_mismatch")
+        if forge_payload.get("proof_backed") is not True:
+            invalid.append("forge_starter_proof:not_proof_backed")
+            blockers.append("invalid_execution_primitive: forge_starter_proof: proof_backed_false")
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "run_id": run_id,
+        "evidence_pack": str(evidence_path.relative_to(output_root)).replace("\\", "/"),
+        "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
+        "missing": sorted(set(missing)),
+        "invalid": sorted(set(invalid)),
+        "evidence_paths": evidence_paths,
+        "blockers": blockers,
+    }
+
+
+def _find_state_for_run(
+    *,
+    output_root: Path,
+    module: str,
+    run_id: str,
+) -> tuple[Path | None, dict[str, Any] | None]:
+    state_dir = output_root / ".omg" / "state" / module
+    if not state_dir.exists():
+        return None, None
+
+    preferred = state_dir / f"{run_id}.json"
+    if run_id and preferred.exists():
+        try:
+            payload = _load_json(preferred)
+        except Exception:
+            payload = {}
+        if isinstance(payload, dict):
+            return preferred, payload
+
+    for path in sorted(state_dir.glob("*.json")):
+        try:
+            payload = _load_json(path)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if run_id and str(payload.get("run_id", "")).strip() != run_id:
+            continue
+        return path, payload
+    return None, None
+
+
+def _find_test_intent_lock(
+    *,
+    output_root: Path,
+    run_id: str,
+    evidence_payload: dict[str, Any],
+) -> tuple[Path | None, dict[str, Any] | None]:
+    lock_dir = output_root / ".omg" / "state" / "test-intent-lock"
+    if not lock_dir.exists():
+        return None, None
+
+    lock_id = ""
+    test_delta = evidence_payload.get("test_delta")
+    if isinstance(test_delta, dict):
+        lock_id = str(test_delta.get("lock_id", "")).strip()
+
+    for path in sorted(lock_dir.glob("*.json")):
+        try:
+            payload = _load_json(path)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        payload_lock_id = str(payload.get("lock_id", "")).strip()
+        if lock_id and payload_lock_id == lock_id:
+            return path, payload
+        intent = payload.get("intent")
+        if isinstance(intent, dict):
+            intent_run = str(intent.get("run_id", "")).strip()
+            if run_id and intent_run == run_id:
+                return path, payload
+        payload_run = str(payload.get("run_id", "")).strip()
+        if run_id and payload_run == run_id:
+            return path, payload
+    return None, None
+
+
+def _find_forge_starter_proof(*, output_root: Path, run_id: str) -> tuple[Path | None, dict[str, Any] | None]:
+    evidence_dir = output_root / ".omg" / "evidence"
+    if not evidence_dir.exists():
+        return None, None
+    for path in sorted(evidence_dir.glob("forge-specialists-*.json")):
+        try:
+            payload = _load_json(path)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        payload_run = str(payload.get("run_id", "")).strip()
+        if run_id and payload_run and payload_run != run_id:
+            continue
+        return path, payload
+    return None, None
 
 
 def _check_test_intent_claims(payload: dict[str, Any]) -> list[str]:

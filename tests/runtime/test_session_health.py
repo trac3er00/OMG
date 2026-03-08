@@ -177,3 +177,63 @@ def test_sources_report_availability(tmp_path: Path) -> None:
     assert out["sources"]["defense_state"] is True
     assert out["sources"]["context_pressure"] is False
     assert out["sources"]["journal"] is False
+
+
+# ── Production caller integration ──────────────────────────────────────────
+
+def test_session_health_includes_status_field(tmp_path: Path) -> None:
+    out = compute_session_health(str(tmp_path), run_id="status-1")
+    assert "status" in out, "missing status field"
+    assert out["status"] in {"pending", "running", "ok", "error", "blocked"}
+
+
+def test_session_health_persisted_via_runtime_contracts(tmp_path: Path) -> None:
+    out = compute_session_health(str(tmp_path), run_id="contracts-1")
+    persisted_path = tmp_path / ".omg" / "state" / "session_health" / "contracts-1.json"
+    assert persisted_path.exists()
+    persisted = json.loads(persisted_path.read_text(encoding="utf-8"))
+    assert persisted["schema"] == "SessionHealth"
+    assert persisted["schema_version"] == "1.0.0"
+    assert "status" in persisted
+    assert persisted["status"] in {"pending", "running", "ok", "error", "blocked"}
+    assert persisted["run_id"] == "contracts-1"
+
+
+def test_coordinator_mutate_produces_session_health(tmp_path: Path) -> None:
+    from runtime.release_run_coordinator import ReleaseRunCoordinator
+
+    coord = ReleaseRunCoordinator(str(tmp_path))
+    result = coord.begin()
+    run_id = str(result["run_id"])
+    coord.mutate(
+        run_id=run_id,
+        tool="Edit",
+        metadata={"file": "x.py"},
+        goal="fix bug",
+        available_tools=["Edit", "Read"],
+    )
+    health_path = tmp_path / ".omg" / "state" / "session_health" / f"{run_id}.json"
+    assert health_path.exists(), "mutate() should produce session health state"
+    persisted = json.loads(health_path.read_text(encoding="utf-8"))
+    assert persisted["schema"] == "SessionHealth"
+    assert persisted["run_id"] == run_id
+
+
+def test_coordinator_mutate_updates_defense_state(tmp_path: Path) -> None:
+    from runtime.release_run_coordinator import ReleaseRunCoordinator
+
+    coord = ReleaseRunCoordinator(str(tmp_path))
+    result = coord.begin()
+    run_id = str(result["run_id"])
+    coord.mutate(
+        run_id=run_id,
+        tool="Edit",
+        metadata={"file": "x.py"},
+        goal="fix bug",
+        available_tools=["Edit", "Read"],
+    )
+    defense_path = tmp_path / ".omg" / "state" / "defense_state" / "current.json"
+    assert defense_path.exists(), "mutate() should refresh defense state"
+    defense = json.loads(defense_path.read_text(encoding="utf-8"))
+    assert "risk_level" in defense
+    assert "updated_at" in defense
