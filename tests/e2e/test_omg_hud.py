@@ -13,11 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 HUD = ROOT / "hud" / "omg-hud.mjs"
 
 
-def _run_hud(payload: dict[str, object], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+def _run_hud_script(script: Path, payload: dict[str, object], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     merged_env = dict(os.environ)
     merged_env.update(env)
     return subprocess.run(
-        ["node", str(HUD)],
+        ["node", str(script)],
         input=json.dumps(payload),
         cwd=str(ROOT),
         capture_output=True,
@@ -25,6 +25,10 @@ def _run_hud(payload: dict[str, object], env: dict[str, str]) -> subprocess.Comp
         check=False,
         env=merged_env,
     )
+
+
+def _run_hud(payload: dict[str, object], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    return _run_hud_script(HUD, payload, env)
 
 
 def _stdin_payload(cwd: Path) -> dict[str, object]:
@@ -71,6 +75,26 @@ def test_hud_honors_legacy_omc_hud_toggle_for_label(tmp_path: Path):
     out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
     assert out.returncode == 0
     assert "[omg#" not in out.stdout.lower()
+
+
+def test_copied_hud_reads_version_from_installed_settings(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    hud_dir = claude / "hud"
+    hud_dir.mkdir(parents=True)
+    copied_hud = hud_dir / "omg-hud.mjs"
+    copied_hud.write_text(HUD.read_text(encoding="utf-8"), encoding="utf-8")
+    _ = (claude / "settings.json").write_text(
+        json.dumps({"_omg": {"_version": "2.0.9"}}),
+        encoding="utf-8",
+    )
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    payload = _stdin_payload(project)
+    out = _run_hud_script(copied_hud, payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    assert "[omg#2.0.9]" in out.stdout.lower()
 
 
 def test_hud_defaults_follow_omc_baseline(tmp_path: Path):

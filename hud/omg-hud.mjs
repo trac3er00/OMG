@@ -25,12 +25,50 @@ const cyan = (t) => `${ESC}36m${t}${ESC}0m`;
 function readOmgVersion() {
   const scriptPath = realpathSync(fileURLToPath(import.meta.url));
   const scriptDir = dirname(scriptPath);
+  const claudeDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 
   try {
     const pluginJsonPath = join(scriptDir, "..", ".claude-plugin", "plugin.json");
     const pluginJson = JSON.parse(readFileSync(pluginJsonPath, "utf8"));
     if (typeof pluginJson?.version === "string" && pluginJson.version.trim()) {
       return pluginJson.version.trim();
+    }
+  } catch {
+    // fall through to git tag fallback
+  }
+
+  try {
+    const settingsJson = JSON.parse(readFileSync(join(claudeDir, "settings.json"), "utf8"));
+    const version = settingsJson?._omg?._version;
+    if (typeof version === "string" && version.trim()) {
+      return version.trim();
+    }
+  } catch {
+    // fall through to cache and hook fallbacks
+  }
+
+  try {
+    const hooksVersion = readFileSync(join(claudeDir, "hooks", ".omg-version"), "utf8").trim();
+    if (hooksVersion) {
+      return hooksVersion.replace(/^v/, "").trim();
+    }
+  } catch {
+    // fall through to plugin cache fallback
+  }
+
+  try {
+    const pluginCacheDir = join(claudeDir, "plugins", "cache", "omg", "omg");
+    const versions = readdirSync(pluginCacheDir)
+      .filter((entry) => /^\d+\.\d+\.\d+/.test(entry))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const latest = versions.at(-1);
+    if (latest) {
+      const pluginJson = JSON.parse(
+        readFileSync(join(pluginCacheDir, latest, ".claude-plugin", "plugin.json"), "utf8"),
+      );
+      if (typeof pluginJson?.version === "string" && pluginJson.version.trim()) {
+        return pluginJson.version.trim();
+      }
     }
   } catch {
     // fall through to git tag fallback

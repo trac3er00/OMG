@@ -32,7 +32,7 @@ OMG_ROOT="$(dirname "$PLUGIN_DIR")"
 if [ -f "$OMG_ROOT/OMG-setup.sh" ]; then
     info "Running uninstall via OMG-setup.sh..."
     echo ""
-    bash "$OMG_ROOT/OMG-setup.sh" uninstall
+    bash "$OMG_ROOT/OMG-setup.sh" uninstall --non-interactive
 else
     warning "OMG-setup.sh not found, performing manual cleanup..."
     

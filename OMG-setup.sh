@@ -123,8 +123,12 @@ prompt_start_action() {
 
     local standalone_installed=false
     local plugin_installed=false
+    local anything_installed=false
     is_standalone_installed && standalone_installed=true
     is_plugin_installed && plugin_installed=true
+    if $standalone_installed || $plugin_installed; then
+        anything_installed=true
+    fi
 
     echo ""
     echo "Select OMG setup action:"
@@ -136,7 +140,9 @@ prompt_start_action() {
     if $plugin_installed; then
         echo "  4. Update plugin install"
     fi
-    echo "  5. Uninstall"
+    if $anything_installed; then
+        echo "  5. Uninstall"
+    fi
     echo "  0. Cancel"
     echo ""
 
@@ -169,7 +175,12 @@ prompt_start_action() {
             fi
             ;;
         5)
-            ACTION="uninstall"
+            if $anything_installed; then
+                ACTION="uninstall"
+            else
+                echo "Uninstall unavailable (nothing installed)."
+                exit 1
+            fi
             ;;
         0)
             echo "Cancelled by user."
@@ -1523,7 +1534,7 @@ run_install_like() {
                 dry_run_preview="$(python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1)"
                 printf '%s\n' "$dry_run_preview" | sed -n '1,5p' | sed 's/^/      /'
                 echo ""
-                if read -p "  Apply merge? [Y/n] " -n 1 -r 2>/dev/null; then
+                if read -p "  Apply merge? [Y/n] " -n 1 -r; then
                     echo ""
                     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
                         python3 "$MERGE" "$TARGET" "$SOURCE"

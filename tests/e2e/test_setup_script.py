@@ -170,7 +170,7 @@ def test_setup_script_prompts_start_menu_when_no_action(tmp_path: Path):
     assert "Select OMG setup action" in out
     assert "Install standalone" in out
     assert "Install as plugin" in out
-    assert "Uninstall" in out
+    assert "Uninstall" not in out
     assert "Update standalone" not in out
     assert "Update plugin install" not in out
 
@@ -199,8 +199,22 @@ def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
     proc = _run_script_with_tty_input(SETUP, [], "0\n", env=env)
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
+    assert "Uninstall" in out
     assert "Update standalone" in out
     assert "Update plugin install" in out
+
+
+def test_setup_script_interactive_merge_shows_prompt(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    _ = (claude_dir / "settings.json").write_text('{"enabledPlugins":{"existing@demo":true}}\n', encoding="utf-8")
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+    proc = _run_script_with_tty_input(SETUP, ["install"], "n\n", env=env)
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "Merging settings.json..." in out
+    assert "Apply merge? [Y/n]" in out
 
 
 def test_setup_script_install_dry_run_non_interactive(tmp_path: Path):
@@ -748,6 +762,12 @@ def test_plugin_install_script_has_install_as_plugin_flag():
     install_sh = (ROOT / ".claude-plugin" / "scripts" / "install.sh").read_text(encoding="utf-8")
     assert "--install-as-plugin" in install_sh
     assert "--non-interactive" in install_sh
+
+
+def test_plugin_uninstall_script_is_non_interactive():
+    """.claude-plugin/scripts/uninstall.sh must pass --non-interactive."""
+    uninstall_sh = (ROOT / ".claude-plugin" / "scripts" / "uninstall.sh").read_text(encoding="utf-8")
+    assert "uninstall --non-interactive" in uninstall_sh
 
 
 # --- Python version and managed runtime regression tests ---
