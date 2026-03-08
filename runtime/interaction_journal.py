@@ -22,7 +22,9 @@ class InteractionJournal:
 
     def record_step(self, tool: str, metadata: dict[str, object]) -> dict[str, object]:
         step_id = self._new_step_id()
-        rollback_mode = self._rollback_mode()
+        rollback_mode = "unsupported"
+        if tool in {"write", "edit"}:
+            rollback_mode = self._rollback_mode()
         checkpoint_ref = self._checkpoint_reference(step_id)
 
         shadow_manifest_path = ""

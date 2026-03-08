@@ -28,6 +28,7 @@ def test_record_step_persists_journal_entry(tmp_path: Path) -> None:
 def test_undo_returns_unsupported_for_external_bash_step(tmp_path: Path) -> None:
     journal = InteractionJournal(str(tmp_path))
     event = journal.record_step("bash", {"command": "npm publish", "side_effect_scope": "external"})
+    assert event["rollback_mode"] == "unsupported"
 
     result = journal.undo(cast(str, event["step_id"]))
 
