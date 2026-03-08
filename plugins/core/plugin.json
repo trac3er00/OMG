@@ -1,6 +1,6 @@
 {
   "name": "omg-core",
-  "version": "2.0.5",
+  "version": "2.0.7",
   "description": "Core OMG commands - native setup, routing, orchestration, and verification surfaces",
   "type": "omg-plugin",
   "commands": {
@@ -134,6 +134,12 @@
     "visualization": {
       "description": "Codebase visualization and architecture diagrams",
       "commands": ["arch"]
+    }
+  },
+  "roles": {
+    "plan-council": {
+      "description": "Canonical council-style planning role",
+      "bundle": "plan-council"
     }
   }
 }

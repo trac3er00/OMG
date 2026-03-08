@@ -1,6 +1,6 @@
 id: remote-supervisor
 kind: orchestration
-version: 2.0.5
+version: 2.0.7
 title: OMG Remote Supervisor
 description: Local-only authenticated supervisor sessions for worker orchestration.
 hosts:

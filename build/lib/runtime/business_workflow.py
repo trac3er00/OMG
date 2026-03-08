@@ -71,6 +71,14 @@ def build_business_task_plan(idea: dict[str, Any]) -> dict[str, Any]:
     user_instructions = _as_string_list(idea.get("user_instructions", []))
     workflow_path = _resolve_workflow_path(idea)
 
+    # Plan Council extensions
+    assumptions = _as_string_list(idea.get("assumptions", []))
+    objections = _as_string_list(idea.get("objections", []) or idea.get("dissent", []))
+    rollback_plan = _as_string_list(idea.get("rollback_plan", []))
+    verification_commands = _as_string_list(idea.get("verification_commands", []))
+    evidence_requirements = _as_string_list(idea.get("evidence_requirements", []))
+    falsifiability = _as_string_list(idea.get("falsifiability", []))
+
     tasks: list[dict[str, Any]] = []
     task_id = 1
 
@@ -178,6 +186,12 @@ def build_business_task_plan(idea: dict[str, Any]) -> dict[str, Any]:
         "constraints": constraints,
         "acceptance": acceptance,
         "user_instructions": user_instructions,
+        "assumptions": assumptions,
+        "objections": objections,
+        "rollback_plan": rollback_plan,
+        "verification_commands": verification_commands,
+        "evidence_requirements": evidence_requirements,
+        "falsifiability": falsifiability,
         "stages": stage_summaries,
         "task_count": len(tasks),
     }

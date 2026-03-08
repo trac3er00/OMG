@@ -303,7 +303,7 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     installed_versions = sorted([p for p in plugin_cache_root.iterdir() if p.is_dir()])
     assert installed_versions
     plugin_dir = installed_versions[-1]
-    assert plugin_dir.name == "2.0.5"
+    assert plugin_dir.name == "2.0.7"
 
     assert (plugin_dir / ".claude-plugin" / "plugin.json").exists()
     assert (plugin_dir / ".mcp.json").exists()
@@ -318,10 +318,8 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     mcp_path = claude_dir / ".mcp.json"
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
-    assert "context7" in mcp_servers
     assert "filesystem" in mcp_servers
-    assert "websearch" in mcp_servers
-    assert "chrome-devtools" in mcp_servers
+    assert "omg-control" in mcp_servers
 
     installed_plugins_path = claude_dir / "plugins" / "installed_plugins.json"
     installed_plugins = cast(dict[str, object], json.loads(installed_plugins_path.read_text(encoding="utf-8")))
@@ -368,10 +366,8 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     mcp_path = claude_dir / ".mcp.json"
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
-    assert "context7" in mcp_servers
     assert "filesystem" in mcp_servers
-    assert "websearch" in mcp_servers
-    assert "chrome-devtools" in mcp_servers
+    assert "omg-control" in mcp_servers
 
     uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
     assert uninstall_proc.returncode == 0
@@ -406,10 +402,8 @@ def test_setup_install_as_plugin_refreshes_stale_plugin_mcp_servers(tmp_path: Pa
         json.dumps(
             {
                 "mcpServers": {
-                    "context7": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"]},
                     "filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]},
-                    "websearch": {"command": "npx", "args": ["-y", "@zhafron/mcp-web-search"]},
-                    "chrome-devtools": {"command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"]},
+                    "omg-control": {"command": "python3", "args": ["-m", "runtime.omg_mcp_server"]},
                 }
             },
             indent=2,
@@ -431,10 +425,11 @@ def test_setup_install_as_plugin_refreshes_stale_plugin_mcp_servers(tmp_path: Pa
     source = cast(dict[str, object], json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8")))
     source_servers = cast(dict[str, object], source.get("mcpServers") or {})
 
-    assert servers["context7"] == source_servers["context7"]
     assert servers["filesystem"] == source_servers["filesystem"]
-    assert servers["websearch"] == source_servers["websearch"]
-    assert servers["chrome-devtools"] == source_servers["chrome-devtools"]
+    # omg-control command is rewritten to the venv python by the setup script
+    assert "omg-control" in servers
+    omg_ctl = cast(dict[str, object], servers["omg-control"])
+    assert omg_ctl["args"] == ["-m", "runtime.omg_mcp_server"]
 
 
 def test_setup_uninstall_cleans_legacy_omg_registry_and_cache(tmp_path: Path):

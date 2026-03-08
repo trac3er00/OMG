@@ -6,9 +6,14 @@ import argparse
 import json
 from pathlib import Path
 import re
+import sys
 from urllib.parse import urlparse
 
+# Add root to sys.path to import runtime.adoption
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from runtime.adoption import CANONICAL_VERSION
 
 REQUIRED_PUBLIC_DOCS = [
     "README.md",
@@ -220,6 +225,23 @@ def _find_proof_surface_violations(root: Path) -> list[str]:
     return violations
 
 
+def _find_doc_currency_violations(root: Path) -> list[str]:
+    violations: list[str] = []
+    changelog_path = root / "CHANGELOG.md"
+    if not changelog_path.exists():
+        violations.append("CHANGELOG.md: missing changelog file")
+        return violations
+
+    content = _read(changelog_path)
+    # Look for version in headers like ## [2.0.7] or ## 2.0.7
+    version_pattern = re.compile(rf"##\s*\[?{re.escape(CANONICAL_VERSION)}\]?")
+    if not version_pattern.search(content):
+        violations.append(
+            f"CHANGELOG.md: missing entry for current version {CANONICAL_VERSION}"
+        )
+    return violations
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check OMG public-readiness hygiene")
     parser.add_argument("--root", default=str(ROOT))
@@ -233,6 +255,7 @@ def main() -> int:
     violations.extend(_find_text_violations(root))
     violations.extend(_find_broken_markdown_links(root))
     violations.extend(_find_proof_surface_violations(root))
+    violations.extend(_find_doc_currency_violations(root))
     violations = sorted(set(violations))
 
     if violations:

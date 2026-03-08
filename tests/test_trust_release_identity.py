@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from runtime.adoption import CANONICAL_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,7 +22,7 @@ def test_trust_release_identity_is_canonical():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert package["name"] == "@trac3er/oh-my-god"
-    assert package["version"] == "2.0.5"
+    assert package["version"] == CANONICAL_VERSION
     assert package["repository"] == {
         "type": "git",
         "url": "git+https://github.com/trac3er00/OMG.git",
@@ -29,27 +30,28 @@ def test_trust_release_identity_is_canonical():
     assert package["homepage"] == "https://github.com/trac3er00/OMG#readme"
 
     omg_settings = settings["_omg"]
-    assert omg_settings["_version"] == "2.0.5"
+    assert omg_settings["_version"] == CANONICAL_VERSION
     assert omg_settings["preset"] == "safe"
 
     assert plugin["name"] == "omg"
-    assert plugin["version"] == "2.0.5"
+    assert plugin["version"] == CANONICAL_VERSION
     assert plugin["repository"] == "https://github.com/trac3er00/OMG"
 
     assert marketplace["name"] == "omg"
-    assert marketplace["version"] == "2.0.5"
-    assert marketplace["metadata"]["version"] == "2.0.5"
+    assert marketplace["version"] == CANONICAL_VERSION
+    assert marketplace["metadata"]["version"] == CANONICAL_VERSION
     assert marketplace["metadata"]["repository"] == "https://github.com/trac3er00/OMG"
 
     plugins = marketplace["plugins"]
     assert isinstance(plugins, list)
     assert plugins[0]["name"] == "omg"
-    assert plugins[0]["version"] == "2.0.5"
+    assert plugins[0]["version"] == CANONICAL_VERSION
 
-    assert core_plugin["version"] == "2.0.5"
+    assert core_plugin["version"] == CANONICAL_VERSION
     assert "setup" in core_plugin["commands"]
     assert "compat" in core_plugin["commands"]
+    assert "plan-council" in core_plugin["roles"]
 
-    assert readme.startswith("# OMG 2.0.5")
+    assert readme.startswith("# OMG")
     assert "https://github.com/trac3er00/OMG" in readme
     assert "@trac3er/oh-my-god" in readme

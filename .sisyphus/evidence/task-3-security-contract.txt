@@ -1,0 +1,215 @@
+...................................                                      [100%]
+35 passed in 5.05s
+{
+  "schema": "OmgContractValidationResult",
+  "status": "ok",
+  "contract": {
+    "path": "OMG_COMPAT_CONTRACT.md",
+    "schema_path": "registry/omg-capability.schema.json",
+    "version": "2.0.7",
+    "bundle_count": 18
+  },
+  "bundles": [
+    {
+      "id": "algorithms",
+      "kind": "domain-pack",
+      "version": "2.0.7",
+      "title": "OMG Algorithms Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/algorithms.yaml"
+    },
+    {
+      "id": "api-twin",
+      "kind": "simulation",
+      "version": "2.0.7",
+      "title": "OMG API Twin",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/api-twin.yaml"
+    },
+    {
+      "id": "control-plane",
+      "kind": "skill",
+      "version": "2.0.7",
+      "title": "OMG Control Plane",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/control-plane.yaml"
+    },
+    {
+      "id": "data-lineage",
+      "kind": "provenance",
+      "version": "2.0.7",
+      "title": "OMG Data Lineage",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/data-lineage.yaml"
+    },
+    {
+      "id": "delta-classifier",
+      "kind": "routing",
+      "version": "2.0.7",
+      "title": "OMG Delta Classifier",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/delta-classifier.yaml"
+    },
+    {
+      "id": "eval-gate",
+      "kind": "evaluation",
+      "version": "2.0.7",
+      "title": "OMG Eval Gate",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/eval-gate.yaml"
+    },
+    {
+      "id": "health",
+      "kind": "domain-pack",
+      "version": "2.0.7",
+      "title": "OMG Health Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/health.yaml"
+    },
+    {
+      "id": "hook-governor",
+      "kind": "governance",
+      "version": "2.0.7",
+      "title": "OMG Hook Governor",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/hook-governor.yaml"
+    },
+    {
+      "id": "incident-replay",
+      "kind": "debugging",
+      "version": "2.0.7",
+      "title": "OMG Incident Replay",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/incident-replay.yaml"
+    },
+    {
+      "id": "lsp-pack",
+      "kind": "diagnostics",
+      "version": "2.0.7",
+      "title": "OMG LSP Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/lsp-pack.yaml"
+    },
+    {
+      "id": "mcp-fabric",
+      "kind": "mcp",
+      "version": "2.0.7",
+      "title": "OMG MCP Fabric",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/mcp-fabric.yaml"
+    },
+    {
+      "id": "preflight",
+      "kind": "routing",
+      "version": "2.0.7",
+      "title": "OMG Preflight",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/preflight.yaml"
+    },
+    {
+      "id": "remote-supervisor",
+      "kind": "orchestration",
+      "version": "2.0.7",
+      "title": "OMG Remote Supervisor",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/remote-supervisor.yaml"
+    },
+    {
+      "id": "robotics",
+      "kind": "domain-pack",
+      "version": "2.0.7",
+      "title": "OMG Robotics Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/robotics.yaml"
+    },
+    {
+      "id": "secure-worktree-pipeline",
+      "kind": "runtime",
+      "version": "2.0.7",
+      "title": "OMG Secure Worktree Pipeline",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/secure-worktree-pipeline.yaml"
+    },
+    {
+      "id": "security-check",
+      "kind": "security",
+      "version": "2.0.7",
+      "title": "OMG Security Check",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/security-check.yaml"
+    },
+    {
+      "id": "tracebank",
+      "kind": "evidence",
+      "version": "2.0.7",
+      "title": "OMG Tracebank",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/tracebank.yaml"
+    },
+    {
+      "id": "vision",
+      "kind": "domain-pack",
+      "version": "2.0.7",
+      "title": "OMG Vision Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/vision.yaml"
+    }
+  ],
+  "errors": []
+}
+---
+All verifications passed.

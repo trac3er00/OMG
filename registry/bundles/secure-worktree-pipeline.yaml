@@ -1,6 +1,6 @@
 id: secure-worktree-pipeline
 kind: runtime
-version: 2.0.5
+version: 2.0.7
 title: OMG Secure Worktree Pipeline
 description: Ephemeral worktree execution and supervisor-safe worker dispatch for production jobs.
 hosts:

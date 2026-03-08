@@ -31,7 +31,7 @@ Security auditor. Reviews code for vulnerabilities, enforces security best pract
 
 ## Guardrails
 
-- MUST run `/OMG:security-review` before completing any audit
+- MUST run `/OMG:security-check` before completing any audit
 - MUST NOT approve code with hardcoded secrets (API keys, tokens, passwords, connection strings)
 - MUST flag any SQL injection, XSS, CSRF vulnerabilities found
 - MUST check for: auth bypass, privilege escalation, path traversal, SSRF, open redirects

@@ -32,13 +32,13 @@ def test_mcp_json_pins_versions_without_auto_install_flags():
                 assert "@latest" not in arg
 
 
-def test_mcp_json_has_five_servers():
+def test_mcp_json_has_default_servers():
+    """Root .mcp.json ships only the safe-preset defaults: filesystem + omg-control."""
     mcp_path = os.path.join(WORKTREE_ROOT, ".mcp.json")
     with open(mcp_path) as f:
         cfg = json.load(f)
-    assert len(cfg["mcpServers"]) == 6
-    assert "omg-memory" in cfg["mcpServers"]
-    assert "omg-control" in cfg["mcpServers"]
+    assert len(cfg["mcpServers"]) == 2
+    assert set(cfg["mcpServers"]) == {"filesystem", "omg-control"}
 
 
 def test_build_mcp_config_filesystem_scopes_to_project_root():

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 2.0.7 - 2026-03-07
+
+- canonicalized v2.0.7 release identity across all source, tests, and generated security artifact metadata
+- updated README.md heading to `# OMG` (removed version from H1 permanently) and removed `- Version: 2.0.5` line from brand metadata block
+- refactored identity tests to derive expected version from CANONICAL_VERSION instead of hardcoding values
+- extended release-readiness/version-drift coverage to newly canonicalized locations and updated contract_compiler.py to skip README H1 version check
+
 ## 2.0.5 - 2026-03-07
 
 - expanded release identity and version-drift gate across full public surface (README.md, package.json, pyproject.toml, settings.json, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, plugins/core/plugin.json, plugins/advanced/plugin.json, CHANGELOG.md)

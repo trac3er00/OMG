@@ -30,3 +30,33 @@ def test_core_plugin_manifest_includes_new_canonical_surfaces():
 def test_advanced_plugin_manifest_no_longer_markets_security_review():
     manifest = json.loads((ROOT / "plugins" / "advanced" / "plugin.json").read_text(encoding="utf-8"))
     assert "security-review" not in manifest["commands"]
+
+
+def test_advanced_plugin_command_paths_resolve_relative_to_plugin_root():
+    """Verify all command paths in advanced plugin resolve relative to plugins/advanced/"""
+    manifest = json.loads((ROOT / "plugins" / "advanced" / "plugin.json").read_text(encoding="utf-8"))
+    plugin_root = ROOT / "plugins" / "advanced"
+    
+    for cmd_name, cmd_config in manifest["commands"].items():
+        path = cmd_config["path"]
+        resolved = plugin_root / path
+        assert resolved.exists(), f"Command '{cmd_name}' path '{path}' does not resolve to {resolved}"
+
+
+def test_readme_promotes_narrowed_mcp_and_truth_bundles():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "narrowed defaults" in readme
+    assert "claim-judge" in readme
+    assert "test-intent-lock" in readme
+    assert "proof-gate" in readme
+    assert "plan-council" in readme
+    assert "/OMG:deep-plan" in readme
+
+
+def test_proof_docs_include_truth_bundle_artifacts():
+    proof = (ROOT / "docs" / "proof.md").read_text(encoding="utf-8")
+    assert "claim-judge" in proof
+    assert "test-intent-lock" in proof
+    assert "proof-gate" in proof
+    assert "browser-*.png" in proof
+    assert "narrowed stdio OMG control" in proof

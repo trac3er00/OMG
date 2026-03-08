@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="$CLAUDE_DIR/.omg-backup-$BACKUP_TS"
-VERSION="2.0.5"
+VERSION="2.0.7"
 
 PLUGIN_NAME="omg"
 PLUGIN_MARKETPLACE="omg"
@@ -845,21 +845,13 @@ install_plugin_bundle() {
         cat > "$_fallback_mcp_dir/.mcp.json" <<'FALLBACK_MCP'
 {
   "mcpServers": {
-    "context7": {
-      "command": "npx",
-      "args": ["@upstash/context7-mcp@2.1.3"]
-    },
     "filesystem": {
       "command": "npx",
       "args": ["@modelcontextprotocol/server-filesystem@2026.1.14", "."]
     },
-    "websearch": {
-      "command": "npx",
-      "args": ["@zhafron/mcp-web-search@1.2.2"]
-    },
-    "chrome-devtools": {
-      "command": "npx",
-      "args": ["chrome-devtools-mcp@0.19.0"]
+    "omg-control": {
+      "command": "python3",
+      "args": ["-m", "runtime.omg_mcp_server"]
     }
   }
 }

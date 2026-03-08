@@ -211,3 +211,64 @@ def test_security_check_accepts_none_external_inputs(tmp_path: Path):
     })
     assert status == 200
     assert out["schema"] == "SecurityCheckResult"
+
+
+def test_security_check_accepts_waivers(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({
+        "scope": ".",
+        "waivers": ["shell-true"],
+    })
+    assert status == 200
+    assert out["schema"] == "SecurityCheckResult"
+
+
+def test_security_check_accepts_none_waivers(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({
+        "scope": ".",
+        "waivers": None,
+    })
+    assert status == 200
+    assert out["schema"] == "SecurityCheckResult"
+
+
+def test_security_check_rejects_malformed_waivers_not_list(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({
+        "scope": ".",
+        "waivers": "not a list",
+    })
+    assert status == 400
+    assert out["error_code"] == "INVALID_WAIVERS"
+    assert "must be a list" in out["message"]
+
+
+def test_security_check_rejects_malformed_waivers_non_str_items(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({
+        "scope": ".",
+        "waivers": [42],
+    })
+    assert status == 400
+    assert out["error_code"] == "INVALID_WAIVERS"
+    assert "string or object" in out["message"]
+
+
+def test_security_check_accepts_dict_waivers(tmp_path: Path):
+    target = tmp_path / "danger.py"
+    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.security_check({
+        "scope": ".",
+        "waivers": [{"id": "shell-true", "reason": "accepted risk"}],
+    })
+    assert status == 200
+    assert out["schema"] == "SecurityCheckResult"

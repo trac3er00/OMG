@@ -16,6 +16,7 @@ from plugins.dephealth.cve_scanner import scan_for_cves
 from plugins.dephealth.license_checker import check_license_compatibility
 from plugins.dephealth.manifest_detector import detect_manifests
 from plugins.dephealth.vuln_analyzer import analyze_reachability
+from runtime.adoption import CANONICAL_VERSION
 from runtime.delta_classifier import classify_project_changes
 from runtime.tracebank import record_trace
 
@@ -807,7 +808,7 @@ def _build_sarif_payload(findings: list[dict[str, Any]]) -> dict[str, Any]:
                 "tool": {
                     "driver": {
                         "name": "omg-security-check",
-                        "version": "2.0.5",
+                        "version": CANONICAL_VERSION,
                         "rules": [rules_by_id[key] for key in sorted(rules_by_id.keys())],
                     }
                 },
@@ -839,7 +840,7 @@ def _build_sbom_payload(*, generated_at: str, manifests: Any) -> dict[str, Any]:
         "version": 1,
         "metadata": {
             "timestamp": generated_at,
-            "tools": [{"vendor": "OMG", "name": "omg-security-check", "version": "2.0.5"}],
+            "tools": [{"vendor": "OMG", "name": "omg-security-check", "version": CANONICAL_VERSION}],
         },
         "components": components,
     }

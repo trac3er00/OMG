@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/trac3er00/OMG/registry/omg-capability.schema.json",
   "title": "OMG Capability Bundle",
-  "version": "2.0.5",
+  "version": "2.0.7",
   "type": "object",
   "required": [
     "id",
@@ -71,6 +71,222 @@
     },
     "execution_contract": {
       "type": "object"
+    },
+    "policy_model": {
+      "type": "object",
+      "required": [
+        "trust_tiers",
+        "tool_policies",
+        "protected_paths",
+        "evidence_contract",
+        "host_rules"
+      ],
+      "properties": {
+        "trust_tiers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "level",
+              "label",
+              "allowed_sources"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "level": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "label": {
+                "type": "string"
+              },
+              "allowed_sources": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "tool_policies": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "tool_name",
+              "allowed_tiers",
+              "requires_approval"
+            ],
+            "properties": {
+              "tool_name": {
+                "type": "string"
+              },
+              "allowed_tiers": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "requires_approval": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "protected_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "path_pattern",
+              "required_tier"
+            ],
+            "properties": {
+              "path_pattern": {
+                "type": "string"
+              },
+              "required_tier": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "evidence_contract": {
+          "type": "object",
+          "required": [
+            "timestamp",
+            "executor",
+            "trace_id",
+            "lineage"
+          ],
+          "properties": {
+            "timestamp": {
+              "type": "string"
+            },
+            "executor": {
+              "type": "string"
+            },
+            "trace_id": {
+              "type": "string"
+            },
+            "lineage": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        },
+        "host_rules": {
+          "type": "object",
+          "required": [
+            "claude",
+            "codex"
+          ],
+          "properties": {
+            "claude": {
+              "type": "object",
+              "required": [
+                "compilation_targets",
+                "hooks",
+                "subagents",
+                "skills"
+              ],
+              "properties": {
+                "compilation_targets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "hooks": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "subagents": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "skills": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": true
+            },
+            "codex": {
+              "type": "object",
+              "required": [
+                "compilation_targets",
+                "skills",
+                "agents_fragments",
+                "rules",
+                "automations"
+              ],
+              "properties": {
+                "compilation_targets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "skills": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "agents_fragments": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "rules": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "automations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
     },
     "channel_overrides": {
       "type": "object"

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OMG Control Plane API
-  version: 2.0.5
+  version: 2.0.7
   description: Policy/trust/evidence/runtime/registry/lab endpoints for OMG v2, with deprecated v1 aliases for one release.
 servers:
   - url: https://api.omg.local
@@ -62,6 +62,12 @@ paths:
   /v2/security/check:
     post:
       summary: Run canonical OMG security check
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecurityCheckInput'
       responses:
         '200':
           description: Security check result
@@ -190,6 +196,32 @@ components:
           type: integer
         verdict:
           type: string
+    SecurityCheckInput:
+      type: object
+      properties:
+        scope:
+          type: string
+          default: "."
+          description: Directory scope to scan
+        include_live_enrichment:
+          type: boolean
+          default: false
+          description: Whether to include live enrichment data
+        external_inputs:
+          type: array
+          nullable: true
+          items:
+            type: object
+          description: External input sources to include in provenance
+        waivers:
+          type: array
+          nullable: true
+          items:
+            oneOf:
+              - type: string
+              - type: object
+          description: Finding identifiers or waiver objects to suppress matched findings
+      additionalProperties: false
     SecurityCheckResult:
       type: object
       required: [schema, status, scope, findings, summary, provenance, trust_scores]

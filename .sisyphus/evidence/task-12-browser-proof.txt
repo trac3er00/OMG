@@ -1,0 +1,66 @@
+Task 12: Browser Proof-Ready Playwright Trace Evidence
+=======================================================
+Date: 2026-03-07
+
+## Changes Made
+
+### runtime/playwright_pack.py
+- Added `metadata` field to `run_smoke()` output: {isolated, timestamp, project_dir, trust_tier, trust_label, trust_score}
+- Added `_resolve_trust_tier()` to resolve effective trust tier from isolation flag or untrusted-content state
+- Added `_build_metadata()` to construct proof-gate-compatible metadata block
+- Added `_write_browser_evidence()` to persist BrowserEvidence JSON alongside artifacts
+- Kept existing isolation guard and artifact emission unchanged
+- Imported TRUST_TIER_CONFIG for tier-aware metadata
+
+### tests/runtime/test_playwright_pack.py
+- `test_browser_pack_requires_isolation` — isolation guard regression (preserved)
+- `test_browser_pack_emits_proof_ready_artifacts` — verifies trace, junit, screenshots emitted + evidence JSON
+- `test_browser_pack_metadata_includes_trust_tier` — verifies metadata contract fields
+- `test_browser_pack_non_isolated_with_browser_tier_includes_metadata` — non-isolated path with BROWSER tier
+- `test_browser_pack_smoke_fixture_exists` — fixture presence (preserved)
+- `test_browser_pack_run_smoke_rejects_missing_fixture` — error path
+
+## Verification
+
+### pytest
+$ python3 -m pytest tests/runtime/test_playwright_pack.py -q
+6 passed in 0.11s
+
+### Acceptance criteria smoke
+$ python3 -c "..."
+browser trace evidence emitted
+  trace:       /tmp/omg-browser-proof/.omg/evidence/browser/trace.zip
+  junit:       /tmp/omg-browser-proof/.omg/evidence/browser/junit.xml
+  screenshots: ['/tmp/omg-browser-proof/.omg/evidence/browser/screenshots/smoke_test.png']
+  trust_tier:  browser
+  trust_label: UNTRUSTED_EXTERNAL_CONTENT
+  trust_score: 0.0
+
+### LSP diagnostics
+- runtime/playwright_pack.py: 0 errors
+- tests/runtime/test_playwright_pack.py: 0 errors
+
+## Output Contract Shape
+```python
+{
+    "status": "success",
+    "fixture": "<path>",
+    "artifacts": {
+        "trace": "<path>/trace.zip",
+        "junit": "<path>/junit.xml",
+        "screenshots": ["<path>/screenshots/smoke_test.png"]
+    },
+    "metadata": {
+        "isolated": True,
+        "timestamp": "<ISO 8601>",
+        "project_dir": "<resolved path>",
+        "trust_tier": "browser",
+        "trust_label": "UNTRUSTED_EXTERNAL_CONTENT",
+        "trust_score": 0.0
+    }
+}
+```
+
+## BrowserEvidence JSON (persisted)
+Schema: BrowserEvidence
+Fields: generated_at, fixture, fixture_hash, artifacts, metadata, trust_tier, trust_label, trust_score

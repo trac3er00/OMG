@@ -20,6 +20,8 @@ Use this checklist before making OMG public or cutting a release tag.
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root <tmp>` passes
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root <tmp>` passes
 - `python3 scripts/omg.py release readiness --channel dual --output-root <tmp>` passes
+- Truth bundles (`claim-judge`, `test-intent-lock`, `proof-gate`) are verified and present in `registry/bundles/`
+- `plan-council` role is compiled and verified in `registry/bundles/`
 - `python3 scripts/check-omg-standalone-clean.py` passes
 - `./scripts/verify-standalone.sh` passes
 - `python3 -m pytest tests -q` passes

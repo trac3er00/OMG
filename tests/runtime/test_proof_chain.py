@@ -5,17 +5,17 @@ import json
 from pathlib import Path
 
 import pytest
+import runtime.tracebank as tracebank
 from runtime.contract_compiler import build_release_readiness, compile_contract_outputs
 from runtime.data_lineage import build_lineage_manifest
 from runtime.eval_gate import evaluate_trace
-from runtime.tracebank import link_evidence, record_trace
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path) -> None:
-    trace = record_trace(
+    trace = tracebank.record_trace(
         str(tmp_path),
         trace_type="ship",
         route="security-check",
@@ -56,11 +56,21 @@ def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path)
         "lineage": lineage,
         "security_scans": [{"tool": "security-check", "path": security_path.relative_to(tmp_path).as_posix()}],
         "provenance": [{"source": "security-check"}],
+        "claims": [
+            {
+                "claim_type": "release_ready",
+                "artifacts": [
+                    "junit.xml",
+                    "coverage.xml",
+                    ".omg/evidence/security-check-proof.sarif",
+                    ".omg/evidence/browser-trace.zip",
+                ],
+                "trace_ids": [trace["trace_id"]],
+            }
+        ],
         "tests": [{"name": "worker_implementation", "passed": True}],
     }
     _ = evidence_path.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
-    _ = link_evidence(str(tmp_path), trace_id=trace["trace_id"], evidence_path=evidence_rel_path)
-
     proof_chain = importlib.import_module("runtime.proof_chain")
     chain = proof_chain.assemble_proof_chain(str(tmp_path))
     validation = proof_chain.validate_proof_chain(chain)
@@ -70,6 +80,74 @@ def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path)
     assert chain["lineage"]["lineage_id"] == lineage["lineage_id"]
     assert validation["status"] == "ok"
     assert chain["status"] == "ok"
+
+
+def test_build_proof_gate_input_includes_claims_and_linked_evidence(tmp_path: Path) -> None:
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+
+    _ = (evidence_root / "security-check-proof.json").write_text(
+        json.dumps(
+            {
+                "schema": "SecurityCheckResult",
+                "evidence": {"sarif_path": ".omg/evidence/security-check-proof.sarif"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    _ = (evidence_root / "browser-evidence.json").write_text(
+        json.dumps(
+            {
+                "schema": "BrowserEvidence",
+                "artifacts": {"trace": ".omg/evidence/browser-trace.zip"},
+                "metadata": {"trace_id": "trace-2"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _ = (tmp_path / ".omg" / "evals" / "latest.json").parent.mkdir(parents=True, exist_ok=True)
+    _ = (tmp_path / ".omg" / "evals" / "latest.json").write_text(
+        json.dumps({"schema": "EvalGateResult", "status": "ok", "trace_id": "trace-2", "lineage": {"trace_id": "trace-2"}}),
+        encoding="utf-8",
+    )
+
+    _ = (tmp_path / ".omg" / "tracebank" / "events.jsonl").parent.mkdir(parents=True, exist_ok=True)
+    _ = (tmp_path / ".omg" / "tracebank" / "events.jsonl").write_text(
+        json.dumps({"trace_id": "trace-2", "path": ".omg/tracebank/events.jsonl"}) + "\n",
+        encoding="utf-8",
+    )
+
+    _ = (evidence_root / "run-proof-chain.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "run_id": "run-proof-chain",
+                "timestamp": "2026-03-07T00:00:00+00:00",
+                "executor": {"user": "tester", "pid": 1234},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "trace_ids": ["trace-2"],
+                "lineage": {"trace_id": "trace-2", "lineage_id": "lineage-2"},
+                "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check-proof.json"}],
+                "claims": [
+                    {
+                        "claim_type": "release_ready",
+                        "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                        "trace_ids": ["trace-2"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    proof_chain = importlib.import_module("runtime.proof_chain")
+    gate_input = proof_chain.build_proof_gate_input(str(tmp_path))
+
+    assert gate_input["proof_chain"]["status"] == "ok"
+    assert len(gate_input["claims"]) == 1
+    assert gate_input["security_evidence"]["schema"] == "SecurityCheckResult"
+    assert gate_input["browser_evidence"]["schema"] == "BrowserEvidence"
 
 
 def test_release_readiness_names_proof_chain_blocker_when_trace_link_is_missing(

@@ -1,6 +1,6 @@
 id: delta-classifier
 kind: routing
-version: 2.0.5
+version: 2.0.7
 title: OMG Delta Classifier
 description: Change classifier that attaches risk-aware checks, approvals, and packs.
 hosts:
