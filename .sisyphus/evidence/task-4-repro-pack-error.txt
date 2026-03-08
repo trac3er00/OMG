@@ -1,0 +1,5 @@
+Task 4 repro-pack error-path QA evidence
+
+Command: python3 -c '...build_repro_pack(... run_id="missing")...'
+Result: PASS (asserted status=error)
+Expected payload contract: {"status": "error", "run_id": "missing", "reason": "evidence_pack_not_found"}

@@ -1,0 +1,9 @@
+Task 4 repro-pack QA evidence
+
+Command: python3 -c '...build_repro_pack(... run-1 ...)'
+Result: PASS (asserted status=ok, run_id=run-1, path endswith .json)
+
+Command: python3 -m pytest tests/runtime/test_repro_pack.py tests/runtime/test_consolidation_platform.py -x -q
+Result:
+..........                                                               [100%]
+10 passed in 3.41s
