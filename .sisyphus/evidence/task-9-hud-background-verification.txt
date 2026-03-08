@@ -1,0 +1,29 @@
+Task 9: Render Background Verification And Proof Status In The HUD
+===================================================================
+Date: 2026-03-08
+Branch: release/v2.0.8
+
+Changes:
+- hud/omg-hud.mjs: added readBackgroundVerificationState(stateDir) function
+- hud/omg-hud.mjs: added renderVerificationStatus(state) function
+- hud/omg-hud.mjs: integrated verification rendering into main() HUD output
+- tests/e2e/test_omg_hud.py: 3 new tests for verification status rendering
+
+Rendering behavior:
+- status "ok"      → green "✓ verification ok"
+- status "running" → yellow "⟳ verification running"
+- status "error"/"blocked" → red "✗ verification blocked (N blockers)"
+- missing/corrupt  → dim "verification: unknown"
+- most recent evidence link shown as dim suffix
+
+Test output (14 passed):
+..............                                                           [100%]
+14 passed
+
+node hud/omg-hud.mjs (no state):
+  verification: unknown   EXIT: 0
+
+node hud/omg-hud.mjs (with state):
+  ✓ verification ok evidence:gate.json   EXIT: 0
+
+LSP diagnostics: 0 errors on both changed files

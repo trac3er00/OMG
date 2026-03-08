@@ -638,6 +638,19 @@ function readOmgState(cwd) {
   return result;
 }
 
+function readBackgroundVerificationState(stateDir) {
+  const filePath = join(stateDir, "background-verification.json");
+  const data = readJsonSafe(filePath);
+  if (!data || data.schema !== "BackgroundVerificationState") return null;
+  return {
+    status: data.status || "unknown",
+    blockers: Array.isArray(data.blockers) ? data.blockers : [],
+    evidence_links: Array.isArray(data.evidence_links) ? data.evidence_links : [],
+    progress: data.progress || {},
+    updated_at: data.updated_at || null,
+  };
+}
+
 function parseTranscript(transcriptPath) {
   const result = {
     tools: 0,
@@ -823,6 +836,29 @@ function renderBackgroundTasks(tasks) {
   if (running >= MAX) colorFn = yellow;
   else if (running >= MAX - 1) colorFn = cyan;
   return `bg:${colorFn(`${running}/${MAX}`)}`;
+}
+
+function renderVerificationStatus(state) {
+  if (!state) return dim("verification: unknown");
+  const { status, blockers, evidence_links } = state;
+  const blockerCount = blockers.length;
+  const latestEvidence = evidence_links.length > 0
+    ? evidence_links[evidence_links.length - 1]
+    : null;
+  const evidenceSuffix = latestEvidence
+    ? ` ${dim(`evidence:${basename(latestEvidence)}`)}`
+    : "";
+  if (status === "ok") {
+    return green("\u2713 verification ok") + evidenceSuffix;
+  }
+  if (status === "running") {
+    return yellow("\u27F3 verification running") + evidenceSuffix;
+  }
+  if (status === "error" || status === "blocked") {
+    const blockerSuffix = blockerCount > 0 ? ` (${blockerCount} blockers)` : "";
+    return red(`\u2717 verification blocked${blockerSuffix}`) + evidenceSuffix;
+  }
+  return dim("verification: unknown");
 }
 
 function renderTodos(todos) {
@@ -1191,6 +1227,10 @@ async function main() {
       const bgEl = renderBackgroundTasks(omgState.backgroundTasks);
       if (bgEl) els.push(bgEl);
     }
+
+    const verificationStateDir = join(cwd, ".omg", "state");
+    const verificationState = readBackgroundVerificationState(verificationStateDir);
+    els.push(renderVerificationStatus(verificationState));
 
     // Model name
     if (cfg.elements.model !== false && model && model !== "?") {
