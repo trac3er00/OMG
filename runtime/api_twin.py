@@ -353,15 +353,15 @@ def _state_path(project_dir: str) -> Path:
 def _load_state(project_dir: str) -> dict[str, Any]:
     path = _state_path(project_dir)
     if not path.exists():
-        return {"schema": "ApiTwinState", "version": "2.0.7", "contracts": {}, "fixtures": {}}
+        return {"schema": "ApiTwinState", "version": "2.0.8", "contracts": {}, "fixtures": {}}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"schema": "ApiTwinState", "version": "2.0.7", "contracts": {}, "fixtures": {}}
+        return {"schema": "ApiTwinState", "version": "2.0.8", "contracts": {}, "fixtures": {}}
     if not isinstance(payload, dict):
-        return {"schema": "ApiTwinState", "version": "2.0.7", "contracts": {}, "fixtures": {}}
+        return {"schema": "ApiTwinState", "version": "2.0.8", "contracts": {}, "fixtures": {}}
     payload.setdefault("schema", "ApiTwinState")
-    payload.setdefault("version", "2.0.7")
+    payload.setdefault("version", "2.0.8")
     payload.setdefault("contracts", {})
     payload.setdefault("fixtures", {})
     return payload
