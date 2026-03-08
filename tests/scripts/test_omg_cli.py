@@ -31,7 +31,7 @@ def test_cli_help_uses_canonical_identity():
     proc = _run(["--help"])
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
-    assert "OMG 2.0.7 CLI" in out
+    assert "OMG 2.0.8 CLI" in out
     assert "OMG v1 CLI" not in out
     assert "crazy" in out
     assert "compat" in out
@@ -374,10 +374,36 @@ def test_cli_release_readiness_dual_channel(tmp_path: Path):
                 "provenance": [{"source": "security-check"}],
                 "trust_scores": {"overall": 1.0},
                 "api_twin": {},
+                "test_delta": {"override": {"approved_by": "tester"}},
+                "claims": [
+                    {
+                        "claim_type": "tests_passed",
+                        "trace_ids": ["trace-1"],
+                        "artifacts": ["junit.xml", "coverage.xml", "results.sarif", "trace.zip"],
+                    }
+                ],
                 "trace_ids": ["trace-1"],
                 "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
             }
         ),
+        encoding="utf-8",
+    )
+    (evidence_root / "security-check.json").write_text(
+        json.dumps(
+            {
+                "schema": "SecurityCheckResult",
+                "status": "ok",
+                "evidence": {"sarif_path": ".omg/evidence/results.sarif"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (evidence_root / "results.sarif").write_text("{}", encoding="utf-8")
+
+    lineage_root = tmp_path / ".omg" / "lineage"
+    lineage_root.mkdir(parents=True, exist_ok=True)
+    (lineage_root / "lineage-1.json").write_text(
+        json.dumps({"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"}),
         encoding="utf-8",
     )
 

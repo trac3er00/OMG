@@ -28,7 +28,7 @@ OMG exposes a small native front door and keeps the rest of the surface availabl
 
 | Command | Category | Description |
 |---------|----------|-------------|
-| `/OMG:deep-plan` | Planning | Strategic planning with domain awareness (routes to `plan-council`) |
+| `/OMG:deep-plan` | Planning | Strategic planning with domain awareness (compatibility path to `plan-council`) |
 | `/OMG:learn` | Knowledge | Convert patterns into OMG-native instincts and skills |
 | `/OMG:code-review` | Quality | Deep review flow |
 | `/OMG:ship` | Delivery | Idea to evidence to release |
