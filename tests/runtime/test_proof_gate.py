@@ -251,3 +251,27 @@ def test_proof_gate_accepts_v2_evidence_payload_with_optional_sibling_fields() -
 
     assert "proof_gate_invalid_evidence_pack" not in result["blockers"]
     assert "proof_gate_unsupported_evidence_schema_version" not in result["blockers"]
+
+
+def test_proof_gate_accepts_browser_cli_trace_linked_by_claims() -> None:
+    result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "release_ready",
+                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "browser-trace.zip"],
+                    "trace_ids": ["trace-browser-cli"],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-browser-cli"},
+            "eval_output": {"trace_id": "trace-browser-cli", "status": "ok"},
+            "browser_evidence": {
+                "schema": "BrowserEvidence",
+                "artifacts": {"trace": ".omg/evidence/browser-trace.zip"},
+                "metadata": {"trace_id": "trace-browser-cli"},
+            },
+        }
+    )
+
+    assert "proof_gate_browser_trace_not_linked_by_claims" not in result["blockers"]
+    assert "proof_gate_browser_trace_mismatch" not in result["blockers"]

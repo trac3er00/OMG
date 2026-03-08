@@ -9,6 +9,7 @@ import runtime.tracebank as tracebank
 from runtime.contract_compiler import build_release_readiness, compile_contract_outputs
 from runtime.data_lineage import build_lineage_manifest
 from runtime.eval_gate import evaluate_trace
+from runtime.omg_browser_cli import run_browser_cli
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -229,6 +230,70 @@ def test_build_proof_gate_input_prefers_playwright_adapter_evidence_when_availab
     gate_input = proof_chain.build_proof_gate_input(str(tmp_path))
 
     assert gate_input["browser_evidence"]["schema"] == "PlaywrightAdapterEvidence"
+
+
+def test_build_proof_gate_input_accepts_browser_cli_evidence(tmp_path: Path) -> None:
+    def fake_which(name: str) -> str | None:
+        return "/usr/local/bin/playwright" if name == "playwright" else None
+
+    external_dir = tmp_path / "external"
+    external_dir.mkdir()
+    trace_path = external_dir / "trace.zip"
+    trace_path.write_bytes(b"PK\x03\x04mock_trace")
+    junit_path = external_dir / "junit.xml"
+    junit_path.write_text("<testsuites></testsuites>", encoding="utf-8")
+    screenshot_path = external_dir / "shot.png"
+    screenshot_path.write_bytes(b"\x89PNG\r\n\x1a\nmock_png")
+
+    def fake_runner(*, command: list[str], cwd: str, goal: str) -> dict[str, object]:
+        return {
+            "returncode": 0,
+            "trace_path": str(trace_path),
+            "junit_path": str(junit_path),
+            "screenshots": [str(screenshot_path)],
+            "metadata": {"trace_id": "trace-browser-cli", "goal": goal},
+        }
+
+    run_result = run_browser_cli(
+        goal="capture login flow",
+        project_dir=tmp_path,
+        which=fake_which,
+        runner=fake_runner,
+        isolated=True,
+    )
+    assert run_result["status"] == "success"
+
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    _ = (evidence_root / "run-proof-chain.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "schema_version": 2,
+                "run_id": "run-proof-chain",
+                "timestamp": "2026-03-08T00:00:00+00:00",
+                "executor": {"user": "tester", "pid": 1234},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "trace_ids": ["trace-browser-cli"],
+                "lineage": {"trace_id": "trace-browser-cli", "lineage_id": "lineage-browser-cli"},
+                "security_scans": [],
+                "claims": [
+                    {
+                        "claim_type": "release_ready",
+                        "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "browser-trace.zip"],
+                        "trace_ids": ["trace-browser-cli"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    proof_chain = importlib.import_module("runtime.proof_chain")
+    gate_input = proof_chain.build_proof_gate_input(str(tmp_path))
+
+    assert gate_input["browser_evidence"]["schema"] == "BrowserEvidence"
+    assert gate_input["browser_evidence"]["metadata"]["trace_id"] == "trace-browser-cli"
 
 
 def test_release_readiness_names_proof_chain_blocker_when_trace_link_is_missing(
