@@ -135,5 +135,11 @@
       "description": "Codebase visualization and architecture diagrams",
       "commands": ["arch"]
     }
+  },
+  "roles": {
+    "plan-council": {
+      "description": "Canonical council-style planning role",
+      "bundle": "plan-council"
+    }
   }
 }
