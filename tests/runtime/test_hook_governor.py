@@ -8,25 +8,28 @@ from typing import cast
 from runtime.feature_registry import DEFAULT_FEATURE_REGISTRY_PATH, load_registry
 from runtime.hook_governor import get_canonical_order, validate_order
 
+# Use absolute project root so tests are not affected by cwd changes from other tests
+_PROJECT_ROOT = str(Path(__file__).parent.parent.parent)
+
 
 def test_canonical_order_loads_from_bundle():
-    order = get_canonical_order("PreToolUse")
+    order = get_canonical_order("PreToolUse", project_dir=_PROJECT_ROOT)
     assert order[:4] == ["firewall", "secret-guard", "tdd-gate", "pre-tool-inject"]
 
 
 def test_validate_order_accepts_valid_sequence():
-    result = validate_order("PreToolUse", ["firewall", "secret-guard", "tdd-gate", "pre-tool-inject"])
+    result = validate_order("PreToolUse", ["firewall", "secret-guard", "tdd-gate", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
     assert result == {"status": "ok", "blockers": []}
 
 
 def test_validate_order_blocks_missing_required_security_hook():
-    result = validate_order("PreToolUse", ["secret-guard", "tdd-gate", "pre-tool-inject"])
+    result = validate_order("PreToolUse", ["secret-guard", "tdd-gate", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
     assert result["status"] == "blocked"
     assert "missing required security hook: firewall" in result["blockers"]
 
 
 def test_validate_order_detects_out_of_order_hooks():
-    result = validate_order("PreToolUse", ["secret-guard", "firewall", "tdd-gate", "pre-tool-inject"])
+    result = validate_order("PreToolUse", ["secret-guard", "firewall", "tdd-gate", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
     assert result["status"] == "blocked"
     assert any("hook order violation" in blocker for blocker in result["blockers"])
 
