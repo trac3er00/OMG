@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 2.0.9 - 2026-03-08
+
+- added scan-first evidence query layer for read-only trust artifact lookup
+- extended claim-judge and test-intent-lock with query-backed workflows and file-backed lock state
+- exposed claim-judge and test-intent-lock through control-plane service, HTTP routes, and MCP tools
+- added deterministic repro-pack manifest assembly from existing evidence, trace, eval, and lineage artifacts
+- added optional playwright evidence adapter for proof-chain-friendly browser artifact summarization
+- added bounded verification-loop policy helpers with no execution side effects
+- integrated new sibling artifacts into proof chain, evidence ingest, and release readiness
+
 ## 2.0.8 - 2026-03-07
 
 - restored plan-council, claim-judge, test-intent-lock, and proof-gate to all required surfaces
