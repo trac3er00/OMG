@@ -8,6 +8,7 @@ OMG exposes a small native front door and keeps the rest of the surface availabl
 |---------|-------------|
 | `/OMG:setup` | Native setup and adoption flow for supported hosts |
 | `/OMG:crazy` | Default OMG orchestration flow |
+| `/OMG:browser` | Canonical browser automation and verification surface |
 
 ## Core Commands
 
@@ -20,6 +21,7 @@ OMG exposes a small native front door and keeps the rest of the surface availabl
 | `/OMG:security-check` | Canonical security pipeline |
 | `/OMG:api-twin` | Contract replay and fixture-based API simulation |
 | `/OMG:preflight` | Structured route selection and evidence planning |
+| `/OMG:browser` | Browser automation and verification powered by upstream `playwright-cli` |
 | `/OMG:compat` | Legacy compatibility routing |
 | `/OMG:health-check` | Verify setup and tool integration |
 | `/OMG:mode` | Set cognitive mode for the session |
@@ -53,6 +55,8 @@ plugins/
 ## Adoption Notes
 
 Public migration commands are intentionally avoided. OMG uses `/OMG:setup` and `OMG-setup.sh` to detect and adopt older ecosystems internally, while `compat` remains focused on legacy skill routing.
+
+`/OMG:playwright` remains available as a compatibility alias to `/OMG:browser`.
 
 ## Public Docs
 

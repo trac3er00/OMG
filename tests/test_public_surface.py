@@ -26,6 +26,7 @@ def test_core_plugin_manifest_includes_new_canonical_surfaces():
     assert "security-check" in commands
     assert "api-twin" in commands
     assert "preflight" in commands
+    assert "browser" in commands
 
 
 def test_advanced_plugin_manifest_no_longer_markets_security_review():
@@ -52,6 +53,15 @@ def test_readme_promotes_narrowed_mcp_and_truth_bundles():
     assert "proof-gate" in readme
     assert "plan-council" in readme
     assert "/OMG:deep-plan" in readme
+
+
+def test_readme_and_plugin_docs_promote_browser_command():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    plugins_readme = (ROOT / "plugins" / "README.md").read_text(encoding="utf-8")
+
+    assert "/OMG:browser" in readme
+    assert "/OMG:playwright" in readme
+    assert "/OMG:browser" in plugins_readme
 
 
 def test_deep_plan_is_compatibility_path_to_plan_council():

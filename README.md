@@ -15,6 +15,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 ## Why OMG
 
 - Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
+- Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias.
 - Multi-host support: Claude Code and Codex (canonical), Gemini CLI and Kimi CLI (compatibility providers).
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
@@ -59,6 +60,7 @@ Then run:
 
 ```text
 /OMG:setup
+/OMG:browser capture login flow evidence
 /OMG:crazy stabilize auth and dashboard flows
 ```
 
@@ -78,6 +80,7 @@ Success looks like:
 - additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
+- narrowed defaults keep the required control plane small while optional capabilities such as browser automation remain opt-in
 
 ## Install Guides
 
@@ -117,11 +120,13 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 Primary entry points:
 
 - `/OMG:setup`
+- `/OMG:browser`
 - `/OMG:crazy`
 - `/OMG:deep-plan` (compatibility path to `plan-council`)
 
 Advanced surfaces stay available for deeper workflows:
 
+- `/OMG:playwright` (compatibility alias to `/OMG:browser`)
 - `/OMG:security-check`
 - `/OMG:api-twin`
 - `/OMG:preflight`

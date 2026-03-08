@@ -54,6 +54,11 @@
       "description": "Structured routing and evidence planning before execution",
       "category": "routing"
     },
+    "browser": {
+      "path": "commands/OMG:browser.md",
+      "description": "Canonical browser automation and verification surface powered by playwright-cli",
+      "category": "verification"
+    },
     "health-check": {
       "path": "commands/OMG:health-check.md",
       "description": "Verify project setup and tool integration",
@@ -106,6 +111,10 @@
     "routing": {
       "description": "Model routing and escalation",
       "commands": ["escalate", "teams", "ccg", "preflight"]
+    },
+    "verification": {
+      "description": "Verification flows with normalized evidence",
+      "commands": ["browser"]
     },
     "orchestration": {
       "description": "Multi-agent orchestration modes",
