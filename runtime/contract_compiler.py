@@ -36,6 +36,7 @@ SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
     "plan-council",
+    "claim-judge",
     "hook-governor",
     "mcp-fabric",
     "lsp-pack",
