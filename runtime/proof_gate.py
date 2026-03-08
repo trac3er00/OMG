@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
 from typing import Any
+
+from runtime import artifact_parsers
 
 
 _REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
@@ -98,8 +102,10 @@ def _collect_trace_ids(claim: dict[str, Any]) -> set[str]:
 
 def _validate_claim_artifacts(claims: list[dict[str, Any]]) -> list[str]:
     all_artifacts: list[str] = []
+    artifact_records: list[dict[str, Any]] = []
     for claim in claims:
         all_artifacts.extend(_collect_artifacts(claim))
+        artifact_records.extend(_extract_artifact_records(claim))
 
     blockers: list[str] = []
     required_tokens = {
@@ -111,6 +117,24 @@ def _validate_claim_artifacts(claims: list[dict[str, Any]]) -> list[str]:
     for key, tokens in required_tokens.items():
         if not any(any(token in artifact for token in tokens) for artifact in all_artifacts):
             blockers.append(f"proof_gate_missing_artifact_{key}")
+
+    for artifact in artifact_records:
+        kind = str(artifact.get("kind", "")).strip().lower()
+        path = str(artifact.get("path", "")).strip()
+        if not kind or not path:
+            continue
+
+        parse_result = _parse_artifact(kind=kind, path=path)
+        if not parse_result.get("valid"):
+            error = str(parse_result.get("error", "")).strip()
+            if error == "file_not_found":
+                blockers.append(f"proof_gate_artifact_file_missing_{kind}")
+            else:
+                blockers.append(f"proof_gate_artifact_parse_failed_{kind}")
+
+        hash_blocker = _validate_artifact_hash(artifact)
+        if hash_blocker:
+            blockers.append(hash_blocker)
     return blockers
 
 
@@ -194,3 +218,48 @@ def _validate_evidence_pack(payload: dict[str, Any]) -> list[str]:
             if not value:
                 blockers.append(f"proof_gate_evidence_artifact_missing_{field}")
     return blockers
+
+
+def _extract_artifact_records(claim: dict[str, Any]) -> list[dict[str, Any]]:
+    evidence = _as_dict(claim.get("evidence"))
+    raw_artifacts = evidence.get("artifacts", claim.get("artifacts", []))
+    if not isinstance(raw_artifacts, list):
+        return []
+    return [item for item in raw_artifacts if isinstance(item, dict)]
+
+
+def _parse_artifact(*, kind: str, path: str) -> dict[str, Any]:
+    parser = _PARSERS.get(kind)
+    if parser is None:
+        return {"valid": False, "summary": {}, "error": "unsupported_artifact_kind"}
+    return parser(path)
+
+
+def _validate_artifact_hash(artifact: dict[str, Any]) -> str | None:
+    sha256_value = str(artifact.get("sha256", "")).strip().lower()
+    path = str(artifact.get("path", "")).strip()
+    kind = str(artifact.get("kind", "artifact")).strip().lower() or "artifact"
+    if not sha256_value or not path:
+        return None
+    if len(sha256_value) != 64 or any(ch not in "0123456789abcdef" for ch in sha256_value):
+        return None
+
+    file_path = Path(path)
+    if not file_path.exists():
+        return f"proof_gate_artifact_file_missing_{kind}"
+    try:
+        digest = hashlib.sha256(file_path.read_bytes()).hexdigest()
+    except OSError:
+        return f"proof_gate_artifact_hash_unreadable_{kind}"
+    if digest != sha256_value:
+        return f"proof_gate_artifact_hash_mismatch_{kind}"
+    return None
+
+
+_PARSERS: dict[str, Any] = {
+    "junit": artifact_parsers.parse_junit,
+    "sarif": artifact_parsers.parse_sarif,
+    "coverage": artifact_parsers.parse_coverage,
+    "browser_trace": artifact_parsers.parse_browser_trace,
+    "diff_hunk": artifact_parsers.parse_diff_hunk,
+}

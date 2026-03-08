@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+
+from runtime import artifact_parsers
 
 
 def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
@@ -47,6 +50,22 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
                 "code": "browser_evidence_failed",
                 "message": "Browser evidence reports failed checks; claim is blocked.",
                 "field": "browser_evidence",
+            }
+        )
+
+    raw_artifacts = _extract_artifact_dicts(claim)
+    project_dir = str(claim.get("project_dir", "."))
+    for artifact in raw_artifacts:
+        parse_result = parse_artifact_content(artifact=artifact, project_dir=project_dir)
+        if parse_result.get("parsed"):
+            continue
+        kind = str(parse_result.get("kind", "artifact")).strip().lower() or "artifact"
+        error = str(parse_result.get("error", "parse_error")).strip() or "parse_error"
+        reasons.append(
+            {
+                "code": f"artifact_parse_failed_{kind}",
+                "message": f"Artifact content parse failed for {kind}: {error}",
+                "field": "evidence.artifacts",
             }
         )
 
@@ -125,6 +144,29 @@ def _normalize_artifact_records(value: Any) -> list[str]:
     return refs
 
 
+def parse_artifact_content(artifact: dict[str, Any], project_dir: str) -> dict[str, Any]:
+    kind = str(artifact.get("kind", "")).strip().lower()
+    path_value = str(artifact.get("path", "")).strip()
+    if not kind or not path_value:
+        return {"parsed": False, "kind": kind or "unknown", "summary": {}, "error": "missing_kind_or_path"}
+
+    parser = _PARSERS.get(kind)
+    if parser is None:
+        return {"parsed": False, "kind": kind, "summary": {}, "error": "unsupported_artifact_kind"}
+
+    file_path = Path(path_value)
+    if not file_path.is_absolute():
+        file_path = Path(project_dir) / file_path
+
+    parsed = parser(str(file_path))
+    return {
+        "parsed": bool(parsed.get("valid")),
+        "kind": kind,
+        "summary": parsed.get("summary", {}),
+        "error": parsed.get("error"),
+    }
+
+
 def _as_non_empty_str_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -157,3 +199,20 @@ def _has_failed_scan(value: Any) -> bool:
         if isinstance(unresolved_risks, list) and unresolved_risks:
             return True
     return False
+
+
+def _extract_artifact_dicts(claim: dict[str, Any]) -> list[dict[str, Any]]:
+    evidence = _as_dict(claim.get("evidence"))
+    raw_artifacts = evidence.get("artifacts")
+    if not isinstance(raw_artifacts, list):
+        return []
+    return [item for item in raw_artifacts if isinstance(item, dict)]
+
+
+_PARSERS: dict[str, Any] = {
+    "junit": artifact_parsers.parse_junit,
+    "sarif": artifact_parsers.parse_sarif,
+    "coverage": artifact_parsers.parse_coverage,
+    "browser_trace": artifact_parsers.parse_browser_trace,
+    "diff_hunk": artifact_parsers.parse_diff_hunk,
+}
