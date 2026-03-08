@@ -103,6 +103,56 @@ def test_server_security_check_with_waivers(tmp_path) -> None:
         thread.join(timeout=5)
 
 
+def test_server_claim_judge_v2_and_v1(tmp_path) -> None:
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    server = HTTPServer(("127.0.0.1", 0), make_handler(service))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        claims = [{"claim_type": "test_pass", "subject": "auth", "artifacts": ["a.json"], "trace_ids": ["t-1"]}]
+
+        v2_status, v2_payload = _post_json(f"{base}/v2/trust/claim-judge", {"claims": claims})
+        assert v2_status == 200
+        assert v2_payload["schema"] == "ClaimJudgeResults"
+        assert v2_payload["api_version"] == "v2"
+
+        v1_status, v1_payload = _post_json(f"{base}/v1/trust/claim-judge", {"claims": claims})
+        assert v1_status == 200
+        assert v1_payload["deprecated"] is True
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
+def test_server_test_intent_lock_v2_and_v1(tmp_path) -> None:
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    server = HTTPServer(("127.0.0.1", 0), make_handler(service))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+
+        v2_status, v2_payload = _post_json(
+            f"{base}/v2/trust/test-intent-lock",
+            {"action": "lock", "intent": {"tests": ["test_auth"]}},
+        )
+        assert v2_status == 200
+        assert v2_payload["status"] == "locked"
+        assert v2_payload["api_version"] == "v2"
+
+        v1_status, v1_payload = _post_json(
+            f"{base}/v1/trust/test-intent-lock",
+            {"action": "lock", "intent": {"tests": ["test_auth"]}},
+        )
+        assert v1_status == 200
+        assert v1_payload["deprecated"] is True
+        assert v1_payload["status"] == "locked"
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
 def test_loopback_allowed_without_flag() -> None:
     with patch("sys.argv", ["server.py", "--host", "127.0.0.1"]), \
          patch("control_plane.server.run_server") as mock_run:
