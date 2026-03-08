@@ -306,6 +306,18 @@ def test_setup_install_uses_omg_only_command_surface(tmp_path: Path):
     assert all("omc" not in name.lower() for name in installed)
 
 
+def test_setup_install_registers_primary_omg_commands(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+    assert proc.returncode == 0
+
+    commands_dir = claude_dir / "commands"
+    assert (commands_dir / "OMG:setup.md").exists()
+    assert (commands_dir / "OMG:crazy.md").exists()
+
+
 def test_setup_install_preserves_existing_custom_deprecated_command_name(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     commands_dir = claude_dir / "commands"
@@ -803,10 +815,19 @@ def test_postinstall_script_in_package_json():
 
 
 def test_npmignore_includes_hud_and_mcp():
-    """.npmignore must NOT exclude hud/ or .mcp.json from the npm package."""
+    """.npmignore must NOT exclude plugin/runtime MCP or HUD assets from the npm package."""
     npmignore = (ROOT / ".npmignore").read_text(encoding="utf-8").splitlines()
     assert "hud/" not in npmignore, "hud/ should not be excluded from npm package"
     assert ".mcp.json" not in npmignore, ".mcp.json should not be excluded from npm package"
+    assert ".claude-plugin/" not in npmignore, ".claude-plugin/ should not be excluded from npm package"
+
+
+def test_plugin_bundle_assets_exist_for_npm_package():
+    """The Claude plugin bundle must ship its own MCP manifest alongside the plugin manifest."""
+    plugin_dir = ROOT / ".claude-plugin"
+    assert (plugin_dir / "plugin.json").exists()
+    assert (plugin_dir / "marketplace.json").exists()
+    assert (plugin_dir / "mcp.json").exists()
 
 
 def test_plugin_install_script_has_install_as_plugin_flag():
@@ -880,7 +901,7 @@ def test_setup_plugin_install_patches_omg_control_to_managed_python(tmp_path: Pa
     )
     assert proc.returncode == 0
 
-    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / "2.0.9" / ".mcp.json"
+    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / "2.0.9" / ".claude-plugin" / "mcp.json"
     assert mcp_path.exists()
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
