@@ -32,6 +32,7 @@ from session_snapshot import (
     delete_snapshot,
     detect_merge_conflicts,
     fork_branch,
+    get_status,
     list_branches,
     list_snapshots,
     merge_branch,
@@ -983,3 +984,57 @@ class TestCLI:
         )
         assert result.returncode == 0
         assert "ok" in result.stdout
+
+class TestStatus:
+    """Tests for get_status function and --status CLI."""
+
+    def test_get_status_basic(self, mock_state_dir):
+        """Test get_status returns current branch and snapshot count."""
+        # Initially no branch, no snapshots
+        status = get_status(state_dir=mock_state_dir)
+        assert status["current_branch"] is None
+        assert status["snapshot_count"] == 0
+
+        # Create a snapshot
+        create_snapshot(state_dir=mock_state_dir)
+        status = get_status(state_dir=mock_state_dir)
+        assert status["snapshot_count"] == 1
+
+        # Create a branch
+        create_branch("test-branch", state_dir=mock_state_dir)
+        status = get_status(state_dir=mock_state_dir)
+        assert status["current_branch"] == "test-branch"
+        # create_branch also creates a snapshot
+        assert status["snapshot_count"] == 2
+
+    def test_cli_status(self, mock_state_dir):
+        """Test --status CLI command."""
+        import subprocess
+        # Create a branch and snapshot
+        create_branch("cli-branch", state_dir=mock_state_dir)
+        
+        # We need to set the environment variable for the subprocess
+        env = os.environ.copy()
+        env["OMG_SNAPSHOT_ENABLED"] = "true"
+        env["OMG_BRANCHING_ENABLED"] = "true"
+        env["OMG_STATE_DIR"] = mock_state_dir
+        
+        result = subprocess.run(
+            [sys.executable, os.path.join(tools_dir, "session_snapshot.py"), "status"],
+            capture_output=True, text=True, env=env
+        )
+        assert result.returncode == 0
+        status_data = json.loads(result.stdout)
+        assert status_data["current_branch"] == "cli-branch"
+        assert status_data["snapshot_count"] >= 1
+
+    def test_cli_help_exits_zero(self):
+        """Test that --help exits with 0."""
+        import subprocess
+        result = subprocess.run(
+            [sys.executable, os.path.join(tools_dir, "session_snapshot.py"), "--help"],
+            capture_output=True, text=True
+        )
+        assert result.returncode == 0
+        assert "Usage:" in result.stdout
+        assert "status" in result.stdout

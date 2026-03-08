@@ -677,8 +677,41 @@ def fork_branch(
 merge_preview = preview_merge
 
 
+def get_status(state_dir: str = ".omg/state") -> Dict[str, Any]:
+    """
+    Get the current branch name and total snapshot count.
+
+    Args:
+        state_dir: Path to the state directory (default: ".omg/state")
+
+    Returns:
+        Dict with keys: current_branch, snapshot_count
+    """
+    # Get current branch
+    current_branch = None
+    current_branch_path = os.path.join(state_dir, "current_branch.json")
+    if os.path.exists(current_branch_path):
+        try:
+            with open(current_branch_path, "r", encoding="utf-8") as f:
+                cb = json.load(f)
+                current_branch = cb.get("name")
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Get snapshot count
+    snapshots = list_snapshots(state_dir=state_dir)
+    snapshot_count = len(snapshots)
+
+    return {
+        "current_branch": current_branch,
+        "snapshot_count": snapshot_count,
+    }
+
+
 def main():
     """CLI entry point."""
+    state_dir = os.environ.get("OMG_STATE_DIR", ".omg/state")
+
     if len(sys.argv) < 2 or sys.argv[1] in ("--help", "-h"):
         _dest = sys.stdout if (len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h")) else sys.stderr
         _code = 0 if _dest is sys.stdout else 1
@@ -687,6 +720,7 @@ def main():
             file=_dest,
         )
         print("Commands:", file=_dest)
+        print("  status                Show current branch and snapshot count", file=_dest)
         print("  create [--name NAME]  Create a snapshot", file=_dest)
         print("  list                  List all snapshots", file=_dest)
         print("  restore <snapshot_id> Restore a snapshot", file=_dest)
@@ -701,15 +735,19 @@ def main():
 
     command = sys.argv[1]
 
-    if command == "create":
+    if command == "status":
+        result = get_status(state_dir=state_dir)
+        print(json.dumps(result, indent=2))
+
+    elif command == "create":
         name = None
         if len(sys.argv) > 3 and sys.argv[2] == "--name":
             name = sys.argv[3]
-        result = create_snapshot(name=name)
+        result = create_snapshot(name=name, state_dir=state_dir)
         print(json.dumps(result, indent=2))
 
     elif command == "list":
-        snapshots = list_snapshots()
+        snapshots = list_snapshots(state_dir=state_dir)
         print(json.dumps(snapshots, indent=2))
 
     elif command == "restore":
@@ -717,7 +755,7 @@ def main():
             print("Usage: python3 session_snapshot.py restore <snapshot_id>", file=sys.stderr)
             sys.exit(1)
         snapshot_id = sys.argv[2]
-        success = restore_snapshot(snapshot_id)
+        success = restore_snapshot(snapshot_id, state_dir=state_dir)
         result = {"success": success, "snapshot_id": snapshot_id}
         print(json.dumps(result, indent=2))
 
@@ -726,7 +764,7 @@ def main():
             print("Usage: python3 session_snapshot.py delete <snapshot_id>", file=sys.stderr)
             sys.exit(1)
         snapshot_id = sys.argv[2]
-        success = delete_snapshot(snapshot_id)
+        success = delete_snapshot(snapshot_id, state_dir=state_dir)
         result = {"success": success, "snapshot_id": snapshot_id}
         print(json.dumps(result, indent=2))
 
@@ -738,11 +776,11 @@ def main():
         from_id = None
         if len(sys.argv) > 4 and sys.argv[3] == "--from":
             from_id = sys.argv[4]
-        result = create_branch(branch_name, from_snapshot_id=from_id)
+        result = create_branch(branch_name, from_snapshot_id=from_id, state_dir=state_dir)
         print(json.dumps(result, indent=2))
 
     elif command == "branches":
-        branches = list_branches()
+        branches = list_branches(state_dir=state_dir)
         print(json.dumps(branches, indent=2))
 
     elif command == "switch":
@@ -750,7 +788,7 @@ def main():
             print("Usage: python3 session_snapshot.py switch <name>", file=sys.stderr)
             sys.exit(1)
         branch_name = sys.argv[2]
-        success = switch_branch(branch_name)
+        success = switch_branch(branch_name, state_dir=state_dir)
         result = {"success": success, "branch": branch_name}
         print(json.dumps(result, indent=2))
 
@@ -762,7 +800,7 @@ def main():
         target = "main"
         if len(sys.argv) > 4 and sys.argv[3] == "--into":
             target = sys.argv[4]
-        result = merge_branch(source, target_branch=target)
+        result = merge_branch(source, target_branch=target, state_dir=state_dir)
         print(json.dumps(result, indent=2))
 
     elif command == "fork":
@@ -781,7 +819,7 @@ def main():
         if not from_id or not fork_name:
             print("Usage: python3 session_snapshot.py fork --from <snapshot_id> --name <name>", file=sys.stderr)
             sys.exit(1)
-        result = fork_branch(from_snapshot_id=from_id, name=fork_name)
+        result = fork_branch(from_snapshot_id=from_id, name=fork_name, state_dir=state_dir)
         print(json.dumps(result, indent=2))
 
     elif command == "merge-preview":
@@ -792,7 +830,7 @@ def main():
         target = "main"
         if len(sys.argv) > 4 and sys.argv[3] == "--into":
             target = sys.argv[4]
-        result = preview_merge(source, target_branch=target)
+        result = preview_merge(source, target_branch=target, state_dir=state_dir)
         print(json.dumps(result, indent=2))
 
     else:

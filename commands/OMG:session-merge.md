@@ -8,9 +8,13 @@ argument-hint: "--from <source-branch> [--into <target-branch>] [--preview]"
 
 Merge one OMG state branch into another with automatic conflict detection.
 
+## Scope Statement
+
+**This command operates on `.omg/state/` only. It does NOT modify git history, workspace files, or conversation history.**
+
 ## Important
 
-Merging is **OMG state only** — it merges branch metadata (`.omg/state/branches/<name>.json`). It does **not** merge conversations, context windows, or file system state. Think of it as combining the tracked state from two named branches.
+Merging is **OMG state only** — it merges branch metadata (`.omg/state/branches/<name>.json`). It does **not** merge conversations, context windows, or file system state. Think of it as combining the tracked state from two named branches. Rollback restores OMG session state only, NOT git history or repo files.
 
 ## Usage
 

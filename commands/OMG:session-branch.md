@@ -8,9 +8,13 @@ argument-hint: "--name <branch-name> [--from <snapshot_id>]"
 
 Create a named branch of the current OMG state for experimentation or parallel exploration.
 
+## Scope Statement
+
+**This command operates on `.omg/state/` only. It does NOT modify git history, workspace files, or conversation history.**
+
 ## Important
 
-Branching is **OMG state only** — it captures and restores `.omg/state/` directory contents. It does **not** fork the conversation, context window, or Claude session. Think of it as a checkpoint you can name and switch between.
+Branching is **OMG state only** — it captures and restores `.omg/state/` directory contents. It does **not** fork the conversation, context window, or Claude session. Think of it as a checkpoint you can name and switch between. Rollback restores OMG session state only, NOT git history or repo files.
 
 ## Usage
 
@@ -40,6 +44,9 @@ Each branch stores:
 ## Managing Branches
 
 ```
+# Show current branch and snapshot count
+python3 tools/session_snapshot.py status
+
 # List all branches
 python3 tools/session_snapshot.py branches
 
@@ -48,6 +55,15 @@ python3 tools/session_snapshot.py switch experiment
 
 # Create branch from specific snapshot
 python3 tools/session_snapshot.py branch my-branch --from 20260302_143000_baseline
+
+# Fork from a previous checkpoint
+python3 tools/session_snapshot.py fork --from 20260302_100000_pre-refactor --name "approach-b"
+
+# Preview a merge
+python3 tools/session_snapshot.py merge-preview experiment --into main
+
+# Apply a merge
+python3 tools/session_snapshot.py merge experiment --into main
 ```
 
 ## Feature Flag
