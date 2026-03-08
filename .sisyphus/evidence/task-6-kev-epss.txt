@@ -1,0 +1,24 @@
+Task 6: Add KEV and EPSS Enrichment to Dependency Findings
+===========================================================
+Date: 2026-03-08
+Branch: release/v2.0.8
+
+Changes:
+  - plugins/dephealth/cve_scanner.py: added enrich_with_kev() and enrich_with_epss()
+    with 24h cache, offline fallback, disabled-mode defaults (same pattern as scan_for_cves)
+  - plugins/dephealth/vuln_analyzer.py: analyze_reachability() now calls KEV/EPSS
+    enrichment and returns kev_listed (bool) and epss_score (float|None) in output
+  - runtime/security_check.py: dependency findings include kev_listed and epss_score;
+    unresolved_risks evidence output includes both fields
+  - tests/plugins/fixtures/kev_sample.json: minimal valid CISA KEV API response
+  - tests/plugins/fixtures/epss_sample.json: minimal valid FIRST EPSS API response
+  - tests/plugins/test_dephealth.py: 14 new tests covering KEV/EPSS enrichment
+
+Test output:
+  python3 -m pytest tests -q -k "dephealth or security_check or vuln_analyzer or cve_scanner"
+  56 passed, 2620 deselected in 7.39s
+
+Import check:
+  python3 -c "from plugins.dephealth.cve_scanner import scan_for_cves; print('ok')" -> ok
+
+LSP diagnostics: 0 errors on all changed files
