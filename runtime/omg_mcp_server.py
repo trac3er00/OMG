@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from runtime.asset_loader import resolve_asset
+from runtime.tool_plan_gate import resolve_current_run_id, tool_plan_gate_check
 
 _mcp_import_error: ModuleNotFoundError | None = None
 _FastMCP: Any
@@ -125,7 +126,22 @@ def _read_repo_text(rel_path: str) -> str:
 @mcp.tool()
 def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
     if tool in {"Write", "Edit", "MultiEdit"}:
+        run_id_candidate = input.get("run_id") if isinstance(input, dict) else None
+        run_id: str | None = None
+        if isinstance(run_id_candidate, str) and run_id_candidate.strip():
+            run_id = run_id_candidate.strip()
         metadata = input.get("metadata") if isinstance(input, dict) else None
+        if not run_id and isinstance(metadata, dict):
+            metadata_run_id = metadata.get("run_id")
+            if isinstance(metadata_run_id, str) and metadata_run_id.strip():
+                run_id = metadata_run_id.strip()
+        if not run_id:
+            run_id = resolve_current_run_id()
+
+        tool_plan_result = tool_plan_gate_check(_service().project_dir, run_id, tool)
+        if tool_plan_result.get("status") == "blocked":
+            return tool_plan_result
+
         lock_id: str | None = None
         if isinstance(metadata, dict):
             lock_id_candidate = metadata.get("lock_id")
