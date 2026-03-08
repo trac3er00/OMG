@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from runtime.test_intent_lock import evaluate_test_delta
+import json
+from pathlib import Path
+
+from runtime.test_intent_lock import evaluate_test_delta, lock_intent, verify_intent
 
 
 def test_weaker_assertions_fail() -> None:
@@ -57,3 +60,62 @@ def test_override_allows_waived_delta() -> None:
 
     assert result["verdict"] == "pass"
     assert "override_present" in result["flags"]
+
+
+def test_lock_intent_persists_state(tmp_path: Path) -> None:
+    lock = lock_intent(tmp_path.as_posix(), {"goal": "fix auth", "tests": ["tests/test_auth.py::test_login"]})
+
+    assert lock["status"] == "locked"
+    lock_path = Path(lock["path"])
+    assert lock_path.exists()
+    payload = json.loads(lock_path.read_text(encoding="utf-8"))
+    assert payload["lock_id"] == lock["lock_id"]
+    assert payload["intent"]["tests"] == ["tests/test_auth.py::test_login"]
+
+
+def test_verify_intent_returns_ok_on_matching_tests(tmp_path: Path) -> None:
+    lock = lock_intent(tmp_path.as_posix(), {"goal": "fix auth", "tests": ["tests/test_auth.py::test_login"]})
+
+    verdict = verify_intent(
+        tmp_path.as_posix(),
+        lock["lock_id"],
+        {"tests": ["tests/test_auth.py::test_login"], "weakened_assertions": []},
+    )
+
+    assert verdict == {"status": "ok", "lock_id": lock["lock_id"], "reasons": []}
+
+
+def test_verify_intent_fails_on_weakened_assertions(tmp_path: Path) -> None:
+    lock = lock_intent(tmp_path.as_posix(), {"goal": "fix auth", "tests": ["tests/test_auth.py::test_login"]})
+
+    verdict = verify_intent(
+        tmp_path.as_posix(),
+        lock["lock_id"],
+        {
+            "tests": ["tests/test_auth.py::test_login"],
+            "weakened_assertions": ["tests/test_auth.py::test_login"],
+        },
+    )
+
+    assert verdict["status"] == "fail"
+    assert "weakened_assertions_present" in verdict["reasons"]
+
+
+def test_verify_intent_fails_on_test_mismatch(tmp_path: Path) -> None:
+    lock = lock_intent(tmp_path.as_posix(), {"goal": "fix auth", "tests": ["tests/test_auth.py::test_login"]})
+
+    verdict = verify_intent(
+        tmp_path.as_posix(),
+        lock["lock_id"],
+        {"tests": ["tests/test_auth.py::test_logout"], "weakened_assertions": []},
+    )
+
+    assert verdict["status"] == "fail"
+    assert "tests_mismatch" in verdict["reasons"]
+
+
+def test_verify_intent_returns_missing_lock_when_not_found(tmp_path: Path) -> None:
+    verdict = verify_intent(tmp_path.as_posix(), "missing-lock", {"tests": [], "weakened_assertions": []})
+
+    assert verdict["status"] == "missing_lock"
+    assert verdict["lock_id"] == "missing-lock"

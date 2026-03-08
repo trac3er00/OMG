@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
-from runtime.claim_judge import judge_claim
+from runtime.claim_judge import judge_claim, judge_claims
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -175,3 +176,67 @@ def test_claim_judge_rejects_artifact_record_missing_sha256() -> None:
                 },
             }
         )
+
+
+def test_judge_claims_resolves_evidence_pack_and_emits_artifact(tmp_path: Path) -> None:
+    evidence_dir = tmp_path / ".omg" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    run_id = "run-1"
+    (evidence_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "schema_version": 2,
+                "run_id": run_id,
+                "trace_ids": ["trace-1"],
+                "tests": [],
+                "security_scans": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = judge_claims(tmp_path.as_posix(), claims=[{"claim_type": "tests-passed", "run_id": run_id}])
+
+    assert result["schema"] == "ClaimJudgeResults"
+    assert result["verdict"] == "pass"
+    assert result["results"][0]["run_id"] == run_id
+    assert (evidence_dir / f"claim-judge-{run_id}.json").exists()
+
+
+def test_judge_claims_returns_insufficient_when_any_claim_blocks(tmp_path: Path) -> None:
+    evidence_dir = tmp_path / ".omg" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    run_id = "run-block"
+    (evidence_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "schema_version": 2,
+                "run_id": run_id,
+                "trace_ids": ["trace-1"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = judge_claims(
+        tmp_path.as_posix(),
+        claims=[
+            {
+                "claim_type": "ready_to_ship",
+                "run_id": run_id,
+                "security_scans": [{"tool": "security-check", "status": "error"}],
+            }
+        ],
+    )
+
+    assert result["verdict"] == "insufficient"
+    assert result["results"][0]["verdict"] == "block"
+
+
+def test_judge_claims_returns_fail_when_any_claim_fails(tmp_path: Path) -> None:
+    result = judge_claims(tmp_path.as_posix(), claims=[{"claim_type": "tests-passed", "run_id": "missing"}])
+
+    assert result["verdict"] == "fail"
+    assert result["results"][0]["verdict"] == "fail"
