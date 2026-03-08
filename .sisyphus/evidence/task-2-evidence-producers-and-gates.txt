@@ -1,0 +1,30 @@
+Task 2 Evidence Producers And Release-Gate Adapters
+Date: 2026-03-07
+
+Changed files:
+- runtime/contract_compiler.py
+- runtime/tracebank.py
+- tests/runtime/test_contract_compiler.py
+
+TDD proof (new test added first, then implementation):
+- Added test: test_release_readiness_accepts_schema_v2_evidence_fixture
+- Initial run before implementation:
+  - Command: python3 -m pytest tests/runtime/test_contract_compiler.py -k schema_v2_evidence_fixture -q
+  - Result: FAILED
+  - Key error: AttributeError: module 'runtime.contract_compiler' has no attribute '_normalize_evidence_pack'
+
+Verification 1:
+- Command: python3 -m pytest tests/runtime/test_proof_chain.py tests/runtime/test_contract_compiler.py -q
+- Output:
+........................................                                 [100%]
+40 passed in 8.73s
+
+Verification 2:
+- Command: python3 scripts/omg.py release readiness --channel dual
+- Output summary:
+  - schema: OmgReleaseReadinessResult
+  - status: ok
+  - channel: dual
+  - blockers: []
+  - evidence check: status ok, blockers []
+  - proof_chain check: status ok, blockers []

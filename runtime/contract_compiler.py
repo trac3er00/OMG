@@ -19,6 +19,7 @@ import zipfile
 import yaml
 
 from runtime.asset_loader import resolve_asset, resolve_assets
+from runtime.proof_chain import _normalize_evidence_pack
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -1781,6 +1782,14 @@ def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
         except Exception:
             continue
         if payload.get("schema") == "EvidencePack":
+            try:
+                payload = _normalize_evidence_pack(payload)
+            except ValueError as exc:
+                return {
+                    "status": "error",
+                    "evidence_file": str(path.relative_to(output_root)),
+                    "blockers": [f"invalid evidence pack: {exc}"],
+                }
             evidence_payloads.append((path, payload))
 
     if not evidence_payloads:

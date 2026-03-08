@@ -121,6 +121,57 @@ def _write_evidence(
     (evidence_root / "run-1.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
+def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    fixture_payload = json.loads(
+        (ROOT / "tests" / "runtime" / "fixtures" / "evidence_v2_sample.json").read_text(encoding="utf-8")
+    )
+    fixture_payload["provenance"] = [{"source": "security-check"}]
+    fixture_payload["tests"] = [{"name": "worker_implementation", "passed": True}]
+    fixture_payload["claims"] = [
+        {
+            "claim_type": "release_ready",
+            "artifacts": [
+                "reports/junit.xml",
+                "reports/coverage.xml",
+                ".omg/evidence/security-check.sarif",
+                ".omg/evidence/playwright-trace.zip",
+            ],
+            "trace_ids": ["trace-1"],
+        }
+    ]
+
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / "run-v2.json").write_text(json.dumps(fixture_payload), encoding="utf-8")
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    normalize_calls = {"count": 0}
+    normalize_impl = contract_compiler_module._normalize_evidence_pack
+
+    def tracking_normalize(payload: dict[str, object]) -> dict[str, object]:
+        normalize_calls["count"] += 1
+        return normalize_impl(payload)
+
+    monkeypatch.setattr(contract_compiler_module, "_normalize_evidence_pack", tracking_normalize)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "ok"
+    assert normalize_calls["count"] >= 1
+
+
 def test_validate_contract_registry_reports_expected_bundles() -> None:
     result = validate_contract_registry(ROOT)
 
