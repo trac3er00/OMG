@@ -5,7 +5,7 @@ description: "Optional LSP-backed diagnostics and navigation bundle for producti
 
 # OMG LSP Pack
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/lsp-diagnostics.json`

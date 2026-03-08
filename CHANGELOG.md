@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 2.1.0 - 2026-03-08
+
+- promoted the execution-primitives and browser-surface wave into the v2.1.0 release train
+- aligned package, plugin, HUD, contract, snapshot, and compiled manifest identity on v2.1.0
+- regenerated public and enterprise release manifests and bundles for the new canonical version
+- expanded version-drift coverage to include committed release manifests and the HUD fallback path
+- restored public-release readiness by removing internal planning docs from the branch and installing runtime dependencies in CI workflows
+
 ## 2.0.9 - 2026-03-08
 
 - added scan-first evidence query layer for read-only trust artifact lookup

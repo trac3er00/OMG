@@ -1,0 +1,29 @@
+{
+  "cwd": "/tmp/test-project",
+  "transcript_path": "/tmp/test-project/transcript.jsonl",
+  "model": { "id": "claude-sonnet-4-5", "display_name": "Sonnet" },
+  "context_window": { "used_percentage": 35 },
+  "session_health": {
+    "schema": "SessionHealth",
+    "schema_version": "1.0.0",
+    "run_id": "fixture-run-1",
+    "contamination_risk": 0.15,
+    "overthinking_score": 0.32,
+    "context_health": 0.85,
+    "verification_status": "ok",
+    "journal_steps": 7,
+    "recommended_action": "continue",
+    "thresholds": {
+      "contamination_risk": { "warn": 0.3, "block": 0.7 },
+      "overthinking_score": { "warn": 0.5, "block": 0.85 },
+      "context_health": { "warn": 0.4, "critical": 0.2 }
+    },
+    "sources": {
+      "defense_state": true,
+      "context_pressure": true,
+      "verification": true,
+      "journal": true
+    },
+    "updated_at": "2026-03-08T12:00:00+00:00"
+  }
+}

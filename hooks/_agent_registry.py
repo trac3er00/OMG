@@ -317,12 +317,65 @@ def get_dispatch_params(agent_name: str):
     return params
 
 
-def detect_available_models() -> dict[str, bool]:
-    """Check which CLIs are available: codex-cli, gemini-cli.
+def _provider_to_preferred_model(provider: str) -> str:
+    mapping = {
+        'codex': 'codex-cli',
+        'gemini': 'gemini-cli',
+        'kimi': 'kimi-cli',
+        'claude': 'claude',
+    }
+    return mapping.get(provider, 'claude')
 
-    Returns dict: {'claude': True, 'codex-cli': bool, 'gemini-cli': bool}
-    Caches result per process.
-    """
+
+def get_provider_with_equalizer(task_text: str, project_dir: str, agent_name: str | None = None):
+    config = AGENT_REGISTRY.get(agent_name or '', {})
+    available = detect_available_models()
+
+    baseline_preferred = config.get('preferred_model', 'claude')
+    if baseline_preferred == 'domain-dependent':
+        baseline_preferred = 'claude'
+    if baseline_preferred == 'gemini-cli' and not available.get('gemini-cli'):
+        baseline_preferred = 'claude'
+    if baseline_preferred == 'codex-cli' and not available.get('codex-cli'):
+        baseline_preferred = 'claude'
+
+    try:
+        from runtime.equalizer import select_provider
+
+        selection = select_provider(task_text=task_text, project_dir=project_dir)
+        provider = str(selection.get('provider', 'claude'))
+        preferred_model = _provider_to_preferred_model(provider)
+
+        if preferred_model != 'claude' and not available.get(preferred_model, False):
+            return {
+                'provider': 'claude',
+                'preferred_model': 'claude',
+                'reason': f"equalizer selected {provider} but model unavailable; fallback baseline",
+                'cost_tier': str(selection.get('cost_tier', 'high')),
+                'domain_fit': str(selection.get('domain_fit', 'general')),
+                'equalizer_applied': False,
+            }
+
+        return {
+            'provider': provider,
+            'preferred_model': preferred_model,
+            'reason': str(selection.get('reason', 'equalizer decision')),
+            'cost_tier': str(selection.get('cost_tier', 'high')),
+            'domain_fit': str(selection.get('domain_fit', 'general')),
+            'equalizer_applied': True,
+        }
+    except Exception as exc:
+        return {
+            'provider': 'claude',
+            'preferred_model': baseline_preferred,
+            'reason': f'equalizer unavailable: {exc}',
+            'cost_tier': 'high',
+            'domain_fit': 'general',
+            'equalizer_applied': False,
+        }
+
+
+def detect_available_models() -> dict[str, bool]:
     global _model_cache
     if _model_cache is not None:
         return _model_cache
@@ -330,6 +383,7 @@ def detect_available_models() -> dict[str, bool]:
     result = {'claude': True}  # Claude is always available
     result['codex-cli'] = shutil.which('codex') is not None
     result['gemini-cli'] = shutil.which('gemini') is not None
+    result['kimi-cli'] = shutil.which('kimi') is not None
     _model_cache = result
     return result
 
@@ -379,7 +433,7 @@ def load_custom_agents_into_registry(project_dir: str = ".") -> int:
     # If not explicitly enabled via env, check via _common
     if env_val not in ("1", "true", "yes"):
         try:
-            from _common import get_feature_flag  # pyright: ignore[reportMissingImports]
+            from hooks._common import get_feature_flag
             if not get_feature_flag("CUSTOM_AGENTS", default=False):
                 return 0
         except ImportError:

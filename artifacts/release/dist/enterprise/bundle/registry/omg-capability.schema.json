@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/trac3er00/OMG/registry/omg-capability.schema.json",
   "title": "OMG Capability Bundle",
-  "version": "2.0.8",
+  "version": "2.1.0",
   "type": "object",
   "required": [
     "id",
@@ -43,7 +43,9 @@
         "type": "string",
         "enum": [
           "claude",
-          "codex"
+          "codex",
+          "gemini",
+          "kimi"
         ]
       },
       "minItems": 1
@@ -266,6 +268,86 @@
                   }
                 },
                 "rules": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "automations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": true
+            },
+            "gemini": {
+              "type": "object",
+              "required": [
+                "compilation_targets",
+                "mcp",
+                "skills",
+                "automations"
+              ],
+              "properties": {
+                "compilation_targets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mcp": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "skills": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "automations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": true
+            },
+            "kimi": {
+              "type": "object",
+              "required": [
+                "compilation_targets",
+                "mcp",
+                "skills",
+                "automations"
+              ],
+              "properties": {
+                "compilation_targets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "mcp": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "skills": {
                   "type": "array",
                   "minItems": 1,
                   "items": {

@@ -6,26 +6,39 @@
 npm install @trac3er/oh-my-god
 ```
 
-Then run:
+The npm postinstall now registers the local `omg` marketplace, enables `omg@omg`, and installs the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
+
+## Official Claude Plugin Flow
+
+Claude Code's native plugin commands are still the source of truth:
+
+```bash
+claude plugin marketplace add /path/to/OMG --scope user
+claude plugin install omg@omg --scope user
+```
+
+`npm install` is equivalent for OMG because the setup script now writes the marketplace registration that Claude expects.
+
+Optional browser capability:
+
+```bash
+./OMG-setup.sh install --enable-browser
+```
+
+That enables OMG's browser capability metadata for `/OMG:browser` and records the preferred upstream Playwright CLI command under `~/.claude/omg-runtime/browser/capability.json`.
+
+## Run
 
 ```text
 /OMG:setup
-```
-
-## Manual Path
-
-```bash
-git clone https://github.com/trac3er00/OMG
-cd OMG
-chmod +x OMG-setup.sh
-./OMG-setup.sh install --mode=omg-only --preset=balanced
+/OMG:crazy <goal>
 ```
 
 ## Verify
 
-- `OMG-only` is the recommended adoption mode.
-- The shipped `safe` preset should register `firewall.py` for `Bash` and `secret-guard.py` for file reads and edits before helper hooks run.
-- In the `safe` preset, raw `env`, `node`, `python`, `python3`, `chmod`, and `chown` commands should prompt for approval.
-- You should see `.mcp.json` plus `.omg/state/cli-config.yaml`.
-- If Claude Code already has overlapping plugins, OMG will emit `.omg/state/adoption-report.json`.
-- Run `/OMG:crazy <goal>` after setup.
+- `claude plugin list` should show `omg@omg` with `Status: enabled`
+- `~/.claude/plugins/known_marketplaces.json` should contain an `omg` entry
+- `~/.claude/settings.json` should contain a `statusLine` command pointing at `~/.claude/hud/omg-hud.mjs`
+- `~/.claude/.mcp.json` should not duplicate the plugin-managed `omg-control` server
+- `~/.claude/omg-runtime/.venv/bin/python` should exist
+- if browser capability is enabled, `~/.claude/omg-runtime/browser/capability.json` should exist

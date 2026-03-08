@@ -14,7 +14,8 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 
 ## Why OMG
 
-- Small front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
+- Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
+- Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
 - Multi-host support: Claude Code and Codex (canonical), Gemini CLI and Kimi CLI (compatibility providers).
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
@@ -41,6 +42,11 @@ Install with npm:
 npm install @trac3er/oh-my-god
 ```
 
+That fast path now does two things:
+
+- registers the local `omg` marketplace plus `omg@omg` plugin bundle for Claude Code
+- wires `omg-control` into detected Codex, Gemini, and Kimi MCP configs using the managed OMG Python runtime
+
 Or clone and run the setup manager:
 
 ```bash
@@ -54,21 +60,34 @@ Then run:
 
 ```text
 /OMG:setup
+/OMG:browser capture login flow evidence
 /OMG:crazy stabilize auth and dashboard flows
 ```
+
+On non-Claude hosts, verify native MCP registration instead:
+
+- `codex mcp list`
+- `gemini mcp list`
+- `kimi mcp list`
 
 Success looks like:
 
 - supported hosts are detected
-- `.mcp.json` is configured with `filesystem` and stdio `omg-control` (the narrowed defaults)
+- Claude Code sees `omg@omg` as enabled instead of `failed to load`
+- Claude Code's plugin bundle owns `omg-control` via `.claude-plugin/mcp.json`; project or user `.mcp.json` entries can keep `filesystem` without collisions
+- `~/.claude/settings.json` has a `statusLine` command for `~/.claude/hud/omg-hud.mjs`
+- `~/.codex/config.toml`, `~/.gemini/settings.json`, and `~/.kimi/mcp.json` receive `omg-control` when those CLIs are on `PATH`
 - additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
+- narrowed defaults keep the required control plane small while optional capabilities such as browser automation remain opt-in
 
 ## Install Guides
 
 - Claude Code: [docs/install/claude-code.md](docs/install/claude-code.md)
 - Codex: [docs/install/codex.md](docs/install/codex.md)
+- Gemini: [docs/install/gemini.md](docs/install/gemini.md)
+- Kimi: [docs/install/kimi.md](docs/install/kimi.md)
 ## Native Adoption
 
 OMG uses native setup language instead of public migration commands.
@@ -101,11 +120,13 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 Primary entry points:
 
 - `/OMG:setup`
+- `/OMG:browser`
 - `/OMG:crazy`
 - `/OMG:deep-plan` (compatibility path to `plan-council`)
 
 Advanced surfaces stay available for deeper workflows:
 
+- `/OMG:playwright` (compatibility alias to `/OMG:browser`)
 - `/OMG:security-check`
 - `/OMG:api-twin`
 - `/OMG:preflight`

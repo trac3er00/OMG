@@ -7,6 +7,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from runtime.adoption import CANONICAL_VERSION
+
 # Add hooks to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "hooks"))
 
@@ -18,17 +20,14 @@ class TestIsSetupEnabled:
         """Setup wizard should be disabled when no env var or settings are set."""
         from hooks import setup_wizard
 
-        # Ensure env var is not set
-        env = os.environ.copy()
-        env.pop("OMG_SETUP_ENABLED", None)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = {"CLAUDE_PROJECT_DIR": tmpdir}
+            with patch.dict(os.environ, env, clear=True):
+                from hooks import _common
+                _common._FEATURE_CACHE.clear()
 
-        with patch.dict(os.environ, env, clear=True):
-            # Clear feature flag cache
-            from hooks import _common
-            _common._FEATURE_CACHE.clear()
-
-            result = setup_wizard.is_setup_enabled()
-            assert result is False
+                result = setup_wizard.is_setup_enabled()
+                assert result is False
 
     def test_enabled_via_env_var(self):
         """Setup wizard should be enabled when OMG_SETUP_ENABLED=1."""
@@ -63,10 +62,8 @@ class TestRunSetupWizard:
 
         _common._FEATURE_CACHE.clear()
 
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("OMG_SETUP_ENABLED", None)
-
-            with tempfile.TemporaryDirectory() as tmpdir:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(os.environ, {"CLAUDE_PROJECT_DIR": tmpdir}, clear=True):
                 result = setup_wizard.run_setup_wizard(tmpdir)
 
             assert result["status"] == "disabled"
@@ -175,6 +172,32 @@ class TestWizardStubs:
         servers = result["mcpServers"]
         assert "omg-control" in servers
         assert servers["omg-control"]["command"] == "python3"
+
+    def test_select_mcps_normalizes_supported_aliases(self):
+        """User-facing aliases like grep_app should resolve to catalog IDs."""
+        from hooks import setup_wizard
+
+        result = setup_wizard.select_mcps(["grep_app", "filesystem"])
+        servers = result["mcpServers"]
+        assert "grep-app" in servers
+        assert "filesystem" in servers
+        assert "grep_app" not in servers
+
+    def test_select_mcps_normalizes_common_user_shorthand(self):
+        """Common shorthand names should map to the supported catalog entry."""
+        from hooks import setup_wizard
+
+        result = setup_wizard.select_mcps(["file-system", "grep"])
+        servers = result["mcpServers"]
+        assert set(servers) == {"filesystem", "grep-app"}
+
+    def test_select_mcps_rejects_unknown_server_ids(self):
+        """Unsupported MCP IDs should fail fast instead of being silently ignored."""
+        from hooks import setup_wizard
+        import pytest
+
+        with pytest.raises(ValueError, match="Unsupported MCP server IDs: playwright"):
+            setup_wizard.select_mcps(["playwright"])
 
     def test_set_preferences_returns_ok(self):
         """set_preferences() should return ok status."""
@@ -435,7 +458,7 @@ class TestSetPreferences:
             with open(config_path) as f:
                 data = yaml.safe_load(f)
             assert "version" in data
-            assert data["version"] == "2.0.9"
+            assert data["version"] == CANONICAL_VERSION
 
     def test_set_preferences_includes_cli_configs_key(self):
         """Config should include cli_configs key."""
@@ -567,6 +590,20 @@ class TestSetPreferences:
 
         assert data["preset"] == "labs"
 
+    def test_set_preferences_persists_browser_capability(self):
+        """Browser capability should be persisted in cli-config.yaml."""
+        from hooks import setup_wizard
+        import yaml
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_wizard.set_preferences(tmpdir, {"browser_capability": {"enabled": True}})
+
+            config_path = os.path.join(tmpdir, ".omg", "state", "cli-config.yaml")
+            with open(config_path) as f:
+                data = yaml.safe_load(f)
+
+        assert data["browser_capability"]["enabled"] is True
+
 
 class TestConfigureMcp:
     """Tests for configure_mcp() MCP server configuration."""
@@ -586,18 +623,18 @@ class TestConfigureMcp:
     def test_configure_mcp_always_writes_claude_config(self):
         """Claude config should be written even with empty detected_clis."""
         from hooks import setup_wizard
-        from unittest.mock import patch, MagicMock
+        import json
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            mock_claude = MagicMock()
-            with patch("hooks.setup_wizard.write_claude_mcp_config", mock_claude), \
-                 patch("hooks.setup_wizard.write_claude_mcp_stdio_config") as mock_claude_stdio:
-                setup_wizard.configure_mcp(
-                    project_dir=tmpdir,
-                    detected_clis={}
-                )
-            mock_claude.assert_not_called()
-            mock_claude_stdio.assert_called_once()
+            setup_wizard.configure_mcp(
+                project_dir=tmpdir,
+                detected_clis={}
+            )
+
+            config_path = Path(tmpdir) / ".mcp.json"
+            assert config_path.exists()
+            data = json.loads(config_path.read_text())
+            assert "omg-control" in data["mcpServers"]
 
     def test_configure_mcp_writes_detected_cli_configs(self):
         """Detected CLI should have its config writer called."""
@@ -616,7 +653,27 @@ class TestConfigureMcp:
                     detected_clis={"codex": {"detected": True}}
                 )
             mock_codex.assert_not_called()
-            mock_codex_stdio.assert_called_once()
+            written_server_names = [call.kwargs["server_name"] for call in mock_codex_stdio.call_args_list]
+            assert written_server_names == ["filesystem", "omg-control"]
+
+    def test_configure_mcp_propagates_selected_command_mcps_to_detected_hosts(self):
+        """Selected command-based MCPs should be written to detected host configs."""
+        from hooks import setup_wizard
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("hooks.setup_wizard.write_codex_mcp_config") as mock_codex_http, \
+                 patch("hooks.setup_wizard.write_codex_mcp_stdio_config") as mock_codex_stdio:
+                setup_wizard.configure_mcp(
+                    project_dir=tmpdir,
+                    detected_clis={"codex": {"detected": True}},
+                    preset="safe",
+                    selected_ids=["file-system", "context7", "grep"],
+                )
+
+        mock_codex_http.assert_not_called()
+        written_server_names = [call.kwargs["server_name"] for call in mock_codex_stdio.call_args_list]
+        assert written_server_names == ["context7", "filesystem", "grep-app"]
 
     def test_configure_mcp_skips_undetected_clis(self):
         """Undetected CLI should NOT have its config writer called."""
@@ -721,3 +778,36 @@ class TestConfigureMcp:
             # Check that custom name was passed
             calls = mock_codex.call_args_list
             assert any("custom-server" in str(call) for call in calls)
+
+    def test_configure_mcp_writes_preset_default_servers(self):
+        """Preset defaults should be written into Claude .mcp.json."""
+        from hooks import setup_wizard
+        import json
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_wizard.configure_mcp(tmpdir, {}, preset="interop")
+            data = json.loads(Path(tmpdir, ".mcp.json").read_text())
+
+        servers = data["mcpServers"]
+        assert "filesystem" in servers
+        assert "context7" in servers
+        assert "websearch" in servers
+        assert "omg-memory" in servers
+        assert "omg-control" in servers
+
+    def test_configure_mcp_writes_explicit_selected_servers(self):
+        """Explicit MCP selections should override preset defaults."""
+        from hooks import setup_wizard
+        import json
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_wizard.configure_mcp(
+                tmpdir,
+                {},
+                preset="safe",
+                selected_ids=["filesystem", "context7", "grep_app", "websearch"],
+            )
+            data = json.loads(Path(tmpdir, ".mcp.json").read_text())
+
+        servers = data["mcpServers"]
+        assert set(servers) == {"filesystem", "context7", "grep-app", "websearch"}

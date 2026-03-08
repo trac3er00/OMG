@@ -14,6 +14,8 @@ from unittest.mock import Mock, patch
 import pytest
 import yaml
 
+from runtime.adoption import CANONICAL_VERSION
+
 # Add hooks and project root to path for imports
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT / "hooks"))
@@ -214,7 +216,37 @@ class TestConfigureMcpIntegration:
         assert "gemini" in result["configured"]
         mock_codex.assert_not_called()
         mock_gemini.assert_not_called()
-        mock_gemini_stdio.assert_called_once()
+        written_server_names = [call.kwargs["server_name"] for call in mock_gemini_stdio.call_args_list]
+        assert written_server_names == ["filesystem", "omg-control"]
+
+    def test_configure_mcp_persists_selected_mcp_preferences(self, tmp_path, monkeypatch, _patch_cli_writers):
+        """Selected MCPs should be persisted in the saved preferences."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem", "context7", "grep_app", "websearch"],
+            )
+
+        data = yaml.safe_load((tmp_path / ".omg" / "state" / "cli-config.yaml").read_text())
+        assert result["preferences"]["config"]["selected_mcps"] == ["filesystem", "context7", "grep-app", "websearch"]
+        assert data["selected_mcps"] == ["filesystem", "context7", "grep-app", "websearch"]
+
+    def test_run_setup_wizard_persists_browser_capability(self, tmp_path, monkeypatch, _patch_cli_writers):
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                browser_enabled=True,
+            )
+
+        data = yaml.safe_load((tmp_path / ".omg" / "state" / "cli-config.yaml").read_text())
+        assert result["preferences"]["config"]["browser_capability"]["enabled"] is True
+        assert data["browser_capability"]["enabled"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +266,7 @@ class TestSetPreferencesIntegration:
         assert config_file.exists()
 
         data = yaml.safe_load(config_file.read_text())
-        assert data["version"] == "2.0.9"
+        assert data["version"] == CANONICAL_VERSION
         assert "cli_configs" in data
         assert len(data["cli_configs"]) == 3
         assert "opencode" not in data["cli_configs"]
@@ -266,8 +298,10 @@ class TestWizardDisabledByDefault:
     def test_wizard_disabled_by_default(self, monkeypatch):
         """Wizard returns disabled status when feature flag is off."""
         monkeypatch.delenv("OMG_SETUP_ENABLED", raising=False)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", "/tmp/omg-disabled-feature-test")
+        _common._FEATURE_CACHE.clear()
 
-        result = setup_wizard.run_setup_wizard(project_dir="/tmp")
+        result = setup_wizard.run_setup_wizard(project_dir="/tmp/omg-disabled-feature-test")
 
         assert result["status"] == "disabled"
         assert "OMG_SETUP_ENABLED" in result["message"]
@@ -370,7 +404,7 @@ class TestFullPipelineIntegration:
         config_yaml = tmp_path / ".omg" / "state" / "cli-config.yaml"
         assert config_yaml.exists()
         prefs_data = yaml.safe_load(config_yaml.read_text())
-        assert prefs_data["version"] == "2.0.9"
+        assert prefs_data["version"] == CANONICAL_VERSION
         assert len(prefs_data["cli_configs"]) == 3
         assert "opencode" not in prefs_data["cli_configs"]
 

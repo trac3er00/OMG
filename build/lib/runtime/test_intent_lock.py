@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -12,7 +13,31 @@ def lock_intent(project_dir: str, intent: dict[str, Any]) -> dict[str, Any]:
     lock_dir.mkdir(parents=True, exist_ok=True)
 
     lock_path = lock_dir / f"{lock_id}.json"
-    payload = {"schema": "TestIntentLock", "lock_id": lock_id, "intent": intent}
+    test_selectors = _normalize_string_list(intent.get("tests") if isinstance(intent, dict) else None)
+    covered_paths = _normalize_paths(intent.get("touched_paths") if isinstance(intent, dict) else None)
+    assertion_metadata = _normalize_assertion_metadata(intent.get("assertions") if isinstance(intent, dict) else None)
+    skip_markers = _normalize_string_list(intent.get("skip_markers") if isinstance(intent, dict) else None)
+    waiver = intent.get("waiver") if isinstance(intent, dict) and isinstance(intent.get("waiver"), dict) else {}
+
+    test_file_hashes: dict[str, str | None] = {}
+    for selector in test_selectors:
+        selector_path = _selector_to_path(selector)
+        if selector_path in test_file_hashes:
+            continue
+        hash_value = _hash_test_file(Path(project_dir), selector_path)
+        test_file_hashes[selector_path] = hash_value
+
+    payload = {
+        "schema": "TestIntentLock",
+        "lock_id": lock_id,
+        "intent": intent,
+        "test_selectors": test_selectors,
+        "test_file_hashes": test_file_hashes,
+        "assertion_metadata": assertion_metadata,
+        "skip_markers": skip_markers,
+        "covered_paths": covered_paths,
+        "waiver": waiver,
+    }
     lock_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
     return {"lock_id": lock_id, "status": "locked", "path": str(lock_path)}
@@ -46,6 +71,7 @@ def verify_intent(project_dir: str, lock_id: str, results: dict[str, Any]) -> di
 
 def evaluate_test_delta(delta: dict[str, Any]) -> dict[str, Any]:
     override = delta.get("override")
+    waiver_artifact = delta.get("waiver_artifact")
     if _has_override(override):
         return {
             "verdict": "pass",
@@ -56,6 +82,40 @@ def evaluate_test_delta(delta: dict[str, Any]) -> dict[str, Any]:
     old_tests = _normalize_tests(delta.get("old_tests"))
     new_tests = _normalize_tests(delta.get("new_tests"))
     touched_paths = _normalize_paths(delta.get("touched_paths"))
+    selectors = _normalize_string_list(delta.get("tests"))
+
+    lock_payload: dict[str, Any] | None = None
+    lock_id = str(delta.get("lock_id", "")).strip()
+    if lock_id:
+        lock_payload = _load_lock_payload(lock_id)
+        if lock_payload is None:
+            return {
+                "verdict": "fail",
+                "reasons": [f"missing lock state for lock_id '{lock_id}'"],
+                "flags": ["missing_lock_state"],
+            }
+
+    if lock_payload is not None:
+        contract_reasons, contract_flags = _evaluate_locked_contract(
+            lock_payload=lock_payload,
+            selectors=selectors,
+            old_tests=old_tests,
+            new_tests=new_tests,
+            touched_paths=touched_paths,
+        )
+        if contract_reasons and not _has_waiver_artifact(waiver_artifact):
+            unique_flags = list(dict.fromkeys(contract_flags))
+            return {
+                "verdict": "fail",
+                "reasons": contract_reasons,
+                "flags": unique_flags,
+            }
+        if contract_reasons and _has_waiver_artifact(waiver_artifact):
+            return {
+                "verdict": "pass",
+                "reasons": [],
+                "flags": ["waiver_artifact_present"],
+            }
 
     old_by_name = {item["name"]: item for item in old_tests}
     reasons: list[str] = []
@@ -101,6 +161,10 @@ def _has_override(value: Any) -> bool:
     return isinstance(value, dict) and bool(value)
 
 
+def _has_waiver_artifact(value: Any) -> bool:
+    return isinstance(value, dict) and bool(value)
+
+
 def _normalize_paths(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -132,7 +196,142 @@ def _normalize_tests(value: Any) -> list[dict[str, Any]]:
     return tests
 
 
+def _normalize_assertion_metadata(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    metadata: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        normalized = dict(item)
+        if "assertions" in normalized:
+            try:
+                normalized["assertions"] = max(int(normalized.get("assertions", 0)), 0)
+            except (TypeError, ValueError):
+                normalized["assertions"] = 0
+        metadata.append(normalized)
+    return metadata
+
+
 def _normalize_string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _selector_to_path(selector: str) -> str:
+    return selector.split("::", 1)[0].strip()
+
+
+def _hash_test_file(project_dir: Path, selector_path: str) -> str | None:
+    candidate = (project_dir / selector_path).resolve()
+    try:
+        if not candidate.exists() or not candidate.is_file():
+            return None
+        return sha256(candidate.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _load_lock_payload(lock_id: str) -> dict[str, Any] | None:
+    lock_path = Path(".omg") / "state" / "test-intent-lock" / f"{lock_id}.json"
+    try:
+        payload = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def _evaluate_locked_contract(
+    lock_payload: dict[str, Any],
+    selectors: list[str],
+    old_tests: list[dict[str, Any]],
+    new_tests: list[dict[str, Any]],
+    touched_paths: list[str],
+) -> tuple[list[str], list[str]]:
+    reasons: list[str] = []
+    flags: list[str] = []
+    locked_selectors = _normalize_string_list(lock_payload.get("test_selectors"))
+    if not locked_selectors:
+        intent = lock_payload.get("intent")
+        if isinstance(intent, dict):
+            locked_selectors = _normalize_string_list(intent.get("tests"))
+
+    active_selectors = selectors
+    if not active_selectors and new_tests:
+        active_selectors = [item["name"] for item in new_tests if item.get("name")]
+
+    if locked_selectors and active_selectors != locked_selectors:
+        flags.append("locked_selectors_mismatch")
+        reasons.append("locked test selectors changed from intent contract")
+
+    test_file_hashes = lock_payload.get("test_file_hashes")
+    if isinstance(test_file_hashes, dict):
+        for selector_path, expected_hash in test_file_hashes.items():
+            path_key = str(selector_path).strip()
+            if not path_key:
+                continue
+            current_hash = _hash_test_file(Path("."), path_key)
+            expected_hash_value = str(expected_hash).strip() if expected_hash is not None else None
+            if expected_hash_value and current_hash is None:
+                flags.append("locked_test_file_missing")
+                reasons.append(f"locked test file '{path_key}' is missing")
+            elif expected_hash_value and current_hash != expected_hash_value:
+                flags.append("locked_test_file_changed")
+                reasons.append(f"locked test file '{path_key}' hash mismatch")
+
+    assertion_metadata = lock_payload.get("assertion_metadata")
+    if isinstance(assertion_metadata, list) and assertion_metadata:
+        new_by_name = {item["name"]: item for item in new_tests}
+        for item in assertion_metadata:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name", "")).strip()
+            if not name:
+                continue
+            baseline = item.get("assertions")
+            if baseline is None:
+                continue
+            try:
+                baseline_count = max(int(baseline), 0)
+            except (TypeError, ValueError):
+                baseline_count = 0
+            current = new_by_name.get(name)
+            if current is None:
+                continue
+            current_assertions = max(int(current.get("assertions", 0)), 0)
+            if current_assertions < baseline_count:
+                flags.append("weakened_assertions")
+                reasons.append(
+                    f"test '{name}' reduced assertions from {baseline_count} to {current_assertions}"
+                )
+
+    old_by_name = {item["name"]: item for item in old_tests}
+    for new_test in new_tests:
+        name = new_test["name"]
+        old_test = old_by_name.get(name)
+        if not old_test:
+            continue
+        if int(new_test.get("assertions", 0)) < int(old_test.get("assertions", 0)):
+            flags.append("weakened_assertions")
+            reasons.append(
+                f"test '{name}' reduced assertions from {old_test.get('assertions', 0)} to {new_test.get('assertions', 0)}"
+            )
+
+        old_kind = str(old_test.get("kind", "")).strip().lower()
+        new_kind = str(new_test.get("kind", "")).strip().lower()
+        if old_kind == "integration" and new_kind == "mock":
+            flags.append("integration_to_mock_downgrade")
+            reasons.append(f"test '{name}' downgraded from integration to mock")
+
+    if touched_paths and old_tests and not new_tests:
+        flags.append("removed_touched_area_coverage")
+        reasons.append("all tests for touched paths were removed from test delta")
+
+    if touched_paths and new_tests and all(str(item.get("kind", "")).strip().lower() == "snapshot" for item in new_tests):
+        flags.append("snapshot_only_refresh")
+        reasons.append("delta contains only snapshot tests for touched paths")
+
+    return reasons, flags

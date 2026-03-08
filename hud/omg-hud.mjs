@@ -25,12 +25,50 @@ const cyan = (t) => `${ESC}36m${t}${ESC}0m`;
 function readOmgVersion() {
   const scriptPath = realpathSync(fileURLToPath(import.meta.url));
   const scriptDir = dirname(scriptPath);
+  const claudeDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 
   try {
     const pluginJsonPath = join(scriptDir, "..", ".claude-plugin", "plugin.json");
     const pluginJson = JSON.parse(readFileSync(pluginJsonPath, "utf8"));
     if (typeof pluginJson?.version === "string" && pluginJson.version.trim()) {
       return pluginJson.version.trim();
+    }
+  } catch {
+    // fall through to git tag fallback
+  }
+
+  try {
+    const settingsJson = JSON.parse(readFileSync(join(claudeDir, "settings.json"), "utf8"));
+    const version = settingsJson?._omg?._version;
+    if (typeof version === "string" && version.trim()) {
+      return version.trim();
+    }
+  } catch {
+    // fall through to cache and hook fallbacks
+  }
+
+  try {
+    const hooksVersion = readFileSync(join(claudeDir, "hooks", ".omg-version"), "utf8").trim();
+    if (hooksVersion) {
+      return hooksVersion.replace(/^v/, "").trim();
+    }
+  } catch {
+    // fall through to plugin cache fallback
+  }
+
+  try {
+    const pluginCacheDir = join(claudeDir, "plugins", "cache", "omg", "omg");
+    const versions = readdirSync(pluginCacheDir)
+      .filter((entry) => /^\d+\.\d+\.\d+/.test(entry))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const latest = versions.at(-1);
+    if (latest) {
+      const pluginJson = JSON.parse(
+        readFileSync(join(pluginCacheDir, latest, ".claude-plugin", "plugin.json"), "utf8"),
+      );
+      if (typeof pluginJson?.version === "string" && pluginJson.version.trim()) {
+        return pluginJson.version.trim();
+      }
     }
   } catch {
     // fall through to git tag fallback
@@ -49,7 +87,7 @@ function readOmgVersion() {
     // fall through to static fallback
   }
 
-  return "1.0.2";
+  return "2.1.0";
 }
 
 const OMG_VERSION = readOmgVersion();
@@ -660,6 +698,59 @@ function readBackgroundVerificationState(stateDir) {
   };
 }
 
+function readLatestSessionHealth(stateDir) {
+  const healthDir = join(stateDir, "session_health");
+  if (!existsSync(healthDir)) return null;
+  try {
+    const files = readdirSync(healthDir)
+      .filter((f) => f.endsWith(".json") && !f.endsWith(".tmp"))
+      .sort();
+    if (files.length === 0) return null;
+    const latest = files[files.length - 1];
+    const data = readJsonSafe(join(healthDir, latest));
+    if (!data || data.schema !== "SessionHealth") return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function readSessionHealthFromStdin(stdin) {
+  if (stdin?.session_health && typeof stdin.session_health === "object") {
+    const sh = stdin.session_health;
+    if (sh.schema === "SessionHealth") return sh;
+  }
+  return null;
+}
+
+function renderSessionHealth(health) {
+  if (!health) return null;
+  const contamination = typeof health.contamination_risk === "number" ? health.contamination_risk : 0;
+  const overthinking = typeof health.overthinking_score === "number" ? health.overthinking_score : 0;
+  const ctxHealth = typeof health.context_health === "number" ? health.context_health : 1;
+  const action = health.recommended_action || "continue";
+
+  const contPct = Math.round(contamination * 100);
+  const overPct = Math.round(overthinking * 100);
+  const healthPct = Math.round(ctxHealth * 100);
+
+  const contColor = contamination >= 0.7 ? red : contamination >= 0.3 ? yellow : green;
+  const overColor = overthinking >= 0.85 ? red : overthinking >= 0.5 ? yellow : green;
+  const healthColor = ctxHealth <= 0.2 ? red : ctxHealth <= 0.4 ? yellow : green;
+
+  let badge = "";
+  if (action === "block") badge = ` ${red("BLOCK")}`;
+  else if (action === "reflect") badge = ` ${yellow("REFLECT")}`;
+  else if (action === "warn") badge = ` ${yellow("WARN")}`;
+
+  return (
+    `contam:${contColor(`${contPct}%`)} ` +
+    `overthink:${overColor(`${overPct}%`)} ` +
+    `health:${healthColor(`${healthPct}%`)}` +
+    badge
+  );
+}
+
 function parseTranscript(transcriptPath) {
   const result = {
     tools: 0,
@@ -1243,6 +1334,15 @@ async function main() {
     const verificationStateDir = join(cwd, ".omg", "state");
     const verificationState = readBackgroundVerificationState(verificationStateDir);
     els.push(renderVerificationStatus(verificationState));
+
+    // Session health monitor
+    if (cfg.elements.sessionHealth !== false) {
+      const sessionHealth =
+        readSessionHealthFromStdin(stdin) ||
+        readLatestSessionHealth(verificationStateDir);
+      const healthEl = renderSessionHealth(sessionHealth);
+      if (healthEl) els.push(healthEl);
+    }
 
     // Model name
     if (cfg.elements.model !== false && model && model !== "?") {

@@ -33,3 +33,16 @@ def test_escalate_uses_internal_router_not_external_omc():
     assert "python3 \"$OMG_CLI\" teams" in escalate_doc
     assert "python3 \"$OMG_CLI\" ccg" in escalate_doc
     assert "No external legacy plugin is required." in escalate_doc
+
+
+def test_omg_browser_exists():
+    browser_doc = _read("commands/OMG:browser.md")
+    assert "/OMG:browser" in browser_doc
+    assert "browser" in browser_doc.lower()
+
+
+def test_omg_playwright_alias_for_browser_exists():
+    playwright_doc = _read("commands/OMG:playwright.md")
+    assert "/OMG:playwright" in playwright_doc
+    assert "alias" in playwright_doc.lower()
+    assert "/OMG:browser" in playwright_doc

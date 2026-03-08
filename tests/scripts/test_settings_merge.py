@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from runtime.adoption import CANONICAL_VERSION
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "settings-merge.py"
@@ -312,7 +314,7 @@ def test_merge_updates_omg_version_and_preset_while_preserving_feature_overrides
     }
     new = {
         "_omg": {
-            "_version": "2.0.9",
+            "_version": CANONICAL_VERSION,
             "preset": "safe",
             "features": {
                 "MEMORY_AUTOSTART": True,
@@ -331,7 +333,7 @@ def test_merge_updates_omg_version_and_preset_while_preserving_feature_overrides
 
     merged = json.loads(existing_path.read_text(encoding="utf-8"))
     omg = merged["_omg"]
-    assert omg["_version"] == "2.0.9"
+    assert omg["_version"] == CANONICAL_VERSION
     assert omg["preset"] == "safe"
     assert omg["features"]["MEMORY_AUTOSTART"] is False
     assert omg["features"]["SETUP"] is True

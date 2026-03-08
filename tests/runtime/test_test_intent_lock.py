@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 
 from runtime.test_intent_lock import evaluate_test_delta, lock_intent, verify_intent
@@ -73,6 +74,32 @@ def test_lock_intent_persists_state(tmp_path: Path) -> None:
     assert payload["intent"]["tests"] == ["tests/test_auth.py::test_login"]
 
 
+def test_lock_intent_captures_proactive_contract_hashes(tmp_path: Path) -> None:
+    test_file = tmp_path / "tests" / "test_auth.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_login():\n    assert True\n", encoding="utf-8")
+
+    lock = lock_intent(
+        tmp_path.as_posix(),
+        {
+            "goal": "fix auth",
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+            "assertions": [{"name": "integration-auth", "assertions": 4}],
+            "skip_markers": ["pytest.mark.skip"],
+            "waiver": {"id": "waiver-1"},
+        },
+    )
+
+    payload = json.loads(Path(lock["path"]).read_text(encoding="utf-8"))
+    assert payload["test_selectors"] == ["tests/test_auth.py::test_login"]
+    assert payload["test_file_hashes"]["tests/test_auth.py"] == sha256(test_file.read_bytes()).hexdigest()
+    assert payload["covered_paths"] == ["app/auth.py"]
+    assert payload["assertion_metadata"] == [{"name": "integration-auth", "assertions": 4}]
+    assert payload["skip_markers"] == ["pytest.mark.skip"]
+    assert payload["waiver"] == {"id": "waiver-1"}
+
+
 def test_verify_intent_returns_ok_on_matching_tests(tmp_path: Path) -> None:
     lock = lock_intent(tmp_path.as_posix(), {"goal": "fix auth", "tests": ["tests/test_auth.py::test_login"]})
 
@@ -119,3 +146,95 @@ def test_verify_intent_returns_missing_lock_when_not_found(tmp_path: Path) -> No
 
     assert verdict["status"] == "missing_lock"
     assert verdict["lock_id"] == "missing-lock"
+
+
+def test_evaluate_test_delta_uses_lock_contract_when_lock_id_present(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    test_file = tmp_path / "tests" / "test_auth.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_login():\n    assert True\n", encoding="utf-8")
+
+    lock = lock_intent(
+        ".",
+        {
+            "goal": "fix auth",
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+        },
+    )
+    result = evaluate_test_delta(
+        {
+            "lock_id": lock["lock_id"],
+            "tests": ["tests/test_auth.py::test_logout"],
+            "touched_paths": ["app/auth.py"],
+            "old_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "new_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "override": {},
+        }
+    )
+
+    assert result["verdict"] == "fail"
+    assert "locked_selectors_mismatch" in result["flags"]
+
+
+def test_weakened_assertions_with_lock_id_still_fails(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    test_file = tmp_path / "tests" / "test_auth.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_login():\n    assert True\n", encoding="utf-8")
+
+    lock = lock_intent(
+        ".",
+        {
+            "goal": "fix auth",
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+            "assertions": [{"name": "integration-auth", "assertions": 4}],
+        },
+    )
+    result = evaluate_test_delta(
+        {
+            "lock_id": lock["lock_id"],
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+            "old_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "new_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 1}],
+            "override": {},
+        }
+    )
+
+    assert result["verdict"] == "fail"
+    assert "weakened_assertions" in result["flags"]
+
+
+def test_waiver_artifact_allows_lock_contract_bypass(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    test_file = tmp_path / "tests" / "test_auth.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_login():\n    assert True\n", encoding="utf-8")
+
+    lock = lock_intent(
+        ".",
+        {
+            "goal": "fix auth",
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+        },
+    )
+    result = evaluate_test_delta(
+        {
+            "lock_id": lock["lock_id"],
+            "tests": ["tests/test_auth.py::test_logout"],
+            "touched_paths": ["app/auth.py"],
+            "old_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "new_tests": [{"name": "integration-auth", "kind": "mock", "assertions": 1}],
+            "override": {},
+            "waiver_artifact": {"id": "waiver-42", "approved_by": "user"},
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert "waiver_artifact_present" in result["flags"]

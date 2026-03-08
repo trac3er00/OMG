@@ -1,6 +1,6 @@
 id: hook-governor
 kind: governance
-version: 2.0.9
+version: 2.1.0
 title: OMG Hook Governor
 description: Canonical hook ordering, policy reinjection, and protected-path governance.
 hosts:
@@ -51,6 +51,9 @@ compiled_hooks:
       command: python3 "$HOME/.claude/hooks/secret-guard.py"
       timeout: 10
     - matcher: ""
+      command: python3 "$HOME/.claude/hooks/tdd-gate.py"
+      timeout: 10
+    - matcher: ""
       command: python3 "$HOME/.claude/hooks/pre-tool-inject.py"
   PostToolUse:
     - matcher: Bash
@@ -71,6 +74,11 @@ compiled_hooks:
     - matcher: ""
       command: python3 "$HOME/.claude/hooks/stop_dispatcher.py"
       timeout: 90
+feature_dependencies:
+  defense-state:
+    required_for:
+      - hook-governor
+      - tdd-gate
 mcp_contract:
   servers:
     - omg-control

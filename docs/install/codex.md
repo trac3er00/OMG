@@ -3,27 +3,33 @@
 ## Fast Path
 
 ```bash
-npm install -g @openai/codex
 npm install @trac3er/oh-my-god
 ```
 
-Then run:
-
-```text
-/OMG:setup
-```
+If `codex` is already on `PATH`, OMG now wires `omg-control` into `~/.codex/config.toml` during install using the managed OMG Python runtime.
 
 ## Manual Path
 
 ```bash
 git clone https://github.com/trac3er00/OMG
 cd OMG
-chmod +x OMG-setup.sh
 ./OMG-setup.sh install --mode=omg-only --preset=interop
+```
+
+Optional browser capability:
+
+```bash
+./OMG-setup.sh install --mode=omg-only --preset=interop --enable-browser
 ```
 
 ## Verify
 
-- OMG detects `codex` during setup and configures shared MCP state.
-- `interop` is the recommended preset when Codex is part of a multi-host workflow.
-- Run `/OMG:crazy <goal>` once setup confirms host detection and MCP wiring.
+- `codex mcp list` should include `omg-control`
+- `~/.codex/config.toml` should contain `[mcp_servers.omg-control]`
+- the configured command should point at `~/.claude/omg-runtime/.venv/bin/python`
+- if browser capability is enabled, `~/.claude/omg-runtime/browser/capability.json` should exist
+
+## Notes
+
+- `/OMG:*` slash commands are Claude Code surfaces, not Codex CLI surfaces
+- Codex consumes OMG through native MCP plus the generated Codex pack under `.agents/skills/omg/`

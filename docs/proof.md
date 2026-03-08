@@ -16,6 +16,7 @@ OMG keeps verification visible instead of burying it in implementation details.
   - `test-intent-lock`: `.omg/evidence/test-intent-lock-*.json` (verifies test-to-intent alignment)
   - `proof-gate`: `.omg/evidence/proof-gate-*.json` (verifies final release readiness)
 - Browser evidence: `.omg/evidence/browser-*.png` and `.omg/evidence/browser-*.json` (Playwright-backed verification)
+- Canonical browser command: `/OMG:browser` with `/OMG:playwright` as a compatibility alias
 - Trace records and evidence links: `.omg/tracebank/events.jsonl`, `.omg/tracebank/evidence-links.jsonl`
 - Eval gate artifacts and trace links: `.omg/evals/latest.json`, `.omg/evals/history.jsonl`, `.omg/evals/trace-links.jsonl`
 - Lineage manifests: `.omg/lineage/*.json`

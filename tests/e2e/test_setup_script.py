@@ -11,6 +11,8 @@ import sys
 import time
 from typing import cast
 
+from runtime.adoption import CANONICAL_VERSION
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SETUP = ROOT / "OMG-setup.sh"
@@ -144,6 +146,71 @@ def _run_script_with_tty_input(
     )
 
 
+def _read_mcp_servers(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    payload = cast(dict[str, object], json.loads(path.read_text(encoding="utf-8")))
+    return cast(dict[str, object], payload.get("mcpServers") or {})
+
+
+def _read_hook_command_targets(settings_path: Path) -> set[str]:
+    settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+    hooks = cast(dict[str, object], settings.get("hooks") or {})
+    targets: set[str] = set()
+    for entries in hooks.values():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            nested_hooks = entry.get("hooks") or []
+            if not isinstance(nested_hooks, list):
+                continue
+            for hook in nested_hooks:
+                if not isinstance(hook, dict):
+                    continue
+                command = hook.get("command")
+                if not isinstance(command, str):
+                    continue
+                marker = '$HOME/.claude/hooks/'
+                if marker not in command:
+                    continue
+                suffix = command.split(marker, 1)[1]
+                filename = suffix.split('"', 1)[0]
+                if filename.endswith(".py"):
+                    targets.add(filename)
+    return targets
+
+
+def _assert_command_starts(command: str, args: list[str], cwd: Path) -> None:
+    proc = subprocess.Popen(
+        [command, *args],
+        cwd=str(cwd),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        time.sleep(1.0)
+        if proc.poll() is not None:
+            stdout, stderr = proc.communicate(timeout=5)
+            raise AssertionError(
+                "MCP command exited immediately:\n"
+                f"command={command!r} args={args!r}\n"
+                f"stdout={stdout}\n"
+                f"stderr={stderr}"
+            )
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+
+
 def test_setup_script_exists_and_help_lists_subcommands():
     assert SETUP.exists()
     proc = _run_script(SETUP, ["--help"])
@@ -170,9 +237,19 @@ def test_setup_script_prompts_start_menu_when_no_action(tmp_path: Path):
     assert "Select OMG setup action" in out
     assert "Install standalone" in out
     assert "Install as plugin" in out
-    assert "Uninstall" in out
+    assert "Uninstall" not in out
     assert "Update standalone" not in out
     assert "Update plugin install" not in out
+
+
+def test_setup_script_dry_run_without_action_skips_start_menu(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+    proc = _run_script_with_tty_input(SETUP, ["--dry-run"], "", env=env)
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "Select OMG setup action" not in out
+    assert "*** DRY RUN" in out
 
 
 def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
@@ -189,8 +266,22 @@ def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
     proc = _run_script_with_tty_input(SETUP, [], "0\n", env=env)
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
+    assert "Uninstall" in out
     assert "Update standalone" in out
     assert "Update plugin install" in out
+
+
+def test_setup_script_interactive_merge_shows_prompt(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    _ = (claude_dir / "settings.json").write_text('{"enabledPlugins":{"existing@demo":true}}\n', encoding="utf-8")
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+    proc = _run_script_with_tty_input(SETUP, ["install"], "n\n", env=env)
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "Merging settings.json..." in out
+    assert "Apply merge? [Y/n]" in out
 
 
 def test_setup_script_install_dry_run_non_interactive(tmp_path: Path):
@@ -246,6 +337,18 @@ def test_setup_install_uses_omg_only_command_surface(tmp_path: Path):
     assert all("omc" not in name.lower() for name in installed)
 
 
+def test_setup_install_registers_primary_omg_commands(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+    assert proc.returncode == 0
+
+    commands_dir = claude_dir / "commands"
+    assert (commands_dir / "OMG:setup.md").exists()
+    assert (commands_dir / "OMG:crazy.md").exists()
+
+
 def test_setup_install_preserves_existing_custom_deprecated_command_name(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     commands_dir = claude_dir / "commands"
@@ -288,6 +391,50 @@ def test_setup_install_provisions_portable_omg_runtime(tmp_path: Path):
     assert evidence["target"] == "gemini"
 
 
+def test_setup_install_enables_optional_browser_capability(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    playwright = fake_bin / "playwright"
+    _ = playwright.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    playwright.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--enable-browser"],
+        env=env,
+    )
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "browser capability enabled" in out.lower()
+
+    browser_state_path = claude_dir / "omg-runtime" / "browser" / "capability.json"
+    assert browser_state_path.exists()
+    browser_state = cast(dict[str, object], json.loads(browser_state_path.read_text(encoding="utf-8")))
+    assert browser_state["enabled"] is True
+    assert browser_state["command"] == ["playwright"]
+
+
+def test_setup_install_leaves_browser_capability_disabled_by_default(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "browser capability enabled" not in out.lower()
+    assert not (claude_dir / "omg-runtime" / "browser" / "capability.json").exists()
+
+
 def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
@@ -303,28 +450,108 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     installed_versions = sorted([p for p in plugin_cache_root.iterdir() if p.is_dir()])
     assert installed_versions
     plugin_dir = installed_versions[-1]
-    assert plugin_dir.name == "2.0.9"
+    assert plugin_dir.name == CANONICAL_VERSION
 
     assert (plugin_dir / ".claude-plugin" / "plugin.json").exists()
-    assert (plugin_dir / ".mcp.json").exists()
+    assert (plugin_dir / ".claude-plugin" / "marketplace.json").exists()
+    assert (plugin_dir / ".claude-plugin" / "mcp.json").exists()
     assert (plugin_cache_root / ".omg-plugin-bundle").exists()
     assert (claude_dir / "hud" / "omg-hud.mjs").exists()
+
+    plugin_servers = _read_mcp_servers(plugin_dir / ".claude-plugin" / "mcp.json")
+    assert set(plugin_servers) == {"omg-control"}
 
     settings_path = claude_dir / "settings.json"
     settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
     enabled = cast(dict[str, object], settings.get("enabledPlugins") or {})
     assert enabled.get("omg@omg") is True
+    status_line = cast(dict[str, object], settings.get("statusLine") or {})
+    assert status_line.get("type") == "command"
+    assert status_line.get("command") == f'node "{claude_dir / "hud" / "omg-hud.mjs"}"'
 
-    mcp_path = claude_dir / ".mcp.json"
-    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
-    mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
-    assert "filesystem" in mcp_servers
-    assert "omg-control" in mcp_servers
+    mcp_servers = _read_mcp_servers(claude_dir / ".mcp.json")
+    assert "filesystem" not in mcp_servers
+    assert "omg-control" not in mcp_servers
 
     installed_plugins_path = claude_dir / "plugins" / "installed_plugins.json"
     installed_plugins = cast(dict[str, object], json.loads(installed_plugins_path.read_text(encoding="utf-8")))
     plugins = cast(dict[str, object], installed_plugins.get("plugins") or {})
     assert "omg@omg" in plugins
+
+
+def test_setup_install_as_plugin_registers_known_marketplace(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    plugin_root = claude_dir / "plugins" / "cache" / "omg" / "omg" / CANONICAL_VERSION
+    marketplaces_path = claude_dir / "plugins" / "known_marketplaces.json"
+    assert marketplaces_path.exists()
+
+    marketplaces = cast(dict[str, object], json.loads(marketplaces_path.read_text(encoding="utf-8")))
+    omg_marketplace = cast(dict[str, object], marketplaces.get("omg") or {})
+    source = cast(dict[str, object], omg_marketplace.get("source") or {})
+
+    assert source.get("source") == "directory"
+    assert source.get("path") == str(plugin_root)
+    assert omg_marketplace.get("installLocation") == str(plugin_root)
+
+
+def test_setup_install_configures_detected_cli_hosts(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+
+    for binary in ("codex", "gemini", "kimi"):
+        script = fake_bin / binary
+        _ = script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    managed_python = claude_dir / "omg-runtime" / ".venv" / "bin" / "python"
+    managed_launcher = claude_dir / "omg-runtime" / "bin" / "omg-mcp-server.py"
+
+    codex_config = (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.omg-control]" in codex_config
+    assert str(managed_python) in codex_config
+    assert str(managed_launcher) in codex_config
+
+    gemini_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".gemini" / "settings.json").read_text(encoding="utf-8")),
+    )
+    gemini_servers = cast(dict[str, object], gemini_config.get("mcpServers") or {})
+    gemini_omg = cast(dict[str, object], gemini_servers.get("omg-control") or {})
+    assert gemini_omg.get("command") == str(managed_python)
+    assert gemini_omg.get("args") == [str(managed_launcher)]
+
+    kimi_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".kimi" / "mcp.json").read_text(encoding="utf-8")),
+    )
+    kimi_servers = cast(dict[str, object], kimi_config.get("mcpServers") or {})
+    kimi_omg = cast(dict[str, object], kimi_servers.get("omg-control") or {})
+    assert kimi_omg.get("command") == str(managed_python)
+    assert kimi_omg.get("args") == [str(managed_launcher)]
 
 
 def test_setup_install_registers_session_start_hook(tmp_path: Path):
@@ -352,6 +579,25 @@ def test_setup_install_registers_session_start_hook(tmp_path: Path):
     assert 'python3 "$HOME/.claude/hooks/session-start.py"' in commands
 
 
+def test_setup_install_copies_all_registered_hook_command_targets(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=apply"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    settings_path = claude_dir / "settings.json"
+    targets = _read_hook_command_targets(settings_path)
+    assert targets
+
+    missing = sorted(name for name in targets if not (claude_dir / "hooks" / name).exists())
+    assert not missing, f"Installed settings.json references missing hook files: {missing}"
+
+
 def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
@@ -363,11 +609,9 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     )
     assert install_proc.returncode == 0
 
-    mcp_path = claude_dir / ".mcp.json"
-    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
-    mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
-    assert "filesystem" in mcp_servers
-    assert "omg-control" in mcp_servers
+    mcp_servers = _read_mcp_servers(claude_dir / ".mcp.json")
+    assert "filesystem" not in mcp_servers
+    assert "omg-control" not in mcp_servers
 
     uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
     assert uninstall_proc.returncode == 0
@@ -379,10 +623,9 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     settings_after = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
     enabled_after = cast(dict[str, object], settings_after.get("enabledPlugins") or {})
     assert "omg@omg" not in enabled_after
+    assert "statusLine" not in settings_after
 
-    mcp_after_path = claude_dir / ".mcp.json"
-    mcp_after_config = cast(dict[str, object], json.loads(mcp_after_path.read_text(encoding="utf-8")))
-    mcp_after = cast(dict[str, object], mcp_after_config.get("mcpServers") or {})
+    mcp_after = _read_mcp_servers(claude_dir / ".mcp.json")
     assert "context7" not in mcp_after
     assert "filesystem" not in mcp_after
     assert "websearch" not in mcp_after
@@ -394,7 +637,52 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     assert "omg@omg" not in plugins_after
 
 
-def test_setup_install_as_plugin_refreshes_stale_plugin_mcp_servers(tmp_path: Path):
+def test_setup_uninstall_removes_detected_cli_host_configs(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+
+    for binary in ("codex", "gemini", "kimi"):
+        script = fake_bin / binary
+        _ = script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    codex_config = (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.omg-control]" not in codex_config
+
+    gemini_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".gemini" / "settings.json").read_text(encoding="utf-8")),
+    )
+    gemini_servers = cast(dict[str, object], gemini_config.get("mcpServers") or {})
+    assert "omg-control" not in gemini_servers
+
+    kimi_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".kimi" / "mcp.json").read_text(encoding="utf-8")),
+    )
+    kimi_servers = cast(dict[str, object], kimi_config.get("mcpServers") or {})
+    assert "omg-control" not in kimi_servers
+
+
+def test_setup_install_as_plugin_prunes_duplicate_plugin_mcp_servers(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir(parents=True)
     mcp_path = claude_dir / ".mcp.json"
@@ -422,14 +710,39 @@ def test_setup_install_as_plugin_refreshes_stale_plugin_mcp_servers(tmp_path: Pa
 
     merged = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, object], merged.get("mcpServers") or {})
-    source = cast(dict[str, object], json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8")))
-    source_servers = cast(dict[str, object], source.get("mcpServers") or {})
+    assert "filesystem" in servers
+    assert "omg-control" not in servers
 
-    assert servers["filesystem"] == source_servers["filesystem"]
-    # omg-control command is rewritten to the venv python by the setup script
-    assert "omg-control" in servers
-    omg_ctl = cast(dict[str, object], servers["omg-control"])
-    assert omg_ctl["args"] == ["-m", "runtime.omg_mcp_server"]
+
+def test_setup_install_as_plugin_keeps_custom_status_line(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    settings_path = claude_dir / "settings.json"
+    _ = settings_path.write_text(
+        json.dumps(
+            {
+                "statusLine": {
+                    "type": "command",
+                    "command": "custom-statusline.sh",
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+    status_line = cast(dict[str, object], settings.get("statusLine") or {})
+    assert status_line.get("command") == "custom-statusline.sh"
 
 
 def test_setup_uninstall_cleans_legacy_omg_registry_and_cache(tmp_path: Path):
@@ -578,10 +891,19 @@ def test_postinstall_script_in_package_json():
 
 
 def test_npmignore_includes_hud_and_mcp():
-    """.npmignore must NOT exclude hud/ or .mcp.json from the npm package."""
+    """.npmignore must NOT exclude plugin/runtime MCP or HUD assets from the npm package."""
     npmignore = (ROOT / ".npmignore").read_text(encoding="utf-8").splitlines()
     assert "hud/" not in npmignore, "hud/ should not be excluded from npm package"
     assert ".mcp.json" not in npmignore, ".mcp.json should not be excluded from npm package"
+    assert ".claude-plugin/" not in npmignore, ".claude-plugin/ should not be excluded from npm package"
+
+
+def test_plugin_bundle_assets_exist_for_npm_package():
+    """The Claude plugin bundle must ship its own MCP manifest alongside the plugin manifest."""
+    plugin_dir = ROOT / ".claude-plugin"
+    assert (plugin_dir / "plugin.json").exists()
+    assert (plugin_dir / "marketplace.json").exists()
+    assert (plugin_dir / "mcp.json").exists()
 
 
 def test_plugin_install_script_has_install_as_plugin_flag():
@@ -589,6 +911,12 @@ def test_plugin_install_script_has_install_as_plugin_flag():
     install_sh = (ROOT / ".claude-plugin" / "scripts" / "install.sh").read_text(encoding="utf-8")
     assert "--install-as-plugin" in install_sh
     assert "--non-interactive" in install_sh
+
+
+def test_plugin_uninstall_script_is_non_interactive():
+    """.claude-plugin/scripts/uninstall.sh must pass --non-interactive."""
+    uninstall_sh = (ROOT / ".claude-plugin" / "scripts" / "uninstall.sh").read_text(encoding="utf-8")
+    assert "uninstall --non-interactive" in uninstall_sh
 
 
 # --- Python version and managed runtime regression tests ---
@@ -649,13 +977,38 @@ def test_setup_plugin_install_patches_omg_control_to_managed_python(tmp_path: Pa
     )
     assert proc.returncode == 0
 
-    mcp_path = claude_dir / ".mcp.json"
+    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / CANONICAL_VERSION / ".claude-plugin" / "mcp.json"
     assert mcp_path.exists()
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
     omg_control = cast(dict[str, object], servers.get("omg-control") or {})
 
     expected_python = str(claude_dir / "omg-runtime" / ".venv" / "bin" / "python")
+    expected_launcher = str(claude_dir / "omg-runtime" / "bin" / "omg-mcp-server.py")
     assert omg_control.get("command") == expected_python, (
         f"omg-control command should be managed venv python, got: {omg_control.get('command')}"
     )
+    assert omg_control.get("args") == [expected_launcher]
+
+
+def test_setup_plugin_mcp_server_starts_outside_repo_root(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / CANONICAL_VERSION / ".claude-plugin" / "mcp.json"
+    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
+    servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
+    omg_control = cast(dict[str, object], servers.get("omg-control") or {})
+
+    command = cast(str, omg_control.get("command"))
+    args = cast(list[str], omg_control.get("args") or [])
+    unrelated_cwd = tmp_path / "outside"
+    unrelated_cwd.mkdir()
+    _assert_command_starts(command, args, unrelated_cwd)

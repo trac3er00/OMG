@@ -342,6 +342,8 @@ def _resolve_browser_evidence(*, output_root: Path, evidence_payload: dict[str, 
 
     candidates.extend(
         [
+            ".omg/evidence/browser/browser-evidence.json",
+            ".omg/evidence/browser/browser-proof.json",
             ".omg/evidence/browser-evidence.json",
             ".omg/evidence/browser-proof.json",
         ]

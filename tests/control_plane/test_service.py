@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from control_plane.service import ControlPlaneService
 
 
@@ -374,3 +376,31 @@ def test_test_intent_lock_rejects_verify_without_results():
     })
     assert status == 400
     assert out["error_code"] == "INVALID_INTENT_INPUT"
+
+
+def test_mutation_gate_check_blocks_mutation_without_lock(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.mutation_gate_check({"tool": "Write", "file_path": "src/app.py"})
+    assert status == 200
+    assert out["status"] == "blocked"
+
+
+def test_mutation_gate_check_allows_with_valid_lock(tmp_path: Path):
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / "active-lock.json").write_text("{}", encoding="utf-8")
+
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.mutation_gate_check({
+        "tool": "Edit",
+        "file_path": "src/app.py",
+        "lock_id": "active-lock",
+    })
+    assert status == 200
+    assert out["status"] == "allowed"
+
+
+def test_mutation_gate_check_rejects_invalid_payload(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    with pytest.raises(ValueError, match="tool is required"):
+        _ = service.mutation_gate_check({"file_path": "src/app.py"})

@@ -8,16 +8,18 @@ import subprocess
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
+from runtime.adoption import CANONICAL_VERSION
+
 
 ROOT = Path(__file__).resolve().parents[2]
 HUD = ROOT / "hud" / "omg-hud.mjs"
 
 
-def _run_hud(payload: dict[str, object], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+def _run_hud_script(script: Path, payload: dict[str, object], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     merged_env = dict(os.environ)
     merged_env.update(env)
     return subprocess.run(
-        ["node", str(HUD)],
+        ["node", str(script)],
         input=json.dumps(payload),
         cwd=str(ROOT),
         capture_output=True,
@@ -25,6 +27,10 @@ def _run_hud(payload: dict[str, object], env: dict[str, str]) -> subprocess.Comp
         check=False,
         env=merged_env,
     )
+
+
+def _run_hud(payload: dict[str, object], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    return _run_hud_script(HUD, payload, env)
 
 
 def _stdin_payload(cwd: Path) -> dict[str, object]:
@@ -71,6 +77,43 @@ def test_hud_honors_legacy_omc_hud_toggle_for_label(tmp_path: Path):
     out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
     assert out.returncode == 0
     assert "[omg#" not in out.stdout.lower()
+
+
+def test_copied_hud_reads_version_from_installed_settings(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    hud_dir = claude / "hud"
+    hud_dir.mkdir(parents=True)
+    copied_hud = hud_dir / "omg-hud.mjs"
+    copied_hud.write_text(HUD.read_text(encoding="utf-8"), encoding="utf-8")
+    _ = (claude / "settings.json").write_text(
+        json.dumps({"_omg": {"_version": CANONICAL_VERSION}}),
+        encoding="utf-8",
+    )
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    payload = _stdin_payload(project)
+    out = _run_hud_script(copied_hud, payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    assert f"[omg#{CANONICAL_VERSION}]".lower() in out.stdout.lower()
+
+
+def test_copied_hud_static_fallback_matches_canonical_version(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    hud_dir = claude / "hud"
+    hud_dir.mkdir(parents=True)
+    copied_hud = hud_dir / "omg-hud.mjs"
+    copied_hud.write_text(HUD.read_text(encoding="utf-8"), encoding="utf-8")
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    payload = _stdin_payload(project)
+
+    out = _run_hud_script(copied_hud, payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    assert f"[omg#{CANONICAL_VERSION}]".lower() in out.stdout.lower()
 
 
 def test_hud_defaults_follow_omc_baseline(tmp_path: Path):
@@ -384,6 +427,118 @@ def test_hud_renders_blocker_count_when_blockers_present(tmp_path: Path):
     lowered = out.stdout.lower()
     assert "verification blocked" in lowered
     assert "2 blockers" in lowered
+
+
+def test_hud_renders_session_health_from_state_file(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    health_dir = project / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "run-1.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "run-1",
+            "contamination_risk": 0.15,
+            "overthinking_score": 0.32,
+            "context_health": 0.85,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "thresholds": {},
+            "updated_at": "2026-03-08T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "contam:" in lowered
+    assert "overthink:" in lowered
+    assert "health:" in lowered
+
+
+def test_hud_renders_session_health_block_badge(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    health_dir = project / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "run-2.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "run-2",
+            "contamination_risk": 0.8,
+            "overthinking_score": 0.1,
+            "context_health": 0.6,
+            "verification_status": "ok",
+            "recommended_action": "block",
+            "thresholds": {},
+            "updated_at": "2026-03-08T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "block" in lowered
+    assert "contam:80%" in lowered
+
+
+def test_hud_renders_session_health_from_stdin(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+
+    payload = _stdin_payload(project)
+    payload["session_health"] = {
+        "schema": "SessionHealth",
+        "schema_version": "1.0.0",
+        "run_id": "stdin-1",
+        "contamination_risk": 0.45,
+        "overthinking_score": 0.55,
+        "context_health": 0.7,
+        "verification_status": "running",
+        "recommended_action": "reflect",
+        "thresholds": {},
+        "updated_at": "2026-03-08T12:00:00Z",
+    }
+
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "contam:45%" in lowered
+    assert "overthink:55%" in lowered
+    assert "health:70%" in lowered
+    assert "reflect" in lowered
+
+
+def test_hud_omits_session_health_when_no_state(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "contam:" not in lowered
+    assert "overthink:" not in lowered
 
 
 def test_hud_displays_mode_from_mode_state_file(tmp_path: Path):

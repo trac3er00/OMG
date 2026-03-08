@@ -25,6 +25,16 @@ AGENT_REGISTRY = _agent_registry.AGENT_REGISTRY
 CORE_AGENT_MODELS = _agent_registry.CORE_AGENT_MODELS
 
 
+def _load_setup_wizard_module():
+    module_path = ROOT / "hooks" / "setup_wizard.py"
+    spec = util.spec_from_file_location("setup_wizard_for_tests", str(module_path))
+    assert spec is not None
+    assert spec.loader is not None
+    module = util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_resolve_agent_security_keywords():
     result = resolve_agent({'auth', 'jwt', 'vulnerability'})
     assert result is not None
@@ -126,9 +136,9 @@ def test_all_agent_skills_are_from_supported_catalog():
             assert skill in supported_skills, f"Agent {name} references unknown skill {skill}"
 
 
-def test_all_agent_mcp_tools_exist_in_repo_mcp_config():
-    repo_mcp = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
-    available = set(repo_mcp.get("mcpServers", {}).keys())
+def test_all_agent_mcp_tools_exist_in_supported_mcp_catalog():
+    setup_wizard = _load_setup_wizard_module()
+    available = {entry["id"] for entry in setup_wizard.get_mcp_catalog()}
     for name, config in AGENT_REGISTRY.items():
         for tool in config.get("mcp_tools", []):
             assert tool in available, f"Agent {name} references unknown MCP tool {tool}"

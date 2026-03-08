@@ -17,13 +17,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install Python dependencies
-        run: pip install pytest
+        run: pip install .[test]
 
       - name: Prepare artifact roots
         run: mkdir -p artifacts/release/.omg/evidence
 
       - name: Capture doctor output
         run: python3 scripts/omg.py doctor --format json > artifacts/release/.omg/evidence/doctor.json
+
+      - name: Seed deterministic proof fixtures
+        run: python3 scripts/prepare-release-proof-fixtures.py --output-root artifacts/release
 
       - name: Validate contract registry
         run: python3 scripts/omg.py contract validate
@@ -45,9 +48,12 @@ jobs:
       - name: Run standalone verification
         run: ./scripts/verify-standalone.sh
 
+      - name: Pack release artifacts
+        run: tar -czf omg-release-artifacts.tar.gz -C artifacts release
+
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: omg-release-artifacts
-          path: artifacts/release/
+          path: omg-release-artifacts.tar.gz
           if-no-files-found: error

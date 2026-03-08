@@ -19,7 +19,7 @@ error() { echo -e "${RED}✗${NC} $1"; }
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║                                                               ║${NC}"
-echo -e "${BLUE}║              OMG Plugin Uninstaller v2.0.8                   ║${NC}"
+echo -e "${BLUE}║              OMG Plugin Uninstaller v2.1.0                   ║${NC}"
 echo -e "${BLUE}║                                                               ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
@@ -32,7 +32,7 @@ OMG_ROOT="$(dirname "$PLUGIN_DIR")"
 if [ -f "$OMG_ROOT/OMG-setup.sh" ]; then
     info "Running uninstall via OMG-setup.sh..."
     echo ""
-    bash "$OMG_ROOT/OMG-setup.sh" uninstall
+    bash "$OMG_ROOT/OMG-setup.sh" uninstall --non-interactive
 else
     warning "OMG-setup.sh not found, performing manual cleanup..."
     

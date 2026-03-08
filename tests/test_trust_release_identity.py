@@ -19,6 +19,10 @@ def test_trust_release_identity_is_canonical():
     plugin = _load_json(ROOT / ".claude-plugin" / "plugin.json")
     marketplace = _load_json(ROOT / ".claude-plugin" / "marketplace.json")
     core_plugin = _load_json(ROOT / "plugins" / "core" / "plugin.json")
+    dist_public = _load_json(ROOT / "dist" / "public" / "manifest.json")
+    dist_enterprise = _load_json(ROOT / "dist" / "enterprise" / "manifest.json")
+    release_public = _load_json(ROOT / "artifacts" / "release" / "dist" / "public" / "manifest.json")
+    release_enterprise = _load_json(ROOT / "artifacts" / "release" / "dist" / "enterprise" / "manifest.json")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert package["name"] == "@trac3er/oh-my-god"
@@ -51,6 +55,10 @@ def test_trust_release_identity_is_canonical():
     assert "setup" in core_plugin["commands"]
     assert "compat" in core_plugin["commands"]
     assert "plan-council" in core_plugin["roles"]
+
+    for manifest in (dist_public, dist_enterprise, release_public, release_enterprise):
+        assert manifest["schema"] == "OmgCompiledArtifactManifest"
+        assert manifest["contract_version"] == CANONICAL_VERSION
 
     assert readme.startswith("# OMG")
     assert "https://github.com/trac3er00/OMG" in readme
