@@ -1,6 +1,6 @@
 ---
 title: OMG Production Control Plane
-version: 2.0.7
+version: 2.0.8
 canonical_hosts:
   - claude
   - codex
@@ -10,6 +10,13 @@ status: active
 # OMG Production Control Plane
 
 `OMG_COMPAT_CONTRACT.md` is the normative human-readable contract for OMG capability bundles. Machine-readable manifests in `registry/bundles/` are executable inputs and must remain version-locked to this document.
+
+## provider_tiers
+
+OMG distinguishes between canonical hosts and compatibility providers.
+
+- **Canonical Hosts**: `claude` and `codex`. These are the primary targets for bundle compilation, native hook integration, and production-grade state management.
+- **Compatibility Providers**: `gemini` and `kimi`. These are supported via routing providers that emulate host behavior and bridge MCP configurations. They are not targets for direct bundle compilation or normative contract enforcement.
 
 ## metadata
 

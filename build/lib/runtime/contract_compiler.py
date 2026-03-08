@@ -57,6 +57,12 @@ DEFAULT_REQUIRED_BUNDLES = (
     "data-lineage",
     "remote-supervisor",
 )
+TRUTH_COUNCIL_BUNDLES = (
+    "plan-council",
+    "claim-judge",
+    "test-intent-lock",
+    "proof-gate",
+)
 REQUIRED_ADVANCED_PLUGIN_ARTIFACTS = (
     "bundle/plugins/advanced/plugin.json",
     "bundle/plugins/advanced/commands/OMG:deep-plan.md",
@@ -1725,6 +1731,11 @@ def build_release_readiness(
     checks["version_identity_drift"] = version_drift_check
     blockers.extend(version_drift_check.get("blockers", []))
 
+    if channel == "dual":
+        bundle_promotion_parity = _check_bundle_promotion_parity(root, output)
+        checks["bundle_promotion_parity"] = bundle_promotion_parity
+        blockers.extend(bundle_promotion_parity.get("blockers", []))
+
     providers = _provider_statuses()
     checks["providers"] = providers
     for provider_name, status in providers.items():
@@ -1882,6 +1893,62 @@ def _check_proof_chain(output_root: Path) -> dict[str, Any]:
     }
 
 
+def _check_bundle_promotion_parity(root: Path, output_root: Path) -> dict[str, Any]:
+    missing_settings_required_bundles: list[str] = []
+    missing_dist_public: list[str] = []
+    missing_dist_enterprise: list[str] = []
+    missing_pyproject_data_files: list[str] = []
+
+    settings_path = output_root / "settings.json"
+    if settings_path.exists():
+        settings = _load_json(settings_path)
+        required_bundles = settings.get("_omg", {}).get("generated", {}).get("required_bundles", [])
+        if not isinstance(required_bundles, list):
+            required_bundles = []
+        required_bundle_set = {str(item) for item in required_bundles}
+        missing_settings_required_bundles = [
+            bundle_id for bundle_id in TRUTH_COUNCIL_BUNDLES if bundle_id not in required_bundle_set
+        ]
+    else:
+        missing_settings_required_bundles = list(TRUTH_COUNCIL_BUNDLES)
+
+    for bundle_id in TRUTH_COUNCIL_BUNDLES:
+        public_skill = output_root / "dist" / "public" / "bundle" / ".agents" / "skills" / "omg" / bundle_id / "SKILL.md"
+        if not public_skill.exists():
+            missing_dist_public.append(str(public_skill.relative_to(output_root)))
+
+        enterprise_skill = output_root / "dist" / "enterprise" / "bundle" / ".agents" / "skills" / "omg" / bundle_id / "SKILL.md"
+        if not enterprise_skill.exists():
+            missing_dist_enterprise.append(str(enterprise_skill.relative_to(output_root)))
+
+    pyproject_path = root / "pyproject.toml"
+    if pyproject_path.exists():
+        pyproject_content = pyproject_path.read_text(encoding="utf-8")
+        for bundle_id in TRUTH_COUNCIL_BUNDLES:
+            data_file_key = f'".agents/skills/omg/{bundle_id}" = '
+            if data_file_key not in pyproject_content:
+                missing_pyproject_data_files.append(bundle_id)
+    else:
+        missing_pyproject_data_files = list(TRUTH_COUNCIL_BUNDLES)
+
+    failed = any(
+        (
+            missing_settings_required_bundles,
+            missing_dist_public,
+            missing_dist_enterprise,
+            missing_pyproject_data_files,
+        )
+    )
+    return {
+        "status": "ok" if not failed else "error",
+        "blockers": ["bundle_promotion_parity"] if failed else [],
+        "missing_settings_required_bundles": missing_settings_required_bundles,
+        "missing_dist_public": missing_dist_public,
+        "missing_dist_enterprise": missing_dist_enterprise,
+        "missing_pyproject_data_files": missing_pyproject_data_files,
+    }
+
+
 def _check_packaged_install_smoke(root: Path) -> dict[str, Any]:
     blockers: list[str] = []
     with tempfile.TemporaryDirectory(prefix="omg-wheel-") as tmp_dir:
@@ -1911,6 +1978,10 @@ def _check_packaged_install_smoke(root: Path) -> dict[str, Any]:
             "plugins/dephealth/cve_scanner.py",
             "OMG_COMPAT_CONTRACT.md",
             ".agents/skills/omg/security-check/SKILL.md",
+            ".agents/skills/omg/plan-council/SKILL.md",
+            ".agents/skills/omg/claim-judge/SKILL.md",
+            ".agents/skills/omg/test-intent-lock/SKILL.md",
+            ".agents/skills/omg/proof-gate/SKILL.md",
         )
         for suffix in required_suffixes:
             if not any(name.endswith(suffix) for name in names):

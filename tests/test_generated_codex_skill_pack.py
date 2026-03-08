@@ -4,10 +4,13 @@ import json
 from pathlib import Path
 
 from runtime.contract_compiler import (
+    DEFAULT_REQUIRED_BUNDLES,
     REQUIRED_CODEX_AGENTS_SECTIONS,
     REQUIRED_CODEX_OUTPUTS,
     compile_contract_outputs,
 )
+
+TRUTH_COUNCIL_BUNDLES = ("plan-council", "claim-judge", "test-intent-lock", "proof-gate")
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,3 +90,41 @@ def test_absent_required_codex_output_causes_validation_failure(tmp_path: Path) 
     assert len(errors) >= len(REQUIRED_CODEX_OUTPUTS)
     for output_name in REQUIRED_CODEX_OUTPUTS:
         assert any(output_name in err for err in errors), f"Expected failure for missing {output_name}"
+
+
+def test_compiled_codex_includes_all_truth_council_bundle_skills(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    for bundle_id in TRUTH_COUNCIL_BUNDLES:
+        skill_dir = tmp_path / ".agents" / "skills" / "omg" / bundle_id
+        assert (skill_dir / "SKILL.md").exists(), (
+            f"Codex skill pack missing SKILL.md for truth/council bundle '{bundle_id}'"
+        )
+        openai_yaml = (skill_dir / "openai.yaml").read_text(encoding="utf-8")
+        assert "allow_implicit_invocation: false" in openai_yaml, (
+            f"Codex skill pack '{bundle_id}' missing explicit invocation policy"
+        )
+
+
+def test_compiled_codex_agents_fragment_references_planning_council_bundle(
+    tmp_path: Path,
+) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["codex"],
+        channel="enterprise",
+    )
+    assert result["status"] == "ok"
+
+    agents_content = (
+        tmp_path / ".agents" / "skills" / "omg" / "AGENTS.fragment.md"
+    ).read_text(encoding="utf-8")
+    assert "## Protected Planning Surface" in agents_content
+    assert "omg/plan-council" in agents_content

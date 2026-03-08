@@ -23,12 +23,12 @@ OMG keeps verification visible instead of burying it in implementation details.
 
 ## Provider Matrix
 
-| Provider | Detect | Auth Check | MCP Config | Host Priority |
-|----------|--------|------------|------------|---------------|
-| Claude Code | host-native | host-native | yes | primary |
-| Codex | yes | yes | yes | primary |
-| Gemini | yes | yes | yes | supported |
-| Kimi | yes | yes | yes | supported |
+| Provider | Tier | Detect | Auth Check | MCP Config | Host Priority |
+|----------|------|--------|------------|------------|---------------|
+| Claude Code | Canonical | host-native | host-native | yes | primary |
+| Codex | Canonical | yes | yes | yes | primary |
+| Gemini | Compatibility | yes | yes | yes | supported |
+| Kimi | Compatibility | yes | yes | yes | supported |
 
 ## Adoption Evidence
 

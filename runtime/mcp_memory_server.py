@@ -66,7 +66,7 @@ mcp = FastMCP("OMG Memory Server", lifespan=lifespan)
 
 @mcp.custom_route("/health", methods=["GET"])
 async def health(_: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "version": "2.0.7"})
+    return JSONResponse({"status": "ok", "version": "2.0.8"})
 
 
 @mcp.tool()

@@ -312,7 +312,7 @@ def test_merge_updates_omg_version_and_preset_while_preserving_feature_overrides
     }
     new = {
         "_omg": {
-            "_version": "2.0.7",
+            "_version": "2.0.8",
             "preset": "safe",
             "features": {
                 "MEMORY_AUTOSTART": True,
@@ -331,7 +331,7 @@ def test_merge_updates_omg_version_and_preset_while_preserving_feature_overrides
 
     merged = json.loads(existing_path.read_text(encoding="utf-8"))
     omg = merged["_omg"]
-    assert omg["_version"] == "2.0.7"
+    assert omg["_version"] == "2.0.8"
     assert omg["preset"] == "safe"
     assert omg["features"]["MEMORY_AUTOSTART"] is False
     assert omg["features"]["SETUP"] is True

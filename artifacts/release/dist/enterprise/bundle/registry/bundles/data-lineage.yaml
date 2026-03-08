@@ -1,6 +1,6 @@
 id: data-lineage
 kind: provenance
-version: 2.0.5
+version: 2.0.8
 title: OMG Data Lineage
 description: Provenance and privacy tracking for traces, fixtures, examples, and synthetic artifacts.
 hosts:

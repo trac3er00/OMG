@@ -10,7 +10,8 @@ argument-hint: "[feature or goal to plan]"
 Regular planning = "what steps to take."
 Deep planning = "understand WHY the user wants this, WHAT direction they're heading, and HOW it fits the bigger picture."
 
-This command is the compatibility front door to the canonical `plan-council` bundle.
+This command is the public compatibility path to the canonical `plan-council` bundle.
+Users invoke `/OMG:deep-plan`; the runtime routes to `plan-council` for execution.
 
 ## Step 1: Direction Discovery (MANDATORY)
 

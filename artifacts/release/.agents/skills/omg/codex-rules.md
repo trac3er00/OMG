@@ -18,6 +18,10 @@
 - `omg/control-plane`
 - `omg/mcp-fabric`
 
+## Protected Planning Surface
+
+- `omg/plan-council` (explicit invocation only)
+
 ## Approval Matrix
 
 | Action | Approval Required |

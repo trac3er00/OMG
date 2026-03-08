@@ -15,7 +15,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 ## Why OMG
 
 - Small front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
-- Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI.
+- Multi-host support: Claude Code and Codex (canonical), Gemini CLI and Kimi CLI (compatibility providers).
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
 - Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.

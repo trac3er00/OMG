@@ -1,6 +1,6 @@
 {
   "schema": "OmgCompatContractSnapshot",
-  "contract_version": "2.0.7",
+  "contract_version": "2.0.8",
   "count": 47,
   "contracts": [
     {
@@ -912,5 +912,5 @@
       "notes": "Writes long-form memory artifact for writing workflows."
     }
   ],
-  "generated_at": "2026-03-07T04:51:08.940453+00:00"
+  "generated_at": "2026-03-08T03:01:11.439504+00:00"
 }
