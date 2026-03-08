@@ -175,6 +175,16 @@ def test_setup_script_prompts_start_menu_when_no_action(tmp_path: Path):
     assert "Update plugin install" not in out
 
 
+def test_setup_script_dry_run_without_action_skips_start_menu(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+    proc = _run_script_with_tty_input(SETUP, ["--dry-run"], "", env=env)
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "Select OMG setup action" not in out
+    assert "*** DRY RUN" in out
+
+
 def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     (claude_dir / "hooks").mkdir(parents=True)
