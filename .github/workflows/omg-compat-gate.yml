@@ -45,11 +45,14 @@ jobs:
       - name: Run regression tests
         run: python3 -m pytest -q
 
+      - name: Pack compatibility artifacts
+        run: tar -czf omg-compat-artifacts.tar.gz -C artifacts .
+
       - name: Upload compatibility artifacts
         uses: actions/upload-artifact@v4
         with:
           name: omg-compat-artifacts
-          path: artifacts/
+          path: omg-compat-artifacts.tar.gz
           if-no-files-found: error
 
   standalone-no-vendor:
