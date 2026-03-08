@@ -37,6 +37,7 @@ DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
     "plan-council",
     "claim-judge",
+    "test-intent-lock",
     "hook-governor",
     "mcp-fabric",
     "lsp-pack",
@@ -1797,12 +1798,44 @@ def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
             if isinstance(item, dict) and item.get("name") == "worker_implementation" and not item.get("passed", False):
                 blockers.append("simulated worker evidence detected")
                 break
+    blockers.extend(_check_test_intent_claims(payload))
     blockers.extend(_check_high_risk_security_waivers(payload))
     return {
         "status": "ok" if not blockers else "error",
         "evidence_file": str(evidence_path.relative_to(output_root)),
         "blockers": blockers,
     }
+
+
+def _check_test_intent_claims(payload: dict[str, Any]) -> list[str]:
+    test_delta = payload.get("test_delta")
+    claims = payload.get("claims", [])
+    if not isinstance(claims, list):
+        return []
+
+    from runtime.test_intent_lock import evaluate_test_delta
+
+    blockers: list[str] = []
+    guarded_claims = {"tests passed", "tests_passed", "bug fixed", "bug_fixed"}
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        claim_type = str(claim.get("claim_type", "")).strip().lower()
+        if claim_type not in guarded_claims:
+            continue
+        delta = claim.get("test_delta")
+        if not isinstance(delta, dict):
+            delta = test_delta if isinstance(test_delta, dict) else None
+        if not isinstance(delta, dict):
+            blockers.append(f"test_intent_lock_missing_delta: claim '{claim_type}' requires test_delta evidence")
+            continue
+        result = evaluate_test_delta(delta)
+        if result.get("verdict") != "pass":
+            reasons = result.get("reasons", [])
+            reason_text = "; ".join(str(item) for item in reasons if str(item).strip())
+            suffix = f": {reason_text}" if reason_text else ""
+            blockers.append(f"test_intent_lock_blocked: claim '{claim_type}'{suffix}")
+    return blockers
 
 
 def _check_eval_gate(output_root: Path) -> dict[str, Any]:
