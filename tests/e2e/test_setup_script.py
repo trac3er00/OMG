@@ -306,6 +306,7 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     assert plugin_dir.name == "2.0.9"
 
     assert (plugin_dir / ".claude-plugin" / "plugin.json").exists()
+    assert (plugin_dir / ".claude-plugin" / "marketplace.json").exists()
     assert (plugin_dir / ".mcp.json").exists()
     assert (plugin_cache_root / ".omg-plugin-bundle").exists()
     assert (claude_dir / "hud" / "omg-hud.mjs").exists()
@@ -314,17 +315,94 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
     enabled = cast(dict[str, object], settings.get("enabledPlugins") or {})
     assert enabled.get("omg@omg") is True
+    status_line = cast(dict[str, object], settings.get("statusLine") or {})
+    assert status_line.get("type") == "command"
+    assert status_line.get("command") == f'node "{claude_dir / "hud" / "omg-hud.mjs"}"'
 
     mcp_path = claude_dir / ".mcp.json"
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
-    assert "filesystem" in mcp_servers
-    assert "omg-control" in mcp_servers
+    assert "filesystem" not in mcp_servers
+    assert "omg-control" not in mcp_servers
 
     installed_plugins_path = claude_dir / "plugins" / "installed_plugins.json"
     installed_plugins = cast(dict[str, object], json.loads(installed_plugins_path.read_text(encoding="utf-8")))
     plugins = cast(dict[str, object], installed_plugins.get("plugins") or {})
     assert "omg@omg" in plugins
+
+
+def test_setup_install_as_plugin_registers_known_marketplace(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    plugin_root = claude_dir / "plugins" / "cache" / "omg" / "omg" / "2.0.9"
+    marketplaces_path = claude_dir / "plugins" / "known_marketplaces.json"
+    assert marketplaces_path.exists()
+
+    marketplaces = cast(dict[str, object], json.loads(marketplaces_path.read_text(encoding="utf-8")))
+    omg_marketplace = cast(dict[str, object], marketplaces.get("omg") or {})
+    source = cast(dict[str, object], omg_marketplace.get("source") or {})
+
+    assert source.get("source") == "directory"
+    assert source.get("path") == str(plugin_root)
+    assert omg_marketplace.get("installLocation") == str(plugin_root)
+
+
+def test_setup_install_configures_detected_cli_hosts(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+
+    for binary in ("codex", "gemini", "kimi"):
+        script = fake_bin / binary
+        _ = script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    managed_python = claude_dir / "omg-runtime" / ".venv" / "bin" / "python"
+
+    codex_config = (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.omg-control]" in codex_config
+    assert str(managed_python) in codex_config
+    assert "runtime.omg_mcp_server" in codex_config
+
+    gemini_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".gemini" / "settings.json").read_text(encoding="utf-8")),
+    )
+    gemini_servers = cast(dict[str, object], gemini_config.get("mcpServers") or {})
+    gemini_omg = cast(dict[str, object], gemini_servers.get("omg-control") or {})
+    assert gemini_omg.get("command") == str(managed_python)
+    assert gemini_omg.get("args") == ["-m", "runtime.omg_mcp_server"]
+
+    kimi_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".kimi" / "mcp.json").read_text(encoding="utf-8")),
+    )
+    kimi_servers = cast(dict[str, object], kimi_config.get("mcpServers") or {})
+    kimi_omg = cast(dict[str, object], kimi_servers.get("omg-control") or {})
+    assert kimi_omg.get("command") == str(managed_python)
+    assert kimi_omg.get("args") == ["-m", "runtime.omg_mcp_server"]
 
 
 def test_setup_install_registers_session_start_hook(tmp_path: Path):
@@ -366,8 +444,8 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     mcp_path = claude_dir / ".mcp.json"
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
-    assert "filesystem" in mcp_servers
-    assert "omg-control" in mcp_servers
+    assert "filesystem" not in mcp_servers
+    assert "omg-control" not in mcp_servers
 
     uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
     assert uninstall_proc.returncode == 0
@@ -379,6 +457,7 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     settings_after = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
     enabled_after = cast(dict[str, object], settings_after.get("enabledPlugins") or {})
     assert "omg@omg" not in enabled_after
+    assert "statusLine" not in settings_after
 
     mcp_after_path = claude_dir / ".mcp.json"
     mcp_after_config = cast(dict[str, object], json.loads(mcp_after_path.read_text(encoding="utf-8")))
@@ -394,7 +473,52 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     assert "omg@omg" not in plugins_after
 
 
-def test_setup_install_as_plugin_refreshes_stale_plugin_mcp_servers(tmp_path: Path):
+def test_setup_uninstall_removes_detected_cli_host_configs(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+
+    for binary in ("codex", "gemini", "kimi"):
+        script = fake_bin / binary
+        _ = script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    codex_config = (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.omg-control]" not in codex_config
+
+    gemini_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".gemini" / "settings.json").read_text(encoding="utf-8")),
+    )
+    gemini_servers = cast(dict[str, object], gemini_config.get("mcpServers") or {})
+    assert "omg-control" not in gemini_servers
+
+    kimi_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".kimi" / "mcp.json").read_text(encoding="utf-8")),
+    )
+    kimi_servers = cast(dict[str, object], kimi_config.get("mcpServers") or {})
+    assert "omg-control" not in kimi_servers
+
+
+def test_setup_install_as_plugin_prunes_duplicate_plugin_mcp_servers(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir(parents=True)
     mcp_path = claude_dir / ".mcp.json"
@@ -422,14 +546,39 @@ def test_setup_install_as_plugin_refreshes_stale_plugin_mcp_servers(tmp_path: Pa
 
     merged = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, object], merged.get("mcpServers") or {})
-    source = cast(dict[str, object], json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8")))
-    source_servers = cast(dict[str, object], source.get("mcpServers") or {})
+    assert "filesystem" not in servers
+    assert "omg-control" not in servers
 
-    assert servers["filesystem"] == source_servers["filesystem"]
-    # omg-control command is rewritten to the venv python by the setup script
-    assert "omg-control" in servers
-    omg_ctl = cast(dict[str, object], servers["omg-control"])
-    assert omg_ctl["args"] == ["-m", "runtime.omg_mcp_server"]
+
+def test_setup_install_as_plugin_keeps_custom_status_line(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    settings_path = claude_dir / "settings.json"
+    _ = settings_path.write_text(
+        json.dumps(
+            {
+                "statusLine": {
+                    "type": "command",
+                    "command": "custom-statusline.sh",
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+    status_line = cast(dict[str, object], settings.get("statusLine") or {})
+    assert status_line.get("command") == "custom-statusline.sh"
 
 
 def test_setup_uninstall_cleans_legacy_omg_registry_and_cache(tmp_path: Path):
@@ -649,7 +798,7 @@ def test_setup_plugin_install_patches_omg_control_to_managed_python(tmp_path: Pa
     )
     assert proc.returncode == 0
 
-    mcp_path = claude_dir / ".mcp.json"
+    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / "2.0.9" / ".mcp.json"
     assert mcp_path.exists()
     mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})

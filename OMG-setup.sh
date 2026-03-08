@@ -299,34 +299,146 @@ provision_managed_venv() {
 }
 
 patch_omg_control_mcp_python() {
-    local mcp_path="$CLAUDE_DIR/.mcp.json"
     local venv_python="$CLAUDE_DIR/omg-runtime/.venv/bin/python"
+    local mcp_paths=(
+        "$CLAUDE_DIR/.mcp.json"
+        "$PLUGIN_CACHE_DIR/$VERSION/.mcp.json"
+    )
 
-    if [ ! -f "$mcp_path" ]; then
+    python3 - "$venv_python" "${mcp_paths[@]}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+venv_python = sys.argv[1]
+
+for raw_path in sys.argv[2:]:
+    mcp_path = Path(raw_path)
+    if not mcp_path.exists():
+        continue
+    try:
+        data = json.loads(mcp_path.read_text(encoding="utf-8"))
+    except Exception:
+        continue
+
+    servers = data.get("mcpServers")
+    if not isinstance(servers, dict):
+        continue
+
+    omg_control = servers.get("omg-control")
+    if isinstance(omg_control, dict) and omg_control.get("command") in ("python3", "python"):
+        omg_control["command"] = venv_python
+        mcp_path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+}
+
+prune_plugin_duplicate_mcp_from_settings() {
+    local mcp_path="$CLAUDE_DIR/.mcp.json"
+    local plugin_mcp_path="$PLUGIN_CACHE_DIR/$VERSION/.mcp.json"
+
+    if [ ! -f "$mcp_path" ] || [ ! -f "$plugin_mcp_path" ]; then
         return 0
     fi
 
-    python3 - "$mcp_path" "$venv_python" <<'PY'
+    python3 - "$mcp_path" "$plugin_mcp_path" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 mcp_path = Path(sys.argv[1])
-venv_python = sys.argv[2]
+plugin_mcp_path = Path(sys.argv[2])
 
 try:
     data = json.loads(mcp_path.read_text(encoding="utf-8"))
+    plugin_data = json.loads(plugin_mcp_path.read_text(encoding="utf-8"))
 except Exception:
+    print("0")
     raise SystemExit(0)
 
 servers = data.get("mcpServers")
-if not isinstance(servers, dict):
+plugin_servers = plugin_data.get("mcpServers")
+if not isinstance(servers, dict) or not isinstance(plugin_servers, dict):
+    print("0")
     raise SystemExit(0)
 
-omg_control = servers.get("omg-control")
-if isinstance(omg_control, dict) and omg_control.get("command") in ("python3", "python"):
-    omg_control["command"] = venv_python
-    mcp_path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+removed = 0
+for key, plugin_value in plugin_servers.items():
+    if key in servers and servers.get(key) == plugin_value:
+        servers.pop(key, None)
+        removed += 1
+
+data["mcpServers"] = servers
+mcp_path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+print(str(removed))
+PY
+}
+
+configure_hud_status_line() {
+    local settings_path="$CLAUDE_DIR/settings.json"
+    local hud_path="$CLAUDE_DIR/hud/omg-hud.mjs"
+
+    python3 - "$settings_path" "$hud_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+hud_path = Path(sys.argv[2])
+desired_command = f'node "{hud_path}"'
+
+settings = {}
+if settings_path.exists():
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        settings = {}
+if not isinstance(settings, dict):
+    settings = {}
+
+status_line = settings.get("statusLine")
+if not isinstance(status_line, dict) or not status_line:
+    settings["statusLine"] = {
+        "type": "command",
+        "command": desired_command,
+    }
+elif "omg-hud.mjs" in str(status_line.get("command") or ""):
+    padding = status_line.get("padding")
+    settings["statusLine"] = {
+        "type": "command",
+        "command": desired_command,
+    }
+    if isinstance(padding, (int, float)):
+        settings["statusLine"]["padding"] = padding
+
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+}
+
+remove_hud_status_line() {
+    local settings_path="$CLAUDE_DIR/settings.json"
+
+    if [ ! -f "$settings_path" ]; then
+        return 0
+    fi
+
+    python3 - "$settings_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+try:
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(0)
+if not isinstance(settings, dict):
+    raise SystemExit(0)
+
+status_line = settings.get("statusLine")
+if isinstance(status_line, dict) and "omg-hud.mjs" in str(status_line.get("command") or ""):
+    settings.pop("statusLine", None)
+    settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 PY
 }
 
@@ -628,6 +740,65 @@ installed_plugins_path.write_text(json.dumps(installed, indent=2, ensure_ascii=T
 PY
 }
 
+register_plugin_marketplace() {
+    local marketplace_name="$1"
+    local install_path="$2"
+    local settings_path="$CLAUDE_DIR/settings.json"
+    local known_marketplaces_path="$CLAUDE_DIR/plugins/known_marketplaces.json"
+
+    python3 - "$settings_path" "$known_marketplaces_path" "$marketplace_name" "$install_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+from datetime import datetime, timezone
+
+settings_path = Path(sys.argv[1])
+known_marketplaces_path = Path(sys.argv[2])
+marketplace_name = sys.argv[3]
+install_path = sys.argv[4]
+now = datetime.now(timezone.utc).isoformat()
+source = {
+    "source": "directory",
+    "path": install_path,
+}
+
+settings = {}
+if settings_path.exists():
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        settings = {}
+if not isinstance(settings, dict):
+    settings = {}
+extra_known = settings.get("extraKnownMarketplaces")
+if not isinstance(extra_known, dict):
+    extra_known = {}
+extra_known[marketplace_name] = {"source": source}
+settings["extraKnownMarketplaces"] = extra_known
+settings_path.parent.mkdir(parents=True, exist_ok=True)
+settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+known_marketplaces = {}
+if known_marketplaces_path.exists():
+    try:
+        known_marketplaces = json.loads(known_marketplaces_path.read_text(encoding="utf-8"))
+    except Exception:
+        known_marketplaces = {}
+if not isinstance(known_marketplaces, dict):
+    known_marketplaces = {}
+known_marketplaces[marketplace_name] = {
+    "source": source,
+    "installLocation": install_path,
+    "lastUpdated": now,
+}
+known_marketplaces_path.parent.mkdir(parents=True, exist_ok=True)
+known_marketplaces_path.write_text(
+    json.dumps(known_marketplaces, indent=2, ensure_ascii=True) + "\n",
+    encoding="utf-8",
+)
+PY
+}
+
 unregister_plugin_from_registry() {
     local plugin_ref="$1"
     local settings_path="$CLAUDE_DIR/settings.json"
@@ -665,6 +836,167 @@ if installed_plugins_path.exists():
             plugins.pop(plugin_ref, None)
             installed["plugins"] = plugins
             installed_plugins_path.write_text(json.dumps(installed, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+}
+
+unregister_plugin_marketplace() {
+    local marketplace_name="$1"
+    local settings_path="$CLAUDE_DIR/settings.json"
+    local known_marketplaces_path="$CLAUDE_DIR/plugins/known_marketplaces.json"
+
+    python3 - "$settings_path" "$known_marketplaces_path" "$marketplace_name" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+known_marketplaces_path = Path(sys.argv[2])
+marketplace_name = sys.argv[3]
+
+if settings_path.exists():
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        settings = {}
+    if isinstance(settings, dict):
+        extra_known = settings.get("extraKnownMarketplaces")
+        if isinstance(extra_known, dict) and marketplace_name in extra_known:
+            extra_known.pop(marketplace_name, None)
+            settings["extraKnownMarketplaces"] = extra_known
+            settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+if known_marketplaces_path.exists():
+    try:
+        known_marketplaces = json.loads(known_marketplaces_path.read_text(encoding="utf-8"))
+    except Exception:
+        known_marketplaces = {}
+    if isinstance(known_marketplaces, dict) and marketplace_name in known_marketplaces:
+        known_marketplaces.pop(marketplace_name, None)
+        known_marketplaces_path.write_text(
+            json.dumps(known_marketplaces, indent=2, ensure_ascii=True) + "\n",
+            encoding="utf-8",
+        )
+PY
+}
+
+configure_detected_host_mcp_servers() {
+    local managed_python="$CLAUDE_DIR/omg-runtime/.venv/bin/python"
+    if [ ! -x "$managed_python" ]; then
+        managed_python="python3"
+    fi
+
+    python3 - "$SCRIPT_DIR" "$managed_python" <<'PY'
+import shutil
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+managed_python = sys.argv[2]
+
+sys.path.insert(0, str(root))
+
+from runtime.mcp_config_writers import (  # noqa: E402
+    write_codex_mcp_stdio_config,
+    write_gemini_mcp_stdio_config,
+    write_kimi_mcp_stdio_config,
+)
+
+configured: list[str] = []
+for host in ("codex", "gemini", "kimi"):
+    if shutil.which(host) is None:
+        continue
+    if host == "codex":
+        write_codex_mcp_stdio_config(
+            command=managed_python,
+            args=["-m", "runtime.omg_mcp_server"],
+            server_name="omg-control",
+        )
+    elif host == "gemini":
+        write_gemini_mcp_stdio_config(
+            command=managed_python,
+            args=["-m", "runtime.omg_mcp_server"],
+            server_name="omg-control",
+        )
+    else:
+        write_kimi_mcp_stdio_config(
+            command=managed_python,
+            args=["-m", "runtime.omg_mcp_server"],
+            server_name="omg-control",
+        )
+    configured.append(host)
+
+if configured:
+    print(",".join(configured))
+PY
+}
+
+remove_detected_host_mcp_servers() {
+    python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+
+def remove_codex_section(path: Path, server_name: str) -> bool:
+    if not path.exists():
+        return False
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    headers = {
+        f"[mcp_servers.{server_name}]",
+        f"[mcp_servers.\"{server_name}\"]",
+    }
+    start_idx = None
+    for idx, line in enumerate(lines):
+        if line.strip() in headers:
+            start_idx = idx
+            break
+    if start_idx is None:
+        return False
+
+    end_idx = len(lines)
+    for idx in range(start_idx + 1, len(lines)):
+        stripped = lines[idx].strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            end_idx = idx
+            break
+
+    updated = lines[:start_idx] + lines[end_idx:]
+    content = "".join(updated).lstrip("\n")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
+def remove_json_server(path: Path, server_name: str) -> bool:
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(data, dict):
+        return False
+    mcp_servers = data.get("mcpServers")
+    if not isinstance(mcp_servers, dict) or server_name not in mcp_servers:
+        return False
+    mcp_servers.pop(server_name, None)
+    data["mcpServers"] = mcp_servers
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return True
+
+
+removed: list[str] = []
+home = Path(os.path.expanduser("~"))
+if remove_codex_section(home / ".codex" / "config.toml", "omg-control"):
+    removed.append("codex")
+if remove_json_server(home / ".gemini" / "settings.json", "omg-control"):
+    removed.append("gemini")
+if remove_json_server(home / ".kimi" / "mcp.json", "omg-control"):
+    removed.append("kimi")
+
+if removed:
+    print(",".join(removed))
 PY
 }
 
@@ -806,6 +1138,8 @@ remove_omg_files() {
         rm -f "$CLAUDE_DIR/hud/omg-hud.mjs"
         unregister_plugin_from_registry "$PLUGIN_REF"
         unregister_plugin_from_registry "$LEGACY_PLUGIN_REF"
+        unregister_plugin_marketplace "$PLUGIN_MARKETPLACE"
+        remove_hud_status_line
 
         if $remove_plugin_managed_mcp; then
             local pruned_mcp=0
@@ -813,6 +1147,12 @@ remove_omg_files() {
             if [ "${pruned_mcp:-0}" -gt 0 ]; then
                 echo "  ✓ Plugin-managed MCP servers removed from .mcp.json ($pruned_mcp)"
             fi
+        fi
+
+        local removed_host_mcp=""
+        removed_host_mcp=$(remove_detected_host_mcp_servers)
+        if [ -n "$removed_host_mcp" ]; then
+            echo "  ✓ Removed OMG MCP config from detected hosts: $removed_host_mcp"
         fi
     fi
 }
@@ -822,6 +1162,8 @@ install_plugin_bundle() {
     local plugin_root="$PLUGIN_CACHE_DIR/$VERSION"
     local plugin_manifest_src="$SCRIPT_DIR/.claude-plugin/plugin.json"
     local plugin_manifest_target="$plugin_root/.claude-plugin/plugin.json"
+    local marketplace_manifest_src="$SCRIPT_DIR/.claude-plugin/marketplace.json"
+    local marketplace_manifest_target="$plugin_root/.claude-plugin/marketplace.json"
     local plugin_mcp_target="$plugin_root/.mcp.json"
     local hud_src="$SCRIPT_DIR/hud/omg-hud.mjs"
     local hud_target="$CLAUDE_DIR/hud/omg-hud.mjs"
@@ -829,7 +1171,7 @@ install_plugin_bundle() {
     echo "  Plugin bundle mode enabled: install plugin + MCP + HUD together"
     if $DRY_RUN; then
         echo "  (would install plugin bundle under $plugin_root and deploy HUD to $hud_target)"
-        echo "  (would register plugin in ~/.claude/plugins/installed_plugins.json and enable it in settings.json)"
+        echo "  (would register plugin in ~/.claude/plugins/installed_plugins.json, enable it in settings.json, and add the omg marketplace)"
         echo "  (would merge plugin MCP servers into .mcp.json)"
         return 0
     fi
@@ -837,6 +1179,9 @@ install_plugin_bundle() {
     mkdir -p "$plugin_root/.claude-plugin"
     mkdir -p "$CLAUDE_DIR/hud"
     cp "$plugin_manifest_src" "$plugin_manifest_target"
+    if [ -f "$marketplace_manifest_src" ]; then
+        cp "$marketplace_manifest_src" "$marketplace_manifest_target"
+    fi
     
     # Provide a fallback .mcp.json if not shipped in npm package
     if [ ! -f "$SCRIPT_DIR/.mcp.json" ]; then
@@ -863,14 +1208,17 @@ FALLBACK_MCP
     fi
     
     cp "$hud_src" "$hud_target"
+    chmod +x "$hud_target" 2>/dev/null || true
     mkdir -p "$PLUGIN_CACHE_DIR"
     printf '%s\n' "omg-plugin-bundle-v1" > "$PLUGIN_CACHE_DIR/$PLUGIN_BUNDLE_MARKER_FILE"
 
     unregister_plugin_from_registry "$LEGACY_PLUGIN_REF"
     register_plugin_in_registry "$plugin_ref" "$plugin_root" "$VERSION"
+    register_plugin_marketplace "$PLUGIN_MARKETPLACE" "$plugin_root"
     merge_plugin_mcp_into_settings >/dev/null
 
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.claude-plugin/plugin.json"
+    track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.claude-plugin/marketplace.json"
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.mcp.json"
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$PLUGIN_BUNDLE_MARKER_FILE"
     track_file "hud/omg-hud.mjs"
@@ -1271,6 +1619,17 @@ run_install_like() {
 
         provision_managed_venv
         patch_omg_control_mcp_python
+        local pruned_plugin_duplicates=0
+        pruned_plugin_duplicates=$(prune_plugin_duplicate_mcp_from_settings)
+        if [ "${pruned_plugin_duplicates:-0}" -gt 0 ]; then
+            echo "  ✓ Removed duplicate plugin-managed MCP servers from .mcp.json ($pruned_plugin_duplicates)"
+        fi
+        configure_hud_status_line
+        local configured_hosts=""
+        configured_hosts=$(configure_detected_host_mcp_servers)
+        if [ -n "$configured_hosts" ]; then
+            echo "  ✓ Host MCP configured for detected CLIs: $configured_hosts"
+        fi
 
         local adoption_report_path=""
         adoption_report_path=$(write_native_adoption_report)
@@ -1281,6 +1640,7 @@ run_install_like() {
             install_plugin_bundle
         fi
         echo "  (would provision managed Python venv at $CLAUDE_DIR/omg-runtime/.venv)"
+        echo "  (would wire omg-control into detected Codex/Gemini/Kimi configs when available)"
         echo "  (would write adoption report and apply preset/mode markers)"
     fi
 
