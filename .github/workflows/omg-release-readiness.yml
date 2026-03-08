@@ -25,6 +25,9 @@ jobs:
       - name: Capture doctor output
         run: python3 scripts/omg.py doctor --format json > artifacts/release/.omg/evidence/doctor.json
 
+      - name: Seed deterministic proof fixtures
+        run: python3 scripts/prepare-release-proof-fixtures.py --output-root artifacts/release
+
       - name: Validate contract registry
         run: python3 scripts/omg.py contract validate
 

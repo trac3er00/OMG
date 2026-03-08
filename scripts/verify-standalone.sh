@@ -7,11 +7,12 @@ TMP_DIR="${1:-$(mktemp -d)}"
 echo "[verify-standalone] source: $ROOT_DIR"
 echo "[verify-standalone] workdir: $TMP_DIR"
 
-tar --exclude="./.omc" --exclude="./.pytest_cache" -cf - -C "$ROOT_DIR" . | (cd "$TMP_DIR" && tar -xf -)
+tar --exclude="./.omc" --exclude="./.omg" --exclude="./.pytest_cache" -cf - -C "$ROOT_DIR" . | (cd "$TMP_DIR" && tar -xf -)
 
 cd "$TMP_DIR"
 mkdir -p .omg/evidence
 python3 scripts/omg.py doctor --format json > .omg/evidence/doctor.json
+python3 scripts/prepare-release-proof-fixtures.py --output-root .
 python3 scripts/omg.py contract validate
 python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root .
 python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root .
