@@ -303,7 +303,7 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     installed_versions = sorted([p for p in plugin_cache_root.iterdir() if p.is_dir()])
     assert installed_versions
     plugin_dir = installed_versions[-1]
-    assert plugin_dir.name == "2.0.8"
+    assert plugin_dir.name == "2.0.9"
 
     assert (plugin_dir / ".claude-plugin" / "plugin.json").exists()
     assert (plugin_dir / ".mcp.json").exists()
