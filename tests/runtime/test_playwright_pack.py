@@ -136,3 +136,31 @@ def test_browser_pack_run_smoke_rejects_missing_fixture(tmp_path):
     pack = PlaywrightPack(project_dir=tmp_path, isolated=True)
     with pytest.raises(FileNotFoundError, match="Smoke fixture not found"):
         pack.run_smoke(tmp_path / "nonexistent.html")
+
+
+def test_browser_pack_can_ingest_external_artifacts(tmp_path):
+    external_dir = tmp_path / "external"
+    external_dir.mkdir()
+    trace_path = external_dir / "trace.zip"
+    trace_path.write_bytes(b"PK\x03\x04mock_trace_data")
+    junit_path = external_dir / "junit.xml"
+    junit_path.write_text("<testsuites></testsuites>", encoding="utf-8")
+    screenshot_path = external_dir / "shot.png"
+    screenshot_path.write_bytes(b"\x89PNG\r\n\x1a\nmock_png_data")
+
+    pack = PlaywrightPack(project_dir=tmp_path, isolated=True)
+    result = pack.ingest_external_artifacts(
+        output_dir=tmp_path / ".omg" / "evidence" / "browser",
+        trace_path=trace_path,
+        junit_path=junit_path,
+        screenshots=[screenshot_path],
+        metadata={"tool": "playwright"},
+    )
+
+    artifacts = result["artifacts"]
+    assert Path(artifacts["trace"]).exists()
+    assert Path(artifacts["junit"]).exists()
+    assert Path(artifacts["screenshots"][0]).exists()
+    assert Path(artifacts["trace"]).parent == tmp_path / ".omg" / "evidence" / "browser"
+    assert Path(artifacts["screenshots"][0]).parent == tmp_path / ".omg" / "evidence" / "browser" / "screenshots"
+    assert result["metadata"]["tool"] == "playwright"
