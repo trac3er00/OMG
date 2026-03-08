@@ -2,7 +2,7 @@ name: omg-robotics
 description: "Robotics safety policy, replay, and evaluation attachments."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: robotics
   title: "OMG Robotics Pack"
 mcp_servers:

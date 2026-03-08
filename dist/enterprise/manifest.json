@@ -1,6 +1,12 @@
 {
   "schema": "OmgCompiledArtifactManifest",
   "channel": "enterprise",
+  "hosts": [
+    "claude",
+    "codex",
+    "gemini",
+    "kimi"
+  ],
   "contract_version": "2.0.8",
   "artifacts": [
     {
@@ -200,12 +206,20 @@
       "sha256": "fe7531e0527d288413151433ee5daa3106383442024d5dad072373f8f26d57d1"
     },
     {
+      "path": "bundle/.gemini/settings.json",
+      "sha256": "14208140297f635cc5155cfe063c9b8a6193a3d0a264e0686cf3b80789208f27"
+    },
+    {
+      "path": "bundle/.kimi/mcp.json",
+      "sha256": "14208140297f635cc5155cfe063c9b8a6193a3d0a264e0686cf3b80789208f27"
+    },
+    {
       "path": "bundle/.mcp.json",
       "sha256": "e16897732dbd20ba7f47e5c0513b146a8d847454c8c13aa9e0a6031e5a498fa4"
     },
     {
       "path": "bundle/OMG_COMPAT_CONTRACT.md",
-      "sha256": "4c628cf93698b051e183db0ddaa80dbdac7a3667071d048cba0f25419271e28d"
+      "sha256": "706b57c51e105bc6654b457596df9332e8c1f73703596fe248bd24c2ae3a59e9"
     },
     {
       "path": "bundle/plugins/advanced/commands/OMG:code-review.md",
@@ -341,11 +355,11 @@
     },
     {
       "path": "bundle/registry/omg-capability.schema.json",
-      "sha256": "486751cecb434c5f169189528ebe5c7ddddadcb0549abdd59f09e7b10844aba1"
+      "sha256": "a9076f09cd9a12ba769c2b05f80a24195ac851b9ad2b817efa41d6143765c513"
     },
     {
       "path": "bundle/settings.json",
-      "sha256": "30acc45a193dc9fdc3733c559cd87e697d68dba9a364567b5097d0296f609ea8"
+      "sha256": "7213d38cb5fd0699482120e1e5a2e50b3386f05bbf8e45b48c9007365058388b"
     }
   ]
 }

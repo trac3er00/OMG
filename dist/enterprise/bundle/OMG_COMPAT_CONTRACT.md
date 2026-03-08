@@ -4,6 +4,8 @@ version: 2.0.8
 canonical_hosts:
   - claude
   - codex
+  - gemini
+  - kimi
 status: active
 ---
 
@@ -13,10 +15,14 @@ status: active
 
 ## provider_tiers
 
-OMG distinguishes between canonical hosts and compatibility providers.
+OMG defines four canonical hosts and their host-rule contracts.
 
-- **Canonical Hosts**: `claude` and `codex`. These are the primary targets for bundle compilation, native hook integration, and production-grade state management.
-- **Compatibility Providers**: `gemini` and `kimi`. These are supported via routing providers that emulate host behavior and bridge MCP configurations. They are not targets for direct bundle compilation or normative contract enforcement.
+- `claude`: requires `compilation_targets`, `hooks`, `subagents`, and `skills`.
+- `codex`: requires `compilation_targets`, `skills`, `agents_fragments`, `rules`, and `automations`.
+- `gemini`: requires `compilation_targets`, `mcp`, `skills`, and `automations`.
+- `kimi`: requires `compilation_targets`, `mcp`, `skills`, and `automations`.
+
+Gemini and Kimi are canonical hosts for contract validation and policy declaration. Their contracts do not require Claude/Codex hook semantics.
 
 ## metadata
 

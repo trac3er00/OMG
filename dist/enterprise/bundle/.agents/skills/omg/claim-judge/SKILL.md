@@ -5,7 +5,7 @@ description: "Evidence-backed claim validator for structured release and complet
 
 # OMG Claim Judge
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/claim-judge-*.json`
