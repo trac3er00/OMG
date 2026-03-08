@@ -31,7 +31,8 @@ if str(ROOT_DIR) not in sys.path:
 from hooks.policy_engine import evaluate_bash_command
 from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change, write_trust_manifest
-from lab.pipeline import publish_artifact, run_pipeline
+from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evidence
+from runtime.forge_agents import dispatch_specialists, resolve_specialists
 from runtime.dispatcher import dispatch_runtime
 from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, verify_fixture
 from runtime.data_lineage import build_lineage_manifest
@@ -428,10 +429,75 @@ def cmd_forge_run(args: argparse.Namespace) -> int:
             )
         )
         return 2
+
+    project_dir = _ensure_project_dir()
+    run_id = args.run_id or _now_run_id()
     job = json.loads(args.job_json) if args.job_json else _load_json(args.job)
-    result = run_pipeline(job)
+
+    specialist_dispatch: dict[str, Any] | None = None
+    if "specialists" in job or "domain" in job:
+        specialist_dispatch = dispatch_specialists(job, project_dir)
+        if specialist_dispatch.get("status") == "blocked":
+            print(json.dumps(specialist_dispatch, indent=2))
+            return 2
+
+    result = run_pipeline_with_evidence(project_dir, job, run_id)
+    if specialist_dispatch is not None:
+        result = dict(result)
+        result["specialist_dispatch"] = specialist_dispatch
     print(json.dumps(result, indent=2))
     return 0 if result.get("status") in {"ready", "failed_evaluation"} else 2
+
+
+def cmd_forge_vision_agent(args: argparse.Namespace) -> int:
+    preset = args.preset
+    if preset != "labs":
+        print(
+            json.dumps(
+                {"status": "error", "message": f"forge requires labs preset, got: {preset}"},
+                indent=2,
+            )
+        )
+        return 2
+
+    project_dir = _ensure_project_dir()
+    run_id = args.run_id or _now_run_id()
+
+    job: dict[str, Any] = {
+        "dataset": {
+            "name": "vision-agent",
+            "license": "apache-2.0",
+            "source": "internal-curated",
+        },
+        "base_model": {
+            "name": "distill-base-v1",
+            "source": "approved-registry",
+            "allow_distill": True,
+        },
+        "target_metric": float(args.target_metric),
+        "simulated_metric": float(args.simulated_metric),
+        "specialists": resolve_specialists("vision-agent"),
+        "domain": "vision",
+    }
+
+    if args.job_json:
+        override = json.loads(args.job_json)
+        if not isinstance(override, dict):
+            print(json.dumps({"status": "error", "message": "--job-json must be an object"}, indent=2))
+            return 2
+        job.update(override)
+
+    specialist_dispatch = dispatch_specialists(job, project_dir)
+    if specialist_dispatch.get("status") == "blocked":
+        print(json.dumps(specialist_dispatch, indent=2))
+        return 2
+
+    result = run_pipeline_with_evidence(project_dir, job, run_id)
+    out = dict(result)
+    out["specialist_dispatch"] = specialist_dispatch
+    out["agent_path"] = "vision-agent"
+    print(json.dumps(out, indent=2))
+    return 0 if out.get("status") in {"ready", "failed_evaluation"} else 2
 
 
 def cmd_teams(args: argparse.Namespace) -> int:
@@ -853,7 +919,19 @@ def build_parser() -> argparse.ArgumentParser:
     forge_run.add_argument("--job", default="", help="Path to job json")
     forge_run.add_argument("--job-json", default="", help="Inline job json")
     forge_run.add_argument("--preset", default="labs", choices=list(VALID_PRESETS), help="Adoption preset (must be labs)")
+    forge_run.add_argument("--run-id", default="", help="Optional run id used for evidence output")
     forge_run.set_defaults(func=cmd_forge_run)
+
+    forge_vision_agent = forge_sub.add_parser(
+        "vision-agent",
+        help="Run bounded vision-agent forge flow with specialist dispatch",
+    )
+    forge_vision_agent.add_argument("--job-json", default="", help="Optional job overrides as inline JSON")
+    forge_vision_agent.add_argument("--preset", default="labs", choices=list(VALID_PRESETS), help="Adoption preset (must be labs)")
+    forge_vision_agent.add_argument("--target-metric", type=float, default=0.8)
+    forge_vision_agent.add_argument("--simulated-metric", type=float, default=0.9)
+    forge_vision_agent.add_argument("--run-id", default="", help="Optional run id used for evidence output")
+    forge_vision_agent.set_defaults(func=cmd_forge_vision_agent)
 
     teams = sub.add_parser("teams", help="Internal OMG team routing")
     teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "ccg"])

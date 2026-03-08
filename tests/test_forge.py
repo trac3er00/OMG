@@ -1,4 +1,4 @@
-# pyright: reportExplicitAny=false, reportAny=false
+# pyright: reportUnknownVariableType=false
 from __future__ import annotations
 
 import json
@@ -129,6 +129,14 @@ class TestForgeCLI:
         assert result.returncode == 0
         assert "--job" in result.stdout
 
+    def test_forge_vision_agent_help_exits_zero(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "omg.py"), "forge", "vision-agent", "--help"],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0
+        assert "vision-agent" in result.stdout
+
     def test_forge_appears_in_main_help(self):
         result = subprocess.run(
             [sys.executable, str(SCRIPTS_DIR / "omg.py"), "--help"],
@@ -217,3 +225,90 @@ class TestForgeBlockedOutsideLabs:
             assert output["status"] == "ready"
         finally:
             os.unlink(job_path)
+
+
+class TestForgeSpecialists:
+    def test_forge_run_with_specialists_dispatches(self):
+        job = {
+            "dataset": {
+                "name": "vision-agent",
+                "license": "apache-2.0",
+                "source": "internal-curated",
+            },
+            "base_model": {
+                "name": "distill-base-v1",
+                "source": "approved-registry",
+                "allow_distill": True,
+            },
+            "target_metric": 0.8,
+            "simulated_metric": 0.9,
+            "specialists": ["data-curator", "training-architect", "simulator-engineer"],
+            "domain": "vision",
+        }
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["specialist_dispatch"]["status"] == "ok"
+        assert output["specialist_dispatch"]["specialists_dispatched"] == [
+            "data-curator",
+            "training-architect",
+            "simulator-engineer",
+        ]
+
+    def test_forge_vision_agent_path_runs_labs_job(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "vision-agent",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["agent_path"] == "vision-agent"
+        assert output["specialist_dispatch"]["status"] == "ok"
+
+    def test_forge_run_invalid_specialists_blocked(self):
+        job = _valid_job()
+        job["domain"] = "vision"
+        job["specialists"] = ["data-curator", "unknown-specialist"]
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "blocked"
