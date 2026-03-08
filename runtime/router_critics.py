@@ -13,7 +13,7 @@ _CLAIM_PATTERNS: tuple[tuple[str, str], ...] = (
 )
 
 _EVIDENCE_PATTERNS: tuple[str, ...] = (
-    r"\.sisyphus/evidence/",
+    r"evidence/[a-zA-Z0-9_.-]+",
     r"\.omg/state/",
     r"\bpytest\b",
     r"\bpython3\s+-m\s+pytest\b",
