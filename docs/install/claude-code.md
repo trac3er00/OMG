@@ -31,5 +31,5 @@ claude plugin install omg@omg --scope user
 - `claude plugin list` should show `omg@omg` with `Status: enabled`
 - `~/.claude/plugins/known_marketplaces.json` should contain an `omg` entry
 - `~/.claude/settings.json` should contain a `statusLine` command pointing at `~/.claude/hud/omg-hud.mjs`
-- `~/.claude/.mcp.json` should not duplicate the plugin-managed `filesystem` or `omg-control` servers
+- `~/.claude/.mcp.json` should not duplicate the plugin-managed `omg-control` server
 - `~/.claude/omg-runtime/.venv/bin/python` should exist

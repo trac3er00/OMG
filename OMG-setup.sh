@@ -313,6 +313,7 @@ patch_omg_control_mcp_python() {
     local venv_python="$CLAUDE_DIR/omg-runtime/.venv/bin/python"
     local mcp_paths=(
         "$CLAUDE_DIR/.mcp.json"
+        "$PLUGIN_CACHE_DIR/$VERSION/.claude-plugin/mcp.json"
         "$PLUGIN_CACHE_DIR/$VERSION/.mcp.json"
     )
 
@@ -345,7 +346,11 @@ PY
 
 prune_plugin_duplicate_mcp_from_settings() {
     local mcp_path="$CLAUDE_DIR/.mcp.json"
-    local plugin_mcp_path="$PLUGIN_CACHE_DIR/$VERSION/.mcp.json"
+    local plugin_mcp_path="$PLUGIN_CACHE_DIR/$VERSION/.claude-plugin/mcp.json"
+
+    if [ ! -f "$plugin_mcp_path" ]; then
+        plugin_mcp_path="$PLUGIN_CACHE_DIR/$VERSION/.mcp.json"
+    fi
 
     if [ ! -f "$mcp_path" ] || [ ! -f "$plugin_mcp_path" ]; then
         return 0
@@ -376,6 +381,53 @@ removed = 0
 for key, plugin_value in plugin_servers.items():
     if key in servers and servers.get(key) == plugin_value:
         servers.pop(key, None)
+        removed += 1
+
+data["mcpServers"] = servers
+mcp_path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+print(str(removed))
+PY
+}
+
+prune_legacy_plugin_mcp_from_settings() {
+    local mcp_path="$CLAUDE_DIR/.mcp.json"
+    local venv_python="$CLAUDE_DIR/omg-runtime/.venv/bin/python"
+
+    if [ ! -f "$mcp_path" ]; then
+        return 0
+    fi
+
+    python3 - "$mcp_path" "$venv_python" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+mcp_path = Path(sys.argv[1])
+venv_python = sys.argv[2]
+
+try:
+    data = json.loads(mcp_path.read_text(encoding="utf-8"))
+except Exception:
+    print("0")
+    raise SystemExit(0)
+
+servers = data.get("mcpServers")
+if not isinstance(servers, dict):
+    print("0")
+    raise SystemExit(0)
+
+removed = 0
+
+omg_control = servers.get("omg-control")
+if isinstance(omg_control, dict):
+    command = omg_control.get("command")
+    args = omg_control.get("args")
+    if isinstance(args, list) and args == ["-m", "runtime.omg_mcp_server"] and command in {
+        "python",
+        "python3",
+        venv_python,
+    }:
+        servers.pop("omg-control", None)
         removed += 1
 
 data["mcpServers"] = servers
@@ -665,7 +717,10 @@ PY
 
 write_plugin_mcp_file() {
     local target_path="$1"
-    local source_mcp_path="$SCRIPT_DIR/.mcp.json"
+    local source_mcp_path="$SCRIPT_DIR/.claude-plugin/mcp.json"
+    if [ ! -f "$source_mcp_path" ]; then
+        source_mcp_path="$SCRIPT_DIR/.mcp.json"
+    fi
     python3 - "$target_path" "$source_mcp_path" <<'PY'
 import json
 import sys
@@ -682,6 +737,14 @@ except Exception:
 mcp_servers = source_mcp.get("mcpServers") if isinstance(source_mcp, dict) else {}
 if not isinstance(mcp_servers, dict):
     mcp_servers = {}
+
+# Plugin installs should only publish OMG-specific MCP servers.
+# Generic servers such as filesystem often already exist at project scope.
+mcp_servers = {
+    key: value
+    for key, value in mcp_servers.items()
+    if key == "omg-control"
+}
 
 payload = {"mcpServers": mcp_servers}
 target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1175,7 +1238,7 @@ install_plugin_bundle() {
     local plugin_manifest_target="$plugin_root/.claude-plugin/plugin.json"
     local marketplace_manifest_src="$SCRIPT_DIR/.claude-plugin/marketplace.json"
     local marketplace_manifest_target="$plugin_root/.claude-plugin/marketplace.json"
-    local plugin_mcp_target="$plugin_root/.mcp.json"
+    local plugin_mcp_target="$plugin_root/.claude-plugin/mcp.json"
     local hud_src="$SCRIPT_DIR/hud/omg-hud.mjs"
     local hud_target="$CLAUDE_DIR/hud/omg-hud.mjs"
 
@@ -1194,17 +1257,14 @@ install_plugin_bundle() {
         cp "$marketplace_manifest_src" "$marketplace_manifest_target"
     fi
     
-    # Provide a fallback .mcp.json if not shipped in npm package
-    if [ ! -f "$SCRIPT_DIR/.mcp.json" ]; then
+    # Provide a fallback plugin MCP file if not shipped in npm package.
+    if [ ! -f "$SCRIPT_DIR/.claude-plugin/mcp.json" ] && [ ! -f "$SCRIPT_DIR/.mcp.json" ]; then
         local _fallback_mcp_dir
         _fallback_mcp_dir=$(mktemp -d)
-        cat > "$_fallback_mcp_dir/.mcp.json" <<'FALLBACK_MCP'
+        mkdir -p "$_fallback_mcp_dir/.claude-plugin"
+        cat > "$_fallback_mcp_dir/.claude-plugin/mcp.json" <<'FALLBACK_MCP'
 {
   "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-filesystem@2026.1.14", "."]
-    },
     "omg-control": {
       "command": "python3",
       "args": ["-m", "runtime.omg_mcp_server"]
@@ -1226,11 +1286,10 @@ FALLBACK_MCP
     unregister_plugin_from_registry "$LEGACY_PLUGIN_REF"
     register_plugin_in_registry "$plugin_ref" "$plugin_root" "$VERSION"
     register_plugin_marketplace "$PLUGIN_MARKETPLACE" "$plugin_root"
-    merge_plugin_mcp_into_settings >/dev/null
 
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.claude-plugin/plugin.json"
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.claude-plugin/marketplace.json"
-    track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.mcp.json"
+    track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$VERSION/.claude-plugin/mcp.json"
     track_file "plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME/$PLUGIN_BUNDLE_MARKER_FILE"
     track_file "hud/omg-hud.mjs"
     echo "  ✓ Plugin bundle installed and registered in Claude plugin settings"
@@ -1634,6 +1693,11 @@ run_install_like() {
         pruned_plugin_duplicates=$(prune_plugin_duplicate_mcp_from_settings)
         if [ "${pruned_plugin_duplicates:-0}" -gt 0 ]; then
             echo "  ✓ Removed duplicate plugin-managed MCP servers from .mcp.json ($pruned_plugin_duplicates)"
+        fi
+        local pruned_legacy_plugin_mcp=0
+        pruned_legacy_plugin_mcp=$(prune_legacy_plugin_mcp_from_settings)
+        if [ "${pruned_legacy_plugin_mcp:-0}" -gt 0 ]; then
+            echo "  ✓ Removed legacy plugin MCP servers from .mcp.json ($pruned_legacy_plugin_mcp)"
         fi
         configure_hud_status_line
         local configured_hosts=""

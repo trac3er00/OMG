@@ -109,7 +109,7 @@ npm install @trac3er/oh-my-god
 git clone https://github.com/trac3er00/OMG && cd OMG && ./OMG-setup.sh install --preset=balanced
 
 # Verify
-cat ~/.claude/.mcp.json | jq .mcpServers
+cat ~/.claude/plugins/cache/omg/omg/2.0.9/.claude-plugin/mcp.json | jq .mcpServers
 cat ~/.claude/settings.json | jq .enabledPlugins
 cat ~/.claude/settings.json | jq .statusLine
 cat ~/.claude/plugins/known_marketplaces.json | jq .
@@ -165,7 +165,7 @@ cat ~/.kimi/mcp.json | jq .mcpServers
 │   ├── cache/omg/omg/2.0.9/
 │   │   ├── .claude-plugin/plugin.json
 │   │   ├── .claude-plugin/marketplace.json
-│   │   ├── .mcp.json
+│   │   ├── .claude-plugin/mcp.json
 │   │   └── .omg-plugin-bundle
 │   └── installed_plugins.json         # Registry
 │   └── known_marketplaces.json        # Marketplace resolution
@@ -212,8 +212,8 @@ cat ~/.kimi/mcp.json | jq .mcpServers
 - [ ] `echo $CLAUDE_CONFIG_DIR` (check path)
 - [ ] `python3 --version` (>= 3.10 required)
 - [ ] `which codex` / `which gemini` / `which kimi` (if multi-host)
-- [ ] `ls -la ~/.claude/.mcp.json` (exists and readable)
-- [ ] `cat ~/.claude/.mcp.json | python3 -m json.tool` (valid JSON)
+- [ ] `ls -la ~/.claude/plugins/cache/omg/omg/2.0.9/.claude-plugin/mcp.json` (exists and readable)
+- [ ] `cat ~/.claude/plugins/cache/omg/omg/2.0.9/.claude-plugin/mcp.json | python3 -m json.tool` (valid JSON)
 - [ ] `cat ~/.claude/settings.json | jq .statusLine` (HUD command configured)
 - [ ] `which npm` && `npm list @trac3er/oh-my-god` (package installed)
 - [ ] `ls -la ~/.claude/omg-runtime/.venv/bin/python` (venv exists)

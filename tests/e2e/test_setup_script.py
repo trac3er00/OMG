@@ -144,6 +144,13 @@ def _run_script_with_tty_input(
     )
 
 
+def _read_mcp_servers(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    payload = cast(dict[str, object], json.loads(path.read_text(encoding="utf-8")))
+    return cast(dict[str, object], payload.get("mcpServers") or {})
+
+
 def test_setup_script_exists_and_help_lists_subcommands():
     assert SETUP.exists()
     proc = _run_script(SETUP, ["--help"])
@@ -331,9 +338,12 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
 
     assert (plugin_dir / ".claude-plugin" / "plugin.json").exists()
     assert (plugin_dir / ".claude-plugin" / "marketplace.json").exists()
-    assert (plugin_dir / ".mcp.json").exists()
+    assert (plugin_dir / ".claude-plugin" / "mcp.json").exists()
     assert (plugin_cache_root / ".omg-plugin-bundle").exists()
     assert (claude_dir / "hud" / "omg-hud.mjs").exists()
+
+    plugin_servers = _read_mcp_servers(plugin_dir / ".claude-plugin" / "mcp.json")
+    assert set(plugin_servers) == {"omg-control"}
 
     settings_path = claude_dir / "settings.json"
     settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
@@ -343,9 +353,7 @@ def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: 
     assert status_line.get("type") == "command"
     assert status_line.get("command") == f'node "{claude_dir / "hud" / "omg-hud.mjs"}"'
 
-    mcp_path = claude_dir / ".mcp.json"
-    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
-    mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
+    mcp_servers = _read_mcp_servers(claude_dir / ".mcp.json")
     assert "filesystem" not in mcp_servers
     assert "omg-control" not in mcp_servers
 
@@ -465,9 +473,7 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     )
     assert install_proc.returncode == 0
 
-    mcp_path = claude_dir / ".mcp.json"
-    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
-    mcp_servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
+    mcp_servers = _read_mcp_servers(claude_dir / ".mcp.json")
     assert "filesystem" not in mcp_servers
     assert "omg-control" not in mcp_servers
 
@@ -483,9 +489,7 @@ def test_setup_uninstall_removes_plugin_bundle_and_plugin_mcp_servers(tmp_path: 
     assert "omg@omg" not in enabled_after
     assert "statusLine" not in settings_after
 
-    mcp_after_path = claude_dir / ".mcp.json"
-    mcp_after_config = cast(dict[str, object], json.loads(mcp_after_path.read_text(encoding="utf-8")))
-    mcp_after = cast(dict[str, object], mcp_after_config.get("mcpServers") or {})
+    mcp_after = _read_mcp_servers(claude_dir / ".mcp.json")
     assert "context7" not in mcp_after
     assert "filesystem" not in mcp_after
     assert "websearch" not in mcp_after
@@ -570,7 +574,7 @@ def test_setup_install_as_plugin_prunes_duplicate_plugin_mcp_servers(tmp_path: P
 
     merged = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
     servers = cast(dict[str, object], merged.get("mcpServers") or {})
-    assert "filesystem" not in servers
+    assert "filesystem" in servers
     assert "omg-control" not in servers
 
 

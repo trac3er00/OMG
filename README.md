@@ -72,7 +72,7 @@ Success looks like:
 
 - supported hosts are detected
 - Claude Code sees `omg@omg` as enabled instead of `failed to load`
-- Claude Code's plugin bundle owns `filesystem` and `omg-control` without duplicate warnings from top-level `.mcp.json`
+- Claude Code's plugin bundle owns `omg-control` via `.claude-plugin/mcp.json`; project or user `.mcp.json` entries can keep `filesystem` without collisions
 - `~/.claude/settings.json` has a `statusLine` command for `~/.claude/hud/omg-hud.mjs`
 - `~/.codex/config.toml`, `~/.gemini/settings.json`, and `~/.kimi/mcp.json` receive `omg-control` when those CLIs are on `PATH`
 - additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)

@@ -565,6 +565,15 @@ def _base_mcp_servers() -> dict[str, Any]:
     }
 
 
+def _plugin_mcp_servers() -> dict[str, Any]:
+    return {
+        "omg-control": {
+            "command": "python3",
+            "args": ["-m", "runtime.omg_mcp_server"],
+        },
+    }
+
+
 def _build_claude_plugin() -> dict[str, Any]:
     return {
         "name": CANONICAL_PLUGIN_ID,
@@ -585,7 +594,7 @@ def _build_claude_plugin() -> dict[str, Any]:
             "crazy-mode",
             "escalation",
         ],
-        "mcpServers": "./.mcp.json",
+        "mcpServers": "./.claude-plugin/mcp.json",
     }
 
 
@@ -832,6 +841,9 @@ def _compile_claude_outputs(
 
     _write_json(output_root / ".claude-plugin" / "marketplace.json", _build_claude_marketplace())
     artifacts.append(output_root / ".claude-plugin" / "marketplace.json")
+
+    _write_json(output_root / ".claude-plugin" / "mcp.json", {"mcpServers": _plugin_mcp_servers()})
+    artifacts.append(output_root / ".claude-plugin" / "mcp.json")
 
     mcp_payload = {"mcpServers": _base_mcp_servers()}
     _write_json(output_root / ".mcp.json", mcp_payload)

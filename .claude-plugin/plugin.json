@@ -19,5 +19,5 @@
     "crazy-mode",
     "escalation"
   ],
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.claude-plugin/mcp.json"
 }
