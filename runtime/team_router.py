@@ -32,6 +32,7 @@ except ImportError:
     pass
 
 from runtime.runtime_profile import resolve_parallel_workers
+from runtime.equalizer import select_provider
 from runtime.router_executor import WorkerTask, execute_workers
 from runtime.router_critics import run_critics
 from runtime.router_selector import collect_cli_health as _selector_collect_cli_health
@@ -198,6 +199,15 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
         findings.append(f"Expected: {req.expected_outcome}")
 
     cli_health = _collect_cli_health(target)
+    equalizer_decision = select_provider(
+        task_text=req.problem,
+        project_dir=_OMG_ROOT,
+        context_packet={"summary": req.context},
+    )
+    findings.append(
+        "Equalizer preferred provider: "
+        f"{equalizer_decision['provider']} ({equalizer_decision['reason']})"
+    )
     for provider, info in cli_health.items():
         if info.get("live_connection"):
             findings.append(f"{provider} live connection: ready")
@@ -235,6 +245,7 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
 
     evidence = {
         "target": target,
+        "equalizer": equalizer_decision,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "context_length": len(req.context or ""),
         "file_count": len(req.files or []),
@@ -489,7 +500,7 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
     if _hooks_dir not in _sys.path:
         _sys.path.insert(0, _hooks_dir)
     try:
-        from _agent_registry import AGENT_REGISTRY, detect_available_models  # pyright: ignore[reportMissingImports]
+        from _agent_registry import AGENT_REGISTRY, detect_available_models, get_provider_with_equalizer  # pyright: ignore[reportMissingImports]
 
         agent = AGENT_REGISTRY.get(agent_name)
         if not agent:
@@ -497,6 +508,12 @@ def dispatch_to_model(agent_name: str, user_prompt: str, project_dir: str) -> di
 
         available = detect_available_models()
         preferred = agent.get("preferred_model", "claude")
+        equalizer_info = get_provider_with_equalizer(
+            task_text=user_prompt,
+            project_dir=project_dir,
+            agent_name=agent_name,
+        )
+        preferred = equalizer_info.get("preferred_model", preferred)
         packaged = package_prompt(agent_name, user_prompt, project_dir)
 
         provider_name_map = {
