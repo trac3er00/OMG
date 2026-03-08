@@ -17,6 +17,14 @@ _INSTRUCTION_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"ignore\s+previous\s+instructions", re.IGNORECASE),
     re.compile(r"\b(system|assistant|developer)\s*:", re.IGNORECASE),
     re.compile(r"\b(run|execute|commit|push|apply_patch|edit)\b", re.IGNORECASE),
+    re.compile(r"<\s*/?(?:system|assistant|user)\s*>", re.IGNORECASE),
+    re.compile(r"\[INST\]|\[/INST\]", re.IGNORECASE),
+    re.compile(r"###\s*(?:System|Human|Assistant)\s*:", re.IGNORECASE),
+    re.compile(r"OVERRIDE\s*(?:INSTRUCTIONS|SYSTEM)", re.IGNORECASE),
+    re.compile(r"disregard\s+(?:your|previous|all)\s+(?:instructions|rules)", re.IGNORECASE),
+    re.compile(r"(?:you are|you're)\s+(?:now|actually|really)\s+(?:a|an)\s+", re.IGNORECASE),
+    re.compile(r"(?:jailbreak|DAN|AIM|UCAR)\s*(?:mode|prompt|persona)?", re.IGNORECASE),
+    re.compile(r"(?:bypass|disable)\s+(?:safety|guardrails|filters?)", re.IGNORECASE),
 )
 
 
