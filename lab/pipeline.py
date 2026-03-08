@@ -1,3 +1,4 @@
+# pyright: reportExplicitAny=false, reportAny=false, reportUnknownMemberType=false
 """OMG full AI pipeline stub: data -> refine -> train/distill -> evaluate -> regression."""
 from __future__ import annotations
 
@@ -72,4 +73,14 @@ def publish_artifact(result: dict[str, Any]) -> dict[str, Any]:
     out["status"] = "published"
     out["published"] = True
     out["published_at"] = _now()
+    return out
+
+
+def run_pipeline_with_evidence(project_dir: str, job: dict[str, Any], run_id: str) -> dict[str, Any]:
+    from runtime.forge_contracts import build_forge_evidence
+
+    result = run_pipeline(job)
+    evidence_path = build_forge_evidence(project_dir=project_dir, run_id=run_id, job=job, result=result)
+    out = dict(result)
+    out["evidence_path"] = evidence_path
     return out

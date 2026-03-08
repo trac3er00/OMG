@@ -1,3 +1,4 @@
+# pyright: reportExplicitAny=false, reportAny=false
 from __future__ import annotations
 
 import json
@@ -5,15 +6,13 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
-
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT / "scripts"
 sys.path.insert(0, str(ROOT))
 
-from lab.pipeline import run_pipeline  # noqa: E402
+from lab.pipeline import run_pipeline, run_pipeline_with_evidence  # noqa: E402
+from runtime.forge_contracts import validate_forge_job  # noqa: E402
 
 
 def _valid_job() -> dict[str, Any]:
@@ -85,6 +84,32 @@ class TestForgeRunBlockedPolicy:
         result = run_pipeline(job)
         assert result["status"] == "blocked"
         assert "distill" in result["reason"].lower()
+
+
+class TestForgeMVPValidation:
+    def test_validate_forge_job_accepts_valid_payload(self):
+        ok, reason = validate_forge_job(_valid_job())
+        assert ok is True
+        assert reason == "ok"
+
+    def test_validate_forge_job_requires_dataset_name(self):
+        job = _valid_job()
+        del job["dataset"]["name"]
+
+        ok, reason = validate_forge_job(job)
+
+        assert ok is False
+        assert reason == "dataset.name missing"
+
+
+class TestForgeEvidencePipeline:
+    def test_run_pipeline_with_evidence_writes_artifact(self, tmp_path: Path):
+        result = run_pipeline_with_evidence(str(tmp_path), _valid_job(), "run-e2e")
+        evidence_path = tmp_path / ".omg" / "evidence" / "forge-run-e2e.json"
+
+        assert result["status"] == "ready"
+        assert result["evidence_path"] == str(evidence_path)
+        assert evidence_path.exists()
 
 
 class TestForgeCLI:
