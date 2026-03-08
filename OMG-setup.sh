@@ -309,22 +309,57 @@ provision_managed_venv() {
     echo "  ✓ Managed venv → $venv_dir"
 }
 
+write_managed_mcp_launcher() {
+    local launcher_path="$CLAUDE_DIR/omg-runtime/bin/omg-mcp-server.py"
+    local runtime_root="$CLAUDE_DIR/omg-runtime"
+
+    mkdir -p "$(dirname "$launcher_path")"
+    python3 - "$launcher_path" "$runtime_root" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+launcher_path = Path(sys.argv[1])
+runtime_root = Path(sys.argv[2])
+
+content = f"""#!/usr/bin/env python3
+from __future__ import annotations
+
+import runpy
+import sys
+from pathlib import Path
+
+RUNTIME_ROOT = Path({json.dumps(str(runtime_root))})
+if str(RUNTIME_ROOT) not in sys.path:
+    sys.path.insert(0, str(RUNTIME_ROOT))
+
+if __name__ == "__main__":
+    runpy.run_module("runtime.omg_mcp_server", run_name="__main__")
+"""
+
+launcher_path.write_text(content, encoding="utf-8")
+launcher_path.chmod(0o755)
+PY
+}
+
 patch_omg_control_mcp_python() {
     local venv_python="$CLAUDE_DIR/omg-runtime/.venv/bin/python"
+    local launcher_path="$CLAUDE_DIR/omg-runtime/bin/omg-mcp-server.py"
     local mcp_paths=(
         "$CLAUDE_DIR/.mcp.json"
         "$PLUGIN_CACHE_DIR/$VERSION/.claude-plugin/mcp.json"
         "$PLUGIN_CACHE_DIR/$VERSION/.mcp.json"
     )
 
-    python3 - "$venv_python" "${mcp_paths[@]}" <<'PY'
+    python3 - "$venv_python" "$launcher_path" "${mcp_paths[@]}" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 venv_python = sys.argv[1]
+launcher_path = sys.argv[2]
 
-for raw_path in sys.argv[2:]:
+for raw_path in sys.argv[3:]:
     mcp_path = Path(raw_path)
     if not mcp_path.exists():
         continue
@@ -338,8 +373,9 @@ for raw_path in sys.argv[2:]:
         continue
 
     omg_control = servers.get("omg-control")
-    if isinstance(omg_control, dict) and omg_control.get("command") in ("python3", "python"):
+    if isinstance(omg_control, dict):
         omg_control["command"] = venv_python
+        omg_control["args"] = [launcher_path]
         mcp_path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 PY
 }
@@ -955,17 +991,19 @@ PY
 
 configure_detected_host_mcp_servers() {
     local managed_python="$CLAUDE_DIR/omg-runtime/.venv/bin/python"
+    local managed_launcher="$CLAUDE_DIR/omg-runtime/bin/omg-mcp-server.py"
     if [ ! -x "$managed_python" ]; then
         managed_python="python3"
     fi
 
-    python3 - "$SCRIPT_DIR" "$managed_python" <<'PY'
+    python3 - "$SCRIPT_DIR" "$managed_python" "$managed_launcher" <<'PY'
 import shutil
 import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
 managed_python = sys.argv[2]
+managed_launcher = sys.argv[3]
 
 sys.path.insert(0, str(root))
 
@@ -982,19 +1020,19 @@ for host in ("codex", "gemini", "kimi"):
     if host == "codex":
         write_codex_mcp_stdio_config(
             command=managed_python,
-            args=["-m", "runtime.omg_mcp_server"],
+            args=[managed_launcher],
             server_name="omg-control",
         )
     elif host == "gemini":
         write_gemini_mcp_stdio_config(
             command=managed_python,
-            args=["-m", "runtime.omg_mcp_server"],
+            args=[managed_launcher],
             server_name="omg-control",
         )
     else:
         write_kimi_mcp_stdio_config(
             command=managed_python,
-            args=["-m", "runtime.omg_mcp_server"],
+            args=[managed_launcher],
             server_name="omg-control",
         )
     configured.append(host)
@@ -1688,6 +1726,7 @@ run_install_like() {
         fi
 
         provision_managed_venv
+        write_managed_mcp_launcher
         patch_omg_control_mcp_python
         local pruned_plugin_duplicates=0
         pruned_plugin_duplicates=$(prune_plugin_duplicate_mcp_from_settings)

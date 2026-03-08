@@ -180,6 +180,35 @@ def _read_hook_command_targets(settings_path: Path) -> set[str]:
     return targets
 
 
+def _assert_command_starts(command: str, args: list[str], cwd: Path) -> None:
+    proc = subprocess.Popen(
+        [command, *args],
+        cwd=str(cwd),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        time.sleep(1.0)
+        if proc.poll() is not None:
+            stdout, stderr = proc.communicate(timeout=5)
+            raise AssertionError(
+                "MCP command exited immediately:\n"
+                f"command={command!r} args={args!r}\n"
+                f"stdout={stdout}\n"
+                f"stderr={stderr}"
+            )
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+
+
 def test_setup_script_exists_and_help_lists_subcommands():
     assert SETUP.exists()
     proc = _run_script(SETUP, ["--help"])
@@ -453,11 +482,12 @@ def test_setup_install_configures_detected_cli_hosts(tmp_path: Path):
     assert proc.returncode == 0
 
     managed_python = claude_dir / "omg-runtime" / ".venv" / "bin" / "python"
+    managed_launcher = claude_dir / "omg-runtime" / "bin" / "omg-mcp-server.py"
 
     codex_config = (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
     assert "[mcp_servers.omg-control]" in codex_config
     assert str(managed_python) in codex_config
-    assert "runtime.omg_mcp_server" in codex_config
+    assert str(managed_launcher) in codex_config
 
     gemini_config = cast(
         dict[str, object],
@@ -466,7 +496,7 @@ def test_setup_install_configures_detected_cli_hosts(tmp_path: Path):
     gemini_servers = cast(dict[str, object], gemini_config.get("mcpServers") or {})
     gemini_omg = cast(dict[str, object], gemini_servers.get("omg-control") or {})
     assert gemini_omg.get("command") == str(managed_python)
-    assert gemini_omg.get("args") == ["-m", "runtime.omg_mcp_server"]
+    assert gemini_omg.get("args") == [str(managed_launcher)]
 
     kimi_config = cast(
         dict[str, object],
@@ -475,7 +505,7 @@ def test_setup_install_configures_detected_cli_hosts(tmp_path: Path):
     kimi_servers = cast(dict[str, object], kimi_config.get("mcpServers") or {})
     kimi_omg = cast(dict[str, object], kimi_servers.get("omg-control") or {})
     assert kimi_omg.get("command") == str(managed_python)
-    assert kimi_omg.get("args") == ["-m", "runtime.omg_mcp_server"]
+    assert kimi_omg.get("args") == [str(managed_launcher)]
 
 
 def test_setup_install_registers_session_start_hook(tmp_path: Path):
@@ -908,6 +938,31 @@ def test_setup_plugin_install_patches_omg_control_to_managed_python(tmp_path: Pa
     omg_control = cast(dict[str, object], servers.get("omg-control") or {})
 
     expected_python = str(claude_dir / "omg-runtime" / ".venv" / "bin" / "python")
+    expected_launcher = str(claude_dir / "omg-runtime" / "bin" / "omg-mcp-server.py")
     assert omg_control.get("command") == expected_python, (
         f"omg-control command should be managed venv python, got: {omg_control.get('command')}"
     )
+    assert omg_control.get("args") == [expected_launcher]
+
+
+def test_setup_plugin_mcp_server_starts_outside_repo_root(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--install-as-plugin"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    mcp_path = claude_dir / "plugins" / "cache" / "omg" / "omg" / "2.0.9" / ".claude-plugin" / "mcp.json"
+    mcp_config = cast(dict[str, object], json.loads(mcp_path.read_text(encoding="utf-8")))
+    servers = cast(dict[str, object], mcp_config.get("mcpServers") or {})
+    omg_control = cast(dict[str, object], servers.get("omg-control") or {})
+
+    command = cast(str, omg_control.get("command"))
+    args = cast(list[str], omg_control.get("args") or [])
+    unrelated_cwd = tmp_path / "outside"
+    unrelated_cwd.mkdir()
+    _assert_command_starts(command, args, unrelated_cwd)
