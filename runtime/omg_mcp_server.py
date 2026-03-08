@@ -175,6 +175,25 @@ def omg_security_check(scope: str = ".", include_live_enrichment: bool = False, 
 
 
 @mcp.tool()
+def omg_claim_judge(claims: list[dict[str, Any]]) -> dict[str, Any]:
+    _status, payload = _service().claim_judge({"claims": claims})
+    return payload
+
+
+@mcp.tool()
+def omg_test_intent_lock(
+    action: str,
+    intent: dict[str, Any] | None = None,
+    lock_id: str | None = None,
+    results: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    _status, payload = _service().test_intent_lock(
+        {"action": action, "intent": intent, "lock_id": lock_id, "results": results}
+    )
+    return payload
+
+
+@mcp.tool()
 def omg_guide_assert(candidate: str, rules: dict[str, Any]) -> dict[str, Any]:
     _status, payload = _service().guide_assert({"candidate": candidate, "rules": rules})
     return payload

@@ -50,6 +50,10 @@ _POST_ROUTE_TABLE = {
     "/v1/registry/verify": ("registry_verify", True),
     "/v2/lab/jobs": ("lab_jobs", False),
     "/v1/lab/jobs": ("lab_jobs", True),
+    "/v2/trust/claim-judge": ("claim_judge", False),
+    "/v1/trust/claim-judge": ("claim_judge", True),
+    "/v2/trust/test-intent-lock": ("test_intent_lock", False),
+    "/v1/trust/test-intent-lock": ("test_intent_lock", True),
 }
 
 _GET_ROUTE_TABLE = {

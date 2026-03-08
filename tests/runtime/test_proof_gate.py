@@ -225,3 +225,29 @@ def test_proof_gate_accepts_v2_evidence_payload() -> None:
 
     assert "proof_gate_invalid_evidence_pack" not in result["blockers"]
     assert "proof_gate_unsupported_evidence_schema_version" not in result["blockers"]
+
+
+def test_proof_gate_accepts_v2_evidence_payload_with_optional_sibling_fields() -> None:
+    payload = json.loads((FIXTURES / "evidence_v2_sample.json").read_text(encoding="utf-8"))
+    payload["claims"] = [{"claim_type": "release_ready", "trace_ids": ["trace-1"]}]
+    payload["test_delta"] = {"changed": ["runtime/proof_chain.py"]}
+    payload["browser_evidence_path"] = ".omg/evidence/playwright-adapter-run-1.json"
+    payload["repro_pack_path"] = ".omg/evidence/repro-pack-run-1.json"
+
+    result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "release_ready",
+                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                    "trace_ids": ["trace-1"],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-1"},
+            "eval_output": {"trace_id": "trace-1", "status": "ok"},
+            "evidence_pack": payload,
+        }
+    )
+
+    assert "proof_gate_invalid_evidence_pack" not in result["blockers"]
+    assert "proof_gate_unsupported_evidence_schema_version" not in result["blockers"]

@@ -1,9 +1,58 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 from runtime import artifact_parsers
+from runtime.evidence_query import get_evidence_pack
+
+
+def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, Any]:
+    root = Path(project_dir)
+    evidence_dir = root / ".omg" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    results: list[dict[str, Any]] = []
+    aggregate_tokens: list[str] = []
+
+    for index, claim in enumerate(claims):
+        run_id = str(claim.get("run_id", "")).strip()
+        resolved_claim = dict(claim)
+
+        if run_id:
+            evidence_pack = get_evidence_pack(project_dir, run_id)
+            trace_ids: list[str] = []
+            if isinstance(evidence_pack, dict):
+                trace_ids = _as_non_empty_str_list(evidence_pack.get("trace_ids"))
+            resolved_claim = {
+                **claim,
+                "artifacts": [f".omg/evidence/{run_id}.json"],
+                "trace_ids": trace_ids,
+            }
+
+        result = judge_claim(resolved_claim)
+        result_with_run = {**result, "run_id": run_id}
+        results.append(result_with_run)
+        aggregate_tokens.append(str(result.get("verdict", "")).strip().lower())
+
+        artifact_run_id = run_id or f"unknown-{index + 1}"
+        artifact_path = evidence_dir / f"claim-judge-{_sanitize_run_id(artifact_run_id)}.json"
+        artifact_payload = {
+            "schema": "ClaimJudgeResult",
+            "run_id": run_id,
+            "claim": claim,
+            "result": result,
+        }
+        artifact_path.write_text(json.dumps(artifact_payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    verdict = "pass"
+    if any(token == "fail" for token in aggregate_tokens):
+        verdict = "fail"
+    elif any(token == "block" for token in aggregate_tokens):
+        verdict = "insufficient"
+
+    return {"schema": "ClaimJudgeResults", "verdict": verdict, "results": results}
 
 
 def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
@@ -216,3 +265,8 @@ _PARSERS: dict[str, Any] = {
     "browser_trace": artifact_parsers.parse_browser_trace,
     "diff_hunk": artifact_parsers.parse_diff_hunk,
 }
+
+
+def _sanitize_run_id(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "-" for ch in value.strip())
+    return cleaned or "unknown"

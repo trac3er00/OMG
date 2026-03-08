@@ -56,6 +56,10 @@ def test_evidence_ingest_writes_file(tmp_path: Path):
             "provenance": [],
             "trust_scores": {},
             "api_twin": {},
+            "claims": [{"claim_type": "release_ready", "trace_ids": ["trace-1"]}],
+            "test_delta": {"changed": ["runtime/proof_chain.py"]},
+            "browser_evidence_path": ".omg/evidence/playwright-adapter-run-1.json",
+            "repro_pack_path": ".omg/evidence/repro-pack-run-1.json",
         }
     )
     assert status == 202
@@ -66,6 +70,10 @@ def test_evidence_ingest_writes_file(tmp_path: Path):
     assert payload["provenance"] == []
     assert payload["trust_scores"] == {}
     assert payload["api_twin"] == {}
+    assert payload["claims"] == [{"claim_type": "release_ready", "trace_ids": ["trace-1"]}]
+    assert payload["test_delta"] == {"changed": ["runtime/proof_chain.py"]}
+    assert payload["browser_evidence_path"] == ".omg/evidence/playwright-adapter-run-1.json"
+    assert payload["repro_pack_path"] == ".omg/evidence/repro-pack-run-1.json"
 
 
 def test_evidence_ingest_rejects_invalid_run_id(tmp_path: Path):
@@ -272,3 +280,97 @@ def test_security_check_accepts_dict_waivers(tmp_path: Path):
     })
     assert status == 200
     assert out["schema"] == "SecurityCheckResult"
+
+
+def test_claim_judge_returns_results(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    claims = [
+        {
+            "claim_type": "test_pass",
+            "subject": "auth",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["t-1"],
+        }
+    ]
+    status, out = service.claim_judge({"claims": claims})
+    assert status == 200
+    assert out["schema"] == "ClaimJudgeResults"
+    assert out["verdict"] in {"pass", "fail", "insufficient"}
+    assert isinstance(out["results"], list)
+
+
+def test_claim_judge_rejects_missing_claims():
+    service = ControlPlaneService(project_dir=".")
+    status, out = service.claim_judge({})
+    assert status == 400
+    assert out["error_code"] == "INVALID_CLAIM_INPUT"
+
+
+def test_claim_judge_rejects_non_list_claims():
+    service = ControlPlaneService(project_dir=".")
+    status, out = service.claim_judge({"claims": "not-a-list"})
+    assert status == 400
+    assert out["error_code"] == "INVALID_CLAIM_INPUT"
+
+
+def test_test_intent_lock_lock_action(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    status, out = service.test_intent_lock({
+        "action": "lock",
+        "intent": {"tests": ["test_auth"]},
+    })
+    assert status == 200
+    assert out["status"] == "locked"
+    assert "lock_id" in out
+
+
+def test_test_intent_lock_verify_action(tmp_path: Path):
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    _, lock_out = service.test_intent_lock({
+        "action": "lock",
+        "intent": {"tests": ["test_auth"]},
+    })
+    lock_id = lock_out["lock_id"]
+
+    status, out = service.test_intent_lock({
+        "action": "verify",
+        "lock_id": lock_id,
+        "results": {"tests": ["test_auth"]},
+    })
+    assert status == 200
+    assert out["status"] == "ok"
+    assert out["lock_id"] == lock_id
+
+
+def test_test_intent_lock_rejects_unknown_action():
+    service = ControlPlaneService(project_dir=".")
+    status, out = service.test_intent_lock({"action": "unknown"})
+    assert status == 400
+    assert out["error_code"] == "INVALID_INTENT_ACTION"
+
+
+def test_test_intent_lock_rejects_lock_without_intent():
+    service = ControlPlaneService(project_dir=".")
+    status, out = service.test_intent_lock({"action": "lock"})
+    assert status == 400
+    assert out["error_code"] == "INVALID_INTENT_INPUT"
+
+
+def test_test_intent_lock_rejects_verify_without_lock_id():
+    service = ControlPlaneService(project_dir=".")
+    status, out = service.test_intent_lock({
+        "action": "verify",
+        "results": {"tests": ["test_auth"]},
+    })
+    assert status == 400
+    assert out["error_code"] == "INVALID_INTENT_INPUT"
+
+
+def test_test_intent_lock_rejects_verify_without_results():
+    service = ControlPlaneService(project_dir=".")
+    status, out = service.test_intent_lock({
+        "action": "verify",
+        "lock_id": "some-id",
+    })
+    assert status == 400
+    assert out["error_code"] == "INVALID_INTENT_INPUT"

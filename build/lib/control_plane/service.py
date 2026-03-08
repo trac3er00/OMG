@@ -17,7 +17,9 @@ from lab.pipeline import run_pipeline
 from registry.verify_artifact import verify_artifact
 from runtime.guide_assert import guide_assert
 from runtime.dispatcher import dispatch_runtime
+from runtime.claim_judge import judge_claims
 from runtime.security_check import run_security_check
+from runtime.test_intent_lock import lock_intent, verify_intent
 
 
 class ControlPlaneService:
@@ -103,6 +105,10 @@ class ControlPlaneService:
             route_metadata=payload.get("route_metadata"),
             trace_ids=payload.get("trace_ids"),
             lineage=payload.get("lineage"),
+            claims=payload.get("claims"),
+            test_delta=payload.get("test_delta"),
+            browser_evidence_path=payload.get("browser_evidence_path"),
+            repro_pack_path=payload.get("repro_pack_path"),
         )
         return 202, {
             "status": "accepted",
@@ -209,6 +215,55 @@ class ControlPlaneService:
             }
         result = run_pipeline(payload)
         return 201 if result.get("status") in {"ready", "failed_evaluation"} else 400, result
+
+    def claim_judge(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        claims = payload.get("claims")
+        if not isinstance(claims, list):
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_CLAIM_INPUT",
+                "message": "claims must be a list",
+            }
+        result = judge_claims(self.project_dir, claims)
+        return 200, result
+
+    def test_intent_lock(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        action = str(payload.get("action", "")).strip()
+
+        if action == "lock":
+            intent = payload.get("intent")
+            if not isinstance(intent, dict):
+                return 400, {
+                    "status": "error",
+                    "error_code": "INVALID_INTENT_INPUT",
+                    "message": "intent must be an object",
+                }
+            result = lock_intent(self.project_dir, intent)
+            return 200, result
+
+        if action == "verify":
+            lock_id = payload.get("lock_id")
+            results = payload.get("results")
+            if not isinstance(lock_id, str) or not lock_id.strip():
+                return 400, {
+                    "status": "error",
+                    "error_code": "INVALID_INTENT_INPUT",
+                    "message": "lock_id is required for verify action",
+                }
+            if not isinstance(results, dict):
+                return 400, {
+                    "status": "error",
+                    "error_code": "INVALID_INTENT_INPUT",
+                    "message": "results must be an object for verify action",
+                }
+            result = verify_intent(self.project_dir, lock_id, results)
+            return 200, result
+
+        return 400, {
+            "status": "error",
+            "error_code": "INVALID_INTENT_ACTION",
+            "message": f"Unknown action: {action!r}; expected 'lock' or 'verify'",
+        }
 
     def scoreboard_baseline(self) -> tuple[int, dict[str, Any]]:
         return 200, {

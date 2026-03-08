@@ -17,6 +17,10 @@ class _MCPOMGServerModule(Protocol):
 
     def omg_guide_assert(self, candidate: str, rules: dict) -> dict: ...
 
+    def omg_claim_judge(self, claims: list[dict]) -> dict: ...
+
+    def omg_test_intent_lock(self, action: str, intent: dict | None = None, lock_id: str | None = None, results: dict | None = None) -> dict: ...
+
 
 def _load_module() -> _MCPOMGServerModule:
     original_sys_path = list(sys.path)
@@ -144,3 +148,28 @@ def test_omg_security_check_tool_accepts_none_waivers(tmp_path: pytest.TempPathF
     result = module.omg_security_check(scope=str(tmp_path), waivers=None)
     assert result["schema"] == "SecurityCheckResult"
     assert result["summary"]["finding_count"] >= 1
+
+
+def test_omg_claim_judge_tool_runs(tmp_path: pytest.TempPathFactory) -> None:
+    module = _load_module()
+    claims = [
+        {"claim_type": "test_pass", "subject": "auth", "artifacts": ["a.json"], "trace_ids": ["t-1"]},
+    ]
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        result = module.omg_claim_judge(claims=claims)
+    assert result["schema"] == "ClaimJudgeResults"
+    assert result["verdict"] in {"pass", "fail", "insufficient"}
+
+
+def test_omg_test_intent_lock_tool_lock_and_verify(tmp_path: pytest.TempPathFactory) -> None:
+    module = _load_module()
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        lock_result = module.omg_test_intent_lock(action="lock", intent={"tests": ["test_auth"]})
+        assert lock_result["status"] == "locked"
+        lock_id = lock_result["lock_id"]
+
+        verify_result = module.omg_test_intent_lock(
+            action="verify", lock_id=lock_id, results={"tests": ["test_auth"]},
+        )
+        assert verify_result["status"] == "ok"
+        assert verify_result["lock_id"] == lock_id

@@ -1,5 +1,6 @@
 """Tests for shadow manager and evidence helpers."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -65,3 +66,45 @@ def test_create_evidence_pack_rejects_path_escape_run_id(tmp_path: Path):
             reproducibility={},
             unresolved_risks=[],
         )
+
+
+def test_create_evidence_pack_includes_optional_sibling_artifacts_when_provided(tmp_path: Path):
+    run_id = begin_shadow_run(str(tmp_path))
+    ev_path = create_evidence_pack(
+        str(tmp_path),
+        run_id,
+        tests=[],
+        security_scans=[],
+        diff_summary={},
+        reproducibility={},
+        unresolved_risks=[],
+        claims=[{"claim_type": "release_ready"}],
+        test_delta={"added": ["tests/test_new.py"]},
+        browser_evidence_path=".omg/evidence/browser-evidence.json",
+        repro_pack_path=".omg/evidence/repro-pack.json",
+    )
+
+    payload = json.loads(Path(ev_path).read_text(encoding="utf-8"))
+    assert payload["claims"] == [{"claim_type": "release_ready"}]
+    assert payload["test_delta"] == {"added": ["tests/test_new.py"]}
+    assert payload["browser_evidence_path"] == ".omg/evidence/browser-evidence.json"
+    assert payload["repro_pack_path"] == ".omg/evidence/repro-pack.json"
+
+
+def test_create_evidence_pack_omits_optional_sibling_artifacts_when_not_provided(tmp_path: Path):
+    run_id = begin_shadow_run(str(tmp_path))
+    ev_path = create_evidence_pack(
+        str(tmp_path),
+        run_id,
+        tests=[],
+        security_scans=[],
+        diff_summary={},
+        reproducibility={},
+        unresolved_risks=[],
+    )
+
+    payload = json.loads(Path(ev_path).read_text(encoding="utf-8"))
+    assert "claims" not in payload
+    assert "test_delta" not in payload
+    assert "browser_evidence_path" not in payload
+    assert "repro_pack_path" not in payload

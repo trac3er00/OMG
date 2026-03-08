@@ -1,6 +1,47 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
+
+
+def lock_intent(project_dir: str, intent: dict[str, Any]) -> dict[str, Any]:
+    lock_id = str(uuid4())
+    lock_dir = Path(project_dir) / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+
+    lock_path = lock_dir / f"{lock_id}.json"
+    payload = {"schema": "TestIntentLock", "lock_id": lock_id, "intent": intent}
+    lock_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    return {"lock_id": lock_id, "status": "locked", "path": str(lock_path)}
+
+
+def verify_intent(project_dir: str, lock_id: str, results: dict[str, Any]) -> dict[str, Any]:
+    lock_path = Path(project_dir) / ".omg" / "state" / "test-intent-lock" / f"{lock_id}.json"
+    if not lock_path.exists():
+        return {"status": "missing_lock", "lock_id": lock_id, "reasons": ["missing lock state"]}
+
+    try:
+        payload = json.loads(lock_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"status": "missing_lock", "lock_id": lock_id, "reasons": ["missing lock state"]}
+
+    intent = payload.get("intent") if isinstance(payload, dict) else {}
+    intent_tests = _normalize_string_list(intent.get("tests") if isinstance(intent, dict) else None)
+    result_tests = _normalize_string_list(results.get("tests"))
+    weakened_assertions = results.get("weakened_assertions")
+
+    reasons: list[str] = []
+    if isinstance(weakened_assertions, list) and weakened_assertions:
+        reasons.append("weakened_assertions_present")
+
+    if result_tests != intent_tests:
+        reasons.append("tests_mismatch")
+
+    status = "ok" if not reasons else "fail"
+    return {"status": status, "lock_id": lock_id, "reasons": reasons}
 
 
 def evaluate_test_delta(delta: dict[str, Any]) -> dict[str, Any]:
@@ -89,3 +130,9 @@ def _normalize_tests(value: Any) -> list[dict[str, Any]]:
             }
         )
     return tests
+
+
+def _normalize_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]

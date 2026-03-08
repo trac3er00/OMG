@@ -185,6 +185,52 @@ def test_build_proof_gate_input_includes_claims_and_linked_evidence(tmp_path: Pa
     assert gate_input["browser_evidence"]["schema"] == "BrowserEvidence"
 
 
+def test_build_proof_gate_input_prefers_playwright_adapter_evidence_when_available(tmp_path: Path) -> None:
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+
+    _ = (evidence_root / "playwright-adapter-run-42.json").write_text(
+        json.dumps(
+            {
+                "schema": "PlaywrightAdapterEvidence",
+                "summary": {"tests": 3, "failures": 0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _ = (evidence_root / "browser-evidence.json").write_text(
+        json.dumps(
+            {
+                "schema": "BrowserEvidence",
+                "summary": {"tests": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    _ = (evidence_root / "run-proof-chain.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "schema_version": 2,
+                "run_id": "run-proof-chain",
+                "timestamp": "2026-03-07T00:00:00+00:00",
+                "executor": {"user": "tester", "pid": 1234},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "security_scans": [],
+                "tests": [{"name": "worker_implementation", "passed": True}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    proof_chain = importlib.import_module("runtime.proof_chain")
+    gate_input = proof_chain.build_proof_gate_input(str(tmp_path))
+
+    assert gate_input["browser_evidence"]["schema"] == "PlaywrightAdapterEvidence"
+
+
 def test_release_readiness_names_proof_chain_blocker_when_trace_link_is_missing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
