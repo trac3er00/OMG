@@ -78,6 +78,23 @@ def record_trace(
         _ = handle.write(json.dumps(record, ensure_ascii=True) + "\n")
 
     record["path"] = TRACEBANK_REL_PATH.as_posix()
+
+    verification_status = (metadata or {}).get("verification_status")
+    if verification_status:
+        try:
+            from runtime.background_verification import publish_verification_state
+
+            publish_verification_state(
+                project_dir=project_dir,
+                run_id=trace_id,
+                status=str(verification_status),
+                blockers=(metadata or {}).get("verification_blockers", []),
+                evidence_links=(metadata or {}).get("verification_evidence_links", []),
+                progress=(metadata or {}).get("verification_progress", {}),
+            )
+        except Exception:
+            pass
+
     return record
 
 

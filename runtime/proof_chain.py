@@ -208,6 +208,22 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
     validation = validate_proof_chain(chain)
     chain["status"] = validation["status"]
     chain["blockers"] = validation["blockers"]
+
+    try:
+        from runtime.background_verification import publish_verification_state
+
+        evidence_links = [selected_path] if selected_path else []
+        publish_verification_state(
+            project_dir=project_dir,
+            run_id=str(chain.get("eval_id", "")),
+            status=str(validation["status"]),
+            blockers=list(validation.get("blockers", [])),
+            evidence_links=evidence_links,
+            progress={"phase": "proof_chain_assembled"},
+        )
+    except Exception:
+        pass
+
     return chain
 
 

@@ -116,6 +116,7 @@ MIGRATION_MAP: list[tuple[str, str, str]] = [
     ("dir", "sessions", "state/sessions"),
     ("dir", "snapshots", "state/snapshots"),
     ("file", "current_branch.json", "state/current_branch.json"),
+    ("file", "background-verification.json", "state/background-verification.json"),
     ("dir", "branches", "state/branches"),
     ("dir", "knowledge", "knowledge"),
 ]
