@@ -633,12 +633,14 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
     contract_validate = contract_sub.add_parser("validate", help="Validate contract doc, schema, and bundle registry")
     contract_validate.set_defaults(func=cmd_contract_validate)
 
-    contract_compile = contract_sub.add_parser("compile", help="Compile Claude/Codex artifacts from the canonical contract")
+    contract_compile = contract_sub.add_parser(
+        "compile", help="Compile host artifacts from the canonical contract"
+    )
     contract_compile.add_argument(
         "--host",
         dest="hosts",
         action="append",
-        choices=["claude", "codex"],
+        choices=["claude", "codex", "gemini", "kimi"],
         required=True,
         help="Host to compile (repeat for multiple hosts)",
     )

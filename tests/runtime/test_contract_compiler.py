@@ -337,6 +337,70 @@ def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_pat
     assert "bundle/.agents/skills/omg/remote-supervisor/SKILL.md" in output_paths
 
 
+def test_compile_contract_outputs_writes_gemini_artifacts(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["gemini"],
+        channel="public",
+    )
+
+    assert result["status"] == "ok"
+    gemini_path = tmp_path / ".gemini" / "settings.json"
+    assert gemini_path.exists()
+
+    gemini_payload = json.loads(gemini_path.read_text(encoding="utf-8"))
+    assert gemini_payload["mcpServers"]["omg-control"]["command"] == "python3"
+    assert gemini_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
+
+
+def test_compile_contract_outputs_writes_kimi_artifacts(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["kimi"],
+        channel="public",
+    )
+
+    assert result["status"] == "ok"
+    kimi_path = tmp_path / ".kimi" / "mcp.json"
+    assert kimi_path.exists()
+
+    kimi_payload = json.loads(kimi_path.read_text(encoding="utf-8"))
+    assert kimi_payload["mcpServers"]["omg-control"]["command"] == "python3"
+    assert kimi_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
+
+
+def test_release_readiness_blocks_missing_gemini_host_artifact(tmp_path: Path, monkeypatch) -> None:
+    _patch_fast_release_checks(monkeypatch)
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_provider_statuses",
+        lambda: {"gemini": {"ready": True, "source": "env"}},
+    )
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex", "gemini"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    gemini_path = tmp_path / ".gemini" / "settings.json"
+    if gemini_path.exists():
+        gemini_path.unlink()
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("provider_host_parity" in blocker and ".gemini/settings.json" in blocker for blocker in readiness["blockers"])
+
+
 def test_codex_compile_marks_plan_council_as_explicit_invocation(tmp_path: Path) -> None:
     result = compile_contract_outputs(
         root_dir=ROOT,
