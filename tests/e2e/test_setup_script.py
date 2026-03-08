@@ -389,6 +389,50 @@ def test_setup_install_provisions_portable_omg_runtime(tmp_path: Path):
     assert evidence["target"] == "gemini"
 
 
+def test_setup_install_enables_optional_browser_capability(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    playwright = fake_bin / "playwright"
+    _ = playwright.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    playwright.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--enable-browser"],
+        env=env,
+    )
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "browser capability enabled" in out.lower()
+
+    browser_state_path = claude_dir / "omg-runtime" / "browser" / "capability.json"
+    assert browser_state_path.exists()
+    browser_state = cast(dict[str, object], json.loads(browser_state_path.read_text(encoding="utf-8")))
+    assert browser_state["enabled"] is True
+    assert browser_state["command"] == ["playwright"]
+
+
+def test_setup_install_leaves_browser_capability_disabled_by_default(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "browser capability enabled" not in out.lower()
+    assert not (claude_dir / "omg-runtime" / "browser" / "capability.json").exists()
+
+
 def test_setup_install_as_plugin_installs_plugin_mcp_and_hud_together(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}

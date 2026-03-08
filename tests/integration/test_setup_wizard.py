@@ -232,6 +232,20 @@ class TestConfigureMcpIntegration:
         assert result["preferences"]["config"]["selected_mcps"] == ["filesystem", "context7", "grep-app", "websearch"]
         assert data["selected_mcps"] == ["filesystem", "context7", "grep-app", "websearch"]
 
+    def test_run_setup_wizard_persists_browser_capability(self, tmp_path, monkeypatch, _patch_cli_writers):
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                browser_enabled=True,
+            )
+
+        data = yaml.safe_load((tmp_path / ".omg" / "state" / "cli-config.yaml").read_text())
+        assert result["preferences"]["config"]["browser_capability"]["enabled"] is True
+        assert data["browser_capability"]["enabled"] is True
+
 
 # ---------------------------------------------------------------------------
 # 4. Preferences writing integration

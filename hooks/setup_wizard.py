@@ -635,6 +635,7 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         "resolved_features": get_preset_features(preset),
         "cli_configs": default_cli_configs,
         "selected_mcps": get_default_mcps_for_preset(preset),
+        "browser_capability": {"enabled": False},
     }
 
     # Merge custom preferences if provided
@@ -647,6 +648,11 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
             default_config["selected_mcps"] = _normalize_mcp_ids(
                 [str(item) for item in selected_mcps]
             )
+        browser_capability = preferences.get("browser_capability")
+        if isinstance(browser_capability, dict):
+            default_config["browser_capability"] = {
+                "enabled": bool(browser_capability.get("enabled", False))
+            }
 
     _write_project_settings_preset(project_dir, preset)
 
@@ -710,6 +716,7 @@ def run_setup_wizard(
     adopt: str = "auto",
     preset: str | None = None,
     selected_mcps: list[str] | None = None,
+    browser_enabled: bool = False,
 ) -> dict[str, Any]:
     """Run the OMG setup wizard.
 
@@ -744,7 +751,11 @@ def run_setup_wizard(
     mcp = configure_mcp(project_dir, clis, preset=selected_preset, selected_ids=selected_mcps)
     prefs = set_preferences(
         project_dir,
-        {"preset": selected_preset, "selected_mcps": selected_mcps},
+        {
+            "preset": selected_preset,
+            "selected_mcps": selected_mcps,
+            "browser_capability": {"enabled": browser_enabled},
+        },
     )
     report_path = write_adoption_report(project_dir, adoption)
     adoption["report_path"] = report_path

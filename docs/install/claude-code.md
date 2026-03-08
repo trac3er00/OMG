@@ -19,6 +19,14 @@ claude plugin install omg@omg --scope user
 
 `npm install` is equivalent for OMG because the setup script now writes the marketplace registration that Claude expects.
 
+Optional browser capability:
+
+```bash
+./OMG-setup.sh install --enable-browser
+```
+
+That enables OMG's browser capability metadata for `/OMG:browser` and records the preferred upstream Playwright CLI command under `~/.claude/omg-runtime/browser/capability.json`.
+
 ## Run
 
 ```text
@@ -33,3 +41,4 @@ claude plugin install omg@omg --scope user
 - `~/.claude/settings.json` should contain a `statusLine` command pointing at `~/.claude/hud/omg-hud.mjs`
 - `~/.claude/.mcp.json` should not duplicate the plugin-managed `omg-control` server
 - `~/.claude/omg-runtime/.venv/bin/python` should exist
+- if browser capability is enabled, `~/.claude/omg-runtime/browser/capability.json` should exist

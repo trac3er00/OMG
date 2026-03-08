@@ -16,11 +16,18 @@ cd OMG
 ./OMG-setup.sh install --mode=omg-only --preset=interop
 ```
 
+Optional browser capability:
+
+```bash
+./OMG-setup.sh install --mode=omg-only --preset=interop --enable-browser
+```
+
 ## Verify
 
 - `gemini mcp list` should include `omg-control`
 - `~/.gemini/settings.json` should contain `mcpServers.omg-control`
 - the configured command should point at `~/.claude/omg-runtime/.venv/bin/python`
+- if browser capability is enabled, `~/.claude/omg-runtime/browser/capability.json` should exist
 
 ## Notes
 

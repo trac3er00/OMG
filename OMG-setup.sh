@@ -24,6 +24,7 @@ MERGE_POLICY="ask"
 FRESH_INSTALL=false
 INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
+ENABLE_BROWSER=false
 ADOPTION_MODE="omg-only"
 ADOPT_MODE="auto"
 OMG_PRESET="safe"
@@ -86,6 +87,7 @@ Options:
   --adopt=auto       Detect OMG-adjacent ecosystems during install/update
   --preset=safe|balanced|interop|labs
                      User-facing preset for managed OMG features
+  --enable-browser   Enable optional OMG browser capability metadata and guidance
   -h, --help         Show this help
 
 Examples:
@@ -215,6 +217,7 @@ parse_args() {
             --non-interactive) NON_INTERACTIVE=true ;;
             --fresh) FRESH_INSTALL=true ;;
             --install-as-plugin) INSTALL_AS_PLUGIN=true ;;
+            --enable-browser) ENABLE_BROWSER=true ;;
             --merge-policy=*) MERGE_POLICY="${arg#*=}" ;;
             --mode=*) ADOPTION_MODE="${arg#*=}" ;;
             --adopt=*) ADOPT_MODE="${arg#*=}" ;;
@@ -672,6 +675,50 @@ write_omg_manifest() {
     if ! $DRY_RUN; then
         printf '%s\n' "${NEW_MANIFEST_ENTRIES[@]}" | sort > "$OMG_MANIFEST"
     fi
+}
+
+configure_browser_capability() {
+    local browser_dir="$CLAUDE_DIR/omg-runtime/browser"
+    local browser_state_path="$browser_dir/capability.json"
+    local browser_command_json="null"
+    local browser_status="missing"
+
+    if command -v playwright >/dev/null 2>&1; then
+        browser_command_json='["playwright"]'
+        browser_status="ready"
+    elif command -v playwright-cli >/dev/null 2>&1; then
+        browser_command_json='["playwright-cli"]'
+        browser_status="ready"
+    elif command -v npx >/dev/null 2>&1; then
+        browser_command_json='["npx","playwright"]'
+        browser_status="bootstrap-required"
+    fi
+
+    if $DRY_RUN; then
+        echo "  (would enable browser capability using command: $browser_command_json)"
+        return 0
+    fi
+
+    mkdir -p "$browser_dir"
+    python3 - "$browser_state_path" "$browser_status" "$browser_command_json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+status = sys.argv[2]
+command_json = sys.argv[3]
+command = json.loads(command_json)
+payload = {
+    "enabled": True,
+    "status": status,
+    "command": command,
+    "remediation": "Use `npx playwright` or install `@playwright/cli`, then install browsers before running /OMG:browser.",
+}
+path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+    track_file "omg-runtime/browser/capability.json"
+    echo "  ✓ Browser capability enabled"
 }
 
 prune_plugin_mcp_from_settings() {
@@ -1744,6 +1791,9 @@ run_install_like() {
         if [ -n "$configured_hosts" ]; then
             echo "  ✓ Host MCP configured for detected CLIs: $configured_hosts"
         fi
+        if $ENABLE_BROWSER; then
+            configure_browser_capability
+        fi
 
         local adoption_report_path=""
         adoption_report_path=$(write_native_adoption_report)
@@ -1755,6 +1805,9 @@ run_install_like() {
         fi
         echo "  (would provision managed Python venv at $CLAUDE_DIR/omg-runtime/.venv)"
         echo "  (would wire omg-control into detected Codex/Gemini/Kimi configs when available)"
+        if $ENABLE_BROWSER; then
+            echo "  (would enable browser capability metadata and remediation)"
+        fi
         echo "  (would write adoption report and apply preset/mode markers)"
     fi
 

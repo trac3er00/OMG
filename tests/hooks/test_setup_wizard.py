@@ -588,6 +588,20 @@ class TestSetPreferences:
 
         assert data["preset"] == "labs"
 
+    def test_set_preferences_persists_browser_capability(self):
+        """Browser capability should be persisted in cli-config.yaml."""
+        from hooks import setup_wizard
+        import yaml
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_wizard.set_preferences(tmpdir, {"browser_capability": {"enabled": True}})
+
+            config_path = os.path.join(tmpdir, ".omg", "state", "cli-config.yaml")
+            with open(config_path) as f:
+                data = yaml.safe_load(f)
+
+        assert data["browser_capability"]["enabled"] is True
+
 
 class TestConfigureMcp:
     """Tests for configure_mcp() MCP server configuration."""
