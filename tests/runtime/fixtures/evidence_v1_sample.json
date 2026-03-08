@@ -1,0 +1,40 @@
+{
+  "schema": "EvidencePack",
+  "run_id": "run-v1-sample",
+  "timestamp": "2026-03-07T00:00:00+00:00",
+  "executor": {
+    "user": "tester",
+    "pid": "1000"
+  },
+  "environment": {
+    "hostname": "localhost",
+    "platform": "darwin"
+  },
+  "trace_ids": [
+    "trace-1"
+  ],
+  "lineage": {
+    "trace_id": "trace-1",
+    "lineage_id": "lineage-v1"
+  },
+  "security_scans": [
+    {
+      "tool": "security-check",
+      "path": ".omg/evidence/security-check-proof.json"
+    }
+  ],
+  "claims": [
+    {
+      "claim_type": "release_ready",
+      "artifacts": [
+        "junit.xml",
+        "coverage.xml",
+        ".omg/evidence/security-check.sarif",
+        ".omg/evidence/trace.zip"
+      ],
+      "trace_ids": [
+        "trace-1"
+      ]
+    }
+  ]
+}

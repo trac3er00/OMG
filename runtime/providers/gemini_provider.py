@@ -16,6 +16,13 @@ from runtime.tmux_session_manager import TmuxSessionManager
 
 _logger = logging.getLogger(__name__)
 
+HOST_RULES = {
+    "compilation_targets": [".gemini/settings.json"],
+    "mcp": ["omg-control"],
+    "skills": ["omg/control-plane", "omg/mcp-fabric"],
+    "automations": ["contract-validate", "provider-routing"],
+}
+
 
 class GeminiProvider(CLIProvider):
     """CLIProvider implementation for the Gemini CLI (``gemini``)."""

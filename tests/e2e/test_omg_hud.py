@@ -135,6 +135,50 @@ def test_hud_applies_legacy_preset_overrides(tmp_path: Path):
     assert "ctx:" not in out.stdout.lower()
 
 
+def test_hud_supports_standard_preset_name(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+    _ = (claude / "settings.json").write_text(
+        json.dumps({"omcHud": {"preset": "standard"}}),
+        encoding="utf-8",
+    )
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    payload = _stdin_payload(project)
+
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    assert "context:[" in out.stdout.lower()
+
+
+def test_hud_treats_focused_as_alias_of_standard(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    payload = _stdin_payload(project)
+
+    _ = (claude / "settings.json").write_text(
+        json.dumps({"omcHud": {"preset": "standard"}}),
+        encoding="utf-8",
+    )
+    standard_out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+
+    _ = (claude / "settings.json").write_text(
+        json.dumps({"omcHud": {"preset": "focused"}}),
+        encoding="utf-8",
+    )
+    focused_out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+
+    assert standard_out.returncode == 0
+    assert focused_out.returncode == 0
+    assert focused_out.stdout == standard_out.stdout
+
+
 def test_hud_shows_session_used_tokens_from_stdin_usage(tmp_path: Path):
     home = tmp_path / "home"
     claude = home / ".claude"
@@ -264,3 +308,95 @@ def test_hud_falls_back_to_session_tokens_for_daily_and_weekly_when_no_stats(tmp
     assert "session:5.0k" in lowered
     assert "daily:" not in lowered  # No stats cache, so no daily/weekly
     assert "weekly:" not in lowered
+
+
+def test_hud_renders_verification_status_when_state_present(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+
+    verification_state = {
+        "schema": "BackgroundVerificationState",
+        "schema_version": 2,
+        "run_id": "test-run-1",
+        "status": "ok",
+        "blockers": [],
+        "evidence_links": [".omg/evidence/test.json"],
+        "progress": {"total": 5, "completed": 5},
+        "updated_at": "2026-03-01T12:00:00Z",
+    }
+    (state_dir / "background-verification.json").write_text(
+        json.dumps(verification_state), encoding="utf-8"
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "verification ok" in lowered
+
+
+def test_hud_renders_fallback_when_verification_state_missing(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "verification: unknown" in lowered
+
+
+def test_hud_renders_blocker_count_when_blockers_present(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+
+    verification_state = {
+        "schema": "BackgroundVerificationState",
+        "schema_version": 2,
+        "run_id": "test-run-2",
+        "status": "blocked",
+        "blockers": ["lint failure", "test timeout"],
+        "evidence_links": [".omg/evidence/gate.json"],
+        "progress": {"total": 5, "completed": 3},
+        "updated_at": "2026-03-01T12:00:00Z",
+    }
+    (state_dir / "background-verification.json").write_text(
+        json.dumps(verification_state), encoding="utf-8"
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "verification blocked" in lowered
+    assert "2 blockers" in lowered
+
+
+def test_hud_displays_mode_from_mode_state_file(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+    (state_dir / "mode.json").write_text(json.dumps({"mode": "focused"}), encoding="utf-8")
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    assert "mode:focused" in out.stdout.lower()

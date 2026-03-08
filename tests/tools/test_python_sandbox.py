@@ -8,6 +8,7 @@ blocked imports, escape detection, and feature flag gating.
 
 import os
 import sys
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -24,6 +25,13 @@ from tools.python_sandbox import (
     get_code_violations,
     is_safe_code,
 )
+
+
+def test_module_docstring_mentions_repl_only_scope():
+    import tools.python_sandbox as python_sandbox
+
+    doc = python_sandbox.__doc__ or ""
+    assert "REPL-only" in doc
 
 
 # --- TestIsSafeCode (static analysis) ---
@@ -293,6 +301,8 @@ class TestFeatureFlag:
 
 class TestReplIntegration:
     """Tests for sandbox integration with python_repl.py."""
+
+    python_repl: Any = None
 
     @pytest.fixture(autouse=True)
     def setup_repl(self):

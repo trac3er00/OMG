@@ -19,6 +19,7 @@ import zipfile
 import yaml
 
 from runtime.asset_loader import resolve_asset, resolve_assets
+from runtime.proof_chain import _normalize_evidence_pack
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -31,7 +32,7 @@ from runtime.adoption import (
 CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
 SCHEMA_PATH = Path("registry") / "omg-capability.schema.json"
 BUNDLES_DIR = Path("registry") / "bundles"
-SUPPORTED_HOSTS = ("claude", "codex")
+SUPPORTED_HOSTS = ("claude", "codex", "gemini", "kimi")
 SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
@@ -120,6 +121,25 @@ REQUIRED_CODEX_OUTPUTS = (
     "codex-rules.md",
     "codex-mcp.toml",
 )
+HOST_COMPILED_ARTIFACTS = {
+    "claude": (
+        ".claude-plugin/plugin.json",
+        ".claude-plugin/marketplace.json",
+        ".mcp.json",
+        "settings.json",
+    ),
+    "codex": (
+        ".agents/skills/omg/AGENTS.fragment.md",
+        ".agents/skills/omg/codex-rules.md",
+        ".agents/skills/omg/codex-mcp.toml",
+    ),
+    "gemini": (
+        ".gemini/settings.json",
+    ),
+    "kimi": (
+        ".kimi/mcp.json",
+    ),
+}
 
 
 def _ensure_list(
@@ -170,7 +190,12 @@ def _validate_host_rule(
         )
 
 
-def _validate_policy_model(bundle_id: str, policy_model: Any) -> list[str]:
+def _validate_policy_model(
+    bundle_id: str,
+    policy_model: Any,
+    *,
+    bundle_hosts: Iterable[str] = (),
+) -> list[str]:
     errors: list[str] = []
     payload = _ensure_dict(bundle_id=bundle_id, path="policy_model", value=policy_model, errors=errors)
     if not payload:
@@ -289,6 +314,8 @@ def _validate_policy_model(bundle_id: str, policy_model: Any) -> list[str]:
         value=payload.get("host_rules", {}),
         errors=errors,
     )
+    declared_hosts = {str(host).strip() for host in bundle_hosts if str(host).strip()}
+
     _validate_host_rule(
         bundle_id=bundle_id,
         host_name="claude",
@@ -303,6 +330,15 @@ def _validate_policy_model(bundle_id: str, policy_model: Any) -> list[str]:
         required_fields=("compilation_targets", "skills", "agents_fragments", "rules", "automations"),
         errors=errors,
     )
+    for host_name in ("gemini", "kimi"):
+        if host_name in host_rules or host_name in declared_hosts:
+            _validate_host_rule(
+                bundle_id=bundle_id,
+                host_name=host_name,
+                host_rule=host_rules.get(host_name),
+                required_fields=("compilation_targets", "mcp", "skills", "automations"),
+                errors=errors,
+            )
     return errors
 
 
@@ -461,7 +497,7 @@ def validate_contract_registry(root_dir: str | Path | None = None) -> dict[str, 
             if bad_hosts:
                 errors.append(f"{bundle_id}: unsupported hosts {bad_hosts}")
         if "policy_model" in bundle:
-            errors.extend(_validate_policy_model(bundle_id, bundle.get("policy_model")))
+            errors.extend(_validate_policy_model(bundle_id, bundle.get("policy_model"), bundle_hosts=hosts))
 
     missing_bundles = [bundle_id for bundle_id in DEFAULT_REQUIRED_BUNDLES if bundle_id not in bundle_ids]
     for bundle_id in missing_bundles:
@@ -1145,6 +1181,34 @@ def _compile_codex_outputs(
     return artifacts
 
 
+def _compile_gemini_outputs(output_root: Path, channel: str) -> dict[str, Any]:
+    del channel
+    from runtime.mcp_config_writers import write_gemini_mcp_stdio_config
+
+    config_path = output_root / ".gemini" / "settings.json"
+    write_gemini_mcp_stdio_config(
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+        server_name="omg-control",
+        config_path=config_path,
+    )
+    return {"host": "gemini", "artifacts": [config_path]}
+
+
+def _compile_kimi_outputs(output_root: Path, channel: str) -> dict[str, Any]:
+    del channel
+    from runtime.mcp_config_writers import write_kimi_mcp_stdio_config
+
+    config_path = output_root / ".kimi" / "mcp.json"
+    write_kimi_mcp_stdio_config(
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+        server_name="omg-control",
+        config_path=config_path,
+    )
+    return {"host": "kimi", "artifacts": [config_path]}
+
+
 def _copy_release_bundle(
     *,
     output_root: Path,
@@ -1164,11 +1228,12 @@ def _copy_release_bundle(
     return copied
 
 
-def _build_dist_manifest(output_root: Path, *, channel: str, artifacts: list[Path]) -> Path:
+def _build_dist_manifest(output_root: Path, *, channel: str, hosts: list[str], artifacts: list[Path]) -> Path:
     dist_root = output_root / "dist" / channel
     payload = {
         "schema": "OmgCompiledArtifactManifest",
         "channel": channel,
+        "hosts": list(hosts),
         "contract_version": CANONICAL_VERSION,
         "artifacts": [
             {
@@ -1269,8 +1334,14 @@ def compile_contract_outputs(
                 "artifacts": [],
             }
 
+    if "gemini" in selected_hosts:
+        artifacts.extend(_compile_gemini_outputs(output, channel)["artifacts"])
+
+    if "kimi" in selected_hosts:
+        artifacts.extend(_compile_kimi_outputs(output, channel)["artifacts"])
+
     bundled_artifacts = _copy_release_bundle(output_root=output, channel=channel, artifacts=artifacts)
-    manifest_path = _build_dist_manifest(output, channel=channel, artifacts=bundled_artifacts)
+    manifest_path = _build_dist_manifest(output, channel=channel, hosts=selected_hosts, artifacts=bundled_artifacts)
     artifacts.append(manifest_path)
 
     return {
@@ -1291,7 +1362,7 @@ def _provider_statuses() -> dict[str, dict[str, Any]]:
     }
     statuses: dict[str, dict[str, Any]] = {}
 
-    for provider_name in ("claude", "codex"):
+    for provider_name in SUPPORTED_HOSTS:
         if provider_name in ready_override:
             statuses[provider_name] = {"ready": True, "source": "env"}
             continue
@@ -1307,10 +1378,15 @@ def _provider_statuses() -> dict[str, dict[str, Any]]:
             }
             continue
 
-        import runtime.providers.codex_provider  # noqa: F401
+        if provider_name == "gemini":
+            import runtime.providers.gemini_provider  # noqa: F401
+        elif provider_name == "kimi":
+            import runtime.providers.kimi_provider  # noqa: F401
+        else:
+            import runtime.providers.codex_provider  # noqa: F401
         from runtime.cli_provider import get_provider
 
-        provider = get_provider("codex")
+        provider = get_provider(provider_name)
         ready = bool(provider and provider.detect())
         statuses[provider_name] = {"ready": ready, "source": "provider"}
 
@@ -1557,6 +1633,12 @@ def _check_provider_host_parity(output_root: Path, providers: dict[str, dict[str
             output_root / ".agents" / "skills" / "omg" / "AGENTS.fragment.md",
             output_root / ".agents" / "skills" / "omg" / "codex-mcp.toml",
         ),
+        "gemini": (
+            output_root / ".gemini" / "settings.json",
+        ),
+        "kimi": (
+            output_root / ".kimi" / "mcp.json",
+        ),
     }
     for provider, status in providers.items():
         if not status.get("ready"):
@@ -1628,6 +1710,7 @@ def build_release_readiness(
     output = _resolve_output_root(root, output_root)
     blockers: list[str] = []
     checks: dict[str, Any] = {}
+    required_provider_hosts: set[str] = set()
 
     validation = validate_contract_registry(root)
     checks["contract_validation"] = validation
@@ -1655,6 +1738,17 @@ def build_release_readiness(
             if _sha256_file(artifact_path) != expected_sha:
                 manifest_errors.append(f"{required_channel}: sha mismatch for {rel_path}")
         manifest_paths = {str(a.get("path", "")) for a in manifest.get("artifacts", []) if isinstance(a, dict)}
+        declared_hosts = [str(host) for host in manifest.get("hosts", []) if str(host).strip()]
+        if not declared_hosts:
+            declared_hosts = ["claude", "codex"]
+        required_provider_hosts.update(declared_hosts)
+        for host_name in declared_hosts:
+            for host_path in HOST_COMPILED_ARTIFACTS.get(host_name, ()):
+                bundled_host_path = f"bundle/{host_path}"
+                if bundled_host_path not in manifest_paths:
+                    manifest_errors.append(
+                        f"{required_channel}: host_parity_missing {host_name} {bundled_host_path}"
+                    )
         for req_path in REQUIRED_ADVANCED_PLUGIN_ARTIFACTS:
             if req_path not in manifest_paths:
                 manifest_errors.append(f"{required_channel}: advanced_plugin_missing {req_path}")
@@ -1739,10 +1833,17 @@ def build_release_readiness(
     providers = _provider_statuses()
     checks["providers"] = providers
     for provider_name, status in providers.items():
+        if provider_name not in required_provider_hosts:
+            continue
         if not status.get("ready"):
             blockers.append(f"provider not ready: {provider_name}")
 
-    provider_parity = _check_provider_host_parity(output, providers)
+    required_providers = {
+        provider_name: status
+        for provider_name, status in providers.items()
+        if provider_name in required_provider_hosts
+    }
+    provider_parity = _check_provider_host_parity(output, required_providers)
     checks["provider_host_parity"] = provider_parity
     blockers.extend(provider_parity.get("blockers", []))
 
@@ -1781,6 +1882,14 @@ def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
         except Exception:
             continue
         if payload.get("schema") == "EvidencePack":
+            try:
+                payload = _normalize_evidence_pack(payload)
+            except ValueError as exc:
+                return {
+                    "status": "error",
+                    "evidence_file": str(path.relative_to(output_root)),
+                    "blockers": [f"invalid evidence pack: {exc}"],
+                }
             evidence_payloads.append((path, payload))
 
     if not evidence_payloads:

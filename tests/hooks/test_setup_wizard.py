@@ -107,6 +107,33 @@ class TestRunSetupWizard:
         assert result["adoption"]["selected_mode"] == "omg-only"
         assert result["preferences"]["config"]["preset"] == "balanced"
 
+    def test_setup_wizard_default_mode_is_focused(self):
+        from hooks import setup_wizard
+        from hooks import _common
+
+        _common._FEATURE_CACHE.clear()
+
+        with patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}):
+            with tempfile.TemporaryDirectory() as tmpdir:
+                result = setup_wizard.run_setup_wizard(tmpdir, non_interactive=True)
+
+        assert result["setup_mode"]["selected"] == "focused"
+
+
+class TestCanonicalModes:
+
+    def test_setup_wizard_offers_canonical_mode_choices(self):
+        from hooks import setup_wizard
+
+        choices = setup_wizard.get_mode_choices()
+        assert choices == ["chill", "focused", "exploratory"]
+
+    def test_setup_wizard_select_mode_defaults_to_focused(self):
+        from hooks import setup_wizard
+
+        mode = setup_wizard.select_setup_mode(None)
+        assert mode == "focused"
+
 
 class TestWizardStubs:
     """Tests for individual wizard step stubs."""

@@ -35,6 +35,7 @@ OMG keeps verification visible instead of burying it in implementation details.
 - Native setup writes `.omg/state/adoption-report.json`
 - Native setup writes `.omg/state/cli-config.yaml`
 - `OMG-only` and `coexist` are both covered in setup tests
+- Canonical modes: `chill`, `focused`, `exploratory`
 - OMC, OMX, and Superpowers references stay limited to compatibility and adoption guidance
 
 ## HUD Artifact

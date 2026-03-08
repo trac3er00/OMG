@@ -1,0 +1,13 @@
+# Task 17 - Failure-Path Verification Evidence
+Date: 2026-03-08
+Branch: release/v2.0.8
+
+Command:
+python3 -c "...remove dist/public/bundle/.agents/skills/omg/plan-council/SKILL.md, run readiness, restore file, run readiness again..."
+
+Observed output:
+After removal - status: error blockers: ['public: missing bundled artifact bundle/.agents/skills/omg/plan-council/SKILL.md', 'bundle_promotion_parity']
+After restore - status: ok blockers: []
+
+Result:
+Failure-path behavior is correct: readiness fails when required bundle artifact is missing and recovers to status ok after restoration.

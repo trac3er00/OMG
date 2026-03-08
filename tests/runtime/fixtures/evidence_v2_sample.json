@@ -1,0 +1,66 @@
+{
+  "schema": "EvidencePack",
+  "schema_version": 2,
+  "run_id": "run-v2-sample",
+  "timestamp": "2026-03-07T00:00:00+00:00",
+  "executor": {
+    "user": "tester",
+    "pid": "1000"
+  },
+  "environment": {
+    "hostname": "localhost",
+    "platform": "darwin"
+  },
+  "trace_ids": [
+    "trace-1"
+  ],
+  "lineage": {
+    "trace_id": "trace-1",
+    "lineage_id": "lineage-v2"
+  },
+  "security_scans": [
+    {
+      "tool": "security-check",
+      "path": ".omg/evidence/security-check-proof.json"
+    }
+  ],
+  "artifacts": [
+    {
+      "kind": "junit",
+      "path": ".omg/evidence/junit.xml",
+      "sha256": "a0b1c2d3",
+      "parser": "junit",
+      "summary": "unit test report",
+      "trace_id": "trace-1"
+    },
+    {
+      "kind": "coverage",
+      "path": ".omg/evidence/coverage.xml",
+      "sha256": "d3c2b1a0",
+      "parser": "coverage",
+      "summary": "coverage report",
+      "trace_id": "trace-1"
+    }
+  ],
+  "claims": [
+    {
+      "schema_version": 2,
+      "claim_type": "release_ready",
+      "evidence": {
+        "artifacts": [
+          {
+            "kind": "junit",
+            "path": ".omg/evidence/junit.xml",
+            "sha256": "a0b1c2d3",
+            "parser": "junit",
+            "summary": "unit test report",
+            "trace_id": "trace-1"
+          }
+        ],
+        "trace_ids": [
+          "trace-1"
+        ]
+      }
+    }
+  ]
+}

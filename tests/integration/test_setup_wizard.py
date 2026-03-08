@@ -294,6 +294,7 @@ class TestWizardNonInteractiveMode:
         assert result["status"] == "complete"
         assert result["adoption"]["selected_mode"] == "omg-only"
         assert result["preferences"]["config"]["preset"] == "balanced"
+        assert result["setup_mode"]["selected"] == "focused"
 
 
 # ---------------------------------------------------------------------------

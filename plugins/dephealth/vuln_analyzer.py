@@ -3,6 +3,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from plugins.dephealth.cve_scanner import enrich_with_kev, enrich_with_epss
+
 
 _CRITICAL_PATTERN = re.compile(r"\bcritical\b", re.IGNORECASE)
 _HIGH_PATTERN = re.compile(r"\bhigh\b", re.IGNORECASE)
@@ -33,6 +35,9 @@ def analyze_reachability(cve_result: dict[str, Any], project_dir: str) -> dict[s
     risk_level = _classify_risk(reachability, summary)
     recommendation = _build_recommendation(package, fixed_version, reachability)
 
+    kev_enriched = enrich_with_kev({"id": cve_id}, project_dir)
+    epss_enriched = enrich_with_epss({"id": cve_id}, project_dir)
+
     return {
         "package": package,
         "cve_id": cve_id,
@@ -40,6 +45,8 @@ def analyze_reachability(cve_result: dict[str, Any], project_dir: str) -> dict[s
         "import_locations": sorted(imported_files),
         "risk_level": risk_level,
         "recommendation": recommendation,
+        "kev_listed": kev_enriched.get("kev_listed", False),
+        "epss_score": epss_enriched.get("epss_score"),
     }
 
 

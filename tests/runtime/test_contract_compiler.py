@@ -121,6 +121,57 @@ def _write_evidence(
     (evidence_root / "run-1.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
+def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    fixture_payload = json.loads(
+        (ROOT / "tests" / "runtime" / "fixtures" / "evidence_v2_sample.json").read_text(encoding="utf-8")
+    )
+    fixture_payload["provenance"] = [{"source": "security-check"}]
+    fixture_payload["tests"] = [{"name": "worker_implementation", "passed": True}]
+    fixture_payload["claims"] = [
+        {
+            "claim_type": "release_ready",
+            "artifacts": [
+                "reports/junit.xml",
+                "reports/coverage.xml",
+                ".omg/evidence/security-check.sarif",
+                ".omg/evidence/playwright-trace.zip",
+            ],
+            "trace_ids": ["trace-1"],
+        }
+    ]
+
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / "run-v2.json").write_text(json.dumps(fixture_payload), encoding="utf-8")
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    normalize_calls = {"count": 0}
+    normalize_impl = contract_compiler_module._normalize_evidence_pack
+
+    def tracking_normalize(payload: dict[str, object]) -> dict[str, object]:
+        normalize_calls["count"] += 1
+        return normalize_impl(payload)
+
+    monkeypatch.setattr(contract_compiler_module, "_normalize_evidence_pack", tracking_normalize)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "ok"
+    assert normalize_calls["count"] >= 1
+
+
 def test_validate_contract_registry_reports_expected_bundles() -> None:
     result = validate_contract_registry(ROOT)
 
@@ -182,6 +233,73 @@ def test_validate_contract_registry_rejects_malformed_host_rules(tmp_path: Path)
     )
 
 
+def test_validate_contract_registry_accepts_gemini_kimi_host_rules(tmp_path: Path) -> None:
+    fixture_root = tmp_path / "repo"
+    (fixture_root / "registry").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "OMG_COMPAT_CONTRACT.md", fixture_root / "OMG_COMPAT_CONTRACT.md")
+    shutil.copy2(ROOT / "registry" / "omg-capability.schema.json", fixture_root / "registry" / "omg-capability.schema.json")
+    shutil.copytree(ROOT / "registry" / "bundles", fixture_root / "registry" / "bundles")
+
+    control_plane_path = fixture_root / "registry" / "bundles" / "control-plane.yaml"
+    control_plane = yaml.safe_load(control_plane_path.read_text(encoding="utf-8"))
+    assert isinstance(control_plane, dict)
+    control_plane["hosts"] = ["claude", "codex", "gemini", "kimi"]
+    host_rules = control_plane["policy_model"]["host_rules"]
+    host_rules["gemini"] = {
+        "compilation_targets": [".gemini/settings.json"],
+        "mcp": ["omg-control"],
+        "skills": ["omg/control-plane"],
+        "automations": ["contract-validate"],
+    }
+    host_rules["kimi"] = {
+        "compilation_targets": [".kimi/mcp.json"],
+        "mcp": ["omg-control"],
+        "skills": ["omg/control-plane"],
+        "automations": ["contract-validate"],
+    }
+    dumped = yaml.safe_dump(control_plane, sort_keys=False)
+    assert isinstance(dumped, str)
+    control_plane_path.write_text(dumped, encoding="utf-8")
+
+    result = validate_contract_registry(fixture_root)
+
+    assert result["status"] == "ok"
+    assert not [error for error in result["errors"] if "gemini" in error or "kimi" in error]
+
+
+def test_validate_contract_registry_rejects_incomplete_gemini_host_rules(tmp_path: Path) -> None:
+    fixture_root = tmp_path / "repo"
+    (fixture_root / "registry").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "OMG_COMPAT_CONTRACT.md", fixture_root / "OMG_COMPAT_CONTRACT.md")
+    shutil.copy2(ROOT / "registry" / "omg-capability.schema.json", fixture_root / "registry" / "omg-capability.schema.json")
+    shutil.copytree(ROOT / "registry" / "bundles", fixture_root / "registry" / "bundles")
+
+    control_plane_path = fixture_root / "registry" / "bundles" / "control-plane.yaml"
+    control_plane = yaml.safe_load(control_plane_path.read_text(encoding="utf-8"))
+    assert isinstance(control_plane, dict)
+    control_plane["hosts"] = ["claude", "codex", "gemini"]
+    host_rules = control_plane["policy_model"]["host_rules"]
+    host_rules["gemini"] = {
+        "skills": ["omg/control-plane"],
+        "automations": ["contract-validate"],
+    }
+    dumped = yaml.safe_dump(control_plane, sort_keys=False)
+    assert isinstance(dumped, str)
+    control_plane_path.write_text(dumped, encoding="utf-8")
+
+    result = validate_contract_registry(fixture_root)
+
+    assert result["status"] == "error"
+    assert any(
+        error == "control-plane: malformed host_rules entry for gemini: missing 'compilation_targets'"
+        for error in result["errors"]
+    )
+    assert any(
+        error == "control-plane: malformed host_rules entry for gemini: missing 'mcp'"
+        for error in result["errors"]
+    )
+
+
 def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_path: Path) -> None:
     result = compile_contract_outputs(
         root_dir=ROOT,
@@ -217,6 +335,70 @@ def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_pat
     assert "bundle/.agents/skills/omg/security-check/SKILL.md" in output_paths
     assert "bundle/.agents/skills/omg/tracebank/SKILL.md" in output_paths
     assert "bundle/.agents/skills/omg/remote-supervisor/SKILL.md" in output_paths
+
+
+def test_compile_contract_outputs_writes_gemini_artifacts(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["gemini"],
+        channel="public",
+    )
+
+    assert result["status"] == "ok"
+    gemini_path = tmp_path / ".gemini" / "settings.json"
+    assert gemini_path.exists()
+
+    gemini_payload = json.loads(gemini_path.read_text(encoding="utf-8"))
+    assert gemini_payload["mcpServers"]["omg-control"]["command"] == "python3"
+    assert gemini_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
+
+
+def test_compile_contract_outputs_writes_kimi_artifacts(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["kimi"],
+        channel="public",
+    )
+
+    assert result["status"] == "ok"
+    kimi_path = tmp_path / ".kimi" / "mcp.json"
+    assert kimi_path.exists()
+
+    kimi_payload = json.loads(kimi_path.read_text(encoding="utf-8"))
+    assert kimi_payload["mcpServers"]["omg-control"]["command"] == "python3"
+    assert kimi_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
+
+
+def test_release_readiness_blocks_missing_gemini_host_artifact(tmp_path: Path, monkeypatch) -> None:
+    _patch_fast_release_checks(monkeypatch)
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_provider_statuses",
+        lambda: {"gemini": {"ready": True, "source": "env"}},
+    )
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex", "gemini"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    gemini_path = tmp_path / ".gemini" / "settings.json"
+    if gemini_path.exists():
+        gemini_path.unlink()
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("provider_host_parity" in blocker and ".gemini/settings.json" in blocker for blocker in readiness["blockers"])
 
 
 def test_codex_compile_marks_plan_council_as_explicit_invocation(tmp_path: Path) -> None:

@@ -8,9 +8,13 @@ argument-hint: "--from <snapshot_id> --name <fork-name>"
 
 Create a new branch from a specific snapshot checkpoint. This is a convenience wrapper around `/OMG:session-branch` that always requires a source snapshot.
 
+## Scope Statement
+
+**This command operates on `.omg/state/` only. It does NOT modify git history, workspace files, or conversation history.**
+
 ## Important
 
-Forking is **OMG state only** — it restores a previous `.omg/state/` snapshot and creates a new named branch from it. It does **not** fork the conversation or create a parallel Claude session.
+Forking is **OMG state only** — it restores a previous `.omg/state/` snapshot and creates a new named branch from it. It does **not** fork the conversation or create a parallel Claude session. Rollback restores OMG session state only, NOT git history or repo files.
 
 ## Usage
 

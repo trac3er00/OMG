@@ -8,6 +8,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import re
+import shutil
 import subprocess
 from typing import Any
 
@@ -128,6 +129,8 @@ def run_security_check(
             "severity": finding.get("severity"),
             "exploitability": finding.get("exploitability", "unknown"),
             "reachability": finding.get("reachability", "unknown"),
+            "kev_listed": finding.get("kev_listed", False),
+            "epss_score": finding.get("epss_score"),
             "waived": bool(finding.get("waived")),
             "waiver_justification": finding.get("waiver_justification", ""),
             "message": finding.get("message", ""),
@@ -267,7 +270,87 @@ def _scan_python_ast(scope_path: Path) -> list[dict[str, Any]]:
             continue
         findings.extend(_scan_python_file(py_file, source))
     findings.extend(_run_bandit_if_available(scope_path))
+    findings.extend(_scan_semgrep(scope_path))
     return findings
+
+
+def run_semgrep_scan(project_dir: str, rules: str = "auto") -> dict[str, Any]:
+    unavailable = {"status": "unavailable", "findings": [], "error": "semgrep not found"}
+    if shutil.which("semgrep") is None:
+        return unavailable
+
+    cmd = ["semgrep", "--json", "--config", rules, project_dir]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=60)
+    except Exception:
+        return unavailable
+
+    if proc.returncode not in {0, 1}:
+        return unavailable
+
+    try:
+        payload = json.loads(proc.stdout or "{}")
+    except Exception:
+        return unavailable
+
+    findings: list[dict[str, Any]] = []
+    for item in payload.get("results", []):
+        extra = item.get("extra") if isinstance(item.get("extra"), dict) else {}
+        start = item.get("start") if isinstance(item.get("start"), dict) else {}
+        findings.append(
+            {
+                "severity": _normalize_semgrep_severity(str(extra.get("severity", "WARNING"))),
+                "rule": str(item.get("check_id", "semgrep")),
+                "path": str(item.get("path", "")),
+                "line": _safe_int(start.get("line", 1), default=1),
+                "message": str(extra.get("message", "Semgrep finding")),
+            }
+        )
+    return {"status": "ok", "findings": findings, "error": ""}
+
+
+def _normalize_semgrep_severity(raw: str) -> str:
+    lowered = raw.lower()
+    if lowered in {"error", "critical"}:
+        return "high"
+    if lowered in {"warning", "warn"}:
+        return "medium"
+    if lowered in {"info", "note", "low"}:
+        return "low"
+    return _normalize_severity(lowered)
+
+
+def _scan_semgrep(scope_path: Path) -> list[dict[str, Any]]:
+    result = run_semgrep_scan(str(scope_path))
+    if result.get("status") != "ok":
+        return []
+
+    findings: list[dict[str, Any]] = []
+    for item in result.get("findings", []):
+        if not isinstance(item, dict):
+            continue
+        file_path = Path(str(item.get("path", "")))
+        findings.append(
+            _finding(
+                rule_id=str(item.get("rule", "semgrep")),
+                source_name="semgrep-ce",
+                category="python_ast",
+                severity=_normalize_severity(str(item.get("severity", "medium"))),
+                path=file_path,
+                line=_safe_int(item.get("line", 1), default=1),
+                message=str(item.get("message", "Semgrep finding")),
+                recommendation="Review Semgrep finding and apply the suggested remediation.",
+                snippet="",
+            )
+        )
+    return findings
+
+
+def _safe_int(value: Any, *, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _scan_secret_patterns(scope_path: Path) -> list[dict[str, Any]]:
@@ -488,9 +571,7 @@ def _run_bandit_if_available(scope_path: Path) -> list[dict[str, Any]]:
 
 
 def _command_exists(command: str) -> bool:
-    from shutil import which
-
-    return which(command) is not None
+    return shutil.which(command) is not None
 
 
 def _scan_dependency_health(scope_path: Path, include_live_enrichment: bool) -> list[dict[str, Any]]:
@@ -530,6 +611,8 @@ def _scan_dependency_health(scope_path: Path, include_live_enrichment: bool) -> 
                     "severity": _normalize_severity(str(vuln.get("severity", "unknown"))),
                     "exploitability": _risk_to_exploitability(str(reachability.get("risk_level", ""))),
                     "reachability": _normalize_reachability(str(reachability.get("reachability", "unknown"))),
+                    "kev_listed": reachability.get("kev_listed", False),
+                    "epss_score": reachability.get("epss_score"),
                     "evidence": {
                         "package": package_name,
                         "version": dependency["version"],

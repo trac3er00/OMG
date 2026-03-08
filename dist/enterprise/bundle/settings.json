@@ -308,6 +308,7 @@
   "_omg": {
     "_version": "2.0.8",
     "preset": "safe",
+    "omgMode": "focused",
     "default_mode": "ulw+ralph",
     "vision_auto": true,
     "false_fix_detection": true,

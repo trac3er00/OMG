@@ -190,13 +190,19 @@ class TestPreviewMerge:
         assert isinstance(result["changes"], int)
 
     def test_preview_detects_conflicts(self, two_branches):
-        """Preview correctly reports conflicts between branches."""
+        """Preview correctly reports conflicts on user-state keys."""
         state_dir, _, _ = two_branches
-        # Both branches have different 'name' and 'snapshot_id' fields
+        branches_dir = os.path.join(state_dir, "branches")
+        for branch_file, val in [("source-branch.json", "alpha"), ("target-branch.json", "beta")]:
+            path = os.path.join(branches_dir, branch_file)
+            with open(path, "r") as f:
+                data = json.load(f)
+            data["priority"] = val
+            with open(path, "w") as f:
+                json.dump(data, f)
         result = preview_merge("source-branch", "target-branch", state_dir=state_dir)
-        # The branches should have different name and snapshot_id values
         conflict_keys = [c["key"] for c in result["conflicts"]]
-        assert "name" in conflict_keys  # source-branch vs target-branch
+        assert "priority" in conflict_keys
 
     def test_preview_default_target_main(self, mock_state_dir):
         """Preview defaults to 'main' as target branch."""
@@ -233,10 +239,17 @@ class TestMergeBranch:
         assert "error" in result
 
     def test_merge_with_conflicts_aborted(self, two_branches):
-        """Merge is aborted when conflicts exist."""
+        """Merge is aborted when user-state conflicts exist."""
         state_dir, _, _ = two_branches
+        branches_dir = os.path.join(state_dir, "branches")
+        for branch_file, val in [("source-branch.json", "high"), ("target-branch.json", "low")]:
+            path = os.path.join(branches_dir, branch_file)
+            with open(path, "r") as f:
+                data = json.load(f)
+            data["priority"] = val
+            with open(path, "w") as f:
+                json.dump(data, f)
         result = merge_branch("source-branch", "target-branch", state_dir=state_dir)
-        # source-branch and target-branch have different 'name' values → conflict
         assert result["merged"] is False
         assert len(result["conflicts"]) > 0
         assert result["changes_applied"] == 0

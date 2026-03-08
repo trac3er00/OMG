@@ -55,7 +55,7 @@ function readOmgVersion() {
 const OMG_VERSION = readOmgVersion();
 
 const DEFAULT_HUD_CONFIG = {
-  preset: "focused",
+  preset: "standard",
   elements: {
     cwd: true,
     cwdFormat: "relative",
@@ -129,7 +129,7 @@ const PRESET_CONFIGS = {
     safeMode: true,
     inventory: true,
   },
-  focused: {
+  standard: {
     cwd: true,
     cwdFormat: "relative",
     gitRepo: false,
@@ -250,6 +250,17 @@ const PRESET_CONFIGS = {
     inventory: true,
   },
 };
+
+const HUD_PRESET_ALIASES = {
+  focused: "standard",
+};
+
+function resolveHudPreset(preset) {
+  const requested = typeof preset === "string" ? preset : DEFAULT_HUD_CONFIG.preset;
+  const canonical = HUD_PRESET_ALIASES[requested] || requested;
+  if (PRESET_CONFIGS[canonical]) return canonical;
+  return DEFAULT_HUD_CONFIG.preset;
+}
 
 function countByExt(dirPath, ext) {
   if (!existsSync(dirPath)) return 0;
@@ -373,7 +384,7 @@ function readRawHudConfig() {
 
 function readHudConfig() {
   const source = readRawHudConfig();
-  const preset = source.preset || DEFAULT_HUD_CONFIG.preset;
+  const preset = resolveHudPreset(source.preset);
   const presetElements = PRESET_CONFIGS[preset] || {};
   const elements = {
     ...DEFAULT_HUD_CONFIG.elements,
@@ -530,6 +541,7 @@ function readOmgState(cwd) {
   const stateDir = join(cwd, ".omg", "state");
   const result = {
     modes: [],
+    currentMode: null,
     hookCount: 0,
     profile: null,
     ralph: null,
@@ -561,6 +573,14 @@ function readOmgState(cwd) {
   if (persistent?.status === "active" && persistent?.mode) {
     if (!result.modes.includes(persistent.mode)) {
       result.modes.push(String(persistent.mode));
+    }
+  }
+
+  const modeState = readJsonSafe(join(stateDir, "mode.json"));
+  if (modeState && typeof modeState === "object") {
+    const candidate = modeState.mode || modeState.current_mode || modeState.name;
+    if (typeof candidate === "string" && candidate.trim()) {
+      result.currentMode = candidate.trim().toLowerCase();
     }
   }
 
@@ -625,6 +645,19 @@ function readOmgState(cwd) {
     }
   }
   return result;
+}
+
+function readBackgroundVerificationState(stateDir) {
+  const filePath = join(stateDir, "background-verification.json");
+  const data = readJsonSafe(filePath);
+  if (!data || data.schema !== "BackgroundVerificationState") return null;
+  return {
+    status: data.status || "unknown",
+    blockers: Array.isArray(data.blockers) ? data.blockers : [],
+    evidence_links: Array.isArray(data.evidence_links) ? data.evidence_links : [],
+    progress: data.progress || {},
+    updated_at: data.updated_at || null,
+  };
 }
 
 function parseTranscript(transcriptPath) {
@@ -812,6 +845,29 @@ function renderBackgroundTasks(tasks) {
   if (running >= MAX) colorFn = yellow;
   else if (running >= MAX - 1) colorFn = cyan;
   return `bg:${colorFn(`${running}/${MAX}`)}`;
+}
+
+function renderVerificationStatus(state) {
+  if (!state) return dim("verification: unknown");
+  const { status, blockers, evidence_links } = state;
+  const blockerCount = blockers.length;
+  const latestEvidence = evidence_links.length > 0
+    ? evidence_links[evidence_links.length - 1]
+    : null;
+  const evidenceSuffix = latestEvidence
+    ? ` ${dim(`evidence:${basename(latestEvidence)}`)}`
+    : "";
+  if (status === "ok") {
+    return green("\u2713 verification ok") + evidenceSuffix;
+  }
+  if (status === "running") {
+    return yellow("\u27F3 verification running") + evidenceSuffix;
+  }
+  if (status === "error" || status === "blocked") {
+    const blockerSuffix = blockerCount > 0 ? ` (${blockerCount} blockers)` : "";
+    return red(`\u2717 verification blocked${blockerSuffix}`) + evidenceSuffix;
+  }
+  return dim("verification: unknown");
 }
 
 function renderTodos(todos) {
@@ -1136,6 +1192,9 @@ async function main() {
 
     // Active skills (modes) + last skill
     if (cfg.elements.activeSkills !== false) {
+      if (omgState.currentMode) {
+        els.push(`mode:${cyan(omgState.currentMode)}`);
+      }
       const modeBadges = renderModeBadges(omgState.modes, {
         hideRalph: !!omgState.ralph,
         hideAutopilot: !!omgState.autopilot,
@@ -1180,6 +1239,10 @@ async function main() {
       const bgEl = renderBackgroundTasks(omgState.backgroundTasks);
       if (bgEl) els.push(bgEl);
     }
+
+    const verificationStateDir = join(cwd, ".omg", "state");
+    const verificationState = readBackgroundVerificationState(verificationStateDir);
+    els.push(renderVerificationStatus(verificationState));
 
     // Model name
     if (cfg.elements.model !== false && model && model !== "?") {

@@ -97,3 +97,18 @@ def test_proof_docs_include_truth_bundle_artifacts():
     assert "proof-gate" in proof
     assert "browser-*.png" in proof
     assert "narrowed stdio OMG control" in proof
+
+
+def test_contract_doc_canonical_hosts_include_gemini_and_kimi() -> None:
+    contract_doc = (ROOT / "OMG_COMPAT_CONTRACT.md").read_text(encoding="utf-8")
+    parts = contract_doc.split("---", 2)
+    assert len(parts) == 3
+    front_matter = yaml.safe_load(parts[1])
+
+    assert front_matter["canonical_hosts"] == ["claude", "codex", "gemini", "kimi"]
+
+
+def test_schema_hosts_enum_includes_all_canonical_hosts() -> None:
+    schema = json.loads((ROOT / "registry" / "omg-capability.schema.json").read_text(encoding="utf-8"))
+    hosts = schema.get("properties", {}).get("hosts", {}).get("items", {}).get("enum", [])
+    assert set(hosts) == {"claude", "codex", "gemini", "kimi"}
