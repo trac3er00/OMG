@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from runtime.adoption import CANONICAL_VERSION
+
 
 def extract_canonical_version(source_file: Path) -> str | None:
     """Extract CANONICAL_VERSION from source file using AST parsing."""
@@ -48,7 +50,7 @@ def test_extract_canonical_version_success():
     )
     
     assert result.returncode == 0, f"Script failed: {result.stderr}"
-    assert result.stdout.strip() == "2.1.1", f"Unexpected version: {result.stdout}"
+    assert result.stdout.strip() == CANONICAL_VERSION, f"Unexpected version: {result.stdout}"
 
 
 def test_extract_canonical_version_output_format():
@@ -65,7 +67,7 @@ def test_extract_canonical_version_output_format():
     
     assert result.returncode == 0
     assert result.stdout.endswith("\n"), "Output must end with newline"
-    assert result.stdout == "2.1.1\n", f"Output format incorrect: {repr(result.stdout)}"
+    assert result.stdout == f"{CANONICAL_VERSION}\n", f"Output format incorrect: {repr(result.stdout)}"
 
 
 def test_extract_canonical_version_no_extra_output():
