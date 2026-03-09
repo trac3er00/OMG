@@ -437,3 +437,113 @@ class TestFullPipelineIntegration:
         )
         assert adoption_report["detected_ecosystems"] == ["omc", "omx", "superpowers"]
         assert adoption_report["selected_mode"] == "omg-only"
+
+
+# ---------------------------------------------------------------------------
+# Post-install validation
+# ---------------------------------------------------------------------------
+
+class TestPostInstallValidation:
+    """Integration: post-install validation runs at end of wizard flow."""
+
+    def test_wizard_includes_post_install_validation_on_success(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Successful wizard includes post_install_validation with pass status."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "Python 3.12", "required": True},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        assert result["status"] == "complete"
+        assert "post_install_validation" in result
+        piv = result["post_install_validation"]
+        assert piv["status"] == "pass"
+        assert piv["artifact_path"]
+        assert piv["blockers"] == []
+
+    def test_wizard_fails_on_validation_blockers(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Wizard returns validation_failed when post-install validation has blockers."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "fail",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+                {"name": "install_integrity", "status": "blocker",
+                 "message": "scripts/omg.py missing", "required": True},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        assert result["status"] == "validation_failed"
+        piv = result["post_install_validation"]
+        assert piv["status"] == "fail"
+        assert len(piv["blockers"]) == 1
+        assert piv["blockers"][0]["name"] == "install_integrity"
+        assert "omg.py" in piv["blockers"][0]["message"]
+
+    def test_wizard_persists_validation_artifact_to_disk(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Post-install validation writes a machine-readable artifact file."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        artifact = Path(result["post_install_validation"]["artifact_path"])
+        assert artifact.exists()
+        data = json.loads(artifact.read_text())
+        assert data["schema"] == "ValidateResult"
+        assert data["status"] == "pass"
+
+    def test_wizard_optional_warnings_do_not_fail_install(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Optional check warnings (e.g., NotebookLM) must not fail the core install."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+                {"name": "notebooklm", "status": "warning",
+                 "message": "not configured", "required": False},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        assert result["status"] == "complete"
+        assert result["post_install_validation"]["status"] == "pass"
+        assert result["post_install_validation"]["blockers"] == []

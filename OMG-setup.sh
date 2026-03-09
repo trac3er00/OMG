@@ -1908,6 +1908,48 @@ run_install_like() {
         echo "  Upgraded: $existing_ver → $VERSION"
         echo "  Backup: $BACKUP_DIR"
     fi
+    # --- Post-install validation (runs AFTER all setup writes complete) ---
+    echo ""
+    echo "Post-install validation..."
+    local validate_output=""
+    local validate_rc=0
+    validate_output=$(python3 "$SCRIPT_DIR/scripts/omg.py" validate --format json 2>&1) || validate_rc=$?
+
+    if ! $DRY_RUN && [ -n "$validate_output" ]; then
+        mkdir -p "$CLAUDE_DIR/.omg/state"
+        printf '%s\n' "$validate_output" > "$CLAUDE_DIR/.omg/state/post-install-validation.json"
+    fi
+
+    if [ $validate_rc -eq 0 ]; then
+        echo "  ✅ Post-install validation passed"
+        if ! $DRY_RUN; then
+            echo "  ✓ Artifact → $CLAUDE_DIR/.omg/state/post-install-validation.json"
+        fi
+    else
+        echo "  ❌ POST-INSTALL VALIDATION FAILED"
+        echo ""
+        printf '%s' "$validate_output" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    blockers = [c for c in data.get('checks', []) if c.get('status') == 'blocker']
+    if blockers:
+        print('  Blockers:')
+        for b in blockers:
+            print(f'    - {b[\"name\"]}: {b[\"message\"]}')
+    else:
+        print('  (no blocker details available)')
+except Exception:
+    print('  (could not parse validation output)')
+" 2>/dev/null
+        echo ""
+        if ! $DRY_RUN; then
+            echo "  Validation artifact: $CLAUDE_DIR/.omg/state/post-install-validation.json"
+        fi
+        echo "  Run: python3 $SCRIPT_DIR/scripts/omg.py validate"
+        exit 1
+    fi
+
     echo ""
     if $DRY_RUN; then
         echo "  *** DRY RUN — no files were changed ***"

@@ -1138,3 +1138,50 @@ def test_setup_integrity_check_dry_run_still_verifies(tmp_path: Path):
         assert "integrity" in out.lower()
     finally:
         manifest_path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Post-install validation (Task 8)
+# ---------------------------------------------------------------------------
+
+def test_setup_install_runs_post_install_validation(tmp_path: Path):
+    """Install flow runs post-install validation and emits artifact on success."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "Post-install validation" in out
+    assert "passed" in out.lower()
+    # Artifact should be mentioned
+    assert "post-install-validation.json" in out
+
+
+def test_setup_install_post_install_validation_failure_structured(tmp_path: Path):
+    """Install fails with structured output when post-install validation detects blockers."""
+    plugin_json = ROOT / "plugins" / "core" / "plugin.json"
+    plugin_json_bak = ROOT / "plugins" / "core" / "plugin.json._test_bak"
+
+    try:
+        plugin_json.rename(plugin_json_bak)
+
+        claude_dir = tmp_path / ".claude"
+        env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+        proc = _run_script(
+            SETUP,
+            ["install", "--non-interactive", "--merge-policy=skip"],
+            env=env,
+        )
+        assert proc.returncode != 0, "Install must fail when post-install validation has blockers"
+        out = proc.stdout + proc.stderr
+        assert "FAILED" in out or "failed" in out
+        assert "blocker" in out.lower() or "plugin" in out.lower()
+    finally:
+        if plugin_json_bak.exists():
+            plugin_json_bak.rename(plugin_json)
