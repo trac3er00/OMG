@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 2.1.4 - 2026-03-09
+
+- bump authored release identity to 2.1.4 across all 42 authored surfaces
+- refresh compat contract snapshot
+
 ## 2.1.1 - 2026-03-08
 
 - shipped strict TDD-or-die enforcement: locked-tests-first mutation lifecycle with hard gate via `OMG_TDD_GATE_STRICT`, stop-dispatcher lock enforcement, waiver evidence requirement, and release-blocking proof chain

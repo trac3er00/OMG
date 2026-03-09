@@ -219,7 +219,7 @@ def main() -> int:
     else:
         derived_result = {"status": "skipped", "blockers": []}
 
-    if args.forbid_version:
+    if args.forbid_version and args.scope in ("derived", "all"):
         residue_result = scan_scoped_residue(_REPO_ROOT, args.forbid_version)
 
     report = build_report(
