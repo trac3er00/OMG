@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import cast
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -20,6 +22,7 @@ from runtime.plugin_interop import (
     discover_omg_plugin_state,
     get_approval_status_for_all,
     plan_hook_chain,
+    probe_mcp_server_live,
 )
 from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
 
@@ -594,3 +597,32 @@ def test_approve_flow_updates_diagnosis(tmp_path: Path, monkeypatch: pytest.Monk
     diagnosis = run_plugin_diagnostics(str(tmp_path))
     approval_states = cast(dict[str, str], diagnosis["approval_states"])
     assert approval_states["filesystem"] == "approved"
+
+
+def test_live_probe_timeout_handled() -> None:
+    mock_proc = MagicMock()
+    mock_proc.communicate.side_effect = subprocess.TimeoutExpired(cmd=["fake"], timeout=1.5)
+    mock_proc.kill.return_value = None
+
+    with patch("runtime.plugin_interop.subprocess.Popen", return_value=mock_proc):
+        result = probe_mcp_server_live("test-server", ["fake-cmd"], timeout_ms=100)
+
+    assert result["server"] == "test-server"
+    assert result["status"] == "timeout"
+    assert isinstance(result["elapsed_ms"], float)
+    assert result["elapsed_ms"] >= 0
+    mock_proc.kill.assert_called_once()
+
+
+def test_live_probe_error_handled() -> None:
+    with patch(
+        "runtime.plugin_interop.subprocess.Popen",
+        side_effect=FileNotFoundError("No such file: 'nonexistent'"),
+    ):
+        result = probe_mcp_server_live("bad-server", ["nonexistent"], timeout_ms=500)
+
+    assert result["server"] == "bad-server"
+    assert result["status"] == "error"
+    assert "error" in result
+    assert isinstance(result["error"], str)
+    assert isinstance(result["elapsed_ms"], float)

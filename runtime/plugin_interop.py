@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -875,6 +877,111 @@ def _read_json_dict(path: Path) -> dict[str, object] | None:
     return cast(dict[str, object], payload_obj)
 
 
+_SAFE_ENV_KEYS: frozenset[str] = frozenset({"PATH", "HOME", "TMPDIR"})
+
+
+def probe_mcp_server_live(
+    server_name: str,
+    command: list[str],
+    timeout_ms: int = 1500,
+) -> dict[str, object]:
+    """Spawn an MCP server subprocess and send a JSON-RPC initialize request.
+
+    Returns a dict with ``server``, ``status`` (``ok`` | ``timeout`` | ``error``),
+    and ``elapsed_ms``.  Only ``PATH``, ``HOME``, and ``TMPDIR`` are forwarded
+    from the current environment — no secrets leak to the child process.
+    """
+    sanitized_env: dict[str, str] = {
+        key: os.environ[key] for key in _SAFE_ENV_KEYS if key in os.environ
+    }
+
+    initialize_request = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "omg-probe", "version": "0.1.0"},
+            },
+        }
+    ) + "\n"
+
+    started = time.monotonic()
+    try:
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=sanitized_env,
+        )
+    except Exception as exc:
+        elapsed = (time.monotonic() - started) * 1000.0
+        return {
+            "server": server_name,
+            "status": "error",
+            "error": str(exc),
+            "elapsed_ms": elapsed,
+        }
+
+    try:
+        stdout_bytes, _ = process.communicate(
+            input=initialize_request.encode("utf-8"),
+            timeout=timeout_ms / 1000.0,
+        )
+    except subprocess.TimeoutExpired:
+        process.kill()
+        try:
+            process.communicate(timeout=2)
+        except Exception:
+            pass
+        elapsed = (time.monotonic() - started) * 1000.0
+        return {
+            "server": server_name,
+            "status": "timeout",
+            "elapsed_ms": elapsed,
+        }
+    except Exception as exc:
+        elapsed = (time.monotonic() - started) * 1000.0
+        try:
+            process.kill()
+            process.communicate(timeout=2)
+        except Exception:
+            pass
+        return {
+            "server": server_name,
+            "status": "error",
+            "error": str(exc),
+            "elapsed_ms": elapsed,
+        }
+
+    elapsed = (time.monotonic() - started) * 1000.0
+
+    tools: list[str] = []
+    try:
+        response = json.loads(stdout_bytes.decode("utf-8", errors="replace").strip())
+        if isinstance(response, dict):
+            caps = response.get("result", {})
+            if isinstance(caps, dict):
+                tool_list = caps.get("capabilities", {}).get("tools", [])
+                if isinstance(tool_list, list):
+                    tools = [
+                        t.get("name", "") for t in tool_list
+                        if isinstance(t, dict) and isinstance(t.get("name"), str)
+                    ]
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        pass
+
+    return {
+        "server": server_name,
+        "status": "ok",
+        "tools": tools,
+        "elapsed_ms": elapsed,
+    }
+
+
 __all__ = [
     "CONFLICT_SEVERITY_MAP",
     "ConflictResult",
@@ -895,5 +1002,6 @@ __all__ = [
     "load_plugin_allowlist",
     "plan_hook_chain",
     "save_plugin_allowlist",
+    "probe_mcp_server_live",
     "validate_plugin_allowlist_entry",
 ]

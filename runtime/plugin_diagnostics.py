@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import time
+from pathlib import Path
 from typing import Callable, cast
 
 from runtime import plugin_interop
@@ -14,6 +16,84 @@ def _load_allowlist(root: str | None) -> list[plugin_interop.PluginAllowlistEntr
     if callable(load_fn):
         return load_fn(root)
     return []
+
+
+_LIVE_BUDGET_MS: float = 3000.0
+
+
+def _resolve_mcp_command(server_name: str, root: str | None) -> list[str] | None:
+    root_path = Path(root or ".").resolve()
+    for mcp_path in (
+        root_path / ".claude-plugin" / "mcp.json",
+        root_path / ".mcp.json",
+    ):
+        try:
+            raw = mcp_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        try:
+            payload = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        servers = payload.get("mcpServers", {})
+        if not isinstance(servers, dict):
+            continue
+        entry = servers.get(server_name)
+        if not isinstance(entry, dict):
+            continue
+        cmd = entry.get("command")
+        args = entry.get("args", [])
+        if isinstance(cmd, str):
+            cmd_list = [cmd]
+            if isinstance(args, list):
+                cmd_list.extend(str(a) for a in args)
+            return cmd_list
+    return None
+
+
+def _probe_mcp_servers_live(
+    records: list[plugin_interop.PluginInteropRecord],
+    root: str | None,
+) -> list[dict[str, object]]:
+    budget_start = time.monotonic()
+    results: list[dict[str, object]] = []
+    seen: set[str] = set()
+
+    for record in records:
+        for server_name in record.mcp_servers:
+            if server_name in seen:
+                continue
+            seen.add(server_name)
+
+            elapsed_total_ms = (time.monotonic() - budget_start) * 1000.0
+            if elapsed_total_ms >= _LIVE_BUDGET_MS:
+                results.append({
+                    "server": server_name,
+                    "status": "skipped",
+                    "elapsed_ms": 0.0,
+                })
+                continue
+
+            command = _resolve_mcp_command(server_name, root)
+            if command is None:
+                results.append({
+                    "server": server_name,
+                    "status": "skipped",
+                    "elapsed_ms": 0.0,
+                })
+                continue
+
+            remaining_ms = _LIVE_BUDGET_MS - elapsed_total_ms
+            probe_timeout = min(1500, int(remaining_ms))
+            results.append(
+                plugin_interop.probe_mcp_server_live(
+                    server_name, command, timeout_ms=probe_timeout,
+                )
+            )
+
+    return results
 
 
 def _record_sort_key(record: plugin_interop.PluginInteropRecord) -> tuple[str, str, str, str]:
@@ -78,7 +158,9 @@ def run_plugin_diagnostics(root: str | None = None, live: bool = False) -> dict[
         "elapsed_ms": (time.monotonic() - started) * 1000.0,
     }
 
-    _ = live
+    if live:
+        result["live_probe_results"] = _probe_mcp_servers_live(ordered_records, root)
+
     return result
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 import json
 
 from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
@@ -52,3 +53,34 @@ def test_approve_plugin_valid_source_approved(tmp_path: Path) -> None:
     assert result["status"] == "ok"
     allowlist_path = tmp_path / ".omg" / "state" / "plugins-allowlist.yaml"
     assert allowlist_path.exists()
+
+
+def test_run_plugin_diagnostics_live_false_no_probing(tmp_path: Path) -> None:
+    result = run_plugin_diagnostics(root=str(tmp_path), live=False)
+
+    assert "live_probe_results" not in result
+
+
+def test_run_plugin_diagnostics_live_true_has_probe_results(tmp_path: Path) -> None:
+    _ = (tmp_path / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"test-mcp": {"command": "echo", "args": ["hi"]}}}),
+        encoding="utf-8",
+    )
+
+    mock_probe_result = {
+        "server": "test-mcp",
+        "status": "ok",
+        "tools": [],
+        "elapsed_ms": 42.0,
+    }
+
+    with patch(
+        "runtime.plugin_diagnostics.plugin_interop.probe_mcp_server_live",
+        return_value=mock_probe_result,
+    ):
+        result = run_plugin_diagnostics(root=str(tmp_path), live=True)
+
+    assert "live_probe_results" in result
+    probe_results = result["live_probe_results"]
+    assert isinstance(probe_results, list)
+    assert any(p["server"] == "test-mcp" for p in probe_results)
