@@ -3,13 +3,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from runtime.adoption import CANONICAL_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _load_json(path: Path) -> dict[str, object]:
+def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -63,3 +66,52 @@ def test_trust_release_identity_is_canonical():
     assert readme.startswith("# OMG")
     assert "https://github.com/trac3er00/OMG" in readme
     assert "@trac3er/oh-my-god" in readme
+
+
+def test_runtime_consumer_surfaces_match_canonical():
+    setup_sh = (ROOT / "OMG-setup.sh").read_text(encoding="utf-8")
+    hud_mjs = (ROOT / "hud" / "omg-hud.mjs").read_text(encoding="utf-8")
+
+    assert f'VERSION="{CANONICAL_VERSION}"' in setup_sh, (
+        f"OMG-setup.sh VERSION must be {CANONICAL_VERSION}"
+    )
+    assert f'return "{CANONICAL_VERSION}"' in hud_mjs, (
+        f"hud/omg-hud.mjs static fallback must be {CANONICAL_VERSION}"
+    )
+
+
+@pytest.mark.xfail(
+    reason="stale banner v2.1.0 — needs sync-release-identity",
+    strict=True,
+)
+def test_runtime_consumer_install_sh_version():
+    content = (ROOT / ".claude-plugin" / "scripts" / "install.sh").read_text(
+        encoding="utf-8"
+    )
+    assert f"v{CANONICAL_VERSION}" in content, (
+        f"install.sh banner must reference v{CANONICAL_VERSION}"
+    )
+
+
+@pytest.mark.xfail(
+    reason="stale version 2.1.0 in frontmatter — needs sync-release-identity",
+    strict=True,
+)
+def test_generated_release_artifacts_match_canonical():
+    content = (
+        ROOT / "artifacts" / "release" / "OMG_COMPAT_CONTRACT.md"
+    ).read_text(encoding="utf-8")
+    assert f"version: {CANONICAL_VERSION}" in content, (
+        f"OMG_COMPAT_CONTRACT.md frontmatter must have version: {CANONICAL_VERSION}"
+    )
+
+
+@pytest.mark.xfail(
+    reason="stale version 2.1.0 — needs sync-release-identity (pytest-only check)",
+    strict=True,
+)
+def test_cli_adapter_map_version_examples():
+    content = (ROOT / "CLI-ADAPTER-MAP.md").read_text(encoding="utf-8")
+    assert f"**Version:** `{CANONICAL_VERSION}`" in content, (
+        f"CLI-ADAPTER-MAP.md version example must be {CANONICAL_VERSION}"
+    )

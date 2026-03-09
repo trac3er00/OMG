@@ -1510,3 +1510,96 @@ def test_removing_truth_council_bundle_from_constant_fails_parity(
             assert bundle_id in contract_compiler_module.DEFAULT_REQUIRED_BUNDLES, (
                 f"Truth/council bundle '{bundle_id}' missing from DEFAULT_REQUIRED_BUNDLES"
             )
+
+
+def _setup_drift_fixture(fixture_root: Path) -> None:
+    for f in ("package.json", "pyproject.toml", "settings.json", "CHANGELOG.md"):
+        shutil.copy2(ROOT / f, fixture_root / f)
+    for sub in ("plugins/core", "plugins/advanced", ".claude-plugin"):
+        (fixture_root / sub).mkdir(parents=True, exist_ok=True)
+    shutil.copy2(
+        ROOT / "plugins" / "core" / "plugin.json",
+        fixture_root / "plugins" / "core" / "plugin.json",
+    )
+    shutil.copy2(
+        ROOT / "plugins" / "advanced" / "plugin.json",
+        fixture_root / "plugins" / "advanced" / "plugin.json",
+    )
+    shutil.copy2(
+        ROOT / ".claude-plugin" / "plugin.json",
+        fixture_root / ".claude-plugin" / "plugin.json",
+    )
+    shutil.copy2(
+        ROOT / ".claude-plugin" / "marketplace.json",
+        fixture_root / ".claude-plugin" / "marketplace.json",
+    )
+
+
+@pytest.mark.xfail(
+    reason="blind spot: drift gate only checks top-level marketplace.json version",
+    strict=True,
+)
+def test_version_drift_blocker_on_marketplace_nested_version_fields(
+    tmp_path: Path,
+) -> None:
+    _setup_drift_fixture(tmp_path)
+
+    marketplace_data = {
+        "name": "omg",
+        "version": CANONICAL_VERSION,
+        "metadata": {
+            "description": "OMG",
+            "version": "0.0.0-stale",
+            "homepage": "https://github.com/trac3er00/OMG",
+            "repository": "https://github.com/trac3er00/OMG",
+        },
+        "plugins": [
+            {
+                "name": "omg",
+                "description": "OMG plugin",
+                "version": "0.0.0-stale",
+                "source": "./",
+                "author": {"name": "trac3er00"},
+                "license": "MIT",
+                "category": "productivity",
+                "tags": [],
+            }
+        ],
+    }
+    (tmp_path / ".claude-plugin" / "marketplace.json").write_text(
+        json.dumps(marketplace_data, indent=2), encoding="utf-8"
+    )
+
+    result = contract_compiler_module._check_version_identity_drift(tmp_path)
+
+    blockers = result["blockers"]
+    assert any("metadata" in b for b in blockers), (
+        f"Expected blocker for marketplace.json metadata.version divergence, got: {blockers}"
+    )
+    assert any("plugins" in b for b in blockers), (
+        f"Expected blocker for marketplace.json plugins[0].version divergence, got: {blockers}"
+    )
+
+
+def test_malformed_pyproject_toml_produces_explicit_parse_blocker(
+    tmp_path: Path,
+) -> None:
+    _setup_drift_fixture(tmp_path)
+
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = 'oh-my-god'\nversion = '2.1.1'\n",
+        encoding="utf-8",
+    )
+
+    result = contract_compiler_module._check_version_identity_drift(tmp_path)
+
+    blockers = result["blockers"]
+    pyproject_blockers = [b for b in blockers if "pyproject.toml" in b]
+    assert len(pyproject_blockers) > 0, (
+        f"Expected explicit parse blocker for malformed pyproject.toml, got: {blockers}"
+    )
+    assert not any(
+        "has version" in b and "expected" in b for b in pyproject_blockers
+    ), (
+        f"Malformed pyproject.toml must produce parse error, not silent mismatch: {pyproject_blockers}"
+    )
