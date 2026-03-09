@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 from collections import Counter
+from importlib import import_module
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
@@ -102,6 +103,7 @@ def run_security_check(
     source_counts = Counter(finding["source"] for finding in findings)
     relative_scope = _display_scope(project_dir, scope_path)
     delta = classify_project_changes(project_dir, touched_files=_delta_touched_files(project_dir, scope_path), goal="security check")
+    evidence_requirements = _requirements_for_profile(delta.get("evidence_profile"))
     unresolved_high_risk = [
         finding
         for finding in findings
@@ -191,7 +193,10 @@ def run_security_check(
             "scan_status": "completed",
             "manifest_count": len(manifests.manifests),
             "delta_categories": delta["categories"],
+            "delta_evidence_profile": delta.get("evidence_profile"),
+            "evidence_requirements": evidence_requirements,
         },
+        "evidence_requirements": evidence_requirements,
         "provenance": provenance,
         "trust_scores": trust_scores,
         "license": license_artifact,
@@ -205,6 +210,17 @@ def run_security_check(
         },
         "trace": {"trace_id": trace["trace_id"], "path": trace["path"]},
 }
+
+
+def _requirements_for_profile(evidence_profile: str | None) -> list[str]:
+    module = import_module("runtime.evidence_requirements")
+    resolver = getattr(module, "requirements_for_profile", None)
+    if callable(resolver):
+        resolved = resolver(evidence_profile)
+        if isinstance(resolved, (list, tuple, set)):
+            return [str(item) for item in resolved]
+    full = getattr(module, "FULL_REQUIREMENTS", [])
+    return [str(item) for item in full]
 
 
 def security_check(

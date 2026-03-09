@@ -50,13 +50,14 @@ def build_tool_plan(
     )
     council = _read_council_verdicts(str(_project_dir()), canonical_run_id)
 
+    project_dir = _project_dir()
     selected_tools: list[dict[str, object]] = []
     for tool_name in normalized_tools:
         if _is_tool_needed(tool_name, normalized_goal):
             selected_tools.append(
                 {
                     "name": tool_name,
-                    "args": _default_args(tool_name, normalized_goal, bounded_context),
+                    "args": _default_args(tool_name, normalized_goal, bounded_context, project_dir=project_dir),
                     "rationale": _rationale(tool_name),
                 }
             )
@@ -66,7 +67,7 @@ def build_tool_plan(
         selected_tools.append(
             {
                 "name": fallback,
-                "args": _default_args(fallback, normalized_goal, bounded_context),
+                "args": _default_args(fallback, normalized_goal, bounded_context, project_dir=project_dir),
                 "rationale": "fallback: no explicit keyword match; keep single minimal tool",
             }
         )
@@ -87,7 +88,7 @@ def build_tool_plan(
         "run_id": canonical_run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    _persist_plan(_project_dir(), plan_id, payload)
+    _persist_plan(project_dir, plan_id, payload)
     return payload
 
 
@@ -174,7 +175,15 @@ def _is_tool_needed(tool_name: str, goal: str) -> bool:
     return any(token in lowered_goal for token in keywords)
 
 
-def _default_args(tool_name: str, goal: str, context_packet: dict[str, object] | None) -> dict[str, object]:
+def _default_args(
+    tool_name: str,
+    goal: str,
+    context_packet: dict[str, object] | None,
+    *,
+    project_dir: Path,
+) -> dict[str, object]:
+    token = tool_name.strip().lower()
+
     if tool_name == "context7":
         return {"query": goal}
     if tool_name == "websearch":
@@ -183,6 +192,23 @@ def _default_args(tool_name: str, goal: str, context_packet: dict[str, object] |
         return {"scope": ".", "include_live_enrichment": False}
     if tool_name == "omg-control":
         return {"query": goal}
+
+    if token in {"todowrite", "proxy_todowrite"}:
+        content = goal.strip()[:120] or "Track current task"
+        return {
+            "todos": [
+                {
+                    "content": content,
+                    "status": "in_progress",
+                    "priority": "medium",
+                }
+            ]
+        }
+    if token in {"read", "proxy_read"}:
+        default_target = project_dir / "README.md"
+        if not default_target.exists():
+            default_target = project_dir
+        return {"filePath": str(default_target)}
 
     context_hint = ""
     if isinstance(context_packet, dict):
@@ -220,8 +246,8 @@ def _new_plan_id(run_id: str | None) -> str:
 
 def _project_dir(project_dir: str | None = None) -> Path:
     if project_dir:
-        return Path(project_dir)
-    return Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+        return Path(project_dir).resolve()
+    return Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())).resolve()
 
 
 def _persist_plan(project_dir: Path, plan_id: str, payload: dict[str, object]) -> None:

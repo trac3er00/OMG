@@ -1,6 +1,6 @@
 id: mcp-fabric
 kind: mcp
-version: 2.1.1
+version: 2.1.4
 title: OMG MCP Fabric
 description: Tools, prompts, resources, and server instructions for the OMG control plane.
 hosts:
