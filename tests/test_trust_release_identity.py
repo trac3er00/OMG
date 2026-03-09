@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from runtime.adoption import CANONICAL_VERSION
+from runtime.release_surfaces import AUTHORED_SURFACES, get_authored_paths
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -103,3 +104,70 @@ def test_cli_adapter_map_version_examples():
     assert f"**Version:** `{CANONICAL_VERSION}`" in content, (
         f"CLI-ADAPTER-MAP.md version example must be {CANONICAL_VERSION}"
     )
+
+
+# ── Inventory-driven surface existence checks ──────────────────────────────
+
+
+def test_all_authored_surface_paths_exist_on_disk():
+    """Every path declared in AUTHORED_SURFACES must exist in the repo.
+
+    Uses the shared inventory — no hardcoded path lists.
+    """
+    missing: list[str] = []
+    for path in get_authored_paths():
+        if not (ROOT / path).exists():
+            missing.append(path)
+    assert missing == [], f"Authored surface files missing on disk: {missing}"
+
+
+def test_compat_contract_snapshot_version_matches_canonical():
+    """runtime/omg_compat_contract_snapshot.json contract_version must match."""
+    data = _load_json(ROOT / "runtime" / "omg_compat_contract_snapshot.json")
+    assert data["contract_version"] == CANONICAL_VERSION, (
+        f"omg_compat_contract_snapshot.json contract_version is "
+        f"{data['contract_version']!r}, expected {CANONICAL_VERSION!r}"
+    )
+
+
+def test_capability_schema_version_matches_canonical():
+    """registry/omg-capability.schema.json version must match."""
+    data = _load_json(ROOT / "registry" / "omg-capability.schema.json")
+    assert data["version"] == CANONICAL_VERSION, (
+        f"omg-capability.schema.json version is "
+        f"{data['version']!r}, expected {CANONICAL_VERSION!r}"
+    )
+
+
+def test_advanced_plugin_version_matches_canonical():
+    """plugins/advanced/plugin.json version must match."""
+    data = _load_json(ROOT / "plugins" / "advanced" / "plugin.json")
+    assert data["version"] == CANONICAL_VERSION, (
+        f"plugins/advanced/plugin.json version is "
+        f"{data['version']!r}, expected {CANONICAL_VERSION!r}"
+    )
+
+
+def test_authored_surfaces_cover_all_identity_files():
+    """Spot-check that key identity files appear in AUTHORED_SURFACES.
+
+    Uses the inventory dynamically rather than a hardcoded checklist.
+    """
+    surface_paths = {s.file_path for s in AUTHORED_SURFACES}
+    expected_key_files = {
+        "package.json",
+        "settings.json",
+        ".claude-plugin/plugin.json",
+        ".claude-plugin/marketplace.json",
+        "plugins/core/plugin.json",
+        "plugins/advanced/plugin.json",
+        "registry/omg-capability.schema.json",
+        "runtime/omg_compat_contract_snapshot.json",
+        "pyproject.toml",
+        "CHANGELOG.md",
+        "OMG_COMPAT_CONTRACT.md",
+        "OMG-setup.sh",
+        "hud/omg-hud.mjs",
+    }
+    missing = expected_key_files - surface_paths
+    assert missing == set(), f"Key identity files not in AUTHORED_SURFACES: {missing}"

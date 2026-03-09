@@ -1636,3 +1636,107 @@ def test_malformed_pyproject_toml_produces_explicit_parse_blocker(
     ), (
         f"Malformed pyproject.toml must produce parse error, not silent mismatch: {pyproject_blockers}"
     )
+
+
+# ── Version identity drift integration with build_release_readiness ────────
+
+
+def test_build_release_readiness_includes_version_identity_drift_section(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """build_release_readiness output must include a version_identity_drift check."""
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert "version_identity_drift" in readiness["checks"], (
+        "build_release_readiness must include version_identity_drift in checks"
+    )
+    drift_check = readiness["checks"]["version_identity_drift"]
+    assert "status" in drift_check
+    assert "blockers" in drift_check
+
+
+def test_build_release_readiness_drift_section_contains_blockers_on_mismatch(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """When version drift exists, version_identity_drift section must report blockers."""
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+
+    # Patch all checks EXCEPT version drift — let that run live against tmp_path
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_packaged_install_smoke",
+        lambda _root: {"status": "ok", "blockers": []},
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_mcp_fabric",
+        lambda: {"ready": True, "prompt_count": 1, "resource_count": 1},
+    )
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    # Set up a fixture root with a deliberately drifted version in package.json
+    fixture_root = tmp_path / "drift-root"
+    fixture_root.mkdir(parents=True, exist_ok=True)
+    _setup_drift_fixture(fixture_root)
+    (fixture_root / "registry").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / "OMG_COMPAT_CONTRACT.md", fixture_root / "OMG_COMPAT_CONTRACT.md")
+    shutil.copy2(
+        ROOT / "registry" / "omg-capability.schema.json",
+        fixture_root / "registry" / "omg-capability.schema.json",
+    )
+    shutil.copytree(ROOT / "registry" / "bundles", fixture_root / "registry" / "bundles")
+    (fixture_root / ".git").mkdir(parents=True, exist_ok=True)
+
+    # Inject drift: package.json with wrong version
+    pkg = json.loads((fixture_root / "package.json").read_text(encoding="utf-8"))
+    pkg["version"] = "0.0.0-drifted"
+    (fixture_root / "package.json").write_text(
+        json.dumps(pkg, indent=2), encoding="utf-8"
+    )
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    # Stub registry validation for the fixture root
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "validate_contract_registry",
+        lambda _root: {"status": "ok", "errors": [], "bundles": [], "contract": {}},
+    )
+
+    readiness = build_release_readiness(
+        root_dir=fixture_root, output_root=tmp_path, channel="public"
+    )
+
+    assert readiness["status"] == "error"
+    assert "version_identity_drift" in readiness["checks"]
+    drift_section = readiness["checks"]["version_identity_drift"]
+    assert len(drift_section["blockers"]) > 0, (
+        f"Expected blockers in version_identity_drift section, got: {drift_section}"
+    )
+    assert any("package.json" in b for b in drift_section["blockers"]), (
+        f"Expected package.json drift blocker, got: {drift_section['blockers']}"
+    )
