@@ -111,6 +111,36 @@ class TestForgeEvidencePipeline:
         assert result["evidence_path"] == str(evidence_path)
         assert evidence_path.exists()
 
+    def test_run_pipeline_with_evidence_emits_staged_contract_evidence(self, tmp_path: Path):
+        defense_dir = tmp_path / ".omg" / "state" / "defense_state"
+        defense_dir.mkdir(parents=True, exist_ok=True)
+        (defense_dir / "run-stage.json").write_text(
+            json.dumps({"schema": "DefenseState", "run_id": "run-stage", "controls": {"firewall": "enabled"}}),
+            encoding="utf-8",
+        )
+
+        health_dir = tmp_path / ".omg" / "state" / "session_health"
+        health_dir.mkdir(parents=True, exist_ok=True)
+        (health_dir / "run-stage.json").write_text(
+            json.dumps({"schema": "SessionHealth", "run_id": "run-stage", "context_health": "green"}),
+            encoding="utf-8",
+        )
+
+        result = run_pipeline_with_evidence(str(tmp_path), _valid_job(), "run-stage")
+        assert result["run_id"] == "run-stage"
+        assert len(result["stage_evidence"]) == 5
+
+        first_stage = result["stage_evidence"][0]
+        assert first_stage["run_id"] == "run-stage"
+        assert first_stage["stage"] == "data_prepare"
+        assert first_stage["status"] == "success"
+        assert first_stage["defense_snapshot"]["controls"]["firewall"] == "enabled"
+        assert first_stage["session_health_snapshot"]["context_health"] == "green"
+
+        payload = json.loads((tmp_path / ".omg" / "evidence" / "forge-run-stage.json").read_text(encoding="utf-8"))
+        assert len(payload["stage_evidence"]) == 5
+        assert payload["stage_evidence"][0]["run_id"] == "run-stage"
+
 
 class TestForgeCLI:
     def test_forge_help_exits_zero(self):
@@ -327,6 +357,30 @@ class TestForgeSpecialists:
         assert output["status"] == "ready"
         assert output["agent_path"] == "vision-agent"
         assert output["specialist_dispatch"]["status"] == "ok"
+
+    def test_forge_vision_agent_emits_staged_evidence(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "vision-agent",
+                "--preset",
+                "labs",
+                "--run-id",
+                "vision-stage-run",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["run_id"] == "vision-stage-run"
+        assert len(output["stage_evidence"]) == 5
+        assert output["stage_evidence"][0]["stage"] == "data_prepare"
+        assert output["stage_evidence"][-1]["stage"] == "regression_test"
 
     def test_forge_run_invalid_specialists_blocked(self):
         job = _valid_job()

@@ -48,6 +48,8 @@ def test_dispatch_specialists_writes_evidence_and_returns_shape(tmp_path: Path) 
     result = dispatch_specialists(_valid_job(), str(tmp_path))
 
     assert result["status"] == "ok"
+    assert isinstance(result["run_id"], str)
+    assert result["run_id"]
     assert result["specialists_dispatched"] == [
         "data-curator",
         "training-architect",
@@ -57,6 +59,7 @@ def test_dispatch_specialists_writes_evidence_and_returns_shape(tmp_path: Path) 
     assert evidence_path.exists()
     payload = json.loads(evidence_path.read_text(encoding="utf-8"))
     assert payload["schema"] == "ForgeSpecialistDispatchEvidence"
+    assert payload["run_id"] == result["run_id"]
     assert payload["contract"]["labs_only"] is True
 
 
@@ -218,6 +221,29 @@ def test_dispatch_evidence_falls_back_to_latest_when_run_scoped_missing(tmp_path
     payload = json.loads(evidence_path.read_text(encoding="utf-8"))
     assert payload["defense_state"]["controls"]["firewall"] == "legacy"
     assert payload["session_health"]["run_id"] == "legacy-run"
+
+
+def test_dispatch_evidence_uses_explicit_run_id_for_state_lookup(tmp_path: Path) -> None:
+    defense_dir = tmp_path / ".omg" / "state" / "defense_state"
+    defense_dir.mkdir(parents=True, exist_ok=True)
+    (defense_dir / "forge-run-42.json").write_text(
+        json.dumps({"schema": "DefenseState", "run_id": "forge-run-42", "controls": {"firewall": "run-scoped"}}),
+        encoding="utf-8",
+    )
+
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "forge-run-42.json").write_text(
+        json.dumps({"schema": "SessionHealth", "run_id": "forge-run-42", "recommended_action": "continue"}),
+        encoding="utf-8",
+    )
+
+    result = dispatch_specialists(_valid_job(), str(tmp_path), run_id="forge-run-42")
+
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert payload["defense_state"]["controls"]["firewall"] == "run-scoped"
+    assert payload["session_health"]["run_id"] == "forge-run-42"
 
 
 def test_forge_vision_agent_labs_only_enforcement() -> None:

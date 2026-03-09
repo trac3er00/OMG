@@ -43,7 +43,7 @@ def get_specialist_registry() -> dict[str, dict[str, object]]:
     return {name: dict(metadata) for name, metadata in _SPECIALIST_REGISTRY.items()}
 
 
-def dispatch_specialists(job: dict[str, Any], project_dir: str) -> dict[str, Any]:
+def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | None = None) -> dict[str, Any]:
     ok, reason = validate_forge_job(job)
     if not ok:
         return {
@@ -93,10 +93,11 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str) -> dict[str, Any
 
     specialists_dispatched = requested_specialists if requested_specialists else expected_specialists
     status = "ok" if specialists_dispatched else "noop"
-    run_id = _now_run_id()
+    active_run_id = run_id or _now_run_id()
     evidence_path = _write_dispatch_evidence(
         project_dir=project_dir,
-        run_id=run_id,
+        run_id=active_run_id,
+        snapshot_run_id=run_id,
         status=status,
         domain=domain,
         expected_specialists=expected_specialists,
@@ -107,6 +108,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str) -> dict[str, Any
     return {
         "status": status,
         "specialists_dispatched": specialists_dispatched,
+        "run_id": active_run_id,
         "evidence_path": evidence_path,
     }
 
@@ -130,6 +132,7 @@ def _write_dispatch_evidence(
     *,
     project_dir: str,
     run_id: str,
+    snapshot_run_id: str | None,
     status: str,
     domain: str,
     expected_specialists: list[str],
@@ -168,26 +171,14 @@ def _write_dispatch_evidence(
         "job": job,
     }
 
-    defense_state = _load_latest_state(project_dir, "defense_state")
-    session_health = _load_latest_state(project_dir, "session_health")
-    if defense_state is not None:
+    defense_state = read_defense_state(project_dir, run_id=snapshot_run_id, compat=True)
+    session_health = read_session_health(project_dir, run_id=snapshot_run_id, compat=True)
+    if isinstance(defense_state, dict):
         payload["defense_state"] = defense_state
-    if session_health is not None:
+    if isinstance(session_health, dict):
         payload["session_health"] = session_health
 
     tmp_path = evidence_path.with_name(f"{evidence_path.name}.tmp")
     _ = tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
     _ = os.replace(tmp_path, evidence_path)
     return str(evidence_path)
-
-
-def _load_latest_state(project_dir: str, module: str) -> dict[str, Any] | None:
-    payload: object | None = None
-    if module == "defense_state":
-        payload = read_defense_state(project_dir, compat=True)
-    elif module == "session_health":
-        payload = read_session_health(project_dir, compat=True)
-
-    if isinstance(payload, dict):
-        return payload
-    return None
