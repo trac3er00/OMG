@@ -597,3 +597,102 @@ class TestPostInstallValidation:
             "Warning must mention dedicated account guidance"
         assert "auth" in warning_text.lower() or "expiry" in warning_text.lower(), \
             "Warning must mention auth expiry"
+
+
+# ---------------------------------------------------------------------------
+# NotebookLM health check integration
+# ---------------------------------------------------------------------------
+
+class TestNotebookLMHealthCheck:
+    """Integration: NotebookLM validation in health/reporting surfaces."""
+
+    def test_notebooklm_health_check_runs_when_selected(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """When NotebookLM is in selected MCPs, validate must include its health check."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+                {"name": "notebooklm", "status": "ok",
+                 "message": "npx available, notebooklm-mcp callable", "required": False},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem", "notebooklm"],
+            )
+
+        assert result["status"] == "complete"
+        piv = result["post_install_validation"]
+        assert piv["status"] == "pass"
+        assert piv["blockers"] == []
+
+    def test_notebooklm_health_warning_does_not_block_install(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """NotebookLM warning (missing Node/npx) must not block setup wizard completion."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+                {"name": "notebooklm", "status": "warning",
+                 "message": "npx not found — install Node.js to use NotebookLM",
+                 "required": False},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem", "notebooklm"],
+            )
+
+        assert result["status"] == "complete"
+        piv = result["post_install_validation"]
+        assert piv["status"] == "pass"
+        assert piv["blockers"] == []
+
+    def test_notebooklm_check_not_run_when_unselected(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """When NotebookLM is NOT in selected MCPs, validate must NOT include it."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem"],
+            )
+
+        assert result["status"] == "complete"
+        piv = result["post_install_validation"]
+        check_names = [
+            b["name"] for b in piv.get("blockers", [])
+        ]
+        assert "notebooklm" not in check_names

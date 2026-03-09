@@ -7,6 +7,7 @@ governor, install integrity) rather than duplicating their logic.
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -134,6 +135,64 @@ def _check_install_integrity(root_dir: Path) -> dict[str, Any]:
     )
 
 
+def _load_selected_mcps(root_dir: Path) -> list[str]:
+    """Load selected MCP IDs from cli-config.yaml.
+
+    Checks CLAUDE_PROJECT_DIR env first, then falls back to root_dir.
+    Returns an empty list when the config file is absent or unparseable.
+    """
+    import yaml as _yaml
+
+    project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
+    if project_dir:
+        config_path = os.path.join(project_dir, ".omg", "state", "cli-config.yaml")
+    else:
+        config_path = os.path.join(root_dir, ".omg", "state", "cli-config.yaml")
+
+    if not os.path.isfile(config_path):
+        return []
+
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = _yaml.safe_load(f)
+    except Exception:
+        return []
+
+    if not isinstance(data, dict):
+        return []
+
+    mcps = data.get("selected_mcps", [])
+    return [str(m) for m in mcps] if isinstance(mcps, list) else []
+
+
+def _check_notebooklm(root_dir: Path) -> dict[str, Any] | None:
+    """Optional NotebookLM health check — only runs when notebooklm is selected.
+
+    Returns None when NotebookLM is not in the selected MCP set (meaning:
+    skip entirely, no check emitted).  When selected, checks that ``npx``
+    is reachable on PATH.  Missing npx is a *warning*, never a blocker.
+    """
+    selected = _load_selected_mcps(root_dir)
+    if "notebooklm" not in selected:
+        return None
+
+    npx_path = shutil.which("npx")
+    if npx_path is None:
+        return _doctor_check(
+            "notebooklm",
+            ok=False,
+            message="npx not found — install Node.js to use NotebookLM",
+            required=False,
+        )
+
+    return _doctor_check(
+        "notebooklm",
+        ok=True,
+        message="npx available, notebooklm-mcp callable",
+        required=False,
+    )
+
+
 def run_validate(*, root_dir: Path | None = None) -> dict[str, Any]:
     """Run all validation checks and return a structured result.
 
@@ -142,6 +201,7 @@ def run_validate(*, root_dir: Path | None = None) -> dict[str, Any]:
     2. Contract registry validation
     3. Profile governor validation
     4. Install integrity check
+    5. Optional NotebookLM check (only when selected in MCP config)
 
     Returns a dict matching the ``ValidateResult`` schema:
     ``{"schema": "ValidateResult", "status": "pass"|"fail", "checks": [...], "version": "..."}``
@@ -162,6 +222,11 @@ def run_validate(*, root_dir: Path | None = None) -> dict[str, Any]:
 
     # 4. Install integrity
     checks.append(_check_install_integrity(repo_root))
+
+    # 5. Optional: NotebookLM (only when selected)
+    nb_check = _check_notebooklm(repo_root)
+    if nb_check is not None:
+        checks.append(nb_check)
 
     has_blocker = any(c["status"] == "blocker" for c in checks)
 
