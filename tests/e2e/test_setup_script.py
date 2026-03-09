@@ -1012,3 +1012,176 @@ def test_setup_plugin_mcp_server_starts_outside_repo_root(tmp_path: Path):
     unrelated_cwd = tmp_path / "outside"
     unrelated_cwd.mkdir()
     _assert_command_starts(command, args, unrelated_cwd)
+
+
+# --- Pre-install integrity verification tests ---
+
+
+def test_setup_install_proceeds_when_no_integrity_manifest(tmp_path: Path):
+    """Install completes normally when no INSTALL_INTEGRITY.sha256 manifest exists."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    # Should note that no manifest was found, but not block
+    assert "no integrity manifest" in out.lower() or "integrity" in out.lower()
+
+
+def test_setup_install_proceeds_with_valid_integrity_manifest(tmp_path: Path):
+    """Install completes when integrity manifest exists and all hashes match."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    # Create a valid manifest with real hashes of files in SCRIPT_DIR
+    manifest_path = ROOT / "INSTALL_INTEGRITY.sha256"
+    try:
+        # Hash a known file that always exists
+        import hashlib
+        target_file = ROOT / "OMG-setup.sh"
+        file_hash = hashlib.sha256(target_file.read_bytes()).hexdigest()
+        manifest_path.write_text(f"{file_hash}  OMG-setup.sh\n", encoding="utf-8")
+
+        proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+        assert proc.returncode == 0
+        out = proc.stdout + proc.stderr
+        assert "integrity verified" in out.lower()
+    finally:
+        manifest_path.unlink(missing_ok=True)
+
+
+def test_setup_install_blocked_on_integrity_hash_mismatch(tmp_path: Path):
+    """Install is blocked with actionable output when hash mismatch is detected."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    manifest_path = ROOT / "INSTALL_INTEGRITY.sha256"
+    try:
+        # Write a manifest with a bogus hash
+        manifest_path.write_text(
+            "0000000000000000000000000000000000000000000000000000000000000000  OMG-setup.sh\n",
+            encoding="utf-8",
+        )
+
+        proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+        assert proc.returncode != 0, "Install must fail on hash mismatch"
+        out = proc.stdout + proc.stderr
+        assert "integrity" in out.lower()
+        assert "mismatch" in out.lower() or "failed" in out.lower()
+        assert "OMG-setup.sh" in out
+    finally:
+        manifest_path.unlink(missing_ok=True)
+
+
+def test_setup_install_blocked_on_missing_manifest_file(tmp_path: Path):
+    """Install is blocked when manifest references a file that doesn't exist."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    manifest_path = ROOT / "INSTALL_INTEGRITY.sha256"
+    try:
+        # Reference a file that doesn't exist
+        manifest_path.write_text(
+            "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890  nonexistent-file.txt\n",
+            encoding="utf-8",
+        )
+
+        proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+        assert proc.returncode != 0, "Install must fail when manifest references missing file"
+        out = proc.stdout + proc.stderr
+        assert "integrity" in out.lower()
+        assert "nonexistent-file.txt" in out
+    finally:
+        manifest_path.unlink(missing_ok=True)
+
+
+def test_setup_integrity_check_runs_before_host_mutation(tmp_path: Path):
+    """Integrity check must run before any host config files are created."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    manifest_path = ROOT / "INSTALL_INTEGRITY.sha256"
+    try:
+        # Write a bad manifest to trigger failure
+        manifest_path.write_text(
+            "0000000000000000000000000000000000000000000000000000000000000000  OMG-setup.sh\n",
+            encoding="utf-8",
+        )
+
+        proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+        assert proc.returncode != 0
+
+        # No host mutation should have happened
+        assert not (claude_dir / "hooks").exists(), "hooks dir should not exist after integrity failure"
+        assert not (claude_dir / "rules").exists(), "rules dir should not exist after integrity failure"
+        assert not (claude_dir / "agents").exists(), "agents dir should not exist after integrity failure"
+    finally:
+        manifest_path.unlink(missing_ok=True)
+
+
+def test_setup_integrity_check_dry_run_still_verifies(tmp_path: Path):
+    """Integrity check runs even in dry-run mode — invalid source should still be caught."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    manifest_path = ROOT / "INSTALL_INTEGRITY.sha256"
+    try:
+        manifest_path.write_text(
+            "0000000000000000000000000000000000000000000000000000000000000000  OMG-setup.sh\n",
+            encoding="utf-8",
+        )
+
+        proc = _run_script(SETUP, ["install", "--dry-run", "--non-interactive"], env=env)
+        assert proc.returncode != 0, "Dry-run must also fail on integrity mismatch"
+        out = proc.stdout + proc.stderr
+        assert "integrity" in out.lower()
+    finally:
+        manifest_path.unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Post-install validation (Task 8)
+# ---------------------------------------------------------------------------
+
+def test_setup_install_runs_post_install_validation(tmp_path: Path):
+    """Install flow runs post-install validation and emits artifact on success."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert proc.returncode == 0
+    out = proc.stdout + proc.stderr
+    assert "Post-install validation" in out
+    assert "passed" in out.lower()
+    # Artifact should be mentioned
+    assert "post-install-validation.json" in out
+
+
+def test_setup_install_post_install_validation_failure_structured(tmp_path: Path):
+    """Install fails with structured output when post-install validation detects blockers."""
+    plugin_json = ROOT / "plugins" / "core" / "plugin.json"
+    plugin_json_bak = ROOT / "plugins" / "core" / "plugin.json._test_bak"
+
+    try:
+        plugin_json.rename(plugin_json_bak)
+
+        claude_dir = tmp_path / ".claude"
+        env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+        proc = _run_script(
+            SETUP,
+            ["install", "--non-interactive", "--merge-policy=skip"],
+            env=env,
+        )
+        assert proc.returncode != 0, "Install must fail when post-install validation has blockers"
+        out = proc.stdout + proc.stderr
+        assert "FAILED" in out or "failed" in out
+        assert "blocker" in out.lower() or "plugin" in out.lower()
+    finally:
+        if plugin_json_bak.exists():
+            plugin_json_bak.rename(plugin_json)

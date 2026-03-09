@@ -34,6 +34,9 @@ def test_load_forge_mvp_exposes_bounded_contract_fields() -> None:
     assert "evaluation_schema" in contract
     assert "specialist_dispatch" in contract
     assert contract["evidence_output_path"] == ".omg/evidence/forge-<run_id>.json"
+    assert "stage_aliases" in contract
+    stage_aliases = cast(dict[str, str], contract["stage_aliases"])
+    assert stage_aliases["security_review"] == "regression_test"
 
 
 def test_validate_forge_job_delegates_policy_and_checks_schema() -> None:
@@ -190,3 +193,14 @@ def test_load_forge_mvp_job_schema_includes_adapter_optional_fields() -> None:
     optional = cast(list[str], schema["optional"])
     assert "simulator_backend" in optional
     assert "require_backend" in optional
+
+
+def test_load_forge_mvp_includes_cybersecurity_specialist_contract() -> None:
+    contract = load_forge_mvp()
+    specialist_contracts = cast(dict[str, object], contract["specialist_contracts"])
+    cybersecurity = cast(dict[str, object], specialist_contracts["forge-cybersecurity"])
+
+    assert cybersecurity["labs_only"] is True
+    assert cybersecurity["allowed_domains"] == ["cybersecurity"]
+    assert cybersecurity["evidence_profile"] == "forge-run"
+    assert cybersecurity["stage_alias"] == "regression_test"

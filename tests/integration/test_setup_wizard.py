@@ -437,3 +437,262 @@ class TestFullPipelineIntegration:
         )
         assert adoption_report["detected_ecosystems"] == ["omc", "omx", "superpowers"]
         assert adoption_report["selected_mode"] == "omg-only"
+
+
+# ---------------------------------------------------------------------------
+# Post-install validation
+# ---------------------------------------------------------------------------
+
+class TestPostInstallValidation:
+    """Integration: post-install validation runs at end of wizard flow."""
+
+    def test_wizard_includes_post_install_validation_on_success(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Successful wizard includes post_install_validation with pass status."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "Python 3.12", "required": True},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        assert result["status"] == "complete"
+        assert "post_install_validation" in result
+        piv = result["post_install_validation"]
+        assert piv["status"] == "pass"
+        assert piv["artifact_path"]
+        assert piv["blockers"] == []
+
+    def test_wizard_fails_on_validation_blockers(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Wizard returns validation_failed when post-install validation has blockers."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "fail",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+                {"name": "install_integrity", "status": "blocker",
+                 "message": "scripts/omg.py missing", "required": True},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        assert result["status"] == "validation_failed"
+        piv = result["post_install_validation"]
+        assert piv["status"] == "fail"
+        assert len(piv["blockers"]) == 1
+        assert piv["blockers"][0]["name"] == "install_integrity"
+        assert "omg.py" in piv["blockers"][0]["message"]
+
+    def test_wizard_persists_validation_artifact_to_disk(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Post-install validation writes a machine-readable artifact file."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        artifact = Path(result["post_install_validation"]["artifact_path"])
+        assert artifact.exists()
+        data = json.loads(artifact.read_text())
+        assert data["schema"] == "ValidateResult"
+        assert data["status"] == "pass"
+
+    def test_wizard_optional_warnings_do_not_fail_install(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Optional check warnings (e.g., NotebookLM) must not fail the core install."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+                {"name": "notebooklm", "status": "warning",
+                 "message": "not configured", "required": False},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        assert result["status"] == "complete"
+        assert result["post_install_validation"]["status"] == "pass"
+        assert result["post_install_validation"]["blockers"] == []
+
+    def test_notebooklm_is_selectable_but_not_preset_enabled(self, tmp_path, monkeypatch, _patch_cli_writers):
+        """NotebookLM should be selectable but never auto-included by any preset."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        # Verify NotebookLM is in the catalog
+        catalog = setup_wizard.get_mcp_catalog()
+        notebooklm_entry = next((m for m in catalog if m["id"] == "notebooklm"), None)
+        assert notebooklm_entry is not None, "NotebookLM must be in MCP catalog"
+        
+        # Verify NotebookLM has no min_preset (opt-in only)
+        assert "min_preset" not in notebooklm_entry or notebooklm_entry.get("min_preset") is None, \
+            "NotebookLM must not have min_preset (opt-in only)"
+
+        # Verify NotebookLM is NOT in any preset's defaults
+        for preset in setup_wizard.PRESET_ORDER:
+            defaults = setup_wizard.get_default_mcps_for_preset(preset)
+            assert "notebooklm" not in defaults, \
+                f"NotebookLM must not be in {preset} preset defaults"
+
+        # Verify NotebookLM can be explicitly selected
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem", "notebooklm"],
+            )
+
+        data = yaml.safe_load((tmp_path / ".omg" / "state" / "cli-config.yaml").read_text())
+        assert "notebooklm" in result["preferences"]["config"]["selected_mcps"]
+        assert "notebooklm" in data["selected_mcps"]
+
+    def test_notebooklm_selection_shows_warning_text(self, tmp_path, monkeypatch, _patch_cli_writers):
+        """NotebookLM selection must include warning text about browser automation, download size, account, and auth expiry."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        catalog = setup_wizard.get_mcp_catalog()
+        notebooklm_entry = next((m for m in catalog if m["id"] == "notebooklm"), None)
+        assert notebooklm_entry is not None, "NotebookLM must be in MCP catalog"
+
+        # Verify warning text is present in the entry
+        warning_text = notebooklm_entry.get("warning", "")
+        assert "browser automation" in warning_text.lower(), \
+            "Warning must mention browser automation"
+        assert "download" in warning_text.lower() or "size" in warning_text.lower(), \
+            "Warning must mention download size"
+        assert "account" in warning_text.lower() or "dedicated" in warning_text.lower(), \
+            "Warning must mention dedicated account guidance"
+        assert "auth" in warning_text.lower() or "expiry" in warning_text.lower(), \
+            "Warning must mention auth expiry"
+
+
+# ---------------------------------------------------------------------------
+# NotebookLM health check integration
+# ---------------------------------------------------------------------------
+
+class TestNotebookLMHealthCheck:
+    """Integration: NotebookLM validation in health/reporting surfaces."""
+
+    def test_notebooklm_health_check_runs_when_selected(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """When NotebookLM is in selected MCPs, validate must include its health check."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+                {"name": "notebooklm", "status": "ok",
+                 "message": "npx available, notebooklm-mcp callable", "required": False},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem", "notebooklm"],
+            )
+
+        assert result["status"] == "complete"
+        piv = result["post_install_validation"]
+        assert piv["status"] == "pass"
+        assert piv["blockers"] == []
+
+    def test_notebooklm_health_warning_does_not_block_install(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """NotebookLM warning (missing Node/npx) must not block setup wizard completion."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+                {"name": "notebooklm", "status": "warning",
+                 "message": "npx not found — install Node.js to use NotebookLM",
+                 "required": False},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem", "notebooklm"],
+            )
+
+        assert result["status"] == "complete"
+        piv = result["post_install_validation"]
+        assert piv["status"] == "pass"
+        assert piv["blockers"] == []
+
+    def test_notebooklm_check_not_run_when_unselected(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """When NotebookLM is NOT in selected MCPs, validate must NOT include it."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult",
+            "status": "pass",
+            "checks": [
+                {"name": "python_version", "status": "ok", "message": "ok", "required": True},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem"],
+            )
+
+        assert result["status"] == "complete"
+        piv = result["post_install_validation"]
+        check_names = [
+            b["name"] for b in piv.get("blockers", [])
+        ]
+        assert "notebooklm" not in check_names

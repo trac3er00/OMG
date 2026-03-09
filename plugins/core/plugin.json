@@ -66,7 +66,7 @@
     },
     "profile-review": {
       "path": "commands/OMG:profile-review.md",
-      "description": "Review governed profile state — preferences, confirmations, decay, provenance",
+      "description": "Review governed profile state \u2014 preferences, confirmations, decay, provenance",
       "category": "observability"
     },
     "mode": {
@@ -103,51 +103,85 @@
     },
     "arch": {
       "path": "commands/OMG:arch.md",
-      "description": "Codebase visualization — dependency graphs and architecture diagrams",
+      "description": "Codebase visualization \u2014 dependency graphs and architecture diagrams",
       "category": "visualization",
       "feature_flag": "CODEBASE_VIZ"
+    },
+    "validate": {
+      "path": "commands/OMG:validate.md",
+      "description": "Canonical validation \u2014 doctor + contract + profile + install checks",
+      "category": "observability"
     }
   },
   "categories": {
     "setup": {
       "description": "Project initialization and setup",
-      "commands": ["setup", "init", "health-check"]
+      "commands": [
+        "setup",
+        "init",
+        "health-check"
+      ]
     },
     "routing": {
       "description": "Model routing and escalation",
-      "commands": ["escalate", "teams", "ccg", "preflight"]
+      "commands": [
+        "escalate",
+        "teams",
+        "ccg",
+        "preflight"
+      ]
     },
     "verification": {
       "description": "Verification flows with normalized evidence",
-      "commands": ["browser"]
+      "commands": [
+        "browser"
+      ]
     },
     "orchestration": {
       "description": "Multi-agent orchestration modes",
-      "commands": ["crazy"]
+      "commands": [
+        "crazy"
+      ]
     },
     "compatibility": {
       "description": "Legacy compatibility",
-      "commands": ["compat"]
+      "commands": [
+        "compat"
+      ]
     },
     "config": {
       "description": "Configuration and settings",
-      "commands": ["mode"]
+      "commands": [
+        "mode"
+      ]
     },
     "observability": {
       "description": "Cost tracking and session observability",
-      "commands": ["cost", "stats", "deps", "profile-review"]
+      "commands": [
+        "cost",
+        "stats",
+        "deps",
+        "profile-review",
+        "validate"
+      ]
     },
     "security": {
       "description": "Canonical security and trust checks",
-      "commands": ["security-check"]
+      "commands": [
+        "security-check"
+      ]
     },
     "contracts": {
       "description": "Contract replay and API simulation",
-      "commands": ["api-twin"]
+      "commands": [
+        "api-twin"
+      ]
     },
     "visualization": {
       "description": "Codebase visualization and architecture diagrams",
-      "commands": ["arch"]
+      "commands": [
+        "arch"
+      ]
     }
   },
   "roles": {

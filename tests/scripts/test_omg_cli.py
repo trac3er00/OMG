@@ -932,3 +932,145 @@ def test_cli_profile_review_read_only(tmp_path):
 def test_cli_profile_review_help_lists_command():
     proc = _run(["--help"])
     assert "profile-review" in proc.stdout + proc.stderr
+
+
+# --- validate command tests ---
+
+
+def test_cli_validate_json_output_has_required_fields():
+    proc = _run(["validate", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "ValidateResult"
+    assert "status" in out
+    assert out["status"] in ("pass", "fail")
+    assert "checks" in out
+    assert isinstance(out["checks"], list)
+    assert "version" in out
+
+
+def test_cli_validate_includes_doctor_checks():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    # Must include at least the core doctor checks
+    assert "python_version" in check_names
+    assert "fastmcp" in check_names
+
+
+def test_cli_validate_includes_contract_check():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    assert "contract_registry" in check_names
+
+
+def test_cli_validate_includes_profile_check():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    assert "profile_governor" in check_names
+
+
+def test_cli_validate_includes_install_check():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    assert "install_integrity" in check_names
+
+
+def test_cli_validate_text_format():
+    proc = _run(["validate", "--format", "text"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    # Text format should contain human-readable markers
+    assert "PASS" in proc.stdout or "BLOCKER" in proc.stdout or "WARN" in proc.stdout
+
+
+def test_cli_validate_default_format_is_text():
+    proc = _run(["validate"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    # Default should be text (not JSON)
+    try:
+        json.loads(proc.stdout)
+        # If it parses as JSON, that's wrong — default should be text
+        assert False, "Default format should be text, not JSON"
+    except json.JSONDecodeError:
+        pass  # Correct: text format is not valid JSON
+
+
+def test_cli_validate_help_lists_command():
+    proc = _run(["--help"])
+    assert "validate" in proc.stdout + proc.stderr
+
+
+# --- NotebookLM validate integration tests ---
+
+
+def test_cli_validate_notebooklm_check_present_when_selected(tmp_path: Path):
+    """validate --format json includes notebooklm check when notebooklm is in selected MCPs."""
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+    (state_dir / "cli-config.yaml").write_text(
+        "selected_mcps:\n  - filesystem\n  - notebooklm\n",
+        encoding="utf-8",
+    )
+
+    proc = _run(["validate", "--format", "json"], env={"CLAUDE_PROJECT_DIR": str(tmp_path)})
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    assert "notebooklm" in check_names
+    nb_check = next(c for c in out["checks"] if c["name"] == "notebooklm")
+    # Must be optional (not required)
+    assert nb_check["required"] is False
+
+
+def test_cli_validate_notebooklm_absent_when_not_selected(tmp_path: Path):
+    """validate --format json must NOT include notebooklm check when not in selected MCPs."""
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+    (state_dir / "cli-config.yaml").write_text(
+        "selected_mcps:\n  - filesystem\n  - omg-control\n",
+        encoding="utf-8",
+    )
+
+    proc = _run(["validate", "--format", "json"], env={"CLAUDE_PROJECT_DIR": str(tmp_path)})
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    assert "notebooklm" not in check_names
+
+
+def test_cli_validate_notebooklm_absent_when_no_config():
+    """validate --format json must NOT include notebooklm check when no cli-config.yaml exists."""
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    # Without explicit selection, NotebookLM check should be absent
+    assert "notebooklm" not in check_names
+
+
+def test_cli_validate_notebooklm_warning_when_npx_missing(tmp_path: Path, monkeypatch):
+    """NotebookLM check emits warning (not blocker) when npx is not available."""
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+    (state_dir / "cli-config.yaml").write_text(
+        "selected_mcps:\n  - filesystem\n  - notebooklm\n",
+        encoding="utf-8",
+    )
+
+    # Ensure npx cannot be found
+    monkeypatch.setenv("PATH", "")
+
+    proc = _run(
+        ["validate", "--format", "json"],
+        env={"CLAUDE_PROJECT_DIR": str(tmp_path), "PATH": ""},
+    )
+    out = json.loads(proc.stdout)
+    nb_check = next(c for c in out["checks"] if c["name"] == "notebooklm")
+    assert nb_check["status"] == "warning"
+    assert nb_check["required"] is False
+    # Must NOT be a blocker
+    assert nb_check["status"] != "blocker"
+    # Overall status should still pass (optional check cannot cause fail)
+    assert out["status"] == "pass" or any(
+        c["status"] == "blocker" for c in out["checks"] if c["name"] != "notebooklm"
+    )

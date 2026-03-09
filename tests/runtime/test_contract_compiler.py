@@ -1636,3 +1636,73 @@ def test_malformed_pyproject_toml_produces_explicit_parse_blocker(
     ), (
         f"Malformed pyproject.toml must produce parse error, not silent mismatch: {pyproject_blockers}"
     )
+
+
+# --- validate integration tests ---
+
+
+def test_validate_run_returns_structured_result():
+    from runtime.validate import run_validate
+
+    result = run_validate()
+    assert result["schema"] == "ValidateResult"
+    assert result["status"] in ("pass", "fail")
+    assert isinstance(result["checks"], list)
+    assert len(result["checks"]) > 0
+    assert "version" in result
+
+
+def test_validate_composes_doctor_checks():
+    from runtime.validate import run_validate
+
+    result = run_validate()
+    check_names = {c["name"] for c in result["checks"]}
+    # Doctor checks are composed in, not duplicated
+    assert "python_version" in check_names
+
+
+def test_validate_contract_check_present():
+    from runtime.validate import run_validate
+
+    result = run_validate()
+    check_names = {c["name"] for c in result["checks"]}
+    assert "contract_registry" in check_names
+
+
+def test_validate_profile_check_present():
+    from runtime.validate import run_validate
+
+    result = run_validate()
+    check_names = {c["name"] for c in result["checks"]}
+    assert "profile_governor" in check_names
+
+
+def test_validate_install_check_present():
+    from runtime.validate import run_validate
+
+    result = run_validate()
+    check_names = {c["name"] for c in result["checks"]}
+    assert "install_integrity" in check_names
+
+
+def test_validate_check_fields_have_expected_shape():
+    from runtime.validate import run_validate
+
+    result = run_validate()
+    for check in result["checks"]:
+        assert "name" in check
+        assert "status" in check
+        assert check["status"] in ("ok", "blocker", "warning")
+        assert "message" in check
+        assert "required" in check
+
+
+def test_validate_fail_status_when_blocker():
+    from runtime.validate import run_validate
+
+    result = run_validate()
+    has_blocker = any(c["status"] == "blocker" for c in result["checks"])
+    if has_blocker:
+        assert result["status"] == "fail"
+    else:
+        assert result["status"] == "pass"

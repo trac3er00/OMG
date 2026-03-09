@@ -1,0 +1,10 @@
+=== Marker Selection Proof ===
+
+e2e-only: 79/3165 tests collected (3086 deselected) in 0.54s
+integration-only: 50/3165 tests collected (3115 deselected) in 0.52s
+skip-heavy: 3036/3165 tests collected (129 deselected) in 0.54s
+
+Markers allow targeted validation to skip or select heavy suites predictably.
+e2e marker: 79 tests in tests/e2e/
+integration marker: 50 tests in tests/integration/
+skip-heavy: remaining 3036 tests (fast unit/runtime tests)

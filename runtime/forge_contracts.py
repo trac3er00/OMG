@@ -78,6 +78,27 @@ def load_forge_mvp() -> dict[str, object]:
         "specialist_dispatch": {
             "axolotl": ["dataset", "base_model", "target_metric"],
             "pybullet": ["dataset", "target_metric", "simulated_metric"],
+            "forge-cybersecurity": ["dataset", "base_model", "target_metric", "evaluation_notes"],
+        },
+        "stage_aliases": {
+            "security_review": "regression_test",
+            "threat_model": "evaluate",
+        },
+        "specialist_contracts": {
+            "forge-cybersecurity": {
+                "labs_only": True,
+                "allowed_domains": ["cybersecurity"],
+                "evidence_profile": "forge-run",
+                "proof_backed_dispatch": True,
+                "stage_alias": "regression_test",
+                "evidence_outputs": {
+                    "sarif": ".omg/evidence/security-*.sarif",
+                    "sbom": ".omg/evidence/sbom-*.cdx.json",
+                    "license": ".omg/evidence/license-*.json",
+                    "security_json": ".omg/evidence/security-*.json",
+                },
+                "reuses_scanner": "runtime.security_check",
+            },
         },
         "adapter_registry": dict(ADAPTER_REGISTRY),
         "evidence_output_path": ".omg/evidence/forge-<run_id>.json",
@@ -107,6 +128,13 @@ def load_forge_mvp() -> dict[str, object]:
                 "domain": "health",
                 "specialists": ["data-curator", "training-architect"],
                 "dataset": {"name": "health", "license": "apache-2.0", "source": "internal-curated"},
+                "base_model": {"name": "distill-base-v1", "source": "approved-registry", "allow_distill": True},
+                "target_metric": 0.8,
+            },
+            "cybersecurity": {
+                "domain": "cybersecurity",
+                "specialists": ["forge-cybersecurity"],
+                "dataset": {"name": "cybersecurity", "license": "apache-2.0", "source": "internal-curated"},
                 "base_model": {"name": "distill-base-v1", "source": "approved-registry", "allow_distill": True},
                 "target_metric": 0.8,
             },
