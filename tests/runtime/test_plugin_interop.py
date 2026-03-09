@@ -10,12 +10,9 @@ from runtime.plugin_interop import (
     INTEROP_RECORD_SCHEMA,
     ConflictCode,
     ConflictSeverity,
-    PluginAllowlistEntry,
     PluginInteropRecord,
+    discover_host_plugin_state,
     discover_omg_plugin_state,
-    load_plugin_allowlist,
-    save_plugin_allowlist,
-    validate_plugin_allowlist_entry,
 )
 
 
@@ -177,101 +174,109 @@ def test_discovery_payload_has_elapsed_ms(tmp_path: Path) -> None:
     assert payload.elapsed_ms >= 0
 
 
-def test_allowlist_validate_valid_entry() -> None:
-    entry: dict[str, object] = {
-        "source": "mcp:filesystem",
-        "host": "claude",
-        "resource_type": "mcp_server",
-        "reason": "trusted local plugin",
-    }
+def test_host_discovery_codex_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    codex_path = tmp_path / ".codex" / "config.toml"
+    codex_path.parent.mkdir(parents=True)
+    _ = codex_path.write_text(
+        """
+[mcp_servers.filesystem]
+enabled = true
+command = \"npx\"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
 
-    validate_plugin_allowlist_entry(entry)
+    payload = discover_host_plugin_state(str(tmp_path))
 
-
-def test_allowlist_validate_rejects_wildcard_source() -> None:
-    entry: dict[str, object] = {
-        "source": "*",
-        "host": "claude",
-        "resource_type": "mcp_server",
-        "reason": "too broad",
-    }
-
-    with pytest.raises(ValueError, match="source"):
-        validate_plugin_allowlist_entry(entry)
-
-
-def test_allowlist_validate_rejects_wildcard_host() -> None:
-    entry: dict[str, object] = {
-        "source": "mcp:filesystem",
-        "host": "*",
-        "resource_type": "mcp_server",
-        "reason": "too broad",
-    }
-
-    with pytest.raises(ValueError, match="host"):
-        validate_plugin_allowlist_entry(entry)
+    assert any(
+        record.host == "codex"
+        and record.layer == "live"
+        and record.source == "host_config"
+        and record.plugin_id == "filesystem"
+        and record.mcp_servers == ["filesystem"]
+        for record in payload.records
+    )
 
 
-def test_allowlist_validate_rejects_invalid_resource_type() -> None:
-    entry: dict[str, object] = {
-        "source": "mcp:filesystem",
-        "host": "claude",
-        "resource_type": "unknown",
-        "reason": "bad type",
-    }
+def test_host_discovery_gemini_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    gemini_path = tmp_path / ".gemini" / "settings.json"
+    gemini_path.parent.mkdir(parents=True)
+    _ = gemini_path.write_text(
+        json.dumps({"mcpServers": {"omg-control": {"httpUrl": "http://localhost:5050"}}}),
+        encoding="utf-8",
+    )
 
-    with pytest.raises(ValueError, match="resource_type"):
-        validate_plugin_allowlist_entry(entry)
+    payload = discover_host_plugin_state(str(tmp_path))
 
-
-def test_allowlist_load_missing_file(tmp_path: Path) -> None:
-    loaded = load_plugin_allowlist(str(tmp_path))
-
-    assert loaded == []
+    assert any(record.host == "gemini" and record.plugin_id == "omg-control" for record in payload.records)
 
 
-def test_allowlist_round_trip(tmp_path: Path) -> None:
-    initial = [
-        PluginAllowlistEntry(
-            source="skill:omg/control-plane",
-            host="codex",
-            resource_type="skill",
-            reason="core control-plane skill",
-            scope="project",
-            timestamp="2026-03-09T00:00:00Z",
-            approver="user",
-        ),
-        PluginAllowlistEntry(
-            source="mcp:filesystem",
-            host="claude",
-            resource_type="mcp_server",
-            reason="trusted local plugin",
-            scope="global",
-            timestamp="2026-03-09T00:00:01Z",
-            approver="maintainer",
-        ),
-    ]
+def test_host_discovery_kimi_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    kimi_path = tmp_path / ".kimi" / "mcp.json"
+    kimi_path.parent.mkdir(parents=True)
+    _ = kimi_path.write_text(
+        json.dumps({"mcpServers": {"memory-server": {"type": "http", "url": "http://localhost:9090"}}}),
+        encoding="utf-8",
+    )
 
-    save_plugin_allowlist(initial, str(tmp_path))
-    loaded = load_plugin_allowlist(str(tmp_path))
+    payload = discover_host_plugin_state(str(tmp_path))
 
-    assert loaded == [
-        PluginAllowlistEntry(
-            source="mcp:filesystem",
-            host="claude",
-            resource_type="mcp_server",
-            reason="trusted local plugin",
-            scope="global",
-            timestamp="2026-03-09T00:00:01Z",
-            approver="maintainer",
-        ),
-        PluginAllowlistEntry(
-            source="skill:omg/control-plane",
-            host="codex",
-            resource_type="skill",
-            reason="core control-plane skill",
-            scope="project",
-            timestamp="2026-03-09T00:00:00Z",
-            approver="user",
-        ),
-    ]
+    assert any(record.host == "kimi" and record.plugin_id == "memory-server" for record in payload.records)
+
+
+def test_host_discovery_opencode_project_config(tmp_path: Path) -> None:
+    _ = (tmp_path / "opencode.json").write_text(
+        json.dumps({"mcp": {"omg-control": {"type": "stdio", "command": "python3"}}}),
+        encoding="utf-8",
+    )
+
+    payload = discover_host_plugin_state(str(tmp_path))
+
+    assert any(
+        record.host == "opencode"
+        and record.layer == "live"
+        and record.source == "host_config"
+        and record.plugin_id == "omg-control"
+        and record.source_path == str(tmp_path / "opencode.json")
+        for record in payload.records
+    )
+
+
+def test_host_discovery_opencode_plugin_dir(tmp_path: Path) -> None:
+    plugin_path = tmp_path / ".opencode" / "plugins" / "my-plugin"
+    plugin_path.mkdir(parents=True)
+
+    payload = discover_host_plugin_state(str(tmp_path))
+
+    assert any(
+        record.host == "opencode"
+        and record.layer == "discovered"
+        and record.source == "plugin_dir"
+        and record.plugin_id == "my-plugin"
+        for record in payload.records
+    )
+
+
+def test_host_discovery_disabled_entry_included(tmp_path: Path) -> None:
+    _ = (tmp_path / "opencode.json").write_text(
+        json.dumps({"mcp": {"disabled-server": {"enabled": False, "command": "python3"}}}),
+        encoding="utf-8",
+    )
+
+    payload = discover_host_plugin_state(str(tmp_path))
+    disabled_records = [record for record in payload.records if record.plugin_id == "disabled-server"]
+
+    assert disabled_records
+    assert disabled_records[0].enabled is False
+
+
+def test_host_discovery_missing_configs_degrade_gracefully(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    payload = discover_host_plugin_state(str(tmp_path))
+
+    assert payload is not None

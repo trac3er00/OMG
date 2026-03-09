@@ -3,16 +3,11 @@ from __future__ import annotations
 import json
 import re
 import time
-from datetime import datetime, timezone
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Callable, cast
-
-import yaml
-
-from runtime import mcp_config_writers
+from typing import cast
 
 
 class Layer(str, Enum):
@@ -47,11 +42,6 @@ class ConflictSeverity(str, Enum):
     BLOCKER = "blocker"
     WARNING = "warning"
     INFO = "info"
-
-
-ALLOWLIST_PATH = Path(".omg/state/plugins-allowlist.yaml")
-ALLOWLIST_RESOURCE_TYPES = {"mcp_server", "skill", "plugin"}
-atomic_write_text = cast(Callable[[Path, str], None], getattr(mcp_config_writers, "_atomic_write_text"))
 
 
 CONFLICT_SEVERITY_MAP: dict[ConflictCode, ConflictSeverity] = {
@@ -130,100 +120,6 @@ class PluginInteropPayload:
     records: list[PluginInteropRecord]
     elapsed_ms: float
     root: str
-
-
-@dataclass(slots=True)
-class PluginAllowlistEntry:
-    source: str
-    host: str
-    resource_type: str
-    reason: str
-    scope: str = "project"
-    timestamp: str = ""
-    approver: str = "user"
-
-
-def validate_plugin_allowlist_entry(entry: dict[str, object]) -> None:
-    source = entry.get("source")
-    if not isinstance(source, str) or not source.strip():
-        raise ValueError("source is required")
-    if "*" in source:
-        raise ValueError("source wildcard is not allowed")
-
-    host = entry.get("host")
-    if not isinstance(host, str) or not host.strip():
-        raise ValueError("host is required")
-    if "*" in host:
-        raise ValueError("host wildcard is not allowed")
-
-    resource_type = entry.get("resource_type")
-    if not isinstance(resource_type, str) or resource_type not in ALLOWLIST_RESOURCE_TYPES:
-        raise ValueError("resource_type must be one of mcp_server, skill, plugin")
-
-    reason = entry.get("reason")
-    if not isinstance(reason, str) or not reason.strip():
-        raise ValueError("reason is required")
-
-
-def load_plugin_allowlist(root: str | None = None) -> list[PluginAllowlistEntry]:
-    root_path = Path(root or ".").resolve()
-    allowlist_path = root_path / ALLOWLIST_PATH
-    if not allowlist_path.exists():
-        return []
-
-    try:
-        raw = cast(object, yaml.safe_load(allowlist_path.read_text(encoding="utf-8")))
-    except OSError:
-        return []
-
-    if raw is None:
-        return []
-    if not isinstance(raw, list):
-        raise ValueError("plugins allowlist must be a YAML list")
-
-    entries: list[PluginAllowlistEntry] = []
-    for item in cast(list[object], raw):
-        if not isinstance(item, dict):
-            raise ValueError("plugins allowlist entries must be objects")
-
-        entry_obj = cast(dict[str, object], item)
-        validate_plugin_allowlist_entry(entry_obj)
-        entries.append(
-            PluginAllowlistEntry(
-                source=cast(str, entry_obj["source"]),
-                host=cast(str, entry_obj["host"]),
-                resource_type=cast(str, entry_obj["resource_type"]),
-                reason=cast(str, entry_obj["reason"]),
-                scope=cast(str, entry_obj.get("scope", "project")),
-                timestamp=cast(str, entry_obj.get("timestamp", "")),
-                approver=cast(str, entry_obj.get("approver", "user")),
-            )
-        )
-
-    return entries
-
-
-def save_plugin_allowlist(entries: list[PluginAllowlistEntry], root: str | None = None) -> None:
-    root_path = Path(root or ".").resolve()
-    allowlist_path = root_path / ALLOWLIST_PATH
-
-    payload: list[dict[str, object]] = []
-    for entry in sorted(entries, key=lambda candidate: (candidate.source, candidate.host)):
-        timestamp = entry.timestamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        entry_dict: dict[str, object] = {
-            "source": entry.source,
-            "host": entry.host,
-            "resource_type": entry.resource_type,
-            "reason": entry.reason,
-            "scope": entry.scope,
-            "timestamp": timestamp,
-            "approver": entry.approver,
-        }
-        validate_plugin_allowlist_entry(entry_dict)
-        payload.append(entry_dict)
-
-    serialized = cast(str, yaml.dump(payload, sort_keys=False))
-    atomic_write_text(allowlist_path, serialized)
 
 
 INTEROP_RECORD_SCHEMA: dict[str, object] = {
@@ -602,20 +498,14 @@ def _read_json_dict(path: Path) -> dict[str, object] | None:
 
 
 __all__ = [
-    "ALLOWLIST_PATH",
-    "ALLOWLIST_RESOURCE_TYPES",
     "CONFLICT_SEVERITY_MAP",
     "INTEROP_RECORD_SCHEMA",
     "ConflictCode",
     "ConflictSeverity",
     "Layer",
-    "PluginAllowlistEntry",
     "PluginInteropPayload",
     "PluginInteropRecord",
     "Source",
     "discover_host_plugin_state",
     "discover_omg_plugin_state",
-    "load_plugin_allowlist",
-    "save_plugin_allowlist",
-    "validate_plugin_allowlist_entry",
 ]
