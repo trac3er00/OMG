@@ -64,6 +64,11 @@
       "description": "Verify project setup and tool integration",
       "category": "setup"
     },
+    "profile-review": {
+      "path": "commands/OMG:profile-review.md",
+      "description": "Review governed profile state — preferences, confirmations, decay, provenance",
+      "category": "observability"
+    },
     "mode": {
       "path": "commands/OMG:mode.md",
       "description": "Set cognitive mode for the session",
@@ -130,7 +135,7 @@
     },
     "observability": {
       "description": "Cost tracking and session observability",
-      "commands": ["cost", "stats", "deps"]
+      "commands": ["cost", "stats", "deps", "profile-review"]
     },
     "security": {
       "description": "Canonical security and trust checks",

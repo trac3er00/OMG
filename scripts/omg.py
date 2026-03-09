@@ -777,6 +777,115 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
     contract_compile.set_defaults(func=cmd_contract_compile)
 
 
+def cmd_profile_review(args: argparse.Namespace) -> int:
+    """Read-only review of governed profile state."""
+    from runtime.profile_io import load_profile, ensure_governed_preferences, profile_version_from_map
+
+    project_dir = _ensure_project_dir()
+    profile_path = os.path.join(project_dir, ".omg", "state", "profile.yaml")
+    profile = load_profile(profile_path)
+
+    # Ensure governed_preferences structure exists (in-memory only, no write)
+    ensure_governed_preferences(profile)
+    governed = profile.get("governed_preferences", {})
+    governed = governed if isinstance(governed, dict) else {}
+
+    style_entries = governed.get("style", [])
+    style_entries = style_entries if isinstance(style_entries, list) else []
+    safety_entries = governed.get("safety", [])
+    safety_entries = safety_entries if isinstance(safety_entries, list) else []
+
+    pending = []
+    for entry in style_entries + safety_entries:
+        if isinstance(entry, dict) and entry.get("confirmation_state") == "pending_confirmation":
+            pending.append({
+                "field": entry.get("field", ""),
+                "value": entry.get("value", ""),
+                "section": entry.get("section", ""),
+            })
+
+    decay_candidates = []
+    for entry in style_entries:
+        if not isinstance(entry, dict):
+            continue
+        dm = entry.get("decay_metadata")
+        if isinstance(dm, dict):
+            score = 0.0
+            try:
+                score = float(dm.get("decay_score", 0.0))
+            except (TypeError, ValueError):
+                pass
+            if score > 0:
+                decay_candidates.append({
+                    "field": entry.get("field", ""),
+                    "value": entry.get("value", ""),
+                    "decay_score": score,
+                    "last_seen_at": dm.get("last_seen_at", ""),
+                    "decay_reason": dm.get("decay_reason", ""),
+                })
+
+    provenance_obj = profile.get("profile_provenance")
+    provenance = provenance_obj if isinstance(provenance_obj, dict) else {}
+    recent_updates = provenance.get("recent_updates", [])
+    recent_updates = recent_updates if isinstance(recent_updates, list) else []
+    provenance_summary = [
+        {
+            "run_id": str(u.get("run_id", "")),
+            "source": str(u.get("source", "")),
+            "field": str(u.get("field", "")),
+            "updated_at": str(u.get("updated_at", "")),
+        }
+        for u in recent_updates
+        if isinstance(u, dict)
+    ]
+
+    version = profile_version_from_map(profile) if profile else ""
+
+    result: dict[str, Any] = {
+        "schema": "ProfileReview",
+        "style": style_entries,
+        "safety": safety_entries,
+        "pending_confirmations": pending,
+        "decay_candidates": decay_candidates,
+        "provenance_summary": provenance_summary,
+        "profile_version": version,
+    }
+
+    fmt = getattr(args, "format", "json")
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        print("=== Profile Review ===")
+        print(f"Profile version: {version[:16]}..." if version else "Profile version: (none)")
+        print(f"\n--- Style preferences ({len(style_entries)}) ---")
+        for e in style_entries:
+            if isinstance(e, dict):
+                print(f"  {e.get('field', '?')}: {e.get('value', '?')}  [{e.get('confirmation_state', '?')}]")
+        print(f"\n--- Safety preferences ({len(safety_entries)}) ---")
+        for e in safety_entries:
+            if isinstance(e, dict):
+                print(f"  {e.get('field', '?')}: {e.get('value', '?')}  [{e.get('confirmation_state', '?')}]")
+        if pending:
+            print(f"\n--- Pending confirmations ({len(pending)}) ---")
+            for p in pending:
+                print(f"  {p['section']}/{p['field']}: {p['value']}")
+        else:
+            print("\n--- Pending confirmations: none ---")
+        if decay_candidates:
+            print(f"\n--- Decay candidates ({len(decay_candidates)}) ---")
+            for d in decay_candidates:
+                print(f"  {d['field']}: score={d['decay_score']:.3f}  reason={d['decay_reason']}")
+        else:
+            print("\n--- Decay candidates: none ---")
+        if provenance_summary:
+            print(f"\n--- Provenance ({len(provenance_summary)} recent updates) ---")
+            for p in provenance_summary:
+                print(f"  [{p['updated_at']}] {p['source']} -> {p['field']}")
+        else:
+            print("\n--- Provenance: no recent updates ---")
+    return 0
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     fmt = getattr(args, "format", "text")
     result = run_doctor(root_dir=ROOT_DIR)
@@ -1014,6 +1123,10 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser("doctor", help="Canonical install and runtime verification")
     doctor.add_argument("--format", default="text", choices=["text", "json"], dest="format")
     doctor.set_defaults(func=cmd_doctor)
+
+    profile_review = sub.add_parser("profile-review", help="Review governed profile state")
+    profile_review.add_argument("--format", default="json", choices=["json", "text"], dest="format")
+    profile_review.set_defaults(func=cmd_profile_review)
 
     return parser
 
