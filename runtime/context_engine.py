@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 _MAX_SUMMARY_CHARS = 1000
+_MAX_CLARIFICATION_PROMPT_CHARS = 180
 _PACKET_REL_PATH = Path(".omg") / "state" / "context_engine_packet.json"
 
 _STATE_PATHS = {
@@ -24,6 +25,7 @@ _STATE_PATHS = {
     "context_pressure": Path(".omg") / "state" / ".context-pressure.json",
 }
 _COUNCIL_REL_BASE = Path(".omg") / "state" / "council_verdicts"
+_INTENT_GATE_REL_BASE = Path(".omg") / "state" / "intent_gate"
 
 
 class ContextEngine:
@@ -89,6 +91,7 @@ class ContextEngine:
         packet: dict[str, Any] = {
             "summary": summary,
             "artifact_pointers": artifact_pointers,
+            "clarification_status": self._compose_clarification_status(raw),
             "budget": {
                 "max_chars": _MAX_SUMMARY_CHARS,
                 "used_chars": len(summary),
@@ -106,6 +109,7 @@ class ContextEngine:
         for name, rel_path in _STATE_PATHS.items():
             result[name] = self._read_json(self.project_dir / rel_path)
         result["council_verdicts"] = self._read_json(self.project_dir / _COUNCIL_REL_BASE / f"{run_id}.json")
+        result["intent_gate"] = self._read_json(self.project_dir / _INTENT_GATE_REL_BASE / f"{run_id}.json")
         return result
 
     def _read_json(self, path: Path) -> dict[str, Any]:
@@ -128,7 +132,31 @@ class ContextEngine:
         council_rel = _COUNCIL_REL_BASE / f"{run_id}.json"
         if (self.project_dir / council_rel).exists():
             pointers.append(str(council_rel))
+
+        intent_gate_rel = _INTENT_GATE_REL_BASE / f"{run_id}.json"
+        if (self.project_dir / intent_gate_rel).exists():
+            pointers.append(str(intent_gate_rel))
         return pointers
+
+    def _compose_clarification_status(self, raw: dict[str, Any]) -> dict[str, Any]:
+        intent_gate = raw.get("intent_gate", {})
+        if not isinstance(intent_gate, dict):
+            intent_gate = {}
+
+        prompt = str(intent_gate.get("clarification_prompt", "")).strip().replace("\n", " ")
+        confidence_raw = intent_gate.get("confidence", 0.0)
+        try:
+            confidence = float(confidence_raw)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        confidence = max(0.0, min(1.0, confidence))
+
+        return {
+            "requires_clarification": bool(intent_gate.get("requires_clarification") is True),
+            "intent_class": str(intent_gate.get("intent_class", "")).strip()[:48],
+            "clarification_prompt": prompt[:_MAX_CLARIFICATION_PROMPT_CHARS],
+            "confidence": round(confidence, 2),
+        }
 
     def _compose_summary(self, raw: dict[str, Any]) -> str:
         """Compose a bounded summary from state signals."""
@@ -203,6 +231,12 @@ class ContextEngine:
         return {
             "summary": "no context signals available",
             "artifact_pointers": [],
+            "clarification_status": {
+                "requires_clarification": False,
+                "intent_class": "",
+                "clarification_prompt": "",
+                "confidence": 0.0,
+            },
             "budget": {"max_chars": _MAX_SUMMARY_CHARS, "used_chars": 0},
             "delta_only": False,
             "run_id": run_id,

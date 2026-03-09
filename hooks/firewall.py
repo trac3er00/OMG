@@ -106,6 +106,58 @@ def _read_council_signal(project_dir: str, run_id: str) -> str:
         return ""
     return f"council evidence={verdict} findings={findings_count}"
 
+
+def _read_clarification_state(project_dir: str, run_id: str) -> dict[str, object]:
+    if not run_id:
+        return {
+            "requires_clarification": False,
+            "intent_class": "",
+            "clarification_prompt": "",
+            "confidence": 0.0,
+        }
+    path = Path(project_dir) / ".omg" / "state" / "intent_gate" / f"{run_id}.json"
+    if not path.exists():
+        return {
+            "requires_clarification": False,
+            "intent_class": "",
+            "clarification_prompt": "",
+            "confidence": 0.0,
+        }
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {
+            "requires_clarification": False,
+            "intent_class": "",
+            "clarification_prompt": "",
+            "confidence": 0.0,
+        }
+    if not isinstance(payload, dict):
+        return {
+            "requires_clarification": False,
+            "intent_class": "",
+            "clarification_prompt": "",
+            "confidence": 0.0,
+        }
+    prompt = " ".join(str(payload.get("clarification_prompt", "")).split())
+    try:
+        confidence = float(payload.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return {
+        "requires_clarification": bool(payload.get("requires_clarification") is True),
+        "intent_class": str(payload.get("intent_class", "")).strip(),
+        "clarification_prompt": prompt,
+        "confidence": round(max(0.0, min(1.0, confidence)), 2),
+    }
+
+
+def _clarification_reason(clarification_prompt: str) -> str:
+    prompt = " ".join(str(clarification_prompt or "").split())
+    if prompt:
+        return f"Clarification required before mutation: {prompt}"
+    return "Clarification required before mutation: provide the missing intent details."
+
 data = json_input()
 
 tool = data.get("tool_name", "")
@@ -136,6 +188,11 @@ gate_result = check_mutation_allowed(
     metadata=metadata if isinstance(metadata, dict) else None,
 )
 is_mutation_capable = str(gate_result.get("reason", "")) != "tool is read-only for mutation gate"
+clarification_state = _read_clarification_state(get_project_dir(), run_id)
+if clarification_state.get("requires_clarification") is True and is_mutation_capable:
+    deny_decision(_clarification_reason(str(clarification_state.get("clarification_prompt", ""))))
+    sys.exit(0)
+
 if is_mutation_capable and gate_result.get("status") == "blocked":
     deny_decision(str(gate_result.get("reason", "mutation denied by test intent lock gate")))
     sys.exit(0)

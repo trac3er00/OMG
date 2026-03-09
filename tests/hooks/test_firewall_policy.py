@@ -214,3 +214,57 @@ def test_firewall_journals_mutation_capable_bash_after_allow(tmp_path) -> None:
     metadata = payload.get("metadata")
     assert isinstance(metadata, dict)
     assert metadata.get("command") == "mkdir build-output"
+
+
+def test_firewall_denies_mutation_when_clarification_required(tmp_path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    intent_dir = state_dir / "intent_gate"
+    intent_dir.mkdir(parents=True, exist_ok=True)
+    (intent_dir / "run-clarify.json").write_text(
+        json.dumps(
+            {
+                "run_id": "run-clarify",
+                "intent_class": "ambiguous_config",
+                "requires_clarification": True,
+                "clarification_prompt": "Clarify exact mutation scope.",
+                "confidence": 0.9,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("mkdir blocked-by-clarification"),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-clarify"},
+    )
+
+    assert get_decision(out) == "deny"
+    reason = (out.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
+    assert reason == "Clarification required before mutation: Clarify exact mutation scope."
+
+
+def test_firewall_allows_read_when_clarification_required(tmp_path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    intent_dir = state_dir / "intent_gate"
+    intent_dir.mkdir(parents=True, exist_ok=True)
+    (intent_dir / "run-clarify-read.json").write_text(
+        json.dumps(
+            {
+                "run_id": "run-clarify-read",
+                "intent_class": "ambiguous_config",
+                "requires_clarification": True,
+                "clarification_prompt": "Clarify exact mutation scope.",
+                "confidence": 0.9,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("ls -la"),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-clarify-read"},
+    )
+
+    assert get_decision(out) is None

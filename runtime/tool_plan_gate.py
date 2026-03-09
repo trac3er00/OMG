@@ -20,6 +20,19 @@ _TOOL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "omg-control": ("policy", "governance", "release", "proof", "control plane"),
 }
 
+_READ_ONLY_TOOL_HINTS = (
+    "read",
+    "search",
+    "review",
+    "grep",
+    "glob",
+    "list",
+    "ls",
+    "context7",
+    "websearch",
+)
+_MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
+
 
 def build_tool_plan(
     goal: str,
@@ -96,6 +109,32 @@ def has_tool_plan_for_run(project_dir: str, run_id: str | None) -> bool:
 def tool_plan_gate_check(project_dir: str, run_id: str | None, tool: str) -> dict[str, object]:
     if not run_id:
         return {"status": "allowed", "reason": "run_id unavailable; skip tool plan gate"}
+
+    context_packet = _resolve_bounded_context_packet(
+        project_dir=project_dir,
+        run_id=run_id,
+        fallback_context=None,
+    )
+    clarification = _clarification_status(context_packet)
+    if clarification["requires_clarification"]:
+        reason = _clarification_reason(str(clarification["clarification_prompt"]))
+        if _is_mutation_capable_tool(tool):
+            _persist_gate_error(project_dir, run_id, tool, reason)
+            return {
+                "status": "blocked",
+                "reason": reason,
+                "run_id": run_id,
+                "tool": tool,
+                "clarification_status": clarification,
+            }
+        if _is_read_search_review_tool(tool):
+            return {
+                "status": "allowed",
+                "reason": "clarification pending; read/search/review tool allowed",
+                "run_id": run_id,
+                "clarification_status": clarification,
+            }
+
     if has_tool_plan_for_run(project_dir, run_id):
         council = _read_council_verdicts(project_dir, run_id)
         verdict = _council_gate_verdict(council)
@@ -318,3 +357,46 @@ def _apply_context_optimization(
     if pressure_high or evidence_warn:
         return tools[:1]
     return tools
+
+
+def _clarification_status(context_packet: dict[str, object]) -> dict[str, object]:
+    raw = context_packet.get("clarification_status")
+    if not isinstance(raw, dict):
+        return {
+            "requires_clarification": False,
+            "intent_class": "",
+            "clarification_prompt": "",
+            "confidence": 0.0,
+        }
+    prompt = str(raw.get("clarification_prompt", "")).strip().replace("\n", " ")
+    try:
+        confidence = float(raw.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return {
+        "requires_clarification": bool(raw.get("requires_clarification") is True),
+        "intent_class": str(raw.get("intent_class", "")).strip(),
+        "clarification_prompt": prompt,
+        "confidence": round(max(0.0, min(1.0, confidence)), 2),
+    }
+
+
+def _clarification_reason(clarification_prompt: str) -> str:
+    prompt = " ".join(str(clarification_prompt or "").split())
+    if prompt:
+        return f"Clarification required before mutation: {prompt}"
+    return "Clarification required before mutation: provide the missing intent details."
+
+
+def _is_mutation_capable_tool(tool: str) -> bool:
+    token = str(tool or "").strip().lower()
+    if token in _MUTATION_TOOLS:
+        return True
+    return token.startswith("bash:")
+
+
+def _is_read_search_review_tool(tool: str) -> bool:
+    token = str(tool or "").strip().lower()
+    if not token:
+        return False
+    return any(hint in token for hint in _READ_ONLY_TOOL_HINTS)
