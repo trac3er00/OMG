@@ -293,3 +293,45 @@ def test_profile_digest_is_compact_and_bounded(tmp_path):
     assert len(digest["tags"]) == 5
     assert len(digest["summary"]) <= 120
     assert pkt["budget"]["used_chars"] <= pkt["budget"]["max_chars"]
+
+
+def test_profile_digest_ignores_governed_preferences_shape(tmp_path: Path) -> None:
+    profile_path = tmp_path / ".omg" / "state" / "profile.yaml"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        "\n".join(
+            [
+                "preferences:",
+                "  architecture_requests:",
+                "    - layered monolith",
+                "  constraints:",
+                "    api_cost: minimize",
+                "user_vector:",
+                "  tags:",
+                "    - reliability",
+                "governed_preferences:",
+                "  style:",
+                "    - field: preferences.architecture_requests",
+                "      value: event sourcing",
+                "      source: explicit_user",
+                "      learned_at: 2026-03-09T00:00:00Z",
+                "      updated_at: 2026-03-09T00:00:00Z",
+                "      section: style",
+                "      confirmation_state: confirmed",
+                "  safety:",
+                "    - field: preferences.constraints.safety_mode",
+                "      value: strict",
+                "      source: explicit_user",
+                "      learned_at: 2026-03-09T00:00:00Z",
+                "      updated_at: 2026-03-09T00:00:00Z",
+                "      section: safety",
+                "      confirmation_state: pending_confirmation",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    digest = load_profile_digest(str(tmp_path))
+    assert digest["architecture_requests"] == ["layered monolith"]
+    assert digest["constraints"]["api_cost"] == "minimize"
+    assert digest["tags"] == ["reliability"]

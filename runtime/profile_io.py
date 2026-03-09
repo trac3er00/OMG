@@ -147,3 +147,148 @@ def _dump_lines(value: object, indent: int) -> list[str]:
                 lines.append(f"{prefix}- {_dump_scalar(item)}")
         return lines
     return [f"{prefix}{_dump_scalar(value)}"]
+
+
+_GOVERNED_SECTIONS = ("style", "safety")
+_GOVERNED_CONFIRMATION_STATES = ("confirmed", "pending_confirmation", "inferred")
+
+
+def classify_preference_section(field: str, value: str) -> str:
+    token = f"{field} {value}".lower()
+    if "safety" in token or "guardrail" in token or "override" in token:
+        return "safety"
+    return "style"
+
+
+def is_destructive_preference(field: str, value: str) -> bool:
+    token = f"{field} {value}".lower()
+    destructive_tokens = (
+        "disable",
+        "off",
+        "bypass",
+        "ignore",
+        "override",
+        "unsafe",
+        "no_guard",
+        "no guard",
+    )
+    return any(piece in token for piece in destructive_tokens)
+
+
+def ensure_governed_preferences(profile: dict[str, Any]) -> None:
+    governed_obj = profile.get("governed_preferences")
+    governed = governed_obj if isinstance(governed_obj, dict) else {}
+    for section in _GOVERNED_SECTIONS:
+        raw_entries = governed.get(section)
+        if not isinstance(raw_entries, list):
+            governed[section] = []
+            continue
+        normalized: list[dict[str, Any]] = []
+        for raw in raw_entries:
+            if not isinstance(raw, dict):
+                continue
+            entry = _normalize_governed_entry(raw, section)
+            if entry is not None:
+                normalized.append(entry)
+        governed[section] = normalized
+    profile["governed_preferences"] = governed
+
+
+def upsert_governed_preference(
+    profile: dict[str, Any],
+    *,
+    field: str,
+    value: str,
+    source: str,
+    learned_at: str,
+    updated_at: str,
+    section: str,
+    confirmation_state: str,
+    decay_metadata: dict[str, Any] | None,
+) -> None:
+    ensure_governed_preferences(profile)
+    governed = profile["governed_preferences"]
+    if not isinstance(governed, dict):
+        return
+    target = governed.get(section)
+    if not isinstance(target, list):
+        target = []
+
+    match_index = -1
+    for idx, raw_entry in enumerate(target):
+        if not isinstance(raw_entry, dict):
+            continue
+        if str(raw_entry.get("field", "")).strip() == field and str(raw_entry.get("value", "")).strip() == value:
+            match_index = idx
+            break
+
+    baseline: dict[str, Any] = {
+        "field": field,
+        "value": value,
+        "source": source,
+        "learned_at": learned_at,
+        "updated_at": updated_at,
+        "section": section,
+        "confirmation_state": confirmation_state,
+    }
+    if section == "style" and decay_metadata is not None:
+        baseline["decay_metadata"] = decay_metadata
+
+    if match_index == -1:
+        target.append(baseline)
+    else:
+        existing = target[match_index]
+        if isinstance(existing, dict):
+            baseline["learned_at"] = str(existing.get("learned_at", learned_at)).strip() or learned_at
+        target[match_index] = baseline
+
+    governed[section] = target
+
+
+def _normalize_governed_entry(raw: dict[str, Any], section: str) -> dict[str, Any] | None:
+    field = str(raw.get("field", "")).strip()
+    value = " ".join(str(raw.get("value", "")).strip().split())
+    source = str(raw.get("source", "")).strip()
+    learned_at = str(raw.get("learned_at", "")).strip()
+    updated_at = str(raw.get("updated_at", "")).strip()
+    section_raw = str(raw.get("section", section)).strip().lower()
+    confirmation_state = str(raw.get("confirmation_state", "")).strip().lower()
+
+    if not (field and value and source and learned_at and updated_at):
+        return None
+    if section_raw not in _GOVERNED_SECTIONS:
+        return None
+    if confirmation_state not in _GOVERNED_CONFIRMATION_STATES:
+        return None
+
+    out: dict[str, Any] = {
+        "field": field,
+        "value": value,
+        "source": source,
+        "learned_at": learned_at,
+        "updated_at": updated_at,
+        "section": section_raw,
+        "confirmation_state": confirmation_state,
+    }
+
+    if section_raw == "style" and confirmation_state == "inferred":
+        decay_raw = raw.get("decay_metadata")
+        decay = decay_raw if isinstance(decay_raw, dict) else {}
+        out["decay_metadata"] = {
+            "decay_score": _coerce_decay_score(decay.get("decay_score", 0.0)),
+            "last_seen_at": str(decay.get("last_seen_at", updated_at)).strip() or updated_at,
+            "decay_reason": str(decay.get("decay_reason", "inferred_signal")).strip() or "inferred_signal",
+        }
+    return out
+
+
+def _coerce_decay_score(raw: Any) -> float:
+    try:
+        score = float(raw)
+    except (TypeError, ValueError):
+        score = 0.0
+    if score < 0.0:
+        return 0.0
+    if score > 1.0:
+        return 1.0
+    return round(score, 3)

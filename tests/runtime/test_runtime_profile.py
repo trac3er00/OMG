@@ -77,6 +77,7 @@ def test_profile_learning_sections_present_with_defaults(tmp_path: Path) -> None
     assert profile_payload["user_vector"]["summary"] == ""
     assert profile_payload["user_vector"]["confidence"] == 0.0
     assert profile_payload["profile_provenance"]["recent_updates"] == []
+    assert profile_payload["governed_preferences"] == {"style": [], "safety": []}
 
 
 def test_profile_learning_sections_normalize_and_enforce_bounds(tmp_path: Path) -> None:
@@ -107,6 +108,30 @@ def test_profile_learning_sections_normalize_and_enforce_bounds(tmp_path: Path) 
                     for idx in range(1, 10)
                 ]
             },
+            "governed_preferences": {
+                "style": [
+                    {
+                        "field": "preferences.architecture_requests",
+                        "value": "layered monolith",
+                        "source": "explicit_user",
+                        "learned_at": "2026-03-09T00:00:00Z",
+                        "updated_at": "2026-03-09T00:00:00Z",
+                        "section": "style",
+                        "confirmation_state": "confirmed",
+                    }
+                ],
+                "safety": [
+                    {
+                        "field": "preferences.constraints.safety_mode",
+                        "value": "strict",
+                        "source": "explicit_user",
+                        "learned_at": "2026-03-09T00:00:00Z",
+                        "updated_at": "2026-03-09T00:00:00Z",
+                        "section": "safety",
+                        "confirmation_state": "confirmed",
+                    }
+                ],
+            },
         },
     )
 
@@ -126,6 +151,10 @@ def test_profile_learning_sections_normalize_and_enforce_bounds(tmp_path: Path) 
     assert len(profile_payload["profile_provenance"]["recent_updates"]) == 5
     assert profile_payload["profile_provenance"]["recent_updates"][0]["run_id"] == "run-1"
 
+    assert profile_payload["governed_preferences"]["style"][0]["section"] == "style"
+    assert profile_payload["governed_preferences"]["safety"][0]["section"] == "safety"
+    assert profile_payload["governed_preferences"]["style"][0]["confirmation_state"] == "confirmed"
+
 
 def test_profile_learning_sections_handle_absent_or_invalid_blocks(tmp_path: Path) -> None:
     setup_wizard.set_preferences(
@@ -134,6 +163,7 @@ def test_profile_learning_sections_handle_absent_or_invalid_blocks(tmp_path: Pat
             "preferences": "invalid",
             "user_vector": None,
             "profile_provenance": {"recent_updates": ["invalid-entry"]},
+            "governed_preferences": {"style": [{"field": "x"}], "safety": "bad"},
         },
     )
 
@@ -151,9 +181,10 @@ def test_profile_learning_sections_handle_absent_or_invalid_blocks(tmp_path: Pat
         "confidence": 0.0,
     }
     assert profile_payload["profile_provenance"] == {"recent_updates": []}
+    assert profile_payload["governed_preferences"] == {"style": [], "safety": []}
 
 
-# ── profile_io tests ────────────────────────────────────────────────────
+# -- profile_io tests ---------------------------------------------------
 
 
 def test_profile_io_load_returns_dict_from_yaml(tmp_path: Path) -> None:
@@ -209,14 +240,14 @@ def test_profile_io_save_creates_parent_dirs(tmp_path: Path) -> None:
 
 
 def test_profile_version_from_map_is_deterministic() -> None:
-    """Same data → same version, regardless of insertion order."""
+    """Same data -> same version, regardless of insertion order."""
     data_a = {"z": 1, "a": 2, "m": {"b": 3, "a": 4}}
     data_b = {"a": 2, "m": {"a": 4, "b": 3}, "z": 1}
     assert profile_version_from_map(data_a) == profile_version_from_map(data_b)
 
 
 def test_profile_version_from_map_differs_for_different_data() -> None:
-    """Different data → different version."""
+    """Different data -> different version."""
     v1 = profile_version_from_map({"name": "a"})
     v2 = profile_version_from_map({"name": "b"})
     assert v1 != v2

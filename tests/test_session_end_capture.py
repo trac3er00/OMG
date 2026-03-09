@@ -17,68 +17,68 @@ if HOOKS_DIR not in sys.path:
 def test_exits_zero_with_valid_input():
     """Test that session-end-capture exits 0 with valid session_id."""
     hook_path = os.path.join(HOOKS_DIR, "session-end-capture.py")
-    
+
     # Valid input with session_id
     input_data = json.dumps({"session_id": "test-session-123", "cwd": "/tmp"})
-    
+
     result = subprocess.run(
         ["python3", hook_path],
         input=input_data,
         capture_output=True,
-        text=True
+        text=True,
     )
-    
+
     assert result.returncode == 0, f"Expected exit 0, got {result.returncode}. stderr: {result.stderr}"
 
 
 def test_exits_zero_with_invalid_json():
     """Test that session-end-capture exits 0 with invalid JSON (crash isolation)."""
     hook_path = os.path.join(HOOKS_DIR, "session-end-capture.py")
-    
+
     # Invalid JSON input
     input_data = "{ invalid json }"
-    
+
     result = subprocess.run(
         ["python3", hook_path],
         input=input_data,
         capture_output=True,
-        text=True
+        text=True,
     )
-    
+
     assert result.returncode == 0, f"Expected exit 0 on invalid JSON, got {result.returncode}. stderr: {result.stderr}"
 
 
 def test_exits_zero_with_missing_session_id():
     """Test that session-end-capture exits 0 even with missing session_id."""
     hook_path = os.path.join(HOOKS_DIR, "session-end-capture.py")
-    
+
     # Valid JSON but no session_id
     input_data = json.dumps({"cwd": "/tmp"})
-    
+
     result = subprocess.run(
         ["python3", hook_path],
         input=input_data,
         capture_output=True,
-        text=True
+        text=True,
     )
-    
+
     assert result.returncode == 0, f"Expected exit 0 with missing session_id, got {result.returncode}"
 
 
 def test_exits_zero_with_empty_input():
     """Test that session-end-capture exits 0 with empty input."""
     hook_path = os.path.join(HOOKS_DIR, "session-end-capture.py")
-    
+
     # Empty input
     input_data = ""
-    
+
     result = subprocess.run(
         ["python3", hook_path],
         input=input_data,
         capture_output=True,
-        text=True
+        text=True,
     )
-    
+
     assert result.returncode == 0, f"Expected exit 0 with empty input, got {result.returncode}"
 
 
@@ -202,6 +202,14 @@ def test_promotes_explicit_preference_once_with_provenance(tmp_path: Path) -> No
     assert updates[0]["source"] == "explicit_user"
     assert updates[0]["field"] == "preferences.architecture_requests"
 
+    governed = profile["governed_preferences"]["style"]
+    assert len(governed) == 1
+    assert governed[0]["source"] == "explicit_user"
+    assert governed[0]["section"] == "style"
+    assert governed[0]["confirmation_state"] == "confirmed"
+    assert governed[0]["learned_at"].endswith("Z")
+    assert governed[0]["updated_at"].endswith("Z")
+
 
 def test_inferred_preference_requires_two_project_local_observations(tmp_path: Path) -> None:
     project_dir = tmp_path / "project"
@@ -250,6 +258,12 @@ def test_inferred_preference_requires_two_project_local_observations(tmp_path: P
     assert second.returncode == 0
     profile_after_second = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
     assert profile_after_second["preferences"]["constraints"]["api_cost"] == "minimize"
+
+    governed = profile_after_second["governed_preferences"]["style"]
+    assert len(governed) == 1
+    assert governed[0]["field"] == "preferences.constraints.api_cost"
+    assert governed[0]["confirmation_state"] == "inferred"
+    assert governed[0]["decay_metadata"]["decay_reason"] == "inferred_signal"
 
 
 def test_ignores_low_confidence_or_contradicted_signals(tmp_path: Path) -> None:
@@ -305,3 +319,101 @@ def test_ignores_low_confidence_or_contradicted_signals(tmp_path: Path) -> None:
     profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
     assert profile["preferences"]["architecture_requests"] == []
     assert profile["profile_provenance"]["recent_updates"] == []
+    assert profile["governed_preferences"] == {"style": [], "safety": []}
+
+
+def test_destructive_preference_marked_pending_confirmation(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+    home_dir = tmp_path / "home"
+    run_id = "run-destructive"
+    profile_path = _seed_profile(project_dir)
+
+    _write_json(project_dir / ".omg" / "state" / "intent_gate" / f"{run_id}.json", {"run_id": run_id, "requires_clarification": False})
+    _write_json(project_dir / ".omg" / "state" / "council_verdicts" / f"{run_id}.json", {"status": "ok", "verdicts": {}})
+    _write_json(project_dir / ".omg" / "state" / "session_health" / f"{run_id}.json", {"status": "ok", "recommended_action": "continue"})
+
+    _add_signal(
+        home_dir,
+        project_dir=project_dir,
+        field="preferences.constraints.safety_guardrails",
+        value="disable",
+        source="explicit_user",
+        confidence=0.98,
+        run_id=run_id,
+    )
+
+    result = _run_hook(project_dir, run_id, home_dir)
+    assert result.returncode == 0
+
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    assert profile["preferences"]["constraints"] == {}
+    safety = profile["governed_preferences"]["safety"]
+    assert len(safety) == 1
+    assert safety[0]["confirmation_state"] == "pending_confirmation"
+    assert safety[0]["section"] == "safety"
+
+
+def test_decay_metadata_recorded_but_safety_is_immune(tmp_path: Path) -> None:
+    project_dir = tmp_path / "project"
+    home_dir = tmp_path / "home"
+    profile_path = _seed_profile(project_dir)
+    run_a = "run-decay-a"
+    run_b = "run-decay-b"
+
+    for run_id in (run_a, run_b):
+        _write_json(project_dir / ".omg" / "state" / "intent_gate" / f"{run_id}.json", {"run_id": run_id, "requires_clarification": False})
+        _write_json(project_dir / ".omg" / "state" / "council_verdicts" / f"{run_id}.json", {"status": "ok", "verdicts": {}})
+        _write_json(project_dir / ".omg" / "state" / "session_health" / f"{run_id}.json", {"status": "ok", "recommended_action": "continue"})
+
+    _add_signal(
+        home_dir,
+        project_dir=project_dir,
+        field="preferences.constraints.api_cost",
+        value="minimize",
+        source="inferred_observation",
+        confidence=0.9,
+        run_id=run_a,
+    )
+    _add_signal(
+        home_dir,
+        project_dir=project_dir,
+        field="preferences.constraints.api_cost",
+        value="minimize",
+        source="inferred_observation",
+        confidence=0.95,
+        run_id=run_b,
+    )
+
+    _add_signal(
+        home_dir,
+        project_dir=project_dir,
+        field="preferences.constraints.safety_mode",
+        value="strict",
+        source="inferred_observation",
+        confidence=0.95,
+        run_id=run_a,
+    )
+    _add_signal(
+        home_dir,
+        project_dir=project_dir,
+        field="preferences.constraints.safety_mode",
+        value="strict",
+        source="inferred_observation",
+        confidence=0.96,
+        run_id=run_b,
+    )
+
+    first = _run_hook(project_dir, run_a, home_dir)
+    second = _run_hook(project_dir, run_b, home_dir)
+    assert first.returncode == 0
+    assert second.returncode == 0
+
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    style = profile["governed_preferences"]["style"]
+    safety = profile["governed_preferences"]["safety"]
+
+    style_entry = [e for e in style if e["field"] == "preferences.constraints.api_cost"][0]
+    assert style_entry["decay_metadata"]["decay_score"] == 0.0
+
+    safety_entry = [e for e in safety if e["field"] == "preferences.constraints.safety_mode"][0]
+    assert "decay_metadata" not in safety_entry
