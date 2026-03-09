@@ -20,6 +20,9 @@ OMG_RELEASE_READY_PROVIDERS=claude,codex python3 scripts/omg.py release readines
 python3 scripts/omg.py compat gate --max-bridge 0 --output .omg/evidence/omg-compat-gap.json
 python3 scripts/check-omg-public-ready.py
 
+echo "=== Validating release identity ==="
+python3 scripts/validate-release-identity.py --scope all --forbid-version 2.1.1
+
 if command -v pyenv >/dev/null 2>&1 && pyenv prefix 3.12.7 >/dev/null 2>&1; then
   PYENV_VERSION=3.12.7 python -m pytest -q
 else
