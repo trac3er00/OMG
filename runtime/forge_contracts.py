@@ -28,6 +28,37 @@ DEFAULT_STAGE_TIMEOUT_MS: dict[str, int] = {
 }
 
 
+ADAPTER_REGISTRY: dict[str, dict[str, object]] = {
+    "axolotl": {
+        "kind": "training",
+        "module": "axolotl",
+        "hook": "lab.axolotl_adapter.run",
+        "specialist": "training-architect",
+    },
+    "pybullet": {
+        "kind": "simulator",
+        "module": "pybullet",
+        "hook": "lab.pybullet_adapter.run",
+        "specialist": "simulator-engineer",
+        "primary": True,
+    },
+    "gazebo": {
+        "kind": "simulator",
+        "module": "gazebo",
+        "hook": "lab.gazebo_adapter.run",
+        "specialist": "simulator-engineer",
+        "primary": False,
+    },
+    "isaac_gym": {
+        "kind": "simulator",
+        "module": "isaacgym",
+        "hook": "lab.isaac_gym_adapter.run",
+        "specialist": "simulator-engineer",
+        "primary": False,
+    },
+}
+
+
 def load_forge_mvp() -> dict[str, object]:
     return {
         "axolotl_hook": "lab.axolotl_adapter.run",
@@ -37,7 +68,7 @@ def load_forge_mvp() -> dict[str, object]:
             "required": ["dataset", "base_model", "target_metric"],
             "dataset_required": ["name", "license", "source"],
             "base_model_required": ["name", "source", "allow_distill"],
-            "optional": ["simulated_metric", "evaluation_notes"],
+            "optional": ["simulated_metric", "evaluation_notes", "simulator_backend", "require_backend"],
         },
         "evaluation_schema": {
             "required": ["status", "stage", "evaluation_report", "published"],
@@ -48,6 +79,7 @@ def load_forge_mvp() -> dict[str, object]:
             "axolotl": ["dataset", "base_model", "target_metric"],
             "pybullet": ["dataset", "target_metric", "simulated_metric"],
         },
+        "adapter_registry": dict(ADAPTER_REGISTRY),
         "evidence_output_path": ".omg/evidence/forge-<run_id>.json",
         "starter_templates": {
             "vision-agent": {
@@ -159,9 +191,10 @@ def build_stage_evidence(
     defense_snapshot: Mapping[str, object],
     session_health_snapshot: Mapping[str, object],
     artifacts: list[str],
+    adapter_evidence: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     duration_ms = max(0, int((monotonic() - started_at_ms) * 1000))
-    return {
+    result: dict[str, object] = {
         "stage": stage,
         "run_id": run_id,
         "status": status,
@@ -171,6 +204,9 @@ def build_stage_evidence(
         "artifacts": list(artifacts),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    if adapter_evidence is not None:
+        result["adapter_evidence"] = list(adapter_evidence)
+    return result
 
 
 def build_forge_evidence(

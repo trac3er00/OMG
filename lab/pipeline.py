@@ -17,6 +17,12 @@ PIPELINE_STAGE_ORDER: tuple[str, ...] = (
     "regression_test",
 )
 
+_STAGE_ADAPTER_KIND: dict[str, str] = {
+    "train_distill": "training",
+    "evaluate": "simulator",
+    "regression_test": "simulator",
+}
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -30,6 +36,8 @@ def run_pipeline(
 ) -> dict[str, Any]:
     from runtime.forge_contracts import build_stage_evidence, read_stage_runtime_snapshots, resolve_stage_timeout_ms
 
+    from runtime.forge_agents import check_required_backends_satisfied, resolve_adapters
+
     active_run_id = str(run_id or _now())
     ok, reason = validate_job_request(job)
     if not ok:
@@ -42,6 +50,25 @@ def run_pipeline(
             "run_id": active_run_id,
             "stage_evidence": [],
         }
+
+    adapter_evidence = resolve_adapters(job)
+    backends_ok, backends_reason = check_required_backends_satisfied(adapter_evidence)
+    if not backends_ok:
+        return {
+            "status": "blocked",
+            "stage": "adapter",
+            "reason": backends_reason,
+            "published": False,
+            "evaluation_report": None,
+            "run_id": active_run_id,
+            "stage_evidence": [],
+            "adapter_evidence": adapter_evidence,
+        }
+
+    adapter_by_kind: dict[str, list[dict[str, object]]] = {}
+    for ev in adapter_evidence:
+        kind = str(ev.get("kind", ""))
+        adapter_by_kind.setdefault(kind, []).append(ev)
 
     target_metric = float(job.get("target_metric", 0.8))
     simulated_metric = float(job.get("simulated_metric", target_metric))
@@ -70,6 +97,9 @@ def run_pipeline(
         elif stage in {"evaluate", "regression_test"} and simulated_metric < target_metric:
             stage_status = "failed"
 
+        stage_adapter_kind = _STAGE_ADAPTER_KIND.get(stage)
+        stage_adapter_ev = adapter_by_kind.get(stage_adapter_kind, []) if stage_adapter_kind else []
+
         defense_snapshot: dict[str, object] = {}
         session_health_snapshot: dict[str, object] = {}
         if snapshot_root:
@@ -83,6 +113,7 @@ def run_pipeline(
             defense_snapshot=defense_snapshot,
             session_health_snapshot=session_health_snapshot,
             artifacts=stage_artifacts.get(stage, []),
+            adapter_evidence=stage_adapter_ev if stage_adapter_ev else None,
         )
         stage_evidence.append(stage_record)
         stages.append({"name": stage, "status": _to_legacy_stage_status(stage_status)})
@@ -122,7 +153,7 @@ def run_pipeline(
 
     report = _evaluation_report(job, simulated_metric, target_metric)
 
-    return {
+    result: dict[str, Any] = {
         "status": "ready",
         "stage": "complete",
         "stages": stages,
@@ -131,6 +162,9 @@ def run_pipeline(
         "run_id": active_run_id,
         "stage_evidence": stage_evidence,
     }
+    if adapter_evidence:
+        result["adapter_evidence"] = adapter_evidence
+    return result
 
 
 def publish_artifact(result: dict[str, Any]) -> dict[str, Any]:

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from runtime.forge_contracts import load_forge_mvp, validate_forge_job
+from runtime.forge_contracts import ADAPTER_REGISTRY, load_forge_mvp, validate_forge_job
 from runtime.runtime_contracts import read_defense_state, read_session_health
 
 
@@ -94,6 +96,21 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
     specialists_dispatched = requested_specialists if requested_specialists else expected_specialists
     status = "ok" if specialists_dispatched else "noop"
     active_run_id = run_id or _now_run_id()
+
+    job_with_specialists = dict(job)
+    job_with_specialists["specialists"] = specialists_dispatched
+    adapter_evidence = resolve_adapters(job_with_specialists)
+
+    backends_ok, backends_reason = check_required_backends_satisfied(adapter_evidence)
+    if not backends_ok:
+        return {
+            "status": "blocked",
+            "specialists_dispatched": specialists_dispatched,
+            "evidence_path": "",
+            "reason": backends_reason,
+            "adapter_evidence": adapter_evidence,
+        }
+
     evidence_path = _write_dispatch_evidence(
         project_dir=project_dir,
         run_id=active_run_id,
@@ -110,6 +127,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
         "specialists_dispatched": specialists_dispatched,
         "run_id": active_run_id,
         "evidence_path": evidence_path,
+        "adapter_evidence": adapter_evidence,
     }
 
 
@@ -126,6 +144,80 @@ def _normalize_specialist_list(value: object) -> list[str]:
 
 def _now_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+
+
+def _check_backend_available(backend_name: str) -> bool:
+    entry = ADAPTER_REGISTRY.get(backend_name)
+    if entry is None:
+        return False
+    module_name = str(entry.get("module", ""))
+    if not module_name:
+        return False
+    try:
+        return importlib.util.find_spec(module_name) is not None
+    except Exception:
+        return False
+
+
+def _check_axolotl_available() -> bool:
+    return _check_backend_available("axolotl")
+
+
+def _check_simulator_available(name: str) -> bool:
+    return _check_backend_available(name)
+
+
+def resolve_adapters(job: dict[str, Any]) -> list[dict[str, object]]:
+    results: list[dict[str, object]] = []
+    dispatched_specialists = job.get("specialists", [])
+    if not isinstance(dispatched_specialists, list):
+        dispatched_specialists = []
+
+    requested_backend = str(job.get("simulator_backend", "")).strip().lower()
+    require_backend = bool(job.get("require_backend", False))
+
+    if "training-architect" in dispatched_specialists:
+        available = _check_axolotl_available()
+        results.append({
+            "adapter": "axolotl",
+            "kind": "training",
+            "status": "invoked" if available else "skipped_unavailable_backend",
+            "required": require_backend and requested_backend == "axolotl",
+            "reason": "" if available else "axolotl not installed",
+            "available": available,
+        })
+
+    if "simulator-engineer" in dispatched_specialists:
+        simulator_backends = _resolve_simulator_backends(requested_backend)
+        for backend in simulator_backends:
+            available = _check_simulator_available(backend)
+            is_required = require_backend and requested_backend == backend
+            results.append({
+                "adapter": backend,
+                "kind": "simulator",
+                "status": "invoked" if available else "skipped_unavailable_backend",
+                "required": is_required,
+                "reason": "" if available else f"{backend} not installed",
+                "available": available,
+            })
+
+    return results
+
+
+def _resolve_simulator_backends(requested: str) -> list[str]:
+    if requested and requested in ADAPTER_REGISTRY:
+        entry = ADAPTER_REGISTRY[requested]
+        if str(entry.get("kind", "")) == "simulator":
+            return [requested]
+    return ["pybullet"]
+
+
+def check_required_backends_satisfied(adapter_evidence: list[dict[str, object]]) -> tuple[bool, str]:
+    for ev in adapter_evidence:
+        if ev.get("required") is True and ev.get("status") == "skipped_unavailable_backend":
+            adapter_name = str(ev.get("adapter", "unknown"))
+            return False, f"required backend unavailable: {adapter_name}"
+    return True, "ok"
 
 
 def _write_dispatch_evidence(

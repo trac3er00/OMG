@@ -404,3 +404,114 @@ class TestForgeSpecialists:
         assert result.returncode != 0
         output = json.loads(result.stdout)
         assert output["status"] == "blocked"
+
+
+class TestForgeAdapterBackends:
+    def test_pipeline_continues_with_optional_unavailable_backend(self):
+        job = _valid_job()
+        job["specialists"] = ["data-curator", "training-architect", "simulator-engineer"]
+        job["domain"] = "vision"
+        job["simulator_backend"] = "gazebo"
+        job["require_backend"] = False
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        assert "adapter_evidence" in result
+        gazebo_ev = [a for a in result["adapter_evidence"] if a["adapter"] == "gazebo"]
+        assert len(gazebo_ev) == 1
+        assert gazebo_ev[0]["status"] == "skipped_unavailable_backend"
+        assert gazebo_ev[0]["required"] is False
+
+    def test_pipeline_blocks_when_required_backend_missing(self):
+        job = _valid_job()
+        job["specialists"] = ["simulator-engineer"]
+        job["domain"] = "robotics"
+        job["simulator_backend"] = "gazebo"
+        job["require_backend"] = True
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "blocked"
+        assert result["stage"] == "adapter"
+        assert "required backend unavailable" in str(result.get("reason", ""))
+        assert "adapter_evidence" in result
+
+    def test_pipeline_proceeds_with_default_pybullet(self):
+        job = _valid_job()
+        job["specialists"] = ["training-architect", "simulator-engineer"]
+        job["domain"] = "robotics"
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        if "adapter_evidence" in result:
+            adapter_names = [str(a["adapter"]) for a in result["adapter_evidence"]]
+            assert "pybullet" in adapter_names
+
+    def test_pipeline_with_evidence_includes_adapter_data(self, tmp_path: Path):
+        job = _valid_job()
+        job["specialists"] = ["data-curator", "training-architect", "simulator-engineer"]
+        job["domain"] = "vision"
+
+        result = run_pipeline_with_evidence(str(tmp_path), job, "run-adapter-e2e")
+
+        assert result["status"] == "ready"
+        assert "adapter_evidence" in result
+
+    def test_pipeline_stage_evidence_has_adapter_evidence_on_relevant_stages(self):
+        job = _valid_job()
+        job["specialists"] = ["training-architect", "simulator-engineer"]
+        job["domain"] = "robotics"
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        stage_map = {s["stage"]: s for s in result["stage_evidence"]}
+        train_stage = stage_map["train_distill"]
+        assert "adapter_evidence" in train_stage
+        training_adapters = [a for a in train_stage["adapter_evidence"] if a["kind"] == "training"]
+        assert len(training_adapters) >= 1
+
+        eval_stage = stage_map["evaluate"]
+        assert "adapter_evidence" in eval_stage
+        sim_adapters = [a for a in eval_stage["adapter_evidence"] if a["kind"] == "simulator"]
+        assert len(sim_adapters) >= 1
+
+    def test_pipeline_stage_evidence_no_adapter_on_data_stages(self):
+        job = _valid_job()
+        job["specialists"] = ["training-architect", "simulator-engineer"]
+        job["domain"] = "robotics"
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        stage_map = {s["stage"]: s for s in result["stage_evidence"]}
+        assert "adapter_evidence" not in stage_map["data_prepare"]
+        assert "adapter_evidence" not in stage_map["synthetic_refine"]
+
+    def test_pipeline_required_isaac_gym_blocks(self):
+        job = _valid_job()
+        job["specialists"] = ["simulator-engineer"]
+        job["domain"] = "robotics"
+        job["simulator_backend"] = "isaac_gym"
+        job["require_backend"] = True
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "blocked"
+        assert "required backend unavailable" in str(result.get("reason", ""))
+
+    def test_pipeline_optional_isaac_gym_continues(self):
+        job = _valid_job()
+        job["specialists"] = ["simulator-engineer"]
+        job["domain"] = "robotics"
+        job["simulator_backend"] = "isaac_gym"
+        job["require_backend"] = False
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        isaac_ev = [a for a in result.get("adapter_evidence", []) if a["adapter"] == "isaac_gym"]
+        assert len(isaac_ev) == 1
+        assert isaac_ev[0]["status"] == "skipped_unavailable_backend"
