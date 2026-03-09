@@ -67,8 +67,21 @@ class TestExecuteCcgMode:
         assert "backend-engineer" in agent_names
         assert "frontend-designer" in agent_names
 
+    @patch("runtime.team_router._update_post_council_state")
+    @patch("runtime.team_router._persist_council_verdicts")
+    @patch("runtime.team_router.run_critics", return_value={})
+    @patch("runtime.team_router._build_router_context_packet", return_value={})
+    @patch("runtime.team_router.resolve_coordinator_run_id", return_value=None)
     @patch("runtime.team_router.execute_agents_parallel")
-    def test_passes_project_dir(self, mock_parallel: MagicMock) -> None:
+    def test_passes_project_dir(
+        self,
+        mock_parallel: MagicMock,
+        _mock_run_id: MagicMock,
+        _mock_ctx: MagicMock,
+        _mock_critics: MagicMock,
+        _mock_persist: MagicMock,
+        _mock_update: MagicMock,
+    ) -> None:
         mock_parallel.return_value = self._two_track_results()
         from runtime.team_router import execute_ccg_mode
 
