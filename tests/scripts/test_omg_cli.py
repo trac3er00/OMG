@@ -932,3 +932,72 @@ def test_cli_profile_review_read_only(tmp_path):
 def test_cli_profile_review_help_lists_command():
     proc = _run(["--help"])
     assert "profile-review" in proc.stdout + proc.stderr
+
+
+# --- validate command tests ---
+
+
+def test_cli_validate_json_output_has_required_fields():
+    proc = _run(["validate", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "ValidateResult"
+    assert "status" in out
+    assert out["status"] in ("pass", "fail")
+    assert "checks" in out
+    assert isinstance(out["checks"], list)
+    assert "version" in out
+
+
+def test_cli_validate_includes_doctor_checks():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    # Must include at least the core doctor checks
+    assert "python_version" in check_names
+    assert "fastmcp" in check_names
+
+
+def test_cli_validate_includes_contract_check():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    assert "contract_registry" in check_names
+
+
+def test_cli_validate_includes_profile_check():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    assert "profile_governor" in check_names
+
+
+def test_cli_validate_includes_install_check():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    check_names = {c["name"] for c in out["checks"]}
+    assert "install_integrity" in check_names
+
+
+def test_cli_validate_text_format():
+    proc = _run(["validate", "--format", "text"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    # Text format should contain human-readable markers
+    assert "PASS" in proc.stdout or "BLOCKER" in proc.stdout or "WARN" in proc.stdout
+
+
+def test_cli_validate_default_format_is_text():
+    proc = _run(["validate"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    # Default should be text (not JSON)
+    try:
+        json.loads(proc.stdout)
+        # If it parses as JSON, that's wrong — default should be text
+        assert False, "Default format should be text, not JSON"
+    except json.JSONDecodeError:
+        pass  # Correct: text format is not valid JSON
+
+
+def test_cli_validate_help_lists_command():
+    proc = _run(["--help"])
+    assert "validate" in proc.stdout + proc.stderr
