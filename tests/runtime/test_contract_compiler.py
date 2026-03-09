@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -1631,10 +1632,8 @@ def test_malformed_pyproject_toml_produces_explicit_parse_blocker(
     assert len(pyproject_blockers) > 0, (
         f"Expected explicit parse blocker for malformed pyproject.toml, got: {blockers}"
     )
-    assert not any(
-        "has version" in b and "expected" in b for b in pyproject_blockers
-    ), (
-        f"Malformed pyproject.toml must produce parse error, not silent mismatch: {pyproject_blockers}"
+    assert any("<pattern not found>" in b for b in pyproject_blockers), (
+        f"Malformed pyproject.toml must surface parser fallout from shared check_surface: {pyproject_blockers}"
     )
 
 
@@ -1740,3 +1739,83 @@ def test_build_release_readiness_drift_section_contains_blockers_on_mismatch(
     assert any("package.json" in b for b in drift_section["blockers"]), (
         f"Expected package.json drift blocker, got: {drift_section['blockers']}"
     )
+
+
+def test_contract_validate_release_identity_outputs_blocker_payloads(
+    monkeypatch, capsys
+) -> None:
+    import scripts.omg as omg_cli
+
+    class _StubValidator:
+        @staticmethod
+        def extract_canonical_version(_path):
+            return CANONICAL_VERSION
+
+        @staticmethod
+        def validate_authored(_root, _canonical):
+            return {
+                "status": "fail",
+                "blockers": [
+                    {
+                        "surface": "package.json version",
+                        "found": "0.0.0",
+                        "expected": CANONICAL_VERSION,
+                    }
+                ],
+            }
+
+        @staticmethod
+        def validate_derived(_root, _canonical):
+            return {"status": "ok", "blockers": []}
+
+        @staticmethod
+        def scan_scoped_residue(_root, _forbid_version):
+            return {
+                "status": "fail",
+                "forbid_version": "2.1.0",
+                "blockers": [
+                    {
+                        "file": "dist/public/manifest.json",
+                        "line": 1,
+                        "content": '"contract_version": "2.1.0"',
+                    }
+                ],
+            }
+
+        @staticmethod
+        def build_report(**kwargs):
+            return {
+                "canonical_version": kwargs["canonical"],
+                "scope": kwargs["scope"],
+                "forbid_version": kwargs["forbid_version"],
+                "authored": kwargs["authored"],
+                "derived": kwargs["derived"],
+                "scoped_residue": kwargs["scoped_residue"],
+                "overall_status": "fail",
+            }
+
+    monkeypatch.setattr(
+        omg_cli,
+        "validate_contract_registry",
+        lambda _root: {
+            "schema": "OmgContractValidationResult",
+            "status": "ok",
+            "errors": [],
+            "bundles": [],
+            "contract": {},
+        },
+    )
+    monkeypatch.setattr(omg_cli, "_load_release_identity_validator", lambda: _StubValidator())
+
+    exit_code = omg_cli.cmd_contract_validate(
+        argparse.Namespace(release_identity_scope="all", forbid_version="2.1.0")
+    )
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == 2
+    assert payload["status"] == "error"
+    assert "release_identity" in payload
+    assert payload["release_identity"]["overall_status"] == "fail"
+    assert payload["release_identity"]["authored"]["blockers"][0]["surface"] == "package.json version"
+    assert payload["release_identity"]["scoped_residue"]["blockers"][0]["file"] == "dist/public/manifest.json"

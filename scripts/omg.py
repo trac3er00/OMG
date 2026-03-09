@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -685,10 +686,73 @@ def cmd_ecosystem_sync(args: argparse.Namespace) -> int:
     return 0 if not errors else 2
 
 
+def _load_release_identity_validator() -> Any:
+    validator_path = ROOT_DIR / "scripts" / "validate-release-identity.py"
+    spec = importlib.util.spec_from_file_location("validate_release_identity", validator_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("unable to load validate-release-identity.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def cmd_contract_validate(args: argparse.Namespace) -> int:
     result = validate_contract_registry(ROOT_DIR)
+
+    release_identity_scope = getattr(args, "release_identity_scope", "all")
+    forbid_version = getattr(args, "forbid_version", "") or None
+
+    try:
+        validator = _load_release_identity_validator()
+        canonical = validator.extract_canonical_version(ROOT_DIR / "runtime" / "adoption.py")
+        if canonical is None:
+            release_identity = {
+                "canonical_version": None,
+                "scope": release_identity_scope,
+                "forbid_version": forbid_version,
+                "overall_status": "fail",
+                "error": "CANONICAL_VERSION not found",
+            }
+        else:
+            authored_result = (
+                validator.validate_authored(ROOT_DIR, canonical)
+                if release_identity_scope in {"authored", "all"}
+                else {"status": "skipped", "blockers": []}
+            )
+            derived_result = (
+                validator.validate_derived(ROOT_DIR, canonical)
+                if release_identity_scope in {"derived", "all"}
+                else {"status": "skipped", "blockers": []}
+            )
+            residue_result = (
+                validator.scan_scoped_residue(ROOT_DIR, forbid_version)
+                if forbid_version
+                else None
+            )
+            release_identity = validator.build_report(
+                canonical=canonical,
+                scope=release_identity_scope,
+                forbid_version=forbid_version,
+                authored=authored_result,
+                derived=derived_result,
+                scoped_residue=residue_result,
+            )
+    except Exception as exc:
+        release_identity = {
+            "canonical_version": None,
+            "scope": release_identity_scope,
+            "forbid_version": forbid_version,
+            "overall_status": "fail",
+            "error": f"release identity validator failed: {exc}",
+        }
+
+    result["release_identity"] = release_identity
+    status_ok = result.get("status") == "ok" and release_identity.get("overall_status") == "ok"
+    if not status_ok:
+        result["status"] = "error"
+
     print(json.dumps(result, indent=2))
-    return 0 if result.get("status") == "ok" else 2
+    return 0 if status_ok else 2
 
 
 def cmd_contract_compile(args: argparse.Namespace) -> int:
@@ -759,6 +823,17 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
     contract_sub = parent.add_subparsers(dest=dest, required=True)
 
     contract_validate = contract_sub.add_parser("validate", help="Validate contract doc, schema, and bundle registry")
+    contract_validate.add_argument(
+        "--release-identity-scope",
+        default="all",
+        choices=["authored", "derived", "all"],
+        help="Scope for embedded release identity validation",
+    )
+    contract_validate.add_argument(
+        "--forbid-version",
+        default="",
+        help="Optional stale version to reject in scoped residue targets",
+    )
     contract_validate.set_defaults(func=cmd_contract_validate)
 
     contract_compile = contract_sub.add_parser(
