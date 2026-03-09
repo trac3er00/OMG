@@ -979,6 +979,25 @@ def test_cli_validate_includes_install_check():
     assert "install_integrity" in check_names
 
 
+def test_validate_includes_plugin_compatibility():
+    proc = _run(["validate", "--format", "json"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert isinstance(out, dict)
+    check_names = {c.get("name") for c in out.get("checks", []) if isinstance(c, dict)}
+    assert "plugin_compatibility" in check_names or "plugin" in out
+
+
+def test_doctor_includes_plugin_check():
+    proc = _run(["doctor", "--format", "json"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert isinstance(out, dict)
+    check_names = {c.get("name") for c in out.get("checks", []) if isinstance(c, dict)}
+    has_plugin_key = "plugin_compatibility" in out or "plugin" in out
+    assert "plugin_compatibility" in check_names or has_plugin_key
+
+
 def test_cli_validate_text_format():
     proc = _run(["validate", "--format", "text"])
     assert proc.returncode == 0 or proc.returncode == 1

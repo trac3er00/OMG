@@ -14,6 +14,7 @@ from typing import Any
 from runtime.adoption import CANONICAL_VERSION
 from runtime.compat import run_doctor, _doctor_check
 from runtime.contract_compiler import validate_contract_registry
+from runtime.plugin_diagnostics import run_plugin_diagnostics
 from runtime.profile_io import load_profile, ensure_governed_preferences
 
 
@@ -135,6 +136,33 @@ def _check_install_integrity(root_dir: Path) -> dict[str, Any]:
     )
 
 
+def _check_plugin_compatibility(root_dir: Path) -> dict[str, Any]:
+    try:
+        result = run_plugin_diagnostics(str(root_dir))
+    except Exception as exc:
+        return _doctor_check(
+            "plugin_compatibility",
+            ok=False,
+            message=f"plugin diagnostics error: {exc}",
+        )
+
+    status = str(result.get("status", "error"))
+    summary = result.get("summary", {})
+    summary = summary if isinstance(summary, dict) else {}
+    total_records = int(summary.get("total_records", 0))
+    total_conflicts = int(summary.get("total_conflicts", 0))
+    blockers = int(summary.get("blockers", 0))
+
+    return _doctor_check(
+        "plugin_compatibility",
+        ok=status in {"ok", "warn"},
+        message=(
+            f"plugin compatibility: {total_records} records, "
+            f"{total_conflicts} conflicts, {blockers} blockers"
+        ),
+    )
+
+
 def _load_selected_mcps(root_dir: Path) -> list[str]:
     """Load selected MCP IDs from cli-config.yaml.
 
@@ -223,7 +251,9 @@ def run_validate(*, root_dir: Path | None = None) -> dict[str, Any]:
     # 4. Install integrity
     checks.append(_check_install_integrity(repo_root))
 
-    # 5. Optional: NotebookLM (only when selected)
+    if not any(c.get("name") == "plugin_compatibility" for c in checks):
+        checks.append(_check_plugin_compatibility(repo_root))
+
     nb_check = _check_notebooklm(repo_root)
     if nb_check is not None:
         checks.append(nb_check)
