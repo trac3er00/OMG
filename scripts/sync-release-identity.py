@@ -2,7 +2,7 @@
 """Sync/check flow for tracked source identity surfaces.
 
 Reads CANONICAL_VERSION from runtime/adoption.py via AST and updates
-or validates all tracked source surfaces.
+or validates all tracked source surfaces defined in runtime/release_surfaces.py.
 
 Usage:
     python3 scripts/sync-release-identity.py          # write mode (default)
@@ -18,7 +18,24 @@ import sys
 from pathlib import Path
 from typing import Any, Union, cast
 
+# Ensure repo root is importable
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from runtime.release_surfaces import (
+    AUTHORED_SURFACES,
+    DERIVED_SURFACE_DIRS,
+    AuthoredSurface,
+)
+
 KeyPath = list[Union[str, int]]
+
+# Derived directories that must never be mutated
+_DERIVED_DIRS = frozenset(DERIVED_SURFACE_DIRS)
+
+
+# ── Version extraction (AST-based, zero-dependency) ────────────────────────
 
 
 def extract_canonical_version(source_file: Path) -> str | None:
@@ -46,6 +63,9 @@ def extract_canonical_version(source_file: Path) -> str | None:
                         return cast(str, node.value.s)
 
     return None
+
+
+# ── JSON helpers ────────────────────────────────────────────────────────────
 
 
 def _get_nested(data: Any, key_path: KeyPath) -> Any:
@@ -92,229 +112,306 @@ def _format_key_path(kp: KeyPath) -> str:
     return "".join(parts)
 
 
-JSON_SURFACES: list[tuple[str, list[KeyPath]]] = [
-    ("package.json", [["version"]]),
-    ("settings.json", [
-        ["_omg", "_version"],
-        ["_omg", "generated", "contract_version"],
-    ]),
-    (".claude-plugin/plugin.json", [["version"]]),
-    (".claude-plugin/marketplace.json", [
-        ["version"],
-        ["metadata", "version"],
-        ["plugins", 0, "version"],
-    ]),
-    ("plugins/core/plugin.json", [["version"]]),
-    ("plugins/advanced/plugin.json", [["version"]]),
-    ("registry/omg-capability.schema.json", [["version"]]),
-]
-
-REGEX_SURFACES: list[tuple[str, str, str]] = [
-    (
-        "pyproject.toml",
-        r'^version = "(.+?)"',
-        'version = "{version}"',
-    ),
-]
-
-YAML_BUNDLE_DIR = "registry/bundles"
-CHANGELOG_FILE = "CHANGELOG.md"
+# ── Guard ───────────────────────────────────────────────────────────────────
 
 
-def check_json_surfaces(
-    repo_root: Path, canonical: str,
+def _guard_derived(surface: AuthoredSurface) -> None:
+    """Raise if surface targets a derived/generated directory."""
+    for d in _DERIVED_DIRS:
+        if surface.file_path.startswith(d):
+            raise ValueError(
+                f"Refusing to mutate derived directory: {surface.file_path}"
+            )
+
+
+def _surface_label(surface: AuthoredSurface) -> str:
+    """Human-readable label for a surface."""
+    if surface.surface_type == "json_key_path" and isinstance(surface.field, list):
+        return f"{surface.file_path} {_format_key_path(surface.field)}"
+    return surface.file_path
+
+
+def _replace_group1(m: re.Match[str], new_version: str) -> str:
+    """Replace captured group 1 in a regex match, preserving surrounding text."""
+    prefix = m.group(0)[: m.start(1) - m.start(0)]
+    suffix = m.group(0)[m.end(1) - m.start(0) :]
+    return prefix + new_version + suffix
+
+
+# ── Check handlers ──────────────────────────────────────────────────────────
+
+
+def _check_json_key_path(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
 ) -> list[tuple[str, str | None]]:
-    drifts: list[tuple[str, str | None]] = []
-    for file_rel, key_paths in JSON_SURFACES:
-        file_path = repo_root / file_rel
-        try:
-            data = json.loads(file_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            for kp in key_paths:
-                surface = f"{file_rel} {_format_key_path(kp)}"
-                drifts.append((surface, f"<error: {e}>"))
-            continue
-
-        for kp in key_paths:
-            surface = f"{file_rel} {_format_key_path(kp)}"
-            current = _get_nested(data, kp)
-            if current != canonical:
-                drifts.append((
-                    surface,
-                    str(current) if current is not None else None,
-                ))
-    return drifts
-
-
-def check_regex_surfaces(
-    repo_root: Path, canonical: str,
-) -> list[tuple[str, str | None]]:
-    drifts: list[tuple[str, str | None]] = []
-    for file_rel, pattern, _repl in REGEX_SURFACES:
-        file_path = repo_root / file_rel
-        try:
-            content = file_path.read_text(encoding="utf-8")
-        except OSError as e:
-            drifts.append((file_rel, f"<error: {e}>"))
-            continue
-
-        match = re.search(pattern, content, re.MULTILINE)
-        if match:
-            current = match.group(1)
-            if current != canonical:
-                drifts.append((file_rel, current))
-        else:
-            drifts.append((file_rel, "<pattern not found>"))
-    return drifts
-
-
-def check_yaml_bundles(
-    repo_root: Path, canonical: str,
-) -> list[tuple[str, str | None]]:
-    drifts: list[tuple[str, str | None]] = []
-    bundle_dir = repo_root / YAML_BUNDLE_DIR
-    if not bundle_dir.is_dir():
-        drifts.append((YAML_BUNDLE_DIR, "<directory not found>"))
-        return drifts
-
-    for yaml_file in sorted(bundle_dir.glob("*.yaml")):
-        rel = str(yaml_file.relative_to(repo_root))
-        try:
-            content = yaml_file.read_text(encoding="utf-8")
-        except OSError as e:
-            drifts.append((rel, f"<error: {e}>"))
-            continue
-
-        match = re.search(r"^version:\s+(.+)$", content, re.MULTILINE)
-        if match:
-            current = match.group(1).strip()
-            if current != canonical:
-                drifts.append((rel, current))
-        else:
-            drifts.append((rel, "<pattern not found>"))
-    return drifts
-
-
-def check_changelog(
-    repo_root: Path, canonical: str,
-) -> list[tuple[str, str | None]]:
-    drifts: list[tuple[str, str | None]] = []
-    changelog = repo_root / CHANGELOG_FILE
+    label = _surface_label(surface)
+    file_path = repo_root / surface.file_path
+    key_path = cast(KeyPath, surface.field)
     try:
-        content = changelog.read_text(encoding="utf-8")
-    except OSError as e:
-        drifts.append((CHANGELOG_FILE, f"<error: {e}>"))
-        return drifts
+        data = json.loads(file_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return [(label, f"<error: {e}>")]
+    current = _get_nested(data, key_path)
+    if current != canonical:
+        return [(label, str(current) if current is not None else None)]
+    return []
 
-    # Pattern: ^## [?X.Y.Z]? — handles both ## 2.1.1 and ## [2.1.1] formats
-    match = re.search(
-        r"^## \[?(\d+\.\d+\.\d+)\]?", content, re.MULTILINE,
-    )
+
+def _check_regex(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[tuple[str, str | None]]:
+    """Generic check for regex_line, shell_literal, js_literal, banner_literal."""
+    label = _surface_label(surface)
+    pattern = cast(str, surface.field)
+    try:
+        content = (repo_root / surface.file_path).read_text(encoding="utf-8")
+    except OSError as e:
+        return [(label, f"<error: {e}>")]
+    match = re.search(pattern, content, re.MULTILINE)
     if match:
         current = match.group(1)
         if current != canonical:
-            drifts.append((CHANGELOG_FILE, current))
-    else:
-        drifts.append((CHANGELOG_FILE, "<no version header found>"))
-    return drifts
+            return [(label, current)]
+        return []
+    return [(label, "<pattern not found>")]
 
 
-def update_json_surfaces(repo_root: Path, canonical: str) -> list[str]:
-    updated: list[str] = []
-    for file_rel, key_paths in JSON_SURFACES:
-        file_path = repo_root / file_rel
-        try:
-            data = json.loads(file_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            print(f"  WARNING: Could not read {file_rel}: {e}", file=sys.stderr)
-            continue
-
-        file_changed = False
-        for kp in key_paths:
-            surface = f"{file_rel} {_format_key_path(kp)}"
-            current = _get_nested(data, kp)
-            if current != canonical:
-                _set_nested(data, kp, canonical)
-                updated.append(surface)
-                file_changed = True
-
-        if file_changed:
-            file_path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
-    return updated
-
-
-def update_regex_surfaces(repo_root: Path, canonical: str) -> list[str]:
-    updated: list[str] = []
-    for file_rel, pattern, repl_template in REGEX_SURFACES:
-        file_path = repo_root / file_rel
-        try:
-            content = file_path.read_text(encoding="utf-8")
-        except OSError as e:
-            print(f"  WARNING: Could not read {file_rel}: {e}", file=sys.stderr)
-            continue
-
-        replacement = repl_template.format(version=canonical)
-        new_content, count = re.subn(
-            pattern, replacement, content, count=1, flags=re.MULTILINE,
-        )
-        if count > 0 and new_content != content:
-            file_path.write_text(new_content, encoding="utf-8")
-            updated.append(file_rel)
-    return updated
-
-
-def update_yaml_bundles(repo_root: Path, canonical: str) -> list[str]:
-    updated: list[str] = []
-    bundle_dir = repo_root / YAML_BUNDLE_DIR
-    if not bundle_dir.is_dir():
-        print(
-            f"  WARNING: {YAML_BUNDLE_DIR} not found", file=sys.stderr,
-        )
-        return updated
-
-    replacement = f"version: {canonical}"
-    for yaml_file in sorted(bundle_dir.glob("*.yaml")):
-        rel = str(yaml_file.relative_to(repo_root))
-        try:
-            content = yaml_file.read_text(encoding="utf-8")
-        except OSError as e:
-            print(f"  WARNING: Could not read {rel}: {e}", file=sys.stderr)
-            continue
-
-        new_content, count = re.subn(
-            r"^version: .*$", replacement, content,
-            count=1, flags=re.MULTILINE,
-        )
-        if count > 0 and new_content != content:
-            yaml_file.write_text(new_content, encoding="utf-8")
-            updated.append(rel)
-    return updated
-
-
-def update_changelog(repo_root: Path, canonical: str) -> list[str]:
-    updated: list[str] = []
-    changelog = repo_root / CHANGELOG_FILE
+def _check_yaml_line(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[tuple[str, str | None]]:
+    label = _surface_label(surface)
     try:
-        content = changelog.read_text(encoding="utf-8")
+        content = (repo_root / surface.file_path).read_text(encoding="utf-8")
     except OSError as e:
-        print(f"  WARNING: Could not read {CHANGELOG_FILE}: {e}", file=sys.stderr)
-        return updated
+        return [(label, f"<error: {e}>")]
+    match = re.search(r"^version:\s+(.+)$", content, re.MULTILINE)
+    if match:
+        current = match.group(1).strip()
+        if current != canonical:
+            return [(label, current)]
+        return []
+    return [(label, "<pattern not found>")]
 
-    # Pattern preserves bracket style ([X.Y.Z] vs X.Y.Z) and date suffix
+
+def _check_frontmatter_field(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[tuple[str, str | None]]:
+    label = _surface_label(surface)
+    field_name = cast(str, surface.field)
+    try:
+        content = (repo_root / surface.file_path).read_text(encoding="utf-8")
+    except OSError as e:
+        return [(label, f"<error: {e}>")]
+    fm_match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
+    if not fm_match:
+        return [(label, "<no frontmatter found>")]
+    field_match = re.search(
+        rf"^{re.escape(field_name)}:\s+(.+)$", fm_match.group(1), re.MULTILINE,
+    )
+    if field_match:
+        current = field_match.group(1).strip()
+        if current != canonical:
+            return [(label, current)]
+        return []
+    return [(label, f"<field '{field_name}' not found in frontmatter>")]
+
+
+def _check_changelog_header(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[tuple[str, str | None]]:
+    label = _surface_label(surface)
+    pattern = cast(str, surface.field)
+    try:
+        content = (repo_root / surface.file_path).read_text(encoding="utf-8")
+    except OSError as e:
+        return [(label, f"<error: {e}>")]
+    match = re.search(pattern, content, re.MULTILINE)
+    if match:
+        current = match.group(1)
+        if current != canonical:
+            return [(label, current)]
+        return []
+    return [(label, "<no version header found>")]
+
+
+# ── Update handlers ─────────────────────────────────────────────────────────
+
+
+def _update_json_key_path(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[str]:
+    label = _surface_label(surface)
+    file_path = repo_root / surface.file_path
+    key_path = cast(KeyPath, surface.field)
+    try:
+        data = json.loads(file_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"  WARNING: Could not read {surface.file_path}: {e}", file=sys.stderr)
+        return []
+    current = _get_nested(data, key_path)
+    if current != canonical:
+        _set_nested(data, key_path, canonical)
+        file_path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        return [label]
+    return []
+
+
+def _update_regex(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[str]:
+    """Generic update for regex_line, shell_literal, js_literal, banner_literal."""
+    label = _surface_label(surface)
+    pattern = cast(str, surface.field)
+    file_path = repo_root / surface.file_path
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except OSError as e:
+        print(f"  WARNING: Could not read {surface.file_path}: {e}", file=sys.stderr)
+        return []
+    new_content = re.sub(
+        pattern,
+        lambda m: _replace_group1(m, canonical),
+        content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if new_content != content:
+        file_path.write_text(new_content, encoding="utf-8")
+        return [label]
+    return []
+
+
+def _update_yaml_line(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[str]:
+    label = _surface_label(surface)
+    file_path = repo_root / surface.file_path
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except OSError as e:
+        print(f"  WARNING: Could not read {surface.file_path}: {e}", file=sys.stderr)
+        return []
+    replacement = f"version: {canonical}"
+    new_content, count = re.subn(
+        r"^version: .*$", replacement, content, count=1, flags=re.MULTILINE,
+    )
+    if count > 0 and new_content != content:
+        file_path.write_text(new_content, encoding="utf-8")
+        return [label]
+    return []
+
+
+def _update_frontmatter_field(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[str]:
+    label = _surface_label(surface)
+    file_path = repo_root / surface.file_path
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except OSError as e:
+        print(f"  WARNING: Could not read {surface.file_path}: {e}", file=sys.stderr)
+        return []
+    fm_match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
+    if not fm_match:
+        print(f"  WARNING: No frontmatter in {surface.file_path}", file=sys.stderr)
+        return []
+    field_name = cast(str, surface.field)
+    old_fm = fm_match.group(1)
+    new_fm = re.sub(
+        rf"^({re.escape(field_name)}:\s+)(.+)$",
+        rf"\g<1>{canonical}",
+        old_fm,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if new_fm != old_fm:
+        new_content = content[: fm_match.start(1)] + new_fm + content[fm_match.end(1) :]
+        file_path.write_text(new_content, encoding="utf-8")
+        return [label]
+    return []
+
+
+def _update_changelog_header(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[str]:
+    label = _surface_label(surface)
+    file_path = repo_root / surface.file_path
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except OSError as e:
+        print(f"  WARNING: Could not read {surface.file_path}: {e}", file=sys.stderr)
+        return []
+
     def _replace_version(m: re.Match[str]) -> str:
         return f"{m.group(1)}{canonical}{m.group(3)}"
 
     new_content, count = re.subn(
         r"^(## \[?)(\d+\.\d+\.\d+)(\]?.*)",
-        _replace_version, content, count=1, flags=re.MULTILINE,
+        _replace_version,
+        content,
+        count=1,
+        flags=re.MULTILINE,
     )
     if count > 0 and new_content != content:
-        changelog.write_text(new_content, encoding="utf-8")
-        updated.append(CHANGELOG_FILE)
-    return updated
+        file_path.write_text(new_content, encoding="utf-8")
+        return [label]
+    return []
+
+
+# ── Dispatch tables ─────────────────────────────────────────────────────────
+
+_CHECK_DISPATCH = {
+    "json_key_path": _check_json_key_path,
+    "regex_line": _check_regex,
+    "yaml_line": _check_yaml_line,
+    "frontmatter_field": _check_frontmatter_field,
+    "changelog_header": _check_changelog_header,
+    "shell_literal": _check_regex,
+    "js_literal": _check_regex,
+    "banner_literal": _check_regex,
+}
+
+_UPDATE_DISPATCH = {
+    "json_key_path": _update_json_key_path,
+    "regex_line": _update_regex,
+    "yaml_line": _update_yaml_line,
+    "frontmatter_field": _update_frontmatter_field,
+    "changelog_header": _update_changelog_header,
+    "shell_literal": _update_regex,
+    "js_literal": _update_regex,
+    "banner_literal": _update_regex,
+}
+
+
+# ── Public API ──────────────────────────────────────────────────────────────
+
+
+def check_surface(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[tuple[str, str | None]]:
+    """Check a single surface for version drift."""
+    _guard_derived(surface)
+    handler = _CHECK_DISPATCH.get(surface.surface_type)
+    if handler is None:
+        return [(_surface_label(surface), f"<unknown type: {surface.surface_type}>")]
+    return handler(repo_root, surface, canonical)
+
+
+def update_surface(
+    repo_root: Path, surface: AuthoredSurface, canonical: str,
+) -> list[str]:
+    """Update a single surface to canonical version."""
+    _guard_derived(surface)
+    handler = _UPDATE_DISPATCH.get(surface.surface_type)
+    if handler is None:
+        return []
+    return handler(repo_root, surface, canonical)
+
+
+# ── CLI entry point ─────────────────────────────────────────────────────────
 
 
 def main() -> int:
@@ -349,26 +446,22 @@ def main() -> int:
 
     if args.check:
         all_drifts: list[tuple[str, str | None]] = []
-        all_drifts.extend(check_json_surfaces(repo_root, canonical))
-        all_drifts.extend(check_regex_surfaces(repo_root, canonical))
-        all_drifts.extend(check_yaml_bundles(repo_root, canonical))
-        all_drifts.extend(check_changelog(repo_root, canonical))
+        for surface in AUTHORED_SURFACES:
+            all_drifts.extend(check_surface(repo_root, surface, canonical))
 
         if all_drifts:
             print(f"\nDrift detected in {len(all_drifts)} surface(s):\n")
-            for surface, current in all_drifts:
+            for surf, current in all_drifts:
                 cur = current if current is not None else "<not found>"
-                print(f"  DRIFT  {surface}: {cur} (expected {canonical})")
+                print(f"  DRIFT  {surf}: {cur} (expected {canonical})")
             return 1
         else:
             print("\nAll tracked surfaces in sync.")
             return 0
     else:
         all_updated: list[str] = []
-        all_updated.extend(update_json_surfaces(repo_root, canonical))
-        all_updated.extend(update_regex_surfaces(repo_root, canonical))
-        all_updated.extend(update_yaml_bundles(repo_root, canonical))
-        all_updated.extend(update_changelog(repo_root, canonical))
+        for surface in AUTHORED_SURFACES:
+            all_updated.extend(update_surface(repo_root, surface, canonical))
 
         if all_updated:
             print(f"\nUpdated {len(all_updated)} surface(s):\n")
