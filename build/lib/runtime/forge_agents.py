@@ -10,6 +10,7 @@ from typing import Any
 
 from runtime.forge_contracts import ADAPTER_REGISTRY, load_forge_mvp, validate_forge_job
 from runtime.runtime_contracts import read_defense_state, read_session_health
+from runtime.security_check import run_security_check
 
 
 _SPECIALIST_REGISTRY: dict[str, dict[str, object]] = {
@@ -25,6 +26,10 @@ _SPECIALIST_REGISTRY: dict[str, dict[str, object]] = {
         "description": "Builds simulator-backed evaluations through the PyBullet hook contract.",
         "capabilities": ["simulator-scenarios", "pybullet-hook-contract", "regression-replay"],
     },
+    "forge-cybersecurity": {
+        "description": "Runs labs-bounded cybersecurity hardening and threat-evidence checks.",
+        "capabilities": ["threat-modeling", "security-regression", "proof-linked-security-evidence"],
+    },
 }
 
 _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
@@ -33,6 +38,7 @@ _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
     "robotics": ["training-architect", "simulator-engineer"],
     "algorithms": ["training-architect"],
     "health": ["data-curator", "training-architect"],
+    "cybersecurity": ["forge-cybersecurity"],
 }
 
 
@@ -43,6 +49,32 @@ def resolve_specialists(domain: str) -> list[str]:
 
 def get_specialist_registry() -> dict[str, dict[str, object]]:
     return {name: dict(metadata) for name, metadata in _SPECIALIST_REGISTRY.items()}
+
+
+
+def _execute_cybersecurity_scan(project_dir: str) -> dict[str, Any]:
+    """Run canonical security_check scan for forge-cybersecurity specialist.
+
+    Reuses runtime/security_check.py engine. Degrades gracefully
+    when Semgrep or other external tools are unavailable.
+    """
+    try:
+        return run_security_check(
+            project_dir=project_dir,
+            scope=".",
+            include_live_enrichment=False,
+        )
+    except Exception:
+        return {
+            "schema": "SecurityCheckResult",
+            "status": "error",
+            "scope": ".",
+            "findings": [],
+            "security_scans": [],
+            "unresolved_risks": [],
+            "evidence": {},
+            "summary": {"scan_status": "failed", "finding_count": 0},
+        }
 
 
 def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | None = None) -> dict[str, Any]:
@@ -111,6 +143,10 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
             "adapter_evidence": adapter_evidence,
         }
 
+    security_scan: dict[str, Any] | None = None
+    if "forge-cybersecurity" in specialists_dispatched:
+        security_scan = _execute_cybersecurity_scan(project_dir)
+
     evidence_path = _write_dispatch_evidence(
         project_dir=project_dir,
         run_id=active_run_id,
@@ -121,14 +157,31 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
         requested_specialists=requested_specialists,
         specialists_dispatched=specialists_dispatched,
         job=job,
+        security_scan=security_scan,
     )
-    return {
+    result_payload: dict[str, Any] = {
         "status": status,
         "specialists_dispatched": specialists_dispatched,
         "run_id": active_run_id,
         "evidence_path": evidence_path,
         "adapter_evidence": adapter_evidence,
     }
+    if security_scan is not None:
+        result_payload["security_scan"] = security_scan
+    return result_payload
+
+
+def _resolve_specialist_contracts(contract: dict[str, object], specialists: list[str]) -> dict[str, dict[str, object]]:
+    raw_contracts = contract.get("specialist_contracts")
+    if not isinstance(raw_contracts, dict):
+        return {}
+
+    selected: dict[str, dict[str, object]] = {}
+    for name in specialists:
+        entry = raw_contracts.get(name)
+        if isinstance(entry, dict):
+            selected[name] = dict(entry)
+    return selected
 
 
 def _normalize_specialist_list(value: object) -> list[str]:
@@ -231,6 +284,7 @@ def _write_dispatch_evidence(
     requested_specialists: list[str],
     specialists_dispatched: list[str],
     job: dict[str, Any],
+    security_scan: dict[str, Any] | None = None,
 ) -> str:
     evidence_dir = Path(project_dir) / ".omg" / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -254,6 +308,7 @@ def _write_dispatch_evidence(
             "axolotl_hook": contract.get("axolotl_hook", ""),
             "pybullet_hook": contract.get("pybullet_hook", ""),
         },
+        "specialist_contracts": _resolve_specialist_contracts(contract, specialists_dispatched),
         "causal_chain": {
             "lock_id": "",
             "waiver_artifact_path": f".omg/evidence/forge-specialists-{run_id}.json",
@@ -262,6 +317,9 @@ def _write_dispatch_evidence(
         },
         "job": job,
     }
+
+    if security_scan is not None:
+        payload["security_scan"] = security_scan
 
     defense_state = read_defense_state(project_dir, run_id=snapshot_run_id, compat=True)
     session_health = read_session_health(project_dir, run_id=snapshot_run_id, compat=True)

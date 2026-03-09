@@ -194,6 +194,28 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "default": False,
         "category": "memory",
     },
+    {
+        "id": "notebooklm",
+        "name": "NotebookLM",
+        "description": "NotebookLM MCP server for AI-powered research and note-taking",
+        "command": "npx",
+        "args": ["-y", "notebooklm-mcp@latest"],
+        "default": False,
+        "category": "productivity",
+        "warning": (
+            "NOTEBOOKLM MCP WARNING\n\n"
+            "NotebookLM requires browser automation and has several important considerations:\n\n"
+            "BROWSER AUTOMATION: NotebookLM uses Puppeteer for browser automation. "
+            "This requires a Chromium/Chrome installation and may consume significant system resources.\n\n"
+            "FIRST-RUN DOWNLOAD: On first run, NotebookLM will download a full browser instance "
+            "(typically 100-300 MB). This is a one-time operation but may take several minutes.\n\n"
+            "DEDICATED ACCOUNT: It is strongly recommended to use a dedicated Google account "
+            "for NotebookLM MCP. Do NOT use your primary account, as the MCP will store credentials locally.\n\n"
+            "AUTH EXPIRY: Google authentication tokens expire periodically. "
+            "You may need to re-authenticate if the MCP fails with auth errors.\n\n"
+            "Enable NotebookLM only if you understand these requirements and accept the risks."
+        ),
+    },
 ]
 
 _MCP_ID_ALIASES: dict[str, str] = {

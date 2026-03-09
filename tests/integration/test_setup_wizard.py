@@ -547,3 +547,53 @@ class TestPostInstallValidation:
         assert result["status"] == "complete"
         assert result["post_install_validation"]["status"] == "pass"
         assert result["post_install_validation"]["blockers"] == []
+
+    def test_notebooklm_is_selectable_but_not_preset_enabled(self, tmp_path, monkeypatch, _patch_cli_writers):
+        """NotebookLM should be selectable but never auto-included by any preset."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        # Verify NotebookLM is in the catalog
+        catalog = setup_wizard.get_mcp_catalog()
+        notebooklm_entry = next((m for m in catalog if m["id"] == "notebooklm"), None)
+        assert notebooklm_entry is not None, "NotebookLM must be in MCP catalog"
+        
+        # Verify NotebookLM has no min_preset (opt-in only)
+        assert "min_preset" not in notebooklm_entry or notebooklm_entry.get("min_preset") is None, \
+            "NotebookLM must not have min_preset (opt-in only)"
+
+        # Verify NotebookLM is NOT in any preset's defaults
+        for preset in setup_wizard.PRESET_ORDER:
+            defaults = setup_wizard.get_default_mcps_for_preset(preset)
+            assert "notebooklm" not in defaults, \
+                f"NotebookLM must not be in {preset} preset defaults"
+
+        # Verify NotebookLM can be explicitly selected
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True):
+            result = setup_wizard.run_setup_wizard(
+                project_dir=str(tmp_path),
+                preset="safe",
+                selected_mcps=["filesystem", "notebooklm"],
+            )
+
+        data = yaml.safe_load((tmp_path / ".omg" / "state" / "cli-config.yaml").read_text())
+        assert "notebooklm" in result["preferences"]["config"]["selected_mcps"]
+        assert "notebooklm" in data["selected_mcps"]
+
+    def test_notebooklm_selection_shows_warning_text(self, tmp_path, monkeypatch, _patch_cli_writers):
+        """NotebookLM selection must include warning text about browser automation, download size, account, and auth expiry."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        catalog = setup_wizard.get_mcp_catalog()
+        notebooklm_entry = next((m for m in catalog if m["id"] == "notebooklm"), None)
+        assert notebooklm_entry is not None, "NotebookLM must be in MCP catalog"
+
+        # Verify warning text is present in the entry
+        warning_text = notebooklm_entry.get("warning", "")
+        assert "browser automation" in warning_text.lower(), \
+            "Warning must mention browser automation"
+        assert "download" in warning_text.lower() or "size" in warning_text.lower(), \
+            "Warning must mention download size"
+        assert "account" in warning_text.lower() or "dedicated" in warning_text.lower(), \
+            "Warning must mention dedicated account guidance"
+        assert "auth" in warning_text.lower() or "expiry" in warning_text.lower(), \
+            "Warning must mention auth expiry"

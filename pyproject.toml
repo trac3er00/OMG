@@ -95,6 +95,8 @@ addopts = [
     "--strict-markers",
     "-n",
     "auto",
+    "--dist",
+    "loadgroup",
     "--timeout=30",
     "--cov=.",
     "--cov-report=term-missing",
