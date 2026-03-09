@@ -25,6 +25,10 @@ _SPECIALIST_REGISTRY: dict[str, dict[str, object]] = {
         "description": "Builds simulator-backed evaluations through the PyBullet hook contract.",
         "capabilities": ["simulator-scenarios", "pybullet-hook-contract", "regression-replay"],
     },
+    "forge-cybersecurity": {
+        "description": "Runs labs-bounded cybersecurity hardening and threat-evidence checks.",
+        "capabilities": ["threat-modeling", "security-regression", "proof-linked-security-evidence"],
+    },
 }
 
 _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
@@ -33,6 +37,7 @@ _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
     "robotics": ["training-architect", "simulator-engineer"],
     "algorithms": ["training-architect"],
     "health": ["data-curator", "training-architect"],
+    "cybersecurity": ["forge-cybersecurity"],
 }
 
 
@@ -129,6 +134,19 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
         "evidence_path": evidence_path,
         "adapter_evidence": adapter_evidence,
     }
+
+
+def _resolve_specialist_contracts(contract: dict[str, object], specialists: list[str]) -> dict[str, dict[str, object]]:
+    raw_contracts = contract.get("specialist_contracts")
+    if not isinstance(raw_contracts, dict):
+        return {}
+
+    selected: dict[str, dict[str, object]] = {}
+    for name in specialists:
+        entry = raw_contracts.get(name)
+        if isinstance(entry, dict):
+            selected[name] = dict(entry)
+    return selected
 
 
 def _normalize_specialist_list(value: object) -> list[str]:
@@ -254,6 +272,7 @@ def _write_dispatch_evidence(
             "axolotl_hook": contract.get("axolotl_hook", ""),
             "pybullet_hook": contract.get("pybullet_hook", ""),
         },
+        "specialist_contracts": _resolve_specialist_contracts(contract, specialists_dispatched),
         "causal_chain": {
             "lock_id": "",
             "waiver_artifact_path": f".omg/evidence/forge-specialists-{run_id}.json",

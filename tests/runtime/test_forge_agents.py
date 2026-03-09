@@ -47,8 +47,14 @@ def test_get_specialist_registry_contains_forge_specialists() -> None:
     assert "data-curator" in registry
     assert "training-architect" in registry
     assert "simulator-engineer" in registry
+    assert "forge-cybersecurity" in registry
     assert "description" in registry["data-curator"]
     assert "capabilities" in registry["simulator-engineer"]
+
+
+def test_resolve_specialists_for_cybersecurity_domain() -> None:
+    specialists = resolve_specialists("cybersecurity")
+    assert specialists == ["forge-cybersecurity"]
 
 
 def test_dispatch_specialists_writes_evidence_and_returns_shape(tmp_path: Path) -> None:
@@ -68,6 +74,32 @@ def test_dispatch_specialists_writes_evidence_and_returns_shape(tmp_path: Path) 
     assert payload["schema"] == "ForgeSpecialistDispatchEvidence"
     assert payload["run_id"] == result["run_id"]
     assert payload["contract"]["labs_only"] is True
+
+
+def test_dispatch_cybersecurity_specialist_writes_proof_backed_evidence(tmp_path: Path) -> None:
+    job = _valid_job()
+    job["domain"] = "cybersecurity"
+    job["specialists"] = ["forge-cybersecurity"]
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "ok"
+    assert result["specialists_dispatched"] == ["forge-cybersecurity"]
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert payload["proof_backed"] is True
+    assert payload["specialist"] == "forge-cybersecurity"
+
+
+def test_dispatch_blocks_cybersecurity_specialist_for_non_labs_domain(tmp_path: Path) -> None:
+    job = _valid_job()
+    job["domain"] = "algorithms"
+    job["specialists"] = ["training-architect", "forge-cybersecurity"]
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "invalid_specialist_domain_combination"
 
 
 def test_dispatch_specialists_blocks_when_contract_mismatch(tmp_path: Path) -> None:
