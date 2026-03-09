@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from collections.abc import Mapping
+from pathlib import Path
 from typing import cast
 
 
@@ -111,6 +114,13 @@ class PluginInteropRecord:
         )
 
 
+@dataclass(slots=True)
+class PluginInteropPayload:
+    records: list[PluginInteropRecord]
+    elapsed_ms: float
+    root: str
+
+
 INTEROP_RECORD_SCHEMA: dict[str, object] = {
     "type": "object",
     "additionalProperties": False,
@@ -178,12 +188,159 @@ def _to_str_object_dict(value: object, key: str) -> dict[str, object]:
     return result
 
 
+def discover_omg_plugin_state(root: str | None = None) -> PluginInteropPayload:
+    started = time.monotonic()
+    root_path = Path(root or ".").resolve()
+    records: list[PluginInteropRecord] = []
+
+    for manifest_path in root_path.glob("plugins/*/plugin.json"):
+        _append_plugin_manifest_record(records, manifest_path, layer=Layer.AUTHORED)
+
+    _append_plugin_manifest_record(records, root_path / ".claude-plugin" / "plugin.json", layer=Layer.AUTHORED)
+
+    for mcp_path in (root_path / ".claude-plugin" / "mcp.json", root_path / ".mcp.json"):
+        records.extend(_records_from_mcp_config(mcp_path))
+
+    records.extend(_records_from_skill_registry(root_path / ".omg" / "state" / "skill_registry" / "compact.json"))
+
+    build_lib_dir = root_path / "build" / "lib"
+    if build_lib_dir.is_dir():
+        for compiled_manifest_path in build_lib_dir.rglob("plugin.json"):
+            _append_plugin_manifest_record(records, compiled_manifest_path, layer=Layer.COMPILED)
+
+    elapsed_ms = (time.monotonic() - started) * 1000.0
+    return PluginInteropPayload(records=records, elapsed_ms=elapsed_ms, root=str(root_path))
+
+
+def _append_plugin_manifest_record(
+    records: list[PluginInteropRecord],
+    manifest_path: Path,
+    *,
+    layer: Layer,
+) -> None:
+    manifest = _read_json_dict(manifest_path)
+    if manifest is None:
+        return
+
+    commands = _extract_omg_commands(manifest)
+    plugin_name = manifest.get("name")
+    plugin_id = plugin_name if isinstance(plugin_name, str) and plugin_name else manifest_path.parent.name
+    records.append(
+        PluginInteropRecord(
+            plugin_id=plugin_id,
+            layer=layer.value,
+            host="claude",
+            source=Source.PLUGIN_MANIFEST.value if layer is Layer.AUTHORED else Source.COMPILED_BUNDLE.value,
+            commands=commands,
+            source_path=str(manifest_path),
+        )
+    )
+
+
+def _records_from_mcp_config(mcp_path: Path) -> list[PluginInteropRecord]:
+    mcp_config = _read_json_dict(mcp_path)
+    if mcp_config is None:
+        return []
+
+    mcp_servers = mcp_config.get("mcpServers")
+    if not isinstance(mcp_servers, dict):
+        return []
+
+    server_names = [name for name in cast(dict[object, object], mcp_servers).keys() if isinstance(name, str)]
+    records: list[PluginInteropRecord] = []
+    for server_name in server_names:
+        records.append(
+            PluginInteropRecord(
+                plugin_id=server_name,
+                layer=Layer.LIVE.value,
+                host="claude",
+                source=Source.MCP_JSON.value,
+                mcp_servers=[server_name],
+                source_path=str(mcp_path),
+            )
+        )
+    return records
+
+
+def _records_from_skill_registry(registry_path: Path) -> list[PluginInteropRecord]:
+    payload = _read_json_dict(registry_path)
+    if payload is None:
+        return []
+
+    skill_ids = _extract_skill_ids(payload)
+    return [
+        PluginInteropRecord(
+            plugin_id=skill_id,
+            layer=Layer.COMPILED.value,
+            host="claude",
+            source=Source.SKILL_REGISTRY.value,
+            source_path=str(registry_path),
+        )
+        for skill_id in skill_ids
+    ]
+
+
+def _extract_omg_commands(payload: Mapping[str, object]) -> list[str]:
+    commands = payload.get("commands")
+    if not isinstance(commands, dict):
+        return []
+    return [
+        key
+        for key in cast(dict[object, object], commands).keys()
+        if isinstance(key, str) and key.startswith("/OMG:")
+    ]
+
+
+def _extract_skill_ids(payload: Mapping[str, object]) -> list[str]:
+    discovered: list[str] = []
+
+    skills = payload.get("skills")
+    if isinstance(skills, list):
+        for entry in cast(list[object], skills):
+            if isinstance(entry, str):
+                discovered.append(entry)
+            elif isinstance(entry, dict):
+                candidate = cast(dict[object, object], entry).get("id")
+                if isinstance(candidate, str):
+                    discovered.append(candidate)
+    elif isinstance(skills, dict):
+        discovered.extend(key for key in cast(dict[object, object], skills).keys() if isinstance(key, str))
+
+    discovered.extend(key for key in payload if key not in {"skills", "schema", "version"})
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for skill_id in discovered:
+        if skill_id not in seen:
+            seen.add(skill_id)
+            deduped.append(skill_id)
+    return deduped
+
+
+def _read_json_dict(path: Path) -> dict[str, object] | None:
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    try:
+        payload_obj = cast(object, json.loads(raw_text))
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(payload_obj, dict):
+        return None
+    return cast(dict[str, object], payload_obj)
+
+
 __all__ = [
     "CONFLICT_SEVERITY_MAP",
     "INTEROP_RECORD_SCHEMA",
     "ConflictCode",
     "ConflictSeverity",
     "Layer",
+    "PluginInteropPayload",
     "PluginInteropRecord",
     "Source",
+    "discover_omg_plugin_state",
 ]
