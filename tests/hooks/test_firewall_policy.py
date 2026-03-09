@@ -172,6 +172,33 @@ def test_firewall_reports_council_and_defense_risk_context(tmp_path) -> None:
     assert "council" in reason.lower()
 
 
+def test_firewall_uses_reducer_risk_level_without_local_threshold_rescoring(tmp_path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    (state_dir / "defense_state").mkdir(parents=True, exist_ok=True)
+    (state_dir / "defense_state" / "current.json").write_text(
+        json.dumps(
+            {
+                "risk_level": "low",
+                "contamination_score": 0.9,
+                "overthinking_score": 0.9,
+                "premature_fixer_score": 0.9,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("curl https://example.com"),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-low"},
+    )
+
+    assert get_decision(out) == "ask"
+    reason = (out.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
+    assert "defense risk=low" in reason.lower()
+    assert "defense risk=high" not in reason.lower()
+
+
 def test_firewall_bash_strict_tdd_gate_blocks_mutation_without_lock(tmp_path) -> None:
     out = run_hook_json(
         "hooks/firewall.py",

@@ -20,9 +20,11 @@ def test_compute_returns_all_required_keys(tmp_path: Path) -> None:
     for key in (
         "contamination_risk",
         "overthinking_score",
+        "premature_fixer_score",
         "context_health",
         "verification_status",
         "recommended_action",
+        "action_recommendations",
         "run_id",
         "thresholds",
     ):
@@ -82,10 +84,17 @@ def test_injection_hits_escalate_contamination(tmp_path: Path) -> None:
 def test_medium_contamination_triggers_reflect(tmp_path: Path) -> None:
     _write_json(
         tmp_path / ".omg" / "state" / "defense_state" / "current.json",
-        {"contamination_score": 0.35, "injection_hits": 0, "overthinking_score": 0.0},
+        {
+            "contamination_score": 0.06,
+            "injection_hits": 0,
+            "overthinking_score": 0.0,
+            "premature_fixer_score": 0.0,
+            "clarification_sensitive": True,
+        },
     )
     out = compute_session_health(str(tmp_path), run_id="warn-1")
     assert out["recommended_action"] == "reflect"
+    assert out["action_recommendations"] == ["reflect"]
 
 
 def test_high_overthinking_triggers_block(tmp_path: Path) -> None:
@@ -100,10 +109,49 @@ def test_high_overthinking_triggers_block(tmp_path: Path) -> None:
 def test_moderate_overthinking_triggers_reflect(tmp_path: Path) -> None:
     _write_json(
         tmp_path / ".omg" / "state" / "defense_state" / "current.json",
-        {"contamination_score": 0.0, "injection_hits": 0, "overthinking_score": 0.55},
+        {
+            "contamination_score": 0.0,
+            "injection_hits": 0,
+            "overthinking_score": 0.16,
+            "premature_fixer_score": 0.0,
+            "clarification_sensitive": True,
+        },
     )
     out = compute_session_health(str(tmp_path), run_id="over-2")
     assert out["recommended_action"] == "reflect"
+    assert out["action_recommendations"] == ["reflect"]
+
+
+def test_premature_fixer_score_triggers_reflect_for_clarification_sensitive_flow(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+        {
+            "contamination_score": 0.0,
+            "injection_hits": 0,
+            "overthinking_score": 0.0,
+            "premature_fixer_score": 0.51,
+            "clarification_sensitive": True,
+        },
+    )
+    out = compute_session_health(str(tmp_path), run_id="premature-1")
+    assert out["recommended_action"] == "reflect"
+    assert out["action_recommendations"] == ["reflect"]
+
+
+def test_normal_flow_keeps_low_risk_with_same_scores(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+        {
+            "contamination_score": 0.06,
+            "injection_hits": 0,
+            "overthinking_score": 0.16,
+            "premature_fixer_score": 0.51,
+            "clarification_sensitive": False,
+        },
+    )
+    out = compute_session_health(str(tmp_path), run_id="normal-1")
+    assert out["recommended_action"] == "continue"
+    assert out["action_recommendations"] == ["continue"]
 
 
 def test_high_context_pressure_degrades_health(tmp_path: Path) -> None:

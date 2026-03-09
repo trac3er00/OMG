@@ -17,8 +17,9 @@ _CONTEXT_PRESSURE_REL = Path(".omg") / "state" / ".context-pressure.json"
 _JOURNAL_REL = Path(".omg") / "state" / "interaction_journal"
 
 _DEFAULT_THRESHOLDS: dict[str, Any] = {
-    "contamination_risk": {"warn": 0.3, "block": 0.7},
-    "overthinking_score": {"warn": 0.5, "block": 0.85},
+    "contamination_risk": {"reflect": 0.05, "block": 0.7},
+    "overthinking_score": {"reflect": 0.15, "block": 0.85},
+    "premature_fixer_score": {"reflect": 0.5},
     "context_health": {"warn": 0.4, "critical": 0.2},
 }
 
@@ -55,17 +56,22 @@ def compute_session_health(
             pressure_ratio,
         )
     )
+    premature_fixer_score = _clamp(_to_float(defense.get("premature_fixer_score"), 0.0))
+    clarification_sensitive = bool(defense.get("clarification_sensitive") is True)
 
     context_health = _compute_context_health(pressure_ratio, journal_count)
 
     verification_status = str(verification.get("status", "unknown"))
 
-    recommended_action = _recommend_action(
+    action_recommendations = _recommend_actions(
         contamination_risk=contamination_risk,
         overthinking_score=overthinking_score,
+        premature_fixer_score=premature_fixer_score,
+        clarification_sensitive=clarification_sensitive,
         context_health=context_health,
         verification_status=verification_status,
     )
+    recommended_action = action_recommendations[0] if action_recommendations else "continue"
 
     _ACTION_TO_STATUS = {
         "continue": "ok",
@@ -73,7 +79,7 @@ def compute_session_health(
         "reflect": "running",
         "block": "blocked",
     }
-    status = _ACTION_TO_STATUS.get(recommended_action, "pending")
+    status = _ACTION_TO_STATUS.get(recommended_action, "running")
 
     result: dict[str, Any] = {
         "schema": "SessionHealth",
@@ -82,10 +88,13 @@ def compute_session_health(
         "status": status,
         "contamination_risk": round(contamination_risk, 4),
         "overthinking_score": round(overthinking_score, 4),
+        "premature_fixer_score": round(premature_fixer_score, 4),
+        "clarification_sensitive": clarification_sensitive,
         "context_health": round(context_health, 4),
         "verification_status": verification_status,
         "journal_steps": journal_count,
         "recommended_action": recommended_action,
+        "action_recommendations": action_recommendations,
         "thresholds": dict(_DEFAULT_THRESHOLDS),
         "sources": {
             "defense_state": bool(defense),
@@ -100,33 +109,50 @@ def compute_session_health(
     return result
 
 
-def _recommend_action(
+def _recommend_actions(
     *,
     contamination_risk: float,
     overthinking_score: float,
+    premature_fixer_score: float,
+    clarification_sensitive: bool,
     context_health: float,
     verification_status: str,
-) -> str:
+) -> list[str]:
     thresholds = _DEFAULT_THRESHOLDS
+    actions: list[str] = []
 
     if contamination_risk >= thresholds["contamination_risk"]["block"]:
-        return "block"
+        actions.append("block")
     if overthinking_score >= thresholds["overthinking_score"]["block"]:
-        return "block"
+        actions.append("block")
 
-    if contamination_risk >= thresholds["contamination_risk"]["warn"]:
-        return "reflect"
-    if overthinking_score >= thresholds["overthinking_score"]["warn"]:
-        return "reflect"
+    if actions:
+        return ["block"]
+
+    if clarification_sensitive:
+        if contamination_risk > thresholds["contamination_risk"]["reflect"]:
+            actions.append("reflect")
+        if overthinking_score > thresholds["overthinking_score"]["reflect"]:
+            actions.append("reflect")
+        if premature_fixer_score > thresholds["premature_fixer_score"]["reflect"]:
+            actions.append("reflect")
+
     if context_health <= thresholds["context_health"]["critical"]:
-        return "reflect"
+        actions.append("reflect")
 
     if verification_status in ("error", "blocked"):
-        return "warn"
+        actions.append("warn")
     if context_health <= thresholds["context_health"]["warn"]:
-        return "warn"
+        actions.append("warn")
 
-    return "continue"
+    if actions:
+        deduped: list[str] = []
+        for action in actions:
+            if action not in deduped:
+                deduped.append(action)
+        return deduped
+
+    return ["continue"]
 
 
 def _compute_context_health(pressure_ratio: float, journal_count: int) -> float:
