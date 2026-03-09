@@ -48,6 +48,7 @@ class DefenseState:
         injection_hits: int = 0,
         contamination_score: float = 0.0,
         overthinking_score: float = 0.0,
+        premature_fixer_score: float | None = None,
     ) -> dict[str, Any]:
         pressure = self._read_json(self.project_dir / _CONTEXT_PRESSURE_REL_PATH)
         pressure_tool_count = self._to_int(pressure.get("tool_count"), default=0)
@@ -73,6 +74,8 @@ class DefenseState:
             contamination_score=normalized_contamination,
             overthinking_score=normalized_overthinking,
         )
+        scanner_premature_fixer = self._clamp_score(premature_fixer_score)
+        premature_fixer_score = max(premature_fixer_score, scanner_premature_fixer)
 
         trust_posture = self._read_trust_posture()
         level, actions, reasons = self._score(

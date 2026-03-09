@@ -8,6 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 HOOKS_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
@@ -21,7 +22,9 @@ from _common import setup_crash_handler, json_input, deny_decision, is_bypass_mo
 setup_crash_handler("firewall", fail_closed=True)
 
 try:
-    from policy_engine import evaluate_bash_command, to_pretool_hook_output  # pyright: ignore[reportImplicitRelativeImport]
+    from policy_engine import evaluate_bash_command, to_pretool_hook_output, scan_mutation_command, ask, deny  # pyright: ignore[reportImplicitRelativeImport]
+    from runtime.defense_state import DefenseState
+    from runtime.session_health import compute_session_health
     from runtime.mutation_gate import check_mutation_allowed
     from runtime.tool_plan_gate import journal_mutation_bash
 except Exception as _import_err:
@@ -65,6 +68,16 @@ def _resolve_run_id(payload: dict[str, object]) -> str:
                     return metadata_run_id.strip()
     env_run_id = os.environ.get("OMG_RUN_ID", "")
     return env_run_id.strip()
+
+
+def _resolve_active_run_id(project_dir: str) -> str:
+    active_run_path = Path(project_dir) / ".omg" / "shadow" / "active-run"
+    if not active_run_path.exists():
+        return ""
+    try:
+        return active_run_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 def _read_defense_risk(project_dir: str) -> str:
@@ -158,6 +171,70 @@ def _clarification_reason(clarification_prompt: str) -> str:
         return f"Clarification required before mutation: {prompt}"
     return "Clarification required before mutation: provide the missing intent details."
 
+
+def _to_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _mutating_defense_decision(
+    *,
+    project_dir: str,
+    cmd: str,
+    run_id: str,
+):
+    scan = scan_mutation_command(cmd)
+    defense_state = DefenseState(project_dir).update(
+        injection_hits=int(_to_float(scan.get("injection_hits"), 0.0)),
+        contamination_score=_to_float(scan.get("contamination_score"), 0.0),
+        overthinking_score=_to_float(scan.get("overthinking_score"), 0.0),
+        premature_fixer_score=_to_float(scan.get("premature_fixer_score"), 0.0),
+    )
+
+    resolved_run_id = run_id.strip() or _resolve_active_run_id(project_dir) or "default"
+    session_health = compute_session_health(project_dir, run_id=resolved_run_id)
+
+    contamination = _to_float(session_health.get("contamination_risk"), _to_float(defense_state.get("contamination_score"), 0.0))
+    overthinking = _to_float(session_health.get("overthinking_score"), _to_float(defense_state.get("overthinking_score"), 0.0))
+    premature_fixer = _to_float(defense_state.get("premature_fixer_score"), 0.0)
+    health_action = str(session_health.get("recommended_action", "continue"))
+    thresholds = session_health.get("thresholds") if isinstance(session_health, dict) else {}
+    contamination_thresholds = thresholds.get("contamination_risk") if isinstance(thresholds, dict) else {}
+    overthinking_thresholds = thresholds.get("overthinking_score") if isinstance(thresholds, dict) else {}
+    reflect_contamination = _to_float(contamination_thresholds.get("reflect") if isinstance(contamination_thresholds, dict) else None, 0.05)
+    reflect_overthinking = _to_float(overthinking_thresholds.get("reflect") if isinstance(overthinking_thresholds, dict) else None, 0.15)
+    reflect_triggers = session_health.get("reflect_triggers") if isinstance(session_health, dict) else {}
+    contamination_trigger = bool(reflect_triggers.get("contamination")) if isinstance(reflect_triggers, dict) else contamination > reflect_contamination
+    overthinking_trigger = bool(reflect_triggers.get("overthinking")) if isinstance(reflect_triggers, dict) else overthinking > reflect_overthinking
+    pause_required = bool(session_health.get("defense_pause_required") is True) if isinstance(session_health, dict) else (contamination_trigger or overthinking_trigger)
+    signal_text = ", ".join(str(item) for item in scan.get("signals", []) if str(item)) or "none"
+    context = (
+        f"defense hits={int(_to_float(defense_state.get('injection_hits'), 0.0))} "
+        f"contamination={contamination:.4f} overthinking={overthinking:.4f} "
+        f"premature_fixer={premature_fixer:.4f} "
+        f"session_health={health_action} signals={signal_text}"
+    )
+
+    if health_action == "block":
+        return deny(
+            f"Blocked: mutation denied by defense/session-health reducer [{context}]",
+            "high",
+            ["defense-reducer", "session-health"],
+        )
+
+    if pause_required or contamination_trigger or overthinking_trigger:
+        return ask(
+            "Pause: mutation requires reflection before execution "
+            f"[{context}; thresholds contamination>{reflect_contamination:.2f} "
+            f"overthinking>{reflect_overthinking:.2f}]",
+            "high",
+            ["reflect", "defense-reducer", "session-health"],
+        )
+
+    return None
+
 data = json_input()
 
 tool = data.get("tool_name", "")
@@ -169,7 +246,6 @@ if not cmd:
     sys.exit(0)
 
 decision = evaluate_bash_command(cmd)
-decision = _enrich_risk_context(decision, data)
 
 tool_input = data.get("tool_input")
 metadata = tool_input.get("metadata") if isinstance(tool_input, dict) else None
@@ -189,6 +265,15 @@ gate_result = check_mutation_allowed(
 )
 is_mutation_capable = str(gate_result.get("reason", "")) != "tool is read-only for mutation gate"
 clarification_state = _read_clarification_state(get_project_dir(), run_id)
+if is_mutation_capable:
+    defense_decision = _mutating_defense_decision(
+        project_dir=get_project_dir(),
+        cmd=cmd,
+        run_id=run_id,
+    )
+    if defense_decision is not None:
+        decision = defense_decision
+
 if clarification_state.get("requires_clarification") is True and is_mutation_capable:
     deny_decision(_clarification_reason(str(clarification_state.get("clarification_prompt", ""))))
     sys.exit(0)
@@ -196,6 +281,8 @@ if clarification_state.get("requires_clarification") is True and is_mutation_cap
 if is_mutation_capable and gate_result.get("status") == "blocked":
     deny_decision(str(gate_result.get("reason", "mutation denied by test intent lock gate")))
     sys.exit(0)
+
+decision = _enrich_risk_context(decision, data)
 
 # In bypass-permission mode, only enforce hard denials (critical safety).
 # Skip "ask" decisions so the user is not prompted for confirmation.

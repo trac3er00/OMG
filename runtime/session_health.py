@@ -72,6 +72,11 @@ def compute_session_health(
         verification_status=verification_status,
     )
     recommended_action = action_recommendations[0] if action_recommendations else "continue"
+    reflect_triggers = {
+        "contamination": contamination_risk > _DEFAULT_THRESHOLDS["contamination_risk"]["reflect"],
+        "overthinking": overthinking_score > _DEFAULT_THRESHOLDS["overthinking_score"]["reflect"],
+        "premature_fixer": premature_fixer_score > _DEFAULT_THRESHOLDS["premature_fixer_score"]["reflect"],
+    }
 
     _ACTION_TO_STATUS = {
         "continue": "ok",
@@ -95,6 +100,8 @@ def compute_session_health(
         "journal_steps": journal_count,
         "recommended_action": recommended_action,
         "action_recommendations": action_recommendations,
+        "defense_pause_required": bool(reflect_triggers["contamination"] or reflect_triggers["overthinking"]),
+        "reflect_triggers": reflect_triggers,
         "thresholds": dict(_DEFAULT_THRESHOLDS),
         "sources": {
             "defense_state": bool(defense),
