@@ -10,13 +10,18 @@ import sys
 import time as _time
 import re as _re
 
+import yaml
+
 HOOKS_DIR = os.path.dirname(__file__)
+PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, get_feature_flag, _resolve_project_dir
-from state_migration import resolve_state_file, resolve_state_dir
-from _budget import BUDGET_SESSION_TOTAL, BUDGET_SESSION_IDLE
+from hooks._common import setup_crash_handler, json_input, get_feature_flag, _resolve_project_dir
+from hooks.state_migration import resolve_state_file
+from hooks._budget import BUDGET_SESSION_TOTAL, BUDGET_SESSION_IDLE
 
 setup_crash_handler("session-start", fail_closed=False)
 
@@ -37,41 +42,58 @@ def _read_file(path: str, max_bytes: int = 2000) -> str | None:
         return None
 
 
+def _load_profile_map(raw_profile: str) -> dict[str, object]:
+    try:
+        parsed = yaml.safe_load(raw_profile)
+    except Exception:
+        parsed = None
+    if isinstance(parsed, dict):
+        return parsed
+    return {}
+
+
 # 1) Project profile summary
 profile_path = resolve_state_file(project_dir, "state/profile.yaml", "profile.yaml")
 project_path = resolve_state_file(project_dir, "state/project.md", "project.md")
 
 profile = _read_file(profile_path, 3000)
 if profile:
-    lines = [l.strip() for l in profile.split("\n") if l.strip() and not l.strip().startswith("#")]
-    kv = {}
-    current_section = ""
-    for l in lines:
-        if ":" not in l:
-            continue
-        k, v = l.split(":", 1)
-        k = k.strip().lower()
-        v = v.strip().strip('"').strip("'")
-        if k in ("conventions", "ai_behavior"):
-            current_section = k
-            continue
-        if current_section:
-            kv[f"{current_section}.{k}"] = v
-        else:
-            kv[k] = v
+    profile_map = _load_profile_map(profile)
+    name = str(profile_map.get("name", "")).strip()
 
-    name = kv.get("name", "")
+    conventions_map = profile_map.get("conventions")
+    if isinstance(conventions_map, dict):
+        conventions = conventions_map
+    else:
+        conventions = {}
+
+    ai_behavior_map = profile_map.get("ai_behavior")
+    if isinstance(ai_behavior_map, dict):
+        ai_behavior = ai_behavior_map
+    else:
+        ai_behavior = {}
+
+    user_vector_map = profile_map.get("user_vector")
+    if isinstance(user_vector_map, dict):
+        user_vector = user_vector_map
+    else:
+        user_vector = {}
+
     conv_parts = []
-    for ck in ["conventions.naming", "conventions.test_cmd", "conventions.lint_cmd"]:
-        if kv.get(ck):
-            conv_parts.append(f"{ck.split('.')[-1]}={kv[ck]}")
-    comm = kv.get("ai_behavior.communication", "")
+    for key in ("naming", "test_cmd", "lint_cmd"):
+        value = str(conventions.get(key, "")).strip()
+        if value:
+            conv_parts.append(f"{key}={value}")
+    comm = str(ai_behavior.get("communication", "")).strip()
+    user_summary = str(user_vector.get("summary", "")).strip()
 
     summary_parts = [name] if name else []
     if conv_parts:
         summary_parts.append(" ".join(conv_parts))
     if comm:
         summary_parts.append(f"lang:{comm}")
+    if user_summary:
+        summary_parts.append(f"intent:{user_summary[:80]}")
     if summary_parts:
         sections.append(f"@project: {' | '.join(summary_parts)}")
 else:
@@ -243,7 +265,7 @@ if os.path.exists(tracker_path):
 # 6) Recent memory (on-demand)
 if get_feature_flag('memory'):
     try:
-        from _memory import get_recent_memories
+        from hooks._memory import get_recent_memories
         recent = get_recent_memories(project_dir, max_files=3, max_chars_total=150)
         if recent:
             sections.append(f'@recent-memory: {recent}')

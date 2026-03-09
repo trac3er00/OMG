@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import yaml
+
 from hooks.state_migration import migrate_legacy_to_omg, resolve_state_file
 
 
@@ -94,3 +96,48 @@ def test_migrate_legacy_to_omg_copies_root_level_legacy_mode_state(tmp_path: Pat
     assert (tmp_path / ".omg" / "state" / "autopilot-state.json").exists()
     assert (tmp_path / ".omg" / "state" / "team-state.json").exists()
     assert (tmp_path / ".omg" / "state" / "hud-state.json").exists()
+
+
+def test_migrate_legacy_to_omg_preserves_profile_path_and_additive_sections(tmp_path: Path):
+    legacy = tmp_path / ".omc"
+    legacy.mkdir(parents=True)
+    (legacy / "profile.yaml").write_text(
+        "name: demo\n"
+        "description: demo profile\n"
+        "language: python\n"
+        "framework: pytest\n"
+        "stack: [cli]\n"
+        "conventions:\n"
+        "  naming: snake_case\n"
+        "ai_behavior:\n"
+        "  communication: direct\n"
+        "preferences:\n"
+        "  architecture_requests: [layered]\n"
+        "  constraints:\n"
+        "    api_cost: minimize\n"
+        "  routing:\n"
+        "    prefer_clarification: true\n"
+        "user_vector:\n"
+        "  tags: [backend]\n"
+        "  summary: prefers low-cost api choices\n"
+        "  confidence: 0.8\n"
+        "profile_provenance:\n"
+        "  recent_updates:\n"
+        "    - run_id: run-1\n"
+        "      source: setup_wizard\n"
+        "      field: preferences.constraints.api_cost\n"
+        "      updated_at: 2026-03-09T00:00:00Z\n",
+        encoding="utf-8",
+    )
+
+    first = resolve_state_file(str(tmp_path), "state/profile.yaml", "profile.yaml")
+    second = resolve_state_file(str(tmp_path), "state/profile.yaml", "profile.yaml")
+
+    assert first.endswith(".omg/state/profile.yaml")
+    assert second.endswith(".omg/state/profile.yaml")
+
+    profile_payload = yaml.safe_load((tmp_path / ".omg" / "state" / "profile.yaml").read_text(encoding="utf-8"))
+    assert isinstance(profile_payload, dict)
+    assert profile_payload["preferences"]["routing"]["prefer_clarification"] is True
+    assert profile_payload["user_vector"]["tags"] == ["backend"]
+    assert profile_payload["profile_provenance"]["recent_updates"][0]["run_id"] == "run-1"
