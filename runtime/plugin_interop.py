@@ -9,6 +9,8 @@ from enum import Enum
 from pathlib import Path
 from typing import cast
 
+from runtime.hook_governor import validate_order
+
 
 class Layer(str, Enum):
     AUTHORED = "authored"
@@ -133,6 +135,53 @@ class ConflictResult:
     affected_hosts: list[str]
     detail: str
     next_action: str
+
+
+@dataclass(slots=True)
+class PluginAllowlistEntry:
+    source: str
+    host: str
+    resource_type: str
+    reason: str
+    scope: str = "project"
+    timestamp: str | None = None
+    approver: str | None = None
+
+
+@dataclass(slots=True)
+class HookChainPlan:
+    event: str
+    chain: list[str]
+    status: str
+    blockers: list[str]
+
+
+def plan_hook_chain(event: str, foreign_hook_names: list[str]) -> HookChainPlan:
+    proposed_chain: list[str]
+    blockers: list[str] = []
+
+    if event == "PreToolUse":
+        for hook_name in foreign_hook_names:
+            if hook_name in SECURITY_PRETOOL_PLUGINS:
+                blockers.append(
+                    f"foreign hook '{hook_name}' must not appear before immovable security hooks"
+                )
+
+        non_security_hooks = [name for name in foreign_hook_names if name not in SECURITY_PRETOOL_PLUGINS]
+        cleanup_hooks = [name for name in non_security_hooks if "cleanup" in name.lower()]
+        standard_hooks = [name for name in non_security_hooks if "cleanup" not in name.lower()]
+        proposed_chain = [*SECURITY_PRETOOL_PLUGINS, *standard_hooks, *cleanup_hooks]
+    else:
+        proposed_chain = list(foreign_hook_names)
+
+    validation = validate_order(event, proposed_chain)
+    validation_blockers = list(validation.get("blockers", []))
+    no_canonical_order = validation_blockers == [f"no canonical hook order for event {event}"]
+    if not (event != "PreToolUse" and no_canonical_order):
+        blockers.extend(validation_blockers)
+
+    status = "blocked" if blockers else "ok"
+    return HookChainPlan(event=event, chain=proposed_chain, status=status, blockers=blockers)
 
 
 def classify_conflicts(records: list[PluginInteropRecord]) -> list[ConflictResult]:
@@ -304,6 +353,41 @@ def classify_conflicts(records: list[PluginInteropRecord]) -> list[ConflictResul
             tuple(conflict.affected_hosts),
         ),
     )
+
+
+def approval_status_for_record(record: PluginInteropRecord, approvals: list[PluginAllowlistEntry]) -> str:
+    if record.host not in SUPPORTED_HOSTS:
+        return "blocked"
+
+    record_conflicts = classify_conflicts([record])
+    if any(conflict.severity == ConflictSeverity.BLOCKER.value for conflict in record_conflicts):
+        return "blocked"
+
+    approved_sources = _approval_sources_for_record(record)
+    for entry in approvals:
+        if entry.host == record.host and entry.source in approved_sources:
+            return "approved"
+
+    return "discoverable"
+
+
+def get_approval_status_for_all(
+    records: list[PluginInteropRecord], approvals: list[PluginAllowlistEntry]
+) -> dict[str, str]:
+    return {record.plugin_id: approval_status_for_record(record, approvals) for record in records}
+
+
+def _approval_sources_for_record(record: PluginInteropRecord) -> set[str]:
+    source_ids: set[str] = set()
+    for server_name in record.mcp_servers:
+        source_ids.add(f"mcp:{server_name}")
+
+    if record.source == Source.SKILL_REGISTRY.value:
+        source_ids.add(f"skill:{record.plugin_id}")
+    else:
+        source_ids.add(f"plugin:{record.plugin_id}")
+
+    return source_ids
 
 
 @dataclass(slots=True)
@@ -691,14 +775,19 @@ def _read_json_dict(path: Path) -> dict[str, object] | None:
 __all__ = [
     "CONFLICT_SEVERITY_MAP",
     "ConflictResult",
+    "PluginAllowlistEntry",
     "INTEROP_RECORD_SCHEMA",
     "ConflictCode",
     "ConflictSeverity",
+    "HookChainPlan",
     "Layer",
     "PluginInteropPayload",
     "PluginInteropRecord",
     "Source",
+    "approval_status_for_record",
     "classify_conflicts",
     "discover_host_plugin_state",
     "discover_omg_plugin_state",
+    "get_approval_status_for_all",
+    "plan_hook_chain",
 ]

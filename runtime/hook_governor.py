@@ -123,9 +123,20 @@ def validate_order(
     blockers: list[str] = []
     expected_positions = {name: idx for idx, name in enumerate(canonical)}
 
-    for required in SECURITY_REQUIRED_BY_EVENT.get(event, ()):
+    required_security_hooks = SECURITY_REQUIRED_BY_EVENT.get(event, ())
+    for required in required_security_hooks:
         if required not in hooks_list:
             blockers.append(f"missing required security hook: {required}")
+
+    if required_security_hooks:
+        for expected_index, required in enumerate(required_security_hooks):
+            if required not in hooks_list:
+                continue
+            actual_index = hooks_list.index(required)
+            if actual_index != expected_index:
+                blockers.append(
+                    f"hook order violation for {event}: {required} must run before non-security hooks"
+                )
 
     filtered_hooks = [hook for hook in hooks_list if hook in expected_positions]
     for left, right in zip(filtered_hooks, filtered_hooks[1:]):

@@ -10,10 +10,15 @@ from runtime.plugin_interop import (
     INTEROP_RECORD_SCHEMA,
     ConflictCode,
     ConflictSeverity,
+    HookChainPlan,
     PluginInteropRecord,
+    PluginAllowlistEntry,
+    approval_status_for_record,
     classify_conflicts,
     discover_host_plugin_state,
     discover_omg_plugin_state,
+    get_approval_status_for_all,
+    plan_hook_chain,
 )
 
 
@@ -452,3 +457,122 @@ def test_classify_conflicts_no_conflicts() -> None:
     ]
 
     assert classify_conflicts(records) == []
+
+
+def test_hook_chain_valid_order() -> None:
+    plan = plan_hook_chain("PreToolUse", ["plugin-hook"])
+
+    assert isinstance(plan, HookChainPlan)
+    assert plan.event == "PreToolUse"
+    assert plan.status == "ok"
+    assert plan.blockers == []
+    assert plan.chain[:3] == ["firewall", "secret-guard", "plugin-hook"]
+
+
+def test_hook_chain_foreign_before_firewall_blocked() -> None:
+    plan = plan_hook_chain("PreToolUse", ["plugin-hook", "firewall"])
+
+    assert plan.event == "PreToolUse"
+    assert plan.status == "blocked"
+    assert any("must not appear before" in blocker for blocker in plan.blockers)
+
+
+def test_hook_chain_non_pretooluse_event() -> None:
+    plan = plan_hook_chain("PostToolUse", ["plugin-hook", "cleanup-hook"])
+
+    assert plan.event == "PostToolUse"
+    assert plan.status == "ok"
+    assert plan.blockers == []
+    assert plan.chain == ["plugin-hook", "cleanup-hook"]
+
+
+def test_approval_state_approved_mcp_server() -> None:
+    record = PluginInteropRecord(
+        plugin_id="filesystem",
+        layer="live",
+        host="claude",
+        source="mcp_json",
+        mcp_servers=["filesystem"],
+    )
+    approvals = [
+        PluginAllowlistEntry(
+            source="mcp:filesystem",
+            host="claude",
+            resource_type="mcp_server",
+            reason="allow known filesystem server",
+        )
+    ]
+
+    assert approval_status_for_record(record, approvals) == "approved"
+
+
+def test_approval_state_discoverable_known_host() -> None:
+    record = PluginInteropRecord(
+        plugin_id="demo-plugin",
+        layer="authored",
+        host="codex",
+        source="plugin_manifest",
+    )
+
+    assert approval_status_for_record(record, approvals=[]) == "discoverable"
+
+
+def test_approval_state_blocked_unknown_host() -> None:
+    record = PluginInteropRecord(
+        plugin_id="demo-plugin",
+        layer="live",
+        host="unknown-host",
+        source="host_config",
+    )
+
+    assert approval_status_for_record(record, approvals=[]) == "blocked"
+
+
+def test_approval_state_unapproved_foreign_mcp() -> None:
+    record = PluginInteropRecord(
+        plugin_id="github",
+        layer="live",
+        host="gemini",
+        source="host_config",
+        mcp_servers=["github"],
+    )
+
+    assert approval_status_for_record(record, approvals=[]) == "discoverable"
+
+
+def test_get_approval_status_for_all() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="filesystem",
+            layer="live",
+            host="claude",
+            source="mcp_json",
+            mcp_servers=["filesystem"],
+        ),
+        PluginInteropRecord(
+            plugin_id="draft-plugin",
+            layer="authored",
+            host="codex",
+            source="plugin_manifest",
+        ),
+        PluginInteropRecord(
+            plugin_id="mystery-plugin",
+            layer="live",
+            host="unknown-host",
+            source="host_config",
+        ),
+    ]
+    approvals = [
+        PluginAllowlistEntry(
+            source="mcp:filesystem",
+            host="claude",
+            resource_type="mcp_server",
+            reason="allow known filesystem server",
+        )
+    ]
+
+    assert get_approval_status_for_all(records, approvals) == {
+        "filesystem": "approved",
+        "draft-plugin": "discoverable",
+        "mystery-plugin": "blocked",
+    }
