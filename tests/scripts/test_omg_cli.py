@@ -1074,3 +1074,20 @@ def test_cli_validate_notebooklm_warning_when_npx_missing(tmp_path: Path, monkey
     assert out["status"] == "pass" or any(
         c["status"] == "blocker" for c in out["checks"] if c["name"] != "notebooklm"
     )
+
+
+def test_diagnose_plugins_json_output():
+    proc = _run(["diagnose-plugins", "--format", "json"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "PluginDiagnosticsResult"
+
+
+def test_diagnose_plugins_completes_under_3s():
+    import time
+
+    started = time.monotonic()
+    proc = _run(["diagnose-plugins", "--format", "json"])
+    elapsed = time.monotonic() - started
+    assert proc.returncode == 0
+    assert elapsed < 3
