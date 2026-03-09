@@ -91,6 +91,13 @@ def load_forge_mvp() -> dict[str, object]:
                 "evidence_profile": "forge-run",
                 "proof_backed_dispatch": True,
                 "stage_alias": "regression_test",
+                "evidence_outputs": {
+                    "sarif": ".omg/evidence/security-*.sarif",
+                    "sbom": ".omg/evidence/sbom-*.cdx.json",
+                    "license": ".omg/evidence/license-*.json",
+                    "security_json": ".omg/evidence/security-*.json",
+                },
+                "reuses_scanner": "runtime.security_check",
             },
         },
         "adapter_registry": dict(ADAPTER_REGISTRY),

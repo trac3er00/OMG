@@ -419,3 +419,92 @@ def test_forge_vision_agent_labs_only_enforcement() -> None:
     output = json.loads(result.stdout)
     assert output["status"] == "error"
     assert "labs" in output["message"]
+
+
+# --- Task 12: Forge cybersecurity proof-backed evidence tests ---
+
+from unittest.mock import patch
+
+
+def _cybersecurity_job() -> dict[str, object]:
+    return {
+        "dataset": {
+            "name": "cybersecurity",
+            "license": "apache-2.0",
+            "source": "internal-curated",
+        },
+        "base_model": {
+            "name": "distill-base-v1",
+            "source": "approved-registry",
+            "allow_distill": True,
+        },
+        "target_metric": 0.8,
+        "domain": "cybersecurity",
+        "specialists": ["forge-cybersecurity"],
+    }
+
+
+def test_dispatch_cybersecurity_runs_security_scan(tmp_path: Path) -> None:
+    """Cybersecurity specialist must run security_check and include scan results."""
+    result = dispatch_specialists(_cybersecurity_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    assert result["specialists_dispatched"] == ["forge-cybersecurity"]
+    assert "security_scan" in result
+
+    scan = result["security_scan"]
+    assert scan["schema"] == "SecurityCheckResult"
+    assert "findings" in scan
+    assert "security_scans" in scan
+    assert isinstance(scan["security_scans"], list)
+    assert "evidence" in scan
+    evidence_block = scan["evidence"]
+    assert "sarif_path" in evidence_block
+    assert "sbom_path" in evidence_block
+
+    # Evidence file must also persist security scan data
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert "security_scan" in payload
+    assert payload["security_scan"]["schema"] == "SecurityCheckResult"
+
+
+def test_dispatch_cybersecurity_degrades_gracefully_without_semgrep(tmp_path: Path) -> None:
+    """Semgrep missing must not crash — still produces structured result."""
+    with patch("runtime.security_check.shutil.which", return_value=None):
+        result = dispatch_specialists(_cybersecurity_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    assert "security_scan" in result
+    scan = result["security_scan"]
+    assert scan["schema"] == "SecurityCheckResult"
+    assert scan["status"] in ("ok", "error")
+    assert "findings" in scan
+    assert isinstance(scan["findings"], list)
+
+
+def test_dispatch_cybersecurity_evidence_compatible_with_proof_gate(tmp_path: Path) -> None:
+    """Forge cybersecurity evidence must include fields proof-gate consumers expect."""
+    result = dispatch_specialists(_cybersecurity_job(), str(tmp_path))
+    scan = result["security_scan"]
+
+    # proof-gate expects security_scans list with tool+findings
+    assert "security_scans" in scan
+    for entry in scan["security_scans"]:
+        assert "tool" in entry
+        assert "findings" in entry
+
+    # proof-gate expects unresolved_risks list
+    assert "unresolved_risks" in scan
+    assert isinstance(scan["unresolved_risks"], list)
+
+    # proof-gate expects evidence block with sarif_path
+    assert "evidence" in scan
+    assert "sarif_path" in scan["evidence"]
+
+
+def test_dispatch_non_cybersecurity_has_no_security_scan(tmp_path: Path) -> None:
+    """Non-cybersecurity dispatches must NOT include security_scan."""
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+    assert result["status"] == "ok"
+    assert "security_scan" not in result
