@@ -17,8 +17,6 @@ import uuid
 from typing import Any
 from typing import cast
 
-import yaml
-
 # --- Path resolution (never relies on CWD) ---
 _ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
 _OMG_ROOT = os.path.dirname(_ROUTER_DIR)
@@ -39,6 +37,7 @@ from runtime.runtime_profile import resolve_parallel_workers
 from runtime.runtime_contracts import write_run_state
 from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
 from runtime.context_engine import ContextEngine
+from runtime.context_engine import render_profile_digest_text
 from runtime.defense_state import DefenseState
 from runtime.equalizer import select_provider
 from runtime.router_executor import WorkerTask, execute_workers
@@ -360,57 +359,12 @@ def _read_working_memory(project_dir: str) -> str:
 
 
 def _read_profile_context(project_dir: str) -> str:
-    """Read profile context from .omg/state/profile.yaml."""
     profile_path = os.path.join(project_dir, ".omg", "state", "profile.yaml")
     if not os.path.exists(profile_path):
         return ""
 
     try:
-        with open(profile_path, "r", encoding="utf-8", errors="replace") as f:
-            raw_content = f.read()
-        parsed = yaml.safe_load(raw_content)
-        if not isinstance(parsed, dict):
-            content = raw_content
-            if len(content) > 300:
-                content = content[:300] + "..."
-            return content
-
-        name = str(parsed.get("name", "")).strip()
-        language = str(parsed.get("language", "")).strip()
-        framework = str(parsed.get("framework", "")).strip()
-
-        preferences_obj = parsed.get("preferences")
-        preferences = preferences_obj if isinstance(preferences_obj, dict) else {}
-        user_vector_obj = parsed.get("user_vector")
-        user_vector = user_vector_obj if isinstance(user_vector_obj, dict) else {}
-
-        architecture_obj = preferences.get("architecture_requests", [])
-        architecture_requests = architecture_obj if isinstance(architecture_obj, list) else []
-        tags_obj = user_vector.get("tags", [])
-        tags = tags_obj if isinstance(tags_obj, list) else []
-
-        summary_parts: list[str] = []
-        if name:
-            summary_parts.append(f"name={name}")
-        if language:
-            summary_parts.append(f"lang={language}")
-        if framework:
-            summary_parts.append(f"framework={framework}")
-        if architecture_requests:
-            summary_parts.append(f"architecture_requests={len(architecture_requests)}")
-        if tags:
-            summary_parts.append(f"tags={len(tags)}")
-
-        if summary_parts:
-            content = " | ".join(summary_parts)
-            if len(content) > 300:
-                content = content[:300] + "..."
-            return content
-
-        content = raw_content
-        if len(content) > 300:
-            content = content[:300] + "..."
-        return content
+        return render_profile_digest_text(project_dir, max_chars=300)
     except (OSError, UnicodeDecodeError):
         return ""
     except Exception:

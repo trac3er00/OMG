@@ -20,6 +20,7 @@ def test_packet_has_required_keys(tmp_path):
     engine = ContextEngine(str(tmp_path))
     pkt = engine.build_packet(run_id="t-1")
     assert REQUIRED_KEYS.issubset(pkt.keys())
+    assert "profile_digest" in pkt
     assert BUDGET_KEYS.issubset(pkt["budget"].keys())
     assert CLARIFICATION_KEYS.issubset(pkt["clarification_status"].keys())
 
@@ -182,4 +183,52 @@ def test_clarification_status_remains_bounded_and_budget_safe(tmp_path):
     assert len(status["clarification_prompt"]) <= 180
     assert len(status["intent_class"]) <= 48
     assert status["confidence"] == 0.0
+    assert pkt["budget"]["used_chars"] <= pkt["budget"]["max_chars"]
+
+
+def test_profile_digest_is_compact_and_bounded(tmp_path):
+    profile_path = tmp_path / ".omg" / "state" / "profile.yaml"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        "\n".join(
+            [
+                "preferences:",
+                "  architecture_requests:",
+                "    - hexagonal architecture",
+                "    - event sourcing",
+                "    - CQRS",
+                "    - graphql federation",
+                "  constraints:",
+                "    Keep Responses Stable: true",
+                "    Timeout Seconds: 20",
+                "    output format: JSON",
+                "    max retries: 3",
+                "    allow markdown: false",
+                "    extra_rule: trim this",
+                "user_vector:",
+                "  tags:",
+                "    - Reliability",
+                "    - API Design",
+                "    - Incident Response",
+                "    - Deterministic Output",
+                "    - Cost Control",
+                "    - Excess",
+                "  summary: This summary should be present and remain compact in packets.",
+                "  confidence: 0.91",
+                "profile_version: profile-v3",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="t-profile")
+    digest = pkt["profile_digest"]
+
+    assert digest["profile_version"] == "profile-v3"
+    assert digest["confidence"] == 0.91
+    assert len(digest["architecture_requests"]) == 3
+    assert len(digest["constraints"]) == 5
+    assert len(digest["tags"]) == 5
+    assert len(digest["summary"]) <= 120
     assert pkt["budget"]["used_chars"] <= pkt["budget"]["max_chars"]

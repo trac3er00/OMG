@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from runtime import artifact_parsers
+from runtime.context_engine import load_profile_digest
 from runtime.evidence_query import get_evidence_pack
 
 
@@ -13,6 +14,7 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
     root = Path(project_dir)
     evidence_dir = root / ".omg" / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
+    profile_digest = load_profile_digest(project_dir)
 
     results: list[dict[str, Any]] = []
     aggregate_tokens: list[str] = []
@@ -39,6 +41,7 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             updated_reasons.extend(council_reasons)
             result = {**result, "reasons": updated_reasons, "verdict": "block"}
         result_with_run = {**result, "run_id": run_id}
+        result_with_run["advisory_context"] = {"profile_digest": profile_digest}
         results.append(result_with_run)
         aggregate_tokens.append(str(result.get("verdict", "")).strip().lower())
 
@@ -49,6 +52,7 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             "run_id": run_id,
             "claim": claim,
             "result": result,
+            "advisory_context": {"profile_digest": profile_digest},
         }
         artifact_path.write_text(json.dumps(artifact_payload, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -58,7 +62,12 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
     elif any(token == "block" for token in aggregate_tokens):
         verdict = "insufficient"
 
-    return {"schema": "ClaimJudgeResults", "verdict": verdict, "results": results}
+    return {
+        "schema": "ClaimJudgeResults",
+        "verdict": verdict,
+        "results": results,
+        "advisory_context": {"profile_digest": profile_digest},
+    }
 
 
 def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:

@@ -10,8 +10,6 @@ import sys
 import time as _time
 import re as _re
 
-import yaml
-
 HOOKS_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
 if PROJECT_ROOT not in sys.path:
@@ -22,6 +20,7 @@ if HOOKS_DIR not in sys.path:
 from hooks._common import setup_crash_handler, json_input, get_feature_flag, _resolve_project_dir
 from hooks.state_migration import resolve_state_file
 from hooks._budget import BUDGET_SESSION_TOTAL, BUDGET_SESSION_IDLE
+from runtime.context_engine import render_profile_digest_text
 
 setup_crash_handler("session-start", fail_closed=False)
 
@@ -42,60 +41,15 @@ def _read_file(path: str, max_bytes: int = 2000) -> str | None:
         return None
 
 
-def _load_profile_map(raw_profile: str) -> dict[str, object]:
-    try:
-        parsed = yaml.safe_load(raw_profile)
-    except Exception:
-        parsed = None
-    if isinstance(parsed, dict):
-        return parsed
-    return {}
-
-
 # 1) Project profile summary
 profile_path = resolve_state_file(project_dir, "state/profile.yaml", "profile.yaml")
 project_path = resolve_state_file(project_dir, "state/project.md", "project.md")
 
 profile = _read_file(profile_path, 3000)
 if profile:
-    profile_map = _load_profile_map(profile)
-    name = str(profile_map.get("name", "")).strip()
-
-    conventions_map = profile_map.get("conventions")
-    if isinstance(conventions_map, dict):
-        conventions = conventions_map
-    else:
-        conventions = {}
-
-    ai_behavior_map = profile_map.get("ai_behavior")
-    if isinstance(ai_behavior_map, dict):
-        ai_behavior = ai_behavior_map
-    else:
-        ai_behavior = {}
-
-    user_vector_map = profile_map.get("user_vector")
-    if isinstance(user_vector_map, dict):
-        user_vector = user_vector_map
-    else:
-        user_vector = {}
-
-    conv_parts = []
-    for key in ("naming", "test_cmd", "lint_cmd"):
-        value = str(conventions.get(key, "")).strip()
-        if value:
-            conv_parts.append(f"{key}={value}")
-    comm = str(ai_behavior.get("communication", "")).strip()
-    user_summary = str(user_vector.get("summary", "")).strip()
-
-    summary_parts = [name] if name else []
-    if conv_parts:
-        summary_parts.append(" ".join(conv_parts))
-    if comm:
-        summary_parts.append(f"lang:{comm}")
-    if user_summary:
-        summary_parts.append(f"intent:{user_summary[:80]}")
-    if summary_parts:
-        sections.append(f"@project: {' | '.join(summary_parts)}")
+    digest = render_profile_digest_text(project_dir, max_chars=240)
+    if digest:
+        sections.append(f"@project: profile_digest={digest}")
 else:
     project = _read_file(project_path, 1000)
     if project:

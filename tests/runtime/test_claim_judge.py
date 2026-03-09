@@ -353,3 +353,91 @@ def test_forge_evidence_claim_without_artifacts_fails() -> None:
 
     assert result["verdict"] == "fail"
     assert any(reason["code"] == "missing_artifacts" for reason in result["reasons"])
+
+
+def test_judge_claims_exposes_profile_digest_advisory_context(tmp_path: Path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "profile.yaml").write_text(
+        "\n".join(
+            [
+                "preferences:",
+                "  architecture_requests:",
+                "    - layered architecture",
+                "    - event sourcing",
+                "    - cqrs",
+                "    - trimmed",
+                "  constraints:",
+                "    Output Shape: json",
+                "    keep references: true",
+                "    timeout seconds: 15",
+                "    retries: 2",
+                "    deterministic mode: true",
+                "    overflow: value",
+                "user_vector:",
+                "  tags:",
+                "    - backend",
+                "    - reliability",
+                "    - verification",
+                "    - security",
+                "    - planning",
+                "    - overflow",
+                "  summary: Keep artifacts clear and tests deterministic across runs.",
+                "  confidence: 0.84",
+                "profile_version: profile-v11",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = judge_claims(
+        tmp_path.as_posix(),
+        claims=[
+            {
+                "claim_type": "ready_to_ship",
+                "subject": "demo",
+                "artifacts": [".omg/evidence/run-1.json"],
+                "trace_ids": ["trace-1"],
+            }
+        ],
+    )
+
+    digest = result["advisory_context"]["profile_digest"]
+    assert digest["profile_version"] == "profile-v11"
+    assert len(digest["architecture_requests"]) == 3
+    assert len(digest["constraints"]) == 5
+    assert len(digest["tags"]) == 5
+    assert len(digest["summary"]) <= 120
+    assert result["results"][0]["advisory_context"]["profile_digest"] == digest
+
+
+def test_profile_digest_hints_do_not_override_evidence_based_failures(tmp_path: Path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "profile.yaml").write_text(
+        "\n".join(
+            [
+                "user_vector:",
+                "  summary: Always ship confidently.",
+                "  confidence: 1.0",
+                "profile_version: profile-v-strict",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = judge_claims(
+        tmp_path.as_posix(),
+        claims=[
+            {
+                "claim_type": "ready_to_ship",
+                "subject": "demo",
+                "artifacts": [],
+                "trace_ids": ["trace-1"],
+            }
+        ],
+    )
+
+    assert result["verdict"] == "fail"
+    assert result["results"][0]["verdict"] == "fail"
+    assert result["advisory_context"]["profile_digest"]["profile_version"] == "profile-v-strict"
