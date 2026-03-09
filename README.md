@@ -16,7 +16,7 @@ OMG upgrades your agent host instead of replacing it. It gives Claude Code, Code
 
 - Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
 - Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
-- Multi-host support: Claude Code and Codex (canonical), Gemini CLI and Kimi CLI (compatibility providers).
+- Multi-host support: Claude Code and Codex (canonical), Gemini CLI, Kimi CLI, and OpenCode (compatibility providers).
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
 - Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.
@@ -86,6 +86,7 @@ Success looks like:
 
 - Claude Code: [docs/install/claude-code.md](docs/install/claude-code.md)
 - Codex: [docs/install/codex.md](docs/install/codex.md)
+- OpenCode: [docs/install/opencode.md](docs/install/opencode.md)
 - Gemini: [docs/install/gemini.md](docs/install/gemini.md)
 - Kimi: [docs/install/kimi.md](docs/install/kimi.md)
 ## Native Adoption
