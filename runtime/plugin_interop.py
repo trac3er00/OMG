@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import cast
+import yaml
 
 from runtime.hook_governor import validate_order
 
@@ -146,6 +147,108 @@ class PluginAllowlistEntry:
     scope: str = "project"
     timestamp: str | None = None
     approver: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "source": self.source,
+            "host": self.host,
+            "resource_type": self.resource_type,
+            "reason": self.reason,
+            "scope": self.scope,
+            "timestamp": self.timestamp,
+            "approver": self.approver,
+        }
+
+
+def validate_plugin_allowlist_entry(payload: Mapping[str, object]) -> None:
+    source = payload.get("source")
+    host = payload.get("host")
+    resource_type = payload.get("resource_type")
+    reason = payload.get("reason")
+    scope = payload.get("scope", "project")
+    timestamp = payload.get("timestamp")
+    approver = payload.get("approver")
+
+    if not isinstance(source, str) or not source:
+        raise ValueError("source must be a non-empty string")
+    if not isinstance(host, str) or host not in SUPPORTED_HOSTS:
+        raise ValueError(f"host must be one of {sorted(SUPPORTED_HOSTS)}")
+    if not isinstance(resource_type, str) or resource_type not in {"mcp_server", "skill", "plugin"}:
+        raise ValueError("resource_type must be one of: mcp_server, skill, plugin")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("reason must be a non-empty string")
+    if not isinstance(scope, str) or scope not in {"project", "user"}:
+        raise ValueError("scope must be 'project' or 'user'")
+    if timestamp is not None and not isinstance(timestamp, str):
+        raise ValueError("timestamp must be a string or None")
+    if approver is not None and not isinstance(approver, str):
+        raise ValueError("approver must be a string or None")
+
+    source_prefix, _, _ = source.partition(":")
+    expected_resource_by_prefix = {
+        "mcp": "mcp_server",
+        "skill": "skill",
+        "plugin": "plugin",
+    }
+    expected_resource = expected_resource_by_prefix.get(source_prefix)
+    if expected_resource is None:
+        raise ValueError("source must start with one of: mcp:, skill:, plugin:")
+    if resource_type != expected_resource:
+        raise ValueError(f"resource_type '{resource_type}' does not match source prefix '{source_prefix}:'")
+
+
+def load_plugin_allowlist(root: str | None = None) -> list[PluginAllowlistEntry]:
+    root_path = Path(root or ".").resolve()
+    allowlist_path = root_path / ".omg" / "state" / "plugins-allowlist.yaml"
+    try:
+        raw = allowlist_path.read_text(encoding="utf-8")
+    except OSError:
+        return []
+
+    parsed_obj = cast(object, yaml.safe_load(raw))
+    if not isinstance(parsed_obj, list):
+        return []
+
+    entries: list[PluginAllowlistEntry] = []
+    for item in cast(list[object], parsed_obj):
+        if not isinstance(item, dict):
+            continue
+        payload = cast(dict[str, object], item)
+        try:
+            validate_plugin_allowlist_entry(payload)
+        except ValueError:
+            continue
+        entries.append(
+            PluginAllowlistEntry(
+                source=cast(str, payload["source"]),
+                host=cast(str, payload["host"]),
+                resource_type=cast(str, payload["resource_type"]),
+                reason=cast(str, payload["reason"]),
+                scope=cast(str, payload.get("scope", "project")),
+                timestamp=cast(str | None, payload.get("timestamp")),
+                approver=cast(str | None, payload.get("approver")),
+            )
+        )
+    return entries
+
+
+def save_plugin_allowlist(entries: list[PluginAllowlistEntry], root: str | None = None) -> str:
+    root_path = Path(root or ".").resolve()
+    state_dir = root_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    allowlist_path = state_dir / "plugins-allowlist.yaml"
+
+    serializable: list[dict[str, object]] = []
+    for entry in entries:
+        payload = entry.to_dict()
+        validate_plugin_allowlist_entry(payload)
+        serializable.append(payload)
+
+    dumped = yaml.safe_dump(serializable, sort_keys=False)
+    if not isinstance(dumped, str):
+        raise ValueError("plugins allowlist serialization failed")
+    _ = allowlist_path.write_text(cast(str, dumped), encoding="utf-8")
+    return str(allowlist_path)
 
 
 @dataclass(slots=True)
@@ -789,5 +892,8 @@ __all__ = [
     "discover_host_plugin_state",
     "discover_omg_plugin_state",
     "get_approval_status_for_all",
+    "load_plugin_allowlist",
     "plan_hook_chain",
+    "save_plugin_allowlist",
+    "validate_plugin_allowlist_entry",
 ]

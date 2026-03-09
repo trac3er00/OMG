@@ -80,3 +80,87 @@ def run_plugin_diagnostics(root: str | None = None, live: bool = False) -> dict[
 
     _ = live
     return result
+
+
+def _infer_resource_type(source: str) -> str:
+    if source.startswith("mcp:"):
+        return "mcp_server"
+    if source.startswith("skill:"):
+        return "skill"
+    if source.startswith("plugin:"):
+        return "plugin"
+    raise ValueError("source must start with one of: mcp:, skill:, plugin:")
+
+
+def _record_sources(record: dict[str, object]) -> set[str]:
+    discovered: set[str] = set()
+    for server in cast(list[object], record.get("mcp_servers", [])):
+        if isinstance(server, str):
+            discovered.add(f"mcp:{server}")
+
+    plugin_id = record.get("plugin_id")
+    source = record.get("source")
+    if isinstance(plugin_id, str):
+        if source == plugin_interop.Source.SKILL_REGISTRY.value:
+            discovered.add(f"skill:{plugin_id}")
+        else:
+            discovered.add(f"plugin:{plugin_id}")
+    return discovered
+
+
+def approve_plugin(source: str, host: str, reason: str, root: str | None = None) -> dict[str, object]:
+    diagnostics = run_plugin_diagnostics(root)
+    records = diagnostics.get("records", [])
+    approval_states = diagnostics.get("approval_states", {})
+
+    matching_discovered = False
+    if isinstance(records, list):
+        for record in cast(list[object], records):
+            if not isinstance(record, dict):
+                continue
+            record_host = cast(str | None, record.get("host"))
+            if record_host != host:
+                continue
+            if source in _record_sources(cast(dict[str, object], record)):
+                matching_discovered = True
+                break
+
+    if not matching_discovered and isinstance(approval_states, dict):
+        for plugin_id, _status in cast(dict[object, object], approval_states).items():
+            if not isinstance(plugin_id, str):
+                continue
+            if source in {f"plugin:{plugin_id}", f"skill:{plugin_id}"}:
+                matching_discovered = True
+                break
+
+    if not matching_discovered:
+        return {
+            "schema": "ApprovalResult",
+            "status": "error",
+            "message": (
+                f"No discovered resource matching source={source!r} and host={host!r}. "
+                "Run diagnose-plugins first."
+            ),
+        }
+
+    entry = plugin_interop.PluginAllowlistEntry(
+        source=source,
+        host=host,
+        resource_type=_infer_resource_type(source),
+        reason=reason,
+    )
+    plugin_interop.validate_plugin_allowlist_entry(entry.to_dict())
+    entries = plugin_interop.load_plugin_allowlist(root)
+
+    exists = any(existing.source == source and existing.host == host for existing in entries)
+    if not exists:
+        entries.append(entry)
+
+    _ = plugin_interop.save_plugin_allowlist(entries, root)
+    return {
+        "schema": "ApprovalResult",
+        "status": "ok",
+        "source": source,
+        "host": host,
+        "message": "Approved and saved to .omg/state/plugins-allowlist.yaml",
+    }

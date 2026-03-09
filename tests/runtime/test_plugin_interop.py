@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -20,6 +21,7 @@ from runtime.plugin_interop import (
     get_approval_status_for_all,
     plan_hook_chain,
 )
+from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
 
 
 def test_record_happy_path_with_all_fields() -> None:
@@ -576,3 +578,19 @@ def test_get_approval_status_for_all() -> None:
         "draft-plugin": "discoverable",
         "mystery-plugin": "blocked",
     }
+
+
+def test_approve_flow_updates_diagnosis(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    _ = (tmp_path / ".mcp.json").write_text(
+        json.dumps({"mcpServers": {"filesystem": {"command": "npx"}}}),
+        encoding="utf-8",
+    )
+
+    result = approve_plugin("mcp:filesystem", "claude", "trusted", str(tmp_path))
+    assert result["status"] == "ok"
+
+    diagnosis = run_plugin_diagnostics(str(tmp_path))
+    approval_states = cast(dict[str, str], diagnosis["approval_states"])
+    assert approval_states["filesystem"] == "approved"

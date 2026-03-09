@@ -60,7 +60,7 @@ from runtime.compat import (
     run_doctor,
 )
 from runtime.validate import run_validate, format_text as validate_format_text
-from runtime.plugin_diagnostics import run_plugin_diagnostics
+from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
 from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
@@ -951,17 +951,13 @@ def cmd_diagnose_plugins(args: argparse.Namespace) -> int:
 
 def cmd_diagnose_plugins_approve(args: argparse.Namespace) -> int:
     fmt = getattr(args, "format", "json")
-    result = {
-        "schema": "ApprovalResult",
-        "status": "pending",
-        "message": "Use diagnose-plugins approve flow",
-    }
+    result = approve_plugin(args.source, args.host, args.reason, root=str(ROOT_DIR))
     if fmt == "json":
         print(json.dumps(result, indent=2))
     else:
-        print("Approval status: pending")
-        print("Use diagnose-plugins approve flow")
-    return 0
+        print(f"Approval status: {result.get('status', 'unknown')}")
+        print(str(result.get("message", "")))
+    return 0 if result.get("status") == "ok" else 2
 
 def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     release_sub = parent.add_subparsers(dest=dest, required=True)
