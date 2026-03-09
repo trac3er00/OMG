@@ -99,7 +99,7 @@ class TestIntentRouting:
     def test_all_8_intents_routed(self, tmp_project):
         """Verify all intents from the routing table are handled."""
         from hooks._agent_registry import INTENT_ROUTING
-        assert len(INTENT_ROUTING) == 11, f"Expected 11 intents, got {len(INTENT_ROUTING)}"
+        assert len(INTENT_ROUTING) == 12, f"Expected 12 intents, got {len(INTENT_ROUTING)}"
         for intent_name, expected_agent in INTENT_ROUTING.items():
             payload = _make_leader_hint([(intent_name, 0.90, "test")])
             _, result = run_router(payload, project_dir=tmp_project)
@@ -127,6 +127,35 @@ class TestIntentStop:
         payload = _make_leader_hint([("INTENT_STOP", 0.90, "stop")])
         _, result = run_router(payload, project_dir=tmp_project)
         assert result["confidence"] == 0.90
+
+
+# ═══════════════════════════════════════════════════════════
+# 2.5. INTENT_CLARIFICATION → target_agent: null (Task 3)
+# ═══════════════════════════════════════════════════════════
+
+class TestIntentClarification:
+    def test_clarification_routes_to_null(self, tmp_project):
+        """INTENT_CLARIFICATION → target_agent is null (no mutation-capable dispatch)."""
+        payload = _make_leader_hint([("INTENT_CLARIFICATION", 0.95, "clarification")])
+        _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
+        assert result["target_agent"] is None
+        assert result["intent"] == "INTENT_CLARIFICATION"
+        assert result["fallback"] is False
+
+    def test_clarification_confidence_preserved(self, tmp_project):
+        """INTENT_CLARIFICATION preserves confidence from LEADER_HINT."""
+        payload = _make_leader_hint([("INTENT_CLARIFICATION", 0.85, "clarification")])
+        _, result = run_router(payload, project_dir=tmp_project)
+        assert result["confidence"] == 0.85
+
+    def test_clarification_halts_execution(self, tmp_project):
+        """Clarification intent halts execution (no agent dispatch, not fallback)."""
+        payload = _make_leader_hint([("INTENT_CLARIFICATION", 0.90, "clarification")])
+        _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
+        assert result["target_agent"] is None
+        assert result["fallback"] is False  # Not a fallback — explicit halt
 
 
 # ═══════════════════════════════════════════════════════════
@@ -311,9 +340,9 @@ class TestErrorHandling:
 
 class TestRegistryIntegrity:
     def test_intent_routing_has_8_entries(self):
-        """INTENT_ROUTING dict has exactly 11 entries (8 original + 3 bundled from Task 2.3)."""
+        """INTENT_ROUTING dict has exactly 12 entries (8 original + 3 bundled from Task 2.3 + 1 clarification from Task 3)."""
         from hooks._agent_registry import INTENT_ROUTING
-        assert len(INTENT_ROUTING) == 11
+        assert len(INTENT_ROUTING) == 12
 
     def test_intent_routing_values_are_strings_or_none(self):
         """All values in INTENT_ROUTING are str or None."""
@@ -323,7 +352,7 @@ class TestRegistryIntegrity:
                 f"Invalid agent for {intent}: {agent!r}"
 
     def test_intent_routing_keys_match_keyword_map(self):
-        """All intents in INTENT_ROUTING include original 8 plus bundled agent intents."""
+        """All intents in INTENT_ROUTING include original 8 plus bundled agent intents plus clarification."""
         from hooks._agent_registry import INTENT_ROUTING
         expected_intents = {
             "INTENT_MAX_EFFORT", "INTENT_AUTONOMOUS", "INTENT_LOOP",
@@ -331,5 +360,7 @@ class TestRegistryIntegrity:
             "INTENT_STOP", "INTENT_CRAZY",
             # Bundled agent intents (Task 2.3)
             "INTENT_EXPLORE", "INTENT_REVIEW", "INTENT_QUICK",
+            # Clarification intent (Task 3)
+            "INTENT_CLARIFICATION",
         }
         assert set(INTENT_ROUTING.keys()) == expected_intents
