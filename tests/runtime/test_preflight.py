@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib
+
 from runtime.preflight import run_preflight
 
 
@@ -27,6 +29,19 @@ def test_preflight_auto_triggers_security_for_infra_and_manifest_deltas(tmp_path
 
     assert result["requires_security_check"] is True
     assert result["route"] == "security-check"
+
+
+def test_preflight_docs_only_uses_docs_profile_requirements(tmp_path):
+    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "docs" / "guide.md").write_text("# Guide\n", encoding="utf-8")
+
+    result = run_preflight(str(tmp_path), goal="update docs")
+
+    registry = importlib.import_module("runtime.evidence_requirements")
+
+    assert result["delta_classification"]["evidence_profile"] == "docs-only"
+    assert result["evidence_requirements"] == registry.requirements_for_profile("docs-only")
+    assert len(result["evidence_requirements"]) < len(registry.requirements_for_profile("code-change"))
 
 
 def test_preflight_auto_triggers_security_for_policy_and_config_deltas(tmp_path):

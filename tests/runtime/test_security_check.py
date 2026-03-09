@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import importlib
 import json
 from unittest.mock import patch
 
-from runtime.security_check import run_semgrep_scan
+from runtime.security_check import run_security_check, run_semgrep_scan
 
 
 def test_run_semgrep_scan_returns_unavailable_when_binary_missing(tmp_path):
@@ -49,6 +50,27 @@ def test_run_semgrep_scan_normalizes_findings_when_available(tmp_path):
             "message": "Avoid shell=True",
         }
     ]
+
+
+def test_run_security_check_emits_evidence_requirements(tmp_path):
+    registry = importlib.import_module("runtime.evidence_requirements")
+    result = run_security_check(project_dir=str(tmp_path), scope=".", include_live_enrichment=False)
+
+    assert result["summary"]["delta_evidence_profile"] == "security-audit"
+    assert result["evidence_requirements"] == registry.FULL_REQUIREMENTS
+    assert result["summary"]["evidence_requirements"] == registry.FULL_REQUIREMENTS
+
+
+def test_run_security_check_fail_closed_when_profile_missing(tmp_path):
+    registry = importlib.import_module("runtime.evidence_requirements")
+    with patch(
+        "runtime.security_check.classify_project_changes",
+        return_value={"categories": ["implementation"], "touched_files": []},
+    ):
+        result = run_security_check(project_dir=str(tmp_path), scope=".", include_live_enrichment=False)
+
+    assert result["evidence_requirements"] == registry.FULL_REQUIREMENTS
+    assert result["summary"]["evidence_requirements"] == registry.FULL_REQUIREMENTS
 
 
 def test_run_semgrep_scan_handles_malformed_json_without_crash(tmp_path):

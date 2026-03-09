@@ -1,6 +1,7 @@
 """Structured preflight routing for OMG."""
 from __future__ import annotations
 
+import importlib
 from runtime.delta_classifier import classify_project_changes
 from runtime.tracebank import record_trace
 from typing import Any
@@ -45,6 +46,7 @@ def run_preflight(project_dir: str, *, goal: str) -> dict[str, Any]:
     categories = set(delta["categories"])
     requires_security_check = _requires_security_check(delta)
     domain_packs = [category for category in delta["categories"] if category in {"robotics", "vision", "algorithms", "health"}]
+    evidence_requirements = _requirements_for_profile(delta.get("evidence_profile"))
 
     if requires_security_check:
         task_class = "security"
@@ -83,6 +85,7 @@ def run_preflight(project_dir: str, *, goal: str) -> dict[str, Any]:
         "required_mcps": ["omg-control"] if route in {"security-check", "api-twin", "crazy"} else [],
         "missing_constraints": [],
         "evidence_plan": _evidence_plan(route),
+        "evidence_requirements": evidence_requirements,
         "delta_classification": delta,
         "domain_packs": domain_packs,
         "trace": {"trace_id": trace["trace_id"], "path": trace["path"]},
@@ -99,6 +102,17 @@ def _requires_security_check(delta: dict[str, Any]) -> bool:
         if any(token in file_path for token in _HIGH_RISK_DELTA_TOKENS):
             return True
     return False
+
+
+def _requirements_for_profile(evidence_profile: str | None) -> list[str]:
+    module = importlib.import_module("runtime.evidence_requirements")
+    resolver = getattr(module, "requirements_for_profile", None)
+    if callable(resolver):
+        resolved = resolver(evidence_profile)
+        if isinstance(resolved, (list, tuple, set)):
+            return [str(item) for item in resolved]
+    full = getattr(module, "FULL_REQUIREMENTS", [])
+    return [str(item) for item in full]
 
 
 def _required_tools(route: str) -> list[str]:
