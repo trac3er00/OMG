@@ -111,6 +111,36 @@ class TestForgeEvidencePipeline:
         assert result["evidence_path"] == str(evidence_path)
         assert evidence_path.exists()
 
+    def test_run_pipeline_with_evidence_emits_staged_contract_evidence(self, tmp_path: Path):
+        defense_dir = tmp_path / ".omg" / "state" / "defense_state"
+        defense_dir.mkdir(parents=True, exist_ok=True)
+        (defense_dir / "run-stage.json").write_text(
+            json.dumps({"schema": "DefenseState", "run_id": "run-stage", "controls": {"firewall": "enabled"}}),
+            encoding="utf-8",
+        )
+
+        health_dir = tmp_path / ".omg" / "state" / "session_health"
+        health_dir.mkdir(parents=True, exist_ok=True)
+        (health_dir / "run-stage.json").write_text(
+            json.dumps({"schema": "SessionHealth", "run_id": "run-stage", "context_health": "green"}),
+            encoding="utf-8",
+        )
+
+        result = run_pipeline_with_evidence(str(tmp_path), _valid_job(), "run-stage")
+        assert result["run_id"] == "run-stage"
+        assert len(result["stage_evidence"]) == 5
+
+        first_stage = result["stage_evidence"][0]
+        assert first_stage["run_id"] == "run-stage"
+        assert first_stage["stage"] == "data_prepare"
+        assert first_stage["status"] == "success"
+        assert first_stage["defense_snapshot"]["controls"]["firewall"] == "enabled"
+        assert first_stage["session_health_snapshot"]["context_health"] == "green"
+
+        payload = json.loads((tmp_path / ".omg" / "evidence" / "forge-run-stage.json").read_text(encoding="utf-8"))
+        assert len(payload["stage_evidence"]) == 5
+        assert payload["stage_evidence"][0]["run_id"] == "run-stage"
+
 
 class TestForgeCLI:
     def test_forge_help_exits_zero(self):
@@ -328,6 +358,30 @@ class TestForgeSpecialists:
         assert output["agent_path"] == "vision-agent"
         assert output["specialist_dispatch"]["status"] == "ok"
 
+    def test_forge_vision_agent_emits_staged_evidence(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "vision-agent",
+                "--preset",
+                "labs",
+                "--run-id",
+                "vision-stage-run",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["run_id"] == "vision-stage-run"
+        assert len(output["stage_evidence"]) == 5
+        assert output["stage_evidence"][0]["stage"] == "data_prepare"
+        assert output["stage_evidence"][-1]["stage"] == "regression_test"
+
     def test_forge_run_invalid_specialists_blocked(self):
         job = _valid_job()
         job["domain"] = "vision"
@@ -350,3 +404,114 @@ class TestForgeSpecialists:
         assert result.returncode != 0
         output = json.loads(result.stdout)
         assert output["status"] == "blocked"
+
+
+class TestForgeAdapterBackends:
+    def test_pipeline_continues_with_optional_unavailable_backend(self):
+        job = _valid_job()
+        job["specialists"] = ["data-curator", "training-architect", "simulator-engineer"]
+        job["domain"] = "vision"
+        job["simulator_backend"] = "gazebo"
+        job["require_backend"] = False
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        assert "adapter_evidence" in result
+        gazebo_ev = [a for a in result["adapter_evidence"] if a["adapter"] == "gazebo"]
+        assert len(gazebo_ev) == 1
+        assert gazebo_ev[0]["status"] == "skipped_unavailable_backend"
+        assert gazebo_ev[0]["required"] is False
+
+    def test_pipeline_blocks_when_required_backend_missing(self):
+        job = _valid_job()
+        job["specialists"] = ["simulator-engineer"]
+        job["domain"] = "robotics"
+        job["simulator_backend"] = "gazebo"
+        job["require_backend"] = True
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "blocked"
+        assert result["stage"] == "adapter"
+        assert "required backend unavailable" in str(result.get("reason", ""))
+        assert "adapter_evidence" in result
+
+    def test_pipeline_proceeds_with_default_pybullet(self):
+        job = _valid_job()
+        job["specialists"] = ["training-architect", "simulator-engineer"]
+        job["domain"] = "robotics"
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        if "adapter_evidence" in result:
+            adapter_names = [str(a["adapter"]) for a in result["adapter_evidence"]]
+            assert "pybullet" in adapter_names
+
+    def test_pipeline_with_evidence_includes_adapter_data(self, tmp_path: Path):
+        job = _valid_job()
+        job["specialists"] = ["data-curator", "training-architect", "simulator-engineer"]
+        job["domain"] = "vision"
+
+        result = run_pipeline_with_evidence(str(tmp_path), job, "run-adapter-e2e")
+
+        assert result["status"] == "ready"
+        assert "adapter_evidence" in result
+
+    def test_pipeline_stage_evidence_has_adapter_evidence_on_relevant_stages(self):
+        job = _valid_job()
+        job["specialists"] = ["training-architect", "simulator-engineer"]
+        job["domain"] = "robotics"
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        stage_map = {s["stage"]: s for s in result["stage_evidence"]}
+        train_stage = stage_map["train_distill"]
+        assert "adapter_evidence" in train_stage
+        training_adapters = [a for a in train_stage["adapter_evidence"] if a["kind"] == "training"]
+        assert len(training_adapters) >= 1
+
+        eval_stage = stage_map["evaluate"]
+        assert "adapter_evidence" in eval_stage
+        sim_adapters = [a for a in eval_stage["adapter_evidence"] if a["kind"] == "simulator"]
+        assert len(sim_adapters) >= 1
+
+    def test_pipeline_stage_evidence_no_adapter_on_data_stages(self):
+        job = _valid_job()
+        job["specialists"] = ["training-architect", "simulator-engineer"]
+        job["domain"] = "robotics"
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        stage_map = {s["stage"]: s for s in result["stage_evidence"]}
+        assert "adapter_evidence" not in stage_map["data_prepare"]
+        assert "adapter_evidence" not in stage_map["synthetic_refine"]
+
+    def test_pipeline_required_isaac_gym_blocks(self):
+        job = _valid_job()
+        job["specialists"] = ["simulator-engineer"]
+        job["domain"] = "robotics"
+        job["simulator_backend"] = "isaac_gym"
+        job["require_backend"] = True
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "blocked"
+        assert "required backend unavailable" in str(result.get("reason", ""))
+
+    def test_pipeline_optional_isaac_gym_continues(self):
+        job = _valid_job()
+        job["specialists"] = ["simulator-engineer"]
+        job["domain"] = "robotics"
+        job["simulator_backend"] = "isaac_gym"
+        job["require_backend"] = False
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "ready"
+        isaac_ev = [a for a in result.get("adapter_evidence", []) if a["adapter"] == "isaac_gym"]
+        assert len(isaac_ev) == 1
+        assert isaac_ev[0]["status"] == "skipped_unavailable_backend"

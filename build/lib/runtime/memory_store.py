@@ -15,6 +15,13 @@ class MemoryStoreFullError(Exception):
 
 
 _MAX_ITEMS = 10_000
+_PREFERENCE_SIGNAL_LIMIT = 12
+_PREFERENCE_VALUE_MAX = 160
+_PREFERENCE_ALLOWED_FIELDS = (
+    "preferences.architecture_requests",
+    "preferences.constraints.",
+    "user_vector.tags",
+)
 
 # Type alias for memory items — JSON-like dicts.
 _Item = dict[str, Any]  # pyright: ignore[reportExplicitAny]
@@ -207,9 +214,128 @@ class MemoryStore:
         _ = os.replace(tmp_path, path)
 
 
+def project_preference_signals(
+    project_dir: str,
+    *,
+    store_path: str | None = None,
+    max_signals: int = _PREFERENCE_SIGNAL_LIMIT,
+) -> list[dict[str, Any]]:
+    """Return bounded preference signals scoped to *project_dir*."""
+    canonical_project = os.path.realpath(project_dir)
+    if not canonical_project:
+        return []
+
+    limit = max(1, min(int(max_signals), _PREFERENCE_SIGNAL_LIMIT))
+    store = MemoryStore(store_path=store_path)
+    items = list(reversed(store.list_all()))
+    results: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+
+    for item in items:
+        signal = _extract_project_signal(item, canonical_project)
+        if signal is None:
+            continue
+
+        signature = (
+            str(signal.get("field", "")),
+            str(signal.get("value", "")),
+            str(signal.get("source", "")),
+            str(signal.get("run_id", "")),
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
+        results.append(signal)
+        if len(results) >= limit:
+            break
+
+    return results
+
+
+def _extract_project_signal(item: _Item, canonical_project: str) -> dict[str, Any] | None:
+    raw_content = item.get("content")
+    if not isinstance(raw_content, str):
+        return None
+
+    try:
+        payload = json.loads(raw_content)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    scope = _extract_scope(payload, item)
+    if os.path.realpath(scope) != canonical_project:
+        return None
+
+    field = str(payload.get("field", "")).strip()
+    if not _is_allowed_field(field):
+        return None
+
+    value = _normalize_value(payload.get("value"))
+    if not value:
+        return None
+
+    source = str(payload.get("source", "inferred_observation")).strip().lower() or "inferred_observation"
+    confidence = _clamp_confidence(payload.get("confidence"))
+    contradicted = bool(payload.get("contradicted") is True)
+
+    signal: dict[str, Any] = {
+        "field": field,
+        "value": value,
+        "source": source,
+        "confidence": confidence,
+        "project_scope": canonical_project,
+        "run_id": str(payload.get("run_id", "")).strip(),
+        "updated_at": str(payload.get("updated_at", item.get("updated_at", ""))).strip(),
+        "contradicted": contradicted,
+    }
+    return signal
+
+
+def _extract_scope(payload: dict[str, Any], item: _Item) -> str:
+    scope = str(payload.get("project_scope", "")).strip()
+    if scope:
+        return scope
+    tags = item.get("tags", [])
+    if isinstance(tags, list):
+        for tag in tags:
+            text = str(tag)
+            if text.startswith("project_scope:"):
+                return text.split(":", 1)[1].strip()
+    return ""
+
+
+def _is_allowed_field(field: str) -> bool:
+    if field == "preferences.architecture_requests":
+        return True
+    if field == "user_vector.tags":
+        return True
+    return field.startswith("preferences.constraints.")
+
+
+def _normalize_value(raw: Any) -> str:
+    text = " ".join(str(raw).strip().split())
+    if not text:
+        return ""
+    return text[:_PREFERENCE_VALUE_MAX]
+
+
+def _clamp_confidence(raw: Any) -> float:
+    try:
+        score = float(raw)
+    except (TypeError, ValueError):
+        score = 0.0
+    if score < 0.0:
+        return 0.0
+    if score > 1.0:
+        return 1.0
+    return round(score, 3)
+
+
 def _utc_now_iso() -> str:
     """Return current UTC time as ISO 8601 string."""
     return datetime.now(timezone.utc).isoformat()
 
 
-__all__ = ["MemoryStore", "MemoryStoreFullError"]
+__all__ = ["MemoryStore", "MemoryStoreFullError", "project_preference_signals"]

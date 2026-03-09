@@ -126,6 +126,33 @@ UNTRUSTED_MUTATION_PATTERNS = [
 TRUSTED_CONTENT_TIERS = frozenset({"local", "balanced"})
 UNTRUSTED_EXTERNAL_TIERS = frozenset({"research", "browser"})
 
+INJECTION_MARKER_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
+    (re.compile(r"\bIGNORE\s+(?:ALL\s+)?PREVIOUS(?:\s+INSTRUCTIONS?)?\b", re.IGNORECASE), 0.03, "ignore-previous-instructions"),
+    (re.compile(r"<\|im_start\|>", re.IGNORECASE), 0.03, "im-start-token"),
+    (re.compile(r"<\|im_end\|>", re.IGNORECASE), 0.03, "im-end-token"),
+    (re.compile(r"\[INST\]", re.IGNORECASE), 0.03, "inst-token"),
+    (re.compile(r"\[/INST\]", re.IGNORECASE), 0.03, "inst-close-token"),
+)
+
+HIDDEN_INSTRUCTION_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
+    (re.compile(r"(?:^|\s)SYSTEM\s*:", re.IGNORECASE), 0.02, "system-role-token"),
+    (re.compile(r"(?:^|\s)ASSISTANT\s*:", re.IGNORECASE), 0.02, "assistant-role-token"),
+    (re.compile(r"(?:(?:#|//|/\*|<!--).{0,80})\b(?:ignore|override|jailbreak|bypass)\b", re.IGNORECASE), 0.01, "comment-hidden-instruction"),
+    (re.compile(r"\bbase64\s+(?:-d|--decode)\b", re.IGNORECASE), 0.01, "base64-decoder-token"),
+    (re.compile(r"\b[A-Za-z0-9+/]{48,}={0,2}\b"), 0.01, "opaque-base64-payload"),
+)
+
+CACHE_POISONING_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
+    (re.compile(r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}/\.omg/state/", re.IGNORECASE), 0.04, "state-path-overwrite-attempt"),
+    (re.compile(r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}/\.omg/shadow/active-run", re.IGNORECASE), 0.04, "active-run-overwrite-attempt"),
+    (re.compile(r"\b(?:cache|state)\s*(?:poison|override|overwrite|tamper)\b", re.IGNORECASE), 0.02, "cache-poisoning-language"),
+)
+
+CLARIFICATION_AMBIGUITY_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
+    (re.compile(r"\b(?:without\s+asking|no\s+questions\s+asked|skip\s+clarif(?:y|ication))\b", re.IGNORECASE), 0.08, "clarification-bypass-language"),
+    (re.compile(r"\b(?:just\s+fix\s+it|fix\s+everything|do\s+whatever\s+it\s+takes)\b", re.IGNORECASE), 0.08, "ambiguous-mutation-intent"),
+)
+
 
 def _project_dir() -> str:
     return os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
@@ -209,6 +236,56 @@ def _is_untrusted_content_mode_active() -> bool:
         return is_untrusted_content_mode_active(project_dir)
     except Exception:
         return False
+
+
+def scan_mutation_command(cmd: str) -> dict[str, Any]:
+    text = str(cmd or "")
+    if not text.strip():
+        return {
+            "injection_hits": 0,
+            "contamination_score": 0.0,
+            "overthinking_score": 0.0,
+            "premature_fixer_score": 0.0,
+            "signals": [],
+        }
+
+    contamination_score = 0.0
+    overthinking_score = 0.0
+    premature_fixer_score = 0.0
+    injection_hits = 0
+    signals: list[str] = []
+
+    for pattern, weight, label in INJECTION_MARKER_PATTERNS:
+        if pattern.search(text):
+            injection_hits += 1
+            contamination_score += weight
+            signals.append(label)
+
+    for pattern, weight, label in HIDDEN_INSTRUCTION_PATTERNS:
+        if pattern.search(text):
+            injection_hits += 1
+            contamination_score += weight
+            signals.append(label)
+
+    for pattern, weight, label in CACHE_POISONING_PATTERNS:
+        if pattern.search(text):
+            injection_hits += 1
+            contamination_score += weight
+            signals.append(label)
+
+    for pattern, weight, label in CLARIFICATION_AMBIGUITY_PATTERNS:
+        if pattern.search(text):
+            overthinking_score += weight
+            premature_fixer_score += weight
+            signals.append(label)
+
+    return {
+        "injection_hits": max(0, injection_hits),
+        "contamination_score": round(max(0.0, min(1.0, contamination_score)), 4),
+        "overthinking_score": round(max(0.0, min(1.0, overthinking_score)), 4),
+        "premature_fixer_score": round(max(0.0, min(1.0, premature_fixer_score)), 4),
+        "signals": signals,
+    }
 
 
 def evaluate_bash_command(cmd: str) -> PolicyDecision:

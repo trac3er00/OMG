@@ -5,7 +5,7 @@ description: "Versioned endpoint cassette replay with latency, drift, and cost r
 
 # OMG API Twin
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/state/api_twin.json`

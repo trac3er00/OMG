@@ -135,6 +135,74 @@ def read_run_state(project_dir: str, module: str, run_id: str) -> JsonObject | N
     return None
 
 
+def read_defense_state(
+    project_dir: str,
+    run_id: str | None = None,
+    *,
+    compat: bool = False,
+) -> JsonObject | None:
+    root = Path(project_dir)
+    active_run_id = _resolve_active_run_id(root, run_id)
+    if active_run_id:
+        payload = _read_payload(root / ".omg" / "state" / "defense_state" / f"{active_run_id}.json")
+        if payload is not None:
+            return payload
+
+    payload = _read_payload(root / ".omg" / "state" / "defense_state" / "current.json")
+    if payload is not None:
+        return payload
+
+    if compat or not active_run_id:
+        return _read_payload(root / ".omg" / "state" / "defense_state" / "latest.json")
+    return None
+
+
+def read_session_health(
+    project_dir: str,
+    run_id: str | None = None,
+    *,
+    compat: bool = False,
+) -> JsonObject | None:
+    root = Path(project_dir)
+    active_run_id = _resolve_active_run_id(root, run_id)
+    if active_run_id:
+        payload = _read_payload(root / ".omg" / "state" / "session_health" / f"{active_run_id}.json")
+        if payload is not None:
+            return payload
+
+    if compat or not active_run_id:
+        return _read_payload(root / ".omg" / "state" / "session_health" / "latest.json")
+    return None
+
+
+def read_context_packet(project_dir: str, *, compat: bool = False) -> JsonObject | None:
+    root = Path(project_dir)
+    payload = _read_payload(root / ".omg" / "state" / "context_engine_packet.json")
+    if payload is not None:
+        return payload
+    if compat:
+        return _read_payload(root / ".omg" / "state" / "context_engine" / "latest.json")
+    return None
+
+
+def read_council_verdicts(
+    project_dir: str,
+    run_id: str | None = None,
+    *,
+    compat: bool = False,
+) -> JsonObject | None:
+    root = Path(project_dir)
+    active_run_id = _resolve_active_run_id(root, run_id)
+    if active_run_id:
+        payload = _read_payload(root / ".omg" / "state" / "council_verdicts" / f"{active_run_id}.json")
+        if payload is not None:
+            return payload
+
+    if compat or not active_run_id:
+        return _read_payload(root / ".omg" / "state" / "council_verdicts" / "latest.json")
+    return None
+
+
 def _normalize_payload(module: str, run_id: str, payload: JsonObject) -> JsonObject:
     metadata = schema_versions()[module]
     state = dict(payload)
@@ -146,6 +214,28 @@ def _normalize_payload(module: str, run_id: str, payload: JsonObject) -> JsonObj
     state["status"] = status if status in _STATUS_VALUES else "error"
     state["updated_at"] = _to_str(state.get("updated_at"), datetime.now(timezone.utc).isoformat())
     return state
+
+
+def _resolve_active_run_id(project_dir: Path, run_id: str | None) -> str:
+    candidate = _to_str(run_id, "").strip()
+    if candidate:
+        return candidate
+
+    candidate = os.environ.get("OMG_RUN_ID", "").strip()
+    if candidate:
+        return candidate
+
+    for path in (
+        project_dir / ".omg" / "state" / "defense_state" / "current.json",
+        project_dir / ".omg" / "state" / "context_engine_packet.json",
+    ):
+        payload = _read_payload(path)
+        if payload is None:
+            continue
+        candidate = _to_str(payload.get("run_id"), "").strip()
+        if candidate:
+            return candidate
+    return ""
 
 
 def _read_payload(path: Path) -> JsonObject | None:

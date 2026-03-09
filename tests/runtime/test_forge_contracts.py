@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import cast
 
-from runtime.forge_contracts import build_forge_evidence, load_forge_mvp, validate_forge_job
+from runtime.forge_contracts import ADAPTER_REGISTRY, build_forge_evidence, build_stage_evidence, load_forge_mvp, validate_forge_job
 
 
 def _valid_job() -> dict[str, object]:
@@ -122,3 +122,71 @@ def test_load_forge_mvp_includes_starter_templates() -> None:
     templates = cast(dict[str, object], contract["starter_templates"])
     assert "vision-agent" in templates
     assert "robotics" in templates
+
+
+def test_load_forge_mvp_includes_adapter_registry() -> None:
+    contract = load_forge_mvp()
+    assert "adapter_registry" in contract
+    registry = cast(dict[str, object], contract["adapter_registry"])
+    assert "axolotl" in registry
+    assert "pybullet" in registry
+    assert "gazebo" in registry
+    assert "isaac_gym" in registry
+
+
+def test_adapter_registry_has_required_fields() -> None:
+    for name, entry in ADAPTER_REGISTRY.items():
+        assert "kind" in entry, f"{name} missing kind"
+        assert "module" in entry, f"{name} missing module"
+        assert "hook" in entry, f"{name} missing hook"
+        assert "specialist" in entry, f"{name} missing specialist"
+        assert str(entry["kind"]) in ("training", "simulator")
+
+
+def test_adapter_registry_has_single_primary_simulator() -> None:
+    primaries = [
+        name for name, entry in ADAPTER_REGISTRY.items()
+        if entry.get("primary") is True and str(entry.get("kind")) == "simulator"
+    ]
+    assert primaries == ["pybullet"]
+
+
+def test_build_stage_evidence_includes_adapter_evidence_when_provided() -> None:
+    from time import monotonic
+
+    adapter_ev: list[dict[str, object]] = [{"adapter": "pybullet", "status": "invoked", "kind": "simulator"}]
+    result = build_stage_evidence(
+        stage="evaluate",
+        run_id="run-adapter-1",
+        status="success",
+        started_at_ms=monotonic(),
+        defense_snapshot={},
+        session_health_snapshot={},
+        artifacts=[],
+        adapter_evidence=adapter_ev,
+    )
+    assert "adapter_evidence" in result
+    assert result["adapter_evidence"] == adapter_ev
+
+
+def test_build_stage_evidence_omits_adapter_evidence_when_none() -> None:
+    from time import monotonic
+
+    result = build_stage_evidence(
+        stage="data_prepare",
+        run_id="run-adapter-2",
+        status="success",
+        started_at_ms=monotonic(),
+        defense_snapshot={},
+        session_health_snapshot={},
+        artifacts=[],
+    )
+    assert "adapter_evidence" not in result
+
+
+def test_load_forge_mvp_job_schema_includes_adapter_optional_fields() -> None:
+    contract = load_forge_mvp()
+    schema = cast(dict[str, object], contract["job_schema"])
+    optional = cast(list[str], schema["optional"])
+    assert "simulator_backend" in optional
+    assert "require_backend" in optional

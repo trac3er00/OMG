@@ -22,6 +22,8 @@ _ROUTER_DIR = os.path.dirname(os.path.abspath(__file__))
 _OMG_ROOT = os.path.dirname(_ROUTER_DIR)
 
 _logger = logging.getLogger(__name__)
+_ROUTING_MODE_DEFAULT = "normal"
+_ROUTING_MODE_CLARIFICATION = "planning_read_only"
 
 # Import providers to trigger auto-registration in provider registry
 try:
@@ -35,6 +37,7 @@ from runtime.runtime_profile import resolve_parallel_workers
 from runtime.runtime_contracts import write_run_state
 from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
 from runtime.context_engine import ContextEngine
+from runtime.context_engine import render_profile_digest_text
 from runtime.defense_state import DefenseState
 from runtime.equalizer import select_provider
 from runtime.router_executor import WorkerTask, execute_workers
@@ -49,6 +52,7 @@ class TeamDispatchRequest:
     target: str  # codex | gemini | ccg | auto
     problem: str
     context: str = ""
+    context_packet: dict[str, Any] | None = None
     files: list[str] | None = None
     expected_outcome: str = ""
 
@@ -197,6 +201,9 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
         selected = select_target(req.problem, req.context)
         target = selected["target"]
 
+    clarification_status = _extract_clarification_status(req.context_packet)
+    clarification_required = bool(clarification_status.get("requires_clarification") is True)
+
     findings = [f"Target router selected: {target}", f"Problem: {req.problem}"]
     if req.files:
         findings.append(f"Focus files: {', '.join(req.files[:8])}")
@@ -248,12 +255,24 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
             ]
         )
 
+    routing_mode = _ROUTING_MODE_DEFAULT
+    if clarification_required:
+        routing_mode = _ROUTING_MODE_CLARIFICATION
+        findings.append("Clarification unresolved; downgrading to read-only planning mode")
+        actions = [
+            "Collect missing details using read/search/review tools only",
+            "Draft a concrete execution plan without mutation-capable steps",
+            "Return a single clarification request before any edits or writes",
+        ]
+
     evidence = {
         "target": target,
         "equalizer": equalizer_decision,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "context_length": len(req.context or ""),
         "file_count": len(req.files or []),
+        "routing_mode": routing_mode,
+        "clarification_status": clarification_status,
         "cli_health": cli_health,
         "live_connection": all(h.get("live_connection") for h in cli_health.values()) if cli_health else True,
     }
@@ -340,18 +359,15 @@ def _read_working_memory(project_dir: str) -> str:
 
 
 def _read_profile_context(project_dir: str) -> str:
-    """Read profile context from .omg/state/profile.yaml."""
     profile_path = os.path.join(project_dir, ".omg", "state", "profile.yaml")
     if not os.path.exists(profile_path):
         return ""
 
     try:
-        with open(profile_path, "r", encoding="utf-8", errors="replace") as f:
-            content = f.read()
-        if len(content) > 300:
-            content = content[:300] + "..."
-        return content
+        return render_profile_digest_text(project_dir, max_chars=300)
     except (OSError, UnicodeDecodeError):
+        return ""
+    except Exception:
         return ""
 
 
@@ -879,12 +895,55 @@ def _build_router_context_packet(
         packet = ContextEngine(project_dir).build_packet(run_id=run_id, delta_only=True)
         if summary and not str(packet.get("summary", "")).strip():
             packet["summary"] = summary
+        if _requires_clarification(packet):
+            packet["routing_mode"] = _ROUTING_MODE_CLARIFICATION
         return packet
     return {
         "summary": summary,
         "artifact_pointers": [],
+        "clarification_status": {
+            "requires_clarification": False,
+            "intent_class": "",
+            "clarification_prompt": "",
+            "confidence": 0.0,
+        },
+        "routing_mode": _ROUTING_MODE_DEFAULT,
         "files": list(files or []),
     }
+
+
+def _extract_clarification_status(context_packet: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(context_packet, dict):
+        return {
+            "requires_clarification": False,
+            "intent_class": "",
+            "clarification_prompt": "",
+            "confidence": 0.0,
+        }
+    status = context_packet.get("clarification_status")
+    if not isinstance(status, dict):
+        return {
+            "requires_clarification": False,
+            "intent_class": "",
+            "clarification_prompt": "",
+            "confidence": 0.0,
+        }
+    prompt = str(status.get("clarification_prompt", "")).strip().replace("\n", " ")
+    try:
+        confidence = float(status.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return {
+        "requires_clarification": bool(status.get("requires_clarification") is True),
+        "intent_class": str(status.get("intent_class", "")).strip(),
+        "clarification_prompt": prompt,
+        "confidence": round(max(0.0, min(1.0, confidence)), 2),
+    }
+
+
+def _requires_clarification(context_packet: dict[str, object]) -> bool:
+    status = _extract_clarification_status(cast(dict[str, Any], context_packet))
+    return bool(status.get("requires_clarification") is True)
 
 
 def _persist_council_verdicts(project_dir: str, run_id: str | None, verdicts: dict[str, dict[str, Any]]) -> None:

@@ -8,9 +8,10 @@ from runtime.context_engine import ContextEngine
 
 REQUIRED_KEYS = {"summary", "artifact_pointers", "budget", "delta_only", "run_id"}
 BUDGET_KEYS = {"max_chars", "used_chars"}
+CLARIFICATION_KEYS = {"requires_clarification", "intent_class", "clarification_prompt", "confidence"}
 
 
-def _write_json(path: Path, data: dict) -> None:
+def _write_json(path: Path, data: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data), encoding="utf-8")
 
@@ -19,7 +20,9 @@ def test_packet_has_required_keys(tmp_path):
     engine = ContextEngine(str(tmp_path))
     pkt = engine.build_packet(run_id="t-1")
     assert REQUIRED_KEYS.issubset(pkt.keys())
+    assert "profile_digest" in pkt
     assert BUDGET_KEYS.issubset(pkt["budget"].keys())
+    assert CLARIFICATION_KEYS.issubset(pkt["clarification_status"].keys())
 
 
 def test_budget_respected(tmp_path):
@@ -141,3 +144,91 @@ def test_malformed_json_degrades(tmp_path):
     pkt = engine.build_packet(run_id="t-12")
     assert "summary" in pkt
     assert isinstance(pkt["artifact_pointers"], list)
+
+
+def test_packet_includes_clarification_status_from_intent_gate(tmp_path):
+    _write_json(
+        tmp_path / ".omg" / "state" / "intent_gate" / "t-13.json",
+        {
+            "requires_clarification": True,
+            "intent_class": "ambiguous_config",
+            "clarification_prompt": "Clarify provider and desired action.",
+            "confidence": 0.93,
+        },
+    )
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="t-13")
+    status = pkt["clarification_status"]
+
+    assert status["requires_clarification"] is True
+    assert status["intent_class"] == "ambiguous_config"
+    assert status["clarification_prompt"] == "Clarify provider and desired action."
+    assert status["confidence"] == 0.93
+
+
+def test_clarification_status_remains_bounded_and_budget_safe(tmp_path):
+    _write_json(
+        tmp_path / ".omg" / "state" / "intent_gate" / "t-14.json",
+        {
+            "requires_clarification": True,
+            "intent_class": "ambiguous_config_with_extra_long_suffix_that_should_be_truncated",
+            "clarification_prompt": "x" * 500,
+            "confidence": "not-a-number",
+        },
+    )
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="t-14")
+    status = pkt["clarification_status"]
+
+    assert len(status["clarification_prompt"]) <= 180
+    assert len(status["intent_class"]) <= 48
+    assert status["confidence"] == 0.0
+    assert pkt["budget"]["used_chars"] <= pkt["budget"]["max_chars"]
+
+
+def test_profile_digest_is_compact_and_bounded(tmp_path):
+    profile_path = tmp_path / ".omg" / "state" / "profile.yaml"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        "\n".join(
+            [
+                "preferences:",
+                "  architecture_requests:",
+                "    - hexagonal architecture",
+                "    - event sourcing",
+                "    - CQRS",
+                "    - graphql federation",
+                "  constraints:",
+                "    Keep Responses Stable: true",
+                "    Timeout Seconds: 20",
+                "    output format: JSON",
+                "    max retries: 3",
+                "    allow markdown: false",
+                "    extra_rule: trim this",
+                "user_vector:",
+                "  tags:",
+                "    - Reliability",
+                "    - API Design",
+                "    - Incident Response",
+                "    - Deterministic Output",
+                "    - Cost Control",
+                "    - Excess",
+                "  summary: This summary should be present and remain compact in packets.",
+                "  confidence: 0.91",
+                "profile_version: profile-v3",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="t-profile")
+    digest = pkt["profile_digest"]
+
+    assert digest["profile_version"] == "profile-v3"
+    assert digest["confidence"] == 0.91
+    assert len(digest["architecture_requests"]) == 3
+    assert len(digest["constraints"]) == 5
+    assert len(digest["tags"]) == 5
+    assert len(digest["summary"]) <= 120
+    assert pkt["budget"]["used_chars"] <= pkt["budget"]["max_chars"]

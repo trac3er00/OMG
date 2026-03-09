@@ -233,6 +233,14 @@ def test_proof_gate_accepts_v2_evidence_payload_with_optional_sibling_fields() -
     payload["test_delta"] = {"changed": ["runtime/proof_chain.py"]}
     payload["browser_evidence_path"] = ".omg/evidence/playwright-adapter-run-1.json"
     payload["repro_pack_path"] = ".omg/evidence/repro-pack-run-1.json"
+    payload["context_checksum"] = "ctx-deterministic"
+    payload["profile_version"] = "profile-v31"
+    payload["intent_gate_version"] = "1.3.0"
+    payload["intent_gate_state"] = {"path": ".omg/state/intent_gate/run-1.json", "run_id": "run-1"}
+    payload["profile_digest"] = {"path": ".omg/state/profile.yaml", "profile_version": "profile-v31"}
+    payload["session_health_state"] = {"path": ".omg/state/session_health/run-1.json", "run_id": "run-1"}
+    payload["council_verdicts"] = {"path": ".omg/state/council_verdicts/run-1.json", "run_id": "run-1"}
+    payload["forge_starter_proof"] = {"path": ".omg/evidence/forge-specialists-run-1.json", "run_id": "run-1"}
 
     result = evaluate_proof_gate(
         {
@@ -251,6 +259,7 @@ def test_proof_gate_accepts_v2_evidence_payload_with_optional_sibling_fields() -
 
     assert "proof_gate_invalid_evidence_pack" not in result["blockers"]
     assert "proof_gate_unsupported_evidence_schema_version" not in result["blockers"]
+    assert result["evidence_summary"]["proof_chain_status"] == "ok"
 
 
 def test_proof_gate_accepts_browser_cli_trace_linked_by_claims() -> None:

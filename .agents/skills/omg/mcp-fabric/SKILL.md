@@ -5,7 +5,7 @@ description: "Tools, prompts, resources, and server instructions for the OMG con
 
 # OMG MCP Fabric
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control, omg-memory`
 - Evidence outputs: `.omg/evidence/mcp-fabric.json`

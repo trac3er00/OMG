@@ -189,6 +189,9 @@ def test_judge_claims_resolves_evidence_pack_and_emits_artifact(tmp_path: Path) 
                 "schema_version": 2,
                 "run_id": run_id,
                 "trace_ids": ["trace-1"],
+                "context_checksum": "ctx-1",
+                "profile_version": "profile-v1",
+                "intent_gate_version": "1.0.0",
                 "tests": [],
                 "security_scans": [],
             }
@@ -201,6 +204,10 @@ def test_judge_claims_resolves_evidence_pack_and_emits_artifact(tmp_path: Path) 
     assert result["schema"] == "ClaimJudgeResults"
     assert result["verdict"] == "pass"
     assert result["results"][0]["run_id"] == run_id
+    assert isinstance(result["results"][0]["context_checksum"], str)
+    assert result["results"][0]["context_checksum"]
+    assert result["results"][0]["profile_version"] == "profile-v1"
+    assert result["results"][0]["intent_gate_version"] == "1.0.0"
     assert (evidence_dir / f"claim-judge-{run_id}.json").exists()
 
 
@@ -303,6 +310,45 @@ def test_claim_judge_blocks_when_causal_chain_missing_in_strict_mode(monkeypatch
     assert any(reason["code"] == "missing_causal_chain" for reason in result["reasons"])
 
 
+def test_runtime_claims_require_strict_causal_chain_metadata_by_default() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "runtime_release_ready",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+            "lock_id": "lock-1",
+            "delta_summary": {"flags": []},
+            "verification_status": "ok",
+            "waiver_artifact_path": ".omg/evidence/waiver-lock-1.json",
+        }
+    )
+
+    assert result["verdict"] == "block"
+    missing_chain = [reason for reason in result["reasons"] if reason["code"] == "missing_causal_chain"]
+    assert len(missing_chain) == 1
+    message = str(missing_chain[0]["message"])
+    assert "missing_context_checksum" in message
+    assert "missing_profile_version" in message
+    assert "missing_intent_gate_version" in message
+
+
+def test_legacy_claims_keep_permissive_causal_chain_behavior_without_version_fields() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "ready_to_ship",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert result["reasons"] == []
+    advisories = result["evidence"]["advisories"]
+    assert "claim_judge_causal_chain_missing_permissive" in advisories
+
+
 def test_claim_judge_passes_when_causal_chain_includes_waiver_in_strict_mode(monkeypatch) -> None:
     monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
     result = judge_claim(
@@ -315,6 +361,9 @@ def test_claim_judge_passes_when_causal_chain_includes_waiver_in_strict_mode(mon
             "delta_summary": {"flags": ["weakened_assertions"]},
             "verification_status": "ok",
             "waiver_artifact_path": ".omg/evidence/waiver-lock-1.json",
+            "context_checksum": "ctx-1",
+            "profile_version": "profile-v1",
+            "intent_gate_version": "1.0.0",
         }
     )
 
@@ -353,3 +402,91 @@ def test_forge_evidence_claim_without_artifacts_fails() -> None:
 
     assert result["verdict"] == "fail"
     assert any(reason["code"] == "missing_artifacts" for reason in result["reasons"])
+
+
+def test_judge_claims_exposes_profile_digest_advisory_context(tmp_path: Path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "profile.yaml").write_text(
+        "\n".join(
+            [
+                "preferences:",
+                "  architecture_requests:",
+                "    - layered architecture",
+                "    - event sourcing",
+                "    - cqrs",
+                "    - trimmed",
+                "  constraints:",
+                "    Output Shape: json",
+                "    keep references: true",
+                "    timeout seconds: 15",
+                "    retries: 2",
+                "    deterministic mode: true",
+                "    overflow: value",
+                "user_vector:",
+                "  tags:",
+                "    - backend",
+                "    - reliability",
+                "    - verification",
+                "    - security",
+                "    - planning",
+                "    - overflow",
+                "  summary: Keep artifacts clear and tests deterministic across runs.",
+                "  confidence: 0.84",
+                "profile_version: profile-v11",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = judge_claims(
+        tmp_path.as_posix(),
+        claims=[
+            {
+                "claim_type": "ready_to_ship",
+                "subject": "demo",
+                "artifacts": [".omg/evidence/run-1.json"],
+                "trace_ids": ["trace-1"],
+            }
+        ],
+    )
+
+    digest = result["advisory_context"]["profile_digest"]
+    assert digest["profile_version"] == "profile-v11"
+    assert len(digest["architecture_requests"]) == 3
+    assert len(digest["constraints"]) == 5
+    assert len(digest["tags"]) == 5
+    assert len(digest["summary"]) <= 120
+    assert result["results"][0]["advisory_context"]["profile_digest"] == digest
+
+
+def test_profile_digest_hints_do_not_override_evidence_based_failures(tmp_path: Path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "profile.yaml").write_text(
+        "\n".join(
+            [
+                "user_vector:",
+                "  summary: Always ship confidently.",
+                "  confidence: 1.0",
+                "profile_version: profile-v-strict",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = judge_claims(
+        tmp_path.as_posix(),
+        claims=[
+            {
+                "claim_type": "ready_to_ship",
+                "subject": "demo",
+                "artifacts": [],
+                "trace_ids": ["trace-1"],
+            }
+        ],
+    )
+
+    assert result["verdict"] == "fail"
+    assert result["results"][0]["verdict"] == "fail"
+    assert result["advisory_context"]["profile_digest"]["profile_version"] == "profile-v-strict"

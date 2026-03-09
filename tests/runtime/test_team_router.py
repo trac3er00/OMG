@@ -489,3 +489,48 @@ def test_package_prompt_with_all_context_sources(tmp_path):
     assert "Project:" in result
     # Should include at least some context from the files
     assert len(result) <= 4000  # Still respects limit
+
+
+def test_package_prompt_injects_bounded_profile_digest_without_raw_yaml(tmp_path):
+    omg_state = tmp_path / ".omg" / "state"
+    omg_state.mkdir(parents=True, exist_ok=True)
+    (omg_state / "profile.yaml").write_text(
+        "\n".join(
+            [
+                "preferences:",
+                "  architecture_requests:",
+                "    - event driven architecture",
+                "    - microservices",
+                "    - cqrs",
+                "    - this should be trimmed",
+                "  constraints:",
+                "    Output Style: concise",
+                "    Keep Evidence: true",
+                "    Retry Count: 2",
+                "    Timeout Seconds: 30",
+                "    Response Format: json",
+                "    Overflow: remove",
+                "user_vector:",
+                "  tags:",
+                "    - reliability",
+                "    - backend",
+                "    - planning",
+                "    - testing",
+                "    - security",
+                "    - overflow",
+                "  summary: Keep answers compact and evidence-first.",
+                "  confidence: 0.88",
+                "profile_version: profile-v8",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    digest = team_router._read_profile_context(str(tmp_path))
+    prompt = package_prompt("codex", "debug auth bug", str(tmp_path))
+
+    assert digest
+    assert len(digest) <= 300
+    assert "preferences:" not in digest
+    assert "ver=profile-v8" in digest
+    assert "Profile:\n" + digest in prompt

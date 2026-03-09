@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 from typing import Any, cast
 
@@ -451,6 +452,11 @@ def check_auth() -> dict[str, Any]:
 
 _HTTP_MEMORY_MIN_LEVEL: int = _PRESET_LEVEL["interop"]
 
+_PROFILE_ARCH_REQUEST_MAX = 8
+_PROFILE_TAG_MAX = 12
+_PROFILE_SUMMARY_MAX_CHARS = 240
+_PROFILE_RECENT_UPDATES_MAX = 5
+
 
 def get_mode_choices() -> list[str]:
     return list(CANONICAL_MODE_NAMES)
@@ -660,6 +666,8 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
     state_dir = os.path.join(project_dir, ".omg", "state")
     os.makedirs(state_dir, exist_ok=True)
 
+    _write_profile_learning_sections(state_dir, preferences)
+
     # Write config to YAML file
     config_path = os.path.join(state_dir, "cli-config.yaml")
     with open(config_path, "w") as f:
@@ -672,6 +680,207 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         "path": config_path,
         "config": default_config,
     }
+
+
+def _write_profile_learning_sections(state_dir: str, preferences: dict[str, Any]) -> None:
+    profile_path = os.path.join(state_dir, "profile.yaml")
+    profile_data = _load_profile_yaml(profile_path)
+    _ensure_profile_baseline(profile_data)
+
+    profile_data["preferences"] = _normalize_preferences_block(preferences.get("preferences"))
+    profile_data["user_vector"] = _normalize_user_vector_block(preferences.get("user_vector"))
+    profile_data["profile_provenance"] = _normalize_provenance_block(preferences.get("profile_provenance"))
+
+    dumped = yaml.safe_dump(profile_data, default_flow_style=False, sort_keys=False) or ""
+    dumped = _render_explicit_empty_collections(dumped)
+    with open(profile_path, "w", encoding="utf-8") as f:
+        f.write(dumped)
+
+
+def _render_explicit_empty_collections(dumped: str) -> str:
+    lines = dumped.splitlines()
+    output: list[str] = []
+
+    def _next_line(start: int) -> str:
+        if start + 1 < len(lines):
+            return lines[start + 1]
+        return ""
+
+    for idx, line in enumerate(lines):
+        next_line = _next_line(idx)
+        stripped = line.strip()
+
+        if stripped == "stack:" and (not next_line or not next_line.startswith("- ")):
+            output.append("stack: []")
+            continue
+        if stripped == "conventions:" and (not next_line or not next_line.startswith("  ")):
+            output.append("conventions: {}")
+            continue
+        if stripped == "ai_behavior:" and (not next_line or not next_line.startswith("  ")):
+            output.append("ai_behavior: {}")
+            continue
+        if stripped == "architecture_requests:" and (not next_line or not next_line.startswith("    - ")):
+            output.append("  architecture_requests: []")
+            continue
+        if stripped == "constraints:" and (not next_line or not next_line.startswith("    ")):
+            output.append("  constraints: {}")
+            continue
+        if stripped == "tags:" and (not next_line or not next_line.startswith("    - ")):
+            output.append("  tags: []")
+            continue
+        if stripped == "recent_updates:" and (not next_line or not next_line.startswith("    - ")):
+            output.append("  recent_updates: []")
+            continue
+
+        output.append(line)
+
+    return "\n".join(output) + "\n"
+
+
+def _load_profile_yaml(profile_path: str) -> dict[str, Any]:
+    if not os.path.exists(profile_path):
+        return {}
+    try:
+        with open(profile_path, "r", encoding="utf-8") as f:
+            payload = yaml.safe_load(f) or {}
+    except Exception:
+        return {}
+    if isinstance(payload, dict):
+        return cast(dict[str, Any], payload)
+    return {}
+
+
+def _ensure_profile_baseline(profile_data: dict[str, Any]) -> None:
+    profile_data.setdefault("name", "omg-project")
+    profile_data.setdefault("description", "initialized by OMG standalone compat bootstrap")
+    profile_data.setdefault("language", "unknown")
+    profile_data.setdefault("framework", "unknown")
+    profile_data.setdefault("stack", [])
+    profile_data.setdefault("conventions", {})
+    profile_data.setdefault("ai_behavior", {})
+
+
+def _normalize_preferences_block(raw: Any) -> dict[str, Any]:
+    block = raw if isinstance(raw, dict) else {}
+
+    requests_obj = block.get("architecture_requests")
+    architecture_requests: list[str] = []
+    if isinstance(requests_obj, list):
+        for value in requests_obj:
+            text = str(value).strip()
+            if text:
+                architecture_requests.append(text)
+            if len(architecture_requests) >= _PROFILE_ARCH_REQUEST_MAX:
+                break
+
+    constraints_obj = block.get("constraints")
+    constraints: dict[str, Any] = {}
+    if isinstance(constraints_obj, dict):
+        for key, value in constraints_obj.items():
+            normalized_key = _normalize_constraint_key(str(key))
+            normalized_value = _normalize_constraint_value(value)
+            if normalized_key and normalized_value is not None:
+                constraints[normalized_key] = normalized_value
+
+    routing_obj = block.get("routing")
+    routing_map = routing_obj if isinstance(routing_obj, dict) else {}
+    routing = {
+        "prefer_clarification": bool(routing_map.get("prefer_clarification", False)),
+    }
+
+    return {
+        "architecture_requests": architecture_requests,
+        "constraints": constraints,
+        "routing": routing,
+    }
+
+
+def _normalize_constraint_key(value: str) -> str:
+    normalized = value.strip().lower()
+    normalized = re.sub(r"\s+", "_", normalized)
+    normalized = re.sub(r"[^a-z0-9_]+", "", normalized)
+    return normalized
+
+
+def _normalize_constraint_value(value: Any) -> str | int | float | bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return value
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    return text if text else None
+
+
+def _normalize_user_vector_block(raw: Any) -> dict[str, Any]:
+    block = raw if isinstance(raw, dict) else {}
+
+    tags_obj = block.get("tags")
+    tags: list[str] = []
+    if isinstance(tags_obj, list):
+        for value in tags_obj:
+            token = _normalize_tag_token(str(value))
+            if token:
+                tags.append(token)
+            if len(tags) >= _PROFILE_TAG_MAX:
+                break
+
+    summary = ""
+    summary_obj = block.get("summary")
+    if isinstance(summary_obj, str):
+        summary = " ".join(summary_obj.strip().split())[:_PROFILE_SUMMARY_MAX_CHARS]
+
+    confidence = 0.0
+    confidence_obj = block.get("confidence")
+    if isinstance(confidence_obj, (int, float, str)):
+        try:
+            confidence = float(confidence_obj)
+        except (TypeError, ValueError):
+            confidence = 0.0
+    confidence = max(0.0, min(1.0, confidence))
+
+    return {
+        "tags": tags,
+        "summary": summary,
+        "confidence": confidence,
+    }
+
+
+def _normalize_tag_token(value: str) -> str:
+    normalized = value.strip().lower()
+    normalized = re.sub(r"\s+", "_", normalized)
+    normalized = re.sub(r"[^a-z0-9_\-]+", "", normalized)
+    return normalized
+
+
+def _normalize_provenance_block(raw: Any) -> dict[str, Any]:
+    block = raw if isinstance(raw, dict) else {}
+    updates_obj = block.get("recent_updates")
+    updates: list[dict[str, str]] = []
+    if isinstance(updates_obj, list):
+        for entry in updates_obj:
+            if not isinstance(entry, dict):
+                continue
+            run_id = str(entry.get("run_id", "")).strip()
+            source = str(entry.get("source", "")).strip()
+            field = str(entry.get("field", "")).strip()
+            updated_at = str(entry.get("updated_at", "")).strip()
+            if not (run_id and source and field and updated_at):
+                continue
+            updates.append(
+                {
+                    "run_id": run_id,
+                    "source": source,
+                    "field": field,
+                    "updated_at": updated_at,
+                }
+            )
+            if len(updates) >= _PROFILE_RECENT_UPDATES_MAX:
+                break
+    return {"recent_updates": updates}
 
 
 def _write_project_settings_preset(project_dir: str, preset: str) -> None:

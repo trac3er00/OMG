@@ -14,7 +14,9 @@ Inspired by earlier OMG routing experiments. Key upgrades:
 
 No dependency on CLAUDE.md or AGENTS.md.
 """
+import hashlib
 import json, sys, os, re, time
+from datetime import datetime, timezone
 import importlib
 
 HOOKS_DIR = os.path.dirname(__file__)
@@ -77,6 +79,48 @@ def signal_matches_text(signal, text):
         return signal in text
     return re.search(r'\b' + re.escape(signal) + r'\b', text, re.IGNORECASE) is not None
 
+
+def _hash_prompt(value):
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _single_line(text, max_chars=220):
+    line = " ".join(str(text).replace("\r", " ").replace("\n", " ").split())
+    if len(line) > max_chars:
+        return line[: max_chars - 3] + "..."
+    return line
+
+
+def _resolve_run_id(payload, prompt_hash):
+    if isinstance(payload, dict):
+        run_id = payload.get("run_id")
+        if isinstance(run_id, str) and run_id.strip():
+            return run_id.strip()
+        tool_input = payload.get("tool_input")
+        if isinstance(tool_input, dict):
+            metadata = tool_input.get("metadata")
+            if isinstance(metadata, dict):
+                metadata_run_id = metadata.get("run_id")
+                if isinstance(metadata_run_id, str) and metadata_run_id.strip():
+                    return metadata_run_id.strip()
+    env_run_id = os.environ.get("OMG_RUN_ID", "").strip()
+    if env_run_id:
+        return env_run_id
+    return prompt_hash[:24]
+
+
+def _count_signals(signals, text):
+    return sum(1 for sig in signals if signal_matches_text(sig, text))
+
+
+def _write_intent_gate_artifact(state_root, run_id, artifact):
+    state_path = os.path.join(state_root, "intent_gate", f"{run_id}.json")
+    os.makedirs(os.path.dirname(state_path), exist_ok=True)
+    tmp_path = f"{state_path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as tmp_file:
+        json.dump(artifact, tmp_file, indent=2, ensure_ascii=True)
+    os.replace(tmp_path, state_path)
+
 # ── Zero-injection optimization ──
 # Simple prompts (≤10 words, no coding/mode/routing signals) get zero overhead
 _word_count_early = len(prompt_lower.split())
@@ -88,6 +132,8 @@ _has_any_signal = any([
                                                      "codex","gemini","ccg","screenshot","screen",
                                                      "security","warning","hook error","resume","handoff",
                                                      "continue","domain","scaffold","debug","deploy",
+                                                     "setup","credential","credentials","preference",
+                                                     "preferences","remember","settings","memory",
                                                      "수정","구현","버그","에러","고쳐","스크린샷","보안"]),
     _word_count_early > 10,
 ])
@@ -127,13 +173,108 @@ INTENT_MAP = {
                      "구현", "빌드", "생성", "만들", "추가", "기능", "개발"],
         "directive": "IMPLEMENT — Plan → code → test → verify. Follow existing patterns"
     },
+    "auth_setup": {
+        "signals": ["auth", "login", "credential", "credentials", "oauth", "token", "setup auth",
+                     "setup credential", "set up credential", "인증", "로그인", "자격 증명", "토큰"],
+        "directive": "AUTH_SETUP — Clarify auth target and credential source before changes"
+    },
+    "preference_memory": {
+        "signals": ["remember my settings", "remember settings", "preference", "preferences", "settings",
+                     "memory style", "save my setup", "기억", "설정", "선호"],
+        "directive": "PREFERENCE_MEMORY — Clarify scope and persistence policy before changes"
+    },
+    "ambiguous_config": {
+        "signals": ["setup", "configure", "config", "remember", "save", "setup my", "set up",
+                     "설정해", "구성", "저장"],
+        "directive": "AMBIGUOUS_CONFIG — Ask one-line clarification before any implementation"
+    },
 }
+
+IMPLEMENTATION_ACTION_SIGNALS = [
+    "implement", "build", "create", "add", "fix", "refactor", "update", "write", "code",
+    "debug", "test", "migrate", "deploy", "patch", "change", "구현", "추가", "수정", "개발",
+]
+AUTH_PROVIDER_SIGNALS = [
+    "codex", "claude", "gemini", "github", "google", "openai", "provider", "service", "cli",
+]
+AUTH_SOURCE_SIGNALS = [
+    "env", "token", "key", "secret", "credential", "password", "vault", "profile", "yaml",
+]
+PREFERENCE_SCOPE_SIGNALS = ["session", "project", "global", "default", "always", "workspace", "local"]
+
+
+def _build_intent_gate_state(prompt_text, payload):
+    has_auth = _count_signals(INTENT_MAP["auth_setup"]["signals"], prompt_text) > 0
+    has_pref = _count_signals(INTENT_MAP["preference_memory"]["signals"], prompt_text) > 0
+    has_ambiguous_config = _count_signals(INTENT_MAP["ambiguous_config"]["signals"], prompt_text) > 0
+    if not (has_auth or has_pref or has_ambiguous_config):
+        return None
+
+    has_specific_action = any(signal_matches_text(sig, prompt_text) for sig in IMPLEMENTATION_ACTION_SIGNALS)
+
+    if has_auth and has_pref:
+        intent_class = "ambiguous_config"
+    elif has_auth and has_ambiguous_config and not has_specific_action:
+        intent_class = "ambiguous_config"
+    elif has_auth:
+        intent_class = "auth_setup"
+    elif has_pref:
+        intent_class = "preference_memory"
+    else:
+        intent_class = "ambiguous_config"
+
+    missing_slots = []
+    if intent_class in ("auth_setup", "ambiguous_config"):
+        if not any(signal_matches_text(sig, prompt_text) for sig in AUTH_PROVIDER_SIGNALS):
+            missing_slots.append("provider")
+        if not any(signal_matches_text(sig, prompt_text) for sig in AUTH_SOURCE_SIGNALS):
+            missing_slots.append("credential_source")
+    if intent_class in ("preference_memory", "ambiguous_config"):
+        if not any(signal_matches_text(sig, prompt_text) for sig in PREFERENCE_SCOPE_SIGNALS):
+            missing_slots.append("scope")
+    if not has_specific_action:
+        missing_slots.append("desired_action")
+
+    requires_clarification = intent_class == "ambiguous_config" or bool(missing_slots)
+    clarification_prompt = ""
+    if requires_clarification:
+        prompt_map = {
+            "auth_setup": "Clarify auth setup in one line: target service, credential source, and exact action to run.",
+            "preference_memory": "Clarify preference memory in one line: settings to save, scope, and when to apply them.",
+            "ambiguous_config": "Clarify in one line whether this is auth setup or preference memory, plus the exact action to execute.",
+        }
+        clarification_prompt = _single_line(prompt_map[intent_class])
+
+    source_prompt_hash = _hash_prompt(prompt_text)
+    run_id = _resolve_run_id(payload, source_prompt_hash)
+    signal_hits = _count_signals(INTENT_MAP[intent_class]["signals"], prompt_text)
+    confidence = min(0.99, 0.76 + (signal_hits * 0.07) + (0.06 if intent_class == "ambiguous_config" else 0.0))
+
+    return {
+        "schema": "IntentGateClarificationState",
+        "schema_version": "1.0.0",
+        "run_id": run_id,
+        "intent_class": intent_class,
+        "confidence": round(confidence, 2),
+        "requires_clarification": requires_clarification,
+        "missing_slots": missing_slots,
+        "clarification_prompt": clarification_prompt,
+        "source_prompt_hash": source_prompt_hash,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 detected_intent = None
 for intent_key, intent_data in INTENT_MAP.items():
     if any(signal_matches_text(sig, prompt) for sig in intent_data["signals"]):
         detected_intent = intent_key
         break
+
+intent_gate_state = _build_intent_gate_state(prompt, data)
+if intent_gate_state is not None:
+    try:
+        _write_intent_gate_artifact(state_dir, intent_gate_state["run_id"], intent_gate_state)
+    except Exception:
+        pass
 
 # ═══════════════════════════════════════════════════════════
 # 2. DISCIPLINE SYSTEM (Sisyphus-grade)
@@ -142,6 +283,11 @@ parts = []
 
 if detected_intent:
     parts.append(f"@intent: {INTENT_MAP[detected_intent]['directive']}")
+
+if intent_gate_state and intent_gate_state.get("requires_clarification"):
+    clarification_line = _single_line(intent_gate_state.get("clarification_prompt", ""))
+    if clarification_line:
+        parts.append(f"@intent-clarify: {clarification_line}")
 
 parts.append(
     "@discipline: Senior-eng mode. Clean minimal code. "

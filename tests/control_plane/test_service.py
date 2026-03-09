@@ -453,6 +453,7 @@ def test_session_health_returns_latest_when_no_run_id(tmp_path: Path):
     status, result = service.session_health({})
     assert status == 200
     assert result["schema"] == "SessionHealth"
+    assert result["run_id"] == "auto-1"
 
 
 def test_session_health_returns_404_when_missing(tmp_path: Path):

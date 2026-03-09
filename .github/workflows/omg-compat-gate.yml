@@ -36,6 +36,11 @@ jobs:
       - name: Compile public Claude and Codex artifacts
         run: python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root artifacts/public
 
+      - name: Capture doctor output
+        run: |
+          mkdir -p artifacts/public/.omg/evidence
+          python3 scripts/omg.py doctor --format json > artifacts/public/.omg/evidence/doctor.json
+
       - name: Seed release-readiness fixtures for compat gate
         run: python3 scripts/prepare-release-proof-fixtures.py --output-root artifacts/public
 

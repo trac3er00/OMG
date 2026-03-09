@@ -10,19 +10,23 @@ from typing import Any
 _DEFENSE_STATE_REL_PATH = Path(".omg") / "state" / "defense_state" / "current.json"
 _CONTEXT_PRESSURE_REL_PATH = Path(".omg") / "state" / ".context-pressure.json"
 _UNTRUSTED_STATE_REL_PATH = Path(".omg") / "state" / "untrusted-content.json"
+_ACTIVE_RUN_REL_PATH = Path(".omg") / "shadow" / "active-run"
+_INTENT_GATE_REL_PATH = Path(".omg") / "state" / "intent_gate"
 
 _SAFE_STATE: dict[str, Any] = {
     "risk_level": "low",
     "injection_hits": 0,
     "contamination_score": 0.0,
     "overthinking_score": 0.0,
+    "premature_fixer_score": 0.0,
+    "clarification_sensitive": False,
     "actions": [],
     "updated_at": "",
     "reasons": [],
     "thresholds": {
         "critical": {"injection_hits": 3, "contamination_score": 0.7},
         "high": {"injection_hits": 1, "contamination_score": 0.4},
-        "medium": {"overthinking_score": 0.5},
+        "medium": {"overthinking_score": 0.5, "premature_fixer_score": 0.5},
     },
     "context_pressure": {
         "tool_count": 0,
@@ -44,6 +48,7 @@ class DefenseState:
         injection_hits: int = 0,
         contamination_score: float = 0.0,
         overthinking_score: float = 0.0,
+        premature_fixer_score: float | None = None,
     ) -> dict[str, Any]:
         pressure = self._read_json(self.project_dir / _CONTEXT_PRESSURE_REL_PATH)
         pressure_tool_count = self._to_int(pressure.get("tool_count"), default=0)
@@ -52,28 +57,49 @@ class DefenseState:
         if pressure_threshold > 0:
             pressure_ratio = pressure_tool_count / pressure_threshold
         combined_overthinking = max(float(overthinking_score), pressure_ratio)
+        normalized_injection_hits = max(0, int(injection_hits))
+        normalized_contamination = self._clamp_score(contamination_score)
+        normalized_overthinking = self._clamp_score(combined_overthinking)
+
+        clarification = self._read_clarification_signal()
+        clarification_sensitive = bool(
+            clarification["requires_clarification"]
+            or clarification["intent_class"] == "ambiguous_config"
+        )
+        premature_fixer_score = self._compute_premature_fixer_score(
+            clarification_sensitive=clarification_sensitive,
+            requires_clarification=bool(clarification["requires_clarification"]),
+            confidence=self._to_float(clarification.get("confidence"), default=0.0),
+            injection_hits=normalized_injection_hits,
+            contamination_score=normalized_contamination,
+            overthinking_score=normalized_overthinking,
+        )
+        scanner_premature_fixer = self._clamp_score(premature_fixer_score)
+        premature_fixer_score = max(premature_fixer_score, scanner_premature_fixer)
 
         trust_posture = self._read_trust_posture()
         level, actions, reasons = self._score(
-            injection_hits=max(0, int(injection_hits)),
-            contamination_score=self._clamp_score(contamination_score),
-            overthinking_score=self._clamp_score(combined_overthinking),
+            injection_hits=normalized_injection_hits,
+            contamination_score=normalized_contamination,
+            overthinking_score=normalized_overthinking,
         )
         if pressure_ratio >= 1.0:
             reasons.append("context pressure is above configured threshold")
 
         state: dict[str, Any] = {
             "risk_level": level,
-            "injection_hits": max(0, int(injection_hits)),
-            "contamination_score": self._clamp_score(contamination_score),
-            "overthinking_score": self._clamp_score(combined_overthinking),
+            "injection_hits": normalized_injection_hits,
+            "contamination_score": normalized_contamination,
+            "overthinking_score": normalized_overthinking,
+            "premature_fixer_score": round(premature_fixer_score, 4),
+            "clarification_sensitive": clarification_sensitive,
             "actions": actions,
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "reasons": reasons,
             "thresholds": {
                 "critical": {"injection_hits": 3, "contamination_score": 0.7},
                 "high": {"injection_hits": 1, "contamination_score": 0.4},
-                "medium": {"overthinking_score": 0.5},
+                "medium": {"overthinking_score": 0.5, "premature_fixer_score": 0.5},
             },
             "context_pressure": {
                 "tool_count": pressure_tool_count,
@@ -96,6 +122,8 @@ class DefenseState:
             "injection_hits": self._to_int(payload.get("injection_hits"), default=0),
             "contamination_score": self._clamp_score(payload.get("contamination_score", 0.0)),
             "overthinking_score": self._clamp_score(payload.get("overthinking_score", 0.0)),
+            "premature_fixer_score": self._clamp_score(payload.get("premature_fixer_score", 0.0)),
+            "clarification_sensitive": bool(payload.get("clarification_sensitive", False)),
             "actions": self._to_str_list(payload.get("actions")),
             "updated_at": str(payload.get("updated_at", "")),
             "reasons": self._to_str_list(payload.get("reasons")),
@@ -104,6 +132,49 @@ class DefenseState:
             "trust_posture": str(payload.get("trust_posture", "trusted")),
             "action_recommendations": self._to_str_list(payload.get("action_recommendations")),
         }
+
+    def _read_clarification_signal(self) -> dict[str, Any]:
+        active_run_path = self.project_dir / _ACTIVE_RUN_REL_PATH
+        if not active_run_path.exists():
+            return {"requires_clarification": False, "intent_class": "", "confidence": 0.0}
+
+        try:
+            run_id = active_run_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            run_id = ""
+        if not run_id:
+            return {"requires_clarification": False, "intent_class": "", "confidence": 0.0}
+
+        intent_gate_path = self.project_dir / _INTENT_GATE_REL_PATH / f"{run_id}.json"
+        payload = self._read_json(intent_gate_path)
+        confidence = self._clamp_score(self._to_float(payload.get("confidence"), default=0.0))
+        return {
+            "requires_clarification": bool(payload.get("requires_clarification") is True),
+            "intent_class": str(payload.get("intent_class", "")).strip(),
+            "confidence": confidence,
+        }
+
+    def _compute_premature_fixer_score(
+        self,
+        *,
+        clarification_sensitive: bool,
+        requires_clarification: bool,
+        confidence: float,
+        injection_hits: int,
+        contamination_score: float,
+        overthinking_score: float,
+    ) -> float:
+        if not clarification_sensitive:
+            return 0.0
+
+        score = 0.0
+        if requires_clarification:
+            score += 0.2
+        score += min(0.2, self._clamp_score(confidence) * 0.2)
+        score += min(0.2, max(0, injection_hits) * 0.1)
+        score += min(0.2, self._clamp_score(contamination_score) * 0.25)
+        score += min(0.2, self._clamp_score(overthinking_score) * 0.25)
+        return self._clamp_score(score)
 
     def _read_trust_posture(self) -> str:
         payload = self._read_json(self.project_dir / _UNTRUSTED_STATE_REL_PATH)

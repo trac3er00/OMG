@@ -152,3 +152,49 @@ def test_build_tool_plan_uses_bounded_context_packet_for_optimization(
     assert captured["run_id"] == "run-opt"
     assert captured["delta_only"] is True
     assert budget_obj["used_chars"] == 980
+
+
+def test_tool_plan_gate_blocks_mutation_when_clarification_required(tmp_path: Path) -> None:
+    run_id = "run-clarify-block"
+    intent_gate_dir = tmp_path / ".omg" / "state" / "intent_gate"
+    intent_gate_dir.mkdir(parents=True, exist_ok=True)
+    (intent_gate_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "requires_clarification": True,
+                "intent_class": "ambiguous_config",
+                "clarification_prompt": "Clarify exact file changes before continuing.",
+                "confidence": 0.91,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = tool_plan_gate_check(str(tmp_path), run_id, "Write")
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "Clarification required before mutation: Clarify exact file changes before continuing."
+
+
+def test_tool_plan_gate_allows_reads_when_clarification_required(tmp_path: Path) -> None:
+    run_id = "run-clarify-read"
+    intent_gate_dir = tmp_path / ".omg" / "state" / "intent_gate"
+    intent_gate_dir.mkdir(parents=True, exist_ok=True)
+    (intent_gate_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "requires_clarification": True,
+                "intent_class": "ambiguous_config",
+                "clarification_prompt": "Clarify target scope.",
+                "confidence": 0.88,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = tool_plan_gate_check(str(tmp_path), run_id, "Read")
+
+    assert result["status"] == "allowed"
+    assert "read/search/review" in str(result["reason"])

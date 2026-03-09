@@ -5,7 +5,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from runtime.forge_agents import dispatch_specialists, get_specialist_registry, resolve_specialists
+from runtime.forge_agents import (
+    _check_backend_available,
+    check_required_backends_satisfied,
+    dispatch_specialists,
+    get_specialist_registry,
+    resolve_adapters,
+    resolve_specialists,
+)
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 SCRIPTS_DIR = ROOT / "scripts"
@@ -48,6 +55,8 @@ def test_dispatch_specialists_writes_evidence_and_returns_shape(tmp_path: Path) 
     result = dispatch_specialists(_valid_job(), str(tmp_path))
 
     assert result["status"] == "ok"
+    assert isinstance(result["run_id"], str)
+    assert result["run_id"]
     assert result["specialists_dispatched"] == [
         "data-curator",
         "training-architect",
@@ -57,6 +66,7 @@ def test_dispatch_specialists_writes_evidence_and_returns_shape(tmp_path: Path) 
     assert evidence_path.exists()
     payload = json.loads(evidence_path.read_text(encoding="utf-8"))
     assert payload["schema"] == "ForgeSpecialistDispatchEvidence"
+    assert payload["run_id"] == result["run_id"]
     assert payload["contract"]["labs_only"] is True
 
 
@@ -145,27 +155,42 @@ def test_dispatch_evidence_includes_causal_chain_stub(tmp_path: Path) -> None:
     assert "lock_id" in chain or "waiver_artifact_path" in chain
 
 
-def test_dispatch_evidence_includes_defense_session_state(tmp_path: Path) -> None:
-    """Evidence should include defense and session health state when available."""
+def test_dispatch_evidence_prefers_canonical_state_paths(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RUN_ID", "state-run")
+
     defense_dir = tmp_path / ".omg" / "state" / "defense_state"
     defense_dir.mkdir(parents=True, exist_ok=True)
-    defense_payload = {
+    canonical_defense_payload = {
         "schema": "DefenseState", "schema_version": "1.0.0",
-        "run_id": "test-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
-        "controls": {"firewall": "active"}, "findings": [],
+        "run_id": "state-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
+        "controls": {"firewall": "canonical"}, "findings": [],
     }
-    (defense_dir / "latest.json").write_text(json.dumps(defense_payload), encoding="utf-8")
+    latest_defense_payload = {
+        "schema": "DefenseState", "schema_version": "1.0.0",
+        "run_id": "legacy-run", "status": "ok", "updated_at": "2026-03-07T00:00:00+00:00",
+        "controls": {"firewall": "legacy"}, "findings": [],
+    }
+    (defense_dir / "current.json").write_text(json.dumps(canonical_defense_payload), encoding="utf-8")
+    (defense_dir / "latest.json").write_text(json.dumps(latest_defense_payload), encoding="utf-8")
 
     health_dir = tmp_path / ".omg" / "state" / "session_health"
     health_dir.mkdir(parents=True, exist_ok=True)
-    health_payload = {
+    canonical_health_payload = {
         "schema": "SessionHealth", "schema_version": "1.0.0",
-        "run_id": "test-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
+        "run_id": "state-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
         "contamination_risk": "low", "overthinking_score": 0.1,
         "context_health": "green", "verification_status": "ok",
         "recommended_action": "continue",
     }
-    (health_dir / "latest.json").write_text(json.dumps(health_payload), encoding="utf-8")
+    latest_health_payload = {
+        "schema": "SessionHealth", "schema_version": "1.0.0",
+        "run_id": "legacy-run", "status": "ok", "updated_at": "2026-03-07T00:00:00+00:00",
+        "contamination_risk": "high", "overthinking_score": 0.8,
+        "context_health": "red", "verification_status": "blocked",
+        "recommended_action": "block",
+    }
+    (health_dir / "state-run.json").write_text(json.dumps(canonical_health_payload), encoding="utf-8")
+    (health_dir / "latest.json").write_text(json.dumps(latest_health_payload), encoding="utf-8")
 
     result = dispatch_specialists(_valid_job(), str(tmp_path))
 
@@ -175,6 +200,172 @@ def test_dispatch_evidence_includes_defense_session_state(tmp_path: Path) -> Non
 
     assert "defense_state" in payload
     assert "session_health" in payload
+    assert payload["defense_state"]["controls"]["firewall"] == "canonical"
+    assert payload["session_health"]["run_id"] == "state-run"
+
+
+def test_dispatch_evidence_falls_back_to_latest_when_run_scoped_missing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RUN_ID", "missing-run")
+
+    defense_dir = tmp_path / ".omg" / "state" / "defense_state"
+    defense_dir.mkdir(parents=True, exist_ok=True)
+    (defense_dir / "latest.json").write_text(
+        json.dumps({"schema": "DefenseState", "run_id": "legacy-run", "controls": {"firewall": "legacy"}}),
+        encoding="utf-8",
+    )
+
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "latest.json").write_text(
+        json.dumps({"schema": "SessionHealth", "run_id": "legacy-run", "recommended_action": "continue"}),
+        encoding="utf-8",
+    )
+
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert payload["defense_state"]["controls"]["firewall"] == "legacy"
+    assert payload["session_health"]["run_id"] == "legacy-run"
+
+
+def test_dispatch_evidence_uses_explicit_run_id_for_state_lookup(tmp_path: Path) -> None:
+    defense_dir = tmp_path / ".omg" / "state" / "defense_state"
+    defense_dir.mkdir(parents=True, exist_ok=True)
+    (defense_dir / "forge-run-42.json").write_text(
+        json.dumps({"schema": "DefenseState", "run_id": "forge-run-42", "controls": {"firewall": "run-scoped"}}),
+        encoding="utf-8",
+    )
+
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "forge-run-42.json").write_text(
+        json.dumps({"schema": "SessionHealth", "run_id": "forge-run-42", "recommended_action": "continue"}),
+        encoding="utf-8",
+    )
+
+    result = dispatch_specialists(_valid_job(), str(tmp_path), run_id="forge-run-42")
+
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert payload["defense_state"]["controls"]["firewall"] == "run-scoped"
+    assert payload["session_health"]["run_id"] == "forge-run-42"
+
+
+def test_resolve_adapters_returns_axolotl_and_pybullet_for_vision_job() -> None:
+    job: dict[str, object] = {
+        "specialists": ["data-curator", "training-architect", "simulator-engineer"],
+        "domain": "vision",
+    }
+    adapters = resolve_adapters(job)
+    adapter_names = [str(a["adapter"]) for a in adapters]
+    assert "axolotl" in adapter_names
+    assert "pybullet" in adapter_names
+    for a in adapters:
+        assert a["status"] in ("invoked", "skipped_unavailable_backend")
+        assert "kind" in a
+        assert "available" in a
+
+
+def test_resolve_adapters_skips_axolotl_when_no_training_architect() -> None:
+    job: dict[str, object] = {
+        "specialists": ["simulator-engineer"],
+        "domain": "robotics",
+    }
+    adapters = resolve_adapters(job)
+    adapter_names = [str(a["adapter"]) for a in adapters]
+    assert "axolotl" not in adapter_names
+    assert "pybullet" in adapter_names
+
+
+def test_resolve_adapters_uses_requested_simulator_backend() -> None:
+    job: dict[str, object] = {
+        "specialists": ["simulator-engineer"],
+        "simulator_backend": "gazebo",
+    }
+    adapters = resolve_adapters(job)
+    adapter_names = [str(a["adapter"]) for a in adapters]
+    assert "gazebo" in adapter_names
+    assert "pybullet" not in adapter_names
+
+
+def test_resolve_adapters_falls_back_to_pybullet_for_unknown_backend() -> None:
+    job: dict[str, object] = {
+        "specialists": ["simulator-engineer"],
+        "simulator_backend": "nonexistent",
+    }
+    adapters = resolve_adapters(job)
+    adapter_names = [str(a["adapter"]) for a in adapters]
+    assert "pybullet" in adapter_names
+
+
+def test_check_backend_available_returns_false_for_missing_module() -> None:
+    assert _check_backend_available("axolotl") is False
+    assert _check_backend_available("gazebo") is False
+    assert _check_backend_available("isaac_gym") is False
+
+
+def test_check_backend_available_returns_false_for_unknown_name() -> None:
+    assert _check_backend_available("totally_unknown") is False
+
+
+def test_check_required_backends_satisfied_passes_for_optional() -> None:
+    evidence: list[dict[str, object]] = [
+        {"adapter": "pybullet", "status": "skipped_unavailable_backend", "required": False},
+    ]
+    ok, reason = check_required_backends_satisfied(evidence)
+    assert ok is True
+    assert reason == "ok"
+
+
+def test_check_required_backends_satisfied_fails_for_required() -> None:
+    evidence: list[dict[str, object]] = [
+        {"adapter": "gazebo", "status": "skipped_unavailable_backend", "required": True},
+    ]
+    ok, reason = check_required_backends_satisfied(evidence)
+    assert ok is False
+    assert "gazebo" in reason
+
+
+def test_dispatch_specialists_includes_adapter_evidence(tmp_path: Path) -> None:
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+    assert result["status"] == "ok"
+    assert "adapter_evidence" in result
+    adapter_evidence = result["adapter_evidence"]
+    assert isinstance(adapter_evidence, list)
+    assert len(adapter_evidence) >= 2
+    adapter_names = [str(a["adapter"]) for a in adapter_evidence]
+    assert "axolotl" in adapter_names
+    assert "pybullet" in adapter_names
+
+
+def test_dispatch_specialists_blocks_when_required_backend_unavailable(tmp_path: Path) -> None:
+    job = _valid_job()
+    job["simulator_backend"] = "gazebo"
+    job["require_backend"] = True
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "blocked"
+    assert "required backend unavailable" in str(result.get("reason", ""))
+    assert "adapter_evidence" in result
+
+
+def test_dispatch_specialists_continues_when_optional_backend_unavailable(tmp_path: Path) -> None:
+    job = _valid_job()
+    job["simulator_backend"] = "gazebo"
+    job["require_backend"] = False
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "ok"
+    assert "adapter_evidence" in result
+    adapter_evidence = result["adapter_evidence"]
+    gazebo_ev = [a for a in adapter_evidence if a["adapter"] == "gazebo"]
+    assert len(gazebo_ev) == 1
+    assert gazebo_ev[0]["status"] == "skipped_unavailable_backend"
+    assert gazebo_ev[0]["required"] is False
 
 
 def test_forge_vision_agent_labs_only_enforcement() -> None:
