@@ -37,6 +37,21 @@ jobs:
           fi
           echo "Version match: $PKG_VERSION"
 
+      - name: Verify canonical version parity
+        run: |
+          TAG_VERSION=${{ steps.version.outputs.VERSION }}
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          CANONICAL_VERSION=$(python3 scripts/print-canonical-version.py)
+          echo "Tag: $TAG_VERSION | package.json: $PKG_VERSION | canonical: $CANONICAL_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$TAG_VERSION" != "$CANONICAL_VERSION" ]; then
+            echo "ERROR: Version mismatch detected"
+            echo "  tag:       $TAG_VERSION"
+            echo "  package:   $PKG_VERSION"
+            echo "  canonical: $CANONICAL_VERSION"
+            exit 1
+          fi
+          echo "All three version sources match: $TAG_VERSION"
+
       - name: Publish to npm
         run: npm publish --access public
         env:

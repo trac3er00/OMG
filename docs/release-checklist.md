@@ -16,6 +16,7 @@ Use this checklist before making OMG public or cutting a release tag.
 
 ## Verification
 
+- `python3 scripts/sync-release-identity.py --check` passes (canonical version parity across all tracked surfaces)
 - `python3 scripts/omg.py contract validate` passes
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root <tmp>` passes
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root <tmp>` passes
