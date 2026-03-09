@@ -206,7 +206,7 @@ OMG supports 4 canonical CLI targets with dedicated provider implementations and
 ```json
 {
   "name": "@trac3er/oh-my-god",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "scripts": {
     "postinstall": "./OMG-setup.sh install --non-interactive",
     "update": "./OMG-setup.sh update",
