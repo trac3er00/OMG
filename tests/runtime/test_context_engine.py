@@ -3,7 +3,10 @@
 import json
 from pathlib import Path
 
-from runtime.context_engine import ContextEngine
+import yaml
+
+from runtime.context_engine import ContextEngine, load_profile_digest
+from runtime.profile_io import profile_version_from_map
 
 
 REQUIRED_KEYS = {"summary", "artifact_pointers", "budget", "delta_only", "run_id"}
@@ -186,6 +189,64 @@ def test_clarification_status_remains_bounded_and_budget_safe(tmp_path):
     assert pkt["budget"]["used_chars"] <= pkt["budget"]["max_chars"]
 
 
+def test_profile_digest_version_uses_map_hash_not_raw_text(tmp_path: Path) -> None:
+    """profile_version must come from parsed dict hash, not raw text.
+    This is the P0 bug regression: JSON vs YAML raw text differ, but
+    the parsed dict is identical so the version must match."""
+    data = {
+        "name": "omg-project",
+        "preferences": {
+            "architecture_requests": ["hexagonal"],
+            "constraints": {"api_cost": "minimize"},
+        },
+        "user_vector": {"tags": ["reliability"], "summary": "test", "confidence": 0.9},
+    }
+
+    # Write as JSON (legacy bug path)
+    json_dir = tmp_path / "json_project"
+    json_profile = json_dir / ".omg" / "state" / "profile.yaml"
+    json_profile.parent.mkdir(parents=True, exist_ok=True)
+    json_profile.write_text(
+        json.dumps(data, indent=2) + "\n", encoding="utf-8"
+    )
+
+    # Write as YAML (correct path)
+    yaml_dir = tmp_path / "yaml_project"
+    yaml_profile = yaml_dir / ".omg" / "state" / "profile.yaml"
+    yaml_profile.parent.mkdir(parents=True, exist_ok=True)
+    yaml_profile.write_text(
+        yaml.safe_dump(data, default_flow_style=False, sort_keys=False) or "",
+        encoding="utf-8",
+    )
+
+    json_digest = load_profile_digest(str(json_dir))
+    yaml_digest = load_profile_digest(str(yaml_dir))
+
+    # Both must produce the same profile_version
+    assert json_digest["profile_version"] == yaml_digest["profile_version"]
+    assert json_digest["profile_version"] != ""
+
+
+def test_profile_digest_version_matches_profile_io_algorithm(tmp_path: Path) -> None:
+    """load_profile_digest version must equal profile_version_from_map."""
+    data = {
+        "name": "omg-project",
+        "preferences": {"constraints": {"timeout": 30}},
+        "user_vector": {"tags": ["perf"]},
+    }
+    project_dir = tmp_path / "project"
+    profile_path = project_dir / ".omg" / "state" / "profile.yaml"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        yaml.safe_dump(data, default_flow_style=False, sort_keys=False) or "",
+        encoding="utf-8",
+    )
+
+    digest = load_profile_digest(str(project_dir))
+    expected_version = profile_version_from_map(data)
+    assert digest["profile_version"] == expected_version
+
+
 def test_profile_digest_is_compact_and_bounded(tmp_path):
     profile_path = tmp_path / ".omg" / "state" / "profile.yaml"
     profile_path.parent.mkdir(parents=True, exist_ok=True)
@@ -232,3 +293,45 @@ def test_profile_digest_is_compact_and_bounded(tmp_path):
     assert len(digest["tags"]) == 5
     assert len(digest["summary"]) <= 120
     assert pkt["budget"]["used_chars"] <= pkt["budget"]["max_chars"]
+
+
+def test_profile_digest_ignores_governed_preferences_shape(tmp_path: Path) -> None:
+    profile_path = tmp_path / ".omg" / "state" / "profile.yaml"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        "\n".join(
+            [
+                "preferences:",
+                "  architecture_requests:",
+                "    - layered monolith",
+                "  constraints:",
+                "    api_cost: minimize",
+                "user_vector:",
+                "  tags:",
+                "    - reliability",
+                "governed_preferences:",
+                "  style:",
+                "    - field: preferences.architecture_requests",
+                "      value: event sourcing",
+                "      source: explicit_user",
+                "      learned_at: 2026-03-09T00:00:00Z",
+                "      updated_at: 2026-03-09T00:00:00Z",
+                "      section: style",
+                "      confirmation_state: confirmed",
+                "  safety:",
+                "    - field: preferences.constraints.safety_mode",
+                "      value: strict",
+                "      source: explicit_user",
+                "      learned_at: 2026-03-09T00:00:00Z",
+                "      updated_at: 2026-03-09T00:00:00Z",
+                "      section: safety",
+                "      confirmation_state: pending_confirmation",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    digest = load_profile_digest(str(tmp_path))
+    assert digest["architecture_requests"] == ["layered monolith"]
+    assert digest["constraints"]["api_cost"] == "minimize"
+    assert digest["tags"] == ["reliability"]

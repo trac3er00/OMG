@@ -124,6 +124,12 @@ def _ensure_profile_baseline(profile: dict[str, object]) -> None:
     provenance["recent_updates"] = updates_obj if isinstance(updates_obj, list) else []
     profile["profile_provenance"] = provenance
 
+    try:
+        from runtime.profile_io import ensure_governed_preferences
+        ensure_governed_preferences(cast(dict[str, object], profile))
+    except Exception:
+        profile["governed_preferences"] = {"style": [], "safety": []}
+
 
 def _record_provenance(
     profile: dict[str, object],
@@ -209,14 +215,15 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
         return
 
     try:
-        with open(profile_path, "r", encoding="utf-8") as file_obj:
-            parsed = yaml.safe_load(file_obj) or {}
+        from runtime.profile_io import load_profile
+        profile = cast(dict[str, object], load_profile(profile_path))
     except Exception:
         return
-    if not isinstance(parsed, dict):
+    if not profile:
         return
-    profile = cast(dict[str, object], parsed)
+    had_governed = isinstance(profile.get("governed_preferences"), dict)
     _ensure_profile_baseline(profile)
+    baseline_changed = not had_governed
 
     health_status = str(session_health.get("status", "")).strip().lower()
     health_action = str(session_health.get("recommended_action", "")).strip().lower()
@@ -266,6 +273,12 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
                 pending_writes.append(signal)
 
     if not pending_writes:
+        if baseline_changed:
+            try:
+                from runtime.profile_io import save_profile
+                save_profile(profile_path, profile)
+            except Exception:
+                pass
         return
 
     updated_at = datetime.utcnow().isoformat() + "Z"
@@ -277,6 +290,47 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
             continue
 
         source = str(signal.get("source", "")).strip().lower() or "inferred_observation"
+        section = str(signal.get("section", "style")).strip().lower() or "style"
+        is_destructive = bool(signal.get("destructive") is True)
+
+        if section not in ("style", "safety"):
+            section = "style"
+
+        if is_destructive:
+            confirmation_state = "pending_confirmation"
+        elif source in ("explicit_user", "direct_user", "user_stated"):
+            confirmation_state = "confirmed"
+        else:
+            confirmation_state = "inferred"
+
+        decay_metadata: dict[str, object] | None = None
+        if section == "style" and confirmation_state == "inferred":
+            decay_metadata = {
+                "decay_score": 0.0,
+                "last_seen_at": updated_at,
+                "decay_reason": "inferred_signal",
+            }
+
+        try:
+            from runtime.profile_io import upsert_governed_preference
+            upsert_governed_preference(
+                cast(dict[str, object], profile),
+                field=field,
+                value=value,
+                source=source,
+                learned_at=updated_at,
+                updated_at=updated_at,
+                section=section,
+                confirmation_state=confirmation_state,
+                decay_metadata=decay_metadata,
+            )
+            changed = True
+        except Exception:
+            pass
+
+        if confirmation_state == "pending_confirmation":
+            continue
+
         preferences = cast(dict[str, object], profile["preferences"])
         user_vector = cast(dict[str, object], profile["user_vector"])
 
@@ -320,11 +374,17 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
             changed = True
 
     if not changed:
+        if baseline_changed:
+            try:
+                from runtime.profile_io import save_profile
+                save_profile(profile_path, profile)
+            except Exception:
+                pass
         return
 
     try:
-        with open(profile_path, "w", encoding="utf-8") as file_obj:
-            file_obj.write(json.dumps(profile, indent=2, ensure_ascii=True) + "\n")
+        from runtime.profile_io import save_profile
+        save_profile(profile_path, profile)
     except Exception:
         return
 

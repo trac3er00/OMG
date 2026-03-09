@@ -6,9 +6,17 @@ from pathlib import Path
 from typing import Any
 
 from runtime import artifact_parsers
+from runtime.evidence_requirements import FULL_REQUIREMENTS, requirements_for_profile
 
 
 _REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
+
+_REQUIRED_ARTIFACT_TOKENS: dict[str, tuple[str, ...]] = {
+    "junit": ("junit", "junit.xml", "surefire"),
+    "coverage": ("coverage", "lcov", "coverage.xml"),
+    "sarif": ("sarif", ".sarif"),
+    "browser_trace": ("trace.zip", "browser_trace", "playwright", "browser-evidence"),
+}
 
 
 def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
@@ -18,6 +26,8 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
     security_evidence = _as_dict(input.get("security_evidence"))
     browser_evidence = _as_dict(input.get("browser_evidence"))
     evidence_pack = _as_dict(input.get("evidence_pack"))
+    evidence_profile = _resolve_evidence_profile(input=input, evidence_pack=evidence_pack)
+    evidence_requirements = requirements_for_profile(evidence_profile)
     test_intent_lock = _as_dict(input.get("test_intent_lock"))
     test_delta = _as_dict(input.get("test_delta"))
 
@@ -35,7 +45,7 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
         blockers.append("proof_gate_proof_chain_blockers_invalid")
 
     trace_id = str(proof_chain.get("trace_id", "")).strip()
-    blockers.extend(_validate_claim_artifacts(claims))
+    blockers.extend(_validate_claim_artifacts(claims, evidence_requirements=evidence_requirements))
     blockers.extend(_validate_trace_linkage(claims=claims, trace_id=trace_id, eval_output=eval_output, browser_evidence=browser_evidence))
     blockers.extend(_validate_security_and_browser_artifacts(claims=claims, security_evidence=security_evidence, browser_evidence=browser_evidence))
     blockers.extend(_validate_evidence_pack(evidence_pack))
@@ -56,7 +66,9 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
         "claim_count": len(claims),
         "proof_chain_status": proof_status,
         "proof_chain_blocker_count": len(proof_blockers) if isinstance(proof_blockers, list) else 0,
-        "required_artifacts": ["junit", "coverage", "sarif", "browser_trace"],
+        "required_artifacts": _required_artifact_keys(evidence_requirements),
+        "evidence_profile": evidence_profile,
+        "evidence_requirements": list(evidence_requirements),
         "trace_id": trace_id,
         "eval_trace_id": str(eval_output.get("trace_id", "")).strip(),
         "has_security_evidence": bool(security_evidence),
@@ -117,7 +129,11 @@ def _collect_trace_ids(claim: dict[str, Any]) -> set[str]:
     return {str(item).strip() for item in raw_trace_ids if str(item).strip()}
 
 
-def _validate_claim_artifacts(claims: list[dict[str, Any]]) -> list[str]:
+def _validate_claim_artifacts(
+    claims: list[dict[str, Any]],
+    *,
+    evidence_requirements: list[str],
+) -> list[str]:
     all_artifacts: list[str] = []
     artifact_records: list[dict[str, Any]] = []
     for claim in claims:
@@ -126,10 +142,9 @@ def _validate_claim_artifacts(claims: list[dict[str, Any]]) -> list[str]:
 
     blockers: list[str] = []
     required_tokens = {
-        "junit": ("junit", "junit.xml", "surefire"),
-        "coverage": ("coverage", "lcov", "coverage.xml"),
-        "sarif": ("sarif", ".sarif"),
-        "browser_trace": ("trace.zip", "browser_trace", "playwright", "browser-evidence"),
+        key: _REQUIRED_ARTIFACT_TOKENS[key]
+        for key in _required_artifact_keys(evidence_requirements)
+        if key in _REQUIRED_ARTIFACT_TOKENS
     }
     for key, tokens in required_tokens.items():
         if not any(any(token in artifact for token in tokens) for artifact in all_artifacts):
@@ -333,6 +348,27 @@ def _validate_lock_delta_chain(
     if _is_weakened_or_drift_delta(delta_summary) and not _has_waiver_artifact(delta_summary):
         blockers.append("proof_gate_missing_waiver_artifact")
     return blockers
+
+
+def _resolve_evidence_profile(*, input: dict[str, Any], evidence_pack: dict[str, Any]) -> str:
+    profile = str(input.get("evidence_profile", "")).strip()
+    if profile:
+        return profile
+    return str(evidence_pack.get("evidence_profile", "")).strip()
+
+
+def _required_artifact_keys(evidence_requirements: list[str]) -> list[str]:
+    required: list[str] = []
+    requirement_set = {str(item).strip() for item in evidence_requirements if str(item).strip()}
+    if "tests" in requirement_set:
+        required.append("junit")
+    if "build" in requirement_set:
+        required.append("coverage")
+    if "security_scan" in requirement_set:
+        required.append("sarif")
+    if requirement_set == set(FULL_REQUIREMENTS):
+        required.append("browser_trace")
+    return required
 
 
 _PARSERS: dict[str, Any] = {

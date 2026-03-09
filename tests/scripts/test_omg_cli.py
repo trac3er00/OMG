@@ -883,3 +883,52 @@ def test_cli_doctor_text_output():
 def test_cli_doctor_help_lists_doctor():
     proc = _run(["--help"])
     assert "doctor" in proc.stdout + proc.stderr
+
+
+# --- profile-review command tests ---
+
+def test_cli_profile_review_json_output_keys():
+    """profile-review --format json must include required top-level keys."""
+    proc = _run(["profile-review", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "ProfileReview"
+    for key in ("style", "safety", "pending_confirmations", "decay_candidates", "provenance_summary"):
+        assert key in out, f"Missing key: {key}"
+    assert isinstance(out["style"], list)
+    assert isinstance(out["safety"], list)
+    assert isinstance(out["pending_confirmations"], list)
+    assert isinstance(out["decay_candidates"], list)
+    assert isinstance(out["provenance_summary"], list)
+
+
+def test_cli_profile_review_text_output():
+    """profile-review --format text must produce human-readable summary."""
+    proc = _run(["profile-review", "--format", "text"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    assert "Profile Review" in proc.stdout or "Style" in proc.stdout
+
+
+def test_cli_profile_review_read_only(tmp_path):
+    """profile-review must NOT mutate profile.yaml."""
+    # Create a minimal profile.yaml
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+    profile_path = state_dir / "profile.yaml"
+    profile_path.write_text("name: test-project\npreferences: {}\n")
+    mtime_before = profile_path.stat().st_mtime
+    content_before = profile_path.read_text()
+
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+    proc = _run(["profile-review", "--format", "json"], env=env)
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+
+    mtime_after = profile_path.stat().st_mtime
+    content_after = profile_path.read_text()
+    assert mtime_before == mtime_after, "profile.yaml mtime changed — command is not read-only"
+    assert content_before == content_after, "profile.yaml content changed — command is not read-only"
+
+
+def test_cli_profile_review_help_lists_command():
+    proc = _run(["--help"])
+    assert "profile-review" in proc.stdout + proc.stderr

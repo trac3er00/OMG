@@ -456,6 +456,7 @@ _PROFILE_ARCH_REQUEST_MAX = 8
 _PROFILE_TAG_MAX = 12
 _PROFILE_SUMMARY_MAX_CHARS = 240
 _PROFILE_RECENT_UPDATES_MAX = 5
+_PROFILE_GOVERNED_MAX = 24
 
 
 def get_mode_choices() -> list[str]:
@@ -690,11 +691,10 @@ def _write_profile_learning_sections(state_dir: str, preferences: dict[str, Any]
     profile_data["preferences"] = _normalize_preferences_block(preferences.get("preferences"))
     profile_data["user_vector"] = _normalize_user_vector_block(preferences.get("user_vector"))
     profile_data["profile_provenance"] = _normalize_provenance_block(preferences.get("profile_provenance"))
+    profile_data["governed_preferences"] = _normalize_governed_preferences_block(preferences.get("governed_preferences"))
 
-    dumped = yaml.safe_dump(profile_data, default_flow_style=False, sort_keys=False) or ""
-    dumped = _render_explicit_empty_collections(dumped)
-    with open(profile_path, "w", encoding="utf-8") as f:
-        f.write(dumped)
+    from runtime.profile_io import save_profile
+    save_profile(profile_path, profile_data)
 
 
 def _render_explicit_empty_collections(dumped: str) -> str:
@@ -738,16 +738,8 @@ def _render_explicit_empty_collections(dumped: str) -> str:
 
 
 def _load_profile_yaml(profile_path: str) -> dict[str, Any]:
-    if not os.path.exists(profile_path):
-        return {}
-    try:
-        with open(profile_path, "r", encoding="utf-8") as f:
-            payload = yaml.safe_load(f) or {}
-    except Exception:
-        return {}
-    if isinstance(payload, dict):
-        return cast(dict[str, Any], payload)
-    return {}
+    from runtime.profile_io import load_profile
+    return load_profile(profile_path)
 
 
 def _ensure_profile_baseline(profile_data: dict[str, Any]) -> None:
@@ -758,6 +750,7 @@ def _ensure_profile_baseline(profile_data: dict[str, Any]) -> None:
     profile_data.setdefault("stack", [])
     profile_data.setdefault("conventions", {})
     profile_data.setdefault("ai_behavior", {})
+    profile_data.setdefault("governed_preferences", {"style": [], "safety": []})
 
 
 def _normalize_preferences_block(raw: Any) -> dict[str, Any]:
@@ -881,6 +874,67 @@ def _normalize_provenance_block(raw: Any) -> dict[str, Any]:
             if len(updates) >= _PROFILE_RECENT_UPDATES_MAX:
                 break
     return {"recent_updates": updates}
+
+
+def _normalize_governed_preferences_block(raw: Any) -> dict[str, list[dict[str, Any]]]:
+    block = raw if isinstance(raw, dict) else {}
+    style_raw = block.get("style")
+    safety_raw = block.get("safety")
+    return {
+        "style": _normalize_governed_section_entries(style_raw, section="style"),
+        "safety": _normalize_governed_section_entries(safety_raw, section="safety"),
+    }
+
+
+def _normalize_governed_section_entries(raw: Any, *, section: str) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    entries: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        field = str(item.get("field", "")).strip()
+        value = " ".join(str(item.get("value", "")).strip().split())
+        source = str(item.get("source", "")).strip()
+        learned_at = str(item.get("learned_at", "")).strip()
+        updated_at = str(item.get("updated_at", "")).strip()
+        candidate_section = str(item.get("section", section)).strip().lower()
+        confirmation_state = str(item.get("confirmation_state", "")).strip().lower()
+
+        if not (field and value and source and learned_at and updated_at):
+            continue
+        if candidate_section != section:
+            continue
+        if confirmation_state not in ("confirmed", "pending_confirmation", "inferred"):
+            continue
+
+        entry: dict[str, Any] = {
+            "field": field,
+            "value": value,
+            "source": source,
+            "learned_at": learned_at,
+            "updated_at": updated_at,
+            "section": section,
+            "confirmation_state": confirmation_state,
+        }
+
+        if section == "style" and confirmation_state == "inferred":
+            decay_raw = item.get("decay_metadata")
+            decay = decay_raw if isinstance(decay_raw, dict) else {}
+            try:
+                score = float(decay.get("decay_score", 0.0))
+            except (TypeError, ValueError):
+                score = 0.0
+            entry["decay_metadata"] = {
+                "decay_score": max(0.0, min(1.0, score)),
+                "last_seen_at": str(decay.get("last_seen_at", updated_at)).strip() or updated_at,
+                "decay_reason": str(decay.get("decay_reason", "inferred_signal")).strip() or "inferred_signal",
+            }
+
+        entries.append(entry)
+        if len(entries) >= _PROFILE_GOVERNED_MAX:
+            break
+    return entries
 
 
 def _write_project_settings_preset(project_dir: str, preset: str) -> None:
