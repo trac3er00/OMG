@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import cast
+
+from runtime.context_engine import load_profile_digest
 
 JsonPrimitive = str | int | float | bool | None
 JsonValue = JsonPrimitive | dict[str, "JsonValue"] | list["JsonValue"]
@@ -33,6 +36,50 @@ def _load_json(path: Path) -> JsonObject | None:
     if not isinstance(payload, dict):
         return None
     return cast(JsonObject, payload)
+
+
+def _json_checksum(payload: JsonObject) -> str:
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8", errors="ignore")).hexdigest()
+
+
+def _record_copy_with_context_metadata(root: Path, record: JsonObject) -> JsonObject:
+    run_id = _record_string(record, "run_id")
+    if not run_id:
+        return record
+
+    profile_digest = load_profile_digest(root)
+    existing_profile_version = _record_string(record, "profile_version")
+    profile_version = existing_profile_version or str(profile_digest.get("profile_version", "")).strip()
+
+    intent_gate_payload = _load_json(root / ".omg" / "state" / "intent_gate" / f"{run_id}.json") or {}
+    existing_intent_gate_version = _record_string(record, "intent_gate_version")
+    intent_gate_version = existing_intent_gate_version or (
+        _record_string(intent_gate_payload, "intent_gate_version")
+        or _record_string(intent_gate_payload, "schema_version")
+        or _record_string(intent_gate_payload, "version")
+    )
+
+    packet_payload = _load_json(root / ".omg" / "state" / "context_engine_packet.json") or {}
+    packet_run_id = _record_string(packet_payload, "run_id")
+    scoped_packet = packet_payload if packet_run_id == run_id else {}
+    context_material: JsonObject = {
+        "run_id": run_id,
+        "profile_version": profile_version,
+        "intent_gate_version": intent_gate_version,
+    }
+    if scoped_packet:
+        context_material["context_packet"] = scoped_packet
+    if intent_gate_payload:
+        context_material["intent_gate"] = intent_gate_payload
+
+    existing_context_checksum = _record_string(record, "context_checksum")
+    context_checksum = existing_context_checksum or _json_checksum(context_material)
+    enriched = dict(record)
+    enriched["context_checksum"] = context_checksum
+    enriched["profile_version"] = profile_version
+    enriched["intent_gate_version"] = intent_gate_version
+    return enriched
 
 
 def _read_jsonl(path: Path) -> list[JsonObject]:
@@ -109,7 +156,7 @@ def get_evidence_pack(project_dir: str, run_id: str) -> JsonObject | None:
         if payload.get("schema") != "EvidencePack":
             continue
         if _record_string(payload, "run_id") == run_id:
-            return payload
+            return _record_copy_with_context_metadata(root, payload)
     return None
 
 
@@ -136,7 +183,7 @@ def query_evidence(
                 schema=schema,
                 kind=kind,
             ):
-                records.append(payload)
+                records.append(_record_copy_with_context_metadata(root, payload))
 
         for row in _read_jsonl(root / rel_dir / "events.jsonl"):
             if _record_matches(
@@ -146,7 +193,7 @@ def query_evidence(
                 schema=schema,
                 kind=kind,
             ):
-                records.append(row)
+                records.append(_record_copy_with_context_metadata(root, row))
 
     return records
 
@@ -164,7 +211,7 @@ def list_evidence_packs(project_dir: str) -> list[JsonObject]:
             mtime = path.stat().st_mtime
         except OSError:
             mtime = 0.0
-        payloads.append((mtime, payload))
+        payloads.append((mtime, _record_copy_with_context_metadata(root, payload)))
 
     payloads.sort(key=lambda item: item[0], reverse=True)
     return [payload for _, payload in payloads]

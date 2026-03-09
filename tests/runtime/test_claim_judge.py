@@ -189,6 +189,9 @@ def test_judge_claims_resolves_evidence_pack_and_emits_artifact(tmp_path: Path) 
                 "schema_version": 2,
                 "run_id": run_id,
                 "trace_ids": ["trace-1"],
+                "context_checksum": "ctx-1",
+                "profile_version": "profile-v1",
+                "intent_gate_version": "1.0.0",
                 "tests": [],
                 "security_scans": [],
             }
@@ -201,6 +204,10 @@ def test_judge_claims_resolves_evidence_pack_and_emits_artifact(tmp_path: Path) 
     assert result["schema"] == "ClaimJudgeResults"
     assert result["verdict"] == "pass"
     assert result["results"][0]["run_id"] == run_id
+    assert isinstance(result["results"][0]["context_checksum"], str)
+    assert result["results"][0]["context_checksum"]
+    assert result["results"][0]["profile_version"] == "profile-v1"
+    assert result["results"][0]["intent_gate_version"] == "1.0.0"
     assert (evidence_dir / f"claim-judge-{run_id}.json").exists()
 
 
@@ -303,6 +310,45 @@ def test_claim_judge_blocks_when_causal_chain_missing_in_strict_mode(monkeypatch
     assert any(reason["code"] == "missing_causal_chain" for reason in result["reasons"])
 
 
+def test_runtime_claims_require_strict_causal_chain_metadata_by_default() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "runtime_release_ready",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+            "lock_id": "lock-1",
+            "delta_summary": {"flags": []},
+            "verification_status": "ok",
+            "waiver_artifact_path": ".omg/evidence/waiver-lock-1.json",
+        }
+    )
+
+    assert result["verdict"] == "block"
+    missing_chain = [reason for reason in result["reasons"] if reason["code"] == "missing_causal_chain"]
+    assert len(missing_chain) == 1
+    message = str(missing_chain[0]["message"])
+    assert "missing_context_checksum" in message
+    assert "missing_profile_version" in message
+    assert "missing_intent_gate_version" in message
+
+
+def test_legacy_claims_keep_permissive_causal_chain_behavior_without_version_fields() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "ready_to_ship",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert result["reasons"] == []
+    advisories = result["evidence"]["advisories"]
+    assert "claim_judge_causal_chain_missing_permissive" in advisories
+
+
 def test_claim_judge_passes_when_causal_chain_includes_waiver_in_strict_mode(monkeypatch) -> None:
     monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
     result = judge_claim(
@@ -315,6 +361,9 @@ def test_claim_judge_passes_when_causal_chain_includes_waiver_in_strict_mode(mon
             "delta_summary": {"flags": ["weakened_assertions"]},
             "verification_status": "ok",
             "waiver_artifact_path": ".omg/evidence/waiver-lock-1.json",
+            "context_checksum": "ctx-1",
+            "profile_version": "profile-v1",
+            "intent_gate_version": "1.0.0",
         }
     )
 

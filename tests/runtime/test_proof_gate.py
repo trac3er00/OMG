@@ -233,6 +233,9 @@ def test_proof_gate_accepts_v2_evidence_payload_with_optional_sibling_fields() -
     payload["test_delta"] = {"changed": ["runtime/proof_chain.py"]}
     payload["browser_evidence_path"] = ".omg/evidence/playwright-adapter-run-1.json"
     payload["repro_pack_path"] = ".omg/evidence/repro-pack-run-1.json"
+    payload["context_checksum"] = "ctx-deterministic"
+    payload["profile_version"] = "profile-v31"
+    payload["intent_gate_version"] = "1.3.0"
 
     result = evaluate_proof_gate(
         {

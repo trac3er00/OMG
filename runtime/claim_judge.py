@@ -26,12 +26,21 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
         if run_id:
             evidence_pack = get_evidence_pack(project_dir, run_id)
             trace_ids: list[str] = []
+            context_checksum = ""
+            profile_version = ""
+            intent_gate_version = ""
             if isinstance(evidence_pack, dict):
                 trace_ids = _as_non_empty_str_list(evidence_pack.get("trace_ids"))
+                context_checksum = str(evidence_pack.get("context_checksum", "")).strip()
+                profile_version = str(evidence_pack.get("profile_version", "")).strip()
+                intent_gate_version = str(evidence_pack.get("intent_gate_version", "")).strip()
             resolved_claim = {
                 **claim,
                 "artifacts": [f".omg/evidence/{run_id}.json"],
                 "trace_ids": trace_ids,
+                "context_checksum": context_checksum,
+                "profile_version": profile_version,
+                "intent_gate_version": intent_gate_version,
             }
 
         result = judge_claim(resolved_claim)
@@ -41,6 +50,9 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             updated_reasons.extend(council_reasons)
             result = {**result, "reasons": updated_reasons, "verdict": "block"}
         result_with_run = {**result, "run_id": run_id}
+        result_with_run["context_checksum"] = str(resolved_claim.get("context_checksum", "")).strip()
+        result_with_run["profile_version"] = str(resolved_claim.get("profile_version", "")).strip()
+        result_with_run["intent_gate_version"] = str(resolved_claim.get("intent_gate_version", "")).strip()
         result_with_run["advisory_context"] = {"profile_digest": profile_digest}
         results.append(result_with_run)
         aggregate_tokens.append(str(result.get("verdict", "")).strip().lower())
@@ -52,6 +64,9 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             "run_id": run_id,
             "claim": claim,
             "result": result,
+            "context_checksum": str(resolved_claim.get("context_checksum", "")).strip(),
+            "profile_version": str(resolved_claim.get("profile_version", "")).strip(),
+            "intent_gate_version": str(resolved_claim.get("intent_gate_version", "")).strip(),
             "advisory_context": {"profile_digest": profile_digest},
         }
         artifact_path.write_text(json.dumps(artifact_payload, indent=2, sort_keys=True), encoding="utf-8")
@@ -135,10 +150,15 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    causal_chain_errors = _validate_causal_chain(causal_chain)
+    strict_mode = os.environ.get("OMG_PROOF_CHAIN_STRICT", "0").strip() == "1"
+    strict_causal_chain = strict_mode or _claim_type_enforces_strict_causal_chain(
+        claim_type=claim_type,
+        claim=claim,
+    )
+
+    causal_chain_errors = _validate_causal_chain(causal_chain, require_versions=strict_causal_chain)
     if causal_chain_errors:
-        strict_mode = os.environ.get("OMG_PROOF_CHAIN_STRICT", "0").strip() == "1"
-        if strict_mode:
+        if strict_causal_chain:
             reasons.append(
                 {
                     "code": "missing_causal_chain",
@@ -201,6 +221,9 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
         "verification_status": str(claim.get("verification_status", evidence.get("verification_status", ""))).strip(),
         "waiver_artifact_path": str(claim.get("waiver_artifact_path", evidence.get("waiver_artifact_path", ""))).strip(),
         "lock_verification": lock_verification,
+        "context_checksum": str(claim.get("context_checksum", evidence.get("context_checksum", ""))).strip(),
+        "profile_version": str(claim.get("profile_version", evidence.get("profile_version", ""))).strip(),
+        "intent_gate_version": str(claim.get("intent_gate_version", evidence.get("intent_gate_version", ""))).strip(),
     }
 
     return {
@@ -216,12 +239,15 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _validate_causal_chain(causal_chain: dict[str, Any]) -> list[str]:
+def _validate_causal_chain(causal_chain: dict[str, Any], *, require_versions: bool) -> list[str]:
     errors: list[str] = []
     lock_id = str(causal_chain.get("lock_id", "")).strip()
     delta_summary = causal_chain.get("delta_summary")
     verification_status = str(causal_chain.get("verification_status", "")).strip()
     waiver_artifact_path = str(causal_chain.get("waiver_artifact_path", "")).strip()
+    context_checksum = str(causal_chain.get("context_checksum", "")).strip()
+    profile_version = str(causal_chain.get("profile_version", "")).strip()
+    intent_gate_version = str(causal_chain.get("intent_gate_version", "")).strip()
     lock_verification = _as_dict(causal_chain.get("lock_verification"))
 
     if not lock_id:
@@ -236,7 +262,32 @@ def _validate_causal_chain(causal_chain: dict[str, Any]) -> list[str]:
     if not waiver_artifact_path and not lock_satisfied:
         errors.append("missing_waiver_or_lock_satisfied_proof")
 
+    if require_versions:
+        if not context_checksum:
+            errors.append("missing_context_checksum")
+        if not profile_version:
+            errors.append("missing_profile_version")
+        if not intent_gate_version:
+            errors.append("missing_intent_gate_version")
+
     return errors
+
+
+def _claim_type_enforces_strict_causal_chain(*, claim_type: str, claim: dict[str, Any]) -> bool:
+    mode = str(claim.get("causal_chain_mode", "")).strip().lower()
+    if mode == "legacy":
+        return False
+    if mode == "strict":
+        return True
+
+    if isinstance(claim.get("require_causal_chain"), bool):
+        return bool(claim.get("require_causal_chain"))
+
+    normalized = claim_type.strip().lower()
+    if not normalized:
+        return False
+    tokens = {item for item in normalized.replace("-", "_").split("_") if item}
+    return bool(tokens & {"runtime", "council"})
 
 
 def _normalize_artifact_records(value: Any) -> list[str]:

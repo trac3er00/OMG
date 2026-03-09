@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -16,11 +17,23 @@ def _write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _context_checksum(*, run_id: str, profile_version: str, intent_gate_version: str) -> str:
+    material = f"{run_id}|{profile_version}|{intent_gate_version}"
+    return hashlib.sha256(material.encode("utf-8", errors="ignore")).hexdigest()
+
+
 def prepare_release_proof_fixtures(output_root: Path) -> None:
     trace_id = "trace-1"
     eval_id = "eval-1"
     run_id = "run-1"
     lock_id = "lock-1"
+    profile_version = "profile-v1"
+    intent_gate_version = "1.0.0"
+    context_checksum = _context_checksum(
+        run_id=run_id,
+        profile_version=profile_version,
+        intent_gate_version=intent_gate_version,
+    )
 
     junit_path = output_root / ".omg" / "evidence" / "junit.xml"
     coverage_path = output_root / ".omg" / "evidence" / "coverage.xml"
@@ -36,6 +49,7 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
     rollback_path = output_root / ".omg" / "state" / "rollback_manifest" / "run-1-step-1.json"
     session_health_path = output_root / ".omg" / "state" / "session_health" / "run-1.json"
     council_verdicts_path = output_root / ".omg" / "state" / "council_verdicts" / "run-1.json"
+    intent_gate_path = output_root / ".omg" / "state" / "intent_gate" / "run-1.json"
     tracebank_path = output_root / ".omg" / "tracebank" / "events.jsonl"
 
     _write_text(
@@ -97,6 +111,9 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "schema": "SecurityCheckResult",
             "status": "ok",
             "evidence": {"sarif_path": ".omg/evidence/results.sarif"},
+            "context_checksum": context_checksum,
+            "profile_version": profile_version,
+            "intent_gate_version": intent_gate_version,
         },
     )
     _write_json(
@@ -107,6 +124,9 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
                 "timestamp": "2026-03-07T00:00:00Z",
                 "executor": {"user": "release-bot", "pid": 1},
                 "environment": {"hostname": "localhost", "platform": "linux"},
+                "context_checksum": context_checksum,
+                "profile_version": profile_version,
+                "intent_gate_version": intent_gate_version,
             "tests": [{"name": "release_readiness", "passed": True}],
             "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
             "diff_summary": {"files": 1},
@@ -148,6 +168,9 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "status": "ok",
             "proof_backed": True,
             "specialists_dispatched": ["training-architect"],
+            "context_checksum": context_checksum,
+            "profile_version": profile_version,
+            "intent_gate_version": intent_gate_version,
         },
     )
     _write_json(
@@ -161,6 +184,9 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "resolution_source": "fixtures",
             "resolution_reason": "deterministic_release_seed",
             "updated_at": "2026-03-07T00:00:00Z",
+            "context_checksum": context_checksum,
+            "profile_version": profile_version,
+            "intent_gate_version": intent_gate_version,
         },
     )
     _write_json(
@@ -171,6 +197,9 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "lock_id": lock_id,
             "status": "ok",
             "intent": {"run_id": run_id},
+            "context_checksum": context_checksum,
+            "profile_version": profile_version,
+            "intent_gate_version": intent_gate_version,
         },
     )
     _write_json(
@@ -200,6 +229,9 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "verification_status": "ok",
             "recommended_action": "continue",
             "updated_at": "2026-03-07T00:00:00Z",
+            "context_checksum": context_checksum,
+            "profile_version": profile_version,
+            "intent_gate_version": intent_gate_version,
         },
     )
     _write_json(
@@ -210,11 +242,30 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "run_id": run_id,
             "status": "ok",
             "verification_status": "ok",
+            "context_checksum": context_checksum,
+            "profile_version": profile_version,
+            "intent_gate_version": intent_gate_version,
             "verdicts": {
                 "skeptic": {"verdict": "pass"},
                 "hallucination_auditor": {"verdict": "pass"},
                 "evidence_completeness": {"verdict": "pass"},
             },
+            "updated_at": "2026-03-07T00:00:00Z",
+        },
+    )
+    _write_json(
+        intent_gate_path,
+        {
+            "schema": "IntentGateDecision",
+            "schema_version": intent_gate_version,
+            "run_id": run_id,
+            "intent_gate_version": intent_gate_version,
+            "requires_clarification": False,
+            "intent_class": "release_readiness",
+            "clarification_prompt": "",
+            "confidence": 0.98,
+            "context_checksum": context_checksum,
+            "profile_version": profile_version,
             "updated_at": "2026-03-07T00:00:00Z",
         },
     )

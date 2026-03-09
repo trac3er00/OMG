@@ -164,3 +164,59 @@ def test_get_verification_state_reads_background_state(tmp_path: Path) -> None:
 
     assert payload is not None
     assert payload["run_id"] == "run-1"
+
+
+def test_get_evidence_pack_enriches_context_metadata_for_run(tmp_path: Path) -> None:
+    _write_json(tmp_path / ".omg" / "evidence" / "run-1.json", _evidence_pack("run-1", ["trace-1"]))
+    (tmp_path / ".omg" / "state").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".omg" / "state" / "profile.yaml").write_text("profile_version: profile-v31\n", encoding="utf-8")
+    _write_json(
+        tmp_path / ".omg" / "state" / "intent_gate" / "run-1.json",
+        {
+            "schema": "IntentGateDecision",
+            "run_id": "run-1",
+            "intent_gate_version": "1.3.0",
+        },
+    )
+    _write_json(
+        tmp_path / ".omg" / "state" / "context_engine_packet.json",
+        {
+            "schema": "ContextEnginePacket",
+            "run_id": "run-1",
+            "clarification_status": {"requires_clarification": False},
+        },
+    )
+
+    pack = get_evidence_pack(str(tmp_path), "run-1")
+
+    assert pack is not None
+    assert pack["profile_version"] == "profile-v31"
+    assert pack["intent_gate_version"] == "1.3.0"
+    assert isinstance(pack["context_checksum"], str)
+    assert len(str(pack["context_checksum"])) == 64
+
+
+def test_query_evidence_enriches_jsonl_rows_with_context_metadata(tmp_path: Path) -> None:
+    tracebank_path = tmp_path / ".omg" / "tracebank" / "events.jsonl"
+    tracebank_path.parent.mkdir(parents=True, exist_ok=True)
+    _ = tracebank_path.write_text(
+        json.dumps({"schema": "TracebankRecord", "run_id": "run-1", "trace_id": "trace-1"}) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".omg" / "state").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".omg" / "state" / "profile.yaml").write_text("profile_version: profile-v6\n", encoding="utf-8")
+    _write_json(
+        tmp_path / ".omg" / "state" / "intent_gate" / "run-1.json",
+        {
+            "schema": "IntentGateDecision",
+            "run_id": "run-1",
+            "schema_version": "1.0.7",
+        },
+    )
+
+    rows = query_evidence(str(tmp_path), run_id="run-1")
+
+    assert len(rows) == 1
+    assert rows[0]["profile_version"] == "profile-v6"
+    assert rows[0]["intent_gate_version"] == "1.0.7"
+    assert isinstance(rows[0]["context_checksum"], str)
