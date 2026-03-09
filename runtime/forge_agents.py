@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from runtime.forge_contracts import load_forge_mvp, validate_forge_job
+from runtime.runtime_contracts import read_defense_state, read_session_health
 
 
 _SPECIALIST_REGISTRY: dict[str, dict[str, object]] = {
@@ -181,16 +182,12 @@ def _write_dispatch_evidence(
 
 
 def _load_latest_state(project_dir: str, module: str) -> dict[str, Any] | None:
-    state_dir = Path(project_dir) / ".omg" / "state" / module
-    if not state_dir.is_dir():
-        return None
-    latest = state_dir / "latest.json"
-    if not latest.exists():
-        return None
-    try:
-        payload: object = json.loads(latest.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    payload: object | None = None
+    if module == "defense_state":
+        payload = read_defense_state(project_dir, compat=True)
+    elif module == "session_health":
+        payload = read_session_health(project_dir, compat=True)
+
     if isinstance(payload, dict):
         return payload
     return None

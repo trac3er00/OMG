@@ -145,27 +145,42 @@ def test_dispatch_evidence_includes_causal_chain_stub(tmp_path: Path) -> None:
     assert "lock_id" in chain or "waiver_artifact_path" in chain
 
 
-def test_dispatch_evidence_includes_defense_session_state(tmp_path: Path) -> None:
-    """Evidence should include defense and session health state when available."""
+def test_dispatch_evidence_prefers_canonical_state_paths(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RUN_ID", "state-run")
+
     defense_dir = tmp_path / ".omg" / "state" / "defense_state"
     defense_dir.mkdir(parents=True, exist_ok=True)
-    defense_payload = {
+    canonical_defense_payload = {
         "schema": "DefenseState", "schema_version": "1.0.0",
-        "run_id": "test-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
-        "controls": {"firewall": "active"}, "findings": [],
+        "run_id": "state-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
+        "controls": {"firewall": "canonical"}, "findings": [],
     }
-    (defense_dir / "latest.json").write_text(json.dumps(defense_payload), encoding="utf-8")
+    latest_defense_payload = {
+        "schema": "DefenseState", "schema_version": "1.0.0",
+        "run_id": "legacy-run", "status": "ok", "updated_at": "2026-03-07T00:00:00+00:00",
+        "controls": {"firewall": "legacy"}, "findings": [],
+    }
+    (defense_dir / "current.json").write_text(json.dumps(canonical_defense_payload), encoding="utf-8")
+    (defense_dir / "latest.json").write_text(json.dumps(latest_defense_payload), encoding="utf-8")
 
     health_dir = tmp_path / ".omg" / "state" / "session_health"
     health_dir.mkdir(parents=True, exist_ok=True)
-    health_payload = {
+    canonical_health_payload = {
         "schema": "SessionHealth", "schema_version": "1.0.0",
-        "run_id": "test-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
+        "run_id": "state-run", "status": "ok", "updated_at": "2026-03-08T00:00:00+00:00",
         "contamination_risk": "low", "overthinking_score": 0.1,
         "context_health": "green", "verification_status": "ok",
         "recommended_action": "continue",
     }
-    (health_dir / "latest.json").write_text(json.dumps(health_payload), encoding="utf-8")
+    latest_health_payload = {
+        "schema": "SessionHealth", "schema_version": "1.0.0",
+        "run_id": "legacy-run", "status": "ok", "updated_at": "2026-03-07T00:00:00+00:00",
+        "contamination_risk": "high", "overthinking_score": 0.8,
+        "context_health": "red", "verification_status": "blocked",
+        "recommended_action": "block",
+    }
+    (health_dir / "state-run.json").write_text(json.dumps(canonical_health_payload), encoding="utf-8")
+    (health_dir / "latest.json").write_text(json.dumps(latest_health_payload), encoding="utf-8")
 
     result = dispatch_specialists(_valid_job(), str(tmp_path))
 
@@ -175,6 +190,34 @@ def test_dispatch_evidence_includes_defense_session_state(tmp_path: Path) -> Non
 
     assert "defense_state" in payload
     assert "session_health" in payload
+    assert payload["defense_state"]["controls"]["firewall"] == "canonical"
+    assert payload["session_health"]["run_id"] == "state-run"
+
+
+def test_dispatch_evidence_falls_back_to_latest_when_run_scoped_missing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RUN_ID", "missing-run")
+
+    defense_dir = tmp_path / ".omg" / "state" / "defense_state"
+    defense_dir.mkdir(parents=True, exist_ok=True)
+    (defense_dir / "latest.json").write_text(
+        json.dumps({"schema": "DefenseState", "run_id": "legacy-run", "controls": {"firewall": "legacy"}}),
+        encoding="utf-8",
+    )
+
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "latest.json").write_text(
+        json.dumps({"schema": "SessionHealth", "run_id": "legacy-run", "recommended_action": "continue"}),
+        encoding="utf-8",
+    )
+
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert payload["defense_state"]["controls"]["firewall"] == "legacy"
+    assert payload["session_health"]["run_id"] == "legacy-run"
 
 
 def test_forge_vision_agent_labs_only_enforcement() -> None:
