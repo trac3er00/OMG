@@ -1,7 +1,7 @@
 ---
 description: "Native OMG setup and adoption flow for supported hosts"
 allowed-tools: Read, Write, Edit, Bash(python*:*), Bash(ls:*), Bash(grep:*)
-argument-hint: "[optional: --non-interactive, --mode omg-only|coexist, --preset safe|balanced|interop|labs]"
+argument-hint: "[optional: --non-interactive, --mode omg-only|coexist, --preset safe|balanced|interop|labs|plugins-first]"
 ---
 
 # /OMG:setup
@@ -18,6 +18,8 @@ The command keeps migration logic internal and focuses the user on a small adopt
 3. Recommend an adoption mode.
 4. Apply an OMG preset.
 5. Configure MCP and save preferences.
+
+Setup now runs foreign-plugin discovery in `interop` and `coexist` modes, reporting compatibility findings and potential overlaps.
 
 ## Wizard Flow
 
@@ -41,6 +43,7 @@ Step 4: Choose preset
   - balanced
   - interop
   - labs
+  - plugins-first (alias for interop)
 
 Step 5: Configure MCP and persist preferences
   - writes .mcp.json
