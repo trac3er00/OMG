@@ -224,6 +224,8 @@ INTENT_ROUTING = {
     "INTENT_EXPLORE":     "explore",      # explore/find → fast search agent
     "INTENT_REVIEW":      "reviewer",     # review/audit → code review agent
     "INTENT_QUICK":       "quick_task",   # quick/simple → fast task agent
+    # Clarification intent (Task 3) — halts mutation-capable execution
+    "INTENT_CLARIFICATION": None,         # clarification needed → halt (no agent dispatch)
 }
 
 # Core agent model preferences. NOT keyword-matched — used by orchestration pipeline only. model_version is informational (not passed to CLI).

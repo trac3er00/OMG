@@ -603,7 +603,21 @@ def _init_bootstrap(project_dir: str, reason: str) -> list[str]:
         "name: omg-project\n"
         "description: initialized by OMG standalone compat bootstrap\n"
         "language: unknown\n"
-        "framework: unknown\n",
+        "framework: unknown\n"
+        "stack: []\n"
+        "conventions: {}\n"
+        "ai_behavior: {}\n"
+        "preferences:\n"
+        "  architecture_requests: []\n"
+        "  constraints: {}\n"
+        "  routing:\n"
+        "    prefer_clarification: false\n"
+        "user_vector:\n"
+        "  tags: []\n"
+        "  summary: \"\"\n"
+        "  confidence: 0.0\n"
+        "profile_provenance:\n"
+        "  recent_updates: []\n",
     )
     _write_if_missing(
         idea_path,

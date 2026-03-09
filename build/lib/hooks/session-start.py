@@ -11,12 +11,16 @@ import time as _time
 import re as _re
 
 HOOKS_DIR = os.path.dirname(__file__)
+PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, get_feature_flag, _resolve_project_dir
-from state_migration import resolve_state_file, resolve_state_dir
-from _budget import BUDGET_SESSION_TOTAL, BUDGET_SESSION_IDLE
+from hooks._common import setup_crash_handler, json_input, get_feature_flag, _resolve_project_dir
+from hooks.state_migration import resolve_state_file, resolve_state_dir
+from hooks._budget import BUDGET_SESSION_TOTAL, BUDGET_SESSION_IDLE
+from runtime.context_engine import render_profile_digest_text
 
 setup_crash_handler("session-start", fail_closed=False)
 
@@ -43,37 +47,11 @@ project_path = resolve_state_file(project_dir, "state/project.md", "project.md")
 
 profile = _read_file(profile_path, 3000)
 if profile:
-    lines = [l.strip() for l in profile.split("\n") if l.strip() and not l.strip().startswith("#")]
-    kv = {}
-    current_section = ""
-    for l in lines:
-        if ":" not in l:
-            continue
-        k, v = l.split(":", 1)
-        k = k.strip().lower()
-        v = v.strip().strip('"').strip("'")
-        if k in ("conventions", "ai_behavior"):
-            current_section = k
-            continue
-        if current_section:
-            kv[f"{current_section}.{k}"] = v
-        else:
-            kv[k] = v
-
-    name = kv.get("name", "")
-    conv_parts = []
-    for ck in ["conventions.naming", "conventions.test_cmd", "conventions.lint_cmd"]:
-        if kv.get(ck):
-            conv_parts.append(f"{ck.split('.')[-1]}={kv[ck]}")
-    comm = kv.get("ai_behavior.communication", "")
-
-    summary_parts = [name] if name else []
-    if conv_parts:
-        summary_parts.append(" ".join(conv_parts))
-    if comm:
-        summary_parts.append(f"lang:{comm}")
-    if summary_parts:
-        sections.append(f"@project: {' | '.join(summary_parts)}")
+    # Inject bounded profile digest — skips discoverable info (conventions, ai_behavior)
+    # and surfaces only non-discoverable preferences via render_profile_digest_text.
+    digest = render_profile_digest_text(project_dir, max_chars=240)
+    if digest:
+        sections.append(f"@project: profile_digest={digest}")
 else:
     project = _read_file(project_path, 1000)
     if project:
@@ -243,7 +221,7 @@ if os.path.exists(tracker_path):
 # 6) Recent memory (on-demand)
 if get_feature_flag('memory'):
     try:
-        from _memory import get_recent_memories
+        from hooks._memory import get_recent_memories
         recent = get_recent_memories(project_dir, max_files=3, max_chars_total=150)
         if recent:
             sections.append(f'@recent-memory: {recent}')

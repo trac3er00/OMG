@@ -18,7 +18,7 @@ if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
 from hooks._common import setup_crash_handler, json_input, get_feature_flag, _resolve_project_dir
-from hooks.state_migration import resolve_state_file
+from hooks.state_migration import resolve_state_file, resolve_state_dir
 from hooks._budget import BUDGET_SESSION_TOTAL, BUDGET_SESSION_IDLE
 from runtime.context_engine import render_profile_digest_text
 
@@ -47,6 +47,8 @@ project_path = resolve_state_file(project_dir, "state/project.md", "project.md")
 
 profile = _read_file(profile_path, 3000)
 if profile:
+    # Inject bounded profile digest — skips discoverable info (conventions, ai_behavior)
+    # and surfaces only non-discoverable preferences via render_profile_digest_text.
     digest = render_profile_digest_text(project_dir, max_chars=240)
     if digest:
         sections.append(f"@project: profile_digest={digest}")

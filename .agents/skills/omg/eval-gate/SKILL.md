@@ -5,7 +5,7 @@ description: "Reproducible evaluation gate that blocks regressions before releas
 
 # OMG Eval Gate
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evals/latest.json`
