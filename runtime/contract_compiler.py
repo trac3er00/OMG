@@ -146,9 +146,17 @@ _REQUIRED_EXECUTION_PRIMITIVES = (
     "release_run_coordinator_state",
     "tdd_proof_chain_lock",
     "rollback_manifest",
+    "intent_gate_state",
+    "profile_digest",
     "session_health_state",
     "council_verdicts",
     "forge_starter_proof",
+)
+
+_REQUIRED_CONTEXT_METADATA = (
+    "context_checksum",
+    "profile_version",
+    "intent_gate_version",
 )
 
 
@@ -1964,6 +1972,15 @@ def _required_fields_for_module(module: str) -> list[str]:
     return []
 
 
+def _missing_context_metadata(payload: dict[str, Any]) -> list[str]:
+    missing: list[str] = []
+    for key in _REQUIRED_CONTEXT_METADATA:
+        value = str(payload.get(key, "")).strip()
+        if not value:
+            missing.append(key)
+    return missing
+
+
 def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
     blockers: list[str] = []
     missing: list[str] = []
@@ -1972,16 +1989,7 @@ def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
 
     latest = _latest_evidence_pack(output_root)
     if latest is None:
-        missing.extend(
-            [
-                "release_run_coordinator_state",
-                "tdd_proof_chain_lock",
-                "rollback_manifest",
-                "session_health_state",
-                "council_verdicts",
-                "forge_starter_proof",
-            ]
-        )
+        missing.extend(list(_REQUIRED_EXECUTION_PRIMITIVES))
         blockers.extend(f"missing_execution_primitive: {item}" for item in missing)
         return {
             "status": "error",
@@ -2013,9 +2021,18 @@ def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
         invalid.append("run_id_unresolved")
         blockers.append("invalid_execution_primitive: run_id_unresolved")
 
+    evidence_metadata_missing = _missing_context_metadata(evidence_payload)
+    if evidence_metadata_missing:
+        invalid.append("release_evidence_pack:missing_context_metadata")
+        blockers.append(
+            "invalid_execution_primitive: release_evidence_pack: "
+            f"missing_context_metadata={','.join(sorted(evidence_metadata_missing))}"
+        )
+
     checks: list[tuple[str, str, str]] = [
         ("release_run_coordinator_state", "release_run_coordinator", "ReleaseRunCoordinatorState"),
         ("rollback_manifest", "rollback_manifest", "RollbackManifest"),
+        ("intent_gate_state", "intent_gate", "IntentGateDecision"),
         ("session_health_state", "session_health", "SessionHealth"),
         ("council_verdicts", "council_verdicts", "CouncilVerdicts"),
     ]
@@ -2038,6 +2055,43 @@ def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
             blockers.append(
                 f"invalid_execution_primitive: {token}: missing_fields={','.join(sorted(missing_fields))}"
             )
+        if token in {"intent_gate_state", "session_health_state", "council_verdicts"}:
+            metadata_missing = _missing_context_metadata(matched_payload)
+            if metadata_missing:
+                invalid.append(f"{token}:missing_context_metadata")
+                blockers.append(
+                    f"invalid_execution_primitive: {token}: "
+                    f"missing_context_metadata={','.join(sorted(metadata_missing))}"
+                )
+
+    profile_path = output_root / ".omg" / "state" / "profile.yaml"
+    if not profile_path.exists():
+        missing.append("profile_digest")
+        blockers.append("missing_execution_primitive: profile_digest")
+    else:
+        evidence_paths["profile_digest"] = str(profile_path.relative_to(output_root)).replace("\\", "/")
+        try:
+            profile_payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+        except Exception:
+            profile_payload = None
+        profile_version = ""
+        if isinstance(profile_payload, dict):
+            profile_version = str(
+                profile_payload.get("profile_version")
+                or profile_payload.get("version")
+                or ""
+            ).strip()
+            if not profile_version:
+                provenance = profile_payload.get("profile_provenance")
+                if isinstance(provenance, dict):
+                    profile_version = str(
+                        provenance.get("checksum")
+                        or provenance.get("version")
+                        or ""
+                    ).strip()
+        if not profile_version:
+            invalid.append("profile_digest:missing_profile_version")
+            blockers.append("invalid_execution_primitive: profile_digest: missing_profile_version")
 
     lock_path, lock_payload = _find_test_intent_lock(output_root=output_root, run_id=run_id, evidence_payload=evidence_payload)
     if lock_path is None or lock_payload is None:
@@ -2063,6 +2117,13 @@ def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
         if forge_payload.get("proof_backed") is not True:
             invalid.append("forge_starter_proof:not_proof_backed")
             blockers.append("invalid_execution_primitive: forge_starter_proof: proof_backed_false")
+        forge_metadata_missing = _missing_context_metadata(forge_payload)
+        if forge_metadata_missing:
+            invalid.append("forge_starter_proof:missing_context_metadata")
+            blockers.append(
+                "invalid_execution_primitive: forge_starter_proof: "
+                f"missing_context_metadata={','.join(sorted(forge_metadata_missing))}"
+            )
 
     return {
         "status": "ok" if not blockers else "error",

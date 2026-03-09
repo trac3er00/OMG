@@ -50,6 +50,7 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
     session_health_path = output_root / ".omg" / "state" / "session_health" / "run-1.json"
     council_verdicts_path = output_root / ".omg" / "state" / "council_verdicts" / "run-1.json"
     intent_gate_path = output_root / ".omg" / "state" / "intent_gate" / "run-1.json"
+    profile_path = output_root / ".omg" / "state" / "profile.yaml"
     tracebank_path = output_root / ".omg" / "tracebank" / "events.jsonl"
 
     _write_text(
@@ -155,6 +156,26 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
                         "artifact_path": ".omg/evidence/waiver-tests-lock-1.json",
                         "reason": "approved release fixture",
                     },
+                },
+                "intent_gate_state": {
+                    "path": ".omg/state/intent_gate/run-1.json",
+                    "run_id": run_id,
+                },
+                "profile_digest": {
+                    "path": ".omg/state/profile.yaml",
+                    "profile_version": profile_version,
+                },
+                "session_health_state": {
+                    "path": ".omg/state/session_health/run-1.json",
+                    "run_id": run_id,
+                },
+                "council_verdicts": {
+                    "path": ".omg/state/council_verdicts/run-1.json",
+                    "run_id": run_id,
+                },
+                "forge_starter_proof": {
+                    "path": ".omg/evidence/forge-specialists-run-1.json",
+                    "run_id": run_id,
                 },
             },
     )
@@ -268,6 +289,23 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "profile_version": profile_version,
             "updated_at": "2026-03-07T00:00:00Z",
         },
+    )
+    _write_text(
+        profile_path,
+        """profile_version: profile-v1
+preferences:
+  architecture_requests:
+    - release_readiness
+  constraints:
+    release_mode: dual
+user_vector:
+  tags:
+    - proof
+    - readiness
+  summary: deterministic fixture profile digest
+profile_provenance:
+  checksum: profile-v1
+""",
     )
     tracebank_path.parent.mkdir(parents=True, exist_ok=True)
     tracebank_path.write_text(
