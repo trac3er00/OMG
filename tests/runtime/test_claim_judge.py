@@ -490,3 +490,50 @@ def test_profile_digest_hints_do_not_override_evidence_based_failures(tmp_path: 
     assert result["verdict"] == "fail"
     assert result["results"][0]["verdict"] == "fail"
     assert result["advisory_context"]["profile_digest"]["profile_version"] == "profile-v-strict"
+
+
+def test_claim_judge_docs_only_profile_allows_artifact_light_claims() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "docs_update",
+            "subject": "proof docs",
+            "artifacts": [],
+            "trace_ids": ["trace-docs-1"],
+            "evidence_profile": "docs-only",
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert result["reasons"] == []
+
+
+def test_claim_judge_release_profile_still_blocks_failed_security_scans() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "release_ready",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+            "evidence_profile": "release",
+            "security_scans": [{"tool": "security-check", "status": "error"}],
+        }
+    )
+
+    assert result["verdict"] == "block"
+    assert any(reason["code"] == "security_scan_failed" for reason in result["reasons"])
+
+
+def test_claim_judge_missing_or_empty_evidence_profile_fails_closed() -> None:
+    for profile in (None, ""):
+        payload = {
+            "claim_type": "docs_update",
+            "subject": "proof docs",
+            "artifacts": [],
+            "trace_ids": ["trace-docs-1"],
+        }
+        if profile is not None:
+            payload["evidence_profile"] = profile
+
+        result = judge_claim(payload)
+        assert result["verdict"] == "fail"
+        assert any(reason["code"] == "missing_artifacts" for reason in result["reasons"])

@@ -8,6 +8,7 @@ from typing import Any
 from runtime import artifact_parsers
 from runtime.context_engine import load_profile_digest
 from runtime.evidence_query import get_evidence_pack
+from runtime.evidence_requirements import FULL_REQUIREMENTS, requirements_for_profile
 
 
 def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, Any]:
@@ -29,11 +30,13 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             context_checksum = ""
             profile_version = ""
             intent_gate_version = ""
+            evidence_profile = ""
             if isinstance(evidence_pack, dict):
                 trace_ids = _as_non_empty_str_list(evidence_pack.get("trace_ids"))
                 context_checksum = str(evidence_pack.get("context_checksum", "")).strip()
                 profile_version = str(evidence_pack.get("profile_version", "")).strip()
                 intent_gate_version = str(evidence_pack.get("intent_gate_version", "")).strip()
+                evidence_profile = str(evidence_pack.get("evidence_profile", "")).strip()
             resolved_claim = {
                 **claim,
                 "artifacts": [f".omg/evidence/{run_id}.json"],
@@ -41,6 +44,7 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
                 "context_checksum": context_checksum,
                 "profile_version": profile_version,
                 "intent_gate_version": intent_gate_version,
+                "evidence_profile": evidence_profile,
             }
 
         result = judge_claim(resolved_claim)
@@ -93,12 +97,15 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
     trace_ids = _as_non_empty_str_list(normalized_claim.get("trace_ids"))
     security_scans = normalized_claim.get("security_scans")
     browser_evidence = normalized_claim.get("browser_evidence")
+    evidence_profile = str(normalized_claim.get("evidence_profile", "")).strip()
+    evidence_requirements = requirements_for_profile(evidence_profile)
+    requirement_set = {str(item).strip() for item in evidence_requirements if str(item).strip()}
     causal_chain = _as_dict(normalized_claim.get("causal_chain"))
 
     reasons: list[dict[str, Any]] = []
     advisories: list[str] = []
 
-    if not artifacts:
+    if "tests" in requirement_set and not artifacts:
         reasons.append(
             {
                 "code": "missing_artifacts",
@@ -107,7 +114,7 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    if not trace_ids:
+    if "trace_link" in requirement_set and not trace_ids:
         reasons.append(
             {
                 "code": "missing_trace_ids",
@@ -116,7 +123,7 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    if _has_failed_scan(security_scans):
+    if "security_scan" in requirement_set and _has_failed_scan(security_scans):
         reasons.append(
             {
                 "code": "security_scan_failed",
@@ -125,7 +132,7 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    if _has_failed_scan(browser_evidence):
+    if requirement_set == set(FULL_REQUIREMENTS) and _has_failed_scan(browser_evidence):
         reasons.append(
             {
                 "code": "browser_evidence_failed",
@@ -192,6 +199,8 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             "browser_evidence": browser_evidence if isinstance(browser_evidence, list) else [],
             "causal_chain": causal_chain,
             "advisories": advisories,
+            "evidence_profile": evidence_profile,
+            "evidence_requirements": list(evidence_requirements),
         },
     }
 
@@ -236,6 +245,7 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
         "security_scans": security_scans,
         "browser_evidence": browser_evidence,
         "causal_chain": causal_chain,
+        "evidence_profile": str(claim.get("evidence_profile", evidence.get("evidence_profile", ""))).strip(),
     }
 
 

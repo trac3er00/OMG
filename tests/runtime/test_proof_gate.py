@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from runtime.evidence_requirements import FULL_REQUIREMENTS
 from runtime.proof_gate import evaluate_proof_gate
 
 
@@ -365,3 +366,64 @@ def test_forge_proof_gate_fails_without_evidence() -> None:
 
     assert result["verdict"] == "fail"
     assert any("missing" in b for b in result["blockers"])
+
+
+def test_proof_gate_docs_only_profile_does_not_require_release_artifacts() -> None:
+    result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "docs_update",
+                    "artifacts": ["docs/proof.md"],
+                    "trace_ids": ["trace-docs-1"],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-docs-1"},
+            "evidence_profile": "docs-only",
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert "proof_gate_missing_artifact_sarif" not in result["blockers"]
+    assert "proof_gate_missing_artifact_browser_trace" not in result["blockers"]
+
+
+def test_proof_gate_release_profile_requires_full_artifact_set() -> None:
+    result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "release_ready",
+                    "artifacts": ["junit.xml", "coverage.xml"],
+                    "trace_ids": ["trace-release-1"],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-release-1"},
+            "evidence_profile": "release",
+        }
+    )
+
+    assert result["verdict"] == "fail"
+    assert "proof_gate_missing_artifact_sarif" in result["blockers"]
+    assert "proof_gate_missing_artifact_browser_trace" in result["blockers"]
+
+
+def test_proof_gate_missing_or_empty_evidence_profile_fails_closed_to_full_requirements() -> None:
+    for profile in (None, ""):
+        payload: dict[str, object] = {
+            "claims": [
+                {
+                    "claim_type": "docs_update",
+                    "artifacts": ["docs/proof.md"],
+                    "trace_ids": ["trace-default-1"],
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-default-1"},
+        }
+        if profile is not None:
+            payload["evidence_profile"] = profile
+
+        result = evaluate_proof_gate(payload)
+        assert result["verdict"] == "fail"
+        assert "proof_gate_missing_artifact_junit" in result["blockers"]
+        assert result["evidence_summary"]["evidence_requirements"] == list(FULL_REQUIREMENTS)

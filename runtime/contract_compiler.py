@@ -20,6 +20,7 @@ import yaml
 
 from runtime.asset_loader import resolve_asset, resolve_assets
 from runtime.proof_chain import _normalize_evidence_pack
+from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
@@ -1848,7 +1849,7 @@ def build_release_readiness(
     checks["proof_chain"] = proof_chain_check
     blockers.extend(proof_chain_check.get("blockers", []))
 
-    execution_primitives = _check_execution_primitives(output_root=output)
+    execution_primitives = _check_execution_primitives(output_root=output, evidence_profile="release")
     checks["execution_primitives"] = execution_primitives
     blockers.extend(execution_primitives.get("blockers", []))
 
@@ -2000,11 +2001,13 @@ def _missing_context_metadata(payload: dict[str, Any]) -> list[str]:
     return missing
 
 
-def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
+def _check_execution_primitives(*, output_root: Path, evidence_profile: str | None = None) -> dict[str, Any]:
     blockers: list[str] = []
     missing: list[str] = []
     invalid: list[str] = []
     evidence_paths: dict[str, str] = {key: "" for key in _REQUIRED_EXECUTION_PRIMITIVES}
+    resolved_profile = (evidence_profile or "").strip()
+    required_evidence_requirements = requirements_for_profile(resolved_profile)
 
     latest = _latest_evidence_pack(output_root)
     if latest is None:
@@ -2013,6 +2016,8 @@ def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
         return {
             "status": "error",
             "run_id": "",
+            "evidence_profile": resolved_profile,
+            "required_evidence_requirements": list(required_evidence_requirements),
             "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
             "missing": missing,
             "invalid": invalid,
@@ -2028,12 +2033,18 @@ def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
         return {
             "status": "error",
             "run_id": "",
+            "evidence_profile": resolved_profile,
+            "required_evidence_requirements": list(required_evidence_requirements),
             "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
             "missing": list(_REQUIRED_EXECUTION_PRIMITIVES),
             "invalid": invalid,
             "evidence_paths": evidence_paths,
             "blockers": blockers,
         }
+
+    if not resolved_profile:
+        resolved_profile = str(evidence_payload.get("evidence_profile", "")).strip()
+        required_evidence_requirements = requirements_for_profile(resolved_profile)
 
     run_id = str(evidence_payload.get("run_id", "")).strip()
     if not run_id:
@@ -2147,6 +2158,8 @@ def _check_execution_primitives(*, output_root: Path) -> dict[str, Any]:
     return {
         "status": "ok" if not blockers else "error",
         "run_id": run_id,
+        "evidence_profile": resolved_profile,
+        "required_evidence_requirements": list(required_evidence_requirements),
         "evidence_pack": str(evidence_path.relative_to(output_root)).replace("\\", "/"),
         "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
         "missing": sorted(set(missing)),

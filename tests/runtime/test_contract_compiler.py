@@ -8,6 +8,7 @@ import shutil
 import pytest
 import yaml
 from runtime.adoption import CANONICAL_VERSION
+from runtime.evidence_requirements import requirements_for_profile
 from runtime import contract_compiler as contract_compiler_module
 from runtime.contract_compiler import (
     DEFAULT_REQUIRED_BUNDLES,
@@ -1317,6 +1318,42 @@ def test_release_readiness_blocks_missing_proof_gate_claims(tmp_path: Path, monk
     assert readiness["status"] == "error"
     assert readiness["checks"]["proof_chain"]["proof_gate"]["verdict"] == "fail"
     assert any("proof_gate_blocked" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_execution_primitives_pin_release_requirements(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    execution_primitives = readiness["checks"]["execution_primitives"]
+    assert execution_primitives["evidence_profile"] == "release"
+    assert execution_primitives["required_evidence_requirements"] == requirements_for_profile("release")
+
+
+def test_execution_primitives_missing_profile_fails_closed_to_full_requirements(tmp_path: Path) -> None:
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    payload_path = tmp_path / ".omg" / "evidence" / "run-1.json"
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    payload.pop("evidence_profile", None)
+    payload_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = contract_compiler_module._check_execution_primitives(output_root=tmp_path)
+
+    assert result["required_evidence_requirements"] == requirements_for_profile(None)
+    assert any(item.startswith("missing_execution_primitive:") for item in result["blockers"])
 
 
 def test_release_readiness_dual_bundle_promotion_parity_happy_path(

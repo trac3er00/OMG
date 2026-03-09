@@ -19,8 +19,13 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     _ = path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def _evidence_pack(run_id: str, trace_ids: list[str] | None = None) -> dict[str, object]:
-    return {
+def _evidence_pack(
+    run_id: str,
+    trace_ids: list[str] | None = None,
+    *,
+    evidence_profile: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
         "schema": "EvidencePack",
         "schema_version": 2,
         "run_id": run_id,
@@ -35,6 +40,9 @@ def _evidence_pack(run_id: str, trace_ids: list[str] | None = None) -> dict[str,
         "environment": {},
         "artifacts": [],
     }
+    if evidence_profile is not None:
+        payload["evidence_profile"] = evidence_profile
+    return payload
 
 
 def test_get_evidence_pack_returns_pack_for_known_run_id(tmp_path: Path) -> None:
@@ -220,3 +228,30 @@ def test_query_evidence_enriches_jsonl_rows_with_context_metadata(tmp_path: Path
     assert rows[0]["profile_version"] == "profile-v6"
     assert rows[0]["intent_gate_version"] == "1.0.7"
     assert isinstance(rows[0]["context_checksum"], str)
+
+
+def test_get_evidence_pack_enriches_docs_only_requirements(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "evidence" / "run-docs.json",
+        _evidence_pack("run-docs", ["trace-docs"], evidence_profile="docs-only"),
+    )
+
+    pack = get_evidence_pack(str(tmp_path), "run-docs")
+
+    assert pack is not None
+    assert pack["evidence_profile"] == "docs-only"
+    assert pack["evidence_requirements"] == ["lsp_clean", "trace_link"]
+
+
+def test_get_evidence_pack_missing_profile_fails_closed_to_full_requirements(tmp_path: Path) -> None:
+    _write_json(tmp_path / ".omg" / "evidence" / "run-default.json", _evidence_pack("run-default", ["trace-1"]))
+
+    pack = get_evidence_pack(str(tmp_path), "run-default")
+
+    assert pack is not None
+    assert "evidence_profile" in pack
+    assert pack["evidence_profile"] == ""
+    requirements = pack["evidence_requirements"]
+    assert isinstance(requirements, list)
+    assert "security_scan" in requirements
+    assert "sbom" in requirements

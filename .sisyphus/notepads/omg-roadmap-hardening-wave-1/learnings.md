@@ -62,3 +62,17 @@
 - `docs-only` intentionally carries fewer requirements than `code-change`; `release` and `security-audit` map to full requirement set.
 - Updated downstream consumers (`runtime/preflight.py`, `runtime/security_check.py`) to derive `evidence_requirements` from the shared resolver while preserving existing routing behavior.
 - Added TDD coverage in `tests/runtime/test_delta_classifier.py` and extended `tests/runtime/test_preflight.py` + `tests/runtime/test_security_check.py` for additive + fail-closed requirements behavior.
+
+## [2026-03-09] Task 5 COMPLETE — profile-aware proof/claim/query/release gates
+-  now resolves required artifact checks from  and only enforces SARIF/browser artifacts on full profiles (/ or fail-closed default).
+-  now applies shared requirement registry gates (, , ) and treats missing/empty  as full requirements (fail-closed).
+-  enrichment now carries  plus computed  while preserving / metadata.
+-  release-readiness execution primitives now pin  and expose machine-readable  in check output.
+- Added coverage across proof/claim/query/compiler tests for  light path,  full path, and missing/empty  fail-closed behavior.
+
+## [2026-03-09] Task 5 COMPLETE - profile-aware proof/claim/query/release gates
+- runtime/proof_gate.py now resolves required artifact checks from requirements_for_profile(evidence_profile) and only enforces SARIF/browser artifacts on full profiles (release/security-audit or fail-closed default).
+- runtime/claim_judge.py now applies shared requirement registry gates (tests, trace_link, security_scan) and treats missing/empty evidence_profile as full requirements (fail-closed).
+- runtime/evidence_query.py enrichment now carries evidence_profile plus computed evidence_requirements while preserving profile_version/intent_gate_version metadata.
+- runtime/contract_compiler.py release-readiness execution primitives now pin evidence_profile=release and expose machine-readable required_evidence_requirements in check output.
+- Added coverage across proof/claim/query/compiler tests for docs-only light path, release full path, and missing/empty evidence_profile fail-closed behavior.
