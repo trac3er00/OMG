@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.memory_store import MemoryStore, MemoryStoreFullError
+from runtime.memory_store import MemoryStore, MemoryStoreFullError, project_preference_signals
 
 
 # ---------------------------------------------------------------------------
@@ -359,3 +359,96 @@ class TestAtomicWrite:
             call_args = mock_replace.call_args[0]
             assert str(call_args[0]).endswith(".tmp")
             assert str(call_args[1]) == path
+
+
+class TestProjectPreferenceSignals:
+    def test_returns_only_project_scoped_signals_and_bounds_results(self, tmp_path: Path) -> None:
+        store_path = tmp_path / "shared" / "store.json"
+        store = MemoryStore(store_path=str(store_path))
+        project_a = str(tmp_path / "project-a")
+        project_b = str(tmp_path / "project-b")
+
+        for idx in range(20):
+            payload = {
+                "field": "preferences.architecture_requests",
+                "value": f"arch-{idx}",
+                "source": "inferred_observation",
+                "confidence": 0.9,
+                "project_scope": project_a,
+                "run_id": f"run-{idx}",
+            }
+            store.add(
+                key="pref-signal",
+                content=json.dumps(payload),
+                source_cli="claude",
+                tags=[f"project_scope:{project_a}"],
+            )
+
+        store.add(
+            key="pref-signal",
+            content=json.dumps(
+                {
+                    "field": "preferences.architecture_requests",
+                    "value": "wrong-project",
+                    "source": "explicit_user",
+                    "confidence": 1.0,
+                    "project_scope": project_b,
+                    "run_id": "run-other",
+                }
+            ),
+            source_cli="claude",
+            tags=[f"project_scope:{project_b}"],
+        )
+
+        signals = project_preference_signals(project_a, store_path=str(store_path), max_signals=50)
+
+        assert len(signals) == 12
+        assert all(signal["project_scope"] == os.path.realpath(project_a) for signal in signals)
+        assert all(signal["value"] != "wrong-project" for signal in signals)
+
+    def test_ignores_non_whitelisted_and_non_json_payloads(self, tmp_path: Path) -> None:
+        store_path = tmp_path / "shared" / "store.json"
+        store = MemoryStore(store_path=str(store_path))
+        project_dir = str(tmp_path / "project")
+
+        store.add(
+            key="pref-signal",
+            content="not-json",
+            source_cli="claude",
+            tags=[f"project_scope:{project_dir}"],
+        )
+        store.add(
+            key="pref-signal",
+            content=json.dumps(
+                {
+                    "field": "preferences.random_blob",
+                    "value": "should-not-pass",
+                    "source": "explicit_user",
+                    "confidence": 1.0,
+                    "project_scope": project_dir,
+                }
+            ),
+            source_cli="claude",
+            tags=[f"project_scope:{project_dir}"],
+        )
+        store.add(
+            key="pref-signal",
+            content=json.dumps(
+                {
+                    "field": "preferences.constraints.api_cost",
+                    "value": "  minimize   spend  ",
+                    "source": "explicit_user",
+                    "confidence": 2.0,
+                    "project_scope": project_dir,
+                }
+            ),
+            source_cli="claude",
+            tags=[f"project_scope:{project_dir}"],
+        )
+
+        signals = project_preference_signals(project_dir, store_path=str(store_path), max_signals=10)
+
+        assert len(signals) == 1
+        assert signals[0]["field"] == "preferences.constraints.api_cost"
+        assert signals[0]["value"] == "minimize spend"
+        assert signals[0]["confidence"] == 1.0
