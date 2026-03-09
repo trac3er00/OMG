@@ -622,3 +622,101 @@ def test_hud_displays_mode_from_mode_state_file(tmp_path: Path):
     out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
     assert out.returncode == 0
     assert "mode:focused" in out.stdout.lower()
+
+
+# --- Task 10: HUD progress step/total rendering ---
+
+
+def test_hud_renders_verification_progress_step_total(tmp_path: Path):
+    """HUD renders step/total from verification progress state."""
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+
+    verification_state = {
+        "schema": "BackgroundVerificationState",
+        "schema_version": 2,
+        "run_id": "test-progress-1",
+        "status": "running",
+        "blockers": [],
+        "evidence_links": [],
+        "progress": {"step": 3, "total": 7, "current_stage": "lsp_clean"},
+        "updated_at": "2026-03-09T12:00:00Z",
+    }
+    (state_dir / "background-verification.json").write_text(
+        json.dumps(verification_state), encoding="utf-8"
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "3/7" in lowered, f"Expected step/total '3/7' in HUD output: {out.stdout}"
+    assert "verification running" in lowered
+
+
+def test_hud_renders_verification_progress_with_current_stage(tmp_path: Path):
+    """HUD renders current_stage name when available in progress."""
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+
+    verification_state = {
+        "schema": "BackgroundVerificationState",
+        "schema_version": 2,
+        "run_id": "test-progress-2",
+        "status": "running",
+        "blockers": [],
+        "evidence_links": [],
+        "progress": {"step": 5, "total": 9, "current_stage": "security_scan"},
+        "updated_at": "2026-03-09T12:00:00Z",
+    }
+    (state_dir / "background-verification.json").write_text(
+        json.dumps(verification_state), encoding="utf-8"
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "5/9" in lowered
+    assert "security_scan" in lowered
+
+
+def test_hud_renders_completed_verification_without_progress(tmp_path: Path):
+    """HUD renders ok status without step/total noise when complete."""
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    state_dir.mkdir(parents=True)
+
+    verification_state = {
+        "schema": "BackgroundVerificationState",
+        "schema_version": 2,
+        "run_id": "test-done",
+        "status": "ok",
+        "blockers": [],
+        "evidence_links": [".omg/evidence/final.json"],
+        "progress": {"step": 7, "total": 7},
+        "updated_at": "2026-03-09T12:00:00Z",
+    }
+    (state_dir / "background-verification.json").write_text(
+        json.dumps(verification_state), encoding="utf-8"
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "verification ok" in lowered
