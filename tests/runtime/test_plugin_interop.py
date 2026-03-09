@@ -10,8 +10,12 @@ from runtime.plugin_interop import (
     INTEROP_RECORD_SCHEMA,
     ConflictCode,
     ConflictSeverity,
+    PluginAllowlistEntry,
     PluginInteropRecord,
     discover_omg_plugin_state,
+    load_plugin_allowlist,
+    save_plugin_allowlist,
+    validate_plugin_allowlist_entry,
 )
 
 
@@ -171,3 +175,103 @@ def test_discovery_payload_has_elapsed_ms(tmp_path: Path) -> None:
     payload = discover_omg_plugin_state(str(tmp_path))
 
     assert payload.elapsed_ms >= 0
+
+
+def test_allowlist_validate_valid_entry() -> None:
+    entry: dict[str, object] = {
+        "source": "mcp:filesystem",
+        "host": "claude",
+        "resource_type": "mcp_server",
+        "reason": "trusted local plugin",
+    }
+
+    validate_plugin_allowlist_entry(entry)
+
+
+def test_allowlist_validate_rejects_wildcard_source() -> None:
+    entry: dict[str, object] = {
+        "source": "*",
+        "host": "claude",
+        "resource_type": "mcp_server",
+        "reason": "too broad",
+    }
+
+    with pytest.raises(ValueError, match="source"):
+        validate_plugin_allowlist_entry(entry)
+
+
+def test_allowlist_validate_rejects_wildcard_host() -> None:
+    entry: dict[str, object] = {
+        "source": "mcp:filesystem",
+        "host": "*",
+        "resource_type": "mcp_server",
+        "reason": "too broad",
+    }
+
+    with pytest.raises(ValueError, match="host"):
+        validate_plugin_allowlist_entry(entry)
+
+
+def test_allowlist_validate_rejects_invalid_resource_type() -> None:
+    entry: dict[str, object] = {
+        "source": "mcp:filesystem",
+        "host": "claude",
+        "resource_type": "unknown",
+        "reason": "bad type",
+    }
+
+    with pytest.raises(ValueError, match="resource_type"):
+        validate_plugin_allowlist_entry(entry)
+
+
+def test_allowlist_load_missing_file(tmp_path: Path) -> None:
+    loaded = load_plugin_allowlist(str(tmp_path))
+
+    assert loaded == []
+
+
+def test_allowlist_round_trip(tmp_path: Path) -> None:
+    initial = [
+        PluginAllowlistEntry(
+            source="skill:omg/control-plane",
+            host="codex",
+            resource_type="skill",
+            reason="core control-plane skill",
+            scope="project",
+            timestamp="2026-03-09T00:00:00Z",
+            approver="user",
+        ),
+        PluginAllowlistEntry(
+            source="mcp:filesystem",
+            host="claude",
+            resource_type="mcp_server",
+            reason="trusted local plugin",
+            scope="global",
+            timestamp="2026-03-09T00:00:01Z",
+            approver="maintainer",
+        ),
+    ]
+
+    save_plugin_allowlist(initial, str(tmp_path))
+    loaded = load_plugin_allowlist(str(tmp_path))
+
+    assert loaded == [
+        PluginAllowlistEntry(
+            source="mcp:filesystem",
+            host="claude",
+            resource_type="mcp_server",
+            reason="trusted local plugin",
+            scope="global",
+            timestamp="2026-03-09T00:00:01Z",
+            approver="maintainer",
+        ),
+        PluginAllowlistEntry(
+            source="skill:omg/control-plane",
+            host="codex",
+            resource_type="skill",
+            reason="core control-plane skill",
+            scope="project",
+            timestamp="2026-03-09T00:00:00Z",
+            approver="user",
+        ),
+    ]

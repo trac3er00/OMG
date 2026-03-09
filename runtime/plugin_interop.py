@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import json
+import re
 import time
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import Enum
 from collections.abc import Mapping
 from pathlib import Path
-from typing import cast
+from typing import Callable, cast
+
+import yaml
+
+from runtime import mcp_config_writers
 
 
 class Layer(str, Enum):
@@ -41,6 +47,11 @@ class ConflictSeverity(str, Enum):
     BLOCKER = "blocker"
     WARNING = "warning"
     INFO = "info"
+
+
+ALLOWLIST_PATH = Path(".omg/state/plugins-allowlist.yaml")
+ALLOWLIST_RESOURCE_TYPES = {"mcp_server", "skill", "plugin"}
+atomic_write_text = cast(Callable[[Path, str], None], getattr(mcp_config_writers, "_atomic_write_text"))
 
 
 CONFLICT_SEVERITY_MAP: dict[ConflictCode, ConflictSeverity] = {
@@ -119,6 +130,100 @@ class PluginInteropPayload:
     records: list[PluginInteropRecord]
     elapsed_ms: float
     root: str
+
+
+@dataclass(slots=True)
+class PluginAllowlistEntry:
+    source: str
+    host: str
+    resource_type: str
+    reason: str
+    scope: str = "project"
+    timestamp: str = ""
+    approver: str = "user"
+
+
+def validate_plugin_allowlist_entry(entry: dict[str, object]) -> None:
+    source = entry.get("source")
+    if not isinstance(source, str) or not source.strip():
+        raise ValueError("source is required")
+    if "*" in source:
+        raise ValueError("source wildcard is not allowed")
+
+    host = entry.get("host")
+    if not isinstance(host, str) or not host.strip():
+        raise ValueError("host is required")
+    if "*" in host:
+        raise ValueError("host wildcard is not allowed")
+
+    resource_type = entry.get("resource_type")
+    if not isinstance(resource_type, str) or resource_type not in ALLOWLIST_RESOURCE_TYPES:
+        raise ValueError("resource_type must be one of mcp_server, skill, plugin")
+
+    reason = entry.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("reason is required")
+
+
+def load_plugin_allowlist(root: str | None = None) -> list[PluginAllowlistEntry]:
+    root_path = Path(root or ".").resolve()
+    allowlist_path = root_path / ALLOWLIST_PATH
+    if not allowlist_path.exists():
+        return []
+
+    try:
+        raw = cast(object, yaml.safe_load(allowlist_path.read_text(encoding="utf-8")))
+    except OSError:
+        return []
+
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("plugins allowlist must be a YAML list")
+
+    entries: list[PluginAllowlistEntry] = []
+    for item in cast(list[object], raw):
+        if not isinstance(item, dict):
+            raise ValueError("plugins allowlist entries must be objects")
+
+        entry_obj = cast(dict[str, object], item)
+        validate_plugin_allowlist_entry(entry_obj)
+        entries.append(
+            PluginAllowlistEntry(
+                source=cast(str, entry_obj["source"]),
+                host=cast(str, entry_obj["host"]),
+                resource_type=cast(str, entry_obj["resource_type"]),
+                reason=cast(str, entry_obj["reason"]),
+                scope=cast(str, entry_obj.get("scope", "project")),
+                timestamp=cast(str, entry_obj.get("timestamp", "")),
+                approver=cast(str, entry_obj.get("approver", "user")),
+            )
+        )
+
+    return entries
+
+
+def save_plugin_allowlist(entries: list[PluginAllowlistEntry], root: str | None = None) -> None:
+    root_path = Path(root or ".").resolve()
+    allowlist_path = root_path / ALLOWLIST_PATH
+
+    payload: list[dict[str, object]] = []
+    for entry in sorted(entries, key=lambda candidate: (candidate.source, candidate.host)):
+        timestamp = entry.timestamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        entry_dict: dict[str, object] = {
+            "source": entry.source,
+            "host": entry.host,
+            "resource_type": entry.resource_type,
+            "reason": entry.reason,
+            "scope": entry.scope,
+            "timestamp": timestamp,
+            "approver": entry.approver,
+        }
+        validate_plugin_allowlist_entry(entry_dict)
+        payload.append(entry_dict)
+
+    serialized = cast(str, yaml.dump(payload, sort_keys=False))
+    atomic_write_text(allowlist_path, serialized)
 
 
 INTEROP_RECORD_SCHEMA: dict[str, object] = {
@@ -212,6 +317,29 @@ def discover_omg_plugin_state(root: str | None = None) -> PluginInteropPayload:
     return PluginInteropPayload(records=records, elapsed_ms=elapsed_ms, root=str(root_path))
 
 
+def discover_host_plugin_state(root: str | None = None) -> PluginInteropPayload:
+    started = time.monotonic()
+    root_path = Path(root or ".").resolve()
+    home_path = Path.home()
+    records: list[PluginInteropRecord] = []
+
+    records.extend(_records_from_codex_config(home_path / ".codex" / "config.toml"))
+    records.extend(_records_from_host_json_config(home_path / ".gemini" / "settings.json", host="gemini", mcp_key="mcpServers"))
+    records.extend(_records_from_host_json_config(home_path / ".kimi" / "mcp.json", host="kimi", mcp_key="mcpServers"))
+    records.extend(
+        _records_from_host_json_config(
+            home_path / ".config" / "opencode" / "opencode.json",
+            host="opencode",
+            mcp_key="mcp",
+        )
+    )
+    records.extend(_records_from_host_json_config(root_path / "opencode.json", host="opencode", mcp_key="mcp"))
+    records.extend(_records_from_opencode_plugin_dir(root_path / ".opencode" / "plugins"))
+
+    elapsed_ms = (time.monotonic() - started) * 1000.0
+    return PluginInteropPayload(records=records, elapsed_ms=elapsed_ms, root=str(root_path))
+
+
 def _append_plugin_manifest_record(
     records: list[PluginInteropRecord],
     manifest_path: Path,
@@ -280,6 +408,146 @@ def _records_from_skill_registry(registry_path: Path) -> list[PluginInteropRecor
     ]
 
 
+def _records_from_codex_config(config_path: Path) -> list[PluginInteropRecord]:
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+
+    discovered: dict[str, bool] = {}
+    active_section: str | None = None
+    section_server: str | None = None
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "#" in line:
+            line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+
+        if line.startswith("[") and line.endswith("]"):
+            active_section = line[1:-1].strip()
+            section_server = _codex_server_from_section(active_section)
+            if section_server is not None:
+                _ = discovered.setdefault(section_server, True)
+            continue
+
+        if active_section == "mcp_servers" and "=" in line:
+            key, value = line.split("=", 1)
+            candidate = _unquote_toml_key(key.strip())
+            if candidate:
+                _ = discovered.setdefault(candidate, True)
+                inline_enabled = _extract_enabled_from_toml_value(value)
+                if inline_enabled is not None:
+                    discovered[candidate] = inline_enabled
+            continue
+
+        if section_server is not None and "=" in line:
+            key, value = line.split("=", 1)
+            if key.strip() == "enabled":
+                enabled = _parse_toml_bool(value)
+                if enabled is not None:
+                    discovered[section_server] = enabled
+
+    return [
+        PluginInteropRecord(
+            plugin_id=server_name,
+            layer=Layer.LIVE.value,
+            host="codex",
+            source=Source.HOST_CONFIG.value,
+            mcp_servers=[server_name],
+            enabled=enabled,
+            source_path=str(config_path),
+        )
+        for server_name, enabled in discovered.items()
+    ]
+
+
+def _records_from_host_json_config(config_path: Path, *, host: str, mcp_key: str) -> list[PluginInteropRecord]:
+    payload = _read_json_dict(config_path)
+    if payload is None:
+        return []
+
+    mcp_obj = payload.get(mcp_key)
+    if not isinstance(mcp_obj, dict):
+        return []
+
+    records: list[PluginInteropRecord] = []
+    for server_name, server_payload in cast(dict[object, object], mcp_obj).items():
+        if not isinstance(server_name, str):
+            continue
+        records.append(
+            PluginInteropRecord(
+                plugin_id=server_name,
+                layer=Layer.LIVE.value,
+                host=host,
+                source=Source.HOST_CONFIG.value,
+                mcp_servers=[server_name],
+                enabled=_extract_enabled_from_json_payload(server_payload),
+                source_path=str(config_path),
+            )
+        )
+    return records
+
+
+def _records_from_opencode_plugin_dir(plugin_dir: Path) -> list[PluginInteropRecord]:
+    try:
+        entries = sorted(plugin_dir.iterdir(), key=lambda item: item.name)
+    except OSError:
+        return []
+
+    return [
+        PluginInteropRecord(
+            plugin_id=entry.name,
+            layer=Layer.DISCOVERED.value,
+            host="opencode",
+            source=Source.PLUGIN_DIR.value,
+            source_path=str(entry),
+        )
+        for entry in entries
+    ]
+
+
+def _codex_server_from_section(section_name: str) -> str | None:
+    if not section_name.startswith("mcp_servers."):
+        return None
+    return _unquote_toml_key(section_name[len("mcp_servers.") :].strip())
+
+
+def _unquote_toml_key(value: str) -> str:
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        return value[1:-1]
+    return value
+
+
+def _parse_toml_bool(value: str) -> bool | None:
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    return None
+
+
+def _extract_enabled_from_toml_value(value: str) -> bool | None:
+    match = re.search(r"\benabled\s*=\s*(true|false)\b", value, flags=re.IGNORECASE)
+    if match is None:
+        return None
+    return match.group(1).lower() == "true"
+
+
+def _extract_enabled_from_json_payload(payload: object) -> bool:
+    if isinstance(payload, bool):
+        return payload
+    if isinstance(payload, dict):
+        enabled = cast(dict[object, object], payload).get("enabled")
+        if isinstance(enabled, bool):
+            return enabled
+    return True
+
+
 def _extract_omg_commands(payload: Mapping[str, object]) -> list[str]:
     commands = payload.get("commands")
     if not isinstance(commands, dict):
@@ -334,13 +602,20 @@ def _read_json_dict(path: Path) -> dict[str, object] | None:
 
 
 __all__ = [
+    "ALLOWLIST_PATH",
+    "ALLOWLIST_RESOURCE_TYPES",
     "CONFLICT_SEVERITY_MAP",
     "INTEROP_RECORD_SCHEMA",
     "ConflictCode",
     "ConflictSeverity",
     "Layer",
+    "PluginAllowlistEntry",
     "PluginInteropPayload",
     "PluginInteropRecord",
     "Source",
+    "discover_host_plugin_state",
     "discover_omg_plugin_state",
+    "load_plugin_allowlist",
+    "save_plugin_allowlist",
+    "validate_plugin_allowlist_entry",
 ]
