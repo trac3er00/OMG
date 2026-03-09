@@ -6,11 +6,16 @@ feature flag gating, and output format correctness.
 import json
 import subprocess
 import os
+import hashlib
+from pathlib import Path
 import pytest
+
+from tests.hooks.helpers import run_hook_json
 
 # Project root for subprocess cwd
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HOOK = "hooks/intentgate-keyword-detector.py"
+PROMPT_ENHANCER_HOOK = "hooks/prompt-enhancer.py"
 
 
 def run_intentgate(message, enabled=True):
@@ -42,6 +47,18 @@ def get_intents(result):
 def intent_names(result):
     """Extract flat list of intent name strings from result."""
     return [i["intent"] for i in get_intents(result)]
+
+
+def run_prompt_enhancer(message, project_dir, run_id=""):
+    env_overrides = {"CLAUDE_PROJECT_DIR": str(project_dir)}
+    if run_id:
+        env_overrides["OMG_RUN_ID"] = run_id
+    result = run_hook_json(
+        PROMPT_ENHANCER_HOOK,
+        {"tool_input": {"user_message": message}},
+        env_overrides=env_overrides,
+    )
+    return result or {}
 
 
 # ═══════════════════════════════════════════════════════════
@@ -309,3 +326,59 @@ class TestOutputFormat:
             check=False,
         )
         assert proc.returncode == 0
+
+
+class TestClarificationArtifact:
+    @pytest.mark.parametrize("message,expected_class", [
+        ("auth, I login to codex", "auth_setup"),
+        ("remember my settings", "preference_memory"),
+        ("setup preferences for my login", "ambiguous_config"),
+    ])
+    def test_ambiguous_prompts_emit_clarification_artifact(self, tmp_path, message, expected_class):
+        run_id = "run-task2-clarify"
+        output = run_prompt_enhancer(message, tmp_path, run_id=run_id)
+        injection = output.get("contextInjection", "")
+        assert "@intent-clarify:" in injection
+
+        artifact_path = Path(tmp_path) / ".omg" / "state" / "intent_gate" / f"{run_id}.json"
+        assert artifact_path.exists(), "intent gate artifact should be persisted"
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+        required_fields = {
+            "schema",
+            "schema_version",
+            "run_id",
+            "intent_class",
+            "confidence",
+            "requires_clarification",
+            "missing_slots",
+            "clarification_prompt",
+            "source_prompt_hash",
+            "updated_at",
+        }
+        assert required_fields.issubset(set(artifact.keys()))
+        assert artifact["run_id"] == run_id
+        assert artifact["intent_class"] == expected_class
+        assert artifact["requires_clarification"] is True
+        assert "\n" not in artifact["clarification_prompt"]
+        assert artifact["source_prompt_hash"] == hashlib.sha256(message.encode("utf-8")).hexdigest()
+
+    def test_specific_implementation_prompt_does_not_emit_clarification(self, tmp_path):
+        run_id = "run-task2-no-clarify"
+        message = "implement codex login token flow with project env credentials"
+        output = run_prompt_enhancer(message, tmp_path, run_id=run_id)
+        injection = output.get("contextInjection", "")
+        assert "@intent-clarify:" not in injection
+
+        artifact_path = Path(tmp_path) / ".omg" / "state" / "intent_gate" / f"{run_id}.json"
+        assert artifact_path.exists(), "artifact should still persist run-scoped state"
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        assert artifact["requires_clarification"] is False
+        assert artifact["clarification_prompt"] == ""
+
+    def test_artifact_run_id_falls_back_to_prompt_hash(self, tmp_path):
+        message = "remember my settings"
+        _ = run_prompt_enhancer(message, tmp_path)
+        expected_run_id = hashlib.sha256(message.encode("utf-8")).hexdigest()[:24]
+        artifact_path = Path(tmp_path) / ".omg" / "state" / "intent_gate" / f"{expected_run_id}.json"
+        assert artifact_path.exists(), "fallback run_id should be stable hash-derived"

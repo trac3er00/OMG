@@ -38,7 +38,7 @@ try:
         get_feature_flag,
         _resolve_project_dir,
         check_performance_budget,
-        PRE_TOOL_INJECT_MAX_MS,
+        PRE_TOOL_INJECT_MAX_MS as pre_tool_inject_max_ms,
     )
 except ImportError:
     import importlib
@@ -48,7 +48,7 @@ except ImportError:
     get_feature_flag = _common.get_feature_flag
     _resolve_project_dir = _common._resolve_project_dir
     check_performance_budget = _common.check_performance_budget
-    PRE_TOOL_INJECT_MAX_MS = _common.PRE_TOOL_INJECT_MAX_MS
+    pre_tool_inject_max_ms = _common.PRE_TOOL_INJECT_MAX_MS
 
 setup_crash_handler("intentgate-keyword-detector", fail_closed=False)
 
@@ -64,6 +64,18 @@ KEYWORD_INTENT_MAP = {
     "search": "INTENT_SEARCH",
     "stop": "INTENT_STOP",
     "crazy": "INTENT_CRAZY",
+    "auth": "INTENT_AUTH_SETUP",
+    "login": "INTENT_AUTH_SETUP",
+    "credentials": "INTENT_AUTH_SETUP",
+    "setup my credentials": "INTENT_AUTH_SETUP",
+    "setup credentials": "INTENT_AUTH_SETUP",
+    "remember my settings": "INTENT_PREFERENCE_MEMORY",
+    "remember settings": "INTENT_PREFERENCE_MEMORY",
+    "preferences": "INTENT_PREFERENCE_MEMORY",
+    "memory style": "INTENT_PREFERENCE_MEMORY",
+    "setup preferences": "INTENT_AMBIGUOUS_CONFIG",
+    "configure preferences": "INTENT_AMBIGUOUS_CONFIG",
+    "remember setup": "INTENT_AMBIGUOUS_CONFIG",
 }
 
 
@@ -179,7 +191,7 @@ if detected_intents:
 # PERFORMANCE BUDGET CHECK
 # ═══════════════════════════════════════════════════════════
 elapsed_ms = (time.time() - start_time) * 1000
-check_performance_budget("intentgate-keyword-detector", elapsed_ms, PRE_TOOL_INJECT_MAX_MS)
+check_performance_budget("intentgate-keyword-detector", elapsed_ms, pre_tool_inject_max_ms)
 
 # ═══════════════════════════════════════════════════════════
 # OUTPUT

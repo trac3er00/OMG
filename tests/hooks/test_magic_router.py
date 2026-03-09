@@ -6,8 +6,6 @@ feature flag gating, fallback behavior, and output schema correctness.
 import json
 import os
 import subprocess
-import tempfile
-import shutil
 import pytest
 
 # Project root for subprocess cwd
@@ -126,6 +124,7 @@ class TestIntentStop:
         """INTENT_STOP preserves confidence from LEADER_HINT."""
         payload = _make_leader_hint([("INTENT_STOP", 0.90, "stop")])
         _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
         assert result["confidence"] == 0.90
 
 
@@ -147,6 +146,7 @@ class TestIntentClarification:
         """INTENT_CLARIFICATION preserves confidence from LEADER_HINT."""
         payload = _make_leader_hint([("INTENT_CLARIFICATION", 0.85, "clarification")])
         _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
         assert result["confidence"] == 0.85
 
     def test_clarification_halts_execution(self, tmp_project):
@@ -259,6 +259,7 @@ class TestOutputSchema:
         """Timestamp is ISO 8601 formatted string."""
         payload = _make_leader_hint([("INTENT_LOOP", 0.95, "ralph")])
         _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
         ts = result["timestamp"]
         assert isinstance(ts, str)
         assert "T" in ts  # ISO 8601 always contains T separator
@@ -267,6 +268,7 @@ class TestOutputSchema:
         """Confidence is a float value."""
         payload = _make_leader_hint([("INTENT_LOOP", 0.85, "ralph")])
         _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
         assert isinstance(result["confidence"], float)
 
     def test_hook_stdout_is_empty_dict(self, tmp_project):
@@ -288,6 +290,7 @@ class TestCompoundIntents:
             ("INTENT_TEST_DRIVEN", 0.85, "tdd"),
         ])
         _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
         assert result["target_agent"] == "prometheus"
         assert result["intent"] == "INTENT_PLAN"
 
@@ -298,8 +301,25 @@ class TestCompoundIntents:
             ("INTENT_MAX_EFFORT", 0.85, "ultrawork"),
         ])
         _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
         assert result["target_agent"] is None
         assert result["intent"] == "INTENT_STOP"
+
+
+class TestClarificationIntentClasses:
+    @pytest.mark.parametrize("intent_name", [
+        "INTENT_AUTH_SETUP",
+        "INTENT_PREFERENCE_MEMORY",
+        "INTENT_AMBIGUOUS_CONFIG",
+    ])
+    def test_new_intent_classes_are_tolerated_as_unroutable(self, tmp_project, intent_name):
+        payload = _make_leader_hint([(intent_name, 0.90, "task2")])
+        _, result = run_router(payload, project_dir=tmp_project)
+        assert result is not None
+        assert result["target_agent"] is None
+        assert result["intent"] is None
+        assert result["confidence"] == 0.0
+        assert result["fallback"] is False
 
 
 # ═══════════════════════════════════════════════════════════
