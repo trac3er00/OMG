@@ -1448,19 +1448,23 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
     blockers: list[str] = []
     drift_details: dict[str, str] = {}
     
-    # Files to check with their JSON paths to extract version
-    files_to_check = [
-        ("package.json", ["version"]),
-        ("pyproject.toml", None),  # Special case: extract from version = "X.Y.Z"
-        ("settings.json", ["_omg", "_version"]),
-        (".claude-plugin/plugin.json", ["version"]),
-        (".claude-plugin/marketplace.json", ["version"]),
-        ("plugins/core/plugin.json", ["version"]),
-        ("plugins/advanced/plugin.json", ["version"]),
-        ("CHANGELOG.md", None),  # Special case: check for version in header
+    # Files to check with their JSON paths to extract version.
+    # Each entry: (file_path, json_path_or_None, optional_display_label)
+    files_to_check: list[tuple[str, list[str | int] | None, str | None]] = [
+        ("package.json", ["version"], None),
+        ("pyproject.toml", None, None),  # Special case: extract from version = "X.Y.Z"
+        ("settings.json", ["_omg", "_version"], None),
+        (".claude-plugin/plugin.json", ["version"], None),
+        (".claude-plugin/marketplace.json", ["version"], None),
+        (".claude-plugin/marketplace.json", ["metadata", "version"], "marketplace.json metadata.version"),
+        (".claude-plugin/marketplace.json", ["plugins", 0, "version"], "marketplace.json plugins[0].version"),
+        ("plugins/core/plugin.json", ["version"], None),
+        ("plugins/advanced/plugin.json", ["version"], None),
+        ("CHANGELOG.md", None, None),  # Special case: check for version in header
     ]
     
-    for file_path, json_path in files_to_check:
+    for file_path, json_path, label in files_to_check:
+        display_name = label or file_path
         full_path = root / file_path
         if not full_path.exists():
             blockers.append(f"version_drift: missing file {file_path}")
@@ -1470,12 +1474,22 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
         
         try:
             if file_path == "pyproject.toml":
-                # Extract from version = "X.Y.Z"
+                # Extract from version = "X.Y.Z" (double-quoted only)
                 content = full_path.read_text(encoding="utf-8")
+                _parse_failed = False
                 for line in content.split("\n"):
                     if line.startswith("version = "):
-                        found_version = line.split('"')[1]
+                        parts = line.split('"')
+                        if len(parts) >= 2:
+                            found_version = parts[1]
+                        else:
+                            blockers.append(
+                                "version_drift: pyproject.toml: failed to parse version (malformed format)"
+                            )
+                            _parse_failed = True
                         break
+                if _parse_failed:
+                    continue
             elif file_path == "CHANGELOG.md":
                 # Extract from "## X.Y.Z -" header (skip "Unreleased" section)
                 content = full_path.read_text(encoding="utf-8")
@@ -1486,28 +1500,33 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
                             found_version = version_str
                             break
             else:
-                # JSON file: use json_path to navigate
+                # JSON file: use json_path to navigate (supports dict keys and list indices)
                 data = _load_json(full_path)
                 current = data
                 if json_path:
                     for key in json_path:
-                        current = current.get(key)
+                        if isinstance(current, dict) and isinstance(key, str):
+                            current = current.get(key)
+                        elif isinstance(current, (list, tuple)) and isinstance(key, int):
+                            current = current[key] if key < len(current) else None
+                        else:
+                            current = None
                         if current is None:
                             break
                 found_version = current
         except Exception as e:
-            blockers.append(f"version_drift: failed to parse {file_path}: {e}")
+            blockers.append(f"version_drift: failed to parse {display_name}: {e}")
             continue
         
         if found_version is None:
-            blockers.append(f"version_drift: could not extract version from {file_path}")
+            blockers.append(f"version_drift: could not extract version from {display_name}")
         elif str(found_version) != canonical_version:
             blockers.append(
-                f"version_drift: {file_path} has version {found_version}, expected {canonical_version}"
+                f"version_drift: {display_name} has version {found_version}, expected {canonical_version}"
             )
-            drift_details[file_path] = str(found_version)
+            drift_details[display_name] = str(found_version)
         else:
-            drift_details[file_path] = str(found_version)
+            drift_details[display_name] = str(found_version)
     
     return {
         "status": "ok" if not blockers else "error",

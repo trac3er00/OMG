@@ -89,10 +89,6 @@ def test_runtime_consumer_install_sh_version():
     )
 
 
-@pytest.mark.xfail(
-    reason="stale version 2.1.0 in frontmatter — needs sync-release-identity",
-    strict=True,
-)
 def test_generated_release_artifacts_match_canonical():
     content = (
         ROOT / "artifacts" / "release" / "OMG_COMPAT_CONTRACT.md"
@@ -102,10 +98,6 @@ def test_generated_release_artifacts_match_canonical():
     )
 
 
-@pytest.mark.xfail(
-    reason="stale version 2.1.0 — needs sync-release-identity (pytest-only check)",
-    strict=True,
-)
 def test_cli_adapter_map_version_examples():
     content = (ROOT / "CLI-ADAPTER-MAP.md").read_text(encoding="utf-8")
     assert f"**Version:** `{CANONICAL_VERSION}`" in content, (

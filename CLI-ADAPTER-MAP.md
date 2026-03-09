@@ -162,7 +162,7 @@ OMG supports 4 canonical CLI targets with dedicated provider implementations and
   - `~/.claude/settings.json` → `enabledPlugins[plugin_ref] = true`
   - `~/.claude/plugins/installed_plugins.json` → Plugin metadata with installed path, version, timestamp
 - **Plugin Ref Format:** `omg@omg` (name@marketplace_id)
-- **Version:** `2.1.0` (from package.json)
+- **Version:** `2.1.1` (from package.json)
 
 #### C. Plugin Unregistration (Lines 631-669)
 - **Function:** `unregister_plugin_from_registry(plugin_ref)`
