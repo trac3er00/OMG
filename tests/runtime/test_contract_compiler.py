@@ -1535,10 +1535,6 @@ def _setup_drift_fixture(fixture_root: Path) -> None:
     )
 
 
-@pytest.mark.xfail(
-    reason="blind spot: drift gate only checks top-level marketplace.json version",
-    strict=True,
-)
 def test_version_drift_blocker_on_marketplace_nested_version_fields(
     tmp_path: Path,
 ) -> None:
