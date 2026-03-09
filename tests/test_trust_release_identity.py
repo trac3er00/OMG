@@ -80,10 +80,6 @@ def test_runtime_consumer_surfaces_match_canonical():
     )
 
 
-@pytest.mark.xfail(
-    reason="stale banner v2.1.0 — needs sync-release-identity",
-    strict=True,
-)
 def test_runtime_consumer_install_sh_version():
     content = (ROOT / ".claude-plugin" / "scripts" / "install.sh").read_text(
         encoding="utf-8"
