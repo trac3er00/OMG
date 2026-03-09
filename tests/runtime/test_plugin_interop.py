@@ -11,6 +11,7 @@ from runtime.plugin_interop import (
     ConflictCode,
     ConflictSeverity,
     PluginInteropRecord,
+    classify_conflicts,
     discover_host_plugin_state,
     discover_omg_plugin_state,
 )
@@ -280,3 +281,174 @@ def test_host_discovery_missing_configs_degrade_gracefully(tmp_path: Path, monke
     payload = discover_host_plugin_state(str(tmp_path))
 
     assert payload is not None
+
+
+def test_collision_mcp_name_same_host() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="plugin-a",
+            layer="live",
+            host="claude",
+            source="mcp_json",
+            mcp_servers=["filesystem"],
+        ),
+        PluginInteropRecord(
+            plugin_id="plugin-b",
+            layer="live",
+            host="claude",
+            source="mcp_json",
+            mcp_servers=["filesystem"],
+        ),
+    ]
+
+    conflicts = classify_conflicts(records)
+
+    assert any(conflict.code == "mcp_name_collision" and conflict.severity == "blocker" for conflict in conflicts)
+
+
+def test_collision_command_same_host() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="plugin-a",
+            layer="authored",
+            host="claude",
+            source="plugin_manifest",
+            commands=["/OMG:setup"],
+        ),
+        PluginInteropRecord(
+            plugin_id="plugin-b",
+            layer="authored",
+            host="claude",
+            source="plugin_manifest",
+            commands=["/OMG:setup"],
+        ),
+    ]
+
+    conflicts = classify_conflicts(records)
+
+    assert any(conflict.code == "command_collision" and conflict.severity == "blocker" for conflict in conflicts)
+
+
+def test_collision_mcp_name_different_hosts() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="plugin-a",
+            layer="live",
+            host="claude",
+            source="mcp_json",
+            mcp_servers=["filesystem"],
+        ),
+        PluginInteropRecord(
+            plugin_id="plugin-b",
+            layer="live",
+            host="codex",
+            source="host_config",
+            mcp_servers=["filesystem"],
+        ),
+    ]
+
+    conflicts = classify_conflicts(records)
+
+    assert any(conflict.code == "host_precedence_overlap" and conflict.severity == "info" for conflict in conflicts)
+    assert not any(conflict.code == "mcp_name_collision" for conflict in conflicts)
+
+
+def test_ownership_identity_drift() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="omg-core",
+            layer="authored",
+            host="claude",
+            source="plugin_manifest",
+        ),
+        PluginInteropRecord(
+            plugin_id="omg-core",
+            layer="compiled",
+            host="claude",
+            source="compiled_bundle",
+        ),
+    ]
+
+    conflicts = classify_conflicts(records)
+
+    assert any(conflict.code == "identity_drift" and conflict.severity == "warning" for conflict in conflicts)
+
+
+def test_ownership_unsupported_host() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="omg-core",
+            layer="authored",
+            host="unknown-host",
+            source="plugin_manifest",
+        )
+    ]
+
+    conflicts = classify_conflicts(records)
+
+    assert any(conflict.code == "unsupported_host" and conflict.severity == "warning" for conflict in conflicts)
+
+
+def test_ownership_preset_escalation() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="omg-core",
+            layer="authored",
+            host="claude",
+            source="plugin_manifest",
+            preset_floor="labs",
+        )
+    ]
+
+    conflicts = classify_conflicts(records)
+
+    assert any(conflict.code == "preset_escalation" and conflict.severity == "warning" for conflict in conflicts)
+
+
+def test_ownership_partial_install() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="omg-core",
+            layer="authored",
+            host="claude",
+            source="plugin_manifest",
+        )
+    ]
+
+    conflicts = classify_conflicts(records)
+
+    assert any(conflict.code == "partial_install" and conflict.severity == "info" for conflict in conflicts)
+
+
+def test_classify_conflicts_empty_list() -> None:
+    assert classify_conflicts([]) == []
+
+
+def test_classify_conflicts_no_conflicts() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="firewall",
+            layer="authored",
+            host="claude",
+            source="plugin_manifest",
+            hook_events=["PreToolUse"],
+            commands=["/OMG:firewall"],
+        ),
+        PluginInteropRecord(
+            plugin_id="secret-guard",
+            layer="authored",
+            host="claude",
+            source="plugin_manifest",
+            hook_events=["PreToolUse"],
+            commands=["/OMG:secret-guard"],
+        ),
+        PluginInteropRecord(
+            plugin_id="planner",
+            layer="authored",
+            host="claude",
+            source="plugin_manifest",
+            commands=["/OMG:plan"],
+        ),
+    ]
+
+    assert classify_conflicts(records) == []

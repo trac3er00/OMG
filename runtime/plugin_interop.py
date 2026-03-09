@@ -56,6 +56,16 @@ CONFLICT_SEVERITY_MAP: dict[ConflictCode, ConflictSeverity] = {
     ConflictCode.HOST_PRECEDENCE_OVERLAP: ConflictSeverity.INFO,
 }
 
+SUPPORTED_HOSTS: set[str] = {"claude", "codex", "gemini", "kimi", "opencode"}
+SECURITY_PRETOOL_PLUGINS: tuple[str, ...] = ("firewall", "secret-guard")
+PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs")
+_PRESET_ORDER_INDEX: dict[str, int] = {name: idx for idx, name in enumerate(PRESET_ORDER)}
+_SEVERITY_RANK: dict[str, int] = {
+    ConflictSeverity.BLOCKER.value: 0,
+    ConflictSeverity.WARNING.value: 1,
+    ConflictSeverity.INFO.value: 2,
+}
+
 
 @dataclass(slots=True)
 class PluginInteropRecord:
@@ -113,6 +123,187 @@ class PluginInteropRecord:
             source_path=_to_optional_str(payload.get("source_path"), "source_path"),
             metadata=metadata,
         )
+
+
+@dataclass(slots=True)
+class ConflictResult:
+    code: str
+    severity: str
+    affected_plugin_ids: list[str]
+    affected_hosts: list[str]
+    detail: str
+    next_action: str
+
+
+def classify_conflicts(records: list[PluginInteropRecord]) -> list[ConflictResult]:
+    if not records:
+        return []
+
+    conflicts: list[ConflictResult] = []
+    seen_signatures: set[tuple[str, tuple[str, ...], tuple[str, ...], str]] = set()
+
+    def add_conflict(
+        code: ConflictCode,
+        plugin_ids: list[str],
+        hosts: list[str],
+        detail: str,
+        next_action: str,
+    ) -> None:
+        normalized_plugins = sorted(set(plugin_ids))
+        normalized_hosts = sorted(set(hosts))
+        signature = (code.value, tuple(normalized_plugins), tuple(normalized_hosts), detail)
+        if signature in seen_signatures:
+            return
+        seen_signatures.add(signature)
+        conflicts.append(
+            ConflictResult(
+                code=code.value,
+                severity=CONFLICT_SEVERITY_MAP[code].value,
+                affected_plugin_ids=normalized_plugins,
+                affected_hosts=normalized_hosts,
+                detail=detail,
+                next_action=next_action,
+            )
+        )
+
+    records_by_host_mcp: dict[tuple[str, str], list[PluginInteropRecord]] = {}
+    records_by_host_command: dict[tuple[str, str], list[PluginInteropRecord]] = {}
+    records_by_mcp_name: dict[str, list[PluginInteropRecord]] = {}
+    records_by_plugin_id: dict[str, list[PluginInteropRecord]] = {}
+
+    security_indices: dict[str, int] = {}
+    for idx, record in enumerate(records):
+        records_by_plugin_id.setdefault(record.plugin_id, []).append(record)
+        if "PreToolUse" in record.hook_events and record.plugin_id in SECURITY_PRETOOL_PLUGINS:
+            if record.plugin_id not in security_indices:
+                security_indices[record.plugin_id] = idx
+
+        for mcp_server in record.mcp_servers:
+            records_by_host_mcp.setdefault((record.host, mcp_server), []).append(record)
+            records_by_mcp_name.setdefault(mcp_server, []).append(record)
+
+        for command in record.commands:
+            records_by_host_command.setdefault((record.host, command), []).append(record)
+
+    for (host, mcp_server), owner_records in sorted(records_by_host_mcp.items()):
+        if len(owner_records) < 2:
+            continue
+        add_conflict(
+            ConflictCode.MCP_NAME_COLLISION,
+            [record.plugin_id for record in owner_records],
+            [host],
+            f"Multiple plugins on host '{host}' declare MCP server '{mcp_server}'.",
+            "Keep one owner per host/MCP name and rename or remove conflicting declarations.",
+        )
+
+    for (host, command), owner_records in sorted(records_by_host_command.items()):
+        if len(owner_records) < 2:
+            continue
+        add_conflict(
+            ConflictCode.COMMAND_COLLISION,
+            [record.plugin_id for record in owner_records],
+            [host],
+            f"Multiple plugins on host '{host}' declare command '{command}'.",
+            "Assign command ownership to one plugin per host or rename conflicting commands.",
+        )
+
+    firewall_index = security_indices.get("firewall")
+    secret_guard_index = security_indices.get("secret-guard")
+    for idx, record in enumerate(records):
+        if "PreToolUse" not in record.hook_events or record.plugin_id in SECURITY_PRETOOL_PLUGINS:
+            continue
+        before_firewall = firewall_index is not None and idx < firewall_index
+        before_secret_guard = secret_guard_index is not None and idx < secret_guard_index
+        if before_firewall or before_secret_guard:
+            add_conflict(
+                ConflictCode.HOOK_ORDER_VIOLATION,
+                [record.plugin_id] + list(SECURITY_PRETOOL_PLUGINS),
+                [record.host],
+                f"Plugin '{record.plugin_id}' registers PreToolUse before required security hooks.",
+                "Move firewall and secret-guard ahead of all non-security PreToolUse hooks.",
+            )
+
+    for record in records:
+        preset_floor = record.preset_floor
+        if preset_floor is None:
+            continue
+        preset_index = _PRESET_ORDER_INDEX.get(preset_floor)
+        safe_index = _PRESET_ORDER_INDEX["safe"]
+        if preset_index is not None and preset_index > safe_index:
+            add_conflict(
+                ConflictCode.PRESET_ESCALATION,
+                [record.plugin_id],
+                [record.host],
+                f"Plugin '{record.plugin_id}' raises preset floor to '{preset_floor}'.",
+                "Keep preset_floor at safe unless the higher floor is explicitly approved.",
+            )
+
+    for plugin_id, plugin_records in sorted(records_by_plugin_id.items()):
+        layers = sorted({record.layer for record in plugin_records})
+        if len(layers) > 1:
+            add_conflict(
+                ConflictCode.IDENTITY_DRIFT,
+                [plugin_id],
+                [record.host for record in plugin_records],
+                f"Plugin '{plugin_id}' appears with inconsistent layers: {', '.join(layers)}.",
+                "Align authored/compiled/live ownership metadata to a single layer identity.",
+            )
+
+    for record in records:
+        if record.host not in SUPPORTED_HOSTS:
+            add_conflict(
+                ConflictCode.UNSUPPORTED_HOST,
+                [record.plugin_id],
+                [record.host],
+                f"Plugin '{record.plugin_id}' targets unsupported host '{record.host}'.",
+                "Use one of the supported hosts: claude, codex, gemini, kimi, opencode.",
+            )
+
+    for record in records:
+        if record.layer == Layer.COMPILED.value and not record.enabled:
+            add_conflict(
+                ConflictCode.STALE_COMPILED_ARTIFACT,
+                [record.plugin_id],
+                [record.host],
+                f"Compiled artifact for plugin '{record.plugin_id}' is disabled.",
+                "Rebuild artifacts or remove stale compiled entries that are no longer active.",
+            )
+
+    for record in records:
+        if record.layer != Layer.AUTHORED.value:
+            continue
+        if record.commands or record.mcp_servers or record.hook_events:
+            continue
+        add_conflict(
+            ConflictCode.PARTIAL_INSTALL,
+            [record.plugin_id],
+            [record.host],
+            f"Authored plugin '{record.plugin_id}' has no commands, MCP servers, or hook events.",
+            "Finish installation wiring or remove placeholder authored plugin entries.",
+        )
+
+    for mcp_server, owner_records in sorted(records_by_mcp_name.items()):
+        hosts = sorted({record.host for record in owner_records})
+        if len(hosts) < 2:
+            continue
+        add_conflict(
+            ConflictCode.HOST_PRECEDENCE_OVERLAP,
+            [record.plugin_id for record in owner_records],
+            hosts,
+            f"MCP server '{mcp_server}' is declared across multiple hosts.",
+            "Validate intended host precedence and keep cross-host ownership explicit.",
+        )
+
+    return sorted(
+        conflicts,
+        key=lambda conflict: (
+            _SEVERITY_RANK.get(conflict.severity, 99),
+            conflict.code,
+            conflict.detail,
+            tuple(conflict.affected_plugin_ids),
+            tuple(conflict.affected_hosts),
+        ),
+    )
 
 
 @dataclass(slots=True)
@@ -499,6 +690,7 @@ def _read_json_dict(path: Path) -> dict[str, object] | None:
 
 __all__ = [
     "CONFLICT_SEVERITY_MAP",
+    "ConflictResult",
     "INTEROP_RECORD_SCHEMA",
     "ConflictCode",
     "ConflictSeverity",
@@ -506,6 +698,7 @@ __all__ = [
     "PluginInteropPayload",
     "PluginInteropRecord",
     "Source",
+    "classify_conflicts",
     "discover_host_plugin_state",
     "discover_omg_plugin_state",
 ]
