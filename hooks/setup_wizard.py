@@ -691,10 +691,8 @@ def _write_profile_learning_sections(state_dir: str, preferences: dict[str, Any]
     profile_data["user_vector"] = _normalize_user_vector_block(preferences.get("user_vector"))
     profile_data["profile_provenance"] = _normalize_provenance_block(preferences.get("profile_provenance"))
 
-    dumped = yaml.safe_dump(profile_data, default_flow_style=False, sort_keys=False) or ""
-    dumped = _render_explicit_empty_collections(dumped)
-    with open(profile_path, "w", encoding="utf-8") as f:
-        f.write(dumped)
+    from runtime.profile_io import save_profile
+    save_profile(profile_path, profile_data)
 
 
 def _render_explicit_empty_collections(dumped: str) -> str:
@@ -738,16 +736,8 @@ def _render_explicit_empty_collections(dumped: str) -> str:
 
 
 def _load_profile_yaml(profile_path: str) -> dict[str, Any]:
-    if not os.path.exists(profile_path):
-        return {}
-    try:
-        with open(profile_path, "r", encoding="utf-8") as f:
-            payload = yaml.safe_load(f) or {}
-    except Exception:
-        return {}
-    if isinstance(payload, dict):
-        return cast(dict[str, Any], payload)
-    return {}
+    from runtime.profile_io import load_profile
+    return load_profile(profile_path)
 
 
 def _ensure_profile_baseline(profile_data: dict[str, Any]) -> None:

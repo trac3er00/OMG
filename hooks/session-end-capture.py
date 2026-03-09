@@ -209,13 +209,12 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
         return
 
     try:
-        with open(profile_path, "r", encoding="utf-8") as file_obj:
-            parsed = yaml.safe_load(file_obj) or {}
+        from runtime.profile_io import load_profile
+        profile = cast(dict[str, object], load_profile(profile_path))
     except Exception:
         return
-    if not isinstance(parsed, dict):
+    if not profile:
         return
-    profile = cast(dict[str, object], parsed)
     _ensure_profile_baseline(profile)
 
     health_status = str(session_health.get("status", "")).strip().lower()
@@ -323,8 +322,8 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
         return
 
     try:
-        with open(profile_path, "w", encoding="utf-8") as file_obj:
-            file_obj.write(json.dumps(profile, indent=2, ensure_ascii=True) + "\n")
+        from runtime.profile_io import save_profile
+        save_profile(profile_path, profile)
     except Exception:
         return
 
