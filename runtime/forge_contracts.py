@@ -305,7 +305,50 @@ def build_forge_evidence(
         "profile_version": "forge-run-v1",
         "intent_gate_version": "1.0.0",
         "domain_pack": domain_pack,
+        "artifact_contracts": {
+            "dataset_lineage": {
+                "standard": "Croissant-1.1",
+                "path": f".omg/evidence/forge-lineage-{run_id}.json",
+                "status": "placeholder",
+                "reason": "dataset lineage artifact not yet generated",
+            },
+            "model_card": {
+                "standard": "HuggingFace-ModelCard",
+                "path": f".omg/evidence/forge-model-card-{run_id}.md",
+                "status": "placeholder",
+                "reason": "model card artifact not yet generated",
+            },
+            "checkpoint_hash": {
+                "standard": "OpenSSF-OMS",
+                "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
+                "status": "placeholder",
+                "reason": "checkpoint hash artifact not yet generated",
+            },
+            "regression_scoreboard": {
+                "standard": "lm-eval",
+                "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
+                "status": "placeholder",
+                "reason": "regression scoreboard artifact not yet generated",
+            },
+            "promotion_decision": {
+                "status": "pending",
+                "reason": "promotion requires passing regression scoreboard and human review for health domain",
+                "replay_required": True,
+            },
+        },
     }
+
+    if domain == "cybersecurity":
+        evidence_dir = out_path.parent
+        security_links: list[str] = []
+        for pattern in ("security-*.json", "security-*.sarif"):
+            security_links.extend(
+                f".omg/evidence/{p.name}" for p in sorted(evidence_dir.glob(pattern))
+            )
+        payload["security_evidence_links"] = security_links if security_links else [
+            ".omg/evidence/security-*.json",
+            ".omg/evidence/security-*.sarif",
+        ]
 
     tmp_path = out_path.with_name(f"{out_path.name}.tmp")
     _ = tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
