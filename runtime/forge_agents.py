@@ -221,6 +221,85 @@ def _check_simulator_available(name: str) -> bool:
     return _check_backend_available(name)
 
 
+def _resolve_axolotl_mode(job: dict[str, Any]) -> str:
+    explicit_mode = str(job.get("axolotl_mode", "")).strip().lower()
+    if explicit_mode:
+        return explicit_mode
+    reward_heads = job.get("reward_heads")
+    if isinstance(reward_heads, bool):
+        return "live_sft"
+    if isinstance(reward_heads, (int, float)):
+        count = int(reward_heads)
+    elif isinstance(reward_heads, list):
+        count = len(reward_heads)
+    elif isinstance(reward_heads, dict):
+        count = len(reward_heads)
+    elif isinstance(reward_heads, str) and reward_heads.strip().isdigit():
+        count = int(reward_heads.strip())
+    else:
+        count = 0
+    if count > 1:
+        return "live_gdpo"
+    if count == 1:
+        return "live_grpo"
+    return "live_sft"
+
+
+def _resolve_axolotl_adapter(job: dict[str, Any], *, required: bool) -> dict[str, object]:
+    from lab.axolotl_adapter import run as run_axolotl_adapter
+
+    mode = _resolve_axolotl_mode(job)
+    run_id = str(job.get("run_id", "")).strip() or None
+    sandbox_root = str(job.get("project_dir", "."))
+    raw_timeout = job.get("axolotl_timeout_seconds", 30)
+    try:
+        timeout_seconds = max(1, int(raw_timeout))
+    except (TypeError, ValueError):
+        timeout_seconds = 30
+
+    evidence = run_axolotl_adapter(
+        job,
+        backend_mode=mode,
+        run_id=run_id,
+        timeout_seconds=timeout_seconds,
+        sandbox_root=sandbox_root,
+    )
+
+    status = str(evidence.get("status", "error"))
+    reason = str(evidence.get("reason", ""))
+    available = bool(evidence.get("available", False))
+
+    if not required and status == "unavailable_backend":
+        status = "skipped_unavailable_backend"
+
+    normalized: dict[str, object] = {
+        "adapter": "axolotl",
+        "kind": "training",
+        "status": status,
+        "required": required,
+        "reason": reason,
+        "available": available,
+        "mode": str(evidence.get("mode", mode)),
+    }
+    for key in (
+        "run_id",
+        "evidence_path",
+        "checkpoint_path",
+        "checkpoint_paths",
+        "checkpoint_artifacts",
+        "search_scores",
+        "search_best_trial",
+        "resume_metadata",
+        "sidecar_required",
+        "sidecar_evidence_path",
+    ):
+        if key in evidence:
+            normalized[key] = evidence[key]
+    if "promotion_blocked" in evidence:
+        normalized["promotion_blocked"] = evidence["promotion_blocked"] if required else False
+    return normalized
+
+
 def resolve_adapters(job: dict[str, Any]) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
     dispatched_specialists = job.get("specialists", [])
@@ -231,15 +310,8 @@ def resolve_adapters(job: dict[str, Any]) -> list[dict[str, object]]:
     require_backend = bool(job.get("require_backend", False))
 
     if "training-architect" in dispatched_specialists:
-        available = _check_axolotl_available()
-        results.append({
-            "adapter": "axolotl",
-            "kind": "training",
-            "status": "invoked" if available else "skipped_unavailable_backend",
-            "required": require_backend and requested_backend == "axolotl",
-            "reason": "" if available else "axolotl not installed",
-            "available": available,
-        })
+        axolotl_required = require_backend and requested_backend == "axolotl"
+        results.append(_resolve_axolotl_adapter(job, required=axolotl_required))
 
     if "simulator-engineer" in dispatched_specialists:
         simulator_backends = _resolve_simulator_backends(requested_backend)
@@ -267,8 +339,16 @@ def _resolve_simulator_backends(requested: str) -> list[str]:
 
 
 def check_required_backends_satisfied(adapter_evidence: list[dict[str, object]]) -> tuple[bool, str]:
+    unavailable_statuses = {
+        "skipped_unavailable_backend",
+        "unavailable",
+        "unavailable_backend",
+        "error",
+        "blocked",
+    }
     for ev in adapter_evidence:
-        if ev.get("required") is True and ev.get("status") == "skipped_unavailable_backend":
+        status = str(ev.get("status", ""))
+        if ev.get("required") is True and status in unavailable_statuses:
             adapter_name = str(ev.get("adapter", "unknown"))
             return False, f"required backend unavailable: {adapter_name}"
     return True, "ok"

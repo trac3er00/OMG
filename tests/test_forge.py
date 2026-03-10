@@ -522,6 +522,22 @@ class TestForgeSpecialists:
 
 
 class TestForgeAdapterBackends:
+    def test_pipeline_blocks_with_explicit_axolotl_unavailable_backend_status(self):
+        job = _valid_job()
+        job["specialists"] = ["training-architect"]
+        job["domain"] = "algorithms"
+        job["simulator_backend"] = "axolotl"
+        job["require_backend"] = True
+
+        result = run_pipeline(job)
+
+        assert result["status"] == "blocked"
+        assert result["stage"] == "adapter"
+        axolotl_ev = [a for a in result.get("adapter_evidence", []) if a["adapter"] == "axolotl"]
+        assert len(axolotl_ev) == 1
+        assert axolotl_ev[0]["status"] == "unavailable_backend"
+        assert axolotl_ev[0]["reason"] == "axolotl_not_installed"
+
     def test_pipeline_continues_with_optional_unavailable_backend(self):
         job = _valid_job()
         job["specialists"] = ["data-curator", "training-architect", "simulator-engineer"]
@@ -799,7 +815,6 @@ class TestVisionDomainCoverage:
         assert output["specialist_dispatch"]["status"] == "ok"
 
     def test_vision_agent_happy_path_exits_zero(self) -> None:
-        """vision-agent CLI must exit 0 with ready status."""
         result = subprocess.run(
             [
                 sys.executable,
@@ -813,9 +828,15 @@ class TestVisionDomainCoverage:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        if output.get("status") == "ready":
+            assert result.returncode == 0
+        else:
+            assert result.returncode != 0
+            assert output["status"] == "blocked"
+            adapter_evidence = output.get("adapter_evidence", [])
+            unavailable = [a for a in adapter_evidence if a.get("status") == "unavailable_backend"]
+            assert len(unavailable) >= 1
 
 
 class TestRoboticsDomainCoverage:

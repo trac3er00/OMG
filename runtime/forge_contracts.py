@@ -30,6 +30,23 @@ DEFAULT_STAGE_TIMEOUT_MS: dict[str, int] = {
     "regression_test": 5_000,
 }
 
+AXOLOTL_LIVE_MODES: tuple[str, ...] = (
+    "preflight",
+    "live_sft",
+    "live_grpo",
+    "live_gdpo",
+)
+
+AXOLOTL_SEARCH_POLICY: dict[str, object] = {
+    "max_trials": 6,
+    "space": {
+        "learning_rate": [1e-5, 3e-5, 1e-4],
+        "batch_size": [4, 8],
+        "lora_rank": [8, 16, 32],
+        "grad_accum": [1, 2, 4],
+    },
+}
+
 
 ADAPTER_REGISTRY: dict[str, dict[str, object]] = {
     "axolotl": {
@@ -37,6 +54,13 @@ ADAPTER_REGISTRY: dict[str, dict[str, object]] = {
         "module": "axolotl",
         "hook": "lab.axolotl_adapter.run",
         "specialist": "training-architect",
+        "modes": list(AXOLOTL_LIVE_MODES),
+        "default_mode": "live_sft",
+        "rl_sidecar_required": {
+            "live_grpo": True,
+            "live_gdpo": True,
+        },
+        "search_policy": dict(AXOLOTL_SEARCH_POLICY),
     },
     "pybullet": {
         "kind": "simulator",
@@ -104,6 +128,7 @@ def load_forge_mvp() -> dict[str, object]:
             },
         },
         "adapter_registry": dict(ADAPTER_REGISTRY),
+        "axolotl_search_policy": dict(AXOLOTL_SEARCH_POLICY),
         "canonical_domains": get_all_canonical_domains(),
         "evidence_output_path": ".omg/evidence/forge-<run_id>.json",
         "starter_templates": {
@@ -277,6 +302,26 @@ def build_forge_evidence(
             ]
 
     job_dict = dict(job)
+    base_model_name = "unknown"
+    base_model_raw = job.get("base_model")
+    if isinstance(base_model_raw, Mapping):
+        base_model_name = str(base_model_raw.get("name", "unknown"))
+
+    evaluation_metric = 0.0
+    evaluation_report = result.get("evaluation_report")
+    if isinstance(evaluation_report, Mapping):
+        metric_raw = evaluation_report.get("metric", 0.0)
+        try:
+            evaluation_metric = float(metric_raw)
+        except (TypeError, ValueError):
+            evaluation_metric = 0.0
+
+    target_metric_raw = job.get("target_metric", 0.0)
+    try:
+        target_metric = float(target_metric_raw)
+    except (TypeError, ValueError):
+        target_metric = 0.0
+
     context_checksum = hashlib.sha256(json.dumps(job_dict, sort_keys=True).encode()).hexdigest()
     domain_pack = get_domain_pack_contract(domain) if domain in DOMAIN_PACKS else {}
     payload = {
@@ -318,7 +363,7 @@ def build_forge_evidence(
                 "path": f".omg/evidence/forge-model-card-{run_id}.md",
                 "status": "generated",
                 "model_id": f"forge-model-{run_id}",
-                "base_model": str(job.get("base_model", {}).get("name", "unknown")),
+                "base_model": base_model_name,
             },
             "checkpoint_hash": {
                 "standard": "OpenSSF-OMS",
@@ -331,8 +376,8 @@ def build_forge_evidence(
                 "standard": "lm-eval",
                 "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
                 "status": "passed",
-                "score": float(result.get("evaluation_report", {}).get("metric", 0.0)),
-                "target": float(job.get("target_metric", 0.0)),
+                "score": evaluation_metric,
+                "target": target_metric,
             },
             "promotion_decision": {
                 "status": "pending",
