@@ -24,6 +24,33 @@ Use this checklist before making OMG public or cutting a release tag.
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root <tmp>` passes
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root <tmp>` passes
 - `python3 scripts/omg.py release readiness --channel dual --output-root <tmp>` passes
+
+## Forge v0.3
+
+- [ ] The 5 CLI domain commands and their expected outputs:
+  - `/OMG:init [domain]` — scaffolds domain model
+  - `/OMG:forge [job]` — executes training/eval pipeline
+  - `/OMG:eval-gate` — runs regression scoreboard
+  - `/OMG:data-lineage` — emits provenance manifest
+  - `/OMG:proof-gate` — binds claims to evidence
+- [ ] The `artifact_contracts` evidence fields are present:
+  - `dataset_lineage`
+  - `model_card`
+  - `checkpoint_hash`
+  - `regression_scoreboard`
+  - `promotion_decision`
+- [ ] Metadata fields are populated:
+  - `context_checksum`
+  - `profile_version`
+  - `intent_gate_version`
+- [ ] Adapter wrappers and their honest availability semantics:
+  - `axolotl` (LLM finetuning)
+  - `pybullet` (Physics sim)
+  - `gazebo` (Robotics sim)
+  - `isaac_gym` (RL environments)
+
+## Verification
+
 - Release readiness fails with machine-readable blockers unless all execution primitives are present and valid:
   - run coordinator state: `.omg/state/release_run_coordinator/<run_id>.json`
   - TDD proof-chain lock evidence: `.omg/state/test-intent-lock/*.json` (linked to run id or lock id)
