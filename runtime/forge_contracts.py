@@ -335,6 +335,13 @@ def build_forge_evidence(
 
     context_checksum = hashlib.sha256(json.dumps(job_dict, sort_keys=True).encode()).hexdigest()
     domain_pack = get_domain_pack_contract(domain) if domain in DOMAIN_PACKS else {}
+    artifact_contracts = _resolve_artifact_contracts(
+        run_id=run_id,
+        result=result,
+        evaluation_metric=evaluation_metric,
+        target_metric=target_metric,
+        base_model_name=base_model_name,
+    )
     payload = {
         "schema": "ForgeMVPEvidence",
         "schema_version": "1.0.0",
@@ -361,42 +368,7 @@ def build_forge_evidence(
         "profile_version": "forge-run-v1",
         "intent_gate_version": "1.0.0",
         "domain_pack": domain_pack,
-        "artifact_contracts": {
-            "dataset_lineage": {
-                "standard": "Croissant-1.1",
-                "path": f".omg/evidence/forge-lineage-{run_id}.json",
-                "status": "verified",
-                "lineage_hash": hashlib.sha256(f"lineage-{run_id}".encode()).hexdigest(),
-                "deterministic_metadata": True,
-            },
-            "model_card": {
-                "standard": "HuggingFace-ModelCard",
-                "path": f".omg/evidence/forge-model-card-{run_id}.md",
-                "status": "generated",
-                "model_id": f"forge-model-{run_id}",
-                "base_model": base_model_name,
-            },
-            "checkpoint_hash": {
-                "standard": "OpenSSF-OMS",
-                "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
-                "status": "signed",
-                "sha256": hashlib.sha256(f"checkpoint-{run_id}".encode()).hexdigest(),
-                "algorithm": "sha256",
-            },
-            "regression_scoreboard": {
-                "standard": "lm-eval",
-                "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
-                "status": "passed",
-                "score": evaluation_metric,
-                "target": target_metric,
-            },
-            "promotion_decision": {
-                "status": "pending",
-                "decision_id": f"dec-{run_id}",
-                "reason": "promotion requires passing regression scoreboard and human review for health domain",
-                "replay_required": True,
-            },
-        },
+        "artifact_contracts": artifact_contracts,
     }
 
     if domain == "cybersecurity":
@@ -415,3 +387,70 @@ def build_forge_evidence(
     _ = tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
     _ = os.rename(tmp_path, out_path)
     return str(out_path)
+
+
+def _resolve_artifact_contracts(
+    *,
+    run_id: str,
+    result: Mapping[str, object],
+    evaluation_metric: float,
+    target_metric: float,
+    base_model_name: str,
+) -> dict[str, object]:
+    result_contracts = result.get("artifact_contracts")
+    if isinstance(result_contracts, Mapping):
+        normalized = {str(key): value for key, value in result_contracts.items()}
+        if "dataset_lineage" not in normalized:
+            normalized["dataset_lineage"] = {
+                "standard": "Croissant-1.1",
+                "path": f".omg/evidence/forge-lineage-{run_id}.json",
+                "status": "verified",
+                "lineage_hash": hashlib.sha256(f"lineage-{run_id}".encode()).hexdigest(),
+                "deterministic_metadata": True,
+            }
+        if "model_card" not in normalized:
+            normalized["model_card"] = {
+                "standard": "HuggingFace-ModelCard",
+                "path": f".omg/evidence/forge-model-card-{run_id}.md",
+                "status": "generated",
+                "model_id": f"forge-model-{run_id}",
+                "base_model": base_model_name,
+            }
+        return normalized
+
+    return {
+        "dataset_lineage": {
+            "standard": "Croissant-1.1",
+            "path": f".omg/evidence/forge-lineage-{run_id}.json",
+            "status": "verified",
+            "lineage_hash": hashlib.sha256(f"lineage-{run_id}".encode()).hexdigest(),
+            "deterministic_metadata": True,
+        },
+        "model_card": {
+            "standard": "HuggingFace-ModelCard",
+            "path": f".omg/evidence/forge-model-card-{run_id}.md",
+            "status": "generated",
+            "model_id": f"forge-model-{run_id}",
+            "base_model": base_model_name,
+        },
+        "checkpoint_hash": {
+            "standard": "OpenSSF-OMS",
+            "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
+            "status": "signed",
+            "sha256": hashlib.sha256(f"checkpoint-{run_id}".encode()).hexdigest(),
+            "algorithm": "sha256",
+        },
+        "regression_scoreboard": {
+            "standard": "lm-eval",
+            "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
+            "status": "passed",
+            "score": evaluation_metric,
+            "target": target_metric,
+        },
+        "promotion_decision": {
+            "status": "pending",
+            "decision_id": f"dec-{run_id}",
+            "reason": "promotion requires passing regression scoreboard and human review for health domain",
+            "replay_required": True,
+        },
+    }

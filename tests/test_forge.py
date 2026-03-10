@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import subprocess
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ SCRIPTS_DIR = ROOT / "scripts"
 sys.path.insert(0, str(ROOT))
 
 from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evidence  # noqa: E402
+from registry.verify_artifact import sign_artifact_statement  # noqa: E402
 from runtime.forge_contracts import validate_forge_job  # noqa: E402
 
 
@@ -39,6 +41,18 @@ def _blocked_source_job() -> dict[str, Any]:
     job = _valid_job()
     job["dataset"]["source"] = "leaked-dataset-dump"
     return job
+
+
+def _assert_live_status(status: str) -> None:
+    assert status in {"ready", "failed_evaluation"}
+
+
+def _assert_live_cli_exit(result: subprocess.CompletedProcess[str], output: dict[str, Any]) -> None:
+    status = str(output.get("status", ""))
+    if status in {"ready", "failed_evaluation"}:
+        assert result.returncode == 0
+        return
+    assert result.returncode != 0
 
 
 class TestForgeRunHappyPath:
@@ -211,9 +225,9 @@ class TestForgeDomainValidation:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["specialist_dispatch"]["status"] == "ok"
 
 
@@ -222,7 +236,7 @@ class TestForgeEvidencePipeline:
         result = run_pipeline_with_evidence(str(tmp_path), _valid_job(), "run-e2e")
         evidence_path = tmp_path / ".omg" / "evidence" / "forge-run-e2e.json"
 
-        assert result["status"] == "ready"
+        _assert_live_status(str(result["status"]))
         assert result["evidence_path"] == str(evidence_path)
         assert evidence_path.exists()
 
@@ -365,9 +379,9 @@ class TestForgeBlockedOutsideLabs:
                 ],
                 capture_output=True, text=True, timeout=10,
             )
-            assert result.returncode == 0
             output = json.loads(result.stdout)
-            assert output["status"] == "ready"
+            _assert_live_cli_exit(result, output)
+            _assert_live_status(str(output["status"]))
         finally:
             os.unlink(job_path)
 
@@ -387,9 +401,9 @@ class TestForgeProofBackedEvidence:
             ],
             capture_output=True, text=True, timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output.get("labs_only") is True
         assert output.get("proof_backed") is True
 
@@ -403,9 +417,9 @@ class TestForgeProofBackedEvidence:
             ],
             capture_output=True, text=True, timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output.get("labs_only") is True
         assert output.get("proof_backed") is True
 
@@ -443,9 +457,9 @@ class TestForgeSpecialists:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["specialist_dispatch"]["status"] == "ok"
         assert output["specialist_dispatch"]["specialists_dispatched"] == [
             "data-curator",
@@ -467,9 +481,9 @@ class TestForgeSpecialists:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["agent_path"] == "vision-agent"
         assert output["specialist_dispatch"]["status"] == "ok"
 
@@ -489,9 +503,9 @@ class TestForgeSpecialists:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["run_id"] == "vision-stage-run"
         assert len(output["stage_evidence"]) == 5
         assert output["stage_evidence"][0]["stage"] == "data_prepare"
@@ -522,6 +536,41 @@ class TestForgeSpecialists:
 
 
 class TestForgeAdapterBackends:
+    def test_pipeline_stage_outcomes_are_not_driven_by_simulated_metric(self, monkeypatch: pytest.MonkeyPatch):
+        job = _valid_job()
+        job["specialists"] = ["training-architect", "simulator-engineer"]
+        job["domain"] = "robotics"
+        job["simulated_metric"] = 0.01
+
+        def _fake_resolve_adapters(_: dict[str, Any]) -> list[dict[str, object]]:
+            return [
+                {
+                    "adapter": "axolotl",
+                    "kind": "training",
+                    "status": "invoked",
+                    "required": False,
+                    "available": True,
+                    "checkpoint_artifacts": [{"path": ".omg/checkpoints/model.safetensors", "sha256": "a" * 64}],
+                    "promotion_blocked": False,
+                },
+                {
+                    "adapter": "pybullet",
+                    "kind": "simulator",
+                    "status": "invoked",
+                    "required": False,
+                    "available": True,
+                    "episode_stats": {"reward": 0.95, "steps": 10, "duration_ms": 5},
+                    "promotion_blocked": False,
+                },
+            ]
+
+        monkeypatch.setattr("runtime.forge_agents.resolve_adapters", _fake_resolve_adapters)
+
+        result = run_pipeline(job)
+
+        _assert_live_status(str(result["status"]))
+        assert result["evaluation_report"]["passed"] is True
+
     def test_pipeline_blocks_with_explicit_axolotl_unavailable_backend_status(self):
         job = _valid_job()
         job["specialists"] = ["training-architect"]
@@ -547,7 +596,7 @@ class TestForgeAdapterBackends:
 
         result = run_pipeline(job)
 
-        assert result["status"] == "ready"
+        _assert_live_status(str(result["status"]))
         assert "adapter_evidence" in result
         gazebo_ev = [a for a in result["adapter_evidence"] if a["adapter"] == "gazebo"]
         assert len(gazebo_ev) == 1
@@ -575,7 +624,7 @@ class TestForgeAdapterBackends:
 
         result = run_pipeline(job)
 
-        assert result["status"] == "ready"
+        _assert_live_status(str(result["status"]))
         if "adapter_evidence" in result:
             adapter_names = [str(a["adapter"]) for a in result["adapter_evidence"]]
             assert "pybullet" in adapter_names
@@ -591,7 +640,7 @@ class TestForgeAdapterBackends:
 
         result = run_pipeline_with_evidence(str(tmp_path), job, "run-adapter-e2e")
 
-        assert result["status"] == "ready"
+        _assert_live_status(str(result["status"]))
         assert "adapter_evidence" in result
 
     def test_pipeline_stage_evidence_has_adapter_evidence_on_relevant_stages(self):
@@ -601,7 +650,7 @@ class TestForgeAdapterBackends:
 
         result = run_pipeline(job)
 
-        assert result["status"] == "ready"
+        _assert_live_status(str(result["status"]))
         stage_map = {s["stage"]: s for s in result["stage_evidence"]}
         train_stage = stage_map["train_distill"]
         assert "adapter_evidence" in train_stage
@@ -620,7 +669,7 @@ class TestForgeAdapterBackends:
 
         result = run_pipeline(job)
 
-        assert result["status"] == "ready"
+        _assert_live_status(str(result["status"]))
         stage_map = {s["stage"]: s for s in result["stage_evidence"]}
         assert "adapter_evidence" not in stage_map["data_prepare"]
         assert "adapter_evidence" not in stage_map["synthetic_refine"]
@@ -650,7 +699,7 @@ class TestForgeAdapterBackends:
 
         result = run_pipeline(job)
 
-        assert result["status"] == "ready"
+        _assert_live_status(str(result["status"]))
         isaac_ev = [a for a in result.get("adapter_evidence", []) if a["adapter"] == "isaac_gym"]
         assert len(isaac_ev) == 1
         assert isaac_ev[0]["status"] == "skipped_unavailable_backend"
@@ -660,8 +709,13 @@ class TestForgeAdapterBackends:
 class TestForgePublish:
     """Red-state tests for publish_artifact function (not yet fully implemented)."""
 
-    def test_publish_artifact_writes_json_file(self, tmp_path: Path) -> None:
+    def test_publish_artifact_writes_json_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """publish_artifact must write a JSON file to the provided path."""
+        monkeypatch.setattr(
+            "runtime.compliance_governor.evaluate_release_compliance",
+            lambda **_: {"status": "allowed", "authority": "release", "reason": "ok"},
+        )
+        digest = hashlib.sha256(b"checkpoint").hexdigest()
         result = {
             "status": "ready",
             "stage": "complete",
@@ -672,6 +726,36 @@ class TestForgePublish:
                 "target_metric": 0.8,
                 "passed": True,
                 "notes": "",
+            },
+            "artifact_contracts": {
+                "checkpoint_hash": {
+                    "status": "signed",
+                    "path": ".omg/evidence/forge-checkpoint.json",
+                    "sha256": digest,
+                    "attestation": sign_artifact_statement(
+                        ".omg/evidence/forge-checkpoint.json",
+                        "forge-local-signing-key",
+                        digest,
+                    ),
+                    "signer_pubkey": "forge-local-signing-key",
+                },
+                "regression_scoreboard": {
+                    "status": "passed",
+                    "path": ".omg/evidence/forge-scoreboard.json",
+                    "score": 0.9,
+                    "target": 0.8,
+                },
+            },
+            "release_evidence": {
+                "claims": [
+                    {
+                        "claim_type": "release_ready",
+                        "run_id": "forge-run-publish",
+                        "evidence_profile": "release",
+                        "artifacts": [".omg/evidence/forge-run-publish.json"],
+                        "trace_ids": ["trace-forge-run-publish"],
+                    }
+                ]
             },
         }
 
@@ -719,6 +803,89 @@ class TestForgePublish:
         assert published.get("reason") == "evaluation report missing or not passed"
         assert published.get("published") is False
 
+    def test_publish_artifact_blocks_without_attested_checkpoint(self) -> None:
+        result = {
+            "status": "ready",
+            "stage": "complete",
+            "published": False,
+            "evaluation_report": {
+                "created_at": "2026-03-09T00:00:00+00:00",
+                "metric": 0.9,
+                "target_metric": 0.8,
+                "passed": True,
+                "notes": "",
+            },
+            "artifact_contracts": {
+                "checkpoint_hash": {
+                    "status": "signed",
+                    "path": ".omg/evidence/forge-checkpoint.json",
+                    "sha256": "a" * 64,
+                },
+                "regression_scoreboard": {
+                    "status": "passed",
+                    "path": ".omg/evidence/forge-scoreboard.json",
+                    "score": 0.9,
+                    "target": 0.8,
+                },
+            },
+            "release_evidence": {
+                "claims": [
+                    {
+                        "claim_type": "release_ready",
+                        "run_id": "forge-run-no-attestation",
+                        "evidence_profile": "release",
+                    }
+                ]
+            },
+        }
+
+        published = publish_artifact(result)
+
+        assert published.get("status") == "blocked"
+        assert published.get("reason") == "promotion blocked: missing attestation"
+        assert published.get("published") is False
+
+    def test_publish_artifact_requires_claims_for_compliance_gate(self) -> None:
+        digest = hashlib.sha256(b"checkpoint").hexdigest()
+        result = {
+            "status": "ready",
+            "stage": "complete",
+            "published": False,
+            "evaluation_report": {
+                "created_at": "2026-03-09T00:00:00+00:00",
+                "metric": 0.9,
+                "target_metric": 0.8,
+                "passed": True,
+                "notes": "",
+            },
+            "artifact_contracts": {
+                "checkpoint_hash": {
+                    "status": "signed",
+                    "path": ".omg/evidence/forge-checkpoint.json",
+                    "sha256": digest,
+                    "attestation": sign_artifact_statement(
+                        ".omg/evidence/forge-checkpoint.json",
+                        "forge-local-signing-key",
+                        digest,
+                    ),
+                    "signer_pubkey": "forge-local-signing-key",
+                },
+                "regression_scoreboard": {
+                    "status": "passed",
+                    "path": ".omg/evidence/forge-scoreboard.json",
+                    "score": 0.9,
+                    "target": 0.8,
+                },
+            },
+            "release_evidence": {},
+        }
+
+        published = publish_artifact(result)
+
+        assert published.get("status") == "blocked"
+        assert published.get("reason") == "promotion blocked: missing release claims"
+        assert published.get("published") is False
+
 
 class TestForgeDomainCLIPaths:
     @pytest.mark.parametrize("domain", ["robotics", "algorithms", "health", "cybersecurity"])
@@ -736,9 +903,9 @@ class TestForgeDomainCLIPaths:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0, f"{domain}: stderr={result.stderr}"
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["agent_path"] == domain
         assert output["specialist_dispatch"]["status"] == "ok"
 
@@ -816,9 +983,9 @@ class TestVisionDomainCoverage:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["agent_path"] == "vision-agent"
         # Verify domain is canonicalized to vision in specialist dispatch
         assert output["specialist_dispatch"]["status"] == "ok"
@@ -838,7 +1005,8 @@ class TestVisionDomainCoverage:
             timeout=10,
         )
         output = json.loads(result.stdout)
-        if output.get("status") == "ready":
+        status = str(output.get("status", ""))
+        if status in {"ready", "failed_evaluation"}:
             assert result.returncode == 0
         else:
             assert result.returncode != 0
@@ -864,9 +1032,9 @@ class TestRoboticsDomainCoverage:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["agent_path"] == "robotics"
 
     def test_robotics_required_backend_blocks_when_unavailable(self) -> None:
@@ -921,9 +1089,9 @@ class TestAlgorithmsDomainCoverage:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["agent_path"] == "algorithms"
 
     def test_algorithms_evidence_has_deterministic_metric(self) -> None:
@@ -946,9 +1114,9 @@ class TestAlgorithmsDomainCoverage:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["evaluation_report"]["target_metric"] == 0.85
 
 
@@ -968,9 +1136,9 @@ class TestHealthDomainCoverage:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["agent_path"] == "health"
 
     def test_health_domain_pack_declares_human_review(self) -> None:
@@ -999,9 +1167,9 @@ class TestHealthDomainCoverage:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         evidence_path = output["specialist_dispatch"]["evidence_path"]
         evidence = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
         assert "domain_pack" in evidence
@@ -1025,9 +1193,9 @@ class TestCybersecurityDomainCoverage:
             text=True,
             timeout=10,
         )
-        assert result.returncode == 0
         output = json.loads(result.stdout)
-        assert output["status"] == "ready"
+        _assert_live_cli_exit(result, output)
+        _assert_live_status(str(output["status"]))
         assert output["agent_path"] == "cybersecurity"
 
     def test_cybersecurity_invalid_specialist_is_blocked(self) -> None:

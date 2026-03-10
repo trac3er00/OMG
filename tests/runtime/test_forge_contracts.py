@@ -269,17 +269,52 @@ def test_build_forge_evidence_artifact_contracts_have_concrete_fields(tmp_path: 
 
     contracts = cast(dict[str, object], payload["artifact_contracts"])
     
-    # Dataset lineage should have lineage_hash or similar
-    assert "lineage_hash" in contracts["dataset_lineage"]
-    
-    # Model card should have model_id
-    assert "model_id" in contracts["model_card"]
-    
-    # Checkpoint hash should have sha256
-    assert "sha256" in contracts["checkpoint_hash"]
-    
-    # Regression scoreboard should have score
-    assert "score" in contracts["regression_scoreboard"]
-    
-    # Promotion decision should have decision_id
-    assert "decision_id" in contracts["promotion_decision"]
+    dataset_lineage = cast(dict[str, object], contracts["dataset_lineage"])
+    model_card = cast(dict[str, object], contracts["model_card"])
+    checkpoint_hash = cast(dict[str, object], contracts["checkpoint_hash"])
+    regression_scoreboard = cast(dict[str, object], contracts["regression_scoreboard"])
+    promotion_decision = cast(dict[str, object], contracts["promotion_decision"])
+
+    assert "lineage_hash" in dataset_lineage
+    assert "model_id" in model_card
+    assert "sha256" in checkpoint_hash
+    assert "score" in regression_scoreboard
+    assert "decision_id" in promotion_decision
+
+
+def test_build_forge_evidence_uses_pipeline_artifact_contracts_when_present(tmp_path: Path) -> None:
+    result = {
+        "status": "ready",
+        "stage": "complete",
+        "published": False,
+        "artifact_contracts": {
+            "checkpoint_hash": {
+                "status": "signed",
+                "path": ".omg/evidence/custom-checkpoint.json",
+                "sha256": "b" * 64,
+            },
+            "regression_scoreboard": {
+                "status": "blocked",
+                "path": ".omg/evidence/custom-scoreboard.json",
+                "reason": "promotion blocked: missing regression scoreboard",
+            },
+            "promotion_decision": {
+                "status": "blocked",
+                "reason": "promotion blocked: missing regression scoreboard",
+                "decision_id": "dec-custom",
+                "replay_required": True,
+            },
+        },
+    }
+    path = build_forge_evidence(str(tmp_path), "run-contract-override", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    contracts = cast(dict[str, object], payload["artifact_contracts"])
+    checkpoint = cast(dict[str, object], contracts["checkpoint_hash"])
+    scoreboard = cast(dict[str, object], contracts["regression_scoreboard"])
+    promotion = cast(dict[str, object], contracts["promotion_decision"])
+
+    assert checkpoint["path"] == ".omg/evidence/custom-checkpoint.json"
+    assert scoreboard["status"] == "blocked"
+    assert scoreboard["reason"] == "promotion blocked: missing regression scoreboard"
+    assert promotion["decision_id"] == "dec-custom"
