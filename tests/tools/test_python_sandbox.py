@@ -21,10 +21,13 @@ if project_root not in sys.path:
 from tools.python_sandbox import (
     SandboxedExecutor,
     create_sandbox,
+    execute_budgeted_run,
     execute_sandboxed,
     get_code_violations,
     is_safe_code,
 )
+
+from lab.forge_runner import ForgeRunSpec, run_forge_sandboxed
 
 
 def test_module_docstring_mentions_repl_only_scope():
@@ -352,3 +355,43 @@ class TestReplIntegration:
             session = self.python_repl.start_repl_session(session_id="no-sandbox")
             result = self.python_repl.execute_code("no-sandbox", "x = 1 + 1")
             assert "blocked" not in result
+
+
+class TestBudgetedSandboxExecution:
+    def test_execute_budgeted_run_supports_multiprocess_evidence(self):
+        result = execute_budgeted_run(
+            trainer_code="print('trainer')",
+            sidecar_code="print('sidecar')",
+            time_budget_seconds=5,
+            cost_budget_usd=3.5,
+            gpu_allowed=True,
+            outbound_allowlist=["allowed.example"],
+            attempted_outbound=["allowed.example", "blocked.example"],
+        )
+
+        assert result["status"] == "success"
+        assert result["sandbox_mode"] == "isolated-subprocess"
+        assert result["process_count"] == 2
+        assert result["outbound_blocked_count"] == 1
+        assert result["network_calls_attempted"] == 2
+        assert result["network_calls_allowed"] == 1
+        assert result["budget"]["time_seconds"] == 5
+        assert result["budget"]["cost_usd"] == 3.5
+
+    def test_run_forge_sandboxed_returns_checkpoint_paths(self):
+        spec = ForgeRunSpec(
+            run_id="run-123",
+            adapter="axolotl",
+            budget={"time_seconds": 10, "cost_usd": 4.0, "gpu_allowed": True},
+            outbound_allowlist=["allowed.example"],
+            trainer_code="checkpoint_paths = ['runs/run-123/model.ckpt']",
+            sidecar_code="print('sidecar ready')",
+            attempted_outbound=["allowed.example"],
+        )
+
+        result = run_forge_sandboxed(spec)
+
+        assert result.status == "success"
+        assert result.checkpoint_paths == ["runs/run-123/model.ckpt"]
+        assert result.evidence["isolation"]["process_count"] == 2
+        assert result.evidence["budget"]["network_calls_allowed"] == 1

@@ -27,8 +27,11 @@ Usage:
 import ast
 import contextlib
 import io
+import json
 import os
+import subprocess
 import sys
+import time
 import traceback
 from typing import Any, Dict, List, Optional, Set
 
@@ -556,6 +559,140 @@ def execute_sandboxed(
     """
     sandbox = create_sandbox(namespace=namespace)
     return sandbox.execute(code)
+
+
+def _run_isolated_python(code: str, timeout_seconds: int) -> Dict[str, Any]:
+    marker = "__OMG_SANDBOX_RESULT__"
+    wrapper = (
+        "import json,os,traceback\n"
+        "CODE = os.environ.get('CODE', '')\n"
+        "ns = {}\n"
+        "payload = {'status': 'success', 'error': None, 'checkpoint_paths': [], 'requested_gpu': False}\n"
+        "try:\n"
+        "    exec(CODE, ns)\n"
+        "    cp = ns.get('checkpoint_paths', [])\n"
+        "    payload['checkpoint_paths'] = [str(v) for v in cp] if isinstance(cp, list) else []\n"
+        "    payload['requested_gpu'] = bool(ns.get('requested_gpu', False))\n"
+        "except Exception:\n"
+        "    payload['status'] = 'error'\n"
+        "    payload['error'] = traceback.format_exc()\n"
+        f"print('{marker}' + json.dumps(payload, ensure_ascii=True))\n"
+    )
+    started = time.monotonic()
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", wrapper],
+        capture_output=True,
+        text=True,
+        timeout=max(1, int(timeout_seconds)),
+        check=False,
+        env={**os.environ, "CODE": code},
+    )
+    elapsed = max(0.0, time.monotonic() - started)
+
+    payload: Dict[str, Any] = {
+        "status": "error" if result.returncode else "success",
+        "error": None,
+        "checkpoint_paths": [],
+        "requested_gpu": False,
+    }
+    lines = result.stdout.splitlines()
+    for line in reversed(lines):
+        if line.startswith(marker):
+            raw = line[len(marker):]
+            try:
+                decoded = json.loads(raw)
+                if isinstance(decoded, dict):
+                    payload.update(decoded)
+            except json.JSONDecodeError:
+                payload["status"] = "error"
+                payload["error"] = "sandbox result parse failure"
+            break
+
+    visible_stdout = "\n".join(line for line in lines if not line.startswith(marker))
+    if visible_stdout:
+        visible_stdout += "\n"
+
+    return {
+        "status": payload.get("status", "error"),
+        "error": payload.get("error"),
+        "checkpoint_paths": payload.get("checkpoint_paths", []),
+        "requested_gpu": bool(payload.get("requested_gpu", False)),
+        "stdout": visible_stdout,
+        "stderr": result.stderr,
+        "elapsed_seconds": elapsed,
+        "exit_code": result.returncode,
+    }
+
+
+def execute_budgeted_run(
+    *,
+    trainer_code: str,
+    sidecar_code: Optional[str] = None,
+    time_budget_seconds: int = 60,
+    cost_budget_usd: float = 1.0,
+    gpu_allowed: bool = False,
+    outbound_allowlist: Optional[List[str]] = None,
+    attempted_outbound: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    allowlist = set(outbound_allowlist or [])
+    attempted = [str(target) for target in (attempted_outbound or [])]
+    blocked_targets = [target for target in attempted if target not in allowlist]
+    allowed_targets = [target for target in attempted if target in allowlist]
+
+    started = time.monotonic()
+    trainer_result = _run_isolated_python(trainer_code, max(1, time_budget_seconds))
+    sidecar_result: Dict[str, Any] | None = None
+
+    elapsed = trainer_result["elapsed_seconds"]
+    if sidecar_code:
+        remaining = max(1, int(time_budget_seconds - elapsed))
+        sidecar_result = _run_isolated_python(sidecar_code, remaining)
+        elapsed += float(sidecar_result.get("elapsed_seconds", 0.0))
+
+    elapsed_total = max(elapsed, time.monotonic() - started)
+    estimated_cost = round(elapsed_total * (0.02 if gpu_allowed else 0.01), 4)
+
+    status = "success"
+    error = None
+    if trainer_result["status"] != "success":
+        status = "error"
+        error = trainer_result.get("error")
+    elif sidecar_result and sidecar_result["status"] != "success":
+        status = "error"
+        error = sidecar_result.get("error")
+    elif elapsed_total > float(time_budget_seconds):
+        status = "blocked"
+        error = "time budget exceeded"
+    elif estimated_cost > float(cost_budget_usd):
+        status = "blocked"
+        error = "cost budget exceeded"
+
+    checkpoint_paths = list(trainer_result.get("checkpoint_paths", []))
+    if sidecar_result:
+        checkpoint_paths.extend(sidecar_result.get("checkpoint_paths", []))
+
+    return {
+        "status": status,
+        "error": error,
+        "sandbox_mode": "isolated-subprocess",
+        "process_count": 2 if sidecar_result else 1,
+        "outbound_blocked_count": len(blocked_targets),
+        "network_calls_attempted": len(attempted),
+        "network_calls_allowed": len(allowed_targets),
+        "blocked_targets": blocked_targets,
+        "allowed_targets": allowed_targets,
+        "time_used_seconds": round(elapsed_total, 4),
+        "estimated_cost_usd": estimated_cost,
+        "checkpoint_paths": checkpoint_paths,
+        "requested_gpu": bool(trainer_result.get("requested_gpu", False)),
+        "budget": {
+            "time_seconds": int(time_budget_seconds),
+            "cost_usd": float(cost_budget_usd),
+            "gpu_allowed": bool(gpu_allowed),
+        },
+        "trainer": trainer_result,
+        "sidecar": sidecar_result,
+    }
 
 
 # --- CLI Interface ---

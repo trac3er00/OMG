@@ -18,6 +18,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from tools.python_sandbox import SandboxedExecutor, execute_sandboxed
+from lab.forge_runner import ForgeRunSpec, run_forge_sandboxed
 
 
 def test_semgrep_unavailable_returns_status_without_crashing(tmp_path):
@@ -221,3 +222,36 @@ class TestSandboxRobustness:
         assert result["blocked"] is True
         # Error should mention the block but not expose implementation details
         assert "subprocess" in result["error"].lower()
+
+
+class TestForgeSandboxNetworkPolicy:
+    def test_forge_run_blocks_disallowed_outbound_target(self):
+        spec = ForgeRunSpec(
+            run_id="run-net-block",
+            adapter="axolotl",
+            budget={"time_seconds": 10, "cost_usd": 1.0, "gpu_allowed": False},
+            outbound_allowlist=["allowed.example"],
+            trainer_code="print('trainer')",
+            attempted_outbound=["blocked.example"],
+        )
+
+        result = run_forge_sandboxed(spec)
+
+        assert result.status == "blocked"
+        assert result.evidence["budget"]["network_calls_attempted"] == 1
+        assert result.evidence["isolation"]["outbound_blocked_count"] == 1
+        assert "blocked.example" in result.evidence["budget"]["blocked_targets"]
+
+    def test_forge_run_blocks_gpu_request_when_budget_disallows_gpu(self):
+        spec = ForgeRunSpec(
+            run_id="run-gpu-block",
+            adapter="axolotl",
+            budget={"time_seconds": 10, "cost_usd": 2.0, "gpu_allowed": False},
+            outbound_allowlist=[],
+            trainer_code="requested_gpu = True",
+        )
+
+        result = run_forge_sandboxed(spec)
+
+        assert result.status == "blocked"
+        assert "gpu" in result.evidence["isolation"]["reason"].lower()
