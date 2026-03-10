@@ -1438,6 +1438,54 @@ def _check_mcp_fabric() -> dict[str, Any]:
     }
 
 
+def _check_plugin_command_paths(root: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    details: dict[str, Any] = {}
+
+    plugin_specs: list[tuple[str, Path, Path]] = [
+        ("core", root / "plugins" / "core" / "plugin.json", root),
+        ("advanced", root / "plugins" / "advanced" / "plugin.json", root / "plugins" / "advanced"),
+    ]
+
+    for plugin_name, manifest_path, resolve_root in plugin_specs:
+        plugin_detail: dict[str, Any] = {"manifest": str(manifest_path), "commands": {}}
+        if not manifest_path.exists():
+            blockers.append(f"plugin_command_paths: missing manifest {manifest_path.relative_to(root)}")
+            plugin_detail["status"] = "error"
+            details[plugin_name] = plugin_detail
+            continue
+
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            blockers.append(f"plugin_command_paths: unreadable manifest {manifest_path.relative_to(root)}: {exc}")
+            plugin_detail["status"] = "error"
+            details[plugin_name] = plugin_detail
+            continue
+
+        commands = manifest.get("commands", {})
+        missing: list[str] = []
+        for cmd_name, cmd_config in commands.items():
+            cmd_path = cmd_config.get("path", "")
+            resolved = resolve_root / cmd_path
+            plugin_detail["commands"][cmd_name] = str(cmd_path)
+            if not resolved.exists():
+                missing.append(cmd_path)
+                blockers.append(
+                    f"plugin_command_paths: {plugin_name} command '{cmd_name}' missing source {cmd_path}"
+                )
+
+        plugin_detail["missing"] = missing
+        plugin_detail["status"] = "ok" if not missing else "error"
+        details[plugin_name] = plugin_detail
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "blockers": blockers,
+        "details": details,
+    }
+
+
 def _check_version_identity_drift(root: Path) -> dict[str, Any]:
     canonical_version = CANONICAL_VERSION
     blockers: list[str] = []
@@ -1836,6 +1884,10 @@ def build_release_readiness(
     package_check = _check_packaged_install_smoke(root)
     checks["package_smoke"] = package_check
     blockers.extend(package_check.get("blockers", []))
+
+    plugin_cmd_check = _check_plugin_command_paths(root)
+    checks["plugin_command_paths"] = plugin_cmd_check
+    blockers.extend(plugin_cmd_check.get("blockers", []))
 
     version_drift_check = _check_version_identity_drift(root)
     checks["version_identity_drift"] = version_drift_check

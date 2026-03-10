@@ -21,6 +21,7 @@ from runtime.contract_compiler import (
     build_release_readiness,
     compile_contract_outputs,
     validate_contract_registry,
+    _check_plugin_command_paths,
     _validate_compiled_claude_output,
     _validate_compiled_codex_output,
 )
@@ -1889,3 +1890,61 @@ def test_validate_fail_status_when_blocker():
         assert result["status"] == "fail"
     else:
         assert result["status"] == "pass"
+
+
+def _scaffold_plugin_tree(root: Path, *, missing_advanced_cmd: str | None = None) -> None:
+    core_dir = root / "plugins" / "core"
+    core_dir.mkdir(parents=True, exist_ok=True)
+    core_commands_dir = root / "commands"
+    core_commands_dir.mkdir(parents=True, exist_ok=True)
+
+    core_manifest = {
+        "commands": {
+            "setup": {"path": "commands/OMG:setup.md"},
+            "init": {"path": "commands/OMG:init.md"},
+        }
+    }
+    (core_dir / "plugin.json").write_text(json.dumps(core_manifest), encoding="utf-8")
+    (core_commands_dir / "OMG:setup.md").write_text("# setup\n", encoding="utf-8")
+    (core_commands_dir / "OMG:init.md").write_text("# init\n", encoding="utf-8")
+
+    adv_dir = root / "plugins" / "advanced"
+    adv_commands_dir = adv_dir / "commands"
+    adv_commands_dir.mkdir(parents=True, exist_ok=True)
+
+    adv_manifest = {
+        "commands": {
+            "deep-plan": {"path": "commands/OMG:deep-plan.md"},
+            "learn": {"path": "commands/OMG:learn.md"},
+        }
+    }
+    (adv_dir / "plugin.json").write_text(json.dumps(adv_manifest), encoding="utf-8")
+
+    for cmd_name in ("OMG:deep-plan.md", "OMG:learn.md"):
+        if cmd_name == missing_advanced_cmd:
+            continue
+        (adv_commands_dir / cmd_name).write_text(f"# {cmd_name}\n", encoding="utf-8")
+
+
+def test_plugin_command_paths_valid_tree(tmp_path: Path) -> None:
+    _scaffold_plugin_tree(tmp_path)
+
+    result = _check_plugin_command_paths(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+    assert result["details"]["core"]["status"] == "ok"
+    assert result["details"]["advanced"]["status"] == "ok"
+
+
+def test_plugin_command_paths_missing_source(tmp_path: Path) -> None:
+    _scaffold_plugin_tree(tmp_path, missing_advanced_cmd="OMG:learn.md")
+
+    result = _check_plugin_command_paths(tmp_path)
+
+    assert result["status"] == "error"
+    assert any("plugin_command_paths" in b for b in result["blockers"])
+    assert any("missing source" in b for b in result["blockers"])
+    assert any("learn" in b for b in result["blockers"])
+    assert result["details"]["advanced"]["status"] == "error"
+    assert result["details"]["core"]["status"] == "ok"
