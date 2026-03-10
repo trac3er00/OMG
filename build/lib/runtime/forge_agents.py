@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.util
 import json
@@ -8,7 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from runtime.domain_packs import DOMAIN_PACKS, get_domain_pack_contract
 from runtime.forge_contracts import ADAPTER_REGISTRY, load_forge_mvp, validate_forge_job
+from runtime.forge_domains import canonical_domain_for, is_valid_domain
+from runtime.forge_run_id import normalize_run_id
 from runtime.runtime_contracts import read_defense_state, read_session_health
 from runtime.security_check import run_security_check
 
@@ -33,7 +37,6 @@ _SPECIALIST_REGISTRY: dict[str, dict[str, object]] = {
 }
 
 _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
-    "vision-agent": ["data-curator", "training-architect", "simulator-engineer"],
     "vision": ["data-curator", "training-architect", "simulator-engineer"],
     "robotics": ["training-architect", "simulator-engineer"],
     "algorithms": ["training-architect"],
@@ -44,6 +47,8 @@ _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
 
 def resolve_specialists(domain: str) -> list[str]:
     normalized = str(domain or "").strip().lower()
+    if is_valid_domain(normalized):
+        normalized = canonical_domain_for(normalized)
     return list(_DOMAIN_SPECIALISTS.get(normalized, []))
 
 
@@ -127,7 +132,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
 
     specialists_dispatched = requested_specialists if requested_specialists else expected_specialists
     status = "ok" if specialists_dispatched else "noop"
-    active_run_id = run_id or _now_run_id()
+    active_run_id = normalize_run_id(run_id)
 
     job_with_specialists = dict(job)
     job_with_specialists["specialists"] = specialists_dispatched
@@ -193,10 +198,6 @@ def _normalize_specialist_list(value: object) -> list[str]:
         if candidate and candidate not in items:
             items.append(candidate)
     return items
-
-
-def _now_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def _check_backend_available(backend_name: str) -> bool:
@@ -290,6 +291,8 @@ def _write_dispatch_evidence(
     evidence_dir.mkdir(parents=True, exist_ok=True)
     evidence_path = evidence_dir / f"forge-specialists-{run_id}.json"
     contract = load_forge_mvp()
+    context_checksum = hashlib.sha256(json.dumps(job, sort_keys=True).encode()).hexdigest()
+    domain_pack = get_domain_pack_contract(domain) if domain in DOMAIN_PACKS else {}
     payload: dict[str, Any] = {
         "schema": "ForgeSpecialistDispatchEvidence",
         "schema_version": "1.0.0",
@@ -316,7 +319,54 @@ def _write_dispatch_evidence(
             "verification_status": status,
         },
         "job": job,
+        "context_checksum": context_checksum,
+        "profile_version": "forge-run-v1",
+        "intent_gate_version": "1.0.0",
+        "domain_pack": domain_pack,
+        "artifact_contracts": {
+            "dataset_lineage": {
+                "standard": "Croissant-1.1",
+                "path": f".omg/evidence/forge-lineage-{run_id}.json",
+                "status": "placeholder",
+                "reason": "dataset lineage artifact not yet generated",
+            },
+            "model_card": {
+                "standard": "HuggingFace-ModelCard",
+                "path": f".omg/evidence/forge-model-card-{run_id}.md",
+                "status": "placeholder",
+                "reason": "model card artifact not yet generated",
+            },
+            "checkpoint_hash": {
+                "standard": "OpenSSF-OMS",
+                "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
+                "status": "placeholder",
+                "reason": "checkpoint hash artifact not yet generated",
+            },
+            "regression_scoreboard": {
+                "standard": "lm-eval",
+                "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
+                "status": "placeholder",
+                "reason": "regression scoreboard artifact not yet generated",
+            },
+            "promotion_decision": {
+                "status": "pending",
+                "reason": "promotion requires passing regression scoreboard and human review for health domain",
+                "replay_required": True,
+            },
+        },
     }
+
+    if domain == "cybersecurity":
+        evidence_dir = evidence_path.parent
+        security_links: list[str] = []
+        for pattern in ("security-*.json", "security-*.sarif"):
+            security_links.extend(
+                f".omg/evidence/{p.name}" for p in sorted(evidence_dir.glob(pattern))
+            )
+        payload["security_evidence_links"] = security_links if security_links else [
+            ".omg/evidence/security-*.json",
+            ".omg/evidence/security-*.sarif",
+        ]
 
     if security_scan is not None:
         payload["security_scan"] = security_scan

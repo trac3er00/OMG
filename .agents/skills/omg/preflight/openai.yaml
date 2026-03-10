@@ -2,7 +2,7 @@ name: omg-preflight
 description: "Repo-aware route selection based on diff, manifests, and classified risk."
 allow_implicit_invocation: true
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: preflight
   title: "OMG Preflight"
 mcp_servers:

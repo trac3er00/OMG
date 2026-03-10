@@ -2,7 +2,7 @@ name: omg-health
 description: "Health-sensitive approvals, provenance, and replay attachments."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: health
   title: "OMG Health Pack"
 mcp_servers:

@@ -14,6 +14,7 @@ except Exception:  # pragma: no cover - json fallback path
 
 
 DEFAULT_BUNDLE_PATH = Path("registry") / "bundles" / "hook-governor.yaml"
+_MODULE_DIR = Path(__file__).resolve().parent.parent  # project root (runtime/ → project root)
 SECURITY_REQUIRED_BY_EVENT: dict[str, tuple[str, ...]] = {
     "PreToolUse": ("firewall", "secret-guard"),
 }
@@ -49,6 +50,12 @@ def _load_compiled_hooks(
 ) -> tuple[dict[str, list[str]], str | None]:
     root = _resolve_project_dir(project_dir)
     candidate = Path(bundle_path) if bundle_path else (root / DEFAULT_BUNDLE_PATH)
+    if not bundle_path and not candidate.exists():
+        # Fallback: resolve relative to this module's installed location (robust to cwd changes
+        # and CLAUDE_PROJECT_DIR pointing to temp dirs in parallel test runs).
+        module_relative = _MODULE_DIR / DEFAULT_BUNDLE_PATH
+        if module_relative.exists():
+            candidate = module_relative
     try:
         raw = candidate.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -123,9 +130,20 @@ def validate_order(
     blockers: list[str] = []
     expected_positions = {name: idx for idx, name in enumerate(canonical)}
 
-    for required in SECURITY_REQUIRED_BY_EVENT.get(event, ()):
+    required_security_hooks = SECURITY_REQUIRED_BY_EVENT.get(event, ())
+    for required in required_security_hooks:
         if required not in hooks_list:
             blockers.append(f"missing required security hook: {required}")
+
+    if required_security_hooks:
+        for expected_index, required in enumerate(required_security_hooks):
+            if required not in hooks_list:
+                continue
+            actual_index = hooks_list.index(required)
+            if actual_index != expected_index:
+                blockers.append(
+                    f"hook order violation for {event}: {required} must run before non-security hooks"
+                )
 
     filtered_hooks = [hook for hook in hooks_list if hook in expected_positions]
     for left, right in zip(filtered_hooks, filtered_hooks[1:]):

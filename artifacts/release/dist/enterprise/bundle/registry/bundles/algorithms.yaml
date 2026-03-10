@@ -1,6 +1,6 @@
 id: algorithms
 kind: domain-pack
-version: 2.1.4
+version: 2.1.5
 title: OMG Algorithms Pack
 description: Determinism and benchmark attachments for algorithm-heavy work.
 hosts:

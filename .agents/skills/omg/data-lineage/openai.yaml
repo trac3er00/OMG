@@ -2,7 +2,7 @@ name: omg-data-lineage
 description: "Provenance and privacy tracking for traces, fixtures, examples, and synthetic artifacts."
 allow_implicit_invocation: true
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: data-lineage
   title: "OMG Data Lineage"
 mcp_servers:

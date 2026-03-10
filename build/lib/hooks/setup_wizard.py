@@ -37,6 +37,7 @@ from runtime.mcp_config_writers import (  # noqa: E402
 import runtime.providers.codex_provider  # noqa: E402, F401
 import runtime.providers.gemini_provider  # noqa: E402, F401
 import runtime.providers.kimi_provider  # noqa: E402, F401
+from runtime.plugin_interop import discover_host_plugin_state  # noqa: E402
 from runtime.validate import run_validate as _run_post_install_validate  # noqa: E402
 from runtime.adoption import (  # noqa: E402
     CANONICAL_MODE_NAMES,
@@ -659,7 +660,7 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         "gemini": {"subscription": "free", "max_parallel_agents": 1},
         "kimi": {"subscription": "free", "max_parallel_agents": 1},
     }
-    preset = resolve_preset(cast(str | None, preferences.get("preset")))
+    preset = resolve_preset(cast(str, preferences.get("preset") or "safe"))
     default_config: dict[str, Any] = {
         "version": CANONICAL_VERSION,
         "preset": preset,
@@ -1032,6 +1033,11 @@ def run_setup_wizard(
         preset=selected_preset,
         adopt=adopt,
     )
+    foreign_plugins_discovered = 0
+    if adoption.get("selected_mode") == "coexist" or selected_preset == "interop":
+        host_plugin_state = discover_host_plugin_state(project_dir)
+        foreign_plugins_discovered = len(host_plugin_state.records)
+    adoption["foreign_plugins_discovered"] = foreign_plugins_discovered
 
     clis = detect_clis()
     auth = check_auth()
@@ -1090,9 +1096,11 @@ def run_setup_wizard(
     except OSError:
         artifact_path = ""
 
+    checks = validation_result.get("checks", [])
     blockers = [
-        c for c in validation_result.get("checks", [])
-        if c.get("status") == "blocker"
+        c
+        for c in checks
+        if isinstance(c, dict) and c.get("status") == "blocker"
     ]
 
     result["post_install_validation"] = {
