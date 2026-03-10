@@ -1,0 +1,70 @@
+{
+  "schema": "EvidencePack",
+  "run_id": "run-1",
+  "timestamp": "2026-03-07T00:00:00Z",
+  "executor": {
+    "user": "release-bot",
+    "pid": 1
+  },
+  "environment": {
+    "hostname": "localhost",
+    "platform": "darwin"
+  },
+  "tests": [
+    {
+      "name": "worker_implementation",
+      "passed": true
+    }
+  ],
+  "security_scans": [
+    {
+      "tool": "security-check",
+      "path": ".omg/evidence/security-check.json"
+    }
+  ],
+  "diff_summary": {
+    "files": 1
+  },
+  "reproducibility": {
+    "cmd": "python3 -m pytest tests -q"
+  },
+  "unresolved_risks": [],
+  "provenance": [
+    {
+      "source": "security-check"
+    }
+  ],
+  "trust_scores": {
+    "overall": 1.0
+  },
+  "api_twin": {},
+  "claims": [
+    {
+      "claim_type": "tests_passed",
+      "trace_ids": [
+        "trace-1"
+      ],
+      "artifacts": [
+        "junit.xml",
+        "coverage.xml",
+        "results.sarif",
+        "trace.zip"
+      ]
+    }
+  ],
+  "trace_ids": [
+    "trace-1"
+  ],
+  "lineage": {
+    "trace_id": "trace-1",
+    "path": ".omg/lineage/lineage-1.json"
+  },
+  "test_delta": {
+    "override": {
+      "approved_by": "release-bot"
+    }
+  },
+  "context_checksum": "fb67e4073e3a79ce8245fb91c36325d7c41d057e1395ed28b8e637751d084066",
+  "profile_version": "forge-run-v1",
+  "intent_gate_version": "1.0.0"
+}
