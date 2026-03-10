@@ -21,7 +21,7 @@ from runtime.memory_store import MemoryStore, MemoryStoreFullError, project_pref
 class TestInit:
     def test_default_path(self) -> None:
         store = MemoryStore()
-        expected = str(Path.home() / ".omg" / "shared-memory" / "store.json")
+        expected = str(Path.home() / ".omg" / "shared-memory" / "store.sqlite3")
         assert store.store_path == expected
 
     def test_custom_path(self, tmp_path: Path) -> None:
@@ -452,3 +452,77 @@ class TestProjectPreferenceSignals:
         assert signals[0]["field"] == "preferences.constraints.api_cost"
         assert signals[0]["value"] == "minimize spend"
         assert signals[0]["confidence"] == 1.0
+
+
+class TestSQLiteScopedStorage:
+    def test_scoped_query_filters_run_id_and_profile_id(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "memory.sqlite3"))
+        store.add(
+            key="design",
+            content="use adapter boundary",
+            source_cli="codex",
+            tags=["architecture"],
+            run_id="run-a",
+            profile_id="profile-a",
+        )
+        store.add(
+            key="design",
+            content="use strict governance",
+            source_cli="codex",
+            tags=["security"],
+            run_id="run-b",
+            profile_id="profile-a",
+        )
+
+        rows = store.query_scoped(query="design", run_id="run-a", profile_id="profile-a")
+
+        assert len(rows) == 1
+        assert rows[0]["run_id"] == "run-a"
+        assert rows[0]["profile_id"] == "profile-a"
+
+    def test_hybrid_retrieve_is_scoped_and_ranked(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "memory.sqlite3"))
+        store.add(
+            key="storage",
+            content="sqlite fts retrieval for lineage",
+            source_cli="claude",
+            tags=["sqlite", "fts"],
+            run_id="run-hybrid",
+            profile_id="profile-main",
+        )
+        store.add(
+            key="storage",
+            content="irrelevant other run",
+            source_cli="claude",
+            tags=["other"],
+            run_id="run-other",
+            profile_id="profile-main",
+        )
+
+        rows = store.hybrid_retrieve("sqlite retrieval", run_id="run-hybrid", profile_id="profile-main")
+
+        assert len(rows) == 1
+        assert rows[0]["run_id"] == "run-hybrid"
+        assert rows[0]["score"] > 0
+
+    def test_artifact_queries_return_handles_not_payloads(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "memory.sqlite3"))
+        handle = store.index_artifact(
+            run_id="run-a",
+            profile_id="profile-z",
+            kind="trace_zip",
+            path=".omg/artifacts/run-a/trace.zip",
+            summary="playwright trace archive",
+            size_bytes=2048,
+            metadata={"payload": "x" * 4000, "suite": "browser"},
+        )
+
+        rows = store.query_artifacts(run_id="run-a", profile_id="profile-z")
+
+        assert len(rows) == 1
+        assert rows[0]["artifact_id"] == handle["artifact_id"]
+        assert rows[0]["path"] == ".omg/artifacts/run-a/trace.zip"
+        assert rows[0]["summary"] == "playwright trace archive"
+        assert "payload" not in rows[0]
+        assert rows[0]["metadata"]["suite"] == "browser"
+        assert rows[0]["metadata"]["omitted_payload"] is True

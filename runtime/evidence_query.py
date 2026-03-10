@@ -123,11 +123,14 @@ def _record_matches(
     record: JsonObject,
     *,
     run_id: str | None,
+    profile_id: str | None,
     trace_id: str | None,
     schema: str | None,
     kind: str | None,
 ) -> bool:
     if run_id is not None and _record_string(record, "run_id") != run_id:
+        return False
+    if profile_id is not None and _record_string(record, "profile_id") != profile_id:
         return False
     if trace_id is not None:
         direct_trace_id = _record_string(record, "trace_id")
@@ -151,6 +154,33 @@ def _record_matches(
     return True
 
 
+def _artifact_handles_only(record: JsonObject) -> JsonObject:
+    artifacts_raw = record.get("artifacts")
+    if not isinstance(artifacts_raw, list):
+        return record
+
+    artifact_handles: list[JsonObject] = []
+    for item in artifacts_raw:
+        if not isinstance(item, dict):
+            continue
+        handle: JsonObject = {
+            "kind": _record_string(item, "kind"),
+            "path": _record_string(item, "path"),
+            "summary": _record_string(item, "summary"),
+        }
+        size_value = item.get("size_bytes")
+        if isinstance(size_value, int):
+            handle["size_bytes"] = size_value
+        payload = item.get("payload")
+        if payload is not None:
+            handle["omitted_payload"] = True
+        artifact_handles.append(handle)
+
+    enriched = dict(record)
+    enriched["artifacts"] = cast(JsonValue, artifact_handles)
+    return enriched
+
+
 def get_evidence_pack(project_dir: str, run_id: str) -> JsonObject | None:
     root = Path(project_dir)
     evidence_files = _iter_json_files(root, Path(".omg") / "evidence")
@@ -169,6 +199,7 @@ def query_evidence(
     project_dir: str,
     *,
     run_id: str | None = None,
+    profile_id: str | None = None,
     trace_id: str | None = None,
     schema: str | None = None,
     kind: str | None = None,
@@ -184,21 +215,23 @@ def query_evidence(
             if _record_matches(
                 payload,
                 run_id=run_id,
+                profile_id=profile_id,
                 trace_id=trace_id,
                 schema=schema,
                 kind=kind,
             ):
-                records.append(_record_copy_with_context_metadata(root, payload))
+                records.append(_record_copy_with_context_metadata(root, _artifact_handles_only(payload)))
 
         for row in _read_jsonl(root / rel_dir / "events.jsonl"):
             if _record_matches(
                 row,
                 run_id=run_id,
+                profile_id=profile_id,
                 trace_id=trace_id,
                 schema=schema,
                 kind=kind,
             ):
-                records.append(_record_copy_with_context_metadata(root, row))
+                records.append(_record_copy_with_context_metadata(root, _artifact_handles_only(row)))
 
     return records
 

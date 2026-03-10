@@ -18,6 +18,7 @@ from typing import Any
 import yaml
 
 from runtime.forge_run_id import build_deterministic_contract
+from runtime.memory_store import MemoryStore
 from runtime.profile_io import profile_version_from_map
 
 _MAX_SUMMARY_CHARS = 1000
@@ -28,6 +29,7 @@ _PROFILE_DIGEST_ARCH_MAX = 3
 _PROFILE_DIGEST_CONSTRAINT_MAX = 5
 _PACKET_REL_PATH = Path(".omg") / "state" / "context_engine_packet.json"
 _PROFILE_REL_PATH = Path(".omg") / "state" / "profile.yaml"
+_MEMORY_STORE_REL_PATH = Path(".omg") / "state" / "memory.sqlite3"
 
 _STATE_PATHS = {
     "architecture_signal": Path(".omg") / "state" / "architecture_signal" / "latest.json",
@@ -272,8 +274,9 @@ class ContextEngine:
     def _build(self, run_id: str, *, delta_only: bool) -> dict[str, Any]:
         raw = self._read_all_state(run_id)
         artifact_pointers = self._collect_artifact_pointers(run_id)
+        artifact_handles = self._collect_artifact_handles(run_id)
 
-        if not artifact_pointers and all(v == {} for v in raw.values()):
+        if not artifact_pointers and not artifact_handles and all(v == {} for v in raw.values()):
             pkt = self._fallback(run_id)
             pkt["delta_only"] = delta_only
             pkt["profile_digest"] = load_profile_digest(self.project_dir)
@@ -298,6 +301,7 @@ class ContextEngine:
         packet: dict[str, Any] = {
             "summary": summary,
             "artifact_pointers": artifact_pointers,
+            "artifact_handles": artifact_handles,
             "clarification_status": self._compose_clarification_status(raw),
             "profile_digest": load_profile_digest(self.project_dir),
             "budget": {
@@ -440,6 +444,7 @@ class ContextEngine:
         return {
             "summary": "no context signals available",
             "artifact_pointers": [],
+            "artifact_handles": [],
             "clarification_status": {
                 "requires_clarification": False,
                 "intent_class": "",
@@ -452,3 +457,12 @@ class ContextEngine:
             "run_id": run_id,
             "deterministic_contract": build_deterministic_contract(run_id),
         }
+
+    def _collect_artifact_handles(self, run_id: str) -> list[dict[str, Any]]:
+        try:
+            profile_id_raw = str(load_profile_digest(self.project_dir).get("profile_version", "")).strip()
+            profile_id = profile_id_raw if profile_id_raw else None
+            store = MemoryStore(store_path=str(self.project_dir / _MEMORY_STORE_REL_PATH))
+            return store.query_artifacts(run_id=run_id, profile_id=profile_id)
+        except Exception:
+            return []
