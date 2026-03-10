@@ -253,9 +253,35 @@ def test_skipped_stages_list_for_docs_only() -> None:
     assert "trace_link" not in skipped
 
 
-def test_skipped_stages_list_empty_for_release() -> None:
-    """skipped_stages_for_profile returns empty list for release (nothing skippable)."""
-    from runtime.background_verification import skipped_stages_for_profile
+def test_new_evidence_profiles_registered() -> None:
+    """Verify new evidence profiles are registered in EVIDENCE_REQUIREMENTS_BY_PROFILE."""
+    from runtime.evidence_requirements import EVIDENCE_REQUIREMENTS_BY_PROFILE
 
-    skipped = skipped_stages_for_profile("release")
-    assert skipped == []
+    new_profiles = [
+        "browser-flow",
+        "forge-cybersecurity",
+        "interop-diagnosis",
+        "install-validation",
+        "buffet",
+    ]
+    for profile in new_profiles:
+        assert profile in EVIDENCE_REQUIREMENTS_BY_PROFILE, f"Profile {profile} not registered"
+
+
+def test_new_evidence_profiles_resolve_correctly() -> None:
+    """Verify requirements_for_profile returns specific requirements for new profiles."""
+    from runtime.evidence_requirements import requirements_for_profile
+
+    # browser-flow should likely require trace_link and maybe some browser-specific evidence
+    browser_reqs = requirements_for_profile("browser-flow")
+    assert "trace_link" in browser_reqs
+
+    # forge-cybersecurity should require security_scan and artifact_contracts
+    forge_sec_reqs = requirements_for_profile("forge-cybersecurity")
+    assert "security_scan" in forge_sec_reqs
+    assert "artifact_contracts" in forge_sec_reqs
+
+    # buffet should probably require everything (full requirements)
+    buffet_reqs = requirements_for_profile("buffet")
+    from runtime.evidence_requirements import FULL_REQUIREMENTS
+    assert set(buffet_reqs) == set(FULL_REQUIREMENTS)

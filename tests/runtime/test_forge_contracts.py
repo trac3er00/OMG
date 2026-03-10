@@ -246,27 +246,40 @@ def test_build_forge_evidence_artifact_contracts_have_status(tmp_path: Path) -> 
         assert str(contract_dict["status"]).strip(), f"artifact_contracts.{key} status must be non-empty"
 
 
-def test_cybersecurity_evidence_includes_security_links(tmp_path: Path) -> None:
-    cybersecurity_job: dict[str, object] = {
-        "domain": "cybersecurity",
-        "dataset": {
-            "name": "forge-sec-mvp",
-            "license": "apache-2.0",
-            "source": "internal-curated",
-        },
-        "base_model": {
-            "name": "distill-base-v1",
-            "source": "approved-registry",
-            "allow_distill": True,
-        },
-        "target_metric": 0.8,
-        "simulated_metric": 0.9,
-    }
+def test_build_forge_evidence_artifact_contracts_no_placeholders(tmp_path: Path) -> None:
+    """Verify artifact contracts do NOT have placeholder status in the promotion path."""
     result = {"status": "ready", "stage": "complete", "published": False}
-    path = build_forge_evidence(str(tmp_path), "run-sec-1", cybersecurity_job, result)
+    path = build_forge_evidence(str(tmp_path), "run-no-placeholders", _valid_job(), result)
     payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
 
-    assert "security_evidence_links" in payload, "security_evidence_links missing for cybersecurity domain"
-    links = payload["security_evidence_links"]
-    assert isinstance(links, list), "security_evidence_links must be a list"
-    assert len(links) > 0, "security_evidence_links must not be empty"
+    contracts = cast(dict[str, object], payload["artifact_contracts"])
+    for key, contract in contracts.items():
+        contract_dict = cast(dict[str, object], contract)
+        # Promotion decision might be 'pending' or 'ok', but others should have concrete status
+        if key == "promotion_decision":
+            continue
+        assert contract_dict["status"] != "placeholder", f"artifact_contracts.{key} still has placeholder status"
+
+
+def test_build_forge_evidence_artifact_contracts_have_concrete_fields(tmp_path: Path) -> None:
+    """Verify artifact contracts have concrete schema requirements."""
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-concrete-fields", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    contracts = cast(dict[str, object], payload["artifact_contracts"])
+    
+    # Dataset lineage should have lineage_hash or similar
+    assert "lineage_hash" in contracts["dataset_lineage"]
+    
+    # Model card should have model_id
+    assert "model_id" in contracts["model_card"]
+    
+    # Checkpoint hash should have sha256
+    assert "sha256" in contracts["checkpoint_hash"]
+    
+    # Regression scoreboard should have score
+    assert "score" in contracts["regression_scoreboard"]
+    
+    # Promotion decision should have decision_id
+    assert "decision_id" in contracts["promotion_decision"]

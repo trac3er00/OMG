@@ -34,6 +34,33 @@ EVIDENCE_REQUIREMENTS_BY_PROFILE: Final[dict[str, list[str]]] = {
         "trace_link",
         "artifact_contracts",
     ],
+    "browser-flow": [
+        "lsp_clean",
+        "trace_link",
+        "provenance",
+    ],
+    "forge-cybersecurity": [
+        "tests",
+        "lsp_clean",
+        "provenance",
+        "trace_link",
+        "artifact_contracts",
+        "security_scan",
+    ],
+    "interop-diagnosis": [
+        "lsp_clean",
+        "trace_link",
+        "provenance",
+        "trust_scores",
+    ],
+    "install-validation": [
+        "tests",
+        "lsp_clean",
+        "build",
+        "provenance",
+        "trace_link",
+    ],
+    "buffet": list(FULL_REQUIREMENTS),
     "security-audit": list(FULL_REQUIREMENTS),
     "release": list(FULL_REQUIREMENTS),
 }
