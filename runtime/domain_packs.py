@@ -37,6 +37,14 @@ DOMAIN_PACKS: dict[str, dict[str, Any]] = {
         "eval_hooks": ["health-safety"],
         "replay_hooks": ["incident-replay"],
     },
+    "cybersecurity": {
+        "name": "cybersecurity",
+        "required_approvals": [],
+        "required_evidence": ["security-scan", "threat-model", "sarif-report"],
+        "policy_modules": ["security-gate", "threat-gate"],
+        "eval_hooks": ["security-regression"],
+        "replay_hooks": ["incident-replay"],
+    },
 }
 
 

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from runtime.forge_contracts import ADAPTER_REGISTRY, load_forge_mvp, validate_forge_job
+from runtime.forge_domains import canonical_domain_for, is_valid_domain
 from runtime.runtime_contracts import read_defense_state, read_session_health
 from runtime.security_check import run_security_check
 
@@ -33,7 +34,6 @@ _SPECIALIST_REGISTRY: dict[str, dict[str, object]] = {
 }
 
 _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
-    "vision-agent": ["data-curator", "training-architect", "simulator-engineer"],
     "vision": ["data-curator", "training-architect", "simulator-engineer"],
     "robotics": ["training-architect", "simulator-engineer"],
     "algorithms": ["training-architect"],
@@ -44,6 +44,8 @@ _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
 
 def resolve_specialists(domain: str) -> list[str]:
     normalized = str(domain or "").strip().lower()
+    if is_valid_domain(normalized):
+        normalized = canonical_domain_for(normalized)
     return list(_DOMAIN_SPECIALISTS.get(normalized, []))
 
 

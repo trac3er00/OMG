@@ -9,6 +9,7 @@ from time import monotonic
 from typing import cast
 
 from lab.policies import validate_job_request
+from runtime.forge_domains import get_all_canonical_domains
 from runtime.runtime_contracts import read_defense_state, read_session_health
 
 FORGE_STAGE_ORDER: tuple[str, ...] = (
@@ -101,6 +102,7 @@ def load_forge_mvp() -> dict[str, object]:
             },
         },
         "adapter_registry": dict(ADAPTER_REGISTRY),
+        "canonical_domains": get_all_canonical_domains(),
         "evidence_output_path": ".omg/evidence/forge-<run_id>.json",
         "starter_templates": {
             "vision-agent": {
