@@ -38,17 +38,18 @@ def _isolate_provider_registry():
 
 
 def test_all_providers_registered():
-    """Only supported CLI providers register into the global registry on import."""
+    """All supported CLI providers register into the global registry on import."""
     import runtime.providers.codex_provider  # noqa: F401
     import runtime.providers.gemini_provider  # noqa: F401
     import runtime.providers.kimi_provider  # noqa: F401
+    import runtime.providers.opencode_provider  # noqa: F401
     from runtime.cli_provider import list_available_providers
 
     providers = list_available_providers()
     assert "codex" in providers
     assert "gemini" in providers
     assert "kimi" in providers
-    assert "opencode" not in providers
+    assert "opencode" in providers
 
 
 def test_get_provider_returns_registered_instance():

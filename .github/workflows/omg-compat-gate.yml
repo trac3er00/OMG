@@ -27,6 +27,9 @@ jobs:
       - name: OMG compatibility GA gate
         run: python3 scripts/omg.py compat gate --max-bridge 0 --output artifacts/omg-compat-gap.json
 
+      - name: Plugin interop diagnostics
+        run: python3 scripts/omg.py diagnose-plugins --format json
+
       - name: Export contract snapshot
         run: python3 scripts/omg.py compat snapshot --output artifacts/omg-compat-contracts.json
 

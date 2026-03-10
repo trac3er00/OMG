@@ -17,6 +17,7 @@ from hooks.policy_engine import evaluate_bash_command
 from lab.pipeline import run_pipeline
 from runtime.adoption import CANONICAL_VERSION
 from runtime.dispatcher import dispatch_runtime
+from runtime.plugin_diagnostics import run_plugin_diagnostics
 from runtime.security_check import run_security_check
 from runtime.team_router import TeamDispatchRequest, dispatch_team
 
@@ -698,6 +699,34 @@ def _doctor_check(name: str, *, ok: bool, message: str, required: bool = True) -
     return {"name": name, "status": status, "message": message, "required": required}
 
 
+def _check_plugin_compat(root_dir: Path) -> dict[str, Any]:
+    try:
+        result = run_plugin_diagnostics(str(root_dir))
+    except Exception as exc:
+        return _doctor_check(
+            "plugin_compatibility",
+            ok=False,
+            message=f"plugin diagnostics error: {exc}",
+            required=False,
+        )
+
+    status = str(result.get("status", "error"))
+    summary = result.get("summary", {})
+    summary = summary if isinstance(summary, dict) else {}
+    total_records = int(summary.get("total_records", 0))
+    total_conflicts = int(summary.get("total_conflicts", 0))
+    blockers = int(summary.get("blockers", 0))
+    return _doctor_check(
+        "plugin_compatibility",
+        ok=status in {"ok", "warn"},
+        message=(
+            f"plugin compatibility: {total_records} records, "
+            f"{total_conflicts} conflicts, {blockers} blockers"
+        ),
+        required=False,
+    )
+
+
 def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
     """Canonical install/runtime verification engine.
 
@@ -804,11 +833,15 @@ def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
     venv_msg = f"managed venv at {managed_venv_path}" if venv_ok else f"managed venv not found at {managed_venv_path} (install via OMG-setup.sh)"
     checks.append(_doctor_check("managed_runtime", ok=venv_ok, message=venv_msg, required=False))
 
+    plugin_check = _check_plugin_compat(repo_root)
+    checks.append(plugin_check)
+
     has_blocker = any(c["status"] == "blocker" for c in checks)
     return {
         "schema": "DoctorResult",
         "status": "fail" if has_blocker else "pass",
         "checks": checks,
+        "plugin_compatibility": plugin_check,
         "version": CANONICAL_VERSION,
     }
 
