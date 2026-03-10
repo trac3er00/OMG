@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import importlib.util
 import itertools
 import json
@@ -8,9 +9,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-
-from lab.forge_runner import ForgeRunResult, ForgeRunSpec, run_forge_sandboxed
+from typing import Any, cast
 
 
 ADAPTER_NAME = "axolotl"
@@ -305,7 +304,7 @@ def _write_live_evidence(
     search_scores: list[dict[str, Any]],
     best_trial: dict[str, Any] | None,
     resume_metadata: dict[str, Any],
-    run_result: ForgeRunResult,
+    run_result: Any,
     checkpoint_artifacts: list[dict[str, Any]],
     sidecar_evidence_path: str,
 ) -> str:
@@ -329,6 +328,12 @@ def _write_live_evidence(
     _ = temp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
     _ = os.replace(temp_path, evidence_path)
     return str(evidence_path)
+
+
+def run_forge_sandboxed(spec: Any) -> Any:
+    module = importlib.import_module("lab.forge_runner")
+    runner = getattr(module, "run_forge_sandboxed")
+    return cast(Any, runner)(spec)
 
 
 def run(
@@ -451,18 +456,19 @@ def run(
     if isinstance(raw_attempted, list):
         attempted_outbound = [str(item) for item in raw_attempted]
 
-    run_result = run_forge_sandboxed(
-        ForgeRunSpec(
-            run_id=active_run_id,
-            adapter=ADAPTER_NAME,
-            budget=budget,
-            outbound_allowlist=outbound_allowlist,
-            trainer_code=trainer_code,
-            sidecar_code=sidecar_code,
-            attempted_outbound=attempted_outbound,
-            project_dir=str(sandbox_path),
-        )
+    forge_runner_module = importlib.import_module("lab.forge_runner")
+    forge_run_spec_cls = getattr(forge_runner_module, "ForgeRunSpec")
+    run_spec = forge_run_spec_cls(
+        run_id=active_run_id,
+        adapter=ADAPTER_NAME,
+        budget=budget,
+        outbound_allowlist=outbound_allowlist,
+        trainer_code=trainer_code,
+        sidecar_code=sidecar_code,
+        attempted_outbound=attempted_outbound,
+        project_dir=str(sandbox_path),
     )
+    run_result = run_forge_sandboxed(run_spec)
 
     checkpoint_paths = list(run_result.checkpoint_paths)
     checkpoint_artifacts = _checkpoint_artifacts(checkpoint_paths)

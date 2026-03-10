@@ -579,6 +579,10 @@ class TestForgeAdapterBackends:
         if "adapter_evidence" in result:
             adapter_names = [str(a["adapter"]) for a in result["adapter_evidence"]]
             assert "pybullet" in adapter_names
+            pybullet_ev = [a for a in result["adapter_evidence"] if a["adapter"] == "pybullet"][0]
+            assert pybullet_ev.get("backend") == "pybullet"
+            assert "episode_stats" in pybullet_ev
+            assert "replay_metadata" in pybullet_ev
 
     def test_pipeline_with_evidence_includes_adapter_data(self, tmp_path: Path):
         job = _valid_job()
@@ -632,6 +636,10 @@ class TestForgeAdapterBackends:
 
         assert result["status"] == "blocked"
         assert "required backend unavailable" in str(result.get("reason", ""))
+        isaac_ev = [a for a in result.get("adapter_evidence", []) if a["adapter"] == "isaac_gym"]
+        assert len(isaac_ev) == 1
+        assert isaac_ev[0]["status"] == "unavailable_backend"
+        assert isaac_ev[0]["reason"] == "isaac_lab_requires_cuda"
 
     def test_pipeline_optional_isaac_gym_continues(self):
         job = _valid_job()
@@ -646,6 +654,7 @@ class TestForgeAdapterBackends:
         isaac_ev = [a for a in result.get("adapter_evidence", []) if a["adapter"] == "isaac_gym"]
         assert len(isaac_ev) == 1
         assert isaac_ev[0]["status"] == "skipped_unavailable_backend"
+        assert isaac_ev[0]["promotion_blocked"] is False
 
 
 class TestForgePublish:

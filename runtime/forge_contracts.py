@@ -311,16 +311,27 @@ def build_forge_evidence(
     evaluation_report = result.get("evaluation_report")
     if isinstance(evaluation_report, Mapping):
         metric_raw = evaluation_report.get("metric", 0.0)
-        try:
-            evaluation_metric = float(metric_raw)
-        except (TypeError, ValueError):
+        if isinstance(metric_raw, bool):
             evaluation_metric = 0.0
+        elif isinstance(metric_raw, (int, float)):
+            evaluation_metric = float(metric_raw)
+        elif isinstance(metric_raw, str):
+            try:
+                evaluation_metric = float(metric_raw)
+            except ValueError:
+                evaluation_metric = 0.0
 
+    target_metric = 0.0
     target_metric_raw = job.get("target_metric", 0.0)
-    try:
-        target_metric = float(target_metric_raw)
-    except (TypeError, ValueError):
+    if isinstance(target_metric_raw, bool):
         target_metric = 0.0
+    elif isinstance(target_metric_raw, (int, float)):
+        target_metric = float(target_metric_raw)
+    elif isinstance(target_metric_raw, str):
+        try:
+            target_metric = float(target_metric_raw)
+        except ValueError:
+            target_metric = 0.0
 
     context_checksum = hashlib.sha256(json.dumps(job_dict, sort_keys=True).encode()).hexdigest()
     domain_pack = get_domain_pack_contract(domain) if domain in DOMAIN_PACKS else {}

@@ -259,7 +259,7 @@ class TestAxolotlAdapter:
 
 
 class TestPyBulletAdapter:
-    """Red-state tests for pybullet adapter (not yet implemented)."""
+    """Contract tests for pybullet simulator adapter."""
 
     def test_pybullet_adapter_preflight_returns_kind_simulator(self, tmp_path: Path) -> None:
         """PyBullet adapter must return kind=simulator in preflight mode."""
@@ -292,9 +292,60 @@ class TestPyBulletAdapter:
         assert "kind" in result
         assert "status" in result
 
+    def test_pybullet_live_unavailable_reports_skipped_backend_with_evidence(self, tmp_path: Path) -> None:
+        pytest.importorskip("lab.pybullet_adapter")
+        import lab.pybullet_adapter as adapter
+
+        result = adapter.run(
+            job={"domain": "robotics"},
+            backend_mode="live",
+            run_id="run-pybullet-unavailable",
+            sandbox_root=str(tmp_path),
+        )
+
+        assert result["adapter"] == "pybullet"
+        assert result["status"] == "skipped_unavailable_backend"
+        assert result["backend"] == "pybullet"
+        assert result["seed"] is not None
+        assert result["episode_stats"]["steps"] == 0
+        assert result["episode_stats"]["reward"] == 0.0
+        assert result["replay_metadata"]["run_id"] == "run-pybullet-unavailable"
+
+    def test_pybullet_live_available_emits_bounded_episode_stats(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        pytest.importorskip("lab.pybullet_adapter")
+        import lab.pybullet_adapter as adapter
+
+        monkeypatch.setattr(adapter, "_check_pybullet_available", lambda: True)
+
+        def _fake_episode(*, job: dict[str, Any], seed: int, timeout_seconds: int) -> dict[str, Any]:
+            del job, timeout_seconds
+            return {
+                "steps": 12,
+                "reward": 3.5,
+                "duration_ms": 8,
+                "seed": seed,
+                "backend_version": "pybullet-test",
+            }
+
+        monkeypatch.setattr(adapter, "_run_bounded_local_episode", _fake_episode)
+
+        result = adapter.run(
+            job={"domain": "robotics"},
+            backend_mode="live",
+            run_id="run-pybullet-live",
+            sandbox_root=str(tmp_path),
+        )
+
+        assert result["status"] == "invoked"
+        assert result["episode_stats"]["steps"] == 12
+        assert result["episode_stats"]["reward"] == 3.5
+        assert result["replay_metadata"]["backend_version"] == "pybullet-test"
+
 
 class TestGazeboAndIsaacAdapters:
-    """Red-state tests for gazebo and isaac_gym adapters (not yet implemented)."""
+    """Contract tests for gazebo/isaac simulator adapters."""
 
     def test_gazebo_adapter_preflight_returns_adapter_field(self, tmp_path: Path) -> None:
         """Gazebo adapter must return adapter field in preflight mode."""
@@ -310,12 +361,28 @@ class TestGazeboAndIsaacAdapters:
 
         assert isinstance(result, dict)
         assert result.get("adapter") == "gazebo"
+        assert result.get("fidelity_backend") is True
+
+    def test_gazebo_live_unavailable_is_skipped_backend_with_fidelity_reason(self, tmp_path: Path) -> None:
+        pytest.importorskip("lab.gazebo_adapter")
+        import lab.gazebo_adapter as adapter
+
+        result = adapter.run(
+            job={"domain": "robotics"},
+            backend_mode="live",
+            run_id="run-gazebo-unavailable",
+            sandbox_root=str(tmp_path),
+        )
+
+        assert result["status"] == "skipped_unavailable_backend"
+        assert result["backend"] == "gazebo"
+        assert result["fidelity_backend"] is True
+        assert result["replay_metadata"]["run_id"] == "run-gazebo-unavailable"
 
     def test_isaac_adapter_live_mode_never_returns_invoked_when_unavailable(
         self, tmp_path: Path
     ) -> None:
-        """Isaac Gym adapter must not return invoked status when backend unavailable."""
-        # This test will FAIL until lab.isaac_gym_adapter.run is implemented
+        """Isaac Lab path must report unavailable without CUDA backend."""
         pytest.importorskip("lab.isaac_gym_adapter")
         from lab.isaac_gym_adapter import run
 
@@ -326,6 +393,34 @@ class TestGazeboAndIsaacAdapters:
         )
 
         assert isinstance(result, dict)
-        status = result.get("status")
-        # When backend is unavailable, status should NOT be "invoked"
-        assert status != "invoked"
+        assert result.get("status") == "unavailable_backend"
+        assert result.get("reason") == "isaac_lab_requires_cuda"
+        assert result.get("backend") == "isaac_lab"
+
+
+class TestMockIsaacEnv:
+    def test_mock_isaac_env_reset_and_step_are_seed_deterministic(self) -> None:
+        pytest.importorskip("lab.mock_isaac_env")
+        from lab.mock_isaac_env import MockIsaacEnv
+
+        env_a = MockIsaacEnv(max_steps=4)
+        env_b = MockIsaacEnv(max_steps=4)
+
+        obs_a, info_a = env_a.reset(seed=7)
+        obs_b, info_b = env_b.reset(seed=7)
+        assert obs_a == obs_b
+        assert info_a["seed"] == 7
+        assert info_b["seed"] == 7
+
+        traj_a: list[tuple[Any, float, bool, bool]] = []
+        traj_b: list[tuple[Any, float, bool, bool]] = []
+        for _ in range(4):
+            traj_a.append(env_a.step(0))
+            traj_b.append(env_b.step(0))
+
+        assert traj_a == traj_b
+        assert traj_a[-1][2] is True
+        assert traj_a[-1][3] is False
+
+        env_a.close()
+        env_b.close()
