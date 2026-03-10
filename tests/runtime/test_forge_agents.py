@@ -76,6 +76,32 @@ def test_dispatch_specialists_writes_evidence_and_returns_shape(tmp_path: Path) 
     assert payload["contract"]["labs_only"] is True
 
 
+def test_dispatch_specialists_evidence_includes_domain_pack(tmp_path: Path) -> None:
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert "domain_pack" in payload, "domain_pack missing from dispatch evidence"
+    domain_pack = payload["domain_pack"]
+    assert isinstance(domain_pack, dict), "domain_pack must be a dict"
+    assert domain_pack.get("name") == "vision"
+
+
+def test_dispatch_specialists_evidence_includes_release_metadata(tmp_path: Path) -> None:
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert "context_checksum" in payload, "context_checksum missing from dispatch evidence"
+    assert str(payload["context_checksum"]).strip(), "context_checksum must be non-empty"
+    assert "profile_version" in payload, "profile_version missing from dispatch evidence"
+    assert str(payload["profile_version"]).strip(), "profile_version must be non-empty"
+    assert "intent_gate_version" in payload, "intent_gate_version missing from dispatch evidence"
+    assert str(payload["intent_gate_version"]).strip(), "intent_gate_version must be non-empty"
+
+
 def test_dispatch_cybersecurity_specialist_writes_proof_backed_evidence(tmp_path: Path) -> None:
     job = _valid_job()
     job["domain"] = "cybersecurity"

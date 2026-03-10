@@ -108,6 +108,19 @@ def test_build_forge_evidence_includes_proof_backed_starter_fields(tmp_path: Pat
     assert isinstance(payload.get("domain"), str)
 
 
+def test_build_forge_evidence_includes_release_ready_metadata(tmp_path: Path) -> None:
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-meta-1", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    assert "context_checksum" in payload, "context_checksum missing from evidence"
+    assert str(payload["context_checksum"]).strip(), "context_checksum must be non-empty"
+    assert "profile_version" in payload, "profile_version missing from evidence"
+    assert str(payload["profile_version"]).strip(), "profile_version must be non-empty"
+    assert "intent_gate_version" in payload, "intent_gate_version missing from evidence"
+    assert str(payload["intent_gate_version"]).strip(), "intent_gate_version must be non-empty"
+
+
 def test_build_forge_evidence_includes_causal_chain_stub(tmp_path: Path) -> None:
     result = {"status": "ready", "stage": "complete", "published": False}
     path = build_forge_evidence(str(tmp_path), "run-chain-1", _valid_job(), result)

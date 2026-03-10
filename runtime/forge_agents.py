@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.util
 import json
@@ -8,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from runtime.domain_packs import DOMAIN_PACKS, get_domain_pack_contract
 from runtime.forge_contracts import ADAPTER_REGISTRY, load_forge_mvp, validate_forge_job
 from runtime.forge_domains import canonical_domain_for, is_valid_domain
 from runtime.forge_run_id import normalize_run_id
@@ -289,6 +291,8 @@ def _write_dispatch_evidence(
     evidence_dir.mkdir(parents=True, exist_ok=True)
     evidence_path = evidence_dir / f"forge-specialists-{run_id}.json"
     contract = load_forge_mvp()
+    context_checksum = hashlib.sha256(json.dumps(job, sort_keys=True).encode()).hexdigest()
+    domain_pack = get_domain_pack_contract(domain) if domain in DOMAIN_PACKS else {}
     payload: dict[str, Any] = {
         "schema": "ForgeSpecialistDispatchEvidence",
         "schema_version": "1.0.0",
@@ -315,6 +319,10 @@ def _write_dispatch_evidence(
             "verification_status": status,
         },
         "job": job,
+        "context_checksum": context_checksum,
+        "profile_version": "forge-run-v1",
+        "intent_gate_version": "1.0.0",
+        "domain_pack": domain_pack,
     }
 
     if security_scan is not None:

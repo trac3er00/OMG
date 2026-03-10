@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from collections.abc import Mapping
@@ -9,6 +10,7 @@ from time import monotonic
 from typing import cast
 
 from lab.policies import validate_job_request
+from runtime.domain_packs import DOMAIN_PACKS, get_domain_pack_contract
 from runtime.forge_domains import canonical_domain_for, get_all_canonical_domains, is_valid_domain
 from runtime.runtime_contracts import read_defense_state, read_session_health
 
@@ -274,6 +276,9 @@ def build_forge_evidence(
                 if isinstance(item, Mapping)
             ]
 
+    job_dict = dict(job)
+    context_checksum = hashlib.sha256(json.dumps(job_dict, sort_keys=True).encode()).hexdigest()
+    domain_pack = get_domain_pack_contract(domain) if domain in DOMAIN_PACKS else {}
     payload = {
         "schema": "ForgeMVPEvidence",
         "schema_version": "1.0.0",
@@ -296,6 +301,10 @@ def build_forge_evidence(
             "delta_summary": {"forge_run": run_id, "domain": domain, "specialist": specialist_str},
             "verification_status": str(result.get("status", "unknown")),
         },
+        "context_checksum": context_checksum,
+        "profile_version": "forge-run-v1",
+        "intent_gate_version": "1.0.0",
+        "domain_pack": domain_pack,
     }
 
     tmp_path = out_path.with_name(f"{out_path.name}.tmp")
