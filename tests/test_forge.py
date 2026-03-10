@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT / "scripts"
 sys.path.insert(0, str(ROOT))
 
-from lab.pipeline import run_pipeline, run_pipeline_with_evidence  # noqa: E402
+from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evidence  # noqa: E402
 from runtime.forge_contracts import validate_forge_job  # noqa: E402
 
 
@@ -628,3 +628,66 @@ class TestForgeAdapterBackends:
         isaac_ev = [a for a in result.get("adapter_evidence", []) if a["adapter"] == "isaac_gym"]
         assert len(isaac_ev) == 1
         assert isaac_ev[0]["status"] == "skipped_unavailable_backend"
+
+
+class TestForgePublish:
+    """Red-state tests for publish_artifact function (not yet fully implemented)."""
+
+    def test_publish_artifact_writes_json_file(self, tmp_path: Path) -> None:
+        """publish_artifact must write a JSON file to the provided path."""
+        result = {
+            "status": "ready",
+            "stage": "complete",
+            "published": False,
+            "evaluation_report": {
+                "created_at": "2026-03-09T00:00:00+00:00",
+                "metric": 0.9,
+                "target_metric": 0.8,
+                "passed": True,
+                "notes": "",
+            },
+        }
+
+        published = publish_artifact(result)
+
+        assert isinstance(published, dict)
+        assert published.get("status") == "published"
+        assert published.get("published") is True
+        assert "published_at" in published
+
+    def test_publish_artifact_requires_passed_evaluation(self, tmp_path: Path) -> None:
+        """publish_artifact must block if evaluation report is missing or not passed."""
+        result_no_report = {
+            "status": "ready",
+            "stage": "complete",
+            "published": False,
+        }
+
+        published = publish_artifact(result_no_report)
+
+        assert isinstance(published, dict)
+        assert published.get("status") == "blocked"
+        assert published.get("reason") == "evaluation report missing or not passed"
+        assert published.get("published") is False
+
+    def test_publish_artifact_blocks_on_failed_evaluation(self, tmp_path: Path) -> None:
+        """publish_artifact must block if evaluation report passed=False."""
+        result_failed = {
+            "status": "ready",
+            "stage": "complete",
+            "published": False,
+            "evaluation_report": {
+                "created_at": "2026-03-09T00:00:00+00:00",
+                "metric": 0.7,
+                "target_metric": 0.8,
+                "passed": False,
+                "notes": "metric below target",
+            },
+        }
+
+        published = publish_artifact(result_failed)
+
+        assert isinstance(published, dict)
+        assert published.get("status") == "blocked"
+        assert published.get("reason") == "evaluation report missing or not passed"
+        assert published.get("published") is False
