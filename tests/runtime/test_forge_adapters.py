@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -400,8 +401,8 @@ class TestGazeboAndIsaacAdapters:
 
 class TestMockIsaacEnv:
     def test_mock_isaac_env_reset_and_step_are_seed_deterministic(self) -> None:
-        pytest.importorskip("lab.mock_isaac_env")
-        from lab.mock_isaac_env import MockIsaacEnv
+        module = import_module("lab.mock_isaac_env")
+        MockIsaacEnv = module.MockIsaacEnv
 
         env_a = MockIsaacEnv(max_steps=4)
         env_b = MockIsaacEnv(max_steps=4)

@@ -221,6 +221,70 @@ def _check_simulator_available(name: str) -> bool:
     return _check_backend_available(name)
 
 
+def _resolve_simulator_adapter(job: dict[str, Any], *, backend: str, required: bool) -> dict[str, object]:
+    adapter_hooks: dict[str, str] = {
+        "pybullet": "lab.pybullet_adapter",
+        "gazebo": "lab.gazebo_adapter",
+        "isaac_gym": "lab.isaac_gym_adapter",
+    }
+    module_name = adapter_hooks.get(backend)
+    if not module_name:
+        return {
+            "adapter": backend,
+            "kind": "simulator",
+            "status": "error",
+            "required": required,
+            "reason": f"unknown simulator backend: {backend}",
+            "available": False,
+        }
+
+    module = importlib.import_module(module_name)
+    run_adapter = getattr(module, "run")
+
+    run_id = str(job.get("run_id", "")).strip() or None
+    sandbox_root = str(job.get("project_dir", "."))
+    raw_timeout = job.get("simulator_timeout_seconds", 30)
+    try:
+        timeout_seconds = max(1, int(raw_timeout))
+    except (TypeError, ValueError):
+        timeout_seconds = 30
+
+    evidence = run_adapter(
+        job,
+        backend_mode="live",
+        run_id=run_id,
+        timeout_seconds=timeout_seconds,
+        sandbox_root=sandbox_root,
+    )
+    status = str(evidence.get("status", "error"))
+    if not required and status == "unavailable_backend":
+        status = "skipped_unavailable_backend"
+    normalized: dict[str, object] = {
+        "adapter": backend,
+        "kind": "simulator",
+        "status": status,
+        "required": required,
+        "reason": str(evidence.get("reason", "")),
+        "available": bool(evidence.get("available", False)),
+    }
+    for key in (
+        "backend",
+        "seed",
+        "episode_stats",
+        "replay_metadata",
+        "availability_reason",
+        "fidelity_backend",
+        "throughput_role",
+        "run_id",
+    ):
+        if key in evidence:
+            normalized[key] = evidence[key]
+    normalized["promotion_blocked"] = bool(required and status in {"unavailable_backend", "skipped_unavailable_backend", "error", "blocked"})
+    if not required:
+        normalized["promotion_blocked"] = False
+    return normalized
+
+
 def _resolve_axolotl_mode(job: dict[str, Any]) -> str:
     explicit_mode = str(job.get("axolotl_mode", "")).strip().lower()
     if explicit_mode:
@@ -316,16 +380,8 @@ def resolve_adapters(job: dict[str, Any]) -> list[dict[str, object]]:
     if "simulator-engineer" in dispatched_specialists:
         simulator_backends = _resolve_simulator_backends(requested_backend)
         for backend in simulator_backends:
-            available = _check_simulator_available(backend)
             is_required = require_backend and requested_backend == backend
-            results.append({
-                "adapter": backend,
-                "kind": "simulator",
-                "status": "invoked" if available else "skipped_unavailable_backend",
-                "required": is_required,
-                "reason": "" if available else f"{backend} not installed",
-                "available": available,
-            })
+            results.append(_resolve_simulator_adapter(job, backend=backend, required=is_required))
 
     return results
 
