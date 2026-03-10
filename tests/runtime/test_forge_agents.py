@@ -76,6 +76,32 @@ def test_dispatch_specialists_writes_evidence_and_returns_shape(tmp_path: Path) 
     assert payload["contract"]["labs_only"] is True
 
 
+def test_dispatch_specialists_evidence_includes_domain_pack(tmp_path: Path) -> None:
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert "domain_pack" in payload, "domain_pack missing from dispatch evidence"
+    domain_pack = payload["domain_pack"]
+    assert isinstance(domain_pack, dict), "domain_pack must be a dict"
+    assert domain_pack.get("name") == "vision"
+
+
+def test_dispatch_specialists_evidence_includes_release_metadata(tmp_path: Path) -> None:
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert "context_checksum" in payload, "context_checksum missing from dispatch evidence"
+    assert str(payload["context_checksum"]).strip(), "context_checksum must be non-empty"
+    assert "profile_version" in payload, "profile_version missing from dispatch evidence"
+    assert str(payload["profile_version"]).strip(), "profile_version must be non-empty"
+    assert "intent_gate_version" in payload, "intent_gate_version missing from dispatch evidence"
+    assert str(payload["intent_gate_version"]).strip(), "intent_gate_version must be non-empty"
+
+
 def test_dispatch_cybersecurity_specialist_writes_proof_backed_evidence(tmp_path: Path) -> None:
     job = _valid_job()
     job["domain"] = "cybersecurity"
@@ -114,7 +140,7 @@ def test_dispatch_specialists_blocks_when_contract_mismatch(tmp_path: Path) -> N
 
 
 def test_dispatch_invalid_domain_returns_combination_reason(tmp_path: Path) -> None:
-    """Unknown domain + specialists → invalid_specialist_domain_combination."""
+    """Unknown domain + specialists → blocked with domain validation error."""
     job = _valid_job()
     job["domain"] = "nonexistent-domain"
     job["specialists"] = ["data-curator"]
@@ -122,7 +148,7 @@ def test_dispatch_invalid_domain_returns_combination_reason(tmp_path: Path) -> N
     result = dispatch_specialists(job, str(tmp_path))
 
     assert result["status"] == "blocked"
-    assert result["reason"] == "invalid_specialist_domain_combination"
+    assert "unknown domain" in result["reason"]
 
 
 def test_dispatch_mismatched_specialists_returns_combination_reason(tmp_path: Path) -> None:
@@ -508,3 +534,24 @@ def test_dispatch_non_cybersecurity_has_no_security_scan(tmp_path: Path) -> None
     result = dispatch_specialists(_valid_job(), str(tmp_path))
     assert result["status"] == "ok"
     assert "security_scan" not in result
+
+
+def test_vision_agent_alias_resolves_correctly() -> None:
+    """vision-agent alias must resolve to same specialists as vision domain."""
+    specialists_vision = resolve_specialists("vision")
+    specialists_vision_agent = resolve_specialists("vision-agent")
+    assert specialists_vision == specialists_vision_agent
+    assert specialists_vision == ["data-curator", "training-architect", "simulator-engineer"]
+
+
+def test_domain_pack_included_in_dispatch_evidence(tmp_path: Path) -> None:
+    """dispatch_specialists must include domain_pack in evidence with required_evidence list."""
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert "domain_pack" in payload, "domain_pack missing from dispatch evidence"
+    domain_pack = payload["domain_pack"]
+    assert isinstance(domain_pack, dict), "domain_pack must be a dict"
+    assert "required_evidence" in domain_pack, "required_evidence missing from domain_pack"
+    assert isinstance(domain_pack["required_evidence"], list), "required_evidence must be a list"

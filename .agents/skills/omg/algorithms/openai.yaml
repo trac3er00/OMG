@@ -2,7 +2,7 @@ name: omg-algorithms
 description: "Determinism and benchmark attachments for algorithm-heavy work."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: algorithms
   title: "OMG Algorithms Pack"
 mcp_servers:

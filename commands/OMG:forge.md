@@ -31,19 +31,25 @@ Jobs that fail policy checks are blocked with a structured reason before any pip
 ## CLI Usage
 
 ```bash
-# Run a forge job from a JSON file
+# Run a forge job from a JSON file (domain required)
 python3 scripts/omg.py forge run --job path/to/job.json
 
 # Run with explicit preset (default: labs)
 python3 scripts/omg.py forge run --job path/to/job.json --preset labs
+
+# Run inline with domain-aware job JSON
+python3 scripts/omg.py forge run --preset labs --job-json '{"domain":"vision","dataset":{"name":"vision-agent","license":"apache-2.0","source":"internal-curated"},"base_model":{"name":"distill-base-v1","source":"approved-registry","allow_distill":true},"target_metric":0.8,"simulated_metric":0.9,"specialists":["data-curator","training-architect","simulator-engineer"]}'
 ```
 
 ## Job File Format
 
+Every forge job **must** include an explicit `domain` field. Valid canonical domains: `vision`, `robotics`, `algorithms`, `health`, `cybersecurity`. The alias `vision-agent` is accepted and canonicalized to `vision`.
+
 ```json
 {
+  "domain": "vision",
   "dataset": {
-    "name": "my-domain-dataset",
+    "name": "vision-agent",
     "license": "apache-2.0",
     "source": "internal-curated"
   },
@@ -54,13 +60,14 @@ python3 scripts/omg.py forge run --job path/to/job.json --preset labs
   },
   "target_metric": 0.85,
   "simulated_metric": 0.90,
-  "evaluation_notes": "Domain adaptation for robotics control"
+  "specialists": ["data-curator", "training-architect", "simulator-engineer"],
+  "evaluation_notes": "Domain adaptation for vision agent"
 }
 ```
 
 ## Output
 
-Forge returns structured JSON with pipeline results:
+Forge returns structured JSON with pipeline results. Domain-aware jobs with specialists also include a `specialist_dispatch` block:
 
 ```json
 {
@@ -78,6 +85,10 @@ Forge returns structured JSON with pipeline results:
     "metric": 0.90,
     "target_metric": 0.85,
     "passed": true
+  },
+  "specialist_dispatch": {
+    "status": "ok",
+    "specialists_dispatched": ["data-curator", "training-architect", "simulator-engineer"]
   }
 }
 ```

@@ -2,7 +2,7 @@ name: omg-secure-worktree-pipeline
 description: "Ephemeral worktree execution and supervisor-safe worker dispatch for production jobs."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: secure-worktree-pipeline
   title: "OMG Secure Worktree Pipeline"
 mcp_servers:

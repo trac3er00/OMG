@@ -32,6 +32,7 @@ EVIDENCE_REQUIREMENTS_BY_PROFILE: Final[dict[str, list[str]]] = {
         "lsp_clean",
         "provenance",
         "trace_link",
+        "artifact_contracts",
     ],
     "security-audit": list(FULL_REQUIREMENTS),
     "release": list(FULL_REQUIREMENTS),

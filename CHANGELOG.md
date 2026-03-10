@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 2.1.5 - 2026-03-09
+
+- shipped Forge v0.3 as the flagship feature
+- added adapter contract layer (axolotl, pybullet, gazebo, isaac_gym)
+- expanded domain-pack coverage for all 5 domains (vision, robotics, algorithms, health, cybersecurity)
+- introduced domain-specific CLI commands
+- delivered release-grade evidence bundles with artifact contracts
+- normalized run identity and domain registry
+
 ## 2.1.4 - 2026-03-09
 
 - bump authored release identity to 2.1.4 across all 42 authored surfaces

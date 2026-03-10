@@ -2,7 +2,7 @@ name: omg-delta-classifier
 description: "Change classifier that attaches risk-aware checks, approvals, and packs."
 allow_implicit_invocation: true
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: delta-classifier
   title: "OMG Delta Classifier"
 mcp_servers:

@@ -1,0 +1,24 @@
+FORGE v0.3 FULL TEST SUITE RESULTS
+====================================
+Date: 2026-03-09
+
+Group A: tests/runtime/
+  953 passed, 2 warnings
+
+Group B: tests/scripts/ tests/lab/
+  178 passed
+
+Group C: top-level test files (including tests/test_forge.py)
+  289 passed
+
+Group D: tests/integration/ tests/control_plane/ tests/registry/ tests/security/ tests/plugins/ tests/performance/
+  416 passed
+
+Group E: tests/hooks/ tests/tools/
+  1481 passed, 1 FAILED (pre-existing)
+  FAILED: tests/hooks/test_bypass_mode.py::test_firewall_bypass_skips_ask_for_git_force_push
+  - Pre-existing failure unrelated to Forge v0.3
+  - File only touched in initial OAL init commit, never by any Forge commit
+  - Cause: session-health defense behavior change unrelated to Forge v0.3
+
+TOTAL: 3317 passed, 1 pre-existing failure

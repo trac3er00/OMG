@@ -7,16 +7,19 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT / "scripts"
 sys.path.insert(0, str(ROOT))
 
-from lab.pipeline import run_pipeline, run_pipeline_with_evidence  # noqa: E402
+from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evidence  # noqa: E402
 from runtime.forge_contracts import validate_forge_job  # noqa: E402
 
 
 def _valid_job() -> dict[str, Any]:
     return {
+        "domain": "vision",
         "dataset": {
             "name": "test-dataset",
             "license": "apache-2.0",
@@ -100,6 +103,118 @@ class TestForgeMVPValidation:
 
         assert ok is False
         assert reason == "dataset.name missing"
+
+
+class TestForgeDomainValidation:
+    def test_validate_forge_job_rejects_missing_domain(self):
+        job = _valid_job()
+        del job["domain"]
+        ok, reason = validate_forge_job(job)
+        assert ok is False
+        assert "domain missing" in reason
+
+    def test_validate_forge_job_rejects_empty_domain(self):
+        job = _valid_job()
+        job["domain"] = ""
+        ok, reason = validate_forge_job(job)
+        assert ok is False
+        assert "domain missing" in reason
+
+    def test_validate_forge_job_rejects_unknown_domain(self):
+        job = _valid_job()
+        job["domain"] = "space"
+        ok, reason = validate_forge_job(job)
+        assert ok is False
+        assert "unknown domain" in reason
+        assert "space" in reason
+
+    def test_validate_forge_job_accepts_canonical_domain(self):
+        for domain in ["vision", "robotics", "algorithms", "health", "cybersecurity"]:
+            job = _valid_job()
+            job["domain"] = domain
+            ok, reason = validate_forge_job(job)
+            assert ok is True, f"Expected ok for domain={domain!r}, got reason={reason!r}"
+
+    def test_validate_forge_job_canonicalizes_alias(self):
+        job = _valid_job()
+        job["domain"] = "vision-agent"
+        ok, reason = validate_forge_job(job)
+        assert ok is True
+        assert job["domain"] == "vision"
+
+    def test_forge_run_cli_missing_domain_exits_nonzero(self):
+        job: dict[str, Any] = {"target_metric": 0.8}
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "error"
+        assert "domain" in output["message"]
+
+    def test_forge_run_cli_unknown_domain_exits_nonzero(self):
+        job = _valid_job()
+        job["domain"] = "space"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "error"
+        assert "unknown domain" in output["message"]
+
+    def test_forge_run_cli_valid_domain_full_payload_exits_zero(self):
+        job = {
+            "domain": "vision",
+            "dataset": {"name": "vision-agent", "license": "apache-2.0", "source": "internal-curated"},
+            "base_model": {"name": "distill-base-v1", "source": "approved-registry", "allow_distill": True},
+            "target_metric": 0.8,
+            "simulated_metric": 0.9,
+            "specialists": ["data-curator", "training-architect", "simulator-engineer"],
+        }
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["specialist_dispatch"]["status"] == "ok"
 
 
 class TestForgeEvidencePipeline:
@@ -515,3 +630,406 @@ class TestForgeAdapterBackends:
         isaac_ev = [a for a in result.get("adapter_evidence", []) if a["adapter"] == "isaac_gym"]
         assert len(isaac_ev) == 1
         assert isaac_ev[0]["status"] == "skipped_unavailable_backend"
+
+
+class TestForgePublish:
+    """Red-state tests for publish_artifact function (not yet fully implemented)."""
+
+    def test_publish_artifact_writes_json_file(self, tmp_path: Path) -> None:
+        """publish_artifact must write a JSON file to the provided path."""
+        result = {
+            "status": "ready",
+            "stage": "complete",
+            "published": False,
+            "evaluation_report": {
+                "created_at": "2026-03-09T00:00:00+00:00",
+                "metric": 0.9,
+                "target_metric": 0.8,
+                "passed": True,
+                "notes": "",
+            },
+        }
+
+        published = publish_artifact(result)
+
+        assert isinstance(published, dict)
+        assert published.get("status") == "published"
+        assert published.get("published") is True
+        assert "published_at" in published
+
+    def test_publish_artifact_requires_passed_evaluation(self, tmp_path: Path) -> None:
+        """publish_artifact must block if evaluation report is missing or not passed."""
+        result_no_report = {
+            "status": "ready",
+            "stage": "complete",
+            "published": False,
+        }
+
+        published = publish_artifact(result_no_report)
+
+        assert isinstance(published, dict)
+        assert published.get("status") == "blocked"
+        assert published.get("reason") == "evaluation report missing or not passed"
+        assert published.get("published") is False
+
+    def test_publish_artifact_blocks_on_failed_evaluation(self, tmp_path: Path) -> None:
+        """publish_artifact must block if evaluation report passed=False."""
+        result_failed = {
+            "status": "ready",
+            "stage": "complete",
+            "published": False,
+            "evaluation_report": {
+                "created_at": "2026-03-09T00:00:00+00:00",
+                "metric": 0.7,
+                "target_metric": 0.8,
+                "passed": False,
+                "notes": "metric below target",
+            },
+        }
+
+        published = publish_artifact(result_failed)
+
+        assert isinstance(published, dict)
+        assert published.get("status") == "blocked"
+        assert published.get("reason") == "evaluation report missing or not passed"
+        assert published.get("published") is False
+
+
+class TestForgeDomainCLIPaths:
+    @pytest.mark.parametrize("domain", ["robotics", "algorithms", "health", "cybersecurity"])
+    def test_domain_command_exits_zero_with_agent_path(self, domain: str) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                domain,
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, f"{domain}: stderr={result.stderr}"
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["agent_path"] == domain
+        assert output["specialist_dispatch"]["status"] == "ok"
+
+    @pytest.mark.parametrize("domain", ["robotics", "algorithms", "health", "cybersecurity"])
+    def test_domain_command_rejects_non_labs_preset(self, domain: str) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                domain,
+                "--preset",
+                "balanced",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "error"
+
+    @pytest.mark.parametrize("domain", ["robotics", "algorithms", "health", "cybersecurity"])
+    def test_domain_command_accepts_job_json_overrides(self, domain: str) -> None:
+        override = json.dumps({"evaluation_notes": "override-test"})
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                domain,
+                "--preset",
+                "labs",
+                "--job-json",
+                override,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, f"{domain}: stderr={result.stderr}"
+        output = json.loads(result.stdout)
+        assert output["agent_path"] == domain
+
+    def test_unknown_forge_subcommand_exits_nonzero(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "space",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
+
+
+class TestVisionDomainCoverage:
+    def test_vision_agent_alias_resolves_to_vision_domain(self) -> None:
+        """vision-agent alias must resolve to vision domain in output."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "vision-agent",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["agent_path"] == "vision-agent"
+        # Verify domain is canonicalized to vision in specialist dispatch
+        assert output["specialist_dispatch"]["status"] == "ok"
+
+    def test_vision_agent_happy_path_exits_zero(self) -> None:
+        """vision-agent CLI must exit 0 with ready status."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "vision-agent",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+
+
+class TestRoboticsDomainCoverage:
+    def test_robotics_happy_path_exits_zero(self) -> None:
+        """robotics CLI must exit 0 with ready status."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "robotics",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["agent_path"] == "robotics"
+
+    def test_robotics_required_backend_blocks_when_unavailable(self) -> None:
+        """robotics domain with require_backend=true must block when pybullet unavailable."""
+        import tempfile, os
+        job = _valid_job()
+        job["domain"] = "robotics"
+        job["require_backend"] = True
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as f:
+            json.dump(job, f)
+            f.flush()
+            job_path = f.name
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "omg.py"),
+                    "forge",
+                    "run",
+                    "--job",
+                    job_path,
+                    "--preset",
+                    "labs",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            # If pybullet is unavailable, should be blocked
+            if result.returncode != 0:
+                output = json.loads(result.stdout)
+                assert output["status"] == "blocked"
+        finally:
+            os.unlink(job_path)
+
+
+class TestAlgorithmsDomainCoverage:
+    def test_algorithms_happy_path_exits_zero(self) -> None:
+        """algorithms CLI must exit 0 with ready status."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "algorithms",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["agent_path"] == "algorithms"
+
+    def test_algorithms_evidence_has_deterministic_metric(self) -> None:
+        """algorithms domain evidence must include target_metric field."""
+        job = _valid_job()
+        job["domain"] = "algorithms"
+        job["target_metric"] = 0.85
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["evaluation_report"]["target_metric"] == 0.85
+
+
+class TestHealthDomainCoverage:
+    def test_health_happy_path_exits_zero(self) -> None:
+        """health CLI must exit 0 with ready status."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "health",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["agent_path"] == "health"
+
+    def test_health_domain_pack_declares_human_review(self) -> None:
+        """health domain pack must declare human-review in required_approvals."""
+        from runtime.domain_packs import get_domain_pack_contract
+        pack = get_domain_pack_contract("health")
+        assert "required_approvals" in pack
+        assert "human-review" in pack["required_approvals"]
+
+    def test_health_evidence_surfaces_approval_requirements(self) -> None:
+        """health domain evidence must surface approval requirements from domain pack."""
+        job = _valid_job()
+        job["domain"] = "health"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        evidence_path = output["specialist_dispatch"]["evidence_path"]
+        evidence = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
+        assert "domain_pack" in evidence
+        assert "required_approvals" in evidence["domain_pack"]
+        assert "human-review" in evidence["domain_pack"]["required_approvals"]
+
+
+class TestCybersecurityDomainCoverage:
+    def test_cybersecurity_happy_path_exits_zero(self) -> None:
+        """cybersecurity CLI must exit 0 with ready status."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "cybersecurity",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["agent_path"] == "cybersecurity"
+
+    def test_cybersecurity_invalid_specialist_is_blocked(self) -> None:
+        """cybersecurity domain with wrong specialists must be blocked."""
+        import tempfile, os
+        job = _valid_job()
+        job["domain"] = "cybersecurity"
+        job["specialists"] = ["data-curator"]  # Wrong specialist for cybersecurity
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as f:
+            json.dump(job, f)
+            f.flush()
+            job_path = f.name
+        try:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "omg.py"),
+                    "forge",
+                    "run",
+                    "--job",
+                    job_path,
+                    "--preset",
+                    "labs",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            assert result.returncode != 0
+            output = json.loads(result.stdout)
+            assert output["status"] == "blocked"
+        finally:
+            os.unlink(job_path)

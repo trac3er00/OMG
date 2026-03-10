@@ -5,7 +5,7 @@ description: "Change classifier that attaches risk-aware checks, approvals, and 
 
 # OMG Delta Classifier
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/tracebank/events.jsonl`

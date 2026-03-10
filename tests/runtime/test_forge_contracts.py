@@ -9,6 +9,7 @@ from runtime.forge_contracts import ADAPTER_REGISTRY, build_forge_evidence, buil
 
 def _valid_job() -> dict[str, object]:
     return {
+        "domain": "vision",
         "dataset": {
             "name": "forge-mvp",
             "license": "apache-2.0",
@@ -105,6 +106,19 @@ def test_build_forge_evidence_includes_proof_backed_starter_fields(tmp_path: Pat
     assert payload["proof_backed"] is True
     assert isinstance(payload.get("specialist"), str)
     assert isinstance(payload.get("domain"), str)
+
+
+def test_build_forge_evidence_includes_release_ready_metadata(tmp_path: Path) -> None:
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-meta-1", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    assert "context_checksum" in payload, "context_checksum missing from evidence"
+    assert str(payload["context_checksum"]).strip(), "context_checksum must be non-empty"
+    assert "profile_version" in payload, "profile_version missing from evidence"
+    assert str(payload["profile_version"]).strip(), "profile_version must be non-empty"
+    assert "intent_gate_version" in payload, "intent_gate_version missing from evidence"
+    assert str(payload["intent_gate_version"]).strip(), "intent_gate_version must be non-empty"
 
 
 def test_build_forge_evidence_includes_causal_chain_stub(tmp_path: Path) -> None:
@@ -204,3 +218,55 @@ def test_load_forge_mvp_includes_cybersecurity_specialist_contract() -> None:
     assert cybersecurity["allowed_domains"] == ["cybersecurity"]
     assert cybersecurity["evidence_profile"] == "forge-run"
     assert cybersecurity["stage_alias"] == "regression_test"
+
+
+def test_build_forge_evidence_includes_artifact_contracts(tmp_path: Path) -> None:
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-artifacts-1", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    assert "artifact_contracts" in payload, "artifact_contracts missing from evidence"
+    contracts = cast(dict[str, object], payload["artifact_contracts"])
+    assert "dataset_lineage" in contracts, "dataset_lineage missing from artifact_contracts"
+    assert "model_card" in contracts, "model_card missing from artifact_contracts"
+    assert "checkpoint_hash" in contracts, "checkpoint_hash missing from artifact_contracts"
+    assert "regression_scoreboard" in contracts, "regression_scoreboard missing from artifact_contracts"
+    assert "promotion_decision" in contracts, "promotion_decision missing from artifact_contracts"
+
+
+def test_build_forge_evidence_artifact_contracts_have_status(tmp_path: Path) -> None:
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-artifacts-2", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    contracts = cast(dict[str, object], payload["artifact_contracts"])
+    for key, contract in contracts.items():
+        contract_dict = cast(dict[str, object], contract)
+        assert "status" in contract_dict, f"artifact_contracts.{key} missing status field"
+        assert str(contract_dict["status"]).strip(), f"artifact_contracts.{key} status must be non-empty"
+
+
+def test_cybersecurity_evidence_includes_security_links(tmp_path: Path) -> None:
+    cybersecurity_job: dict[str, object] = {
+        "domain": "cybersecurity",
+        "dataset": {
+            "name": "forge-sec-mvp",
+            "license": "apache-2.0",
+            "source": "internal-curated",
+        },
+        "base_model": {
+            "name": "distill-base-v1",
+            "source": "approved-registry",
+            "allow_distill": True,
+        },
+        "target_metric": 0.8,
+        "simulated_metric": 0.9,
+    }
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-sec-1", cybersecurity_job, result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    assert "security_evidence_links" in payload, "security_evidence_links missing for cybersecurity domain"
+    links = payload["security_evidence_links"]
+    assert isinstance(links, list), "security_evidence_links must be a list"
+    assert len(links) > 0, "security_evidence_links must not be empty"

@@ -1,6 +1,6 @@
 {
   "name": "omg-core",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "description": "Core OMG commands - native setup, routing, orchestration, and verification surfaces",
   "type": "omg-plugin",
   "commands": {
@@ -66,7 +66,7 @@
     },
     "profile-review": {
       "path": "commands/OMG:profile-review.md",
-      "description": "Review governed profile state \u2014 preferences, confirmations, decay, provenance",
+      "description": "Review governed profile state — preferences, confirmations, decay, provenance",
       "category": "observability"
     },
     "mode": {
@@ -103,13 +103,13 @@
     },
     "arch": {
       "path": "commands/OMG:arch.md",
-      "description": "Codebase visualization \u2014 dependency graphs and architecture diagrams",
+      "description": "Codebase visualization — dependency graphs and architecture diagrams",
       "category": "visualization",
       "feature_flag": "CODEBASE_VIZ"
     },
     "validate": {
       "path": "commands/OMG:validate.md",
-      "description": "Canonical validation \u2014 doctor + contract + profile + install checks",
+      "description": "Canonical validation — doctor + contract + profile + install checks",
       "category": "observability"
     }
   },

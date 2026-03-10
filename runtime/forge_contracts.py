@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from collections.abc import Mapping
@@ -9,6 +10,8 @@ from time import monotonic
 from typing import cast
 
 from lab.policies import validate_job_request
+from runtime.domain_packs import DOMAIN_PACKS, get_domain_pack_contract
+from runtime.forge_domains import canonical_domain_for, get_all_canonical_domains, is_valid_domain
 from runtime.runtime_contracts import read_defense_state, read_session_health
 
 FORGE_STAGE_ORDER: tuple[str, ...] = (
@@ -101,6 +104,7 @@ def load_forge_mvp() -> dict[str, object]:
             },
         },
         "adapter_registry": dict(ADAPTER_REGISTRY),
+        "canonical_domains": get_all_canonical_domains(),
         "evidence_output_path": ".omg/evidence/forge-<run_id>.json",
         "starter_templates": {
             "vision-agent": {
@@ -143,6 +147,14 @@ def load_forge_mvp() -> dict[str, object]:
 
 
 def validate_forge_job(job: dict[str, object]) -> tuple[bool, str]:
+    domain = job.get("domain")
+    if not domain or not str(domain).strip():
+        return False, "domain missing: forge run requires an explicit canonical domain (e.g. 'vision', 'robotics')"
+    if not is_valid_domain(str(domain)):
+        valid = sorted(get_all_canonical_domains())
+        return False, f"unknown domain: {domain!r}. Valid domains: {valid}"
+    job["domain"] = canonical_domain_for(str(domain))
+
     ok, reason = validate_job_request(job)
     if not ok:
         return False, reason
@@ -264,6 +276,9 @@ def build_forge_evidence(
                 if isinstance(item, Mapping)
             ]
 
+    job_dict = dict(job)
+    context_checksum = hashlib.sha256(json.dumps(job_dict, sort_keys=True).encode()).hexdigest()
+    domain_pack = get_domain_pack_contract(domain) if domain in DOMAIN_PACKS else {}
     payload = {
         "schema": "ForgeMVPEvidence",
         "schema_version": "1.0.0",
@@ -286,7 +301,54 @@ def build_forge_evidence(
             "delta_summary": {"forge_run": run_id, "domain": domain, "specialist": specialist_str},
             "verification_status": str(result.get("status", "unknown")),
         },
+        "context_checksum": context_checksum,
+        "profile_version": "forge-run-v1",
+        "intent_gate_version": "1.0.0",
+        "domain_pack": domain_pack,
+        "artifact_contracts": {
+            "dataset_lineage": {
+                "standard": "Croissant-1.1",
+                "path": f".omg/evidence/forge-lineage-{run_id}.json",
+                "status": "placeholder",
+                "reason": "dataset lineage artifact not yet generated",
+            },
+            "model_card": {
+                "standard": "HuggingFace-ModelCard",
+                "path": f".omg/evidence/forge-model-card-{run_id}.md",
+                "status": "placeholder",
+                "reason": "model card artifact not yet generated",
+            },
+            "checkpoint_hash": {
+                "standard": "OpenSSF-OMS",
+                "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
+                "status": "placeholder",
+                "reason": "checkpoint hash artifact not yet generated",
+            },
+            "regression_scoreboard": {
+                "standard": "lm-eval",
+                "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
+                "status": "placeholder",
+                "reason": "regression scoreboard artifact not yet generated",
+            },
+            "promotion_decision": {
+                "status": "pending",
+                "reason": "promotion requires passing regression scoreboard and human review for health domain",
+                "replay_required": True,
+            },
+        },
     }
+
+    if domain == "cybersecurity":
+        evidence_dir = out_path.parent
+        security_links: list[str] = []
+        for pattern in ("security-*.json", "security-*.sarif"):
+            security_links.extend(
+                f".omg/evidence/{p.name}" for p in sorted(evidence_dir.glob(pattern))
+            )
+        payload["security_evidence_links"] = security_links if security_links else [
+            ".omg/evidence/security-*.json",
+            ".omg/evidence/security-*.sarif",
+        ]
 
     tmp_path = out_path.with_name(f"{out_path.name}.tmp")
     _ = tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")

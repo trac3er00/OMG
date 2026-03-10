@@ -23,6 +23,20 @@ OMG keeps verification visible instead of burying it in implementation details.
   - session health: `.omg/state/session_health/<run_id>.json`
   - council verdicts: `.omg/state/council_verdicts/<run_id>.json`
   - Forge starter proof (`proof_backed: true`): `.omg/evidence/forge-specialists-*.json`
+
+## Forge v0.3 Evidence
+
+Forge v0.3 introduces richer evidence artifacts for domain-specific training and evaluation.
+
+- Forge starter proof: `.omg/evidence/forge-specialists-{run_id}.json`
+- Artifact contracts schema:
+  - `dataset_lineage`: provenance for training data
+  - `model_card`: model metadata and intended use
+  - `checkpoint_hash`: integrity for model weights
+  - `regression_scoreboard`: evaluation results vs baselines
+  - `promotion_decision`: automated or human-in-the-loop release signal
+- Domain pack enforcement: Forge ensures that domain-specific constraints (e.g., robotics safety, algorithm determinism) are satisfied before emitting a release-ready claim.
+
 - Release readiness machine output includes `checks.execution_primitives` with `missing`, `invalid`, and `evidence_paths`
 - Browser evidence: `.omg/evidence/browser-*.png` and `.omg/evidence/browser-*.json` (Playwright-backed verification)
 - Canonical browser command: `/OMG:browser` with `/OMG:playwright` as a compatibility alias

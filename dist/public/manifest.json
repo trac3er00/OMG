@@ -5,7 +5,7 @@
     "claude",
     "codex"
   ],
-  "contract_version": "2.1.4",
+  "contract_version": "2.1.5",
   "artifacts": [
     {
       "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
@@ -197,7 +197,7 @@
     },
     {
       "path": "bundle/.claude-plugin/marketplace.json",
-      "sha256": "db469d08d23b0473462773072387a5d8c0cc2427c604a98d47e874b034b72bff"
+      "sha256": "fd2cfe309f3238654808b031c495e761ba4f7b12db2cb210966c4539c2df47e6"
     },
     {
       "path": "bundle/.claude-plugin/mcp.json",
@@ -205,7 +205,7 @@
     },
     {
       "path": "bundle/.claude-plugin/plugin.json",
-      "sha256": "2179506ae3d7cfa3d9c7d1f88a1723ac4cec146ae574bd06c91688a3caca70e6"
+      "sha256": "3e3a1ad346c36ea46ac250a03b1bc2df402116ccc442876a6405ba16ed0bda2c"
     },
     {
       "path": "bundle/.mcp.json",
@@ -213,7 +213,7 @@
     },
     {
       "path": "bundle/OMG_COMPAT_CONTRACT.md",
-      "sha256": "6d0727a754dc8a813e4c3e65fa3a4b70bde23fdd13686742e98fd4b29f495f79"
+      "sha256": "55d99a9d96dbbf4f0d4205761bee0fc1da01f02568a5f33191f2e17f279976f0"
     },
     {
       "path": "bundle/plugins/advanced/commands/OMG:code-review.md",
@@ -257,103 +257,103 @@
     },
     {
       "path": "bundle/plugins/advanced/plugin.json",
-      "sha256": "44259d1cbddcc7e5b21af598e886e782bc42d82d1da3d23dea4da3f4b144386f"
+      "sha256": "182c1d26ccbab887e47a5a5dcad3990a946ccd960e551fd46b300cbecebd68f8"
     },
     {
       "path": "bundle/registry/bundles/algorithms.yaml",
-      "sha256": "1cf6305c2826838a805f42ed2d773a2cf428d9ff5abb542e09cb86da2e3b46e5"
+      "sha256": "e3ef80d7ff86af051353f289c96f73784208b908d42010deaf93c3b1ba36bc91"
     },
     {
       "path": "bundle/registry/bundles/api-twin.yaml",
-      "sha256": "1128f7cdcade155b11014c7899a3c206ef8f071091cb469300b91cc5ef5fda82"
+      "sha256": "0911ca365a5a1e97223e8de5e9053a61c3a4e9ebfff8de7cf38bafeddcf1893a"
     },
     {
       "path": "bundle/registry/bundles/claim-judge.yaml",
-      "sha256": "7905b72d44fb41d4868d6b64700016fef87991729f16f9f4805de0ee673b595b"
+      "sha256": "6f166fcdfaa602ee3a4a18b0d2287a80ebe50f6aa073b0d3cf798ce748906074"
     },
     {
       "path": "bundle/registry/bundles/control-plane.yaml",
-      "sha256": "99002393ae686f02f1a8a2cf14805a60855969a394aef176ed844ebad9a99638"
+      "sha256": "670dd424acd5cf3def358ff05b60cb65ebb00a613b2989f88734c6c7363bfcf7"
     },
     {
       "path": "bundle/registry/bundles/data-lineage.yaml",
-      "sha256": "84dd116c083a5cdb5372d5a033ae67f465751f4bc141728e3259a1c49316ecd8"
+      "sha256": "9f139daad6dce20c1e2a7412ab8500bae32d9b1218d9ca6369216a9f850dcb78"
     },
     {
       "path": "bundle/registry/bundles/delta-classifier.yaml",
-      "sha256": "ac910410dfff607768990227343b82526c645eeb986ad0bfd676e2fddd742898"
+      "sha256": "e95793faf1a43d36e5b77af2c9ccce8c14ca9837b7bbe12afab7aca3727affac"
     },
     {
       "path": "bundle/registry/bundles/eval-gate.yaml",
-      "sha256": "240662404dbc7faffcfa4de0e7d52c8a355a71b66e79bc341abbf0416a420617"
+      "sha256": "927159f786070f21b35d08f050749e16625e154cd2466afec6b37f7da966a23b"
     },
     {
       "path": "bundle/registry/bundles/health.yaml",
-      "sha256": "6fe31aa7cdb335921579fec96e8fe253b89458ddc9c4c846d7d145f9cfcac104"
+      "sha256": "19e08da82385beca737d018fe9c8cc4a6cad241f0fd5a40a4b2080d96821d137"
     },
     {
       "path": "bundle/registry/bundles/hook-governor.yaml",
-      "sha256": "d273f00af67c85e7cb8700a095889b686b8b46c62248a871f5a5b36564759d77"
+      "sha256": "ddb8ca74a7a52a9f0f8bf175a77354a791a2ef8fd13d3c691e1998a7e67b455b"
     },
     {
       "path": "bundle/registry/bundles/incident-replay.yaml",
-      "sha256": "8ff449760c2d2d70cdf584e22eaf2d1a4ad06e91bbb3fea67072fe7d5c167245"
+      "sha256": "ffda0c5f1f4ca4e6f49831ba013a0e58c2e8e50fbfd8d5996d58aa58d36f7f74"
     },
     {
       "path": "bundle/registry/bundles/lsp-pack.yaml",
-      "sha256": "8a9cee8d7074c75e64abb1a083d68bb441f386d2497d1b3d48d476278c0adf0c"
+      "sha256": "6b2c49e45955d0afb5c8304ee1403447aded8d5cb75209c75066081ded81c45b"
     },
     {
       "path": "bundle/registry/bundles/mcp-fabric.yaml",
-      "sha256": "7d1dac6fea6b81c6355de3910adc4b33244406c4e75ac5784ea457cabd922aeb"
+      "sha256": "35ccabfbf15682b1fe262b5e6e1fabb9a7bc2157220b9b527e463eec33ab4e1f"
     },
     {
       "path": "bundle/registry/bundles/plan-council.yaml",
-      "sha256": "bd3534610fcf95be4f592097e085cbc6e157b36465e80724b22860ad9131c426"
+      "sha256": "7299d75bb00ab061cdaab0e16e12ca3538f90e8105155a268f8958380cb81b3a"
     },
     {
       "path": "bundle/registry/bundles/preflight.yaml",
-      "sha256": "4f047a339b865f48d938fe1210c16c6f81fd5997b8f9b8873c47f951a661d5be"
+      "sha256": "98935d4ac70a87c9eea472c897a76d31a5d6bc19a0015cc1adc238f3df60e7cb"
     },
     {
       "path": "bundle/registry/bundles/proof-gate.yaml",
-      "sha256": "692480c9a8c3506c05cdfbdb6a3f54fe5b190e0ceb1b7316d7c1a56b6f34a646"
+      "sha256": "deb383b21961ad048401e7112288353720a6fd72fda5231e6adc9d5e9056f727"
     },
     {
       "path": "bundle/registry/bundles/remote-supervisor.yaml",
-      "sha256": "58d56c21926f80d1f62dabc77de467c87df27c46d6aa9823ad8b613866ffcefe"
+      "sha256": "89ed3a167594d6e22af738e0bfd07483e990e8758f08eac98dcf4c0363b35b99"
     },
     {
       "path": "bundle/registry/bundles/robotics.yaml",
-      "sha256": "9bce82dabd4128e590e088213cef59243636579088191226554beb72667c4c10"
+      "sha256": "f24ee7721018ebce18ca4a185b57fe6b2465082b8dd011595914ead1e2942080"
     },
     {
       "path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
-      "sha256": "d522283991cb96a75a468c70398654476bad289fe01c62e629d8503afcf9f9c3"
+      "sha256": "9ffc63fe33bf6a70acb4d82dcb24128ce08c0f7e143ec41466ee2fa30fad0e3e"
     },
     {
       "path": "bundle/registry/bundles/security-check.yaml",
-      "sha256": "fcfe957e3a69fd3fc6fad57013b7d34420afea1f25ac9c5c2b8a1ec3cdcdfda6"
+      "sha256": "5cef8641b474debc573fac6cec4e4f8588b36f0dbeb9d4cb254f2c2c0f8fa2ac"
     },
     {
       "path": "bundle/registry/bundles/test-intent-lock.yaml",
-      "sha256": "589cdecb474e3da150697ae81cab06ad5306c323d1b34871c5b6f88b70259d46"
+      "sha256": "b5da779592b72a73dd9a7c421360b65983ae363748de88514810e2023283b0bd"
     },
     {
       "path": "bundle/registry/bundles/tracebank.yaml",
-      "sha256": "ee468665d4d54ad96fe73af7742aa36b3d6d830706c60259470822c9e55c6889"
+      "sha256": "fb251f6bf27af5aafc895c5db3e4e846d7addac96475bb85fa2b629f85544029"
     },
     {
       "path": "bundle/registry/bundles/vision.yaml",
-      "sha256": "1642c21746608cf3809916c6bfa65e1768e3421fb24b9f649fd8e4322ac83eb9"
+      "sha256": "4383c6399ecbd30a864b417cf652b97c556ff7fd278e23e18e0bbc95627ef4fe"
     },
     {
       "path": "bundle/registry/omg-capability.schema.json",
-      "sha256": "660fb7ca3d26ba472065bc5174098337e862f89684ce22774f5ea3dec9560457"
+      "sha256": "37c33401c3424c86ec9c48a7c861536481ff99b58437e34a4967951ff1e7d8eb"
     },
     {
       "path": "bundle/settings.json",
-      "sha256": "5cd958ecb7840484976b3854d3aca5e93ccf78dc11bf8f5785901956e1417cd5"
+      "sha256": "2b09fb6f4e14661bc82b43e604d5dbca956eba1ce565635442714282b0de66e6"
     }
   ]
 }

@@ -1,0 +1,85 @@
+{
+  "schema": "ValidateResult",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "python_version",
+      "status": "ok",
+      "message": "Python 3.13.12",
+      "required": true
+    },
+    {
+      "name": "fastmcp",
+      "status": "ok",
+      "message": "fastmcp importable",
+      "required": true
+    },
+    {
+      "name": "omg_control_reachable",
+      "status": "ok",
+      "message": "omg-control configured (stdio: python3)",
+      "required": true
+    },
+    {
+      "name": "policy_files",
+      "status": "ok",
+      "message": "commands/ present (policy.yaml missing)",
+      "required": true
+    },
+    {
+      "name": "metadata_drift",
+      "status": "ok",
+      "message": "all version surfaces aligned",
+      "required": true
+    },
+    {
+      "name": "compiled_bundles",
+      "status": "ok",
+      "message": "dist/ contains compiled bundles",
+      "required": false
+    },
+    {
+      "name": "host_compatibility",
+      "status": "ok",
+      "message": "host config dir exists (/Users/cminseo/.claude)",
+      "required": false
+    },
+    {
+      "name": "memory_reachable",
+      "status": "ok",
+      "message": "HTTP memory not configured (optional)",
+      "required": false
+    },
+    {
+      "name": "managed_runtime",
+      "status": "ok",
+      "message": "managed venv at /Users/cminseo/.claude/omg-runtime/.venv",
+      "required": false
+    },
+    {
+      "name": "plugin_compatibility",
+      "status": "warning",
+      "message": "plugin compatibility: 28 records, 10 conflicts, 1 blockers",
+      "required": false
+    },
+    {
+      "name": "contract_registry",
+      "status": "ok",
+      "message": "contract registry valid (0 errors)",
+      "required": true
+    },
+    {
+      "name": "profile_governor",
+      "status": "ok",
+      "message": "no profile found (optional \u2014 run /OMG:init to create)",
+      "required": false
+    },
+    {
+      "name": "install_integrity",
+      "status": "ok",
+      "message": "install integrity ok (scripts, runtime, commands, plugins present)",
+      "required": true
+    }
+  ],
+  "version": "2.1.5"
+}
