@@ -228,6 +228,45 @@ def _incident_artifacts(root: Path, records: JsonValue | None) -> list[JsonObjec
     return artifacts
 
 
+def _attestation_artifacts(root: Path, evidence_pack: JsonObject) -> list[JsonObject]:
+    artifacts: list[JsonObject] = []
+    direct_path_value = evidence_pack.get("attestation_statement_path") or evidence_pack.get("attestation_path")
+    if isinstance(direct_path_value, str) and direct_path_value.strip():
+        direct_path = direct_path_value.strip()
+        artifacts.append(
+            _artifact_ref(
+                kind="attestation_statement",
+                path=direct_path,
+                sha256=_hash_path(root / direct_path),
+            )
+        )
+
+    records = evidence_pack.get("artifact_attestations")
+    if not isinstance(records, list):
+        return artifacts
+
+    for item in records:
+        if not isinstance(item, dict):
+            continue
+        row = cast(JsonObject, item)
+        statement_path = _string_field(row, "statement_path").strip()
+        if not statement_path:
+            continue
+        artifacts.append(
+            _artifact_ref(
+                kind="attestation_statement",
+                path=statement_path,
+                sha256=_hash_path(root / statement_path),
+                extras={
+                    "artifact_path": _string_field(row, "artifact_path"),
+                    "signer": row.get("signer") if isinstance(row.get("signer"), dict) else {},
+                },
+            )
+        )
+
+    return artifacts
+
+
 def _dedupe_artifacts(artifacts: list[JsonObject]) -> list[JsonObject]:
     seen: set[tuple[str, str, str]] = set()
     deduped: list[JsonObject] = []
@@ -310,6 +349,7 @@ def build_repro_pack(project_dir: str, run_id: str) -> dict[str, str]:
     artifacts.extend(_security_artifacts(root, evidence_pack.get("security_scans")))
     artifacts.extend(_browser_artifacts(root, evidence_pack.get("artifacts")))
     artifacts.extend(_incident_artifacts(root, evidence_pack.get("artifacts")))
+    artifacts.extend(_attestation_artifacts(root, evidence_pack))
 
     verification_path = root / ".omg" / "state" / "background-verification.json"
     if get_verification_state(project_dir) is not None and verification_path.exists():

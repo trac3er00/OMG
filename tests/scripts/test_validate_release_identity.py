@@ -8,6 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
+from registry.verify_artifact import sign_artifact_statement
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
@@ -91,6 +93,59 @@ class TestDerivedDrift:
         result = validate_derived(tmp_path, "2.1.1")
         matching = [b for b in result["blockers"] if "dist/public/manifest.json" in b["surface"]]
         assert matching == []
+
+    def test_release_manifest_missing_attestation_fails(self, tmp_path):
+        manifest_dir = tmp_path / "artifacts" / "release" / "dist" / "public"
+        manifest_dir.mkdir(parents=True)
+        (manifest_dir / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "schema": "OmgCompiledArtifactManifest",
+                    "contract_version": "2.1.1",
+                    "artifacts": [
+                        {
+                            "path": "bundle/settings.json",
+                            "sha256": "abc123",
+                        }
+                    ],
+                }
+            )
+        )
+
+        result = validate_derived(tmp_path, "2.1.1")
+        assert result["status"] == "fail"
+        assert any("missing_attestation" in blocker["surface"] for blocker in result["blockers"])
+
+    def test_release_manifest_with_signed_attestation_passes(self, tmp_path):
+        manifest_dir = tmp_path / "artifacts" / "release" / "dist" / "public"
+        manifest_dir.mkdir(parents=True)
+        digest = "a" * 64
+        statement = sign_artifact_statement(
+            artifact_path="bundle/settings.json",
+            signer_key="release-signing-key",
+            subject_digest=digest,
+        )
+        manifest = {
+            "schema": "OmgCompiledArtifactManifest",
+            "contract_version": "2.1.1",
+            "artifacts": [
+                {
+                    "path": "bundle/settings.json",
+                    "sha256": digest,
+                }
+            ],
+            "attestations": [
+                {
+                    "artifact_path": "bundle/settings.json",
+                    "signer_pubkey": "release-signing-key",
+                    "statement": statement,
+                }
+            ],
+        }
+        (manifest_dir / "manifest.json").write_text(json.dumps(manifest))
+
+        result = validate_derived(tmp_path, "2.1.1")
+        assert result["status"] == "ok"
 
 
 class TestScopedResidue:

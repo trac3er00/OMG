@@ -188,6 +188,32 @@ def _build_chain_artifacts(
     return artifacts
 
 
+def _resolve_attestation_reference(evidence_payload: dict[str, Any]) -> dict[str, Any]:
+    direct_path = str(
+        evidence_payload.get("attestation_statement_path")
+        or evidence_payload.get("attestation_path")
+        or ""
+    ).strip()
+    if direct_path:
+        return {"path": direct_path, "schema": "InTotoStatement"}
+
+    records = evidence_payload.get("artifact_attestations")
+    if isinstance(records, list):
+        for item in records:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("statement_path", "")).strip()
+            if not path:
+                continue
+            return {
+                "path": path,
+                "schema": str(item.get("schema", "InTotoStatement")) or "InTotoStatement",
+                "artifact_path": str(item.get("artifact_path", "")).strip(),
+                "signer": item.get("signer"),
+            }
+    return {}
+
+
 def _latest_evidence_pack(output_root: Path) -> tuple[str, dict[str, Any]]:
     evidence_dir = output_root / ".omg" / "evidence"
     if not evidence_dir.exists():
@@ -240,6 +266,30 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
     if not eval_id and trace_id:
         eval_id = f"eval-{hashlib.sha256(trace_id.encode('utf-8')).hexdigest()[:12]}"
 
+    artifacts = _build_chain_artifacts(
+        output_root=output_root,
+        selected_path=selected_path,
+        evidence_payload=evidence_payload,
+        trace_payload=trace_payload,
+        eval_payload=eval_payload,
+        lineage=lineage,
+        trace_id=trace_id,
+    )
+    attestation_ref = _resolve_attestation_reference(evidence_payload)
+    if isinstance(attestation_ref, dict):
+        attestation_path = str(attestation_ref.get("path", "")).strip()
+        if attestation_path:
+            artifacts.append(
+                _artifact_record(
+                    kind="attestation_statement",
+                    path=attestation_path,
+                    sha256=_hash_path(output_root / attestation_path),
+                    parser="json",
+                    summary="signed in-toto statement",
+                    trace_id=trace_id,
+                )
+            )
+
     chain = {
         "schema": "ProofChain",
         "schema_version": 2,
@@ -261,15 +311,8 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
         "ci_job_url": evidence_payload.get("ci_job_url") or "",
         "external_inputs": evidence_payload.get("external_inputs", []),
         "claims": evidence_payload.get("claims", []),
-        "artifacts": _build_chain_artifacts(
-            output_root=output_root,
-            selected_path=selected_path,
-            evidence_payload=evidence_payload,
-            trace_payload=trace_payload,
-            eval_payload=eval_payload,
-            lineage=lineage,
-            trace_id=trace_id,
-        ),
+        "attestation_statement_ref": attestation_ref,
+        "artifacts": artifacts,
     }
     validation = validate_proof_chain(chain)
     chain["status"] = validation["status"]
