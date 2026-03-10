@@ -13,11 +13,11 @@ from runtime.evidence_requirements import requirements_for_profile
 from runtime import contract_compiler as contract_compiler_module
 from runtime.contract_compiler import (
     DEFAULT_REQUIRED_BUNDLES,
-    REQUIRED_ADVANCED_PLUGIN_ARTIFACTS,
     REQUIRED_CLAUDE_HOOK_EVENTS,
     REQUIRED_CLAUDE_SUBAGENT_NAMES,
     REQUIRED_CODEX_AGENTS_SECTIONS,
     REQUIRED_CODEX_OUTPUTS,
+    _get_required_advanced_plugin_artifacts,
     build_release_readiness,
     compile_contract_outputs,
     validate_contract_registry,
@@ -1241,8 +1241,25 @@ def test_compile_includes_advanced_plugin_artifacts(tmp_path: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest_paths = {a["path"] for a in manifest["artifacts"]}
 
-    for req in REQUIRED_ADVANCED_PLUGIN_ARTIFACTS:
+    for req in _get_required_advanced_plugin_artifacts(ROOT):
         assert req in manifest_paths, f"Missing required advanced artifact: {req}"
+
+
+def test_advanced_artifact_manifest_derived_requirements() -> None:
+    required = _get_required_advanced_plugin_artifacts(ROOT)
+    manifest = json.loads((ROOT / "plugins" / "advanced" / "plugin.json").read_text(encoding="utf-8"))
+    expected = {
+        "bundle/plugins/advanced/plugin.json",
+        *[
+            f"bundle/plugins/advanced/{cmd['path']}"
+            for cmd in manifest["commands"].values()
+            if isinstance(cmd, dict) and isinstance(cmd.get("path"), str)
+        ],
+    }
+
+    assert set(required) == expected
+    assert "bundle/plugins/advanced/commands/OMG:security-review.md" not in required
+    assert len(required) == 10
 
 
 def test_advanced_command_path_integrity(tmp_path: Path) -> None:
@@ -1298,6 +1315,60 @@ def test_release_readiness_blocks_missing_advanced_artifacts(tmp_path: Path, mon
 
     assert readiness["status"] == "error"
     assert any("advanced_plugin_missing" in b for b in readiness["blockers"])
+
+
+def test_release_readiness_plugin_command_security_review_not_required(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "ok"
+    assert all("OMG:security-review.md" not in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_missing_manifest_declared_advanced_artifact(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    manifest_path = tmp_path / "dist" / "public" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    missing_path = "bundle/plugins/advanced/commands/OMG:learn.md"
+    manifest["artifacts"] = [a for a in manifest["artifacts"] if str(a.get("path", "")) != missing_path]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any(f"advanced_plugin_missing {missing_path}" in b for b in readiness["blockers"])
 
 
 def test_release_readiness_blocks_missing_proof_gate_claims(tmp_path: Path, monkeypatch) -> None:

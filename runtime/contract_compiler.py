@@ -67,11 +67,31 @@ TRUTH_COUNCIL_BUNDLES = (
     "test-intent-lock",
     "proof-gate",
 )
-REQUIRED_ADVANCED_PLUGIN_ARTIFACTS = (
-    "bundle/plugins/advanced/plugin.json",
-    "bundle/plugins/advanced/commands/OMG:deep-plan.md",
-    "bundle/plugins/advanced/commands/OMG:security-review.md",
-)
+def _get_required_advanced_plugin_artifacts(root: Path) -> tuple[str, ...]:
+    manifest_path = root / "plugins" / "advanced" / "plugin.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+
+    required: list[str] = ["bundle/plugins/advanced/plugin.json"]
+    seen = set(required)
+    commands = manifest.get("commands", {})
+    if not isinstance(commands, dict):
+        return tuple(required)
+
+    for command in commands.values():
+        if not isinstance(command, dict):
+            continue
+        command_path = command.get("path")
+        if not isinstance(command_path, str) or not command_path:
+            continue
+        bundled_path = f"bundle/plugins/advanced/{command_path}"
+        if bundled_path in seen:
+            continue
+        required.append(bundled_path)
+        seen.add(bundled_path)
+    return tuple(required)
 REQUIRED_DOC_TOKENS = (
     "execution_contract",
     "tool_policy",
@@ -1809,7 +1829,7 @@ def build_release_readiness(
                     manifest_errors.append(
                         f"{required_channel}: host_parity_missing {host_name} {bundled_host_path}"
                     )
-        for req_path in REQUIRED_ADVANCED_PLUGIN_ARTIFACTS:
+        for req_path in _get_required_advanced_plugin_artifacts(root):
             if req_path not in manifest_paths:
                 manifest_errors.append(f"{required_channel}: advanced_plugin_missing {req_path}")
         if manifest_errors:
