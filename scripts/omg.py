@@ -21,7 +21,7 @@ import json
 import os
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, cast
 
 # --- Path resolution (never relies on CWD) ---
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,7 +34,7 @@ from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change, write_trust_manifest
 from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evidence
 from runtime.forge_agents import dispatch_specialists, resolve_specialists
-from runtime.forge_contracts import validate_forge_job
+from runtime.forge_contracts import load_forge_mvp, validate_forge_job
 from runtime.forge_run_id import normalize_run_id
 from runtime.dispatcher import dispatch_runtime
 from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, verify_fixture
@@ -545,6 +545,60 @@ def cmd_forge_vision_agent(args: argparse.Namespace) -> int:
     out["agent_path"] = "vision-agent"
     print(json.dumps(out, indent=2))
     return 0 if out.get("status") in {"ready", "failed_evaluation"} else 2
+
+
+def _cmd_forge_domain(args: argparse.Namespace, domain: str) -> int:
+    preset = args.preset
+    if preset != "labs":
+        print(
+            json.dumps(
+                {"status": "error", "message": f"forge requires labs preset, got: {preset}"},
+                indent=2,
+            )
+        )
+        return 2
+
+    project_dir = _ensure_project_dir()
+    run_id = normalize_run_id(args.run_id if args.run_id else None)
+
+    mvp = load_forge_mvp()
+    starter_templates = cast(dict[str, Any], mvp["starter_templates"])
+    job: dict[str, Any] = dict(starter_templates[domain])
+
+    if args.job_json:
+        override = json.loads(args.job_json)
+        if not isinstance(override, dict):
+            print(json.dumps({"status": "error", "message": "--job-json must be an object"}, indent=2))
+            return 2
+        job.update(override)
+
+    specialist_dispatch = dispatch_specialists(job, project_dir, run_id=run_id)
+    if specialist_dispatch.get("status") == "blocked":
+        print(json.dumps(specialist_dispatch, indent=2))
+        return 2
+
+    result = run_pipeline_with_evidence(project_dir, job, run_id)
+    out = dict(result)
+    out["specialist_dispatch"] = specialist_dispatch
+    out["agent_path"] = domain
+    print(json.dumps(out, indent=2))
+    return 0 if out.get("status") in {"ready", "failed_evaluation"} else 2
+
+
+def cmd_forge_robotics(args: argparse.Namespace) -> int:
+    return _cmd_forge_domain(args, "robotics")
+
+
+def cmd_forge_algorithms(args: argparse.Namespace) -> int:
+    return _cmd_forge_domain(args, "algorithms")
+
+
+def cmd_forge_health(args: argparse.Namespace) -> int:
+    return _cmd_forge_domain(args, "health")
+
+
+def cmd_forge_cybersecurity(args: argparse.Namespace) -> int:
+    return _cmd_forge_domain(args, "cybersecurity")
 
 
 def cmd_teams(args: argparse.Namespace) -> int:
@@ -1221,6 +1275,18 @@ def build_parser() -> argparse.ArgumentParser:
     forge_vision_agent.add_argument("--simulated-metric", type=float, default=0.9)
     forge_vision_agent.add_argument("--run-id", default="", help="Optional run id used for evidence output")
     forge_vision_agent.set_defaults(func=cmd_forge_vision_agent)
+
+    for _domain, _func in [
+        ("robotics", cmd_forge_robotics),
+        ("algorithms", cmd_forge_algorithms),
+        ("health", cmd_forge_health),
+        ("cybersecurity", cmd_forge_cybersecurity),
+    ]:
+        _p = forge_sub.add_parser(_domain, help=f"Run bounded {_domain} forge flow with specialist dispatch")
+        _p.add_argument("--job-json", default="", help="Optional job overrides as inline JSON")
+        _p.add_argument("--preset", default="labs", choices=list(VALID_PRESETS), help="Adoption preset (must be labs)")
+        _p.add_argument("--run-id", default="", help="Optional run id used for evidence output")
+        _p.set_defaults(func=_func)
 
     teams = sub.add_parser("teams", help="Internal OMG team routing")
     teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "ccg"])

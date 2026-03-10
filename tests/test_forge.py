@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT / "scripts"
 sys.path.insert(0, str(ROOT))
@@ -691,3 +693,83 @@ class TestForgePublish:
         assert published.get("status") == "blocked"
         assert published.get("reason") == "evaluation report missing or not passed"
         assert published.get("published") is False
+
+
+class TestForgeDomainCLIPaths:
+    @pytest.mark.parametrize("domain", ["robotics", "algorithms", "health", "cybersecurity"])
+    def test_domain_command_exits_zero_with_agent_path(self, domain: str) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                domain,
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, f"{domain}: stderr={result.stderr}"
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["agent_path"] == domain
+        assert output["specialist_dispatch"]["status"] == "ok"
+
+    @pytest.mark.parametrize("domain", ["robotics", "algorithms", "health", "cybersecurity"])
+    def test_domain_command_rejects_non_labs_preset(self, domain: str) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                domain,
+                "--preset",
+                "balanced",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "error"
+
+    @pytest.mark.parametrize("domain", ["robotics", "algorithms", "health", "cybersecurity"])
+    def test_domain_command_accepts_job_json_overrides(self, domain: str) -> None:
+        override = json.dumps({"evaluation_notes": "override-test"})
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                domain,
+                "--preset",
+                "labs",
+                "--job-json",
+                override,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, f"{domain}: stderr={result.stderr}"
+        output = json.loads(result.stdout)
+        assert output["agent_path"] == domain
+
+    def test_unknown_forge_subcommand_exits_nonzero(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "space",
+                "--preset",
+                "labs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
