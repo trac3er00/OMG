@@ -14,6 +14,7 @@ except Exception:  # pragma: no cover - json fallback path
 
 
 DEFAULT_BUNDLE_PATH = Path("registry") / "bundles" / "hook-governor.yaml"
+_MODULE_DIR = Path(__file__).resolve().parent.parent  # project root (runtime/ → project root)
 SECURITY_REQUIRED_BY_EVENT: dict[str, tuple[str, ...]] = {
     "PreToolUse": ("firewall", "secret-guard"),
 }
@@ -49,6 +50,12 @@ def _load_compiled_hooks(
 ) -> tuple[dict[str, list[str]], str | None]:
     root = _resolve_project_dir(project_dir)
     candidate = Path(bundle_path) if bundle_path else (root / DEFAULT_BUNDLE_PATH)
+    if not bundle_path and not candidate.exists():
+        # Fallback: resolve relative to this module's installed location (robust to cwd changes
+        # and CLAUDE_PROJECT_DIR pointing to temp dirs in parallel test runs).
+        module_relative = _MODULE_DIR / DEFAULT_BUNDLE_PATH
+        if module_relative.exists():
+            candidate = module_relative
     try:
         raw = candidate.read_text(encoding="utf-8")
     except FileNotFoundError:
