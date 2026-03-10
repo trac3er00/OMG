@@ -124,3 +124,25 @@ def test_schema_hosts_enum_includes_all_canonical_hosts() -> None:
     schema = json.loads((ROOT / "registry" / "omg-capability.schema.json").read_text(encoding="utf-8"))
     hosts = schema.get("properties", {}).get("hosts", {}).get("items", {}).get("enum", [])
     assert set(hosts) == {"claude", "codex", "gemini", "kimi"}
+
+
+def test_core_plugin_command_paths_resolve_relative_to_plugin_root():
+    """Verify all command paths in core plugin resolve relative to repo root (core commands live at ROOT/commands/)"""
+    manifest = json.loads((ROOT / "plugins" / "core" / "plugin.json").read_text(encoding="utf-8"))
+
+    for cmd_name, cmd_config in manifest["commands"].items():
+        path = cmd_config["path"]
+        resolved = ROOT / path
+        assert resolved.exists(), f"Command '{cmd_name}' path '{path}' does not resolve to {resolved}"
+
+
+def test_omg_deep_plan_root_stub_exists():
+    """Assert commands/OMG:deep-plan.md exists as a root slash-command stub coupled to plan-council."""
+    stub_path = ROOT / "commands" / "OMG:deep-plan.md"
+    assert stub_path.exists(), f"Root stub {stub_path} does not exist"
+
+    content = stub_path.read_text(encoding="utf-8")
+    assert "plan-council" in content, "Root stub must reference plan-council"
+    assert "compatibility" in content.lower() or "alias" in content.lower(), \
+        "Root stub must declare compatibility or alias relationship"
+    assert "/OMG:deep-plan" in content, "Root stub must reference /OMG:deep-plan"
