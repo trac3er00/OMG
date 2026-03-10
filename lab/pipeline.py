@@ -35,10 +35,10 @@ def run_pipeline(
     project_dir: str | None = None,
 ) -> dict[str, Any]:
     from runtime.forge_contracts import build_stage_evidence, read_stage_runtime_snapshots, resolve_stage_timeout_ms
-
+    from runtime.forge_run_id import normalize_run_id
     from runtime.forge_agents import check_required_backends_satisfied, resolve_adapters
 
-    active_run_id = str(run_id or _now())
+    active_run_id = normalize_run_id(run_id)
     ok, reason = validate_job_request(job)
     if not ok:
         return {

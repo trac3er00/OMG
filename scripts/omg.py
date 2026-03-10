@@ -34,6 +34,7 @@ from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change, write_trust_manifest
 from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evidence
 from runtime.forge_agents import dispatch_specialists, resolve_specialists
+from runtime.forge_run_id import normalize_run_id
 from runtime.dispatcher import dispatch_runtime
 from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, verify_fixture
 from runtime.data_lineage import build_lineage_manifest
@@ -66,10 +67,6 @@ from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
 from runtime.release_run_coordinator import resolve_current_run_id
-
-
-def _now_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def _parse_simple_idea_yaml(path: str) -> dict[str, Any]:
@@ -126,6 +123,10 @@ def _load_json(path: str) -> dict[str, Any]:
 
 def _ensure_project_dir() -> str:
     return os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+
+
+def _now_run_id() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def cmd_ship(args: argparse.Namespace) -> int:
@@ -471,12 +472,12 @@ def cmd_forge_run(args: argparse.Namespace) -> int:
         return 2
 
     project_dir = _ensure_project_dir()
-    run_id = args.run_id or _now_run_id()
+    run_id = normalize_run_id(args.run_id if args.run_id else None)
     job = json.loads(args.job_json) if args.job_json else _load_json(args.job)
 
     specialist_dispatch: dict[str, Any] | None = None
     if "specialists" in job or "domain" in job:
-        specialist_dispatch = dispatch_specialists(job, project_dir)
+        specialist_dispatch = dispatch_specialists(job, project_dir, run_id=run_id)
         if specialist_dispatch.get("status") == "blocked":
             print(json.dumps(specialist_dispatch, indent=2))
             return 2
@@ -501,7 +502,7 @@ def cmd_forge_vision_agent(args: argparse.Namespace) -> int:
         return 2
 
     project_dir = _ensure_project_dir()
-    run_id = args.run_id or _now_run_id()
+    run_id = normalize_run_id(args.run_id if args.run_id else None)
 
     job: dict[str, Any] = {
         "dataset": {
@@ -527,7 +528,7 @@ def cmd_forge_vision_agent(args: argparse.Namespace) -> int:
             return 2
         job.update(override)
 
-    specialist_dispatch = dispatch_specialists(job, project_dir)
+    specialist_dispatch = dispatch_specialists(job, project_dir, run_id=run_id)
     if specialist_dispatch.get("status") == "blocked":
         print(json.dumps(specialist_dispatch, indent=2))
         return 2

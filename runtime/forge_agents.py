@@ -10,6 +10,7 @@ from typing import Any
 
 from runtime.forge_contracts import ADAPTER_REGISTRY, load_forge_mvp, validate_forge_job
 from runtime.forge_domains import canonical_domain_for, is_valid_domain
+from runtime.forge_run_id import normalize_run_id
 from runtime.runtime_contracts import read_defense_state, read_session_health
 from runtime.security_check import run_security_check
 
@@ -129,7 +130,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
 
     specialists_dispatched = requested_specialists if requested_specialists else expected_specialists
     status = "ok" if specialists_dispatched else "noop"
-    active_run_id = run_id or _now_run_id()
+    active_run_id = normalize_run_id(run_id)
 
     job_with_specialists = dict(job)
     job_with_specialists["specialists"] = specialists_dispatched
@@ -195,10 +196,6 @@ def _normalize_specialist_list(value: object) -> list[str]:
         if candidate and candidate not in items:
             items.append(candidate)
     return items
-
-
-def _now_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def _check_backend_available(backend_name: str) -> bool:
