@@ -86,3 +86,16 @@ def test_run_semgrep_scan_handles_malformed_json_without_crash(tmp_path):
     assert result["status"] == "unavailable"
     assert result["findings"] == []
     assert "semgrep" in result["error"]
+
+
+def test_run_security_check_callable_for_forge_integration(tmp_path):
+    """Ensure run_security_check works as standalone callable for Forge reuse."""
+    result = run_security_check(project_dir=str(tmp_path), scope=".")
+    assert result["schema"] == "SecurityCheckResult"
+    assert "security_scans" in result
+    assert isinstance(result["security_scans"], list)
+    assert "evidence" in result
+    assert "sarif_path" in result["evidence"]
+    assert "sbom_path" in result["evidence"]
+    assert "unresolved_risks" in result
+    assert isinstance(result["findings"], list)

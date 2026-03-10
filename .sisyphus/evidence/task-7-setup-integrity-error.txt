@@ -1,0 +1,6 @@
+============================= test session starts ==============================
+collected 43 items / 39 deselected / 4 selected
+
+tests/e2e/test_setup_script.py ....                                      [100%]
+
+======================= 4 passed, 39 deselected in 0.34s =======================

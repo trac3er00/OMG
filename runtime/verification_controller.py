@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 from typing import cast
 
-from runtime.background_verification import publish_verification_state
+from runtime.background_verification import (
+    publish_verification_state,
+    should_skip_validation,
+    skipped_stages_for_profile,
+)
 from runtime.runtime_contracts import read_run_state, write_run_state
 
 
@@ -80,8 +84,43 @@ class VerificationController:
         payload = read_run_state(self.project_dir, "verification_controller", run_id)
         return dict(payload) if isinstance(payload, dict) else {"run_id": run_id, "status": status}
 
+    def begin_run_with_profile(
+        self, run_id: str, evidence_profile: str | None = None
+    ) -> dict[str, object]:
+        """Start a run with evidence-profile-driven skip logic.
+
+        Computes which validation stages to skip based on the profile,
+        and includes step/total progress for HUD consumption.
+        """
+        from runtime.evidence_requirements import requirements_for_profile
+
+        required = requirements_for_profile(evidence_profile)
+        skipped = skipped_stages_for_profile(evidence_profile)
+
+        state: dict[str, object] = {
+            "status": "running",
+            "blockers": [],
+            "evidence_links": [],
+            "progress": self._build_progress(
+                run_id,
+                step_total={
+                    "step": 0,
+                    "total": len(required),
+                    "current_stage": required[0] if required else "",
+                    "evidence_profile": evidence_profile or "code-change",
+                    "skipped_stages": skipped,
+                },
+            ),
+        }
+        _ = write_run_state(self.project_dir, "verification_controller", run_id, state)
+        payload = read_run_state(self.project_dir, "verification_controller", run_id)
+        return dict(payload) if isinstance(payload, dict) else {"run_id": run_id, "status": "running"}
+
     def _build_progress(
-        self, run_id: str, prior: dict[str, object] | None = None
+        self,
+        run_id: str,
+        prior: dict[str, object] | None = None,
+        step_total: dict[str, object] | None = None,
     ) -> dict[str, object]:
         progress = dict(prior) if isinstance(prior, dict) else {}
         proof_artifacts = self._collect_run_artifacts("proof-gate", run_id)
@@ -98,6 +137,17 @@ class VerificationController:
             "artifact_paths": proof_artifacts,
         }
         progress["tool_ledger"] = self._collect_tool_ledger(run_id)
+
+        # Merge step/total from explicit input or preserve prior values
+        if isinstance(step_total, dict):
+            progress["step"] = step_total.get("step", 0)
+            progress["total"] = step_total.get("total", 0)
+            if "current_stage" in step_total:
+                progress["current_stage"] = step_total["current_stage"]
+            if "evidence_profile" in step_total:
+                progress["evidence_profile"] = step_total["evidence_profile"]
+            if "skipped_stages" in step_total:
+                progress["skipped_stages"] = step_total["skipped_stages"]
         return progress
 
     def _collect_test_intent_lock(self, run_id: str) -> dict[str, object]:

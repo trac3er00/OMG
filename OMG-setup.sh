@@ -293,6 +293,76 @@ preflight() {
     echo "  ✓ Python $py_ver"
 }
 
+
+verify_install_integrity() {
+    local manifest="$SCRIPT_DIR/INSTALL_INTEGRITY.sha256"
+
+    if [ ! -f "$manifest" ]; then
+        echo "  ~ No integrity manifest found (skipping hash verification)"
+        return 0
+    fi
+
+    echo "  Verifying install integrity..."
+    local failures=0
+    local checked=0
+
+    while IFS= read -r line; do
+        # Skip empty lines and comments
+        [ -z "$line" ] && continue
+        [[ "$line" == "#"* ]] && continue
+
+        local expected_hash file_path
+        expected_hash=$(echo "$line" | awk '{print $1}')
+        file_path=$(echo "$line" | awk '{print $2}')
+
+        [ -z "$expected_hash" ] || [ -z "$file_path" ] && continue
+
+        local full_path="$SCRIPT_DIR/$file_path"
+        if [ ! -f "$full_path" ]; then
+            echo "  ❌ INTEGRITY FAILURE: $file_path — file not found"
+            echo "     Expected at: $full_path"
+            echo "     Action: Re-download or re-clone the OMG source."
+            failures=$((failures + 1))
+            continue
+        fi
+
+        local actual_hash
+        if command -v shasum &>/dev/null; then
+            actual_hash=$(shasum -a 256 "$full_path" | awk '{print $1}')
+        elif command -v sha256sum &>/dev/null; then
+            actual_hash=$(sha256sum "$full_path" | awk '{print $1}')
+        else
+            echo "  ❌ Cannot verify integrity: neither shasum nor sha256sum found"
+            echo "     Action: Install coreutils or ensure shasum is available."
+            exit 1
+        fi
+
+        if [ "$actual_hash" != "$expected_hash" ]; then
+            echo "  ❌ INTEGRITY FAILURE: $file_path — hash mismatch"
+            echo "     Expected: $expected_hash"
+            echo "     Actual:   $actual_hash"
+            echo "     Action: Re-download or re-clone the OMG source."
+            failures=$((failures + 1))
+        fi
+        checked=$((checked + 1))
+    done < "$manifest"
+
+    if [ $failures -gt 0 ]; then
+        echo ""
+        echo "  ❌ Install integrity check FAILED ($failures file(s) corrupted or missing)"
+        echo "     The installer source does not match the expected integrity manifest."
+        echo "     This may indicate a corrupted download, incomplete clone, or tampering."
+        echo ""
+        echo "     To fix:"
+        echo "       1. Re-clone: git clone https://github.com/anthropics/omg.git"
+        echo "       2. Or re-download from the official release page"
+        echo "       3. Then re-run: ./OMG-setup.sh install"
+        exit 1
+    fi
+
+    echo "  ✓ Install integrity verified ($checked file(s) checked)"
+}
+
 provision_managed_venv() {
     local venv_dir="$CLAUDE_DIR/omg-runtime/.venv"
 
@@ -1456,6 +1526,7 @@ run_install_like() {
     fi
 
     preflight
+    verify_install_integrity
 
     if [ -f "$CLAUDE_DIR/hooks/.omg-version" ]; then
         existing_ver=$(cat "$CLAUDE_DIR/hooks/.omg-version" 2>/dev/null || echo "")
@@ -1837,6 +1908,48 @@ run_install_like() {
         echo "  Upgraded: $existing_ver → $VERSION"
         echo "  Backup: $BACKUP_DIR"
     fi
+    # --- Post-install validation (runs AFTER all setup writes complete) ---
+    echo ""
+    echo "Post-install validation..."
+    local validate_output=""
+    local validate_rc=0
+    validate_output=$(python3 "$SCRIPT_DIR/scripts/omg.py" validate --format json 2>&1) || validate_rc=$?
+
+    if ! $DRY_RUN && [ -n "$validate_output" ]; then
+        mkdir -p "$CLAUDE_DIR/.omg/state"
+        printf '%s\n' "$validate_output" > "$CLAUDE_DIR/.omg/state/post-install-validation.json"
+    fi
+
+    if [ $validate_rc -eq 0 ]; then
+        echo "  ✅ Post-install validation passed"
+        if ! $DRY_RUN; then
+            echo "  ✓ Artifact → $CLAUDE_DIR/.omg/state/post-install-validation.json"
+        fi
+    else
+        echo "  ❌ POST-INSTALL VALIDATION FAILED"
+        echo ""
+        printf '%s' "$validate_output" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    blockers = [c for c in data.get('checks', []) if c.get('status') == 'blocker']
+    if blockers:
+        print('  Blockers:')
+        for b in blockers:
+            print(f'    - {b[\"name\"]}: {b[\"message\"]}')
+    else:
+        print('  (no blocker details available)')
+except Exception:
+    print('  (could not parse validation output)')
+" 2>/dev/null
+        echo ""
+        if ! $DRY_RUN; then
+            echo "  Validation artifact: $CLAUDE_DIR/.omg/state/post-install-validation.json"
+        fi
+        echo "  Run: python3 $SCRIPT_DIR/scripts/omg.py validate"
+        exit 1
+    fi
+
     echo ""
     if $DRY_RUN; then
         echo "  *** DRY RUN — no files were changed ***"

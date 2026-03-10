@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Any, cast
 
 import yaml
@@ -36,6 +37,7 @@ from runtime.mcp_config_writers import (  # noqa: E402
 import runtime.providers.codex_provider  # noqa: E402, F401
 import runtime.providers.gemini_provider  # noqa: E402, F401
 import runtime.providers.kimi_provider  # noqa: E402, F401
+from runtime.validate import run_validate as _run_post_install_validate  # noqa: E402
 from runtime.adoption import (  # noqa: E402
     CANONICAL_MODE_NAMES,
     CANONICAL_VERSION,
@@ -191,6 +193,28 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "args": ["@modelcontextprotocol/server-memory"],
         "default": False,
         "category": "memory",
+    },
+    {
+        "id": "notebooklm",
+        "name": "NotebookLM",
+        "description": "NotebookLM MCP server for AI-powered research and note-taking",
+        "command": "npx",
+        "args": ["-y", "notebooklm-mcp@latest"],
+        "default": False,
+        "category": "productivity",
+        "warning": (
+            "NOTEBOOKLM MCP WARNING\n\n"
+            "NotebookLM requires browser automation and has several important considerations:\n\n"
+            "BROWSER AUTOMATION: NotebookLM uses Puppeteer for browser automation. "
+            "This requires a Chromium/Chrome installation and may consume significant system resources.\n\n"
+            "FIRST-RUN DOWNLOAD: On first run, NotebookLM will download a full browser instance "
+            "(typically 100-300 MB). This is a one-time operation but may take several minutes.\n\n"
+            "DEDICATED ACCOUNT: It is strongly recommended to use a dedicated Google account "
+            "for NotebookLM MCP. Do NOT use your primary account, as the MCP will store credentials locally.\n\n"
+            "AUTH EXPIRY: Google authentication tokens expire periodically. "
+            "You may need to re-authenticate if the MCP fails with auth errors.\n\n"
+            "Enable NotebookLM only if you understand these requirements and accept the risks."
+        ),
     },
 ]
 
@@ -1023,7 +1047,7 @@ def run_setup_wizard(
     report_path = write_adoption_report(project_dir, adoption)
     adoption["report_path"] = report_path
 
-    return {
+    result: dict[str, Any] = {
         "status": "complete",
         "setup_mode": {
             "choices": get_mode_choices(),
@@ -1036,3 +1060,48 @@ def run_setup_wizard(
         "preferences": prefs,
         "adoption": adoption,
     }
+
+    # --- Post-install validation (runs AFTER all setup writes are complete) ---
+    try:
+        validation_result = _run_post_install_validate(root_dir=Path(_PROJECT_ROOT))
+    except Exception as exc:
+        validation_result = {
+            "schema": "ValidateResult",
+            "status": "fail",
+            "checks": [
+                {
+                    "name": "validation_error",
+                    "status": "blocker",
+                    "message": str(exc),
+                    "required": True,
+                },
+            ],
+            "version": "",
+        }
+
+    # Persist machine-readable validation artifact
+    artifact_dir = os.path.join(project_dir, ".omg", "state")
+    os.makedirs(artifact_dir, exist_ok=True)
+    artifact_path = os.path.join(artifact_dir, "post-install-validation.json")
+    try:
+        with open(artifact_path, "w", encoding="utf-8") as f:
+            json.dump(validation_result, f, indent=2, ensure_ascii=True)
+            f.write("\n")
+    except OSError:
+        artifact_path = ""
+
+    blockers = [
+        c for c in validation_result.get("checks", [])
+        if c.get("status") == "blocker"
+    ]
+
+    result["post_install_validation"] = {
+        "status": validation_result.get("status", "fail"),
+        "artifact_path": artifact_path,
+        "blockers": [{"name": c["name"], "message": c["message"]} for c in blockers],
+    }
+
+    if blockers:
+        result["status"] = "validation_failed"
+
+    return result

@@ -1,0 +1,29 @@
+=== release NO-SKIP proof ===
+release skips tests: False  (MUST be False)
+release skips lsp_clean: False  (MUST be False)
+release skips build: False  (MUST be False)
+release skips provenance: False  (MUST be False)
+release skips trust_scores: False  (MUST be False)
+release skips security_scan: False  (MUST be False)
+release skips license_scan: False  (MUST be False)
+release skips sbom: False  (MUST be False)
+release skips trace_link: False  (MUST be False)
+
+=== security-audit NO-SKIP proof ===
+security-audit skips tests: False  (MUST be False)
+security-audit skips lsp_clean: False  (MUST be False)
+security-audit skips build: False  (MUST be False)
+security-audit skips provenance: False  (MUST be False)
+security-audit skips trust_scores: False  (MUST be False)
+security-audit skips security_scan: False  (MUST be False)
+security-audit skips license_scan: False  (MUST be False)
+security-audit skips sbom: False  (MUST be False)
+security-audit skips trace_link: False  (MUST be False)
+
+=== unknown profile NO-SKIP proof ===
+None skips tests: False  (MUST be False)
+empty skips build: False  (MUST be False)
+
+ALL SAFETY CHECKS PASSED
+release skipped stages: []
+security-audit skipped stages: []

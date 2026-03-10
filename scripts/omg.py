@@ -60,6 +60,7 @@ from runtime.compat import (
     list_compat_skills,
     run_doctor,
 )
+from runtime.validate import run_validate, format_text as validate_format_text
 from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
@@ -978,6 +979,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0 if result["status"] == "pass" else 1
 
 
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "text")
+    result = run_validate(root_dir=ROOT_DIR)
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        print(validate_format_text(result))
+    return 0 if result["status"] == "pass" else 1
+
 def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     release_sub = parent.add_subparsers(dest=dest, required=True)
 
@@ -1198,6 +1209,10 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser("doctor", help="Canonical install and runtime verification")
     doctor.add_argument("--format", default="text", choices=["text", "json"], dest="format")
     doctor.set_defaults(func=cmd_doctor)
+
+    validate = sub.add_parser("validate", help="Canonical validation — doctor + contract + profile + install")
+    validate.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    validate.set_defaults(func=cmd_validate)
 
     profile_review = sub.add_parser("profile-review", help="Review governed profile state")
     profile_review.add_argument("--format", default="json", choices=["json", "text"], dest="format")

@@ -1,0 +1,18 @@
+=== docs-only skip proof ===
+docs-only skips build: True
+docs-only skips tests: True
+docs-only skips security_scan: True
+docs-only keeps lsp_clean: True
+docs-only keeps trace_link: True
+skipped stages: ['tests', 'build', 'provenance', 'trust_scores', 'security_scan', 'license_scan', 'sbom']
+
+=== forge-run skip proof ===
+forge-run skips build: True
+forge-run keeps tests: True
+skipped stages: ['build', 'trust_scores', 'security_scan', 'license_scan', 'sbom']
+
+=== progress state proof ===
+docs-only requirements: ['lsp_clean', 'trace_link']
+docs-only total stages: 2
+release requirements: ['tests', 'lsp_clean', 'build', 'provenance', 'trust_scores', 'security_scan', 'license_scan', 'sbom', 'trace_link']
+release total stages: 9

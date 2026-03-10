@@ -951,7 +951,7 @@ function renderBackgroundTasks(tasks) {
 
 function renderVerificationStatus(state) {
   if (!state) return dim("verification: unknown");
-  const { status, blockers, evidence_links } = state;
+  const { status, blockers, evidence_links, progress } = state;
   const blockerCount = blockers.length;
   const latestEvidence = evidence_links.length > 0
     ? evidence_links[evidence_links.length - 1]
@@ -959,11 +959,24 @@ function renderVerificationStatus(state) {
   const evidenceSuffix = latestEvidence
     ? ` ${dim(`evidence:${basename(latestEvidence)}`)}`
     : "";
+
+  // Build progress suffix from step/total when available
+  const step = progress && typeof progress.step === "number" ? progress.step : null;
+  const total = progress && typeof progress.total === "number" ? progress.total : null;
+  const currentStage = progress && progress.current_stage ? progress.current_stage : null;
+  let progressSuffix = "";
+  if (step !== null && total !== null && status === "running") {
+    progressSuffix = ` ${dim(`[${step}/${total}]`)}`;
+    if (currentStage) {
+      progressSuffix += ` ${dim(currentStage)}`;
+    }
+  }
+
   if (status === "ok") {
     return green("\u2713 verification ok") + evidenceSuffix;
   }
   if (status === "running") {
-    return yellow("\u27F3 verification running") + evidenceSuffix;
+    return yellow("\u27F3 verification running") + progressSuffix + evidenceSuffix;
   }
   if (status === "error" || status === "blocked") {
     const blockerSuffix = blockerCount > 0 ? ` (${blockerCount} blockers)` : "";

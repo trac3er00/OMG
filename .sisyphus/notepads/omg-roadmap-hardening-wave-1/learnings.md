@@ -76,3 +76,7 @@
 - runtime/evidence_query.py enrichment now carries evidence_profile plus computed evidence_requirements while preserving profile_version/intent_gate_version metadata.
 - runtime/contract_compiler.py release-readiness execution primitives now pin evidence_profile=release and expose machine-readable required_evidence_requirements in check output.
 - Added coverage across proof/claim/query/compiler tests for docs-only light path, release full path, and missing/empty evidence_profile fail-closed behavior.
+
+- F4 scope fidelity audit (2026-03-09): deferred-scope checks passed for second profile store and live NotebookLM auth probing; no source-level second proof subsystem detected.
+- Compatibility risk found: `runtime.delta_classifier` no longer exports `classify`, which breaks the prescribed legacy import check even though `classify_project_changes` still emits `categories` and `evidence_profile`.
+- F4 re-audit correction (2026-03-09): backward-compat false positive resolved; baseline and current both use `classify_project_changes` (no `classify` export), and compatibility keys `categories` + `evidence_profile` are present.
