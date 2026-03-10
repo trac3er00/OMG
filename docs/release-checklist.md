@@ -27,12 +27,12 @@ Use this checklist before making OMG public or cutting a release tag.
 
 ## Forge v0.3
 
-- [ ] The 5 CLI domain commands and their expected outputs:
-  - `/OMG:init [domain]` — scaffolds domain model
-  - `/OMG:forge [job]` — executes training/eval pipeline
-  - `/OMG:eval-gate` — runs regression scoreboard
-  - `/OMG:data-lineage` — emits provenance manifest
-  - `/OMG:proof-gate` — binds claims to evidence
+- [ ] The 5 Forge domain CLI commands and their expected outputs:
+  - `python3 scripts/omg.py forge vision-agent --preset labs` — exits 0, `agent_path: vision-agent`, `proof_backed: true`
+  - `python3 scripts/omg.py forge robotics --preset labs` — exits 0, `agent_path: robotics`
+  - `python3 scripts/omg.py forge algorithms --preset labs` — exits 0, `agent_path: algorithms`
+  - `python3 scripts/omg.py forge health --preset labs` — exits 0, `agent_path: health`
+  - `python3 scripts/omg.py forge cybersecurity --preset labs` — exits 0, `agent_path: cybersecurity`
 - [ ] The `artifact_contracts` evidence fields are present:
   - `dataset_lineage`
   - `model_card`

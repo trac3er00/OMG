@@ -59,7 +59,7 @@
     {
       "name": "plugin_compatibility",
       "status": "warning",
-      "message": "plugin compatibility: 25 records, 9 conflicts, 1 blockers",
+      "message": "plugin compatibility: 28 records, 10 conflicts, 1 blockers",
       "required": false
     },
     {
