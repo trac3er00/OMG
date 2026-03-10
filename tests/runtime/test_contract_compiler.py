@@ -1693,7 +1693,7 @@ def test_malformed_pyproject_toml_produces_explicit_parse_blocker(
     _setup_drift_fixture(tmp_path)
 
     (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = 'oh-my-god'\nversion = '2.1.1'\n",
+        "[project]\nname = 'oh-my-god'\nversion = '0.0.1-test'\n",
         encoding="utf-8",
     )
 

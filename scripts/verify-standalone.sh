@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+FORBID_VERSION="${FORBID_VERSION:-}"
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="${1:-$(mktemp -d)}"
 
@@ -21,7 +23,7 @@ python3 scripts/omg.py compat gate --max-bridge 0 --output .omg/evidence/omg-com
 python3 scripts/check-omg-public-ready.py
 
 echo "=== Validating release identity ==="
-python3 scripts/validate-release-identity.py --scope all --forbid-version 2.1.1
+python3 scripts/validate-release-identity.py --scope all --forbid-version "${FORBID_VERSION}"
 
 if command -v pyenv >/dev/null 2>&1 && pyenv prefix 3.12.7 >/dev/null 2>&1; then
   PYENV_VERSION=3.12.7 python -m pytest -q

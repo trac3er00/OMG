@@ -1,0 +1,243 @@
+=== task-5-version-purge-error evidence ===
+Date: 2026-03-10T19:50:56Z
+
+============================= test session starts ==============================
+platform darwin -- Python 3.13.12, pytest-9.0.2, pluggy-1.6.0
+rootdir: /private/tmp/omg-phase0-fixes
+configfile: pyproject.toml
+plugins: anyio-4.12.1, xdist-3.8.0, timeout-2.4.0, cov-7.0.0
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+created: 10/10 workers
+10 workers [15 items]
+
+...............                                                          [100%]
+================================ tests coverage ================================
+______________ coverage: platform darwin, python 3.13.12-final-0 _______________
+
+Name                                       Stmts   Miss   Cover   Missing
+-------------------------------------------------------------------------
+agents/__init__.py                             0      0 100.00%
+agents/model_roles.py                         60     60   0.00%   7-167
+commands/__init__.py                           0      0 100.00%
+control_plane/__init__.py                      0      0 100.00%
+control_plane/server.py                       80     80   0.00%   2-149
+control_plane/service.py                     178    178   0.00%   3-337
+hooks/__init__.py                              0      0 100.00%
+hooks/_agent_registry.py                     114    114   0.00%   6-479
+hooks/_analytics.py                          163    163   0.00%   4-291
+hooks/_budget.py                              16     16   0.00%   12-31
+hooks/_common.py                             251    251   0.00%   2-569
+hooks/_compression_optimizer.py               84     84   0.00%   3-119
+hooks/_cost_ledger.py                         82     82   0.00%   13-175
+hooks/_learnings.py                           84     84   0.00%   3-126
+hooks/_memory.py                              88     88   0.00%   2-103
+hooks/_protected_context.py                   66     66   0.00%   13-150
+hooks/_token_counter.py                      139    139   0.00%   3-221
+hooks/branch_manager.py                      121    121   0.00%   9-232
+hooks/budget_governor.py                     152    152   0.00%   3-228
+hooks/circuit-breaker.py                     169    169   0.00%   7-270
+hooks/compression_feedback.py                175    175   0.00%   4-246
+hooks/config-guard.py                        136    136   0.00%   7-216
+hooks/context_pressure.py                     30     30   0.00%   4-53
+hooks/credential_store.py                    270    270   0.00%   13-1016
+hooks/fetch-rate-limits.py                   113    113   0.00%   12-208
+hooks/firewall.py                            183    183   0.00%   7-307
+hooks/hashline-formatter-bridge.py            93     93   0.00%   10-220
+hooks/hashline-injector.py                   119    119   0.00%   13-269
+hooks/hashline-validator.py                   83     83   0.00%   10-212
+hooks/idle-detector.py                        46     46   0.00%   13-95
+hooks/instructions-loaded.py                  12     12   0.00%   7-22
+hooks/intentgate-keyword-detector.py          70     70   0.00%   24-200
+hooks/magic-keyword-router.py                 88     88   0.00%   17-195
+hooks/policy_engine.py                       311    260  16.40%   29-32, 36, 40, 44, 158, 162-171, 175-176, 193-224, 232-238, 242-282, 292-353, 401-416, 435-448, 459-482, 493-523, 531-574, 613-667, 679-706, 710-712
+hooks/post-tool-failure.py                    10     10   0.00%   3-19
+hooks/post-write.py                          113    113   0.00%   7-219
+hooks/post_write.py                           35     35   0.00%   1-46
+hooks/pre-compact.py                         232    232   0.00%   8-394
+hooks/pre-tool-inject.py                      57     57   0.00%   8-98
+hooks/prompt-enhancer.py                     442    442   0.00%   17-823
+hooks/quality-runner.py                       69     69   0.00%   12-160
+hooks/query.py                               295    295   0.00%   10-506
+hooks/secret-guard.py                         47     47   0.00%   6-95
+hooks/secret_audit.py                         53     53   0.00%   12-143
+hooks/security_validators.py                  50     39  22.00%   15-27, 32-38, 43-53, 58-70, 75
+hooks/session-end-capture.py                 368    368   0.00%   9-505
+hooks/session-start.py                       149    149   0.00%   7-255
+hooks/setup_wizard.py                        446    446   0.00%   5-1115
+hooks/shadow_manager.py                      290    290   0.00%   6-472
+hooks/state_migration.py                     117    117   0.00%   3-228
+hooks/stop-gate.py                             1      1   0.00%   3
+hooks/stop_dispatcher.py                     599    599   0.00%   4-1045
+hooks/tdd-gate.py                              3      3   0.00%   3-6
+hooks/test-validator.py                      142    142   0.00%   21-344
+hooks/test_generator_hook.py                  56     56   0.00%   7-119
+hooks/todo-state-tracker.py                   51     51   0.00%   10-114
+hooks/tool-ledger.py                          88     88   0.00%   8-149
+hooks/trust_review.py                        331    331   0.00%   8-581
+hooks/user-prompt-submit.py                    4      4   0.00%   3-9
+lab/__init__.py                                0      0 100.00%
+lab/axolotl_adapter.py                        48     48   0.00%   14-152
+lab/gazebo_adapter.py                         48     48   0.00%   16-160
+lab/isaac_gym_adapter.py                      49     49   0.00%   17-162
+lab/pipeline.py                              123    106  13.82%   28, 37-167, 171-183, 187-201, 215-222, 226-237, 241-249, 253-257
+lab/policies.py                               36     29  19.44%   12-21, 25-32, 36-52
+lab/pybullet_adapter.py                       47     47   0.00%   14-168
+omg_natives/__init__.py                       76     76   0.00%   11-159
+omg_natives/_bindings.py                      40     40   0.00%   9-165
+omg_natives/clipboard.py                      10     10   0.00%   9-31
+omg_natives/glob.py                           16     16   0.00%   9-37
+omg_natives/grep.py                           25     25   0.00%   9-56
+omg_natives/highlight.py                      12     12   0.00%   9-49
+omg_natives/html.py                           87     87   0.00%   10-152
+omg_natives/image.py                          16     16   0.00%   9-46
+omg_natives/keys.py                           11     11   0.00%   9-41
+omg_natives/prof.py                           14     14   0.00%   9-34
+omg_natives/ps.py                             43     43   0.00%   10-89
+omg_natives/shell.py                          12     12   0.00%   9-53
+omg_natives/task.py                           15     15   0.00%   9-36
+omg_natives/text.py                           17     17   0.00%   9-45
+plugins/__init__.py                            0      0 100.00%
+plugins/dephealth/__init__.py                  0      0 100.00%
+plugins/dephealth/cve_scanner.py             176    148  15.91%   22-33, 37-76, 80-110, 114-148, 152-155, 159-163, 167-189, 195-218, 222-227, 231-248, 252-257, 261-265, 269-279
+plugins/dephealth/license_checker.py          56     45  19.64%   33-44, 49-57, 77-131
+plugins/dephealth/manifest_detector.py       213    181  15.02%   66-93, 98-123, 128-173, 178-212, 217-244, 249-355, 374-384, 393-423
+plugins/dephealth/vuln_analyzer.py           126    111  11.90%   14-41, 54-67, 71-101, 105-133, 137-148, 152-156, 160-168, 172-176
+plugins/testgen/__init__.py                    0      0 100.00%
+plugins/testgen/codamosa_engine.py           172    172   0.00%   18-396
+plugins/testgen/edge_case_synthesizer.py     130    130   0.00%   1-184
+plugins/testgen/framework_detector.py        104    104   0.00%   11-271
+plugins/testgen/skeleton_generator.py         95     95   0.00%   12-219
+plugins/viz/__init__.py                        0      0 100.00%
+plugins/viz/ast_parser.py                     98     98   0.00%   1-139
+plugins/viz/diagram_generator.py              75     75   0.00%   13-192
+plugins/viz/graph_builder.py                 220    220   0.00%   9-444
+plugins/viz/native_parsers.py                116    116   0.00%   13-259
+plugins/viz/regex_parser.py                   58     58   0.00%   6-112
+registry/__init__.py                           0      0 100.00%
+registry/verify_artifact.py                   34     34   0.00%   2-84
+runtime/__init__.py                            3      0 100.00%
+runtime/adapters/__init__.py                   5      1  80.00%   9
+runtime/adapters/claude.py                    13      4  69.23%   12-13, 26, 52
+runtime/adapters/gpt.py                       13      4  69.23%   12-13, 22, 45
+runtime/adapters/local.py                     13      4  69.23%   12-13, 22, 45
+runtime/adoption.py                           86     58  32.56%   86-90, 94-95, 99-101, 105-108, 112-124, 128-130, 134-155, 159-166, 172-184, 194-199, 218-222
+runtime/api_twin.py                          199    199   0.00%   2-445
+runtime/architecture_signal.py                99     99   0.00%   10-226
+runtime/artifact_parsers.py                   89     89   0.00%   1-161
+runtime/asset_loader.py                       49     49   0.00%   2-62
+runtime/background_verification.py            44     31  29.55%   21-35, 39-48, 69-78, 86-88, 101-110
+runtime/business_workflow.py                  78     69  11.54%   37-48, 52-64, 68-180, 207-221
+runtime/claim_judge.py                       246    246   0.00%   1-426
+runtime/cli_provider.py                       17      4  76.47%   12, 58, 71, 76
+runtime/compat.py                            567    472  16.75%   54, 58, 62-68, 321, 325, 329, 333-341, 345-366, 370-394, 408, 424-425, 429-446, 457-487, 491-495, 499-505, 509-528, 532-537, 541-550, 554-570, 574-589, 593-659, 671-680, 693-699, 703-719, 735-839, 850-857, 861-871, 883-926, 935-968, 972-1003, 1011-1049, 1065-1448, 1458, 1462, 1466, 1470, 1481, 1499
+runtime/context_engine.py                    267    225  15.73%   42-62, 66-100, 104, 115-147, 158-167, 171-173, 177-186, 190-192, 196, 204-217, 221-233, 240-241, 262-265, 272-311, 315-320, 323-329, 333-346, 349-361, 370-414, 418-421, 425-434, 438
+runtime/contract_compiler.py                1276   1276   0.00%   2-2459
+runtime/custom_agent_loader.py               165    165   0.00%   8-366
+runtime/data_lineage.py                       40     40   0.00%   2-69
+runtime/defense_state.py                     135    109  19.26%   42-43, 53-114, 117-120, 137-151, 167-177, 180-190, 199-218, 221-227, 230-233, 236-244, 247-250, 253-256, 259-261
+runtime/delta_classifier.py                   62     46  25.81%   75-97, 101-118, 122-125, 129, 133-159
+runtime/dispatcher.py                         16     11  31.25%   11-32
+runtime/domain_packs.py                        7      7   0.00%   2-54
+runtime/ecosystem.py                         143    119  16.78%   115, 119, 123-133, 137-143, 147-156, 160-175, 179-187, 197-231, 244-260, 270-311, 325-362
+runtime/equalizer.py                         132    116  12.12%   79-86, 94-107, 111-123, 127-153, 162-222, 231-246
+runtime/eval_gate.py                          39     39   0.00%   2-96
+runtime/evidence_query.py                    171    145  15.20%   26-29, 33-39, 43-44, 48-87, 91-107, 111-112, 116-119, 130-151, 155-165, 176-203, 207-222, 226-230, 234, 238-246, 250-255
+runtime/evidence_registry.py                   7      7   0.00%   2-12
+runtime/evidence_requirements.py              11      6  45.45%   43-48
+runtime/feature_registry.py                   51     51   0.00%   2-109
+runtime/forge_agents.py                      153    153   0.00%   1-384
+runtime/forge_contracts.py                   109    109   0.00%   1-356
+runtime/forge_domains.py                      18     18   0.00%   1-68
+runtime/forge_run_id.py                       18     18   0.00%   2-59
+runtime/guide_assert.py                       24     24   0.00%   2-45
+runtime/hook_governor.py                     103     84  18.45%   29-34, 38-44, 51-102, 111-112, 122-156
+runtime/incident_replay.py                    17     17   0.00%   2-47
+runtime/interaction_journal.py               290    254  12.41%   32-34, 37-72, 80-182, 193-197, 200-207, 210-215, 218-240, 243-268, 271-283, 286-307, 310-320, 323-335, 338-345, 353-395, 398-423, 426-482, 485-488, 491-493, 496-497, 500
+runtime/legacy_compat.py                       2      2   0.00%   5-7
+runtime/mcp_config_writers.py                129    108  16.28%   16-19, 23-31, 35, 43-47, 51, 55-63, 67-73, 77-79, 89-91, 100-139, 149-187, 196-198, 208-210, 219-221, 231-233
+runtime/mcp_lifecycle.py                     110    110   0.00%   2-175
+runtime/mcp_memory_server.py                  71     71   0.00%   1-131
+runtime/memory_parsers/__init__.py             0      0 100.00%
+runtime/memory_parsers/chatgpt_parser.py      99     99   0.00%   12-253
+runtime/memory_parsers/claude_import.py       46     46   0.00%   3-107
+runtime/memory_parsers/export.py              39     39   0.00%   3-97
+runtime/memory_parsers/gemini_import.py       36     36   0.00%   3-91
+runtime/memory_parsers/kimi_import.py         36     36   0.00%   3-91
+runtime/memory_store.py                      188    188   0.00%   3-348
+runtime/mutation_gate.py                      59     59   0.00%   1-128
+runtime/omc_compat.py                          2      2   0.00%   5-7
+runtime/omg_browser_cli.py                    33     33   0.00%   2-89
+runtime/omg_mcp_server.py                    144    144   0.00%   1-276
+runtime/playwright_adapter.py                 14     14   0.00%   2-35
+runtime/playwright_pack.py                    92     92   0.00%   2-220
+runtime/plugin_diagnostics.py                142    127  10.56%   12-18, 25-53, 60-96, 100, 104-164, 168-174, 178-190, 194-242
+runtime/plugin_interop.py                    538    414  23.05%   90-95, 98, 114-118, 154, 166-199, 203-234, 238-253, 266-289, 293-451, 464-476, 482, 486-495, 526-529, 533-537, 541-543, 547-556, 560-569, 573-593, 597-616, 625-632, 645-666, 670-675, 688-730, 745-768, 772-777, 790-792, 796-798, 802-807, 811-814, 818-824, 828-831, 839-861, 865-877, 894-977
+runtime/preflight.py                          55     55   0.00%   2-127
+runtime/profile_io.py                        165    143  13.33%   24-33, 47-52, 62-63, 80-95, 100-104, 109-149, 157-160, 164-175, 179-194, 209-245, 249-282, 286-294
+runtime/proof_chain.py                       202    202   0.00%   1-358
+runtime/proof_gate.py                        246    246   0.00%   1-374
+runtime/providers/__init__.py                  0      0 100.00%
+runtime/providers/codex_provider.py           53     30  43.40%   33, 39-45, 51-66, 73-82, 88, 94, 98
+runtime/providers/gemini_provider.py          54     30  44.44%   40, 46-52, 61-76, 83-92, 98, 104, 112
+runtime/providers/kimi_provider.py            68     43  36.76%   40, 46-59, 65-80, 84-99, 106-115, 121, 127, 135
+runtime/providers/opencode_provider.py        65     65   0.00%   1-94
+runtime/release_run_coordinator.py           166    125  24.70%   36-38, 41-57, 73-107, 115-133, 146-191, 206, 209, 212-214, 217, 220-225, 228-234, 244-289, 293-295, 299-301, 305-307, 311-317, 321-339
+runtime/release_surfaces.py                   24      8  66.67%   232-238, 243
+runtime/remote_supervisor.py                  33     33   0.00%   2-57
+runtime/repro_pack.py                        169    147  13.02%   21, 25-31, 35-44, 48-51, 55-57, 61-63, 67-68, 72-79, 83-110, 119-131, 135-148, 152-167, 171-187, 191-204, 208-288
+runtime/rollback_manifest.py                  53     40  24.53%   10, 14, 28-72, 81-90, 100-110, 114-116, 120-128, 132-136
+runtime/router_critics.py                    127    106  16.54%   30-31, 35-43, 47-60, 70-84, 88-99, 103, 107-116, 120-123, 131-155, 169-198, 213-225
+runtime/router_executor.py                    58     41  29.31%   11, 22, 28, 32-36, 45-59, 72-112, 126-138
+runtime/router_selector.py                    54     46  14.81%   15, 19-57, 61-67, 77-99
+runtime/runtime_contracts.py                 139    109  21.58%   35-40, 44-45, 112-113, 117-124, 128-135, 144-157, 166-175, 179-185, 194-203, 207-216, 220-238, 242-250, 254-268, 272-273, 277-279
+runtime/runtime_profile.py                    80     58  27.50%   57-63, 67-91, 95-100, 104-133
+runtime/security_check.py                    460    394  14.35%   90-166, 216-223, 234, 244-251, 255-259, 263-277, 281-290, 294-325, 329-336, 340-362, 366-369, 373-396, 400-427, 431-448, 452-456, 460-469, 473-532, 536-541, 545-548, 552-586, 590, 594-642, 646-653, 657-662, 666-670, 674-675, 686-695, 710-711, 729-743, 747-757, 761-777, 781-794, 805-836, 840-847, 851, 855-902, 921-936, 949-972, 981-993, 997-998, 1015-1059
+runtime/session_health.py                    127    105  17.32%   33-116, 128-162, 167-175, 179-187, 191-196, 200-206, 210-216, 220-224, 228-231, 235-238
+runtime/skill_evolution.py                    97     97   0.00%   1-221
+runtime/skill_registry.py                     36     36   0.00%   1-53
+runtime/subagent_dispatcher.py               219    219   0.00%   8-469
+runtime/team_router.py                       562    468  16.73%   33, 68-70, 74, 79-82, 91, 117-128, 139-151, 155-159, 163-186, 190, 199-280, 294-342, 347-358, 362-371, 376-403, 408-425, 434-439, 444-462, 467-484, 489-507, 515-580, 585-596, 605, 624, 644-741, 785-855, 894-901, 916-936, 945-946, 950-958, 962-963, 967-978, 992-996, 1005-1016, 1029-1076, 1089-1128, 1142-1143, 1165-1224
+runtime/test_intent_lock.py                  277    277   0.00%   1-439
+runtime/tmux_session_manager.py               94     76  19.15%   21, 25, 29-42, 46-59, 63-76, 80-125, 129-133, 137-143, 147-169
+runtime/tool_plan_gate.py                    228    228   0.00%   1-402
+runtime/tracebank.py                          46     30  34.78%   20, 31, 51-98, 108-125
+runtime/untrusted_content.py                 116    116   0.00%   2-277
+runtime/validate.py                          128    128   0.00%   7-289
+runtime/verification_controller.py           141    121  14.18%   19, 22-30, 33-36, 39-52, 68-85, 95-117, 125-151, 154-172, 175-187, 190-213, 217-223, 227-235
+runtime/verification_loop.py                  44     44   0.00%   1-69
+scripts/sync-release-identity.py             283    248  12.37%   24, 42-65, 72-85, 89-99, 103-112, 120-122, 129-131, 136-138, 147-157, 164-176, 182-193, 199-216, 222-234, 243-259, 266-284, 290-304, 310-334, 340-361, 396-400, 407-411, 418-472
+scripts/validate-release-identity.py         140     48  65.71%   21, 72-73, 79-80, 90-103, 123-124, 192-242
+tools/__init__.py                              0      0 100.00%
+tools/browser_consent.py                     100    100   0.00%   18-285
+tools/browser_stealth.py                     114    114   0.00%   18-477
+tools/browser_tool.py                        170    170   0.00%   12-444
+tools/changelog_generator.py                 169    169   0.00%   11-343
+tools/commit_splitter.py                     323    323   0.00%   11-742
+tools/config_discovery.py                     62     62   0.00%   11-147
+tools/config_merger.py                       221    221   0.00%   17-445
+tools/dashboard_generator.py                  98     98   0.00%   12-300
+tools/git_inspector.py                       131    131   0.00%   9-294
+tools/lsp_client.py                          144    144   0.00%   9-271
+tools/lsp_discovery.py                        89     89   0.00%   9-227
+tools/lsp_operations.py                      166    166   0.00%   11-392
+tools/pr_generator.py                        161    161   0.00%   12-400
+tools/python_repl.py                         391    391   0.00%   11-682
+tools/python_sandbox.py                      200    200   0.00%   27-608
+tools/search_providers/__init__.py            25     25   0.00%   16-77
+tools/search_providers/brave.py               48     48   0.00%   8-115
+tools/search_providers/exa.py                 43     43   0.00%   8-116
+tools/search_providers/jina.py                36     36   0.00%   10-104
+tools/search_providers/perplexity.py          50     50   0.00%   9-139
+tools/search_providers/synthetic.py           19     19   0.00%   9-71
+tools/session_snapshot.py                    436    436   0.00%   11-838
+tools/ssh_manager.py                         320    320   0.00%   12-908
+tools/theme_engine.py                        191    191   0.00%   11-290
+tools/theme_selector.py                       97     97   0.00%   1-134
+tools/web_search.py                          227    227   0.00%   12-618
+yaml.py                                      270    247   8.52%   15-17, 21-45, 49-56, 60-80, 84-125, 129-165, 170-171, 174-176, 179-186, 189-209, 212-242, 246-255, 259-265, 269-297, 307-315
+-------------------------------------------------------------------------
+TOTAL                                      25707  24298   5.48%
+Coverage HTML written to dir htmlcov
+============================== 15 passed in 3.89s ==============================

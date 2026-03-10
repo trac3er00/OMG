@@ -102,7 +102,7 @@ def test_extract_canonical_version_ast_malformed_source():
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir_path = Path(tmpdir)
         adoption_file = tmpdir_path / "adoption.py"
-        adoption_file.write_text("CANONICAL_VERSION = \"2.1.1\"\nthis is not valid python !!!")
+        adoption_file.write_text("CANONICAL_VERSION = \"0.0.1-test\"\nthis is not valid python !!!")
         
         result = extract_canonical_version(adoption_file)
         assert result is None, "Should return None on syntax error"

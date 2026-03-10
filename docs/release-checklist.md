@@ -17,7 +17,7 @@ Use this checklist before making OMG public or cutting a release tag.
 ## Verification
 
 - [ ] `python3 scripts/sync-release-identity.py --check` — authored surfaces in sync
-- [ ] `python3 scripts/validate-release-identity.py --scope all --forbid-version 2.1.1` — full identity validation
+- [ ] `python3 scripts/validate-release-identity.py --scope all --forbid-version <previous-version>` — full identity validation
 - `python3 scripts/omg.py diagnose-plugins --format json` exits 0
 - `python3 scripts/omg.py contract validate` passes
 - `python3 scripts/omg.py validate --format json` includes `plugin_compatibility` check

@@ -65,7 +65,7 @@ jobs:
         run: python3 -m pytest -q
 
       - name: Validate full release identity
-        run: python3 scripts/validate-release-identity.py --scope all --forbid-version 2.1.1
+        run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${FORBID_VERSION:-}"
 
       - name: Pack compatibility artifacts
         run: tar -czf omg-compat-artifacts.tar.gz -C artifacts .

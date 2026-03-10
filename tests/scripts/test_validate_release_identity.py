@@ -24,18 +24,20 @@ validate_derived = _mod.validate_derived
 scan_scoped_residue = _mod.scan_scoped_residue
 build_report = _mod.build_report
 
+_OLD_VERSION = "0.0.1-test"
+
 
 class TestHappyPath:
     def test_exits_zero_on_clean_tree(self):
         result = subprocess.run(
-            [sys.executable, str(_SCRIPT_PATH), "--scope", "all", "--forbid-version", "2.1.1"],
+            [sys.executable, str(_SCRIPT_PATH), "--scope", "all", "--forbid-version", _OLD_VERSION],
             capture_output=True,
             text=True,
             cwd=str(_REPO_ROOT),
         )
         output = json.loads(result.stdout)
-        assert output["overall_status"] in ("ok", "fail")
-        assert result.returncode in (0, 1)
+        assert output["overall_status"] == "ok"
+        assert result.returncode == 0
 
     def test_json_output_structure(self):
         result = subprocess.run(
@@ -57,18 +59,18 @@ class TestAuthoredDrift:
     def test_authored_blockers_on_drift(self):
         with patch.object(_mod, "check_surface") as mock_check:
             mock_check.return_value = [("package.json version", "1.0.0")]
-            result = validate_authored(_REPO_ROOT, "2.1.1")
+            result = validate_authored(_REPO_ROOT, _OLD_VERSION)
         assert result["status"] == "fail"
         assert len(result["blockers"]) > 0
         blocker = result["blockers"][0]
         assert blocker["surface"] == "package.json version"
         assert blocker["found"] == "1.0.0"
-        assert blocker["expected"] == "2.1.1"
+        assert blocker["expected"] == _OLD_VERSION
 
     def test_authored_ok_when_no_drift(self):
         with patch.object(_mod, "check_surface") as mock_check:
             mock_check.return_value = []
-            result = validate_authored(_REPO_ROOT, "2.1.1")
+            result = validate_authored(_REPO_ROOT, _OLD_VERSION)
         assert result["status"] == "ok"
         assert result["blockers"] == []
 
@@ -79,16 +81,16 @@ class TestDerivedDrift:
         manifest_dir.mkdir(parents=True)
         (manifest_dir / "manifest.json").write_text(json.dumps({"contract_version": "1.0.0"}))
 
-        result = validate_derived(tmp_path, "2.1.1")
+        result = validate_derived(tmp_path, _OLD_VERSION)
         assert result["status"] == "fail"
         assert any(b["surface"].endswith("manifest.json") for b in result["blockers"])
 
     def test_derived_ok_when_version_matches(self, tmp_path):
         manifest_dir = tmp_path / "dist" / "public"
         manifest_dir.mkdir(parents=True)
-        (manifest_dir / "manifest.json").write_text(json.dumps({"contract_version": "2.1.1"}))
+        (manifest_dir / "manifest.json").write_text(json.dumps({"contract_version": _OLD_VERSION}))
 
-        result = validate_derived(tmp_path, "2.1.1")
+        result = validate_derived(tmp_path, _OLD_VERSION)
         matching = [b for b in result["blockers"] if "dist/public/manifest.json" in b["surface"]]
         assert matching == []
 
@@ -97,18 +99,18 @@ class TestScopedResidue:
     def test_residue_detected_in_file(self, tmp_path):
         target = tmp_path / "dist" / "public" / "manifest.json"
         target.parent.mkdir(parents=True)
-        target.write_text('{"contract_version": "2.1.1", "name": "test"}')
+        target.write_text(json.dumps({"contract_version": _OLD_VERSION, "name": "test"}))
 
-        result = scan_scoped_residue(tmp_path, "2.1.1")
+        result = scan_scoped_residue(tmp_path, _OLD_VERSION)
         assert result["status"] == "fail"
         assert len(result["blockers"]) > 0
 
     def test_residue_detected_in_directory(self, tmp_path):
         bundle_dir = tmp_path / "dist" / "public" / "bundle"
         bundle_dir.mkdir(parents=True)
-        (bundle_dir / "index.js").write_text('const VERSION = "2.1.1";')
+        (bundle_dir / "index.js").write_text(f'const VERSION = "{_OLD_VERSION}";')
 
-        result = scan_scoped_residue(tmp_path, "2.1.1")
+        result = scan_scoped_residue(tmp_path, _OLD_VERSION)
         assert result["status"] == "fail"
         assert any("index.js" in b["file"] for b in result["blockers"])
 
@@ -117,26 +119,26 @@ class TestScopedResidue:
         target.parent.mkdir(parents=True)
         target.write_text('{"contract_version": "3.0.0", "name": "test"}')
 
-        result = scan_scoped_residue(tmp_path, "2.1.1")
+        result = scan_scoped_residue(tmp_path, _OLD_VERSION)
         matching = [b for b in result["blockers"] if "dist/public/manifest.json" in b["file"]]
         assert matching == []
 
     def test_changelog_historical_excluded(self, tmp_path):
         release_dir = tmp_path / "artifacts" / "release"
         release_dir.mkdir(parents=True)
-        (release_dir / "CHANGELOG.md").write_text("## [2.1.1] - 2025-01-01\n- old entry\n")
+        (release_dir / "CHANGELOG.md").write_text(f"## [{_OLD_VERSION}] - 2025-01-01\n- old entry\n")
 
-        result = scan_scoped_residue(tmp_path, "2.1.1")
+        result = scan_scoped_residue(tmp_path, _OLD_VERSION)
         changelog_blockers = [
             b for b in result["blockers"]
-            if b["file"].endswith("CHANGELOG.md") and "## [2.1.1]" in b["content"]
+            if b["file"].endswith("CHANGELOG.md") and f"## [{_OLD_VERSION}]" in b["content"]
         ]
         assert changelog_blockers == []
 
 
 class TestMissingDerived:
     def test_missing_files_not_error(self, tmp_path):
-        result = validate_derived(tmp_path, "2.1.1")
+        result = validate_derived(tmp_path, _OLD_VERSION)
         assert result["status"] == "ok"
         assert result["blockers"] == []
 
@@ -144,24 +146,24 @@ class TestMissingDerived:
 class TestOutputFormat:
     def test_build_report_structure(self):
         report = build_report(
-            canonical="2.1.1",
+            canonical=_OLD_VERSION,
             scope="all",
-            forbid_version="2.1.1",
+            forbid_version=_OLD_VERSION,
             authored={"status": "ok", "blockers": []},
             derived={"status": "ok", "blockers": []},
-            scoped_residue={"status": "ok", "forbid_version": "2.1.1", "blockers": []},
+            scoped_residue={"status": "ok", "forbid_version": _OLD_VERSION, "blockers": []},
         )
-        assert report["canonical_version"] == "2.1.1"
+        assert report["canonical_version"] == _OLD_VERSION
         assert report["scope"] == "all"
-        assert report["forbid_version"] == "2.1.1"
+        assert report["forbid_version"] == _OLD_VERSION
         assert report["overall_status"] == "ok"
 
     def test_build_report_fail_on_any_blocker(self):
         report = build_report(
-            canonical="2.1.1",
+            canonical=_OLD_VERSION,
             scope="all",
             forbid_version=None,
-            authored={"status": "fail", "blockers": [{"surface": "x", "found": "1.0", "expected": "2.1.1"}]},
+            authored={"status": "fail", "blockers": [{"surface": "x", "found": "1.0", "expected": _OLD_VERSION}]},
             derived={"status": "ok", "blockers": []},
             scoped_residue=None,
         )
