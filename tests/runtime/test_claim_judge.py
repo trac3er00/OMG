@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from runtime.claim_judge import judge_claim, judge_claims
+from runtime.claim_judge import evaluate_claims_for_release, judge_claim, judge_claims
+from runtime.release_run_coordinator import ReleaseRunCoordinator
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -537,3 +538,47 @@ def test_claim_judge_missing_or_empty_evidence_profile_fails_closed() -> None:
         result = judge_claim(payload)
         assert result["verdict"] == "fail"
         assert any(reason["code"] == "missing_artifacts" for reason in result["reasons"])
+
+
+def test_evaluate_claims_for_release_blocks_when_claim_judge_verdict_is_insufficient(tmp_path: Path) -> None:
+    run_id = "run-release-block"
+    result = evaluate_claims_for_release(
+        project_dir=tmp_path.as_posix(),
+        run_id=run_id,
+        claims=[{"claim_type": "release_ready", "run_id": run_id, "evidence_profile": "release"}],
+    )
+
+    assert result["status"] == "blocked"
+    assert result["authority"] == "claim_judge"
+    assert result["claim_judge_verdict"] in {"fail", "insufficient"}
+
+
+def test_release_run_coordinator_finalize_blocks_when_claim_judge_blocks(tmp_path: Path) -> None:
+    coordinator = ReleaseRunCoordinator(str(tmp_path))
+    begin = coordinator.begin(
+        cli_run_id="run-finalize-block",
+        release_evidence={
+            "claims": [
+                {
+                    "claim_type": "release_ready",
+                    "run_id": "run-finalize-block",
+                    "evidence_profile": "release",
+                }
+            ]
+        },
+    )
+
+    result = coordinator.finalize(
+        run_id=str(begin["run_id"]),
+        status="ok",
+        blockers=[],
+        evidence_links=[],
+    )
+
+    assert result["status"] == "blocked"
+    verification = json.loads(
+        (tmp_path / ".omg" / "state" / "verification_controller" / "run-finalize-block.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "claim_judge_verdict" in " ".join(str(token) for token in verification.get("blockers", []))

@@ -11,6 +11,7 @@ import warnings
 
 from runtime.defense_state import DefenseState
 from runtime.interaction_journal import InteractionJournal
+from runtime.compliance_governor import evaluate_release_compliance
 from runtime.runtime_contracts import write_run_state
 from runtime.session_health import compute_session_health
 from runtime.verification_controller import VerificationController
@@ -43,6 +44,7 @@ class ReleaseRunCoordinator:
 
         verification_state = self._verification.begin_run(run_id)
         self._write_active_run(run_id)
+        self._write_release_evidence(run_id, release_evidence)
         self._write_state(
             run_id,
             {
@@ -146,10 +148,25 @@ class ReleaseRunCoordinator:
         resolved = self.resolve_run_id(cli_run_id=run_id)
         canonical_run_id = resolved.run_id
 
+        release_evidence = self._read_release_evidence(canonical_run_id)
+        compliance = evaluate_release_compliance(
+            project_dir=self.project_dir,
+            run_id=canonical_run_id,
+            release_evidence=release_evidence,
+        )
+        resolved_status = status
+        resolved_blockers = list(blockers)
+        if compliance.get("status") == "blocked":
+            resolved_status = "blocked"
+            reason = str(compliance.get("reason", "compliance_governor_blocked")).strip()
+            if reason:
+                resolved_blockers.append(reason)
+        deduped_blockers = list(dict.fromkeys(resolved_blockers))
+
         verification_state = self._verification.complete_run(
             run_id=canonical_run_id,
-            status=status,
-            blockers=list(blockers),
+            status=resolved_status,
+            blockers=deduped_blockers,
             evidence_links=list(evidence_links),
         )
         DefenseState(self.project_dir).update()
@@ -178,18 +195,20 @@ class ReleaseRunCoordinator:
         self._write_state(
             canonical_run_id,
             {
-                "status": str(verification_state.get("status", status)),
+                "status": str(verification_state.get("status", resolved_status)),
                 "phase": "finalize",
                 "compat_path": compat_path,
                 "health_path": self._health_state_path(canonical_run_id),
                 "health_action": str(health.get("recommended_action", "continue")),
                 "council_path": council_path,
                 "rollback_path": rollback_path,
+                "compliance_authority": str(compliance.get("authority", "")),
+                "compliance_reason": str(compliance.get("reason", "")),
                 "evidence_links": list(evidence_links),
             },
         )
         return {
-            "status": str(verification_state.get("status", status)),
+            "status": str(verification_state.get("status", resolved_status)),
             "run_id": canonical_run_id,
             "compat_path": compat_path,
             "health_path": self._health_state_path(canonical_run_id),
@@ -215,6 +234,26 @@ class ReleaseRunCoordinator:
 
     def _health_state_path(self, run_id: str) -> str:
         return str(Path(".omg") / "state" / "session_health" / f"{run_id}.json")
+
+    def _write_release_evidence(self, run_id: str, release_evidence: dict[str, object] | None) -> None:
+        payload = dict(release_evidence) if isinstance(release_evidence, dict) else {}
+        path = Path(self.project_dir) / ".omg" / "state" / "release_run_coordinator" / f"{run_id}-release-evidence.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_name(f"{path.name}.tmp")
+        _ = tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        os.replace(tmp_path, path)
+
+    def _read_release_evidence(self, run_id: str) -> dict[str, object]:
+        path = Path(self.project_dir) / ".omg" / "state" / "release_run_coordinator" / f"{run_id}-release-evidence.json"
+        if not path.exists():
+            return {}
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        if isinstance(payload, dict):
+            return payload
+        return {}
 
     def _write_fanout(self, run_id: str, producer: str, payload: dict[str, object]) -> str:
         path = Path(self.project_dir) / ".omg" / "state" / "release_run_coordinator" / run_id / f"{producer}.json"
