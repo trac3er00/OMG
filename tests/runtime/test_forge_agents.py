@@ -534,3 +534,24 @@ def test_dispatch_non_cybersecurity_has_no_security_scan(tmp_path: Path) -> None
     result = dispatch_specialists(_valid_job(), str(tmp_path))
     assert result["status"] == "ok"
     assert "security_scan" not in result
+
+
+def test_vision_agent_alias_resolves_correctly() -> None:
+    """vision-agent alias must resolve to same specialists as vision domain."""
+    specialists_vision = resolve_specialists("vision")
+    specialists_vision_agent = resolve_specialists("vision-agent")
+    assert specialists_vision == specialists_vision_agent
+    assert specialists_vision == ["data-curator", "training-architect", "simulator-engineer"]
+
+
+def test_domain_pack_included_in_dispatch_evidence(tmp_path: Path) -> None:
+    """dispatch_specialists must include domain_pack in evidence with required_evidence list."""
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert "domain_pack" in payload, "domain_pack missing from dispatch evidence"
+    domain_pack = payload["domain_pack"]
+    assert isinstance(domain_pack, dict), "domain_pack must be a dict"
+    assert "required_evidence" in domain_pack, "required_evidence missing from domain_pack"
+    assert isinstance(domain_pack["required_evidence"], list), "required_evidence must be a list"
