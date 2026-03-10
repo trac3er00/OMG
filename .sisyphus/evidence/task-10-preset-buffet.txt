@@ -1,0 +1,35 @@
+Task 10: Buffet Preset and Preset Feature Map Consolidation
+============================================================
+Date: 2026-03-10
+Status: PASS
+
+Changes Made:
+- runtime/adoption.py: Added PRESET_ORDER, PRESET_LEVEL, _BUFFET_ONLY_FLAGS as canonical sources.
+  Added 6 new MANAGED_PRESET_FLAGS: DATA_ENFORCEMENT, WEB_ENFORCEMENT, TERMS_ENFORCEMENT,
+  COUNCIL_ROUTING, FORGE_ALL_DOMAINS, NOTEBOOKLM. Added buffet preset with all flags True.
+  VALID_PRESETS now equals PRESET_ORDER.
+- hooks/setup_wizard.py: Removed local PRESET_ORDER and _PRESET_LEVEL definitions.
+  Now imports PRESET_ORDER and PRESET_LEVEL from runtime.adoption (single source of truth).
+  Added min_preset="buffet" to notebooklm MCP catalog entry.
+- settings.json: Added buffet trust tier (level 4, allowed_sources includes council_validated).
+  Added 6 new feature flags (all False for safe preset).
+
+Test Results (93 passed, 2 pre-existing failures):
+- test_buffet_preset_includes_all_labs_mcps_plus_notebooklm: PASS
+- test_lower_presets_exclude_notebooklm: PASS
+- test_preset_order_from_canonical_source: PASS (identity check confirms same object)
+- test_buffet_preset_select_mcps_produces_full_config: PASS
+- test_ensure_memory_server_proceeds_for_buffet_preset: PASS
+- test_preset_features_single_source_of_truth: PASS
+- test_buffet_preset_get_preset_features: PASS (all 17 flags True)
+- All existing preset tests: PASS (safe, balanced, interop, labs unmodified)
+
+Pre-existing failures (not caused by this task):
+- test_setup_install_provisions_portable_omg_runtime: ModuleNotFoundError: No module named 'registry'
+- test_setup_plugin_mcp_server_starts_outside_repo_root: same registry import error
+
+Consolidation Verification:
+- PRESET_ORDER is defined once in runtime/adoption.py
+- hooks/setup_wizard.py imports PRESET_ORDER directly (identity check passes: `wizard_order is PRESET_ORDER`)
+- _PRESET_LEVEL in setup_wizard.py is now an alias to adoption.PRESET_LEVEL
+- No preset feature duplication remains between the two modules

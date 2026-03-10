@@ -367,7 +367,13 @@
       "TEST_GENERATION": false,
       "DEP_HEALTH": false,
       "CODEBASE_VIZ": false,
-      "CONTEXT_MANAGER": false
+      "CONTEXT_MANAGER": false,
+      "DATA_ENFORCEMENT": false,
+      "WEB_ENFORCEMENT": false,
+      "TERMS_ENFORCEMENT": false,
+      "COUNCIL_ROUTING": false,
+      "FORGE_ALL_DOMAINS": false,
+      "NOTEBOOKLM": false
     },
     "generated": {
       "contract_version": "2.1.5",
@@ -452,6 +458,18 @@
               "trusted_registry",
               "reviewed_external",
               "experimental"
+            ]
+          },
+          {
+            "name": "buffet",
+            "level": 4,
+            "label": "Buffet",
+            "allowed_sources": [
+              "local_repo",
+              "trusted_registry",
+              "reviewed_external",
+              "experimental",
+              "council_validated"
             ]
           }
         ],

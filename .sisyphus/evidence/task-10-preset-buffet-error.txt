@@ -1,0 +1,30 @@
+Task 10: Buffet Preset — Error Path Evidence
+=============================================
+Date: 2026-03-10
+Status: PASS (no regressions introduced)
+
+Error Path Scenarios Tested:
+
+1. Lower presets do NOT gain buffet capabilities:
+   - safe/balanced/interop/labs all have DATA_ENFORCEMENT=False, WEB_ENFORCEMENT=False,
+     TERMS_ENFORCEMENT=False, COUNCIL_ROUTING=False, FORGE_ALL_DOMAINS=False, NOTEBOOKLM=False
+   - NotebookLM MCP not included in any preset below buffet
+
+2. Preset ordering is monotonically increasing:
+   - PRESET_LEVEL verified: safe=0, balanced=1, interop=2, labs=3, buffet=4
+   - No gaps, no reordering
+
+3. Memory server gating unaffected:
+   - safe/balanced still skip memory server (OMG_PRESET env var check)
+   - interop/labs/buffet all proceed with memory server
+   - Default (no preset env var) still skips
+
+4. Setup/runtime alignment:
+   - setup_wizard.PRESET_ORDER is the same object as adoption.PRESET_ORDER (identity check)
+   - get_preset_features("buffet") returns all 17 flags as True
+   - get_default_mcps_for_preset("buffet") returns superset of labs + notebooklm
+
+5. Pre-existing e2e failures (2 tests):
+   - Root cause: portable runtime tree missing 'registry' module
+   - Not caused by this task; affects test_setup_install_provisions_portable_omg_runtime
+     and test_setup_plugin_mcp_server_starts_outside_repo_root

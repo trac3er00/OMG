@@ -14,9 +14,11 @@ CANONICAL_MARKETPLACE_ID = "omg"
 CANONICAL_VERSION = "2.1.5"
 
 VALID_ADOPTION_MODES = ("omg-only", "coexist")
-VALID_PRESETS = ("safe", "balanced", "interop", "labs")
 CANONICAL_MODE_NAMES = ("chill", "focused", "exploratory")
-"""Cross-surface user-facing mode names reserved for the shared mode system."""
+
+PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs", "buffet")
+VALID_PRESETS = PRESET_ORDER
+PRESET_LEVEL: dict[str, int] = {p: i for i, p in enumerate(PRESET_ORDER)}
 
 MANAGED_PRESET_FLAGS = (
     "SETUP",
@@ -30,6 +32,21 @@ MANAGED_PRESET_FLAGS = (
     "TEST_GENERATION",
     "DEP_HEALTH",
     "CODEBASE_VIZ",
+    "DATA_ENFORCEMENT",
+    "WEB_ENFORCEMENT",
+    "TERMS_ENFORCEMENT",
+    "COUNCIL_ROUTING",
+    "FORGE_ALL_DOMAINS",
+    "NOTEBOOKLM",
+)
+
+_BUFFET_ONLY_FLAGS = (
+    "DATA_ENFORCEMENT",
+    "WEB_ENFORCEMENT",
+    "TERMS_ENFORCEMENT",
+    "COUNCIL_ROUTING",
+    "FORGE_ALL_DOMAINS",
+    "NOTEBOOKLM",
 )
 
 PRESET_FEATURES: dict[str, dict[str, bool]] = {
@@ -46,6 +63,7 @@ PRESET_FEATURES: dict[str, dict[str, bool]] = {
         "TEST_GENERATION": False,
         "DEP_HEALTH": False,
         "CODEBASE_VIZ": False,
+        **{f: False for f in _BUFFET_ONLY_FLAGS},
     },
     "interop": {
         "SETUP": True,
@@ -59,6 +77,7 @@ PRESET_FEATURES: dict[str, dict[str, bool]] = {
         "TEST_GENERATION": False,
         "DEP_HEALTH": False,
         "CODEBASE_VIZ": False,
+        **{f: False for f in _BUFFET_ONLY_FLAGS},
     },
     "labs": {
         "SETUP": True,
@@ -72,7 +91,9 @@ PRESET_FEATURES: dict[str, dict[str, bool]] = {
         "TEST_GENERATION": True,
         "DEP_HEALTH": True,
         "CODEBASE_VIZ": True,
+        **{f: False for f in _BUFFET_ONLY_FLAGS},
     },
+    "buffet": {flag: True for flag in MANAGED_PRESET_FLAGS},
 }
 
 _SUPERPOWERS_SENTINELS = (

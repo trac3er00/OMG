@@ -1162,6 +1162,42 @@ def test_setup_install_runs_post_install_validation(tmp_path: Path):
     assert "post-install-validation.json" in out
 
 
+def test_preset_features_single_source_of_truth():
+    from runtime.adoption import PRESET_FEATURES, VALID_PRESETS, PRESET_ORDER, PRESET_LEVEL
+
+    assert "buffet" in VALID_PRESETS
+    assert "buffet" in PRESET_FEATURES
+    assert "buffet" in PRESET_LEVEL
+
+    buffet = PRESET_FEATURES["buffet"]
+    assert buffet["DATA_ENFORCEMENT"] is True
+    assert buffet["WEB_ENFORCEMENT"] is True
+    assert buffet["TERMS_ENFORCEMENT"] is True
+    assert buffet["COUNCIL_ROUTING"] is True
+    assert buffet["FORGE_ALL_DOMAINS"] is True
+    assert buffet["NOTEBOOKLM"] is True
+
+    for p in ("safe", "balanced", "interop", "labs"):
+        features = PRESET_FEATURES[p]
+        for flag in ("DATA_ENFORCEMENT", "WEB_ENFORCEMENT", "TERMS_ENFORCEMENT",
+                      "COUNCIL_ROUTING", "FORGE_ALL_DOMAINS", "NOTEBOOKLM"):
+            assert features[flag] is False, f"{p} must not enable {flag}"
+
+    for i, name in enumerate(PRESET_ORDER):
+        assert PRESET_LEVEL[name] == i
+
+    from hooks.setup_wizard import PRESET_ORDER as wizard_order
+    assert wizard_order is PRESET_ORDER
+
+
+def test_buffet_preset_get_preset_features():
+    from runtime.adoption import get_preset_features
+    features = get_preset_features("buffet")
+    assert all(v is True for v in features.values()), (
+        f"All buffet flags must be True, got: {features}"
+    )
+
+
 def test_setup_install_post_install_validation_failure_structured(tmp_path: Path):
     """Install fails with structured output when post-install validation detects blockers."""
     plugin_json = ROOT / "plugins" / "core" / "plugin.json"

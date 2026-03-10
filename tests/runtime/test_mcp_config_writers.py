@@ -355,3 +355,37 @@ def test_configure_mcp_interop_preset_writes_http_memory(tmp_path: Path) -> None
     servers = _as_dict(payload["mcpServers"])
     assert "omg-control" in servers
     assert "omg-memory" in servers
+
+
+# -- Buffet preset and consolidated preset source-of-truth ---------------
+
+
+def test_buffet_preset_includes_all_labs_mcps_plus_notebooklm() -> None:
+    ids = get_default_mcps_for_preset("buffet")
+    labs_ids = get_default_mcps_for_preset("labs")
+    assert set(labs_ids).issubset(set(ids)), "buffet must be a superset of labs"
+    assert "notebooklm" in ids, "buffet must include notebooklm"
+
+
+def test_lower_presets_exclude_notebooklm() -> None:
+    for preset in ("safe", "balanced", "interop", "labs"):
+        ids = get_default_mcps_for_preset(preset)
+        assert "notebooklm" not in ids, f"notebooklm must not appear in {preset} preset"
+
+
+def test_preset_order_from_canonical_source() -> None:
+    from runtime.adoption import PRESET_ORDER as adoption_order
+    from hooks.setup_wizard import PRESET_ORDER as wizard_order
+    assert adoption_order is wizard_order, (
+        "setup_wizard.PRESET_ORDER must be the same object imported from adoption, not a duplicate"
+    )
+    assert "buffet" in wizard_order
+
+
+def test_buffet_preset_select_mcps_produces_full_config() -> None:
+    config = select_mcps(preset="buffet")
+    server_names = set(config["mcpServers"].keys())
+    assert "notebooklm" in server_names
+    labs_config = select_mcps(preset="labs")
+    labs_server_names = set(labs_config["mcpServers"].keys())
+    assert labs_server_names.issubset(server_names)

@@ -247,3 +247,13 @@ def test_ensure_memory_server_defaults_to_safe_when_no_preset(monkeypatch: pytes
     monkeypatch.delenv("OMG_PRESET", raising=False)
     result = ensure_memory_server()
     assert result["status"] == "skipped"
+
+
+# -- Buffet preset gating ------------------------------------------------
+
+
+def test_ensure_memory_server_proceeds_for_buffet_preset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OMG_PRESET", "buffet")
+    with patch("runtime.mcp_lifecycle.is_server_running", return_value=True):
+        result = ensure_memory_server()
+    assert result["status"] == "already_running"
