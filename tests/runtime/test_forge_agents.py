@@ -114,7 +114,7 @@ def test_dispatch_specialists_blocks_when_contract_mismatch(tmp_path: Path) -> N
 
 
 def test_dispatch_invalid_domain_returns_combination_reason(tmp_path: Path) -> None:
-    """Unknown domain + specialists → invalid_specialist_domain_combination."""
+    """Unknown domain + specialists → blocked with domain validation error."""
     job = _valid_job()
     job["domain"] = "nonexistent-domain"
     job["specialists"] = ["data-curator"]
@@ -122,7 +122,7 @@ def test_dispatch_invalid_domain_returns_combination_reason(tmp_path: Path) -> N
     result = dispatch_specialists(job, str(tmp_path))
 
     assert result["status"] == "blocked"
-    assert result["reason"] == "invalid_specialist_domain_combination"
+    assert "unknown domain" in result["reason"]
 
 
 def test_dispatch_mismatched_specialists_returns_combination_reason(tmp_path: Path) -> None:

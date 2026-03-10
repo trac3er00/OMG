@@ -34,6 +34,7 @@ from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change, write_trust_manifest
 from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evidence
 from runtime.forge_agents import dispatch_specialists, resolve_specialists
+from runtime.forge_contracts import validate_forge_job
 from runtime.forge_run_id import normalize_run_id
 from runtime.dispatcher import dispatch_runtime
 from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, verify_fixture
@@ -474,6 +475,11 @@ def cmd_forge_run(args: argparse.Namespace) -> int:
     project_dir = _ensure_project_dir()
     run_id = normalize_run_id(args.run_id if args.run_id else None)
     job = json.loads(args.job_json) if args.job_json else _load_json(args.job)
+
+    valid, validation_reason = validate_forge_job(job)
+    if not valid:
+        print(json.dumps({"status": "error", "message": validation_reason}, indent=2))
+        return 2
 
     specialist_dispatch: dict[str, Any] | None = None
     if "specialists" in job or "domain" in job:

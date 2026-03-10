@@ -9,7 +9,7 @@ from time import monotonic
 from typing import cast
 
 from lab.policies import validate_job_request
-from runtime.forge_domains import get_all_canonical_domains
+from runtime.forge_domains import canonical_domain_for, get_all_canonical_domains, is_valid_domain
 from runtime.runtime_contracts import read_defense_state, read_session_health
 
 FORGE_STAGE_ORDER: tuple[str, ...] = (
@@ -145,6 +145,14 @@ def load_forge_mvp() -> dict[str, object]:
 
 
 def validate_forge_job(job: dict[str, object]) -> tuple[bool, str]:
+    domain = job.get("domain")
+    if not domain or not str(domain).strip():
+        return False, "domain missing: forge run requires an explicit canonical domain (e.g. 'vision', 'robotics')"
+    if not is_valid_domain(str(domain)):
+        valid = sorted(get_all_canonical_domains())
+        return False, f"unknown domain: {domain!r}. Valid domains: {valid}"
+    job["domain"] = canonical_domain_for(str(domain))
+
     ok, reason = validate_job_request(job)
     if not ok:
         return False, reason

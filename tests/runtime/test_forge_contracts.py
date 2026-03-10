@@ -9,6 +9,7 @@ from runtime.forge_contracts import ADAPTER_REGISTRY, build_forge_evidence, buil
 
 def _valid_job() -> dict[str, object]:
     return {
+        "domain": "vision",
         "dataset": {
             "name": "forge-mvp",
             "license": "apache-2.0",

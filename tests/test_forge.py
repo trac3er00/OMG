@@ -17,6 +17,7 @@ from runtime.forge_contracts import validate_forge_job  # noqa: E402
 
 def _valid_job() -> dict[str, Any]:
     return {
+        "domain": "vision",
         "dataset": {
             "name": "test-dataset",
             "license": "apache-2.0",
@@ -100,6 +101,118 @@ class TestForgeMVPValidation:
 
         assert ok is False
         assert reason == "dataset.name missing"
+
+
+class TestForgeDomainValidation:
+    def test_validate_forge_job_rejects_missing_domain(self):
+        job = _valid_job()
+        del job["domain"]
+        ok, reason = validate_forge_job(job)
+        assert ok is False
+        assert "domain missing" in reason
+
+    def test_validate_forge_job_rejects_empty_domain(self):
+        job = _valid_job()
+        job["domain"] = ""
+        ok, reason = validate_forge_job(job)
+        assert ok is False
+        assert "domain missing" in reason
+
+    def test_validate_forge_job_rejects_unknown_domain(self):
+        job = _valid_job()
+        job["domain"] = "space"
+        ok, reason = validate_forge_job(job)
+        assert ok is False
+        assert "unknown domain" in reason
+        assert "space" in reason
+
+    def test_validate_forge_job_accepts_canonical_domain(self):
+        for domain in ["vision", "robotics", "algorithms", "health", "cybersecurity"]:
+            job = _valid_job()
+            job["domain"] = domain
+            ok, reason = validate_forge_job(job)
+            assert ok is True, f"Expected ok for domain={domain!r}, got reason={reason!r}"
+
+    def test_validate_forge_job_canonicalizes_alias(self):
+        job = _valid_job()
+        job["domain"] = "vision-agent"
+        ok, reason = validate_forge_job(job)
+        assert ok is True
+        assert job["domain"] == "vision"
+
+    def test_forge_run_cli_missing_domain_exits_nonzero(self):
+        job: dict[str, Any] = {"target_metric": 0.8}
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "error"
+        assert "domain" in output["message"]
+
+    def test_forge_run_cli_unknown_domain_exits_nonzero(self):
+        job = _valid_job()
+        job["domain"] = "space"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode != 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "error"
+        assert "unknown domain" in output["message"]
+
+    def test_forge_run_cli_valid_domain_full_payload_exits_zero(self):
+        job = {
+            "domain": "vision",
+            "dataset": {"name": "vision-agent", "license": "apache-2.0", "source": "internal-curated"},
+            "base_model": {"name": "distill-base-v1", "source": "approved-registry", "allow_distill": True},
+            "target_metric": 0.8,
+            "simulated_metric": 0.9,
+            "specialists": ["data-curator", "training-architect", "simulator-engineer"],
+        }
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "omg.py"),
+                "forge",
+                "run",
+                "--preset",
+                "labs",
+                "--job-json",
+                json.dumps(job),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["status"] == "ready"
+        assert output["specialist_dispatch"]["status"] == "ok"
 
 
 class TestForgeEvidencePipeline:
