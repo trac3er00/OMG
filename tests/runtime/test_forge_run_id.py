@@ -5,7 +5,13 @@ import re
 
 import pytest
 
-from runtime.forge_run_id import generate_run_id, normalize_run_id, validate_run_id
+from runtime.forge_run_id import (
+    build_deterministic_contract,
+    derive_run_seed,
+    generate_run_id,
+    normalize_run_id,
+    validate_run_id,
+)
 
 
 class TestGenerateRunId:
@@ -117,3 +123,28 @@ class TestNormalizeRunId:
         provided_id = "vision-agent-run-001"
         result = normalize_run_id(provided_id)
         assert result == provided_id
+
+
+class TestDeterministicRunContract:
+    def test_derive_run_seed_is_stable_for_same_run_id(self) -> None:
+        run_id = "forge-run-42"
+        assert derive_run_seed(run_id) == derive_run_seed(run_id)
+
+    def test_derive_run_seed_changes_when_run_id_changes(self) -> None:
+        assert derive_run_seed("forge-run-42") != derive_run_seed("forge-run-43")
+
+    def test_derive_run_seed_rejects_invalid_run_ids(self) -> None:
+        with pytest.raises(ValueError, match="run_id"):
+            _ = derive_run_seed("invalid run id")
+
+    def test_build_deterministic_contract_locks_critical_temperature_paths(self) -> None:
+        run_id = "forge-run-42"
+        contract = build_deterministic_contract(run_id)
+
+        assert contract["seed"] == derive_run_seed(run_id)
+        assert contract["determinism_version"]
+        assert contract["determinism_scope"] == "same-hardware"
+        assert contract["temperature_lock"] == {
+            "critical_model_paths": 0.0,
+            "critical_tool_paths": 0.0,
+        }

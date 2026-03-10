@@ -15,6 +15,7 @@ from runtime.evidence_query import (
     get_trace,
     get_verification_state,
 )
+from runtime.forge_run_id import build_deterministic_contract
 
 
 def _now() -> str:
@@ -66,6 +67,46 @@ def _as_string_list(value: JsonValue | None) -> list[str]:
 def _string_field(payload: JsonObject, key: str) -> str:
     value = payload.get(key)
     return value if isinstance(value, str) else ""
+
+
+def _is_int(value: JsonValue | None) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _matches_temperature_lock(value: JsonValue | None, expected: dict[str, object]) -> bool:
+    if not isinstance(value, dict):
+        return False
+    model_lock = value.get("critical_model_paths")
+    tool_lock = value.get("critical_tool_paths")
+    if not isinstance(model_lock, (int, float)):
+        return False
+    if not isinstance(tool_lock, (int, float)):
+        return False
+    return value == expected
+
+
+def _validate_determinism_contract(evidence_pack: JsonObject, expected: dict[str, object]) -> str | None:
+    seed_value = evidence_pack.get("seed")
+    version_value = evidence_pack.get("determinism_version")
+    lock_value = evidence_pack.get("temperature_lock")
+
+    if not _is_int(seed_value):
+        return "determinism_metadata_missing"
+    if not isinstance(version_value, str) or not version_value.strip():
+        return "determinism_metadata_missing"
+
+    expected_lock = expected.get("temperature_lock")
+    if not isinstance(expected_lock, dict):
+        return "determinism_metadata_missing"
+    expected_lock_object = cast(dict[str, object], expected_lock)
+    if not _matches_temperature_lock(lock_value, expected_lock_object):
+        return "determinism_metadata_missing"
+
+    expected_seed = expected.get("seed")
+    expected_version = expected.get("determinism_version")
+    if seed_value != expected_seed or version_value != expected_version:
+        return "determinism_metadata_mismatch"
+    return None
 
 
 def _artifact_ref(*, kind: str, path: str, sha256: str = "", extras: JsonObject | None = None) -> JsonObject:
@@ -206,12 +247,21 @@ def _dedupe_artifacts(artifacts: list[JsonObject]) -> list[JsonObject]:
 
 def build_repro_pack(project_dir: str, run_id: str) -> dict[str, str]:
     root = Path(project_dir)
+    deterministic_contract = build_deterministic_contract(run_id)
     evidence_pack = get_evidence_pack(project_dir, run_id)
     if evidence_pack is None:
         return {
             "status": "error",
             "run_id": run_id,
             "reason": "evidence_pack_not_found",
+        }
+
+    determinism_error = _validate_determinism_contract(evidence_pack, deterministic_contract)
+    if determinism_error is not None:
+        return {
+            "status": "error",
+            "run_id": run_id,
+            "reason": determinism_error,
         }
 
     evidence_pack_path = f".omg/evidence/{run_id}.json"
@@ -276,6 +326,10 @@ def build_repro_pack(project_dir: str, run_id: str) -> dict[str, str]:
         "schema": "ReproPack",
         "schema_version": 1,
         "run_id": run_id,
+        "seed": deterministic_contract["seed"],
+        "temperature_lock": deterministic_contract["temperature_lock"],
+        "determinism_version": deterministic_contract["determinism_version"],
+        "determinism_scope": deterministic_contract["determinism_scope"],
         "evidence_pack_path": evidence_pack_path,
         "artifacts": _dedupe_artifacts(artifacts),
         "unresolved_risks": unresolved_risks,

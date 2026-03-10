@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from runtime.forge_run_id import build_deterministic_contract
+
 
 _REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
 
@@ -74,6 +76,64 @@ def _artifact_record(*, kind: str, path: str, parser: str, summary: str, trace_i
         "summary": summary,
         "trace_id": trace_id,
     }
+
+
+def _is_promotion_path(claims: Any) -> bool:
+    if not isinstance(claims, list):
+        return False
+    for item in claims:
+        if not isinstance(item, dict):
+            continue
+        claim_type = str(item.get("claim_type", "")).strip().lower()
+        if claim_type in {"release_ready", "promotion_ready", "publish_ready"}:
+            return True
+    return False
+
+
+def _is_seed(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_temperature_lock(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    model_lock = value.get("critical_model_paths")
+    tool_lock = value.get("critical_tool_paths")
+    if not isinstance(model_lock, (int, float)):
+        return False
+    if not isinstance(tool_lock, (int, float)):
+        return False
+    return True
+
+
+def _validate_determinism_contract(chain: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    if not _is_promotion_path(chain.get("claims", [])):
+        return blockers
+
+    seed = chain.get("seed")
+    temperature_lock = chain.get("temperature_lock")
+    determinism_version = str(chain.get("determinism_version", "")).strip()
+
+    if not _is_seed(seed):
+        blockers.append("proof_chain_missing_deterministic_seed")
+    if not _is_temperature_lock(temperature_lock):
+        blockers.append("proof_chain_missing_temperature_lock")
+    if not determinism_version:
+        blockers.append("proof_chain_missing_determinism_version")
+
+    run_id = str(chain.get("run_id", "")).strip()
+    if blockers or not run_id:
+        return blockers
+
+    expected = build_deterministic_contract(run_id)
+    if seed != expected.get("seed"):
+        blockers.append("proof_chain_deterministic_seed_mismatch")
+    if determinism_version != expected.get("determinism_version"):
+        blockers.append("proof_chain_determinism_version_mismatch")
+    if temperature_lock != expected.get("temperature_lock"):
+        blockers.append("proof_chain_temperature_lock_mismatch")
+    return blockers
 
 
 def _build_chain_artifacts(
@@ -183,6 +243,7 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
     chain = {
         "schema": "ProofChain",
         "schema_version": 2,
+        "run_id": str(evidence_payload.get("run_id", "")),
         "trace_id": trace_id,
         "eval_id": eval_id,
         "eval_trace_id": str(eval_payload.get("trace_id", "")),
@@ -193,8 +254,13 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
         "timestamp": evidence_payload.get("timestamp") or trace_payload.get("timestamp") or eval_payload.get("timestamp") or eval_payload.get("evaluated_at") or "unknown",
         "executor": evidence_payload.get("executor") or trace_payload.get("executor") or eval_payload.get("executor") or {"user": "unknown", "pid": "unknown"},
         "environment": evidence_payload.get("environment") or trace_payload.get("environment") or eval_payload.get("environment") or {"hostname": "unknown", "platform": "unknown"},
+        "seed": evidence_payload.get("seed"),
+        "temperature_lock": evidence_payload.get("temperature_lock"),
+        "determinism_version": evidence_payload.get("determinism_version"),
+        "determinism_scope": evidence_payload.get("determinism_scope") or "same-hardware",
         "ci_job_url": evidence_payload.get("ci_job_url") or "",
         "external_inputs": evidence_payload.get("external_inputs", []),
+        "claims": evidence_payload.get("claims", []),
         "artifacts": _build_chain_artifacts(
             output_root=output_root,
             selected_path=selected_path,
@@ -268,6 +334,8 @@ def validate_proof_chain(chain: dict[str, Any]) -> dict[str, Any]:
             blockers.append("proof_chain_lineage_trace_mismatch")
     else:
         blockers.append("proof_chain_invalid_lineage")
+
+    blockers.extend(_validate_determinism_contract(chain))
 
     return {
         "schema": "ProofChainValidationResult",

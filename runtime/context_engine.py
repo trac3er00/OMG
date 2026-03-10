@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 
+from runtime.forge_run_id import build_deterministic_contract
 from runtime.profile_io import profile_version_from_map
 
 _MAX_SUMMARY_CHARS = 1000
@@ -305,6 +306,7 @@ class ContextEngine:
             },
             "delta_only": delta_only,
             "run_id": run_id,
+            "deterministic_contract": build_deterministic_contract(run_id),
         }
 
         self._persist_packet(packet)
@@ -448,4 +450,5 @@ class ContextEngine:
             "budget": {"max_chars": _MAX_SUMMARY_CHARS, "used_chars": 0},
             "delta_only": False,
             "run_id": run_id,
+            "deterministic_contract": build_deterministic_contract(run_id),
         }

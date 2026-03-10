@@ -9,6 +9,7 @@ import runtime.tracebank as tracebank
 from runtime.contract_compiler import build_release_readiness, compile_contract_outputs
 from runtime.data_lineage import build_lineage_manifest
 from runtime.eval_gate import evaluate_trace
+from runtime.forge_run_id import derive_run_seed
 from runtime.omg_browser_cli import run_browser_cli
 
 
@@ -61,6 +62,13 @@ def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path)
         "trace_id": trace["trace_id"],
         "trace_ids": [trace["trace_id"]],
         "lineage": lineage,
+        "seed": derive_run_seed("run-proof-chain"),
+        "temperature_lock": {
+            "critical_model_paths": 0.0,
+            "critical_tool_paths": 0.0,
+        },
+        "determinism_version": "forge-determinism-v1",
+        "determinism_scope": "same-hardware",
         "security_scans": [{"tool": "security-check", "path": security_path.relative_to(tmp_path).as_posix()}],
         "provenance": [{"source": "security-check"}],
         "artifacts": [
@@ -96,10 +104,35 @@ def test_assemble_and_validate_proof_chain_with_linked_artifacts(tmp_path: Path)
     assert chain["schema_version"] == 2
     assert chain["evidence_path"] == evidence_rel_path
     assert chain["lineage"]["lineage_id"] == lineage["lineage_id"]
+    assert chain["seed"] == derive_run_seed("run-proof-chain")
+    assert chain["determinism_version"] == "forge-determinism-v1"
     assert isinstance(chain["artifacts"], list)
     assert all("kind" in artifact for artifact in chain["artifacts"])
     assert validation["status"] == "ok"
     assert chain["status"] == "ok"
+
+
+def test_validate_proof_chain_blocks_promotion_without_determinism_metadata() -> None:
+    proof_chain = importlib.import_module("runtime.proof_chain")
+    validation = proof_chain.validate_proof_chain(
+        {
+            "trace_id": "trace-1",
+            "eval_id": "eval-1",
+            "lineage": {"lineage_id": "lineage-1", "trace_id": "trace-1"},
+            "lineage_trace_id": "trace-1",
+            "evidence_path": ".omg/evidence/run-proof-chain.json",
+            "timestamp": "2026-03-10T00:00:00+00:00",
+            "executor": {"user": "tester", "pid": 1234},
+            "environment": {"hostname": "localhost", "platform": "darwin"},
+            "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check-proof.json"}],
+            "claims": [{"claim_type": "release_ready"}],
+        }
+    )
+
+    assert validation["status"] == "error"
+    assert "proof_chain_missing_deterministic_seed" in validation["blockers"]
+    assert "proof_chain_missing_temperature_lock" in validation["blockers"]
+    assert "proof_chain_missing_determinism_version" in validation["blockers"]
 
 
 def test_assemble_proof_chain_normalizes_v1_payload_fixture(tmp_path: Path) -> None:
@@ -164,6 +197,13 @@ def test_build_proof_gate_input_includes_claims_and_linked_evidence(tmp_path: Pa
                 "environment": {"hostname": "localhost", "platform": "darwin"},
                 "trace_ids": ["trace-2"],
                 "lineage": {"trace_id": "trace-2", "lineage_id": "lineage-2"},
+                "seed": derive_run_seed("run-proof-chain"),
+                "temperature_lock": {
+                    "critical_model_paths": 0.0,
+                    "critical_tool_paths": 0.0,
+                },
+                "determinism_version": "forge-determinism-v1",
+                "determinism_scope": "same-hardware",
                 "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check-proof.json"}],
                 "claims": [
                     {
@@ -276,6 +316,13 @@ def test_build_proof_gate_input_accepts_browser_cli_evidence(tmp_path: Path) -> 
                 "environment": {"hostname": "localhost", "platform": "darwin"},
                 "trace_ids": ["trace-browser-cli"],
                 "lineage": {"trace_id": "trace-browser-cli", "lineage_id": "lineage-browser-cli"},
+                "seed": derive_run_seed("run-proof-chain"),
+                "temperature_lock": {
+                    "critical_model_paths": 0.0,
+                    "critical_tool_paths": 0.0,
+                },
+                "determinism_version": "forge-determinism-v1",
+                "determinism_scope": "same-hardware",
                 "security_scans": [],
                 "claims": [
                     {
