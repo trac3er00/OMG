@@ -1,0 +1,19 @@
+# Plugins allowlist schema template
+#
+# - source: "mcp:filesystem"
+#   host: "claude"
+#   resource_type: "mcp_server"  # one of: mcp_server, skill, plugin
+#   reason: "trusted local plugin"
+#   scope: "project"             # optional: project | global
+#   timestamp: "2026-03-09T00:00:00Z"  # optional: ISO 8601 UTC
+#   approver: "user"             # optional
+#
+# - source: "skill:omg/control-plane"
+#   host: "codex"
+#   resource_type: "skill"
+#   reason: "required control-plane skill"
+#
+# - source: "plugin:omg-core"
+#   host: "gemini"
+#   resource_type: "plugin"
+#   reason: "approved core plugin"

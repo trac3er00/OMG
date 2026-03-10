@@ -82,14 +82,16 @@ _SUPERPOWERS_SENTINELS = (
 )
 
 
-def resolve_preset(preset: str | None) -> str:
+def resolve_preset(preset: str) -> str:
+    if preset == "plugins-first":
+        return "interop"
     if preset in VALID_PRESETS:
         return preset
-    return "safe"
+    raise ValueError(f"Unknown preset: {preset}")
 
 
 def get_preset_features(preset: str | None) -> dict[str, bool]:
-    resolved = resolve_preset(preset)
+    resolved = resolve_preset(preset or "safe")
     return dict(PRESET_FEATURES[resolved])
 
 
@@ -192,7 +194,7 @@ def build_adoption_report(
     detected_ecosystems = detect_ecosystems(project_dir) if adopt == "auto" else []
     recommended_mode = recommend_mode(detected_ecosystems)
     selected_mode = requested_mode if requested_mode in VALID_ADOPTION_MODES else recommended_mode
-    resolved_preset = resolve_preset(preset)
+    resolved_preset = resolve_preset(preset or "safe")
 
     return {
         "schema": "OmgAdoptionReport",

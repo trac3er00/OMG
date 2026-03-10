@@ -17,7 +17,9 @@ Use this checklist before making OMG public or cutting a release tag.
 ## Verification
 
 - `python3 scripts/sync-release-identity.py --check` passes (canonical version parity across all tracked surfaces)
+- `python3 scripts/omg.py diagnose-plugins --format json` exits 0
 - `python3 scripts/omg.py contract validate` passes
+- `python3 scripts/omg.py validate --format json` includes `plugin_compatibility` check
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root <tmp>` passes
 - `python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root <tmp>` passes
 - `python3 scripts/omg.py release readiness --channel dual --output-root <tmp>` passes
@@ -38,7 +40,8 @@ Use this checklist before making OMG public or cutting a release tag.
 ## Docs
 
 - README matches the current product surface
-- install guides for Claude Code and Codex are current
+- install guides for Claude Code, Codex, and OpenCode are current
+- OpenCode provider module exists at `runtime/providers/opencode_provider.py`
 - proof page includes current verification evidence
 - changelog includes the release entry
 

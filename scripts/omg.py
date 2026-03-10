@@ -60,6 +60,7 @@ from runtime.compat import (
     run_doctor,
 )
 from runtime.validate import run_validate, format_text as validate_format_text
+from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
 from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
@@ -914,6 +915,50 @@ def cmd_validate(args: argparse.Namespace) -> int:
         print(validate_format_text(result))
     return 0 if result["status"] == "pass" else 1
 
+
+def _format_plugin_diagnostics_text(result: dict[str, Any]) -> str:
+    summary = result.get("summary", {})
+    lines = [
+        "Plugin Diagnostics",
+        f"Status: {result.get('status', 'unknown').upper()}",
+        (
+            "Records: "
+            f"{summary.get('total_records', 0)} | Conflicts: {summary.get('total_conflicts', 0)} "
+            f"(blockers={summary.get('blockers', 0)}, warnings={summary.get('warnings', 0)}, infos={summary.get('infos', 0)})"
+        ),
+    ]
+
+    next_actions = result.get("next_actions", [])
+    if isinstance(next_actions, list) and next_actions:
+        lines.append("Next Actions:")
+        for action in next_actions:
+            lines.append(f"- {action}")
+
+    elapsed_ms = result.get("elapsed_ms", 0.0)
+    lines.append(f"Elapsed: {elapsed_ms:.2f}ms")
+    return "\n".join(lines)
+
+
+def cmd_diagnose_plugins(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "text")
+    result = run_plugin_diagnostics(root=str(ROOT_DIR), live=bool(getattr(args, "live", False)))
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        print(_format_plugin_diagnostics_text(result))
+    return 0
+
+
+def cmd_diagnose_plugins_approve(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "json")
+    result = approve_plugin(args.source, args.host, args.reason, root=str(ROOT_DIR))
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"Approval status: {result.get('status', 'unknown')}")
+        print(str(result.get("message", "")))
+    return 0 if result.get("status") == "ok" else 2
+
 def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     release_sub = parent.add_subparsers(dest=dest, required=True)
 
@@ -1138,6 +1183,19 @@ def build_parser() -> argparse.ArgumentParser:
     validate = sub.add_parser("validate", help="Canonical validation — doctor + contract + profile + install")
     validate.add_argument("--format", default="text", choices=["text", "json"], dest="format")
     validate.set_defaults(func=cmd_validate)
+
+    diagnose_plugins = sub.add_parser("diagnose-plugins", help="Diagnose plugin interoperability and conflicts")
+    diagnose_plugins.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    diagnose_plugins.add_argument("--live", action="store_true", help="Enable live probing mode")
+    diagnose_plugins.set_defaults(func=cmd_diagnose_plugins)
+    diagnose_plugins_sub = diagnose_plugins.add_subparsers(dest="diagnose_plugins_command")
+
+    diagnose_plugins_approve = diagnose_plugins_sub.add_parser("approve", help="Approve a plugin source for host use")
+    diagnose_plugins_approve.add_argument("--source", required=True)
+    diagnose_plugins_approve.add_argument("--host", required=True)
+    diagnose_plugins_approve.add_argument("--reason", required=True)
+    diagnose_plugins_approve.add_argument("--format", default="json", choices=["text", "json"], dest="format")
+    diagnose_plugins_approve.set_defaults(func=cmd_diagnose_plugins_approve)
 
     profile_review = sub.add_parser("profile-review", help="Review governed profile state")
     profile_review.add_argument("--format", default="json", choices=["json", "text"], dest="format")

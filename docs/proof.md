@@ -9,6 +9,7 @@ OMG keeps verification visible instead of burying it in implementation details.
 
 - Runtime evidence root: `.omg/evidence/`
 - Doctor output: `.omg/evidence/doctor.json`
+- Plugin diagnostics: `.omg/evidence/plugin-diagnostics.json` (via `diagnose-plugins`)
 - Security-check artifacts: `.omg/evidence/security-check-*.json`
 - Trust and external input artifacts: `.omg/evidence/trust-*.json`
 - Truth bundles:
@@ -36,6 +37,7 @@ OMG keeps verification visible instead of burying it in implementation details.
 |----------|------|--------|------------|------------|---------------|
 | Claude Code | Canonical | host-native | host-native | yes | primary |
 | Codex | Canonical | yes | yes | yes | primary |
+| OpenCode | Compatibility | yes | yes | yes | supported |
 | Gemini | Compatibility | yes | yes | yes | supported |
 | Kimi | Compatibility | yes | yes | yes | supported |
 
@@ -43,6 +45,7 @@ OMG keeps verification visible instead of burying it in implementation details.
 
 - Native setup writes `.omg/state/adoption-report.json`
 - Native setup writes `.omg/state/cli-config.yaml`
+- Plugin allowlist: `.omg/state/plugins-allowlist.yaml`
 - `OMG-only` and `coexist` are both covered in setup tests
 - Canonical modes: `chill`, `focused`, `exploratory`
 - OMC, OMX, and Superpowers references stay limited to compatibility and adoption guidance

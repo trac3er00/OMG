@@ -811,3 +811,65 @@ class TestConfigureMcp:
 
         servers = data["mcpServers"]
         assert set(servers) == {"filesystem", "context7", "grep-app", "websearch"}
+
+
+def test_setup_interop_discovers_foreign_plugins() -> None:
+    from hooks import setup_wizard
+    from hooks import _common
+    import runtime.cli_provider
+
+    _common._FEATURE_CACHE.clear()
+
+    mock_discovery = Mock(records=[Mock(), Mock()])
+    mock_validation = {
+        "schema": "ValidateResult",
+        "status": "pass",
+        "checks": [],
+        "version": CANONICAL_VERSION,
+    }
+
+    with patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}), \
+         patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+         patch("hooks.setup_wizard.discover_host_plugin_state", return_value=mock_discovery) as mock_discover, \
+         patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_validation):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = setup_wizard.run_setup_wizard(
+                project_dir=tmpdir,
+                non_interactive=True,
+                preset="interop",
+            )
+
+    mock_discover.assert_called_once_with(tmpdir)
+    assert result["adoption"]["foreign_plugins_discovered"] == 2
+
+
+def test_setup_coexist_mode_reports_foreign_plugins() -> None:
+    from hooks import setup_wizard
+    from hooks import _common
+    import runtime.cli_provider
+
+    _common._FEATURE_CACHE.clear()
+
+    mock_discovery = Mock(records=[Mock(), Mock(), Mock()])
+    mock_validation = {
+        "schema": "ValidateResult",
+        "status": "pass",
+        "checks": [],
+        "version": CANONICAL_VERSION,
+    }
+
+    with patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}), \
+         patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+         patch("hooks.setup_wizard.discover_host_plugin_state", return_value=mock_discovery) as mock_discover, \
+         patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_validation):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = setup_wizard.run_setup_wizard(
+                project_dir=tmpdir,
+                non_interactive=True,
+                mode="coexist",
+                preset="safe",
+            )
+
+    mock_discover.assert_called_once_with(tmpdir)
+    assert result["adoption"]["selected_mode"] == "coexist"
+    assert result["adoption"]["foreign_plugins_discovered"] == 3

@@ -58,3 +58,17 @@ def test_feature_registry_loads_expected_keys(tmp_path: Path):
     assert isinstance(raw_payload, dict)
     persisted = cast(dict[object, object], raw_payload)
     assert expected.issubset(persisted.keys())
+
+
+def test_validate_order_ok_with_foreign_hook():
+    result = validate_order("PreToolUse", ["firewall", "secret-guard", "plugin-hook"], project_dir=_PROJECT_ROOT)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+
+
+def test_validate_order_blocked_foreign_before_firewall():
+    result = validate_order("PreToolUse", ["plugin-hook", "firewall", "secret-guard"], project_dir=_PROJECT_ROOT)
+
+    assert result["status"] == "blocked"
+    assert any("hook order violation" in blocker for blocker in result["blockers"])

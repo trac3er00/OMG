@@ -696,3 +696,15 @@ class TestNotebookLMHealthCheck:
             b["name"] for b in piv.get("blockers", [])
         ]
         assert "notebooklm" not in check_names
+
+
+def test_interop_preset_alias_resolves() -> None:
+    from runtime.adoption import resolve_preset
+
+    assert resolve_preset("plugins-first") == "interop"
+
+
+def test_interop_preset_canonical_unchanged() -> None:
+    from runtime.adoption import resolve_preset
+
+    assert resolve_preset("interop") == "interop"
