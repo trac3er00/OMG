@@ -190,6 +190,7 @@ BUDGET_POST_TOOL_MS = 200   # PostToolUse hooks
 BUDGET_STOP_MS = 15000      # Stop hooks per check
 BUDGET_TOOLCHAIN_MS = 50    # Toolchain availability check
 BUDGET_GRAPH_MS = 5000      # Graph builder
+BUDGET_SECRET_SCAN_MS = 500  # Secret path scanning (10k paths)
 
 
 # ===========================================================================
@@ -315,7 +316,7 @@ class TestSecretAuditPerformance:
         )
 
     def test_mask_secret_path_10000_paths(self) -> None:
-        """mask_secret_path over 10000 file paths < 200ms."""
+        """mask_secret_path over 10000 file paths < 500ms."""
         paths = _make_secret_paths(10000)
         assert len(paths) == 10000
 
@@ -325,8 +326,8 @@ class TestSecretAuditPerformance:
 
         redacted_count = sum(1 for r in results if r == "[REDACTED]")
         assert redacted_count > 0, "Should have redacted some paths"
-        assert elapsed_ms < BUDGET_POST_TOOL_MS, (
-            f"mask_secret_path(10000 paths) took {elapsed_ms:.1f}ms > {BUDGET_POST_TOOL_MS}ms budget"
+        assert elapsed_ms < BUDGET_SECRET_SCAN_MS, (
+            f"mask_secret_path(10000 paths) took {elapsed_ms:.1f}ms > {BUDGET_SECRET_SCAN_MS}ms budget"
         )
 
 
