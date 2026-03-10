@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from runtime.profile_io import classify_preference_section, is_destructive_preference
+
 
 class MemoryStoreFullError(Exception):
     """Raised when adding to a store that has reached the 10,000 item limit."""
@@ -280,6 +282,9 @@ def _extract_project_signal(item: _Item, canonical_project: str) -> dict[str, An
     confidence = _clamp_confidence(payload.get("confidence"))
     contradicted = bool(payload.get("contradicted") is True)
 
+    section = classify_preference_section(field, value)
+    destructive = is_destructive_preference(field, value)
+
     signal: dict[str, Any] = {
         "field": field,
         "value": value,
@@ -289,6 +294,8 @@ def _extract_project_signal(item: _Item, canonical_project: str) -> dict[str, An
         "run_id": str(payload.get("run_id", "")).strip(),
         "updated_at": str(payload.get("updated_at", item.get("updated_at", ""))).strip(),
         "contradicted": contradicted,
+        "section": section,
+        "destructive": destructive,
     }
     return signal
 

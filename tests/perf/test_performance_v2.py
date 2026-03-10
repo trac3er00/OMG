@@ -190,7 +190,7 @@ BUDGET_POST_TOOL_MS = 200   # PostToolUse hooks
 BUDGET_STOP_MS = 15000      # Stop hooks per check
 BUDGET_TOOLCHAIN_MS = 50    # Toolchain availability check
 BUDGET_GRAPH_MS = 5000      # Graph builder
-BUDGET_SECRET_SCAN_MS = 500  # Secret path scanning over large batch (CI-tolerant)
+BUDGET_SECRET_SCAN_MS = 500  # Secret path scanning (10k paths)
 
 
 # ===========================================================================

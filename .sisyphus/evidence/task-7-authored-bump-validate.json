@@ -1,0 +1,14 @@
+{
+  "canonical_version": "2.1.4",
+  "scope": "authored",
+  "forbid_version": "2.1.1",
+  "authored": {
+    "status": "ok",
+    "blockers": []
+  },
+  "derived": {
+    "status": "skipped",
+    "blockers": []
+  },
+  "overall_status": "ok"
+}

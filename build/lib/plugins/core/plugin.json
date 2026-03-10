@@ -1,6 +1,6 @@
 {
   "name": "omg-core",
-  "version": "2.1.1",
+  "version": "2.1.4",
   "description": "Core OMG commands - native setup, routing, orchestration, and verification surfaces",
   "type": "omg-plugin",
   "commands": {
@@ -64,6 +64,11 @@
       "description": "Verify project setup and tool integration",
       "category": "setup"
     },
+    "profile-review": {
+      "path": "commands/OMG:profile-review.md",
+      "description": "Review governed profile state — preferences, confirmations, decay, provenance",
+      "category": "observability"
+    },
     "mode": {
       "path": "commands/OMG:mode.md",
       "description": "Set cognitive mode for the session",
@@ -106,43 +111,71 @@
   "categories": {
     "setup": {
       "description": "Project initialization and setup",
-      "commands": ["setup", "init", "health-check"]
+      "commands": [
+        "setup",
+        "init",
+        "health-check"
+      ]
     },
     "routing": {
       "description": "Model routing and escalation",
-      "commands": ["escalate", "teams", "ccg", "preflight"]
+      "commands": [
+        "escalate",
+        "teams",
+        "ccg",
+        "preflight"
+      ]
     },
     "verification": {
       "description": "Verification flows with normalized evidence",
-      "commands": ["browser"]
+      "commands": [
+        "browser"
+      ]
     },
     "orchestration": {
       "description": "Multi-agent orchestration modes",
-      "commands": ["crazy"]
+      "commands": [
+        "crazy"
+      ]
     },
     "compatibility": {
       "description": "Legacy compatibility",
-      "commands": ["compat"]
+      "commands": [
+        "compat"
+      ]
     },
     "config": {
       "description": "Configuration and settings",
-      "commands": ["mode"]
+      "commands": [
+        "mode"
+      ]
     },
     "observability": {
       "description": "Cost tracking and session observability",
-      "commands": ["cost", "stats", "deps"]
+      "commands": [
+        "cost",
+        "stats",
+        "deps",
+        "profile-review"
+      ]
     },
     "security": {
       "description": "Canonical security and trust checks",
-      "commands": ["security-check"]
+      "commands": [
+        "security-check"
+      ]
     },
     "contracts": {
       "description": "Contract replay and API simulation",
-      "commands": ["api-twin"]
+      "commands": [
+        "api-twin"
+      ]
     },
     "visualization": {
       "description": "Codebase visualization and architecture diagrams",
-      "commands": ["arch"]
+      "commands": [
+        "arch"
+      ]
     }
   },
   "roles": {

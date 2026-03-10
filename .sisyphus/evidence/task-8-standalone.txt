@@ -1,0 +1,1858 @@
+[verify-standalone] source: /Users/cminseo/Documents/scripts/Shell/OMG
+[verify-standalone] workdir: /var/folders/tz/9h9jcw_s2jn6qm8cfsn5tkr40000gn/T/tmp.wWEIBWeeUv
+{
+  "schema": "OmgContractValidationResult",
+  "status": "ok",
+  "contract": {
+    "path": "OMG_COMPAT_CONTRACT.md",
+    "schema_path": "registry/omg-capability.schema.json",
+    "version": "2.1.4",
+    "bundle_count": 22
+  },
+  "bundles": [
+    {
+      "id": "algorithms",
+      "kind": "domain-pack",
+      "version": "2.1.4",
+      "title": "OMG Algorithms Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/algorithms.yaml"
+    },
+    {
+      "id": "api-twin",
+      "kind": "simulation",
+      "version": "2.1.4",
+      "title": "OMG API Twin",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/api-twin.yaml"
+    },
+    {
+      "id": "claim-judge",
+      "kind": "proof",
+      "version": "2.1.4",
+      "title": "OMG Claim Judge",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/claim-judge.yaml"
+    },
+    {
+      "id": "control-plane",
+      "kind": "skill",
+      "version": "2.1.4",
+      "title": "OMG Control Plane",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/control-plane.yaml"
+    },
+    {
+      "id": "data-lineage",
+      "kind": "provenance",
+      "version": "2.1.4",
+      "title": "OMG Data Lineage",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/data-lineage.yaml"
+    },
+    {
+      "id": "delta-classifier",
+      "kind": "routing",
+      "version": "2.1.4",
+      "title": "OMG Delta Classifier",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/delta-classifier.yaml"
+    },
+    {
+      "id": "eval-gate",
+      "kind": "evaluation",
+      "version": "2.1.4",
+      "title": "OMG Eval Gate",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/eval-gate.yaml"
+    },
+    {
+      "id": "health",
+      "kind": "domain-pack",
+      "version": "2.1.4",
+      "title": "OMG Health Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/health.yaml"
+    },
+    {
+      "id": "hook-governor",
+      "kind": "governance",
+      "version": "2.1.4",
+      "title": "OMG Hook Governor",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/hook-governor.yaml"
+    },
+    {
+      "id": "incident-replay",
+      "kind": "debugging",
+      "version": "2.1.4",
+      "title": "OMG Incident Replay",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/incident-replay.yaml"
+    },
+    {
+      "id": "lsp-pack",
+      "kind": "diagnostics",
+      "version": "2.1.4",
+      "title": "OMG LSP Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/lsp-pack.yaml"
+    },
+    {
+      "id": "mcp-fabric",
+      "kind": "mcp",
+      "version": "2.1.4",
+      "title": "OMG MCP Fabric",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/mcp-fabric.yaml"
+    },
+    {
+      "id": "plan-council",
+      "kind": "planning",
+      "version": "2.1.4",
+      "title": "OMG Plan Council",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/plan-council.yaml"
+    },
+    {
+      "id": "preflight",
+      "kind": "routing",
+      "version": "2.1.4",
+      "title": "OMG Preflight",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/preflight.yaml"
+    },
+    {
+      "id": "proof-gate",
+      "kind": "proof",
+      "version": "2.1.4",
+      "title": "OMG Proof Gate",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/proof-gate.yaml"
+    },
+    {
+      "id": "remote-supervisor",
+      "kind": "orchestration",
+      "version": "2.1.4",
+      "title": "OMG Remote Supervisor",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/remote-supervisor.yaml"
+    },
+    {
+      "id": "robotics",
+      "kind": "domain-pack",
+      "version": "2.1.4",
+      "title": "OMG Robotics Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/robotics.yaml"
+    },
+    {
+      "id": "secure-worktree-pipeline",
+      "kind": "runtime",
+      "version": "2.1.4",
+      "title": "OMG Secure Worktree Pipeline",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/secure-worktree-pipeline.yaml"
+    },
+    {
+      "id": "security-check",
+      "kind": "security",
+      "version": "2.1.4",
+      "title": "OMG Security Check",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/security-check.yaml"
+    },
+    {
+      "id": "test-intent-lock",
+      "kind": "proof",
+      "version": "2.1.4",
+      "title": "OMG Test Intent Lock",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/test-intent-lock.yaml"
+    },
+    {
+      "id": "tracebank",
+      "kind": "evidence",
+      "version": "2.1.4",
+      "title": "OMG Tracebank",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/tracebank.yaml"
+    },
+    {
+      "id": "vision",
+      "kind": "domain-pack",
+      "version": "2.1.4",
+      "title": "OMG Vision Pack",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "path": "registry/bundles/vision.yaml"
+    }
+  ],
+  "errors": [],
+  "release_identity": {
+    "canonical_version": "2.1.4",
+    "scope": "all",
+    "forbid_version": null,
+    "authored": {
+      "status": "ok",
+      "blockers": []
+    },
+    "derived": {
+      "status": "ok",
+      "blockers": []
+    },
+    "overall_status": "ok"
+  }
+}
+{
+  "schema": "OmgContractCompileResult",
+  "status": "ok",
+  "channel": "public",
+  "hosts": [
+    "claude",
+    "codex"
+  ],
+  "artifacts": [
+    "OMG_COMPAT_CONTRACT.md",
+    "registry/omg-capability.schema.json",
+    "registry/bundles/algorithms.yaml",
+    "registry/bundles/api-twin.yaml",
+    "registry/bundles/claim-judge.yaml",
+    "registry/bundles/control-plane.yaml",
+    "registry/bundles/data-lineage.yaml",
+    "registry/bundles/delta-classifier.yaml",
+    "registry/bundles/eval-gate.yaml",
+    "registry/bundles/health.yaml",
+    "registry/bundles/hook-governor.yaml",
+    "registry/bundles/incident-replay.yaml",
+    "registry/bundles/lsp-pack.yaml",
+    "registry/bundles/mcp-fabric.yaml",
+    "registry/bundles/plan-council.yaml",
+    "registry/bundles/preflight.yaml",
+    "registry/bundles/proof-gate.yaml",
+    "registry/bundles/remote-supervisor.yaml",
+    "registry/bundles/robotics.yaml",
+    "registry/bundles/secure-worktree-pipeline.yaml",
+    "registry/bundles/security-check.yaml",
+    "registry/bundles/test-intent-lock.yaml",
+    "registry/bundles/tracebank.yaml",
+    "registry/bundles/vision.yaml",
+    "plugins/advanced/plugin.json",
+    "plugins/advanced/commands/OMG:code-review.md",
+    "plugins/advanced/commands/OMG:deep-plan.md",
+    "plugins/advanced/commands/OMG:handoff.md",
+    "plugins/advanced/commands/OMG:learn.md",
+    "plugins/advanced/commands/OMG:maintainer.md",
+    "plugins/advanced/commands/OMG:ralph-start.md",
+    "plugins/advanced/commands/OMG:ralph-stop.md",
+    "plugins/advanced/commands/OMG:security-review.md",
+    "plugins/advanced/commands/OMG:sequential-thinking.md",
+    "plugins/advanced/commands/OMG:ship.md",
+    ".claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    ".claude-plugin/mcp.json",
+    ".mcp.json",
+    "settings.json",
+    ".agents/skills/omg/AGENTS.fragment.md",
+    ".agents/skills/omg/codex-rules.md",
+    ".agents/skills/omg/codex-mcp.toml",
+    ".agents/skills/omg/algorithms/SKILL.md",
+    ".agents/skills/omg/algorithms/openai.yaml",
+    ".agents/skills/omg/api-twin/SKILL.md",
+    ".agents/skills/omg/api-twin/openai.yaml",
+    ".agents/skills/omg/claim-judge/SKILL.md",
+    ".agents/skills/omg/claim-judge/openai.yaml",
+    ".agents/skills/omg/control-plane/SKILL.md",
+    ".agents/skills/omg/control-plane/openai.yaml",
+    ".agents/skills/omg/data-lineage/SKILL.md",
+    ".agents/skills/omg/data-lineage/openai.yaml",
+    ".agents/skills/omg/delta-classifier/SKILL.md",
+    ".agents/skills/omg/delta-classifier/openai.yaml",
+    ".agents/skills/omg/eval-gate/SKILL.md",
+    ".agents/skills/omg/eval-gate/openai.yaml",
+    ".agents/skills/omg/health/SKILL.md",
+    ".agents/skills/omg/health/openai.yaml",
+    ".agents/skills/omg/hook-governor/SKILL.md",
+    ".agents/skills/omg/hook-governor/openai.yaml",
+    ".agents/skills/omg/incident-replay/SKILL.md",
+    ".agents/skills/omg/incident-replay/openai.yaml",
+    ".agents/skills/omg/lsp-pack/SKILL.md",
+    ".agents/skills/omg/lsp-pack/openai.yaml",
+    ".agents/skills/omg/mcp-fabric/SKILL.md",
+    ".agents/skills/omg/mcp-fabric/openai.yaml",
+    ".agents/skills/omg/plan-council/SKILL.md",
+    ".agents/skills/omg/plan-council/openai.yaml",
+    ".agents/skills/omg/preflight/SKILL.md",
+    ".agents/skills/omg/preflight/openai.yaml",
+    ".agents/skills/omg/proof-gate/SKILL.md",
+    ".agents/skills/omg/proof-gate/openai.yaml",
+    ".agents/skills/omg/remote-supervisor/SKILL.md",
+    ".agents/skills/omg/remote-supervisor/openai.yaml",
+    ".agents/skills/omg/robotics/SKILL.md",
+    ".agents/skills/omg/robotics/openai.yaml",
+    ".agents/skills/omg/secure-worktree-pipeline/SKILL.md",
+    ".agents/skills/omg/secure-worktree-pipeline/openai.yaml",
+    ".agents/skills/omg/security-check/SKILL.md",
+    ".agents/skills/omg/security-check/openai.yaml",
+    ".agents/skills/omg/test-intent-lock/SKILL.md",
+    ".agents/skills/omg/test-intent-lock/openai.yaml",
+    ".agents/skills/omg/tracebank/SKILL.md",
+    ".agents/skills/omg/tracebank/openai.yaml",
+    ".agents/skills/omg/vision/SKILL.md",
+    ".agents/skills/omg/vision/openai.yaml",
+    "dist/public/manifest.json"
+  ],
+  "manifest": "dist/public/manifest.json"
+}
+{
+  "schema": "OmgContractCompileResult",
+  "status": "ok",
+  "channel": "enterprise",
+  "hosts": [
+    "claude",
+    "codex"
+  ],
+  "artifacts": [
+    "OMG_COMPAT_CONTRACT.md",
+    "registry/omg-capability.schema.json",
+    "registry/bundles/algorithms.yaml",
+    "registry/bundles/api-twin.yaml",
+    "registry/bundles/claim-judge.yaml",
+    "registry/bundles/control-plane.yaml",
+    "registry/bundles/data-lineage.yaml",
+    "registry/bundles/delta-classifier.yaml",
+    "registry/bundles/eval-gate.yaml",
+    "registry/bundles/health.yaml",
+    "registry/bundles/hook-governor.yaml",
+    "registry/bundles/incident-replay.yaml",
+    "registry/bundles/lsp-pack.yaml",
+    "registry/bundles/mcp-fabric.yaml",
+    "registry/bundles/plan-council.yaml",
+    "registry/bundles/preflight.yaml",
+    "registry/bundles/proof-gate.yaml",
+    "registry/bundles/remote-supervisor.yaml",
+    "registry/bundles/robotics.yaml",
+    "registry/bundles/secure-worktree-pipeline.yaml",
+    "registry/bundles/security-check.yaml",
+    "registry/bundles/test-intent-lock.yaml",
+    "registry/bundles/tracebank.yaml",
+    "registry/bundles/vision.yaml",
+    "plugins/advanced/plugin.json",
+    "plugins/advanced/commands/OMG:code-review.md",
+    "plugins/advanced/commands/OMG:deep-plan.md",
+    "plugins/advanced/commands/OMG:handoff.md",
+    "plugins/advanced/commands/OMG:learn.md",
+    "plugins/advanced/commands/OMG:maintainer.md",
+    "plugins/advanced/commands/OMG:ralph-start.md",
+    "plugins/advanced/commands/OMG:ralph-stop.md",
+    "plugins/advanced/commands/OMG:security-review.md",
+    "plugins/advanced/commands/OMG:sequential-thinking.md",
+    "plugins/advanced/commands/OMG:ship.md",
+    ".claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    ".claude-plugin/mcp.json",
+    ".mcp.json",
+    "settings.json",
+    ".agents/skills/omg/AGENTS.fragment.md",
+    ".agents/skills/omg/codex-rules.md",
+    ".agents/skills/omg/codex-mcp.toml",
+    ".agents/skills/omg/algorithms/SKILL.md",
+    ".agents/skills/omg/algorithms/openai.yaml",
+    ".agents/skills/omg/api-twin/SKILL.md",
+    ".agents/skills/omg/api-twin/openai.yaml",
+    ".agents/skills/omg/claim-judge/SKILL.md",
+    ".agents/skills/omg/claim-judge/openai.yaml",
+    ".agents/skills/omg/control-plane/SKILL.md",
+    ".agents/skills/omg/control-plane/openai.yaml",
+    ".agents/skills/omg/data-lineage/SKILL.md",
+    ".agents/skills/omg/data-lineage/openai.yaml",
+    ".agents/skills/omg/delta-classifier/SKILL.md",
+    ".agents/skills/omg/delta-classifier/openai.yaml",
+    ".agents/skills/omg/eval-gate/SKILL.md",
+    ".agents/skills/omg/eval-gate/openai.yaml",
+    ".agents/skills/omg/health/SKILL.md",
+    ".agents/skills/omg/health/openai.yaml",
+    ".agents/skills/omg/hook-governor/SKILL.md",
+    ".agents/skills/omg/hook-governor/openai.yaml",
+    ".agents/skills/omg/incident-replay/SKILL.md",
+    ".agents/skills/omg/incident-replay/openai.yaml",
+    ".agents/skills/omg/lsp-pack/SKILL.md",
+    ".agents/skills/omg/lsp-pack/openai.yaml",
+    ".agents/skills/omg/mcp-fabric/SKILL.md",
+    ".agents/skills/omg/mcp-fabric/openai.yaml",
+    ".agents/skills/omg/plan-council/SKILL.md",
+    ".agents/skills/omg/plan-council/openai.yaml",
+    ".agents/skills/omg/preflight/SKILL.md",
+    ".agents/skills/omg/preflight/openai.yaml",
+    ".agents/skills/omg/proof-gate/SKILL.md",
+    ".agents/skills/omg/proof-gate/openai.yaml",
+    ".agents/skills/omg/remote-supervisor/SKILL.md",
+    ".agents/skills/omg/remote-supervisor/openai.yaml",
+    ".agents/skills/omg/robotics/SKILL.md",
+    ".agents/skills/omg/robotics/openai.yaml",
+    ".agents/skills/omg/secure-worktree-pipeline/SKILL.md",
+    ".agents/skills/omg/secure-worktree-pipeline/openai.yaml",
+    ".agents/skills/omg/security-check/SKILL.md",
+    ".agents/skills/omg/security-check/openai.yaml",
+    ".agents/skills/omg/test-intent-lock/SKILL.md",
+    ".agents/skills/omg/test-intent-lock/openai.yaml",
+    ".agents/skills/omg/tracebank/SKILL.md",
+    ".agents/skills/omg/tracebank/openai.yaml",
+    ".agents/skills/omg/vision/SKILL.md",
+    ".agents/skills/omg/vision/openai.yaml",
+    "dist/enterprise/manifest.json"
+  ],
+  "manifest": "dist/enterprise/manifest.json"
+}
+{
+  "schema": "OmgReleaseReadinessResult",
+  "status": "ok",
+  "channel": "dual",
+  "blockers": [],
+  "checks": {
+    "contract_validation": {
+      "schema": "OmgContractValidationResult",
+      "status": "ok",
+      "contract": {
+        "path": "OMG_COMPAT_CONTRACT.md",
+        "schema_path": "registry/omg-capability.schema.json",
+        "version": "2.1.4",
+        "bundle_count": 22
+      },
+      "bundles": [
+        {
+          "id": "algorithms",
+          "kind": "domain-pack",
+          "version": "2.1.4",
+          "title": "OMG Algorithms Pack",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/algorithms.yaml"
+        },
+        {
+          "id": "api-twin",
+          "kind": "simulation",
+          "version": "2.1.4",
+          "title": "OMG API Twin",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/api-twin.yaml"
+        },
+        {
+          "id": "claim-judge",
+          "kind": "proof",
+          "version": "2.1.4",
+          "title": "OMG Claim Judge",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/claim-judge.yaml"
+        },
+        {
+          "id": "control-plane",
+          "kind": "skill",
+          "version": "2.1.4",
+          "title": "OMG Control Plane",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/control-plane.yaml"
+        },
+        {
+          "id": "data-lineage",
+          "kind": "provenance",
+          "version": "2.1.4",
+          "title": "OMG Data Lineage",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/data-lineage.yaml"
+        },
+        {
+          "id": "delta-classifier",
+          "kind": "routing",
+          "version": "2.1.4",
+          "title": "OMG Delta Classifier",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/delta-classifier.yaml"
+        },
+        {
+          "id": "eval-gate",
+          "kind": "evaluation",
+          "version": "2.1.4",
+          "title": "OMG Eval Gate",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/eval-gate.yaml"
+        },
+        {
+          "id": "health",
+          "kind": "domain-pack",
+          "version": "2.1.4",
+          "title": "OMG Health Pack",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/health.yaml"
+        },
+        {
+          "id": "hook-governor",
+          "kind": "governance",
+          "version": "2.1.4",
+          "title": "OMG Hook Governor",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/hook-governor.yaml"
+        },
+        {
+          "id": "incident-replay",
+          "kind": "debugging",
+          "version": "2.1.4",
+          "title": "OMG Incident Replay",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/incident-replay.yaml"
+        },
+        {
+          "id": "lsp-pack",
+          "kind": "diagnostics",
+          "version": "2.1.4",
+          "title": "OMG LSP Pack",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/lsp-pack.yaml"
+        },
+        {
+          "id": "mcp-fabric",
+          "kind": "mcp",
+          "version": "2.1.4",
+          "title": "OMG MCP Fabric",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/mcp-fabric.yaml"
+        },
+        {
+          "id": "plan-council",
+          "kind": "planning",
+          "version": "2.1.4",
+          "title": "OMG Plan Council",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/plan-council.yaml"
+        },
+        {
+          "id": "preflight",
+          "kind": "routing",
+          "version": "2.1.4",
+          "title": "OMG Preflight",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/preflight.yaml"
+        },
+        {
+          "id": "proof-gate",
+          "kind": "proof",
+          "version": "2.1.4",
+          "title": "OMG Proof Gate",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/proof-gate.yaml"
+        },
+        {
+          "id": "remote-supervisor",
+          "kind": "orchestration",
+          "version": "2.1.4",
+          "title": "OMG Remote Supervisor",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/remote-supervisor.yaml"
+        },
+        {
+          "id": "robotics",
+          "kind": "domain-pack",
+          "version": "2.1.4",
+          "title": "OMG Robotics Pack",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/robotics.yaml"
+        },
+        {
+          "id": "secure-worktree-pipeline",
+          "kind": "runtime",
+          "version": "2.1.4",
+          "title": "OMG Secure Worktree Pipeline",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/secure-worktree-pipeline.yaml"
+        },
+        {
+          "id": "security-check",
+          "kind": "security",
+          "version": "2.1.4",
+          "title": "OMG Security Check",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/security-check.yaml"
+        },
+        {
+          "id": "test-intent-lock",
+          "kind": "proof",
+          "version": "2.1.4",
+          "title": "OMG Test Intent Lock",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/test-intent-lock.yaml"
+        },
+        {
+          "id": "tracebank",
+          "kind": "evidence",
+          "version": "2.1.4",
+          "title": "OMG Tracebank",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/tracebank.yaml"
+        },
+        {
+          "id": "vision",
+          "kind": "domain-pack",
+          "version": "2.1.4",
+          "title": "OMG Vision Pack",
+          "hosts": [
+            "claude",
+            "codex"
+          ],
+          "path": "registry/bundles/vision.yaml"
+        }
+      ],
+      "errors": []
+    },
+    "dist_public": {
+      "schema": "OmgCompiledArtifactManifest",
+      "channel": "public",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "contract_version": "2.1.4",
+      "artifacts": [
+        {
+          "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
+          "sha256": "0c6b1b74a746cabe933321d27541836a5526acda02da1131616dcb09c56101bc"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/algorithms/SKILL.md",
+          "sha256": "48042e7ab674ef67c2d8a71a75abdd81aeee4363cb5e97c775c320d4edab33fb"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/algorithms/openai.yaml",
+          "sha256": "6196d26b4daf429292565142d3ed7233024402cc9206fd5df9e5f848231a79c6"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/api-twin/SKILL.md",
+          "sha256": "b394b7779173318ed29662c3c11bfa05b5d037d3a927b16bea28560a62752437"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/api-twin/openai.yaml",
+          "sha256": "8b711205c230c16695702b1eeeb426d844aa76a87c55f220298cdaf105ceee1d"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/claim-judge/SKILL.md",
+          "sha256": "cc65993357813c41fb81502de8781743e84e529088da19dbf8735e0a22f8519c"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/claim-judge/openai.yaml",
+          "sha256": "b64dc801159a6e9adcd704326122f64c1bad7f71d87f22ada47918f7527151cc"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/codex-mcp.toml",
+          "sha256": "a56de208a369a2b318d2e66e150eef4cba1fac1ecf32bda6db1a1e4b65db7311"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/codex-rules.md",
+          "sha256": "939b128a1904e0d8b2b21208a308b558bcd51bd6c0de32e60e59d6744821e9d0"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/control-plane/SKILL.md",
+          "sha256": "fe281985ffbfb4d324d0ae421653c96d501bfda4ef1462865e2868276c40a3c2"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/control-plane/openai.yaml",
+          "sha256": "a7ba723d34839c6a444b6ee4416223103cd9b2bbd9caed0d4c0aa1e7d5a523fc"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/data-lineage/SKILL.md",
+          "sha256": "91352eee8b6a51d2e6a50d36de58e167344cce065fcbbf0c290c6ccd25a592f4"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/data-lineage/openai.yaml",
+          "sha256": "beb0bbc2e3313784b03e633e02ee894b4bc57d992296ebbfe63186fcfbf8a344"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/delta-classifier/SKILL.md",
+          "sha256": "a4ab3112459178d08d6f54b83c38c6638833e97479808f0d88bba8e56c50b20c"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/delta-classifier/openai.yaml",
+          "sha256": "b06422d0afc62af4085b38ead53ab28096beec5ae943ed317207bd7edacfc59c"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/eval-gate/SKILL.md",
+          "sha256": "5d6a18ad9ca08923c13096ee8457eb7ccfa75752679be0be3e105112e5f5a94b"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/eval-gate/openai.yaml",
+          "sha256": "43f4939ce1b6e51ec853f79cea0af80706bb8df6730e8854981cfdf3ee088822"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/health/SKILL.md",
+          "sha256": "93806b8c1848b55240de4697692b21516aebc2ca905d049eb6ca5104a372f88e"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/health/openai.yaml",
+          "sha256": "5f60504efb464cbcf130e183d3991b6fe9bc90ef12c21c4ffc2e8900ae1cd6e2"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/hook-governor/SKILL.md",
+          "sha256": "852df4b5f787f2a885e87cb8ad8dbb8d877e018e14083cfd5e5b98deb9dd19b5"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/hook-governor/openai.yaml",
+          "sha256": "8b4e219662bd9a12e89cdcd9a1828c1ff14810fa09cbfff9a6d9f932fb42ec85"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/incident-replay/SKILL.md",
+          "sha256": "fe4538481bed5a924e9b2155bb84b5d36863a9c380014d7e5ec6185dbff0fb49"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/incident-replay/openai.yaml",
+          "sha256": "6685c86104f4257514dd25d3102baaba309020120bce925e6f40f6e5f43713f0"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/lsp-pack/SKILL.md",
+          "sha256": "86890c6671441f8687ad7d71dedd7d61574c42aa6e109aa8dd6ceb4b6a139879"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/lsp-pack/openai.yaml",
+          "sha256": "14000aec9cc9ff630b7354ae101cc43ed90c4e1ecd0fa719013741ca14598142"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/mcp-fabric/SKILL.md",
+          "sha256": "e741baf4fa5f09957fe37349b79fe6831afe0352eefa945f3e53514ea313bc36"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/mcp-fabric/openai.yaml",
+          "sha256": "18dc35b4d6fb598b572ec933153e80de5449be9e07ef07178e4f875e39a8915c"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/plan-council/SKILL.md",
+          "sha256": "0c7e92cebcfbb22a4f267008b97947ae80f880906a5593e0bdc1baa60bb6c054"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/plan-council/openai.yaml",
+          "sha256": "fee8d5ce4acc9cc03f5de73701bf0cfd866de7acaa1ff4c3cb518a47c1399a26"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/preflight/SKILL.md",
+          "sha256": "1f7783ff53f59a4368f1ec7746faa3f1a66805312291851f43ae2fe6a7d58f30"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/preflight/openai.yaml",
+          "sha256": "1074dff95ae9f6951cdd9bb3d6b5c4add7d6a688b0ceed3d79d365dff42bfca6"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/proof-gate/SKILL.md",
+          "sha256": "9f6c58e6c8c8c967cfa276e7efe06d1cce8d964ffd0ce8e131794496614ec759"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/proof-gate/openai.yaml",
+          "sha256": "5e9cac6f19099fc3ed6492551484570cabcba8b479cdee254721c05be296780d"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/remote-supervisor/SKILL.md",
+          "sha256": "506988d9eb379dad027ad1dd0087e81f12594faed16a91dbda021975de28e19f"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/remote-supervisor/openai.yaml",
+          "sha256": "f4a87ea5ed5759c073adbdc9704d7bf75b16ba5ba3e5ceaa3c926c44e6d84dd2"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/robotics/SKILL.md",
+          "sha256": "fa191d7d7662321fa48cd1bbd25af59282c95d396ee959fd65fa873db4aa53c3"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/robotics/openai.yaml",
+          "sha256": "d6c28424bbcf9457da1fa5a0aff3952a5aca8a6e66257b633962c58e3e365f5c"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md",
+          "sha256": "1eebd557d77cc084161c3ffe11ed3a9ea5d78caa65b1021a992ac8b835fc6a0d"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml",
+          "sha256": "1f82a05b2fcad17c126e34541c995dedf3ed242fa499539ab693cc60a0d41c77"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/security-check/SKILL.md",
+          "sha256": "5d2131c7d93780b139917149017ffa696ea17da403506ab6077aff4e4a52e69a"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/security-check/openai.yaml",
+          "sha256": "cf06bd8b852ad6c4694d8aeadd05ae4c9b63d32fa5cee085152683c65a3343e5"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/test-intent-lock/SKILL.md",
+          "sha256": "ec04b427841b40bc390db1403d52933c24c26b7d3cabb762e39ccc508f33127a"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/test-intent-lock/openai.yaml",
+          "sha256": "57ee74b4a518afb6d524038fb461f20892f295c7bae74f223acfe51a8f645199"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/tracebank/SKILL.md",
+          "sha256": "c4ba5cbe7acca1be333f376f27f800482c1080eb8e95b34744313f1d64a84fcd"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/tracebank/openai.yaml",
+          "sha256": "556e2ec3ac5a8e1b9bd40ecb7a744e85b49e34c5af899101070e7e72c9f45621"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/vision/SKILL.md",
+          "sha256": "a96b2fce777f5d9e6895c83b8d5d6eba98d5383d1c54f60a877ed22ec6a79011"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/vision/openai.yaml",
+          "sha256": "ea3b553bed57095f44103c154315e2f6017e1767708339a8760fb3a735d15075"
+        },
+        {
+          "path": "bundle/.claude-plugin/marketplace.json",
+          "sha256": "db469d08d23b0473462773072387a5d8c0cc2427c604a98d47e874b034b72bff"
+        },
+        {
+          "path": "bundle/.claude-plugin/mcp.json",
+          "sha256": "14208140297f635cc5155cfe063c9b8a6193a3d0a264e0686cf3b80789208f27"
+        },
+        {
+          "path": "bundle/.claude-plugin/plugin.json",
+          "sha256": "2179506ae3d7cfa3d9c7d1f88a1723ac4cec146ae574bd06c91688a3caca70e6"
+        },
+        {
+          "path": "bundle/.mcp.json",
+          "sha256": "e16897732dbd20ba7f47e5c0513b146a8d847454c8c13aa9e0a6031e5a498fa4"
+        },
+        {
+          "path": "bundle/OMG_COMPAT_CONTRACT.md",
+          "sha256": "6d0727a754dc8a813e4c3e65fa3a4b70bde23fdd13686742e98fd4b29f495f79"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:code-review.md",
+          "sha256": "99ba9756586924d0ebdd43c4ca65f925b86f6c4bf6bc98d355f0cb9a17f9f6b0"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:deep-plan.md",
+          "sha256": "ccc235efa52643afd5550765bb0a3b9697be40bf4731392fde3f1c0e5c43f9e0"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:handoff.md",
+          "sha256": "eea0da517e14abb0a9bc6fe661f310a81c0282ff666803da4ae1be47fb597011"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:learn.md",
+          "sha256": "338f87222db65114f8c83de2185a21c7c2538832395524ac39ea38a0e09d73b3"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:maintainer.md",
+          "sha256": "1a29d4cb6839dd6de8c11b88b93a72fb9a371cfb7784bfe409d5e5ef0a825508"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:ralph-start.md",
+          "sha256": "31b2aded6032b5f061dbb7cd92dff53bbe3b527b9e9ba93d5043cad2847a6365"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:ralph-stop.md",
+          "sha256": "b43acad180bd205ddd78d42f1c7ecf315e521a0c345bf9d42b24d8c4d3913ce3"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:security-review.md",
+          "sha256": "f2a0e1a61b4110ac88202e2e5c166191867423235bf61030ef9cc082d964cc22"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:sequential-thinking.md",
+          "sha256": "1830de63009cb07c80cbcecf143f6df7560e7f031ac5b1d509b726d184e441da"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:ship.md",
+          "sha256": "3a44016f71a4d73de04043f0c13a6655541c090498908b2bc858c29514a653d4"
+        },
+        {
+          "path": "bundle/plugins/advanced/plugin.json",
+          "sha256": "44259d1cbddcc7e5b21af598e886e782bc42d82d1da3d23dea4da3f4b144386f"
+        },
+        {
+          "path": "bundle/registry/bundles/algorithms.yaml",
+          "sha256": "1cf6305c2826838a805f42ed2d773a2cf428d9ff5abb542e09cb86da2e3b46e5"
+        },
+        {
+          "path": "bundle/registry/bundles/api-twin.yaml",
+          "sha256": "1128f7cdcade155b11014c7899a3c206ef8f071091cb469300b91cc5ef5fda82"
+        },
+        {
+          "path": "bundle/registry/bundles/claim-judge.yaml",
+          "sha256": "7905b72d44fb41d4868d6b64700016fef87991729f16f9f4805de0ee673b595b"
+        },
+        {
+          "path": "bundle/registry/bundles/control-plane.yaml",
+          "sha256": "99002393ae686f02f1a8a2cf14805a60855969a394aef176ed844ebad9a99638"
+        },
+        {
+          "path": "bundle/registry/bundles/data-lineage.yaml",
+          "sha256": "84dd116c083a5cdb5372d5a033ae67f465751f4bc141728e3259a1c49316ecd8"
+        },
+        {
+          "path": "bundle/registry/bundles/delta-classifier.yaml",
+          "sha256": "ac910410dfff607768990227343b82526c645eeb986ad0bfd676e2fddd742898"
+        },
+        {
+          "path": "bundle/registry/bundles/eval-gate.yaml",
+          "sha256": "240662404dbc7faffcfa4de0e7d52c8a355a71b66e79bc341abbf0416a420617"
+        },
+        {
+          "path": "bundle/registry/bundles/health.yaml",
+          "sha256": "6fe31aa7cdb335921579fec96e8fe253b89458ddc9c4c846d7d145f9cfcac104"
+        },
+        {
+          "path": "bundle/registry/bundles/hook-governor.yaml",
+          "sha256": "d273f00af67c85e7cb8700a095889b686b8b46c62248a871f5a5b36564759d77"
+        },
+        {
+          "path": "bundle/registry/bundles/incident-replay.yaml",
+          "sha256": "8ff449760c2d2d70cdf584e22eaf2d1a4ad06e91bbb3fea67072fe7d5c167245"
+        },
+        {
+          "path": "bundle/registry/bundles/lsp-pack.yaml",
+          "sha256": "8a9cee8d7074c75e64abb1a083d68bb441f386d2497d1b3d48d476278c0adf0c"
+        },
+        {
+          "path": "bundle/registry/bundles/mcp-fabric.yaml",
+          "sha256": "7d1dac6fea6b81c6355de3910adc4b33244406c4e75ac5784ea457cabd922aeb"
+        },
+        {
+          "path": "bundle/registry/bundles/plan-council.yaml",
+          "sha256": "bd3534610fcf95be4f592097e085cbc6e157b36465e80724b22860ad9131c426"
+        },
+        {
+          "path": "bundle/registry/bundles/preflight.yaml",
+          "sha256": "4f047a339b865f48d938fe1210c16c6f81fd5997b8f9b8873c47f951a661d5be"
+        },
+        {
+          "path": "bundle/registry/bundles/proof-gate.yaml",
+          "sha256": "692480c9a8c3506c05cdfbdb6a3f54fe5b190e0ceb1b7316d7c1a56b6f34a646"
+        },
+        {
+          "path": "bundle/registry/bundles/remote-supervisor.yaml",
+          "sha256": "58d56c21926f80d1f62dabc77de467c87df27c46d6aa9823ad8b613866ffcefe"
+        },
+        {
+          "path": "bundle/registry/bundles/robotics.yaml",
+          "sha256": "9bce82dabd4128e590e088213cef59243636579088191226554beb72667c4c10"
+        },
+        {
+          "path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
+          "sha256": "d522283991cb96a75a468c70398654476bad289fe01c62e629d8503afcf9f9c3"
+        },
+        {
+          "path": "bundle/registry/bundles/security-check.yaml",
+          "sha256": "fcfe957e3a69fd3fc6fad57013b7d34420afea1f25ac9c5c2b8a1ec3cdcdfda6"
+        },
+        {
+          "path": "bundle/registry/bundles/test-intent-lock.yaml",
+          "sha256": "589cdecb474e3da150697ae81cab06ad5306c323d1b34871c5b6f88b70259d46"
+        },
+        {
+          "path": "bundle/registry/bundles/tracebank.yaml",
+          "sha256": "ee468665d4d54ad96fe73af7742aa36b3d6d830706c60259470822c9e55c6889"
+        },
+        {
+          "path": "bundle/registry/bundles/vision.yaml",
+          "sha256": "1642c21746608cf3809916c6bfa65e1768e3421fb24b9f649fd8e4322ac83eb9"
+        },
+        {
+          "path": "bundle/registry/omg-capability.schema.json",
+          "sha256": "660fb7ca3d26ba472065bc5174098337e862f89684ce22774f5ea3dec9560457"
+        },
+        {
+          "path": "bundle/settings.json",
+          "sha256": "5cd958ecb7840484976b3854d3aca5e93ccf78dc11bf8f5785901956e1417cd5"
+        }
+      ],
+      "integrity_errors": []
+    },
+    "dist_enterprise": {
+      "schema": "OmgCompiledArtifactManifest",
+      "channel": "enterprise",
+      "hosts": [
+        "claude",
+        "codex"
+      ],
+      "contract_version": "2.1.4",
+      "artifacts": [
+        {
+          "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
+          "sha256": "4e8f027295aaaf3573374599519eb839530cd9af6e34e70d7468a1f14e01222e"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/algorithms/SKILL.md",
+          "sha256": "9f007935886f168e43cd76b69857e81c579f9cce8174e14f9b6b0173739c337d"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/algorithms/openai.yaml",
+          "sha256": "879d3b5bcdb3ffa17387eae31634bd5ce7e2695c0e6dd3b478017843a024300d"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/api-twin/SKILL.md",
+          "sha256": "482db7bf01f80d8695f71f3bdbae8e9a179cf05355e736f90c40c1a3c9136fef"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/api-twin/openai.yaml",
+          "sha256": "a6caee113518bda5e2a470ca7d166d18969392bde1470ef2a47f8ead2c0e33ab"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/claim-judge/SKILL.md",
+          "sha256": "12ad7141a9441a3b616b4516d58a5faf6ebb28ed0cece35f5bfda109f0aa0bb0"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/claim-judge/openai.yaml",
+          "sha256": "39285cf57979ddfa917972719d2dfa32c2333f4f7a712a970a5b78c759e04295"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/codex-mcp.toml",
+          "sha256": "a56de208a369a2b318d2e66e150eef4cba1fac1ecf32bda6db1a1e4b65db7311"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/codex-rules.md",
+          "sha256": "bff9ed8de9aead25b9c5528b21b90486f4611742a58b768f8d1343b444fa5390"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/control-plane/SKILL.md",
+          "sha256": "e3a53f89e15018895691657eb3962f942558475d6faaae760e7d48774ce6a47e"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/control-plane/openai.yaml",
+          "sha256": "e7ed793f93c54683ef34e7f43b5c0d9409ad203b77f26cda699a448a13037e6c"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/data-lineage/SKILL.md",
+          "sha256": "af65df929c47a35253f606b8a03bc4c61b57d3e811182d22ed95e5cd6eb78461"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/data-lineage/openai.yaml",
+          "sha256": "3acf68fd89ff0141b25b060b8492df65464e841524941f008f26e21d5d954c49"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/delta-classifier/SKILL.md",
+          "sha256": "55bf1b35526993296f16feb6a0f61e51fd840affee8b40aafab0ec7f9574a2ee"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/delta-classifier/openai.yaml",
+          "sha256": "bbea79e16e2e395402635cbb2874bf4db1e1e0661ce6d30e4e76697510d277eb"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/eval-gate/SKILL.md",
+          "sha256": "e03cb62bb11aed70592fbd1f36c89edb9bec142f1402ca16fe7d5423e4c245e8"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/eval-gate/openai.yaml",
+          "sha256": "3c440002312de0f9c6837a833d4309597bcefb9642e9424e032c11900e19d76e"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/health/SKILL.md",
+          "sha256": "0c562e6e071e7b01c9ffea76293d425d45f4aaef4297c42ef757ca7113a6ca02"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/health/openai.yaml",
+          "sha256": "120dbeeaafccf58d638a345dbf940c0fa63f3ec3e9b01a0e18957da4557c5ac5"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/hook-governor/SKILL.md",
+          "sha256": "7c745315ed02595fe0f6c927118dae49ddcb7a412ddff0c06cb0973f1d7b77ca"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/hook-governor/openai.yaml",
+          "sha256": "a7c54e5933bcb7eddc1e0e901ca05174f9cd37065f3195d97839733a43bea30b"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/incident-replay/SKILL.md",
+          "sha256": "017df90e8fccb74e128b5075526ef1b2ad159673dd9f5de49750ceeb08ebe8c5"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/incident-replay/openai.yaml",
+          "sha256": "f4ec374aef096a7806d6e099185dd891e84b8a73db8059970ef398434e867ff4"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/lsp-pack/SKILL.md",
+          "sha256": "d5c6773fa614fe6747f205283a82374b2167d1d9b32e7fd75f429072fadb8a3a"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/lsp-pack/openai.yaml",
+          "sha256": "6e99216f7b228e300a16ac3cbe4ae4fcbba6082b622387e6087b76a6cb76d3dc"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/mcp-fabric/SKILL.md",
+          "sha256": "fc17847f79397dba144ddbb40a8ad3207494c3a7f0b2dde1dc55dce2e5b117a9"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/mcp-fabric/openai.yaml",
+          "sha256": "2165ff298b110ef7fb6c42b6b539f8397b8772218de3fa2b8c2332fdd8db6d48"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/plan-council/SKILL.md",
+          "sha256": "f6fa96029e14e71b2d89c84f4312a68e25528b584ecf871c1cf3779e944ba0fc"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/plan-council/openai.yaml",
+          "sha256": "3afa688f970eb964620431b9638f7d290700f878add7ae999442df9c4dbb4f67"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/preflight/SKILL.md",
+          "sha256": "f9876277a0b836a3bcbe6e8b140368a85447658820974e09bec2fb1795fb0307"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/preflight/openai.yaml",
+          "sha256": "97945c1a557703c41b53c68797ab9b5a38f8d69e1a9af45ed427bee7e37f589c"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/proof-gate/SKILL.md",
+          "sha256": "c421002fb132dcad1f02f69dca7f10e36e7d66e15c3a79b2531193eaea88253b"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/proof-gate/openai.yaml",
+          "sha256": "b38d5daf13301e7428565cd95a2af42d4ff3368d3394814fe11b50ee673e9ee6"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/remote-supervisor/SKILL.md",
+          "sha256": "05be2c248fc0eee2a3db70c0ddeba32b25881b3cc914ce16b719292add77b0c3"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/remote-supervisor/openai.yaml",
+          "sha256": "e7f8a7c1f099c76d0aafc95b535e10a1c07e591a5db09a67ecccedc0ebd68c26"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/robotics/SKILL.md",
+          "sha256": "1a54e7292d39aaced9f296bcdc65cc86b41dfa41d95f063582e1dc249ffb48c5"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/robotics/openai.yaml",
+          "sha256": "8d6b6539867cb4080c4502d3325f9f32954290ace6bbc2bb20e9acbf619b61a5"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md",
+          "sha256": "a11292d0122844f7c185e21943d3a39ef3213cf5348f40f006c8fdc8b62f252f"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml",
+          "sha256": "c766a383969893fd29fcd1da712e29e0422709a7b9f665e53e1ca8187c2bd207"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/security-check/SKILL.md",
+          "sha256": "30cc33d0b6c3d7d4c968f917121bcea3d696be80c3896da2635a63a01c4afa91"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/security-check/openai.yaml",
+          "sha256": "9c47e9fa2ddcb341fa75d4307c5e36e0b928b06fdb28bd7b69ca6cb5941f6b77"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/test-intent-lock/SKILL.md",
+          "sha256": "98eca9c53d5228dddd218c29914aab8af5d94eb4ad19ed54e9947af4e53f959c"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/test-intent-lock/openai.yaml",
+          "sha256": "62934b4eef9e0bd516d7db4864cf178e8367d47c7b5a5f9f883427c633e416fa"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/tracebank/SKILL.md",
+          "sha256": "5bac45273cd62373fb4387f8e64a63c4fb69f984a44ee79938be2273b5913b03"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/tracebank/openai.yaml",
+          "sha256": "5896ef1980b5a13171756eb27f317d3b32b7d084133552f1d11dfea12d8742ab"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/vision/SKILL.md",
+          "sha256": "9cd5405640edc6e80a8110234f59f6aeb197ececa37a145619d30083ee2263d4"
+        },
+        {
+          "path": "bundle/.agents/skills/omg/vision/openai.yaml",
+          "sha256": "8a6f4e40c91ffff3686af47f6902043cf090df7afc530b052f1344efe9cc8e0a"
+        },
+        {
+          "path": "bundle/.claude-plugin/marketplace.json",
+          "sha256": "db469d08d23b0473462773072387a5d8c0cc2427c604a98d47e874b034b72bff"
+        },
+        {
+          "path": "bundle/.claude-plugin/mcp.json",
+          "sha256": "14208140297f635cc5155cfe063c9b8a6193a3d0a264e0686cf3b80789208f27"
+        },
+        {
+          "path": "bundle/.claude-plugin/plugin.json",
+          "sha256": "2179506ae3d7cfa3d9c7d1f88a1723ac4cec146ae574bd06c91688a3caca70e6"
+        },
+        {
+          "path": "bundle/.mcp.json",
+          "sha256": "e16897732dbd20ba7f47e5c0513b146a8d847454c8c13aa9e0a6031e5a498fa4"
+        },
+        {
+          "path": "bundle/OMG_COMPAT_CONTRACT.md",
+          "sha256": "6d0727a754dc8a813e4c3e65fa3a4b70bde23fdd13686742e98fd4b29f495f79"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:code-review.md",
+          "sha256": "99ba9756586924d0ebdd43c4ca65f925b86f6c4bf6bc98d355f0cb9a17f9f6b0"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:deep-plan.md",
+          "sha256": "ccc235efa52643afd5550765bb0a3b9697be40bf4731392fde3f1c0e5c43f9e0"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:handoff.md",
+          "sha256": "eea0da517e14abb0a9bc6fe661f310a81c0282ff666803da4ae1be47fb597011"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:learn.md",
+          "sha256": "338f87222db65114f8c83de2185a21c7c2538832395524ac39ea38a0e09d73b3"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:maintainer.md",
+          "sha256": "1a29d4cb6839dd6de8c11b88b93a72fb9a371cfb7784bfe409d5e5ef0a825508"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:ralph-start.md",
+          "sha256": "31b2aded6032b5f061dbb7cd92dff53bbe3b527b9e9ba93d5043cad2847a6365"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:ralph-stop.md",
+          "sha256": "b43acad180bd205ddd78d42f1c7ecf315e521a0c345bf9d42b24d8c4d3913ce3"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:security-review.md",
+          "sha256": "f2a0e1a61b4110ac88202e2e5c166191867423235bf61030ef9cc082d964cc22"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:sequential-thinking.md",
+          "sha256": "1830de63009cb07c80cbcecf143f6df7560e7f031ac5b1d509b726d184e441da"
+        },
+        {
+          "path": "bundle/plugins/advanced/commands/OMG:ship.md",
+          "sha256": "3a44016f71a4d73de04043f0c13a6655541c090498908b2bc858c29514a653d4"
+        },
+        {
+          "path": "bundle/plugins/advanced/plugin.json",
+          "sha256": "44259d1cbddcc7e5b21af598e886e782bc42d82d1da3d23dea4da3f4b144386f"
+        },
+        {
+          "path": "bundle/registry/bundles/algorithms.yaml",
+          "sha256": "1cf6305c2826838a805f42ed2d773a2cf428d9ff5abb542e09cb86da2e3b46e5"
+        },
+        {
+          "path": "bundle/registry/bundles/api-twin.yaml",
+          "sha256": "1128f7cdcade155b11014c7899a3c206ef8f071091cb469300b91cc5ef5fda82"
+        },
+        {
+          "path": "bundle/registry/bundles/claim-judge.yaml",
+          "sha256": "7905b72d44fb41d4868d6b64700016fef87991729f16f9f4805de0ee673b595b"
+        },
+        {
+          "path": "bundle/registry/bundles/control-plane.yaml",
+          "sha256": "99002393ae686f02f1a8a2cf14805a60855969a394aef176ed844ebad9a99638"
+        },
+        {
+          "path": "bundle/registry/bundles/data-lineage.yaml",
+          "sha256": "84dd116c083a5cdb5372d5a033ae67f465751f4bc141728e3259a1c49316ecd8"
+        },
+        {
+          "path": "bundle/registry/bundles/delta-classifier.yaml",
+          "sha256": "ac910410dfff607768990227343b82526c645eeb986ad0bfd676e2fddd742898"
+        },
+        {
+          "path": "bundle/registry/bundles/eval-gate.yaml",
+          "sha256": "240662404dbc7faffcfa4de0e7d52c8a355a71b66e79bc341abbf0416a420617"
+        },
+        {
+          "path": "bundle/registry/bundles/health.yaml",
+          "sha256": "6fe31aa7cdb335921579fec96e8fe253b89458ddc9c4c846d7d145f9cfcac104"
+        },
+        {
+          "path": "bundle/registry/bundles/hook-governor.yaml",
+          "sha256": "d273f00af67c85e7cb8700a095889b686b8b46c62248a871f5a5b36564759d77"
+        },
+        {
+          "path": "bundle/registry/bundles/incident-replay.yaml",
+          "sha256": "8ff449760c2d2d70cdf584e22eaf2d1a4ad06e91bbb3fea67072fe7d5c167245"
+        },
+        {
+          "path": "bundle/registry/bundles/lsp-pack.yaml",
+          "sha256": "8a9cee8d7074c75e64abb1a083d68bb441f386d2497d1b3d48d476278c0adf0c"
+        },
+        {
+          "path": "bundle/registry/bundles/mcp-fabric.yaml",
+          "sha256": "7d1dac6fea6b81c6355de3910adc4b33244406c4e75ac5784ea457cabd922aeb"
+        },
+        {
+          "path": "bundle/registry/bundles/plan-council.yaml",
+          "sha256": "bd3534610fcf95be4f592097e085cbc6e157b36465e80724b22860ad9131c426"
+        },
+        {
+          "path": "bundle/registry/bundles/preflight.yaml",
+          "sha256": "4f047a339b865f48d938fe1210c16c6f81fd5997b8f9b8873c47f951a661d5be"
+        },
+        {
+          "path": "bundle/registry/bundles/proof-gate.yaml",
+          "sha256": "692480c9a8c3506c05cdfbdb6a3f54fe5b190e0ceb1b7316d7c1a56b6f34a646"
+        },
+        {
+          "path": "bundle/registry/bundles/remote-supervisor.yaml",
+          "sha256": "58d56c21926f80d1f62dabc77de467c87df27c46d6aa9823ad8b613866ffcefe"
+        },
+        {
+          "path": "bundle/registry/bundles/robotics.yaml",
+          "sha256": "9bce82dabd4128e590e088213cef59243636579088191226554beb72667c4c10"
+        },
+        {
+          "path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
+          "sha256": "d522283991cb96a75a468c70398654476bad289fe01c62e629d8503afcf9f9c3"
+        },
+        {
+          "path": "bundle/registry/bundles/security-check.yaml",
+          "sha256": "fcfe957e3a69fd3fc6fad57013b7d34420afea1f25ac9c5c2b8a1ec3cdcdfda6"
+        },
+        {
+          "path": "bundle/registry/bundles/test-intent-lock.yaml",
+          "sha256": "589cdecb474e3da150697ae81cab06ad5306c323d1b34871c5b6f88b70259d46"
+        },
+        {
+          "path": "bundle/registry/bundles/tracebank.yaml",
+          "sha256": "ee468665d4d54ad96fe73af7742aa36b3d6d830706c60259470822c9e55c6889"
+        },
+        {
+          "path": "bundle/registry/bundles/vision.yaml",
+          "sha256": "1642c21746608cf3809916c6bfa65e1768e3421fb24b9f649fd8e4322ac83eb9"
+        },
+        {
+          "path": "bundle/registry/omg-capability.schema.json",
+          "sha256": "660fb7ca3d26ba472065bc5174098337e862f89684ce22774f5ea3dec9560457"
+        },
+        {
+          "path": "bundle/settings.json",
+          "sha256": "3e41e1d81b3d489655be35364da3385351ae5895385372d8a696582843e1d718"
+        }
+      ],
+      "integrity_errors": []
+    },
+    "compiled_outputs": {
+      "missing": []
+    },
+    "bundle_outputs": {
+      "missing": []
+    },
+    "evidence": {
+      "status": "ok",
+      "evidence_file": ".omg/evidence/run-1.json",
+      "run_id": "run-1",
+      "blockers": []
+    },
+    "doctor": {
+      "status": "ok",
+      "path": ".omg/evidence/doctor.json",
+      "doctor": {
+        "schema": "DoctorResult",
+        "status": "pass",
+        "checks": [
+          {
+            "name": "python_version",
+            "status": "ok",
+            "message": "Python 3.13.12",
+            "required": true
+          },
+          {
+            "name": "fastmcp",
+            "status": "ok",
+            "message": "fastmcp importable",
+            "required": true
+          },
+          {
+            "name": "omg_control_reachable",
+            "status": "ok",
+            "message": "omg-control configured (stdio: python3)",
+            "required": true
+          },
+          {
+            "name": "policy_files",
+            "status": "ok",
+            "message": "commands/ present (policy.yaml missing)",
+            "required": true
+          },
+          {
+            "name": "metadata_drift",
+            "status": "ok",
+            "message": "all version surfaces aligned",
+            "required": true
+          },
+          {
+            "name": "compiled_bundles",
+            "status": "ok",
+            "message": "dist/ contains compiled bundles",
+            "required": false
+          },
+          {
+            "name": "host_compatibility",
+            "status": "ok",
+            "message": "host config dir exists (/Users/cminseo/.claude)",
+            "required": false
+          },
+          {
+            "name": "memory_reachable",
+            "status": "ok",
+            "message": "HTTP memory not configured (optional)",
+            "required": false
+          },
+          {
+            "name": "managed_runtime",
+            "status": "ok",
+            "message": "managed venv at /Users/cminseo/.claude/omg-runtime/.venv",
+            "required": false
+          }
+        ],
+        "version": "2.1.4"
+      },
+      "blockers": []
+    },
+    "eval_gate": {
+      "status": "ok",
+      "path": ".omg/evals/latest.json",
+      "blockers": []
+    },
+    "proof_chain": {
+      "status": "ok",
+      "proof_chain": {
+        "schema": "ProofChain",
+        "schema_version": 2,
+        "trace_id": "trace-1",
+        "eval_id": "eval-1",
+        "eval_trace_id": "trace-1",
+        "lineage": {
+          "trace_id": "trace-1",
+          "path": ".omg/lineage/lineage-1.json"
+        },
+        "lineage_trace_id": "trace-1",
+        "evidence_path": ".omg/evidence/run-1.json",
+        "security_scans": [
+          {
+            "tool": "security-check",
+            "path": ".omg/evidence/security-check.json"
+          }
+        ],
+        "timestamp": "2026-03-07T00:00:00Z",
+        "executor": {
+          "user": "release-bot",
+          "pid": 1
+        },
+        "environment": {
+          "hostname": "localhost",
+          "platform": "linux"
+        },
+        "ci_job_url": "",
+        "external_inputs": [],
+        "artifacts": [
+          {
+            "kind": "trace",
+            "path": ".omg/tracebank/events.jsonl",
+            "sha256": "f4600639430c1c52b4d5e450d0d1f8cf1b259d7cbf0afb82d486f77b542d033e",
+            "parser": "jsonl",
+            "summary": "tracebank event stream",
+            "trace_id": "trace-1"
+          },
+          {
+            "kind": "eval",
+            "path": ".omg/evals/latest.json",
+            "sha256": "eb58a42b4bc18bea93031438d7d7fbd2377a102272d3b0214ca0c353bc92537e",
+            "parser": "json",
+            "summary": "evaluation result",
+            "trace_id": "trace-1"
+          },
+          {
+            "kind": "lineage",
+            "path": ".omg/lineage/lineage-1.json",
+            "sha256": "50636701938e89fb3698f7712212c93f88a2868038a0c91ed06e08a77a4cfea9",
+            "parser": "json",
+            "summary": "lineage manifest",
+            "trace_id": "trace-1"
+          },
+          {
+            "kind": "evidence",
+            "path": ".omg/evidence/run-1.json",
+            "sha256": "d96408ae50230781a91942816878f1caf5e65b62f36398ba87ad3893a66773b2",
+            "parser": "json",
+            "summary": "evidence pack",
+            "trace_id": "trace-1"
+          }
+        ],
+        "status": "ok",
+        "blockers": []
+      },
+      "proof_gate": {
+        "schema": "ProofGateResult",
+        "verdict": "pass",
+        "blockers": [],
+        "evidence_summary": {
+          "claim_count": 1,
+          "proof_chain_status": "ok",
+          "proof_chain_blocker_count": 0,
+          "required_artifacts": [
+            "junit",
+            "coverage",
+            "sarif",
+            "browser_trace"
+          ],
+          "evidence_profile": "",
+          "evidence_requirements": [
+            "tests",
+            "lsp_clean",
+            "build",
+            "provenance",
+            "trust_scores",
+            "security_scan",
+            "license_scan",
+            "sbom",
+            "trace_link"
+          ],
+          "trace_id": "trace-1",
+          "eval_trace_id": "trace-1",
+          "has_security_evidence": true,
+          "has_browser_evidence": false,
+          "has_lock_evidence": false,
+          "has_waiver_artifact": false,
+          "advisories": [
+            "proof_gate_missing_lock_evidence"
+          ]
+        }
+      },
+      "blockers": []
+    },
+    "execution_primitives": {
+      "status": "ok",
+      "run_id": "run-1",
+      "evidence_profile": "release",
+      "required_evidence_requirements": [
+        "tests",
+        "lsp_clean",
+        "build",
+        "provenance",
+        "trust_scores",
+        "security_scan",
+        "license_scan",
+        "sbom",
+        "trace_link"
+      ],
+      "evidence_pack": ".omg/evidence/run-1.json",
+      "required": [
+        "release_run_coordinator_state",
+        "tdd_proof_chain_lock",
+        "rollback_manifest",
+        "intent_gate_state",
+        "profile_digest",
+        "session_health_state",
+        "council_verdicts",
+        "forge_starter_proof"
+      ],
+      "missing": [],
+      "invalid": [],
+      "evidence_paths": {
+        "release_run_coordinator_state": ".omg/state/release_run_coordinator/run-1.json",
+        "tdd_proof_chain_lock": ".omg/state/test-intent-lock/lock-1.json",
+        "rollback_manifest": ".omg/state/rollback_manifest/run-1-step-1.json",
+        "intent_gate_state": ".omg/state/intent_gate/run-1.json",
+        "profile_digest": ".omg/state/profile.yaml",
+        "session_health_state": ".omg/state/session_health/run-1.json",
+        "council_verdicts": ".omg/state/council_verdicts/run-1.json",
+        "forge_starter_proof": ".omg/evidence/forge-specialists-run-1.json"
+      },
+      "blockers": []
+    },
+    "security_blocker_unwaived": {
+      "status": "ok",
+      "blockers": []
+    },
+    "proof_surface": {
+      "status": "ok",
+      "path": "docs/proof.md",
+      "hardcoded_counts": false,
+      "has_artifact_refs": true,
+      "blockers": []
+    },
+    "same_machine_scope": {
+      "status": "ok",
+      "scanned": [
+        "README.md",
+        "docs/proof.md",
+        "OMG_COMPAT_CONTRACT.md",
+        ".mcp.json"
+      ],
+      "blockers": []
+    },
+    "package_smoke": {
+      "status": "ok",
+      "blockers": []
+    },
+    "version_identity_drift": {
+      "status": "ok",
+      "canonical_version": "2.1.4",
+      "blockers": [],
+      "drift_details": {}
+    },
+    "bundle_promotion_parity": {
+      "status": "ok",
+      "blockers": [],
+      "missing_settings_required_bundles": [],
+      "missing_dist_public": [],
+      "missing_dist_enterprise": [],
+      "missing_pyproject_data_files": []
+    },
+    "providers": {
+      "claude": {
+        "ready": true,
+        "source": "env"
+      },
+      "codex": {
+        "ready": true,
+        "source": "env"
+      },
+      "gemini": {
+        "ready": true,
+        "source": "provider"
+      },
+      "kimi": {
+        "ready": true,
+        "source": "provider"
+      }
+    },
+    "provider_host_parity": {
+      "status": "ok",
+      "blockers": []
+    },
+    "worktree": {
+      "ready": true
+    },
+    "mcp_fabric": {
+      "ready": true,
+      "prompt_count": 1,
+      "resource_count": 2
+    }
+  }
+}
+{
+  "status": "ok",
+  "message": "OMG compat gate passed: bridge=0 <= max_bridge=0",
+  "report": {
+    "schema": "OmgCompatGapReport",
+    "generated_at": "2026-03-09T21:26:10.231858+00:00",
+    "total_skills": 47,
+    "maturity_counts": {
+      "native": 47
+    },
+    "route_counts": {
+      "cancel": 1,
+      "ccg": 4,
+      "health": 6,
+      "help": 1,
+      "init": 3,
+      "learn": 3,
+      "maintainer": 4,
+      "memory": 5,
+      "pipeline": 1,
+      "plan": 5,
+      "review": 3,
+      "runtime_ship": 7,
+      "security_check": 1,
+      "teams": 3
+    },
+    "native_skills": [
+      "analyze",
+      "autopilot",
+      "beads",
+      "build-fix",
+      "cancel",
+      "ccg",
+      "claude-flow",
+      "claude-mem",
+      "code-review",
+      "compound-engineering",
+      "compounding-engineering",
+      "configure-notifications",
+      "configure-openclaw",
+      "deepinit",
+      "external-context",
+      "hooks-mastery",
+      "hud",
+      "learn-about-omg",
+      "learner",
+      "mcp-setup",
+      "memsearch",
+      "note",
+      "omg-doctor",
+      "omg-help",
+      "omg-setup",
+      "omg-superpowers",
+      "omg-teams",
+      "pipeline",
+      "plan",
+      "planning-with-files",
+      "project-session-manager",
+      "ralph",
+      "ralph-init",
+      "ralph-wiggum",
+      "ralplan",
+      "release",
+      "review",
+      "sci-omg",
+      "security-review",
+      "skill",
+      "tdd",
+      "team",
+      "trace",
+      "ultrapilot",
+      "ultraqa",
+      "ultrawork",
+      "writer-memory"
+    ],
+    "bridge_skills": [],
+    "report_path": "/private/var/folders/tz/9h9jcw_s2jn6qm8cfsn5tkr40000gn/T/tmp.wWEIBWeeUv/.omg/evidence/omg-compat-gap.json",
+    "legacy_report_path": "/private/var/folders/tz/9h9jcw_s2jn6qm8cfsn5tkr40000gn/T/tmp.wWEIBWeeUv/.omg/evidence/compat-gap.json"
+  }
+}
+{
+  "status": "ok",
+  "message": "public readiness check passed"
+}
+=== Validating release identity ===
+{
+  "canonical_version": "2.1.4",
+  "scope": "all",
+  "forbid_version": "2.1.1",
+  "authored": {
+    "status": "ok",
+    "blockers": []
+  },
+  "derived": {
+    "status": "ok",
+    "blockers": []
+  },
+  "scoped_residue": {
+    "status": "ok",
+    "forbid_version": "2.1.1",
+    "blockers": []
+  },
+  "overall_status": "ok"
+}
+.......................................................................

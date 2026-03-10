@@ -1,6 +1,6 @@
 {
   "name": "omg-advanced",
-  "version": "2.1.1",
+  "version": "2.1.4",
   "description": "Advanced OMG commands - deep planning, learning, code review, and specialized workflows",
   "type": "omg-plugin",
   "commands": {
@@ -53,35 +53,52 @@
   "categories": {
     "planning": {
       "description": "Strategic planning and architecture",
-      "commands": ["deep-plan"]
+      "commands": [
+        "deep-plan"
+      ]
     },
     "quality": {
       "description": "Code quality and review",
-      "commands": ["code-review"]
+      "commands": [
+        "code-review"
+      ]
     },
     "knowledge": {
       "description": "Learning and skill creation",
-      "commands": ["learn"]
+      "commands": [
+        "learn"
+      ]
     },
     "delivery": {
       "description": "Shipping and release workflows",
-      "commands": ["ship"]
+      "commands": [
+        "ship"
+      ]
     },
     "collaboration": {
       "description": "Team collaboration and handoff",
-      "commands": ["handoff"]
+      "commands": [
+        "handoff"
+      ]
     },
     "automation": {
       "description": "Autonomous execution modes",
-      "commands": ["ralph-start", "ralph-stop"]
+      "commands": [
+        "ralph-start",
+        "ralph-stop"
+      ]
     },
     "thinking": {
       "description": "Structured thinking tools",
-      "commands": ["sequential-thinking"]
+      "commands": [
+        "sequential-thinking"
+      ]
     },
     "oss": {
       "description": "Open source maintainer tools",
-      "commands": ["maintainer"]
+      "commands": [
+        "maintainer"
+      ]
     }
   }
 }

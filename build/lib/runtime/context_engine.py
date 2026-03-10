@@ -12,11 +12,12 @@ from __future__ import annotations
 import json
 import os
 import re
-import hashlib
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from runtime.profile_io import profile_version_from_map
 
 _MAX_SUMMARY_CHARS = 1000
 _MAX_CLARIFICATION_PROMPT_CHARS = 180
@@ -223,13 +224,13 @@ def _resolve_profile_version_pointer(profile: dict[str, Any], provenance: dict[s
         provenance.get("checksum"),
         provenance.get("version"),
     ):
+        if candidate is None:
+            continue
         text = _clean_single_line(candidate)
         if text:
             return text[:64]
-    if raw_profile:
-        digest = hashlib.sha256(raw_profile.encode("utf-8", errors="ignore")).hexdigest()[:12]
-        return f"sha256:{digest}"
-    return ""
+    # Deterministic: hash the parsed dict, not the raw text
+    return profile_version_from_map(profile)
 
 
 class ContextEngine:

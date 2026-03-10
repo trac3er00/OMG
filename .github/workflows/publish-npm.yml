@@ -52,6 +52,11 @@ jobs:
           fi
           echo "All three version sources match: $TAG_VERSION"
 
+      - name: Validate full release identity
+        run: python3 scripts/validate-release-identity.py --scope all --forbid-version 2.1.1
+      - name: Validate contract
+        run: python3 scripts/omg.py contract validate
+
       - name: Publish to npm
         run: npm publish --access public
         env:
