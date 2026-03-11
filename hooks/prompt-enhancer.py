@@ -19,6 +19,11 @@ import json, sys, os, re, time
 from datetime import datetime, timezone
 import importlib
 
+try:
+    from runtime.complexity_scorer import score_complexity
+except ImportError:
+    score_complexity = None
+
 HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
@@ -403,10 +408,21 @@ if not is_crazy and not is_ulw and budget_ok():
     elif word_count > 40:
         complexity_score += 1
 
+    complexity_category = "low"
+    if score_complexity is not None:
+        try:
+            scored = score_complexity(prompt)
+            scored_category = str(scored.get("category", "low")).strip().lower()
+            if scored_category in {"trivial", "low", "medium", "high"}:
+                complexity_category = scored_category
+        except Exception:
+            pass
+
     # HIGH complexity (≥4): auto-trigger CRAZY
     if complexity_score >= 4:
         add(
             "@mode:CRAZY(auto) — Complex task detected (multi-step/multi-component). "
+            f"Complexity label={complexity_category}. "
             "All agents active: Claude=orchestrator, Codex=deep-code, Gemini=UI/UX. "
             "Work through all items systematically. Verify each step."
         )
@@ -414,6 +430,7 @@ if not is_crazy and not is_ulw and budget_ok():
     elif complexity_score >= 2:
         add(
             "@mode:PERSISTENT(auto) — Multi-step task detected. "
+            f"Complexity label={complexity_category}. "
             "Work through ALL items. Skip if blocked, continue others. "
             "Don't stop until checklist complete."
         )

@@ -10,6 +10,7 @@ import json
 
 from runtime.context_engine import ContextEngine
 from runtime.compliance_governor import evaluate_tool_compliance
+from runtime.complexity_scorer import score_complexity
 from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
 from runtime.runtime_contracts import read_run_state
 
@@ -169,12 +170,10 @@ def _estimate_context_chars(context_packet: dict[str, object] | None) -> int:
 
 
 def _goal_complexity(goal: str) -> str:
-    length = len(goal.split())
-    if length >= 25:
-        return "high"
-    if length >= 10:
-        return "medium"
-    return "low"
+    category = str(score_complexity(goal).get("category", "low"))
+    if category == "trivial":
+        return "low"
+    return category
 
 
 def _new_plan_id(run_id: str | None) -> str:
@@ -327,4 +326,3 @@ def _clarification_status(context_packet: dict[str, object]) -> dict[str, object
         "clarification_prompt": prompt,
         "confidence": round(max(0.0, min(1.0, confidence)), 2),
     }
-

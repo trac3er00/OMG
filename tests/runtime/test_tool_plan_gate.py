@@ -9,6 +9,7 @@ import pytest
 from runtime.tool_plan_gate import build_tool_plan, tool_plan_gate_check
 import runtime.tool_plan_gate as tool_plan_gate
 from runtime.compliance_governor import evaluate_tool_compliance
+from runtime.complexity_scorer import score_complexity
 
 
 def test_build_tool_plan_returns_required_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -319,3 +320,70 @@ class TestComplexityLabel:
             assert actual == expected, (
                 f"Goal {goal!r}: expected {expected!r}, got {actual!r}"
             )
+
+
+class TestSharedComplexityContract:
+    def test_score_complexity_contract_shape(self) -> None:
+        payload = score_complexity("fix typo")
+
+        assert isinstance(payload["score"], int)
+        assert payload["category"] in {"trivial", "low", "medium", "high"}
+        governance = cast(dict[str, object], payload["governance"])
+        assert isinstance(governance["read_first"], bool)
+        assert isinstance(governance["simplify_only"], bool)
+        assert isinstance(governance["optimize_only"], bool)
+        assert governance["complexity"] == payload["category"]
+        assert governance["complexity_score"] == payload["score"]
+
+    @pytest.mark.parametrize(
+        ("goal", "expected_label"),
+        [
+            ("fix typo", "low"),
+            ("update the login form validation and add error messages for each field", "medium"),
+            (
+                "refactor the authentication module, migrate the database schema, "
+                "update all frontend components to use the new API endpoints, "
+                "and deploy the staging environment with full integration tests",
+                "high",
+            ),
+        ],
+    )
+    def test_tool_plan_uses_same_shared_category(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        goal: str,
+        expected_label: str,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-shared")
+
+        shared = score_complexity(goal)
+        plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+
+        assert shared["category"] == expected_label
+        assert budget["goal_complexity"] == expected_label
+
+    def test_governance_flags_follow_policy_thresholds(self) -> None:
+        low_goal = "fix typo"
+        high_goal = (
+            "refactor the authentication module, migrate the database schema, "
+            "update all frontend components to use the new API endpoints, "
+            "and deploy the staging environment with full integration tests"
+        )
+
+        low_payload = score_complexity(low_goal)
+        low_governance = cast(dict[str, object], low_payload["governance"])
+        assert low_payload["category"] == "low"
+        assert low_governance["read_first"] is (cast(int, low_payload["score"]) >= 3)
+        assert low_governance["simplify_only"] is True
+        assert low_governance["optimize_only"] is False
+
+        high_payload = score_complexity(high_goal)
+        high_governance = cast(dict[str, object], high_payload["governance"])
+        assert high_payload["category"] == "high"
+        assert high_governance["read_first"] is (cast(int, high_payload["score"]) >= 3)
+        assert high_governance["simplify_only"] is False
+        assert high_governance["optimize_only"] is True
