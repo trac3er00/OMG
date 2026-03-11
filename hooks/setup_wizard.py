@@ -14,12 +14,17 @@ from typing import Any, cast
 
 import yaml
 
-from hooks._common import get_feature_flag
+_HOOKS_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _HOOKS_DIR.parent
+_PORTABLE_RUNTIME_ROOT = _PROJECT_ROOT / "omg-runtime"
+for path in (_HOOKS_DIR, _PROJECT_ROOT, _PORTABLE_RUNTIME_ROOT):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
-# Ensure project root is on sys.path for runtime imports
-_PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
+from hooks._common import bootstrap_runtime_paths, get_feature_flag
+
+bootstrap_runtime_paths(__file__)
 
 from runtime.cli_provider import get_provider, list_available_providers  # noqa: E402
 from runtime.mcp_config_writers import (  # noqa: E402
