@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 2.1.6 - 2026-03-11
+
+- fixed `/OMG:deep-plan` 404 by adding missing root compatibility stub routing to canonical plan-council bundle
+- added manifest-driven release readiness gate that audits plugin command source paths against manifests and fails fast on missing files
+- removed hard-coded artifact constant; advanced plugin artifacts now derived dynamically from `plugins/advanced/plugin.json`
+- purged all `2.1.1` version residue from scripts, docs, CI workflows, and tests; tightened identity validation to strict exit-code 0
+- added proof-backed compliance governor as single precedence authority over tool-plan gating, claim-judge verdicts, and artifact trust checks
+- added deterministic forge run contracts with explicit seed derivation and replay validation
+- shipped local-first agentic storage foundation with SQLite/FTS5 full-text search and adjacency-table lineage
+- added HMAC-SHA256 offline signed artifact attestation; release promotion gate now blocks unsigned artifacts
+- added sandboxed Forge runner with explicit time, cost, GPU, and network budget enforcement per run
+- shipped live Axolotl adapter with SFT/GRPO/GDPO modes, bounded hyperparameter search, and LoRA double-stacking guards
+- added live simulator backends for PyBullet, Gazebo, and Isaac Gym with CPU-only mock for CI environments
+- replaced simulated Forge pipeline outcomes with live evidence; `simulated_metric` fully removed as success criterion
+- added buffet preset as canonical configuration with single source of truth across setup, runtime, and config; includes `NOTEBOOKLM` and `COUNCIL_ROUTING` flags
+- added bounded session health auto-actions (pause, reflect, warn, require-review) with explicit evidence persistence
+- extended host-parity compiler with claim-judge and compliance governor in release audit; Gemini and Kimi added as canonical hosts
+- expanded 5 evidence profiles (browser-flow, forge-cybersecurity, interop-diagnosis, install-validation, buffet) with concrete non-placeholder data
+
 ## 2.1.5 - 2026-03-09
 
 - shipped Forge v0.3 as the flagship feature

@@ -84,3 +84,9 @@
 - Profile review CLI (`cmd_profile_review`) now includes `risk_assessment` in its output, keeping the command strictly read-only.
 - Validate's `_check_profile_governor()` now surfaces `risk=low|medium|high` in its message for visibility.
 - All auto-actions carry `bounded: True` — no self-healing or autonomous recovery paths exist.
+
+## [2026-03-10] Task 12 - Host-Parity Compiler v2 and Release Audit
+- Extended `control-plane` policy model to include canonical host rules for Gemini/Kimi plus explicit evidence-contract fields for attestation and claim/compliance verdicts.
+- `contract_compiler` now emits a shared `phase1_release_contract` block across Claude/Gemini/Kimi host artifacts and adds a Codex `## Release Audit` section carrying claim/compliance and attestation expectations.
+- Release readiness now records `claim_judge_compliance` checks and requires `claim_judge_outcome` + `compliance_governor_outcome` execution primitives in addition to existing Phase 1 primitives.
+- Plan-council bundle references now include `OMG:validate`, `OMG:profile-review`, and `OMG:release-audit` command surfaces for release inventory parity.

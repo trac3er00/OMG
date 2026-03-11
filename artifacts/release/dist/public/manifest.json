@@ -5,7 +5,7 @@
     "claude",
     "codex"
   ],
-  "contract_version": "2.1.5",
+  "contract_version": "2.1.6",
   "artifacts": [
     {
       "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
