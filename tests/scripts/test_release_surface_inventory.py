@@ -84,8 +84,9 @@ class TestInventoryCompleteness:
     def test_total_surface_count(self) -> None:
         # 10 JSON + 1 regex(pyproject) + 22 YAML + 1 CHANGELOG
         # + 1 frontmatter + 3 CLI-ADAPTER-MAP + 1 shell + 1 js + 1 banner + 1 json
-        # = 42
-        assert len(AUTHORED_SURFACES) == 42
+        # + 1 JSON (validate.md) + 1 banner (settings.json)
+        # = 44
+        assert len(AUTHORED_SURFACES) == 44
 
     def test_all_json_surfaces_from_sync_script_covered(self) -> None:
         """Every JSON surface from sync-release-identity.py must appear."""
@@ -183,6 +184,23 @@ class TestInventoryCompleteness:
         assert entries[0].surface_type == "json_key_path"
         assert entries[0].field == ["contract_version"]
 
+    def test_validate_command_json_version_surface(self) -> None:
+        entries = [
+            s for s in AUTHORED_SURFACES
+            if s.file_path == "commands/OMG:validate.md"
+        ]
+        assert len(entries) == 1
+        assert entries[0].surface_type == "regex_line"
+        assert entries[0].field == r'^\s*"version":\s*"(\d+\.\d+\.\d+)"'
+
+    def test_settings_json_banner_version_surface(self) -> None:
+        entries = [
+            s for s in AUTHORED_SURFACES
+            if s.file_path == "settings.json" and s.surface_type == "banner_literal"
+        ]
+        assert len(entries) == 1
+        assert entries[0].field == r'OMG (\d+\.\d+\.\d+)'
+
 
 class TestDiskExistence:
     """Every declared authored surface path must exist on disk."""
@@ -223,10 +241,11 @@ class TestHelpers:
 
     def test_get_authored_paths_count(self) -> None:
         paths = get_authored_paths()
-        # 37 unique files: 7 JSON files + pyproject.toml + 22 YAML + CHANGELOG
+        # 38 unique files: 7 JSON files + pyproject.toml + 22 YAML + CHANGELOG
         # + OMG_COMPAT_CONTRACT + CLI-ADAPTER-MAP + OMG-setup.sh + hud/omg-hud.mjs
         # + .claude-plugin/scripts/install.sh + runtime/omg_compat_contract_snapshot.json
-        assert len(paths) == 37
+        # + commands/OMG:validate.md
+        assert len(paths) == 38
 
 
 class TestTypeSafety:
