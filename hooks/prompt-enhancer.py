@@ -268,6 +268,7 @@ def _build_intent_gate_state(prompt_text, payload):
         "missing_slots": missing_slots,
         "clarification_prompt": clarification_prompt,
         "source_prompt_hash": source_prompt_hash,
+        "governance": score_complexity(prompt_text).get("governance", {}),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 

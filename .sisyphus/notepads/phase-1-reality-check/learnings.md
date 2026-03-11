@@ -133,3 +133,12 @@ missing = [item for item in required if item not in text]
 assert not missing, missing
 print('README sections ok')
 PY`
+
+## [2026-03-11] Task 15: Setup upgrade — recommended vs manual flows
+- `recommend_mode()` at adoption.py:148 was a dead branch — both branches returned "omg-only". Fixed to return "coexist" when detected_ecosystems is non-empty or codex/gemini/kimi CLI on PATH.
+- Post-install validation at setup_wizard.py:1074 used `_PROJECT_ROOT` (OMG repo) instead of `project_dir` (target project). Fixed to `Path(project_dir)`.
+- Missing settings detection didn't exist — added `detect_missing_settings()` that checks for settings.json, .mcp.json, .omg/state/ and returns explicit surface+message dicts.
+- Existing test `test_wizard_detects_existing_ecosystems_and_writes_adoption_report` was encoding the bug (expected "omg-only" with ecosystems detected). Updated to expect "coexist".
+- Three existing flow tests (full_wizard_flow, non_interactive_mode, full_pipeline) needed validation mocks after the root_dir fix — they were previously "passing" because validation ran against the real repo, not the target project.
+- E2e tests are flaky under xdist parallel execution but pass individually. Pre-existing failures only.
+- TDD pattern: 14 failing tests written first, then 3 implementation changes to go green.
