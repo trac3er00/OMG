@@ -391,6 +391,55 @@ def test_setup_install_provisions_portable_omg_runtime(tmp_path: Path):
     assert evidence["target"] == "gemini"
 
 
+def test_setup_install_hooks_can_import_portable_runtime_outside_repo(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+    assert proc.returncode == 0
+
+    merged_env = dict(os.environ)
+    merged_env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+
+    firewall_payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "ls"},
+        "tool_response": {},
+    }
+    firewall_run = subprocess.run(
+        [sys.executable, str(claude_dir / "hooks" / "firewall.py")],
+        cwd=str(tmp_path),
+        input=json.dumps(firewall_payload),
+        capture_output=True,
+        text=True,
+        check=False,
+        env=merged_env,
+    )
+
+    assert firewall_run.returncode == 0
+    assert "policy_engine import failed" not in firewall_run.stderr
+    assert firewall_run.stdout.strip() == ""
+
+    read_payload = {
+        "tool_name": "Read",
+        "tool_input": {"file_path": "README.md"},
+        "tool_response": {},
+    }
+    secret_guard_run = subprocess.run(
+        [sys.executable, str(claude_dir / "hooks" / "secret-guard.py")],
+        cwd=str(tmp_path),
+        input=json.dumps(read_payload),
+        capture_output=True,
+        text=True,
+        check=False,
+        env=merged_env,
+    )
+
+    assert secret_guard_run.returncode == 0
+    assert "policy_engine import failed" not in secret_guard_run.stderr
+    assert secret_guard_run.stdout.strip() == ""
+
+
 def test_setup_install_enables_optional_browser_capability(tmp_path: Path):
     claude_dir = tmp_path / ".claude"
     fake_bin = tmp_path / "fake-bin"

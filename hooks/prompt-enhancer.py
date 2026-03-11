@@ -18,13 +18,14 @@ import hashlib
 import json, sys, os, re, time
 from datetime import datetime, timezone
 import importlib
+from pathlib import Path
 
-HOOKS_DIR = os.path.dirname(__file__)
-if HOOKS_DIR not in sys.path:
-    sys.path.insert(0, HOOKS_DIR)
-_PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
+HOOKS_DIR = str(Path(__file__).resolve().parent)
+_PROJECT_ROOT = str(Path(HOOKS_DIR).parent)
+_PORTABLE_RUNTIME_ROOT = str(Path(_PROJECT_ROOT) / "omg-runtime")
+for path in (HOOKS_DIR, _PROJECT_ROOT, _PORTABLE_RUNTIME_ROOT):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 try:
     from runtime.complexity_scorer import score_complexity
