@@ -27,6 +27,7 @@ from runtime.release_surfaces import (
     AUTHORED_SURFACES,
     DERIVED_SURFACE_DIRS,
     AuthoredSurface,
+    surface_applies_to_root,
 )
 
 KeyPath = list[Union[str, int]]
@@ -393,6 +394,8 @@ def check_surface(
     repo_root: Path, surface: AuthoredSurface, canonical: str,
 ) -> list[tuple[str, str | None]]:
     """Check a single surface for version drift."""
+    if not surface_applies_to_root(surface, repo_root):
+        return []
     _guard_derived(surface)
     handler = _CHECK_DISPATCH.get(surface.surface_type)
     if handler is None:
@@ -404,6 +407,8 @@ def update_surface(
     repo_root: Path, surface: AuthoredSurface, canonical: str,
 ) -> list[str]:
     """Update a single surface to canonical version."""
+    if not surface_applies_to_root(surface, repo_root):
+        return []
     _guard_derived(surface)
     handler = _UPDATE_DISPATCH.get(surface.surface_type)
     if handler is None:
