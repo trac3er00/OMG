@@ -19,7 +19,14 @@ _MUTATION_BASH_PATTERNS = (
     r"\b(rm|mv|cp|tee|touch|mkdir|rmdir|ln)\b",
     r"\b(sed\s+-i|perl\s+-pi)\b",
     r"\b(chmod|chown)\b",
-    r">\s*[^\s]",
+)
+_HARMLESS_REDIRECTION_PATTERNS = (
+    re.compile(r"(?:^|[\s;&|()])\d*>>?\s*/dev/(?:null|stdout|stderr)(?=\s|$)"),
+    re.compile(r"(?:^|[\s;&|()])\d*>&\d+(?=\s|$)"),
+    re.compile(r"(?:^|[\s;&|()])\d*>&-(?=\s|$)"),
+)
+_FILE_WRITE_REDIRECTION_PATTERN = re.compile(
+    r"(?:^|[\s;&|()])\d*>>?(?!\s*(?:/dev/(?:null|stdout|stderr)\b|&\d+\b|&-\b))\s*\S+"
 )
 
 
@@ -103,11 +110,20 @@ def _is_mutation_capable_bash(command: str) -> bool:
     normalized_command = str(command or "").strip()
     if not normalized_command:
         return False
-    lowered = normalized_command.lower()
+    lowered = _strip_harmless_redirections(normalized_command.lower())
     for pattern in _MUTATION_BASH_PATTERNS:
         if re.search(pattern, lowered):
             return True
+    if _FILE_WRITE_REDIRECTION_PATTERN.search(lowered):
+        return True
     return False
+
+
+def _strip_harmless_redirections(command: str) -> str:
+    sanitized = command
+    for pattern in _HARMLESS_REDIRECTION_PATTERNS:
+        sanitized = pattern.sub(" ", sanitized)
+    return re.sub(r"\s+", " ", sanitized).strip()
 
 
 def _write_warning_artifact(project_dir: str, tool: str, file_path: str, reason: str) -> None:
