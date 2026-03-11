@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-zHuCVwJgikzdlwBTr8fMtW+rm41YoIY//5I7EcfB+rl+fT7vcZX40zrXJ1qbydXKwYe/mMm+1b4utzlJ3pxJBQ==
-trusted comment: type=omg-slsa-v1 keyid=c13fe990c58a502f issued_at=2026-03-11T02:12:43.685374+00:00 artifact=bundle/.agents/skills/omg/eval-gate/openai.yaml sha256=3c440002312de0f9c6837a833d4309597bcefb9642e9424e032c11900e19d76e
-PVKFoShlGyiygBj43wRpxiyaUilJylwnNBNLxLKDvPvCyyqlRtzh5MvztZW2VohNtU/qWFJm0WwM0pRJyHfYAg==
+uQGh8UrqyeBBl+/221Z9EtZEZWKl1JH0L+tdjuZqWl8xz2IaijBuE2VzkfGkBYQgmbEImQC6xq5ZBJj9vCYxDQ==
+trusted comment: type=omg-slsa-v1 keyid=fc732f7beb692ee4 issued_at=2026-03-11T19:41:24.717826+00:00 artifact=bundle/.agents/skills/omg/eval-gate/openai.yaml sha256=3c440002312de0f9c6837a833d4309597bcefb9642e9424e032c11900e19d76e
+KsPM3JtSmUsGo++OAw19nI+F8T5ghwY4lWR9QqHMEvDeHPRZoGdm92NQ0FM0izriyn8ZXtzzcau3Wf2zlubsDA==

@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/plan-council.yaml",
       "digest": {
-        "sha256": "47a586d973f554f07b614dd83da21ca3d394a6ab64d198fc8ea8d92534c9d7d1"
+        "sha256": "8bf03bf3ae53ba928b644660d2e61e7aba2f916396591cffd3372d399ac82b93"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-11T02:11:27.948156+00:00"
+      "timestamp": "2026-03-11T19:44:50.855255+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-11T02:11:27.948156+00:00",
+  "issued_at": "2026-03-11T19:44:50.855255+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "e323e5631c4c9fab",
-    "value": "untrusted comment: signature from omg local signing key\n5+XhDxDM32tbYjAyc2ibTN4miIdy18AhPYewrItKRxJtUIVgyZ/SRFVCkkAIG2Ps5hNVIOQdgYzzvVetnN9lAA==\ntrusted comment: type=omg-slsa-v1 keyid=e323e5631c4c9fab issued_at=2026-03-11T02:11:27.948261+00:00 artifact=bundle/registry/bundles/plan-council.yaml sha256=47a586d973f554f07b614dd83da21ca3d394a6ab64d198fc8ea8d92534c9d7d1\nWxZQ3wPxpzaz4RCqn0GEFI5FuHHpZsvQWZRh7XXBLV181eIkMif7d/x5EbGJBPBzBGrfAt89V7VRi8JIiaDmDQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=e323e5631c4c9fab issued_at=2026-03-11T02:11:27.948261+00:00 artifact=bundle/registry/bundles/plan-council.yaml sha256=47a586d973f554f07b614dd83da21ca3d394a6ab64d198fc8ea8d92534c9d7d1"
+    "keyid": "9cd851a58799c735",
+    "value": "untrusted comment: signature from omg local signing key\nuV8q+TTqMXm8iMN1GVOwEXZAldvDjAbhfsAO2zy8aDIFvfhl22WaBirTJoVKhriViKDkKwkMv89lTdGDLcrzAg==\ntrusted comment: type=omg-slsa-v1 keyid=9cd851a58799c735 issued_at=2026-03-11T19:44:50.855370+00:00 artifact=bundle/registry/bundles/plan-council.yaml sha256=8bf03bf3ae53ba928b644660d2e61e7aba2f916396591cffd3372d399ac82b93\nNa+yVjFx2hdrUCvPO0LIUIuP963Z374JMq4e3UFknBDbfg0UwN4hvdleyQcUuBctbvXV6r1nROaRUvh5LEFEDw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=9cd851a58799c735 issued_at=2026-03-11T19:44:50.855370+00:00 artifact=bundle/registry/bundles/plan-council.yaml sha256=8bf03bf3ae53ba928b644660d2e61e7aba2f916396591cffd3372d399ac82b93"
   }
 }

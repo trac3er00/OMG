@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/mcp-fabric.yaml",
+      "digest": {
+        "sha256": "4cc64a7f9a4d9b7128c2ee38e3cb325368bca27b4a82e262a3b1cb839287654d"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T19:41:23.321551+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T19:41:23.321551+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "04ec0312ff1d0e66",
+    "value": "untrusted comment: signature from omg local signing key\nS7q1+q6nhZd8zu9ovCiFdejPA4LumrFdX3SprQGMWw7XGOdspL7SnTqr9pcT5xZR87Lqsjxl/NtCFUzbzf0VCg==\ntrusted comment: type=omg-slsa-v1 keyid=04ec0312ff1d0e66 issued_at=2026-03-11T19:41:23.321665+00:00 artifact=bundle/registry/bundles/mcp-fabric.yaml sha256=4cc64a7f9a4d9b7128c2ee38e3cb325368bca27b4a82e262a3b1cb839287654d\nEi8RYw2CVWA4B0DQFjlbANyfpJ8RlodBpEZdvu0YDhqBS/QlXBWeEalHYc9PiyPMKxT8IKT/MT3HSucrC8SwCA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=04ec0312ff1d0e66 issued_at=2026-03-11T19:41:23.321665+00:00 artifact=bundle/registry/bundles/mcp-fabric.yaml sha256=4cc64a7f9a4d9b7128c2ee38e3cb325368bca27b4a82e262a3b1cb839287654d"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/plan-council.yaml",
+      "digest": {
+        "sha256": "8bf03bf3ae53ba928b644660d2e61e7aba2f916396591cffd3372d399ac82b93"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T19:41:23.322234+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T19:41:23.322234+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "3e28a4c4ba6d991b",
+    "value": "untrusted comment: signature from omg local signing key\ntVfPYvgXWlQCq9CmmlVhxF9zGH6sLh5/vnNTyEMUQULAs+Rk2E5fqmUtD92Ksf16HwBDBpEaxIQ3igHwTEbSCg==\ntrusted comment: type=omg-slsa-v1 keyid=3e28a4c4ba6d991b issued_at=2026-03-11T19:41:23.322350+00:00 artifact=bundle/registry/bundles/plan-council.yaml sha256=8bf03bf3ae53ba928b644660d2e61e7aba2f916396591cffd3372d399ac82b93\nG91G3FqY2ZkjoecOH14M/IjEvNlqEYIVQDkWxSudTXlJmtURY7sJRSR8q7J29E7JLCAU7XYltYC7ZI2MiuamBA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=3e28a4c4ba6d991b issued_at=2026-03-11T19:41:23.322350+00:00 artifact=bundle/registry/bundles/plan-council.yaml sha256=8bf03bf3ae53ba928b644660d2e61e7aba2f916396591cffd3372d399ac82b93"
+  }
+}

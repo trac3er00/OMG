@@ -123,12 +123,30 @@ def evaluate_release_compliance(
     }
 
 
+_UNVERIFIED_ARTIFACT_STATUSES = frozenset({"pending_verification", "insufficient_evidence", "placeholder"})
+
+
 def _artifact_gate_decision(release_evidence: dict[str, object] | None) -> dict[str, object]:
     if not isinstance(release_evidence, dict):
         return {"status": "blocked", "authority": "artifact", "reason": "no release evidence supplied"}
     artifact = release_evidence.get("artifact")
     if not isinstance(artifact, dict):
         return {"status": "blocked", "authority": "artifact", "reason": "no artifact supplied"}
+
+    artifact_contracts = artifact.get("artifact_contracts")
+    if isinstance(artifact_contracts, Mapping):
+        unverified = []
+        for name, contract in artifact_contracts.items():
+            if isinstance(contract, Mapping):
+                status = str(contract.get("status", "")).strip().lower()
+                if status in _UNVERIFIED_ARTIFACT_STATUSES:
+                    unverified.append(f"{name}={status}")
+        if unverified:
+            return {
+                "status": "blocked",
+                "authority": "artifact",
+                "reason": f"artifact_contracts contain unverified artifacts: {', '.join(unverified)}",
+            }
 
     verified = verify_artifact(artifact)
     action = str(verified.get("action", "")).strip().lower()

@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-11T02:12:43.699225+00:00"
+      "timestamp": "2026-03-11T19:41:24.731514+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-11T02:12:43.699225+00:00",
+  "issued_at": "2026-03-11T19:41:24.731514+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "e5fb974643b8fc22",
-    "value": "untrusted comment: signature from omg local signing key\nqG9aHaqiYnryavhv0h/Wzsr2fIwUs1HBkFkG+/1VJE7t8EMwqNrONk0v+NDTB3mdlMvUg/k0e4JTqQ4nTUmQDw==\ntrusted comment: type=omg-slsa-v1 keyid=e5fb974643b8fc22 issued_at=2026-03-11T02:12:43.699342+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=c766a383969893fd29fcd1da712e29e0422709a7b9f665e53e1ca8187c2bd207\nHAmAjQjxAe13PDilKRRVx1X3kk+L9axyUE52clbGLNmdzycVR1vkbhvHRHVRX/q3AXXc80sNtx1M972YSm4qCA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=e5fb974643b8fc22 issued_at=2026-03-11T02:12:43.699342+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=c766a383969893fd29fcd1da712e29e0422709a7b9f665e53e1ca8187c2bd207"
+    "keyid": "692e8198a2641915",
+    "value": "untrusted comment: signature from omg local signing key\nObKaax2puMnuVM2ogoQyupIxRloMjOoR16J5WDctiNtWRBDbVCgoeLGuKMs3l+Sh/BAunln4Hqdw6BKre2quAA==\ntrusted comment: type=omg-slsa-v1 keyid=692e8198a2641915 issued_at=2026-03-11T19:41:24.731628+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=c766a383969893fd29fcd1da712e29e0422709a7b9f665e53e1ca8187c2bd207\nQMBH0Tk1jM0eS0Rz9s4kjPTHzUivnJmnltAhc8nOOpG2AMVWF14wocoxCNZt3TSxsF1yS/KWSJTBprdkEfNSCw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=692e8198a2641915 issued_at=2026-03-11T19:41:24.731628+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=c766a383969893fd29fcd1da712e29e0422709a7b9f665e53e1ca8187c2bd207"
   }
 }

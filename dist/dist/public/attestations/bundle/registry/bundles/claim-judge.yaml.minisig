@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+bbm5lG5Os9+EPuwUA8FWgvHbA7lyXKTcgunhv2k+NlVhMqPpXxbXkEAlcO8ldsWDKFxTEO7LODNYCZFGIngCDg==
+trusted comment: type=omg-slsa-v1 keyid=8f21fba84118ee91 issued_at=2026-03-11T19:44:06.834083+00:00 artifact=bundle/registry/bundles/claim-judge.yaml sha256=ef757f161a2898e14d1bc6865d5f54d98df4b0a1646359543b2d0c2331422b07
+RK38Na+Y/seOXdlNnJ7OU3v+GShSFWc8n1mWYkxDVpzb5PsgPOb431byO9Lfw5iSrV7nkobnsyBqflVvZrKwAQ==

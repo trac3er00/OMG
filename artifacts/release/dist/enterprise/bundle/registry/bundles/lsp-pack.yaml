@@ -1,6 +1,6 @@
 id: lsp-pack
 kind: diagnostics
-version: 2.1.6
+version: 2.1.7
 title: OMG LSP Pack
 description: Optional LSP-backed diagnostics and navigation bundle for production verification.
 hosts:

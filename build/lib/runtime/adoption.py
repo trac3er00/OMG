@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import importlib
+import shutil
 from pathlib import Path
 
 
@@ -11,7 +12,7 @@ CANONICAL_REPO_URL = "https://github.com/trac3er00/OMG"
 CANONICAL_PACKAGE_NAME = "@trac3er/oh-my-god"
 CANONICAL_PLUGIN_ID = "omg"
 CANONICAL_MARKETPLACE_ID = "omg"
-CANONICAL_VERSION = "2.1.6"
+CANONICAL_VERSION = "2.1.7"
 
 VALID_ADOPTION_MODES = ("omg-only", "coexist")
 CANONICAL_MODE_NAMES = ("chill", "focused", "exploratory")
@@ -145,10 +146,39 @@ def detect_ecosystems(project_dir: str | Path) -> list[str]:
     return detected
 
 
+_CLI_SENTINELS = ("codex", "gemini", "kimi")
+
+
 def recommend_mode(detected_ecosystems: list[str]) -> str:
     if detected_ecosystems:
-        return "omg-only"
+        return "coexist"
+    for cli in _CLI_SENTINELS:
+        if shutil.which(cli):
+            return "coexist"
     return "omg-only"
+
+
+def detect_missing_settings(project_dir: str | Path) -> list[dict[str, str]]:
+    root = Path(project_dir)
+    missing: list[dict[str, str]] = []
+
+    if not (root / "settings.json").exists():
+        missing.append({
+            "surface": "settings.json",
+            "message": "No settings.json found — host config not initialized",
+        })
+    if not (root / ".mcp.json").exists():
+        missing.append({
+            "surface": ".mcp.json",
+            "message": "No .mcp.json found — MCP servers not configured",
+        })
+    if not (root / ".omg" / "state").exists():
+        missing.append({
+            "surface": ".omg/state",
+            "message": "No .omg/state/ directory found — OMG state not initialized",
+        })
+
+    return missing
 
 
 def _build_actions(mode: str, detected_ecosystems: list[str]) -> list[str]:
@@ -216,6 +246,7 @@ def build_adoption_report(
     recommended_mode = recommend_mode(detected_ecosystems)
     selected_mode = requested_mode if requested_mode in VALID_ADOPTION_MODES else recommended_mode
     resolved_preset = resolve_preset(preset or "safe")
+    missing_settings = detect_missing_settings(project_dir)
 
     return {
         "schema": "OmgAdoptionReport",
@@ -229,6 +260,7 @@ def build_adoption_report(
         "recommended_mode": recommended_mode,
         "selected_mode": selected_mode,
         "preset": resolved_preset,
+        "missing_settings": missing_settings,
         "actions": _build_actions(selected_mode, detected_ecosystems),
         "skipped_overlaps": _build_skipped_overlaps(selected_mode, detected_ecosystems),
         "follow_up": _build_follow_up(selected_mode, resolved_preset, detected_ecosystems),

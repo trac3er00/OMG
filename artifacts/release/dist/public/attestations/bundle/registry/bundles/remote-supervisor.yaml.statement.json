@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/remote-supervisor.yaml",
       "digest": {
-        "sha256": "595e10a6a576046f9a5b5fcd3f7d5a77d94b5f2b8d856903f13697fae8846952"
+        "sha256": "374e95f8f295dd54b7ac432492d8076fb790c768cf59df0e7f09bceaac2d4bb0"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-11T02:12:43.592754+00:00"
+      "timestamp": "2026-03-11T19:41:24.551935+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-11T02:12:43.592754+00:00",
+  "issued_at": "2026-03-11T19:41:24.551935+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "b2fb9093aacf8efa",
-    "value": "untrusted comment: signature from omg local signing key\nWa++meOtAefhhp4yAqkTM1El7APtB/UXFWI5eKKaBQkd16qrpDMxzVQuiS29RrJys4ei7Qv3OHhVULcLjxZ9Dg==\ntrusted comment: type=omg-slsa-v1 keyid=b2fb9093aacf8efa issued_at=2026-03-11T02:12:43.592859+00:00 artifact=bundle/registry/bundles/remote-supervisor.yaml sha256=595e10a6a576046f9a5b5fcd3f7d5a77d94b5f2b8d856903f13697fae8846952\nFhV3s9cHNs7QpfeD7DxgFhqOwRIGvE5vaUePcum8E59GhaCVRo8cpRM5HfaymkXv49tm6Z7TNSQaMmyw9kuMDA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=b2fb9093aacf8efa issued_at=2026-03-11T02:12:43.592859+00:00 artifact=bundle/registry/bundles/remote-supervisor.yaml sha256=595e10a6a576046f9a5b5fcd3f7d5a77d94b5f2b8d856903f13697fae8846952"
+    "keyid": "a21d7ebcaac7db55",
+    "value": "untrusted comment: signature from omg local signing key\nmtExVkPS+fmbsYfIAxNi8CNBWogJcG+PjJ0itskYCYHeAmu0vu32VDT35XJF9jCURhyTIYXPGaqdDH/jLwk6Ag==\ntrusted comment: type=omg-slsa-v1 keyid=a21d7ebcaac7db55 issued_at=2026-03-11T19:41:24.552051+00:00 artifact=bundle/registry/bundles/remote-supervisor.yaml sha256=374e95f8f295dd54b7ac432492d8076fb790c768cf59df0e7f09bceaac2d4bb0\nD0HoT0zXgoZ3NbLotNY2wsN8aJ/lHM/KaQXLESZS6wj4pm5RaqCFdb4urASEsXowsV8eJfxjNcBtYBzCJfObAw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=a21d7ebcaac7db55 issued_at=2026-03-11T19:41:24.552051+00:00 artifact=bundle/registry/bundles/remote-supervisor.yaml sha256=374e95f8f295dd54b7ac432492d8076fb790c768cf59df0e7f09bceaac2d4bb0"
   }
 }

@@ -1,0 +1,4 @@
+[mcp_servers.omg-control]
+command = "python3"
+args = ["-m", "runtime.omg_mcp_server"]
+

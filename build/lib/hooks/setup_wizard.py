@@ -42,6 +42,8 @@ from runtime.validate import run_validate as _run_post_install_validate  # noqa:
 from runtime.adoption import (  # noqa: E402
     CANONICAL_MODE_NAMES,
     CANONICAL_VERSION,
+    PRESET_LEVEL,
+    PRESET_ORDER,
     build_adoption_report,
     get_mode_profile,
     get_preset_features,
@@ -75,8 +77,7 @@ BYPASS_ALL_WARNING = (
     "Do you want to enable bypass-all mode? (y/N): "
 )
 
-PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs")
-_PRESET_LEVEL: dict[str, int] = {p: i for i, p in enumerate(PRESET_ORDER)}
+_PRESET_LEVEL = PRESET_LEVEL
 
 MCP_CATALOG: list[dict[str, Any]] = [
     {
@@ -1069,7 +1070,7 @@ def run_setup_wizard(
 
     # --- Post-install validation (runs AFTER all setup writes are complete) ---
     try:
-        validation_result = _run_post_install_validate(root_dir=Path(_PROJECT_ROOT))
+        validation_result = _run_post_install_validate(root_dir=Path(project_dir))
     except Exception as exc:
         validation_result = {
             "schema": "ValidateResult",

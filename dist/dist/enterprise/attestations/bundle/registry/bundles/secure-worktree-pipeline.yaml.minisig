@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+vAsUnN245xFUgT2q30AnNAnTwdYLAaznUy4YwHD2HyZlTskbK5qPGsUO0/9YAcLQOCBY7iBvkAH6RyZqq42kCA==
+trusted comment: type=omg-slsa-v1 keyid=f26df548127f80bd issued_at=2026-03-11T19:41:23.325622+00:00 artifact=bundle/registry/bundles/secure-worktree-pipeline.yaml sha256=5d75ac83ab9edd69e019d1473928e8bd15168c494796078203f2379fe365e311
+fY9jm0BJSRihswYzr5hysQQB/HU4bFlsLVa2HeLFae2eT6udjBYxFiuMxL5lpLr8r8mbzpR7CLfhKLdd7UbqBQ==

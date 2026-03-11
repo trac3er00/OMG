@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+ZjaKUaK5671rjMx2kM3ucUyMeF1wYCA0Ek1N2kyB8Rea6D0X1e1HMPD6hfBfnmDJ1anjvRI7X/VMvM6TZnIACQ==
+trusted comment: type=omg-slsa-v1 keyid=8e370e0716f79b62 issued_at=2026-03-11T19:44:06.790825+00:00 artifact=bundle/.agents/skills/omg/health/openai.yaml sha256=5f60504efb464cbcf130e183d3991b6fe9bc90ef12c21c4ffc2e8900ae1cd6e2
+GHxHq6SnWB34xEk96Sr1sXxw3VJ3c14xSj8yTWaNdoHuSPi/aYpJDaPMgof5RwSdysicGuKsNoigY83p+zppDQ==

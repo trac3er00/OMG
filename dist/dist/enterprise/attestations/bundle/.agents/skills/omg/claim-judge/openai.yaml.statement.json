@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/.agents/skills/omg/claim-judge/openai.yaml",
+      "digest": {
+        "sha256": "39285cf57979ddfa917972719d2dfa32c2333f4f7a712a970a5b78c759e04295"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T19:41:23.274299+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T19:41:23.274299+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "798e673317f02500",
+    "value": "untrusted comment: signature from omg local signing key\nZ+aFENetFcdogVF6eoADE/XxpFINYZ3tHUtgblENOAuYw9of3qEWE5HyN0QMiWPYo46LxV2LgzG3jEC/H8d/DQ==\ntrusted comment: type=omg-slsa-v1 keyid=798e673317f02500 issued_at=2026-03-11T19:41:23.274419+00:00 artifact=bundle/.agents/skills/omg/claim-judge/openai.yaml sha256=39285cf57979ddfa917972719d2dfa32c2333f4f7a712a970a5b78c759e04295\nkx/6nUq6rUSOzYT35dK60oat5QyIKfV0tCk7c8MPczF1XhLs463pBBxbyyZJqgEBqUuPqKcXjtTqYNBICGSuDg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=798e673317f02500 issued_at=2026-03-11T19:41:23.274419+00:00 artifact=bundle/.agents/skills/omg/claim-judge/openai.yaml sha256=39285cf57979ddfa917972719d2dfa32c2333f4f7a712a970a5b78c759e04295"
+  }
+}
