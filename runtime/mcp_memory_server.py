@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any
 
 _MCP_IMPORT_ERROR: ModuleNotFoundError | None = None
@@ -118,13 +120,60 @@ def memory_delete(item_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 def memory_import(items: list[dict[str, Any]]) -> dict[str, int]:
-    count = _store.import_items(items)
+    count = _store.import_items(items, quarantined=True)
     return {"imported": count}
 
 
 @mcp.tool()
-def memory_export() -> list[dict[str, Any]]:
-    return _store.export_all()
+def memory_import_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+    if str(bundle.get("format", "")) != "omg.memory.export.v1":
+        return {"imported": 0, "error": "bundle format is invalid"}
+    payload = str(bundle.get("encrypted_payload", ""))
+    integrity = bundle.get("integrity", {})
+    expected_sha = ""
+    if isinstance(integrity, dict):
+        expected_sha = str(integrity.get("sha256", ""))
+    if not payload or hashlib.sha256(payload.encode("utf-8")).hexdigest() != expected_sha:
+        return {"imported": 0, "error": "bundle integrity check failed"}
+    if not payload.startswith("enc:v1:"):
+        return {"imported": 0, "error": "bundle payload must be encrypted"}
+    decoded = _store._decrypt_text(payload, purpose="export-bundle")  # noqa: SLF001
+    if not decoded:
+        return {"imported": 0, "error": "bundle decryption failed"}
+    try:
+        raw_items = json.loads(decoded)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {"imported": 0, "error": "bundle payload is not valid JSON"}
+    if not isinstance(raw_items, list):
+        return {"imported": 0, "error": "bundle payload must be a list"}
+    count = _store.import_items(raw_items, quarantined=True)
+    return {"imported": count, "quarantined": count}
+
+
+@mcp.tool()
+def memory_export(namespace: str | None = None) -> dict[str, Any]:
+    items = _store.list_all(namespace=namespace)
+    serialized = json.dumps(items, separators=(",", ":"), ensure_ascii=True)
+    encrypted_payload = _store._encrypt_text(serialized, purpose="export-bundle")  # noqa: SLF001
+    return {
+        "format": "omg.memory.export.v1",
+        "encrypted_payload": encrypted_payload,
+        "integrity": {
+            "sha256": hashlib.sha256(encrypted_payload.encode("utf-8")).hexdigest(),
+            "algorithm": "sha256",
+        },
+        "metadata": {
+            "count": len(items),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "namespace": namespace,
+        },
+    }
+
+
+@mcp.tool()
+def memory_promote(item_id: str) -> dict[str, Any]:
+    promoted = _store.promote_item(item_id)
+    return {"promoted": promoted, "id": item_id}
 
 
 @mcp.resource("memory://all")

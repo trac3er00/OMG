@@ -95,3 +95,11 @@
 - Added retention metadata (retention_days, computed expires_at) and consistent expiry filtering for list/search/export operations.
 - Added inline PII redaction before persistence for email, US phone, and SSN patterns in both store and import flows.
 - Added isolated MCP tests that replace module _store with tmp_path JSON backend to avoid shared sqlite-state failures.
+
+## [2026-03-11] Task 11 memory encryption + quarantine
+- Added encryption-at-rest in `runtime/memory_store.py`: sqlite `content` now persisted as encrypted `enc:v1:` payload, JSON backend now writes encrypted envelope (`omg.memory.json.v1`) with SHA256 integrity metadata.
+- Added per-host/per-purpose key derivation (`OMG_MEMORY_HOST` + local secret seed + purpose) with Fernet primary path and XOR/base64 fallback when cryptography is unavailable.
+- Added quarantine workflow: imported items default to `quarantined=True`, list/search exclude quarantined by default, and explicit promotion is required via `promote_item()` / MCP `memory_promote`.
+- Hardened export/import MCP contract in `runtime/mcp_memory_server.py`: `memory_export` now returns encrypted bundle (`omg.memory.export.v1`) with integrity hash; `memory_import_bundle` rejects plaintext payloads and integrity mismatch.
+- Added tmp-path-isolated tests for encrypted export, quarantined import invisibility, promotion unlock, and plaintext bundle rejection.
+- Verification: `python3 -m pytest tests/runtime/test_mcp_memory_server.py -q -k 'encrypted_export or quarantined_import or plaintext_export or retention_metadata_roundtrips_export_import'` => 5 passed; required broad selector still has 7 known pre-existing fixture failures.
