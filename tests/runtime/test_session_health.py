@@ -285,3 +285,132 @@ def test_coordinator_mutate_updates_defense_state(tmp_path: Path) -> None:
     defense = json.loads(defense_path.read_text(encoding="utf-8"))
     assert "risk_level" in defense
     assert "updated_at" in defense
+
+
+# ── Auto-action tests ──────────────────────────────────────────────────────
+
+evaluate_auto_actions = import_module("runtime.session_health").evaluate_auto_actions
+persist_auto_action_evidence = import_module("runtime.session_health").persist_auto_action_evidence
+
+
+def test_auto_action_continue_for_healthy_session(tmp_path: Path) -> None:
+    """Healthy session health produces continue auto-action."""
+    health = compute_session_health(str(tmp_path), run_id="aa-healthy")
+    result = evaluate_auto_actions(health)
+    assert result["action"] == "continue"
+    assert result["bounded"] is True
+    assert result["review_route"] is None
+
+
+def test_auto_action_pause_on_block_state(tmp_path: Path) -> None:
+    """Block-level session health triggers pause auto-action."""
+    _write_json(
+        tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+        {"contamination_score": 0.8, "injection_hits": 0, "overthinking_score": 0.0},
+    )
+    health = compute_session_health(str(tmp_path), run_id="aa-block")
+    result = evaluate_auto_actions(health)
+    assert result["action"] == "pause"
+    assert result["bounded"] is True
+    assert "contamination" in result["reason"].lower() or "block" in result["reason"].lower()
+
+
+def test_auto_action_reflect_stays_bounded(tmp_path: Path) -> None:
+    """Reflect-level auto-action stays bounded — no self-healing."""
+    _write_json(
+        tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+        {
+            "contamination_score": 0.06,
+            "injection_hits": 0,
+            "overthinking_score": 0.0,
+            "premature_fixer_score": 0.0,
+            "clarification_sensitive": True,
+        },
+    )
+    health = compute_session_health(str(tmp_path), run_id="aa-reflect")
+    result = evaluate_auto_actions(health)
+    assert result["action"] == "reflect"
+    assert result["bounded"] is True
+    # Must NOT contain any self-healing or autonomous recovery indicators
+    assert "self_healing" not in result
+    assert "autonomous_recovery" not in result
+
+
+def test_auto_action_require_review_on_destructive_profile(tmp_path: Path) -> None:
+    """Destructive governed preferences in risky session triggers require-review."""
+    _write_json(
+        tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+        {"contamination_score": 0.8, "injection_hits": 0, "overthinking_score": 0.0},
+    )
+    health = compute_session_health(str(tmp_path), run_id="aa-destructive")
+    profile_risk = {
+        "risk_level": "high",
+        "destructive_entries": [{"field": "safety_mode", "value": "disable"}],
+        "pending_confirmations": 1,
+        "requires_review": True,
+    }
+    result = evaluate_auto_actions(health, profile_risk=profile_risk)
+    assert result["action"] == "require-review"
+    assert result["review_route"] == "/OMG:profile-review"
+    assert result["bounded"] is True
+
+
+def test_auto_action_warn_includes_profile_review_route(tmp_path: Path) -> None:
+    """Warn-level auto-action with profile risk includes review route."""
+    _write_json(
+        tmp_path / ".omg" / "state" / "verification_controller" / "aa-warn.json",
+        {"status": "error", "blockers": ["lint"], "evidence_links": []},
+    )
+    health = compute_session_health(str(tmp_path), run_id="aa-warn")
+    profile_risk = {
+        "risk_level": "medium",
+        "destructive_entries": [],
+        "pending_confirmations": 2,
+        "requires_review": True,
+    }
+    result = evaluate_auto_actions(health, profile_risk=profile_risk)
+    assert result["action"] in ("warn", "require-review")
+    assert result["review_route"] == "/OMG:profile-review"
+    assert result["bounded"] is True
+
+
+def test_auto_action_evidence_persisted(tmp_path: Path) -> None:
+    """Auto-action evidence is persisted to state directory."""
+    health = compute_session_health(str(tmp_path), run_id="aa-persist")
+    result = evaluate_auto_actions(health)
+    path = persist_auto_action_evidence(str(tmp_path), result, run_id="aa-persist")
+    assert Path(path).exists()
+    persisted = json.loads(Path(path).read_text(encoding="utf-8"))
+    assert persisted["action"] == "continue"
+    assert persisted["bounded"] is True
+    assert persisted["run_id"] == "aa-persist"
+
+
+def test_auto_action_no_self_healing_on_any_action(tmp_path: Path) -> None:
+    """No auto-action variant ever produces self-healing or autonomous recovery."""
+    scenarios = [
+        {},  # healthy
+        {"contamination_score": 0.8},  # block
+        {"contamination_score": 0.06, "clarification_sensitive": True},  # reflect
+    ]
+    for defense_state in scenarios:
+        if defense_state:
+            _write_json(
+                tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+                defense_state,
+            )
+        health = compute_session_health(str(tmp_path), run_id="aa-noselfheal")
+        result = evaluate_auto_actions(health)
+        assert result["bounded"] is True, f"Unbounded action for {defense_state}"
+        assert "self_healing" not in result
+        assert "autonomous_recovery" not in result
+
+
+def test_auto_action_evidence_includes_timestamp(tmp_path: Path) -> None:
+    """Persisted evidence includes timestamp for audit trail."""
+    health = compute_session_health(str(tmp_path), run_id="aa-ts")
+    result = evaluate_auto_actions(health)
+    path = persist_auto_action_evidence(str(tmp_path), result, run_id="aa-ts")
+    persisted = json.loads(Path(path).read_text(encoding="utf-8"))
+    assert "timestamp" in persisted
+    assert "T" in persisted["timestamp"]  # ISO format

@@ -262,6 +262,92 @@ def test_profile_version_from_map_matches_expected_algorithm() -> None:
     assert profile_version_from_map(data) == expected
 
 
+def test_profile_risk_assessment_with_destructive_preferences() -> None:
+    from runtime.profile_io import assess_profile_risk
+
+    profile: dict = {
+        "governed_preferences": {
+            "style": [],
+            "safety": [
+                {
+                    "field": "safety_mode",
+                    "value": "disable guardrails",
+                    "source": "explicit_user",
+                    "learned_at": "2026-03-09T00:00:00Z",
+                    "updated_at": "2026-03-09T00:00:00Z",
+                    "section": "safety",
+                    "confirmation_state": "pending_confirmation",
+                }
+            ],
+        }
+    }
+    risk = assess_profile_risk(profile)
+    assert risk["risk_level"] == "high"
+    assert len(risk["destructive_entries"]) == 1
+    assert risk["pending_confirmations"] == 1
+    assert risk["requires_review"] is True
+
+
+def test_profile_risk_assessment_clean() -> None:
+    from runtime.profile_io import assess_profile_risk
+
+    profile: dict = {
+        "governed_preferences": {
+            "style": [
+                {
+                    "field": "font_size",
+                    "value": "large",
+                    "source": "explicit_user",
+                    "learned_at": "2026-03-09T00:00:00Z",
+                    "updated_at": "2026-03-09T00:00:00Z",
+                    "section": "style",
+                    "confirmation_state": "confirmed",
+                }
+            ],
+            "safety": [],
+        }
+    }
+    risk = assess_profile_risk(profile)
+    assert risk["risk_level"] == "low"
+    assert len(risk["destructive_entries"]) == 0
+    assert risk["pending_confirmations"] == 0
+    assert risk["requires_review"] is False
+
+
+def test_profile_risk_assessment_empty_profile() -> None:
+    from runtime.profile_io import assess_profile_risk
+
+    risk = assess_profile_risk({})
+    assert risk["risk_level"] == "low"
+    assert risk["requires_review"] is False
+
+
+def test_profile_review_remains_read_only_under_auto_action(tmp_path: Path) -> None:
+    from runtime.profile_io import assess_profile_risk
+
+    profile: dict = {
+        "governed_preferences": {
+            "style": [],
+            "safety": [
+                {
+                    "field": "safety_mode",
+                    "value": "bypass override",
+                    "source": "explicit_user",
+                    "learned_at": "2026-03-09T00:00:00Z",
+                    "updated_at": "2026-03-09T00:00:00Z",
+                    "section": "safety",
+                    "confirmation_state": "pending_confirmation",
+                }
+            ],
+        }
+    }
+    import copy
+    original = copy.deepcopy(profile)
+    risk = assess_profile_risk(profile)
+    assert risk["requires_review"] is True
+    assert profile == original
+
+
 def test_legacy_json_and_rewritten_yaml_produce_same_version(tmp_path: Path) -> None:
     """P0 regression: JSON-shaped legacy profile.yaml and its canonically
     rewritten YAML equivalent must resolve to the same profile_version."""

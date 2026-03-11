@@ -1095,6 +1095,28 @@ def test_cli_validate_notebooklm_warning_when_npx_missing(tmp_path: Path, monkey
     )
 
 
+def test_cli_profile_review_includes_risk_assessment():
+    proc = _run(["profile-review", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert "risk_assessment" in out
+    risk = out["risk_assessment"]
+    assert "risk_level" in risk
+    assert "requires_review" in risk
+    assert risk["risk_level"] in ("low", "medium", "high")
+
+
+def test_cli_validate_profile_governor_includes_risk_hint():
+    proc = _run(["validate", "--format", "json"])
+    out = json.loads(proc.stdout)
+    profile_check = next(
+        (c for c in out["checks"] if c["name"] == "profile_governor"), None
+    )
+    assert profile_check is not None
+    msg = profile_check["message"].lower()
+    assert "risk" in msg or "ok" in msg or "no profile found" in msg
+
+
 def test_diagnose_plugins_json_output():
     proc = _run(["diagnose-plugins", "--format", "json"])
     assert proc.returncode == 0
