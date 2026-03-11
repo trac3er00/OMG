@@ -118,3 +118,18 @@
 - Docs gap: README.md Proof section listed truth bundles but not evidence profiles.
 - Fix: Added missing test assertions + README evidence profiles line. No runtime code changes.
 - Pattern: When adding new evidence profiles, always add (1) registry entry, (2) per-profile test assertion, (3) docs mention — all three surfaces must stay in sync.
+
+## [2026-03-11] Task 16 README overhaul
+- Rewrote README.md to lead with transparent, problem-solution structure: The Problem, The Solution, Real-World Example, Architecture, Comparison, and Limitations.
+- Architecture section includes a Mermaid diagram showing the middleware relationship between host, hooks, and control plane.
+- Comparison table explicitly compares OMG against raw Claude Code and Superpowers across governance, safety, verification, and state management.
+- Limitations section honestly addresses non-model status, local-only design, and advisory-first v1 gates.
+- Verified that `recommend_mode()` is ecosystem-aware (Task 15) and evidence profiles are documented (Task 14).
+- Validation: `python3 - <<'PY'
+from pathlib import Path
+text = Path('README.md').read_text(encoding='utf-8')
+required = ['The Problem', 'The Solution', 'Real-World Example', 'Architecture', 'Comparison', 'Limitations']
+missing = [item for item in required if item not in text]
+assert not missing, missing
+print('README sections ok')
+PY`
