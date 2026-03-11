@@ -75,3 +75,12 @@
 - `settings.json` trust_tiers now includes buffet at level 4 with `council_validated` source.
 - Pre-existing e2e failures (2 tests) caused by missing `registry` module in portable runtime tree — unrelated to preset work.
 - xdist parallelism causes spurious e2e failures; running without xdist reduces false positives.
+
+## Session Health Auto-Actions and Profile Governor Review (Task 11)
+- `evaluate_auto_actions()` maps health recommended_action → bounded auto-actions: continue/warn/reflect/pause/require-review.
+- Profile risk assessment (`assess_profile_risk()`) examines governed preferences for destructive entries and pending confirmations without mutating profile state.
+- Auto-actions escalate to `require-review` with route to `/OMG:profile-review` when profile risk is detected alongside risky session health.
+- `persist_auto_action_evidence()` writes action evidence to `.omg/state/session_health/actions/{run_id}.json` using the existing `_write_atomic()` helper.
+- Profile review CLI (`cmd_profile_review`) now includes `risk_assessment` in its output, keeping the command strictly read-only.
+- Validate's `_check_profile_governor()` now surfaces `risk=low|medium|high` in its message for visibility.
+- All auto-actions carry `bounded: True` — no self-healing or autonomous recovery paths exist.

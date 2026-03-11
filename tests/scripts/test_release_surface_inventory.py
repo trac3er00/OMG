@@ -272,7 +272,7 @@ class TestNegativeCases:
         """AuthoredSurface instances must be immutable."""
         surface = AuthoredSurface("test.json", "json_key_path", ["version"])
         with pytest.raises(AttributeError):
-            surface.file_path = "other.json"  # type: ignore[misc]
+            surface.file_path = "other.json"  # pyright: ignore[reportAttributeAccessIssue]
 
     def test_no_duplicate_surface_entries(self) -> None:
         """No exact duplicate entries should exist."""
