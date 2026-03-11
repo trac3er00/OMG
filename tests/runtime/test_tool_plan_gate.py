@@ -231,6 +231,18 @@ def test_compliance_governor_tool_precedence_blocks_council_fail_even_with_plan(
     assert result["authority"] == "council_verdicts"
 
 
+def test_build_tool_plan_includes_governance_payload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    monkeypatch.setenv("OMG_RUN_ID", "run-governance")
+
+    goal = "update the login form validation and add error messages for each field"
+    plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+    governance_payload = cast(dict[str, object], plan["governance_payload"])
+
+    assert governance_payload == cast(dict[str, object], score_complexity(goal)["governance"])
+
+
 class TestComplexityLabel:
     """goal_complexity must return a deterministic label in budget_estimate."""
 

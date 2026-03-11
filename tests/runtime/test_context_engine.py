@@ -25,8 +25,15 @@ def test_packet_has_required_keys(tmp_path):
     pkt = engine.build_packet(run_id="t-1")
     assert REQUIRED_KEYS.issubset(pkt.keys())
     assert "profile_digest" in pkt
+    assert "governance" in pkt
     assert BUDGET_KEYS.issubset(pkt["budget"].keys())
     assert CLARIFICATION_KEYS.issubset(pkt["clarification_status"].keys())
+
+
+def test_packet_governance_defaults_to_empty_dict(tmp_path):
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="t-governance-empty")
+    assert pkt["governance"] == {}
 
 
 def test_budget_respected(tmp_path):

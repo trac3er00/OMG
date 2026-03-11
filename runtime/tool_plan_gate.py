@@ -61,6 +61,13 @@ def build_tool_plan(
 
     selected_tools = _apply_context_optimization(selected_tools, bounded_context, council)
     plan_id = _new_plan_id(run_id=canonical_run_id)
+    _governance: dict[str, object] = {}
+    try:
+        governance_raw = score_complexity(normalized_goal).get("governance")
+        if isinstance(governance_raw, Mapping):
+            _governance = {str(key): value for key, value in governance_raw.items()}
+    except Exception:
+        pass
     payload: dict[str, object] = {
         "plan_id": plan_id,
         "goal": normalized_goal,
@@ -71,6 +78,7 @@ def build_tool_plan(
             "goal_complexity": _goal_complexity(normalized_goal),
         },
         "context_packet": bounded_context,
+        "governance_payload": _governance,
         "council_verdicts": council.get("verdicts", {}),
         "run_id": canonical_run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
