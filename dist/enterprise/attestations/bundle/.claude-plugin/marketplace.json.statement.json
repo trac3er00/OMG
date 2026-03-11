@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/.claude-plugin/marketplace.json",
+      "digest": {
+        "sha256": "13e5e51330078d588f480afd546986f89e4e1744bec7e1f340f70eb85f95a903"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T02:11:28.051547+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T02:11:28.051547+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "87719372dbd6338e",
+    "value": "untrusted comment: signature from omg local signing key\nY7B2mYljJzJaYlkxKHssoA7vkJojJl/UZVvEziDKVMGB8ba2jzeteFxObOawliWlOBccnRS6taSYyghTO6wyAQ==\ntrusted comment: type=omg-slsa-v1 keyid=87719372dbd6338e issued_at=2026-03-11T02:11:28.051657+00:00 artifact=bundle/.claude-plugin/marketplace.json sha256=13e5e51330078d588f480afd546986f89e4e1744bec7e1f340f70eb85f95a903\nbHGZarzmLs0no1q/aGNZzIjNy1Qomdy1mbl0i276YexBccc+Rvf6CYu24cLjGLtzGHiPzLbLz3fckYXbIEaiBA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=87719372dbd6338e issued_at=2026-03-11T02:11:28.051657+00:00 artifact=bundle/.claude-plugin/marketplace.json sha256=13e5e51330078d588f480afd546986f89e4e1744bec7e1f340f70eb85f95a903"
+  }
+}

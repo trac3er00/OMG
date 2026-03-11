@@ -2,10 +2,12 @@ id: control-plane
 kind: skill
 version: 2.1.6
 title: OMG Control Plane
-description: Canonical production control plane bundle for Claude and Codex.
+description: Canonical production control plane bundle for Claude, Codex, Gemini, and Kimi.
 hosts:
   - claude
   - codex
+  - gemini
+  - kimi
 assets:
   references:
     - OMG_COMPAT_CONTRACT.md
@@ -109,6 +111,10 @@ policy_model:
     executor: executor
     trace_id: trace_id
     lineage: lineage
+    attestation_statement: attestation_statement
+    attestation_verifier: attestation_verifier
+    claim_judge_verdict: claim_judge_verdict
+    compliance_verdict: compliance_verdict
   host_rules:
     claude:
       compilation_targets:
@@ -141,6 +147,26 @@ policy_model:
       rules:
         - protected_paths
         - explicit_invocation
+      automations:
+        - contract-compile
+        - release-readiness
+    gemini:
+      compilation_targets:
+        - .gemini/settings.json
+      mcp:
+        - omg-control
+      skills:
+        - omg/control-plane
+      automations:
+        - contract-compile
+        - release-readiness
+    kimi:
+      compilation_targets:
+        - .kimi/mcp.json
+      mcp:
+        - omg-control
+      skills:
+        - omg/control-plane
       automations:
         - contract-compile
         - release-readiness

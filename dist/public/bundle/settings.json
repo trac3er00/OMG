@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "OMG 2.1.4 - project-level config with hook registrations, presets, and feature flags.",
+  "_comment": "OMG 2.1.6 - project-level config with hook registrations, presets, and feature flags.",
   "permissions": {
     "allow": [
       "Agent",

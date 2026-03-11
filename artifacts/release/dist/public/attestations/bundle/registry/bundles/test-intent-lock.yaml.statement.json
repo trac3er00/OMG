@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/test-intent-lock.yaml",
+      "digest": {
+        "sha256": "11efc5b08e01128eeb163092ba4073ea7b637f8f852bd673a98cc3d8a25ebcb0"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T02:12:43.595059+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T02:12:43.595059+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "ffaba65dd4806c2c",
+    "value": "untrusted comment: signature from omg local signing key\nNAEAcxX2yGuiDvCWBTD8qxERuNaw9WepFELWU4OS5gV2glpFh/hcHrxL6My3mD9444UJLOALQujyGBWKdQiBBw==\ntrusted comment: type=omg-slsa-v1 keyid=ffaba65dd4806c2c issued_at=2026-03-11T02:12:43.595165+00:00 artifact=bundle/registry/bundles/test-intent-lock.yaml sha256=11efc5b08e01128eeb163092ba4073ea7b637f8f852bd673a98cc3d8a25ebcb0\n+ys2YxXfqBcv1eFiaR1SNgmc6SpuKUportr2mf6G7TWZTKAIcPvVHEMQQZhWpSQZw0QFZI/mrOnQQic9pzYgAw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=ffaba65dd4806c2c issued_at=2026-03-11T02:12:43.595165+00:00 artifact=bundle/registry/bundles/test-intent-lock.yaml sha256=11efc5b08e01128eeb163092ba4073ea7b637f8f852bd673a98cc3d8a25ebcb0"
+  }
+}

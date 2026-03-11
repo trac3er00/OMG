@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+9/2XUTZOSaY8Fcsz3t0cAJrx0eDWRO+cGrcmIRALg+ydrrtKXjVIm+xEfEoaLhlo/FDUCSYKWyDi0hAUnq6hDQ==
+trusted comment: type=omg-slsa-v1 keyid=11e57461de9c1b1b issued_at=2026-03-11T02:11:28.031439+00:00 artifact=bundle/.agents/skills/omg/health/SKILL.md sha256=0c562e6e071e7b01c9ffea76293d425d45f4aaef4297c42ef757ca7113a6ca02
+N4/siEDnayFxqtXBrzUEFcRsUL7CrxZjp1AFOGchlHLvMxZU4elwkHqm2S8rjPID1XexEaSBfEdqIRJqaRwFCw==

@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+wmGI84kssnxItKq/JSaBmc9Knx210SdT1uriTuSRzUuBwsEv7+2C4skNnvH3SE3V8MuGiiNZ2ikKpy3hM4ezDw==
+trusted comment: type=omg-slsa-v1 keyid=b65d359f181ff7c3 issued_at=2026-03-11T02:12:43.730974+00:00 artifact=bundle/registry/bundles/vision.yaml sha256=f5b7f112828bc834f9e5b78db64adf8c95348e3f005d593beb3ef695800ff272
+W01zZevDLqm61/V+CMmEkKxmjTsWsO95sx0tL2PZdXkKqIy+dukdePRGAkOqeJ28HWSiDCn4bSSNdLSd9BC+AA==

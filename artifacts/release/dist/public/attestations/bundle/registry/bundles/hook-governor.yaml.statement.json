@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/hook-governor.yaml",
+      "digest": {
+        "sha256": "e0cf48554c3c3ccd271f858cad67a6dabb371ae319d57631ad26d7b6bbbd6b60"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T02:12:43.588593+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T02:12:43.588593+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "51df09b643837158",
+    "value": "untrusted comment: signature from omg local signing key\nrMoMnce0JmMWQAMtsLoDYePG6sO5nRcOvleUbhyJg9BgW1S5hwyUMnuOD7oo4iO1svG0QOdZUcnD6nQwA5olBg==\ntrusted comment: type=omg-slsa-v1 keyid=51df09b643837158 issued_at=2026-03-11T02:12:43.588698+00:00 artifact=bundle/registry/bundles/hook-governor.yaml sha256=e0cf48554c3c3ccd271f858cad67a6dabb371ae319d57631ad26d7b6bbbd6b60\nFzIka7oWJz3uam9HcP6TuEm/r6e3MMlPbJcjjuptui387ttvP4kJ+LlYBf0XhjHpE8lgsnKAFCwybBZoE9QwAg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=51df09b643837158 issued_at=2026-03-11T02:12:43.588698+00:00 artifact=bundle/registry/bundles/hook-governor.yaml sha256=e0cf48554c3c3ccd271f858cad67a6dabb371ae319d57631ad26d7b6bbbd6b60"
+  }
+}
