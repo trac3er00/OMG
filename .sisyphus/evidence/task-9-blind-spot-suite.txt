@@ -1,0 +1,68 @@
+Task 9: Blind-spot coverage for sub-agents, tools, MCPs, and hooks
+====================================================================
+
+Date: 2026-03-11
+Baseline: 778 passed, 8 failed (all pre-existing)
+Post-change: 812 passed, 8 failed (same pre-existing failures)
+New tests added: 34
+
+Files modified:
+  - tests/runtime/test_subagent_dispatcher.py (+14 tests)
+  - tests/runtime/test_mcp_memory_server.py (+14 tests)
+  - tests/hooks/test_firewall_policy.py (+6 tests)
+
+Coverage areas:
+
+(a) Sub-agent timeout/cancellation (5 tests):
+  - _run_configured_worker subprocess.TimeoutExpired → error payload
+  - _run_configured_worker OSError (command not found) → error payload
+  - _run_configured_worker empty command → error payload
+  - _run_configured_worker malformed template → error payload
+  - _run_configured_worker nonzero exit code → error status
+
+(b) Sub-agent failure propagation (3 tests):
+  - _run_job marks job "failed" on unexpected exception
+  - _run_job respects mid-execution cancellation (race-safe)
+  - _run_job with worktree cleans up on dispatch failure
+
+(c) Minimal-change stays lightweight (6 tests):
+  - "fix typo in README" → trivial/low, simplify_only=True
+  - "hello" → low, simplify_only=True
+  - "" → trivial, simplify_only=True
+  - Complex multi-step prompt → high, simplify_only=False
+  - Feature-disabled rejects even simple tasks → RuntimeError
+  - isolation="none" → local-only execution boundary
+
+(d) MCP store failure injection (14 tests):
+  - Corrupted JSON file → empty store (3 variants)
+  - Disk write failure to readonly dir → OSError
+  - Store full → MemoryStoreFullError
+  - Search with missing key field → still matches content
+  - Search with None tags → no crash
+  - Search with non-list tags → no crash
+  - Search no match → empty list
+  - Import skips duplicate IDs
+  - Import skips empty ID items
+  - Delete nonexistent → False
+  - Get nonexistent → None
+  - Update nonexistent → None
+
+(e) Hook failure injection (6 tests):
+  - Malformed JSON stdin → hook exits 0 (no crash)
+  - Empty stdin → hook exits 0 (no crash)
+  - Missing tool_name field → graceful (no decision)
+  - Corrupted defense_state JSON → hook survives, still asks
+  - Corrupted council_verdicts JSON → hook survives, still asks
+  - Missing defense_state directory → hook survives, still asks
+
+Pre-existing failures (NOT addressed, per task instructions):
+  - tests/runtime/test_mcp_memory_server.py: 7 tests using mcp_module fixture
+    (store_path change after init doesn't switch backend from sqlite to json)
+  - tests/hooks/test_bypass_mode.py::test_firewall_bypass_skips_ask_for_git_force_push
+
+Verification commands:
+  python3 -m pytest tests/runtime/test_subagent_dispatcher.py tests/runtime/test_mcp_memory_server.py tests/hooks -q
+  → 812 passed, 8 failed (all pre-existing)
+
+  python3 -m pytest ... -k "timeout or cancellation or minimal_change or mcp_failure or corrupted or malformed or Lightweight or DiskWrite or Resilience or EdgeCase or Failure"
+  → 58 passed

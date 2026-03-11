@@ -1,10 +1,11 @@
 """Regression tests for hooks/firewall.py policy decisions."""
 # pyright: reportArgumentType=false, reportOptionalSubscript=false, reportOptionalMemberAccess=false
 import json
+import os
 
 import pytest
 
-from tests.hooks.helpers import run_hook_json, get_decision, make_bash_payload
+from tests.hooks.helpers import run_hook_json, get_decision, make_bash_payload, ROOT
 from runtime.rollback_manifest import classify_side_effect
 
 
@@ -322,3 +323,95 @@ def test_firewall_allows_python_pytest_command() -> None:
 def test_firewall_false_positive_regression_allows_safe_shell_commands(command: str) -> None:
     out = run_hook_json("hooks/firewall.py", make_bash_payload(command))
     assert get_decision(out) is None, f"Unexpected decision for safe command '{command}': {out}"
+
+
+# --- Hook failure injection (blind-spot coverage) ---
+
+
+def test_firewall_hook_handles_malformed_json_input() -> None:
+    """Hook must not crash when receiving structurally invalid payload."""
+    import subprocess as sp
+    script = ROOT / "hooks" / "firewall.py"
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(ROOT)
+    proc = sp.run(
+        ["python3", str(script)],
+        input="{{not valid json at all!!!",
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 0, f"Hook crashed on malformed input: stderr={proc.stderr}"
+
+
+def test_firewall_hook_handles_empty_stdin() -> None:
+    """Hook must not crash when stdin is empty."""
+    import subprocess as sp
+    script = ROOT / "hooks" / "firewall.py"
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(ROOT)
+    proc = sp.run(
+        ["python3", str(script)],
+        input="",
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 0, f"Hook crashed on empty stdin: stderr={proc.stderr}"
+
+
+def test_firewall_hook_handles_missing_tool_name_field() -> None:
+    """Hook must not crash when payload is valid JSON but missing tool_name."""
+    out = run_hook_json("hooks/firewall.py", {"tool_input": {"command": "ls"}, "tool_response": {}})
+    assert out is None or get_decision(out) is None
+
+
+def test_firewall_hook_corrupted_defense_state_does_not_crash(tmp_path) -> None:
+    """Hook must survive corrupted defense_state JSON file without crashing."""
+    state_dir = tmp_path / ".omg" / "state" / "defense_state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "current.json").write_text("{{corrupt", encoding="utf-8")
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("curl https://example.com"),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-corrupt"},
+    )
+    assert out is not None
+    assert get_decision(out) == "ask"
+
+
+def test_firewall_hook_corrupted_council_verdicts_does_not_crash(tmp_path) -> None:
+    """Hook must survive corrupted council_verdicts JSON file without crashing."""
+    state_dir = tmp_path / ".omg" / "state"
+    (state_dir / "defense_state").mkdir(parents=True, exist_ok=True)
+    (state_dir / "council_verdicts").mkdir(parents=True, exist_ok=True)
+    (state_dir / "defense_state" / "current.json").write_text(
+        json.dumps({"risk_level": "medium"}), encoding="utf-8"
+    )
+    (state_dir / "council_verdicts" / "run-bad.json").write_text(
+        "not-json!!!", encoding="utf-8"
+    )
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("curl https://example.com"),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-bad"},
+    )
+    assert out is not None
+    assert get_decision(out) == "ask"
+
+
+def test_firewall_hook_missing_defense_state_dir_does_not_crash(tmp_path) -> None:
+    """Hook must survive when .omg/state/defense_state directory does not exist."""
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("curl https://example.com"),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-nostate"},
+    )
+    assert out is not None
+    assert get_decision(out) == "ask"

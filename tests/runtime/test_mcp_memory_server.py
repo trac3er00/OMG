@@ -225,3 +225,120 @@ def test_memory_all_resource_returns_json(mcp_module: _MCPMemoryServerModule) ->
     assert isinstance(parsed, list)
     assert len(parsed) == 1
     assert parsed[0]["key"] == "r1"
+
+
+# -------------------------------------------------------------------
+# MCP / MemoryStore failure-injection tests (blind-spot coverage)
+# -------------------------------------------------------------------
+
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+from runtime.memory_store import MemoryStore, MemoryStoreFullError
+
+
+class TestMemoryStoreCorruptedJsonFile:
+    """MemoryStore JSON backend resilience against corrupted data on disk."""
+
+    def test_corrupted_json_file_returns_empty_store(self, tmp_path: Path) -> None:
+        store_path = str(tmp_path / "store.json")
+        Path(store_path).write_text("{{{not valid json!!!", encoding="utf-8")
+        store = MemoryStore(store_path=store_path)
+        assert store.count() == 0
+
+    def test_non_list_json_returns_empty_store(self, tmp_path: Path) -> None:
+        store_path = str(tmp_path / "store.json")
+        Path(store_path).write_text('{"key": "value"}', encoding="utf-8")
+        store = MemoryStore(store_path=store_path)
+        assert store.count() == 0
+
+    def test_empty_file_returns_empty_store(self, tmp_path: Path) -> None:
+        store_path = str(tmp_path / "store.json")
+        Path(store_path).write_text("", encoding="utf-8")
+        store = MemoryStore(store_path=store_path)
+        assert store.count() == 0
+
+
+class TestMemoryStoreDiskWriteFailure:
+    """MemoryStore behavior when disk writes fail."""
+
+    def test_add_raises_on_full_store(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": str(i)} for i in range(10_000)]
+        with pytest.raises(MemoryStoreFullError, match="full"):
+            store.add(key="overflow", content="data", source_cli="test")
+
+    def test_save_to_readonly_dir_raises(self, tmp_path: Path) -> None:
+        readonly_dir = tmp_path / "readonly"
+        readonly_dir.mkdir()
+        store_path = str(readonly_dir / "deep" / "nested" / "store.json")
+        store = MemoryStore(store_path=store_path)
+        store._items.append({"id": "x", "key": "k"})
+        import os
+        readonly_dir.chmod(0o444)
+        try:
+            with pytest.raises(OSError):
+                store._save_json_items()
+        finally:
+            readonly_dir.chmod(0o755)
+
+
+class TestMemoryStoreSearchResilience:
+    """MemoryStore search handles items with missing/malformed fields."""
+
+    def test_search_with_missing_key_field(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "1", "content": "hello world", "source_cli": "test", "tags": []}]
+        results = store.search("hello")
+        assert len(results) == 1
+
+    def test_search_with_none_tags(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "1", "key": "k", "content": "data", "source_cli": "test", "tags": None}]
+        results = store.search("data")
+        assert len(results) == 1
+
+    def test_search_with_non_list_tags(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "1", "key": "k", "content": "data", "source_cli": "test", "tags": "not-a-list"}]
+        results = store.search("data")
+        assert len(results) == 1
+
+    def test_search_no_match_returns_empty(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "1", "key": "k", "content": "data", "source_cli": "test", "tags": []}]
+        results = store.search("nonexistent-query-xyzzy")
+        assert results == []
+
+
+class TestMemoryStoreImportEdgeCases:
+    """MemoryStore import handles degenerate and duplicate items."""
+
+    def test_import_skips_duplicate_ids(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "existing", "key": "k1", "content": "c1"}]
+        count = store.import_items([
+            {"id": "existing", "key": "k2", "content": "c2"},
+            {"id": "new-one", "key": "k3", "content": "c3"},
+        ])
+        assert count == 1
+        assert store.count() == 2
+
+    def test_import_skips_empty_id_items(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        count = store.import_items([
+            {"id": "", "key": "k1", "content": "c1"},
+            {"key": "k2", "content": "c2"},
+        ])
+        assert count == 0
+
+    def test_delete_nonexistent_returns_false(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        assert store.delete("no-such-id") is False
+
+    def test_get_nonexistent_returns_none(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        assert store.get("no-such-id") is None
+
+    def test_update_nonexistent_returns_none(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        assert store.update("no-such-id", content="new") is None
