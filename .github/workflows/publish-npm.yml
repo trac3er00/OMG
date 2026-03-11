@@ -46,17 +46,23 @@ jobs:
           ref: ${{ steps.target.outputs.sha }}
           fetch-depth: 0
 
-      - name: Create and push tag (workflow_dispatch only)
+      - name: Create and push tag (workflow_dispatch only, if tag doesn't exist)
         if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
         run: |
           VERSION="${{ steps.target.outputs.version }}"
           SHA="${{ steps.target.outputs.sha }}"
+          # Skip if tag already exists on remote
+          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q "refs/tags/v${VERSION}"; then
+            echo "Tag v${VERSION} already exists on remote — skipping tag creation"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Create annotated tag at the target commit
           git tag "v${VERSION}" "${SHA}" -m "Release v${VERSION} — published via workflow dispatch"
-          git push origin "v${VERSION}"
-          echo "Created and pushed tag v${VERSION} at ${SHA}"
+          git push origin "v${VERSION}" && echo "Created and pushed tag v${VERSION} at ${SHA}" || \
+            echo "WARNING: Tag push failed (tag protection rule) — continuing with publish"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
