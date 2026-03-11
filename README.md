@@ -111,6 +111,7 @@ Compatibility references to OMC, OMX, and Superpowers are documented here: [docs
 Current local verification for this release: See `.omg/evidence/` for machine-generated verification artifacts.
 
 - Truth bundles: `claim-judge`, `test-intent-lock`, `proof-gate`
+- Evidence profiles: `browser-flow`, `forge-cybersecurity`, `interop-diagnosis`, `install-validation`, `buffet`
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
 - Sample crazy transcript: [docs/transcripts/crazy.md](docs/transcripts/crazy.md)

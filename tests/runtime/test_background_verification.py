@@ -281,6 +281,16 @@ def test_new_evidence_profiles_resolve_correctly() -> None:
     assert "security_scan" in forge_sec_reqs
     assert "artifact_contracts" in forge_sec_reqs
 
+    # interop-diagnosis should require trust_scores and provenance
+    interop_reqs = requirements_for_profile("interop-diagnosis")
+    assert "trust_scores" in interop_reqs
+    assert "provenance" in interop_reqs
+
+    # install-validation should require tests and build
+    install_reqs = requirements_for_profile("install-validation")
+    assert "tests" in install_reqs
+    assert "build" in install_reqs
+
     # buffet should probably require everything (full requirements)
     buffet_reqs = requirements_for_profile("buffet")
     from runtime.evidence_requirements import FULL_REQUIREMENTS

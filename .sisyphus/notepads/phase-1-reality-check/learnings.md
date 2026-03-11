@@ -111,3 +111,10 @@
 - compliance_governor.py `_artifact_gate_decision` had no awareness of artifact_contracts statuses — added check for `_UNVERIFIED_ARTIFACT_STATUSES` (pending_verification, insufficient_evidence, placeholder) that blocks release.
 - TDD: 6 tests written first, confirmed 4 failed, implemented fixes, all 46 forge tests pass.
 - Pattern: When producing synthetic evidence (hash from deterministic seed, file path with no file), never use verified/signed/generated — use pending_verification to be honest about what exists.
+
+## [2026-03-11] Task 14 evidence profile normalization
+- All 5 quick-win profiles (browser-flow, forge-cybersecurity, interop-diagnosis, install-validation, buffet) were already in `EVIDENCE_REQUIREMENTS_BY_PROFILE` — no runtime registry changes needed.
+- Test gap: `test_new_evidence_profiles_resolve_correctly` had per-profile assertions for browser-flow, forge-cybersecurity, and buffet but was missing interop-diagnosis (trust_scores, provenance) and install-validation (tests, build).
+- Docs gap: README.md Proof section listed truth bundles but not evidence profiles.
+- Fix: Added missing test assertions + README evidence profiles line. No runtime code changes.
+- Pattern: When adding new evidence profiles, always add (1) registry entry, (2) per-profile test assertion, (3) docs mention — all three surfaces must stay in sync.
