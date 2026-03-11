@@ -2,7 +2,7 @@
 """Read-only release identity validator.
 
 Usage:
-    python3 scripts/validate-release-identity.py --scope all --forbid-version 2.1.1
+    python3 scripts/validate-release-identity.py --scope all --forbid-version <forbid-version>
     python3 scripts/validate-release-identity.py --scope authored
     python3 scripts/validate-release-identity.py --scope derived
 """

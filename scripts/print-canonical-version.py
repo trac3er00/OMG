@@ -2,7 +2,7 @@
 """Zero-dependency canonical version extractor using AST parsing.
 
 Reads CANONICAL_VERSION from runtime/adoption.py without importing it.
-Prints the semver string (e.g. "2.1.1") with trailing newline.
+Prints the semver string (e.g. "<version>") with trailing newline.
 Exit code 0 on success, non-zero on parse failure.
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ def extract_canonical_version(source_file: Path) -> str | None:
         source_file: Path to runtime/adoption.py
         
     Returns:
-        The version string (e.g. "2.1.1") or None if not found/invalid
+        The version string (e.g. "<version>") or None if not found/invalid
     """
     try:
         source_code = source_file.read_text(encoding="utf-8")

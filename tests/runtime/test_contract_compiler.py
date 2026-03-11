@@ -13,14 +13,15 @@ from runtime.evidence_requirements import requirements_for_profile
 from runtime import contract_compiler as contract_compiler_module
 from runtime.contract_compiler import (
     DEFAULT_REQUIRED_BUNDLES,
-    REQUIRED_ADVANCED_PLUGIN_ARTIFACTS,
     REQUIRED_CLAUDE_HOOK_EVENTS,
     REQUIRED_CLAUDE_SUBAGENT_NAMES,
     REQUIRED_CODEX_AGENTS_SECTIONS,
     REQUIRED_CODEX_OUTPUTS,
+    _get_required_advanced_plugin_artifacts,
     build_release_readiness,
     compile_contract_outputs,
     validate_contract_registry,
+    _check_plugin_command_paths,
     _validate_compiled_claude_output,
     _validate_compiled_codex_output,
 )
@@ -1240,8 +1241,25 @@ def test_compile_includes_advanced_plugin_artifacts(tmp_path: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest_paths = {a["path"] for a in manifest["artifacts"]}
 
-    for req in REQUIRED_ADVANCED_PLUGIN_ARTIFACTS:
+    for req in _get_required_advanced_plugin_artifacts(ROOT):
         assert req in manifest_paths, f"Missing required advanced artifact: {req}"
+
+
+def test_advanced_artifact_manifest_derived_requirements() -> None:
+    required = _get_required_advanced_plugin_artifacts(ROOT)
+    manifest = json.loads((ROOT / "plugins" / "advanced" / "plugin.json").read_text(encoding="utf-8"))
+    expected = {
+        "bundle/plugins/advanced/plugin.json",
+        *[
+            f"bundle/plugins/advanced/{cmd['path']}"
+            for cmd in manifest["commands"].values()
+            if isinstance(cmd, dict) and isinstance(cmd.get("path"), str)
+        ],
+    }
+
+    assert set(required) == expected
+    assert "bundle/plugins/advanced/commands/OMG:security-review.md" not in required
+    assert len(required) == 10
 
 
 def test_advanced_command_path_integrity(tmp_path: Path) -> None:
@@ -1297,6 +1315,60 @@ def test_release_readiness_blocks_missing_advanced_artifacts(tmp_path: Path, mon
 
     assert readiness["status"] == "error"
     assert any("advanced_plugin_missing" in b for b in readiness["blockers"])
+
+
+def test_release_readiness_plugin_command_security_review_not_required(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "ok"
+    assert all("OMG:security-review.md" not in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_missing_manifest_declared_advanced_artifact(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    manifest_path = tmp_path / "dist" / "public" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    missing_path = "bundle/plugins/advanced/commands/OMG:learn.md"
+    manifest["artifacts"] = [a for a in manifest["artifacts"] if str(a.get("path", "")) != missing_path]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any(f"advanced_plugin_missing {missing_path}" in b for b in readiness["blockers"])
 
 
 def test_release_readiness_blocks_missing_proof_gate_claims(tmp_path: Path, monkeypatch) -> None:
@@ -1621,7 +1693,7 @@ def test_malformed_pyproject_toml_produces_explicit_parse_blocker(
     _setup_drift_fixture(tmp_path)
 
     (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = 'oh-my-god'\nversion = '2.1.1'\n",
+        "[project]\nname = 'oh-my-god'\nversion = '0.0.1-test'\n",
         encoding="utf-8",
     )
 
@@ -1889,3 +1961,61 @@ def test_validate_fail_status_when_blocker():
         assert result["status"] == "fail"
     else:
         assert result["status"] == "pass"
+
+
+def _scaffold_plugin_tree(root: Path, *, missing_advanced_cmd: str | None = None) -> None:
+    core_dir = root / "plugins" / "core"
+    core_dir.mkdir(parents=True, exist_ok=True)
+    core_commands_dir = root / "commands"
+    core_commands_dir.mkdir(parents=True, exist_ok=True)
+
+    core_manifest = {
+        "commands": {
+            "setup": {"path": "commands/OMG:setup.md"},
+            "init": {"path": "commands/OMG:init.md"},
+        }
+    }
+    (core_dir / "plugin.json").write_text(json.dumps(core_manifest), encoding="utf-8")
+    (core_commands_dir / "OMG:setup.md").write_text("# setup\n", encoding="utf-8")
+    (core_commands_dir / "OMG:init.md").write_text("# init\n", encoding="utf-8")
+
+    adv_dir = root / "plugins" / "advanced"
+    adv_commands_dir = adv_dir / "commands"
+    adv_commands_dir.mkdir(parents=True, exist_ok=True)
+
+    adv_manifest = {
+        "commands": {
+            "deep-plan": {"path": "commands/OMG:deep-plan.md"},
+            "learn": {"path": "commands/OMG:learn.md"},
+        }
+    }
+    (adv_dir / "plugin.json").write_text(json.dumps(adv_manifest), encoding="utf-8")
+
+    for cmd_name in ("OMG:deep-plan.md", "OMG:learn.md"):
+        if cmd_name == missing_advanced_cmd:
+            continue
+        (adv_commands_dir / cmd_name).write_text(f"# {cmd_name}\n", encoding="utf-8")
+
+
+def test_plugin_command_paths_valid_tree(tmp_path: Path) -> None:
+    _scaffold_plugin_tree(tmp_path)
+
+    result = _check_plugin_command_paths(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+    assert result["details"]["core"]["status"] == "ok"
+    assert result["details"]["advanced"]["status"] == "ok"
+
+
+def test_plugin_command_paths_missing_source(tmp_path: Path) -> None:
+    _scaffold_plugin_tree(tmp_path, missing_advanced_cmd="OMG:learn.md")
+
+    result = _check_plugin_command_paths(tmp_path)
+
+    assert result["status"] == "error"
+    assert any("plugin_command_paths" in b for b in result["blockers"])
+    assert any("missing source" in b for b in result["blockers"])
+    assert any("learn" in b for b in result["blockers"])
+    assert result["details"]["advanced"]["status"] == "error"
+    assert result["details"]["core"]["status"] == "ok"

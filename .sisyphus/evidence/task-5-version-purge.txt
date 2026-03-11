@@ -1,0 +1,27 @@
+=== task-5-version-purge evidence ===
+Date: 2026-03-10T19:50:55Z
+
+--- grep verification (expect zero matches) ---
+(no matches found — exit code 1 = success)
+
+--- validate-release-identity output ---
+{
+  "canonical_version": "2.1.5",
+  "scope": "all",
+  "forbid_version": "2.1.1",
+  "authored": {
+    "status": "ok",
+    "blockers": []
+  },
+  "derived": {
+    "status": "ok",
+    "blockers": []
+  },
+  "scoped_residue": {
+    "status": "ok",
+    "forbid_version": "2.1.1",
+    "blockers": []
+  },
+  "overall_status": "ok"
+}
+EXIT_CODE=0

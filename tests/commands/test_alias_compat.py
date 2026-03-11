@@ -46,3 +46,10 @@ def test_omg_playwright_alias_for_browser_exists():
     assert "/OMG:playwright" in playwright_doc
     assert "alias" in playwright_doc.lower()
     assert "/OMG:browser" in playwright_doc
+
+
+def test_omg_deep_plan_root_command_stub_exists():
+    deep_plan_doc = _read("commands/OMG:deep-plan.md")
+    assert "/OMG:deep-plan" in deep_plan_doc
+    assert "plan-council" in deep_plan_doc
+    assert "alias" in deep_plan_doc.lower() or "compatibility" in deep_plan_doc.lower()

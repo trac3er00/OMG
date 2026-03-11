@@ -67,11 +67,31 @@ TRUTH_COUNCIL_BUNDLES = (
     "test-intent-lock",
     "proof-gate",
 )
-REQUIRED_ADVANCED_PLUGIN_ARTIFACTS = (
-    "bundle/plugins/advanced/plugin.json",
-    "bundle/plugins/advanced/commands/OMG:deep-plan.md",
-    "bundle/plugins/advanced/commands/OMG:security-review.md",
-)
+def _get_required_advanced_plugin_artifacts(root: Path) -> tuple[str, ...]:
+    manifest_path = root / "plugins" / "advanced" / "plugin.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+
+    required: list[str] = ["bundle/plugins/advanced/plugin.json"]
+    seen = set(required)
+    commands = manifest.get("commands", {})
+    if not isinstance(commands, dict):
+        return tuple(required)
+
+    for command in commands.values():
+        if not isinstance(command, dict):
+            continue
+        command_path = command.get("path")
+        if not isinstance(command_path, str) or not command_path:
+            continue
+        bundled_path = f"bundle/plugins/advanced/{command_path}"
+        if bundled_path in seen:
+            continue
+        required.append(bundled_path)
+        seen.add(bundled_path)
+    return tuple(required)
 REQUIRED_DOC_TOKENS = (
     "execution_contract",
     "tool_policy",
@@ -1438,6 +1458,54 @@ def _check_mcp_fabric() -> dict[str, Any]:
     }
 
 
+def _check_plugin_command_paths(root: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    details: dict[str, Any] = {}
+
+    plugin_specs: list[tuple[str, Path, Path]] = [
+        ("core", root / "plugins" / "core" / "plugin.json", root),
+        ("advanced", root / "plugins" / "advanced" / "plugin.json", root / "plugins" / "advanced"),
+    ]
+
+    for plugin_name, manifest_path, resolve_root in plugin_specs:
+        plugin_detail: dict[str, Any] = {"manifest": str(manifest_path), "commands": {}}
+        if not manifest_path.exists():
+            blockers.append(f"plugin_command_paths: missing manifest {manifest_path.relative_to(root)}")
+            plugin_detail["status"] = "error"
+            details[plugin_name] = plugin_detail
+            continue
+
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            blockers.append(f"plugin_command_paths: unreadable manifest {manifest_path.relative_to(root)}: {exc}")
+            plugin_detail["status"] = "error"
+            details[plugin_name] = plugin_detail
+            continue
+
+        commands = manifest.get("commands", {})
+        missing: list[str] = []
+        for cmd_name, cmd_config in commands.items():
+            cmd_path = cmd_config.get("path", "")
+            resolved = resolve_root / cmd_path
+            plugin_detail["commands"][cmd_name] = str(cmd_path)
+            if not resolved.exists():
+                missing.append(cmd_path)
+                blockers.append(
+                    f"plugin_command_paths: {plugin_name} command '{cmd_name}' missing source {cmd_path}"
+                )
+
+        plugin_detail["missing"] = missing
+        plugin_detail["status"] = "ok" if not missing else "error"
+        details[plugin_name] = plugin_detail
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "blockers": blockers,
+        "details": details,
+    }
+
+
 def _check_version_identity_drift(root: Path) -> dict[str, Any]:
     canonical_version = CANONICAL_VERSION
     blockers: list[str] = []
@@ -1761,7 +1829,7 @@ def build_release_readiness(
                     manifest_errors.append(
                         f"{required_channel}: host_parity_missing {host_name} {bundled_host_path}"
                     )
-        for req_path in REQUIRED_ADVANCED_PLUGIN_ARTIFACTS:
+        for req_path in _get_required_advanced_plugin_artifacts(root):
             if req_path not in manifest_paths:
                 manifest_errors.append(f"{required_channel}: advanced_plugin_missing {req_path}")
         if manifest_errors:
@@ -1836,6 +1904,10 @@ def build_release_readiness(
     package_check = _check_packaged_install_smoke(root)
     checks["package_smoke"] = package_check
     blockers.extend(package_check.get("blockers", []))
+
+    plugin_cmd_check = _check_plugin_command_paths(root)
+    checks["plugin_command_paths"] = plugin_cmd_check
+    blockers.extend(plugin_cmd_check.get("blockers", []))
 
     version_drift_check = _check_version_identity_drift(root)
     checks["version_identity_drift"] = version_drift_check

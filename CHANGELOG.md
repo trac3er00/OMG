@@ -16,7 +16,7 @@
 - bump authored release identity to 2.1.4 across all 42 authored surfaces
 - refresh compat contract snapshot
 
-## 2.1.1 - 2026-03-08
+## [historical] 2.1.x - 2026-03-08
 
 - shipped strict TDD-or-die enforcement: locked-tests-first mutation lifecycle with hard gate via `OMG_TDD_GATE_STRICT`, stop-dispatcher lock enforcement, waiver evidence requirement, and release-blocking proof chain
 - delivered granular per-interaction undo/rollback: `restore_shadow_entry` in shadow manager, rollback manifest schema with compensating actions for reversible external side effects, and `omg undo` CLI wired end-to-end
