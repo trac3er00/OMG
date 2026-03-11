@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 2.1.6 - 2026-03-11
+## 2.1.7 - 2026-03-11
 
 - fixed `/OMG:deep-plan` 404 by adding missing root compatibility stub routing to canonical plan-council bundle
 - added manifest-driven release readiness gate that audits plugin command source paths against manifests and fails fast on missing files
