@@ -1,0 +1,41 @@
+Task 13: Make Forge artifacts and proof paths honest about what is and is not verified
+=======================================================================================
+
+Date: 2026-03-11
+Status: COMPLETE
+Test command: python3 -m pytest tests/runtime/test_forge_agents.py -q
+Result: 46 passed (40 original + 6 new)
+
+Changes:
+- runtime/forge_agents.py: Replaced "placeholder" status with "pending_verification" (dataset_lineage,
+  model_card, checkpoint_hash) and "insufficient_evidence" (regression_scoreboard) in dispatch evidence
+  artifact_contracts. Preserves contract structure; only status values changed.
+
+- runtime/forge_contracts.py: Replaced misleading statuses in _resolve_artifact_contracts:
+  - dataset_lineage: "verified" → "pending_verification" (synthetic hash, no real artifact)
+  - model_card: "generated" → "pending_verification" (no real file exists)
+  - checkpoint_hash: "signed" → "pending_verification" (synthetic hash, not actually signed)
+  - regression_scoreboard: "passed" → "insufficient_evidence" (simulated score, not real eval)
+  - Also auto-fills checkpoint_hash for user-supplied contracts path (was missing)
+
+- runtime/compliance_governor.py: Added _UNVERIFIED_ARTIFACT_STATUSES frozenset and check in
+  _artifact_gate_decision. Now inspects artifact_contracts for pending_verification,
+  insufficient_evidence, or placeholder statuses and blocks release when found.
+
+New tests (6):
+1. test_dispatch_artifact_contracts_use_pending_verification
+   - Asserts dispatch evidence artifact_contracts use pending_verification/insufficient_evidence
+2. test_dispatch_artifact_contracts_never_claim_verified_or_signed
+   - Asserts no misleading verified/signed/generated/passed in dispatch evidence
+3. test_resolve_artifact_contracts_default_statuses_are_truthful
+   - Asserts _resolve_artifact_contracts default path uses truthful statuses
+4. test_resolve_artifact_contracts_preserves_user_supplied_contracts
+   - Asserts user-supplied contracts are preserved; only auto-filled defaults are truthful
+5. test_release_compliance_blocks_pending_verification_artifacts
+   - Asserts compliance governor blocks release with pending_verification artifacts
+6. test_release_compliance_blocks_insufficient_evidence_artifacts
+   - Asserts compliance governor blocks release with insufficient_evidence artifacts
+
+TDD posture: All 6 tests written FIRST and confirmed failing, then implementation made them pass.
+LSP diagnostics: Clean on all 3 changed source files.
+Pre-existing test failures: Unchanged (mcp_memory_server, memory_store, compat_dispatch xdist flake).

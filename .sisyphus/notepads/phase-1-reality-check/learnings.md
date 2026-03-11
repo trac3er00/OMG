@@ -103,3 +103,11 @@
 - Hardened export/import MCP contract in `runtime/mcp_memory_server.py`: `memory_export` now returns encrypted bundle (`omg.memory.export.v1`) with integrity hash; `memory_import_bundle` rejects plaintext payloads and integrity mismatch.
 - Added tmp-path-isolated tests for encrypted export, quarantined import invisibility, promotion unlock, and plaintext bundle rejection.
 - Verification: `python3 -m pytest tests/runtime/test_mcp_memory_server.py -q -k 'encrypted_export or quarantined_import or plaintext_export or retention_metadata_roundtrips_export_import'` => 5 passed; required broad selector still has 7 known pre-existing fixture failures.
+
+## [2026-03-11] Task 13 Forge proof-state honesty
+- forge_agents.py dispatch evidence used "placeholder" for all 4 artifact_contract entries — changed to "pending_verification" (3) and "insufficient_evidence" (1, regression_scoreboard).
+- forge_contracts.py `_resolve_artifact_contracts` used misleading "verified"/"generated"/"signed"/"passed" for synthetic artifacts — all changed to "pending_verification" or "insufficient_evidence".
+- forge_contracts.py user-supplied contracts path was missing auto-fill for checkpoint_hash — added it with truthful status.
+- compliance_governor.py `_artifact_gate_decision` had no awareness of artifact_contracts statuses — added check for `_UNVERIFIED_ARTIFACT_STATUSES` (pending_verification, insufficient_evidence, placeholder) that blocks release.
+- TDD: 6 tests written first, confirmed 4 failed, implemented fixes, all 46 forge tests pass.
+- Pattern: When producing synthetic evidence (hash from deterministic seed, file path with no file), never use verified/signed/generated — use pending_verification to be honest about what exists.

@@ -538,25 +538,25 @@ def _write_dispatch_evidence(
             "dataset_lineage": {
                 "standard": "Croissant-1.1",
                 "path": f".omg/evidence/forge-lineage-{run_id}.json",
-                "status": "placeholder",
+                "status": "pending_verification",
                 "reason": "dataset lineage artifact not yet generated",
             },
             "model_card": {
                 "standard": "HuggingFace-ModelCard",
                 "path": f".omg/evidence/forge-model-card-{run_id}.md",
-                "status": "placeholder",
+                "status": "pending_verification",
                 "reason": "model card artifact not yet generated",
             },
             "checkpoint_hash": {
                 "standard": "OpenSSF-OMS",
                 "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
-                "status": "placeholder",
+                "status": "pending_verification",
                 "reason": "checkpoint hash artifact not yet generated",
             },
             "regression_scoreboard": {
                 "standard": "lm-eval",
                 "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
-                "status": "placeholder",
+                "status": "insufficient_evidence",
                 "reason": "regression scoreboard artifact not yet generated",
             },
             "promotion_decision": {
