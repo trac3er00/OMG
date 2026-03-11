@@ -1,6 +1,6 @@
 ---
 name: omg-control-plane
-description: "Canonical production control plane bundle for Claude and Codex."
+description: "Canonical production control plane bundle for Claude, Codex, Gemini, and Kimi."
 ---
 
 # OMG Control Plane

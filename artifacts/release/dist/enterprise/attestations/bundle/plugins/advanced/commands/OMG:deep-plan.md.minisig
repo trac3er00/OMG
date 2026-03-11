@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+iO8YDvadwCqslbfhTMWhHxZ5SRgapIpjIdiNvDdlX0g06CBwQr2GpFxb6XJabr1MU9CjtwbhqBYZTEjGIPHuDA==
+trusted comment: type=omg-slsa-v1 keyid=22c1c1087c8fcd26 issued_at=2026-03-11T02:12:43.709347+00:00 artifact=bundle/plugins/advanced/commands/OMG:deep-plan.md sha256=ccc235efa52643afd5550765bb0a3b9697be40bf4731392fde3f1c0e5c43f9e0
+cPZ2BYy53oY3ai7zTn+8ykMJ4kfoBYbTrAt0lypUA7p0UTbH/wIh7SoPC14qbFHW199erJKDmsoeE2aPcqtRCw==

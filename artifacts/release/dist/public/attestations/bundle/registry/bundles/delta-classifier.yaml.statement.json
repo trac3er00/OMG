@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/delta-classifier.yaml",
+      "digest": {
+        "sha256": "c8f96e70b2841ab88b3622d1270aa579ee246828a6641e2f32a9eebd9fba980d"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T02:12:43.586940+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T02:12:43.586940+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "c0fd2012debc2ee2",
+    "value": "untrusted comment: signature from omg local signing key\nTeJwXjbMWPJDrewEtHLo91dZuRnLiqfOetvxCaZmOgCJkpOAyvohVcKLCfUy/UL4QNqr2KxuhwQOxdibQUMkAw==\ntrusted comment: type=omg-slsa-v1 keyid=c0fd2012debc2ee2 issued_at=2026-03-11T02:12:43.587050+00:00 artifact=bundle/registry/bundles/delta-classifier.yaml sha256=c8f96e70b2841ab88b3622d1270aa579ee246828a6641e2f32a9eebd9fba980d\niom+h6C8NZOSgkhtQYb/yCwWj7QmRS5gHkEgU9PkVk0j/3VnHwnCcjzGoiNB41OVprhWzca/5m+tvFGYbuH/DQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=c0fd2012debc2ee2 issued_at=2026-03-11T02:12:43.587050+00:00 artifact=bundle/registry/bundles/delta-classifier.yaml sha256=c8f96e70b2841ab88b3622d1270aa579ee246828a6641e2f32a9eebd9fba980d"
+  }
+}

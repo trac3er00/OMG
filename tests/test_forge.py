@@ -710,12 +710,19 @@ class TestForgePublish:
     """Red-state tests for publish_artifact function (not yet fully implemented)."""
 
     def test_publish_artifact_writes_json_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """publish_artifact must write a JSON file to the provided path."""
+        captured_evidence: dict[str, Any] = {}
+
+        def _capture_compliance(**kwargs: Any) -> dict[str, Any]:
+            captured_evidence.update(kwargs)
+            return {"status": "allowed", "authority": "release", "reason": "ok"}
+
         monkeypatch.setattr(
             "runtime.compliance_governor.evaluate_release_compliance",
-            lambda **_: {"status": "allowed", "authority": "release", "reason": "ok"},
+            _capture_compliance,
         )
         digest = hashlib.sha256(b"checkpoint").hexdigest()
+        attestation = sign_artifact_statement(".omg/evidence/forge-checkpoint.json", digest)
+        signer_key_id = attestation.get("signer", {}).get("keyid", "")
         result = {
             "status": "ready",
             "stage": "complete",
@@ -732,12 +739,8 @@ class TestForgePublish:
                     "status": "signed",
                     "path": ".omg/evidence/forge-checkpoint.json",
                     "sha256": digest,
-                    "attestation": sign_artifact_statement(
-                        ".omg/evidence/forge-checkpoint.json",
-                        "forge-local-signing-key",
-                        digest,
-                    ),
-                    "signer_pubkey": "forge-local-signing-key",
+                    "attestation": attestation,
+                    "signer_key_id": signer_key_id,
                 },
                 "regression_scoreboard": {
                     "status": "passed",
@@ -765,6 +768,10 @@ class TestForgePublish:
         assert published.get("status") == "published"
         assert published.get("published") is True
         assert "published_at" in published
+        evidence = captured_evidence.get("release_evidence", {})
+        assert isinstance(evidence.get("artifact"), dict)
+        assert evidence["artifact"]["checksum"] == digest
+        assert evidence["artifact"]["signer"] == signer_key_id
 
     def test_publish_artifact_requires_passed_evaluation(self, tmp_path: Path) -> None:
         """publish_artifact must block if evaluation report is missing or not passed."""
@@ -847,6 +854,8 @@ class TestForgePublish:
 
     def test_publish_artifact_requires_claims_for_compliance_gate(self) -> None:
         digest = hashlib.sha256(b"checkpoint").hexdigest()
+        attestation = sign_artifact_statement(".omg/evidence/forge-checkpoint.json", digest)
+        signer_key_id = attestation.get("signer", {}).get("keyid", "")
         result = {
             "status": "ready",
             "stage": "complete",
@@ -863,12 +872,8 @@ class TestForgePublish:
                     "status": "signed",
                     "path": ".omg/evidence/forge-checkpoint.json",
                     "sha256": digest,
-                    "attestation": sign_artifact_statement(
-                        ".omg/evidence/forge-checkpoint.json",
-                        "forge-local-signing-key",
-                        digest,
-                    ),
-                    "signer_pubkey": "forge-local-signing-key",
+                    "attestation": attestation,
+                    "signer_key_id": signer_key_id,
                 },
                 "regression_scoreboard": {
                     "status": "passed",
@@ -885,6 +890,97 @@ class TestForgePublish:
         assert published.get("status") == "blocked"
         assert published.get("reason") == "promotion blocked: missing release claims"
         assert published.get("published") is False
+
+    def test_publish_blocks_claims_without_artifact_evidence(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("lab.pipeline._collect_publish_blockers", lambda _: [])
+        result = {
+            "status": "ready",
+            "published": False,
+            "evaluation_report": {
+                "created_at": "2026-03-09T00:00:00+00:00",
+                "metric": 0.9,
+                "target_metric": 0.8,
+                "passed": True,
+                "notes": "",
+            },
+            "artifact_contracts": {},
+            "release_evidence": {
+                "claims": [
+                    {
+                        "claim_type": "release_ready",
+                        "run_id": "test-no-artifact",
+                        "evidence_profile": "release",
+                    }
+                ]
+            },
+        }
+
+        published = publish_artifact(result)
+
+        assert published.get("status") == "blocked"
+        assert "claims present but artifact evidence missing" in str(published.get("reason", ""))
+        assert published.get("published") is False
+
+    def test_publish_records_artifact_audit_fields_in_compliance_call(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        captured: dict[str, Any] = {}
+
+        def _capture(**kwargs: Any) -> dict[str, Any]:
+            captured.update(kwargs)
+            return {"status": "allowed", "authority": "release", "reason": "ok"}
+
+        monkeypatch.setattr("runtime.compliance_governor.evaluate_release_compliance", _capture)
+        digest = hashlib.sha256(b"audit-test").hexdigest()
+        attestation = sign_artifact_statement(".omg/evidence/audit-checkpoint.json", digest)
+        signer_info = attestation.get("signer", {})
+        result = {
+            "status": "ready",
+            "published": False,
+            "evaluation_report": {
+                "created_at": "2026-03-09T00:00:00+00:00",
+                "metric": 0.9,
+                "target_metric": 0.8,
+                "passed": True,
+                "notes": "",
+            },
+            "artifact_contracts": {
+                "checkpoint_hash": {
+                    "status": "signed",
+                    "path": ".omg/evidence/audit-checkpoint.json",
+                    "sha256": digest,
+                    "attestation": attestation,
+                    "signer_key_id": signer_info.get("keyid", ""),
+                },
+                "regression_scoreboard": {
+                    "status": "passed",
+                    "path": ".omg/evidence/forge-scoreboard.json",
+                    "score": 0.9,
+                    "target": 0.8,
+                },
+            },
+            "release_evidence": {
+                "claims": [
+                    {
+                        "claim_type": "release_ready",
+                        "run_id": "forge-audit-test",
+                        "evidence_profile": "release",
+                        "artifacts": [".omg/evidence/forge-audit-test.json"],
+                        "trace_ids": ["trace-audit-test"],
+                    }
+                ]
+            },
+        }
+
+        published = publish_artifact(result)
+
+        assert published.get("status") == "published"
+        evidence = captured.get("release_evidence", {})
+        artifact = evidence.get("artifact", {})
+        assert artifact.get("attestation") is attestation
+        assert artifact.get("checksum") == digest
+        subject = attestation.get("subject", [{}])[0]
+        assert subject.get("digest", {}).get("sha256") == digest
+        assert signer_info.get("algorithm") == "ed25519-minisign"
+        assert signer_info.get("keyid") != ""
 
 
 class TestForgeDomainCLIPaths:

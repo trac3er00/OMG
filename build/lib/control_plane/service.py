@@ -208,7 +208,7 @@ class ControlPlaneService:
                 "message": "artifact must be an object",
             }
         decision = verify_artifact(artifact, mode=mode)
-        return 200, decision
+        return (403 if decision.get("action") == "deny" else 200), decision
 
     def lab_jobs(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         if not isinstance(payload, dict):

@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/proof-gate.yaml",
+      "digest": {
+        "sha256": "02c91bbd7793fd4f89ea5d151c1f9942945ac6ebbdccb84ab6ab5eb6f9655685"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T02:11:27.949169+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T02:11:27.949169+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "0ec6e1cf559e9494",
+    "value": "untrusted comment: signature from omg local signing key\nE167kM+ED1yuijyk7V0nJ/ZfVbVbBOxfUqJRf/4bUavlLCEcSvtBxMj2mi8E2PUF+MPA8OdAHhNdScynGt5LAA==\ntrusted comment: type=omg-slsa-v1 keyid=0ec6e1cf559e9494 issued_at=2026-03-11T02:11:27.949274+00:00 artifact=bundle/registry/bundles/proof-gate.yaml sha256=02c91bbd7793fd4f89ea5d151c1f9942945ac6ebbdccb84ab6ab5eb6f9655685\nCNF8+cC38mdp9BTGow0UYZKSRWjlI5PZ15sHHJQGF5UegKaYh0WVvuupCENdMBgn867G2WDj9J9MH+soPAErBw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=0ec6e1cf559e9494 issued_at=2026-03-11T02:11:27.949274+00:00 artifact=bundle/registry/bundles/proof-gate.yaml sha256=02c91bbd7793fd4f89ea5d151c1f9942945ac6ebbdccb84ab6ab5eb6f9655685"
+  }
+}

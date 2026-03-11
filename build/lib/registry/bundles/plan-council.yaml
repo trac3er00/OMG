@@ -1,14 +1,19 @@
 id: plan-council
 kind: planning
-version: 2.1.5
+version: 2.1.6
 title: OMG Plan Council
 description: Canonical council-style planning bundle for explicit, evidence-backed deep plans.
 hosts:
   - claude
   - codex
+  - gemini
+  - kimi
 assets:
   references:
     - plugins/advanced/commands/OMG:deep-plan.md
+    - commands/OMG:validate.md
+    - commands/OMG:profile-review.md
+    - commands/OMG:release-audit.md
 invocation_policy:
   user_invocable: true
   model_invocable: false

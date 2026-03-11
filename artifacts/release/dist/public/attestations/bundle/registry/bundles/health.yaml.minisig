@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+E+CpOsMNhINk7mjXim84UzB+pqyyZ78USFAfChguwBWSfLmV+ajkNfHPJbq9N04p5iBIZ2pIBkKIU7Iu6JaUDQ==
+trusted comment: type=omg-slsa-v1 keyid=f101d92e6686ac43 issued_at=2026-03-11T02:12:43.588129+00:00 artifact=bundle/registry/bundles/health.yaml sha256=d75fd3f2aa735c5f89559633a5a333bd25743c3052d416007e7084cdd4ad4b48
+UMOQjNyXp9TYN8jdocV7sV9qmO7ecXOGvQ5bc3G7a2tNfa7xqYmmixeL/S8aftpkWgLpRMlG7+fKaqYR6zP8Cg==

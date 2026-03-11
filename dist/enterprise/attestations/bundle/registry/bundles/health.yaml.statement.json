@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/health.yaml",
+      "digest": {
+        "sha256": "d75fd3f2aa735c5f89559633a5a333bd25743c3052d416007e7084cdd4ad4b48"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T02:11:28.065282+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T02:11:28.065282+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "fe52507964977084",
+    "value": "untrusted comment: signature from omg local signing key\njz1WjrK6MZBXmR967iZIJ2bcN0+RVwSMhHMTTzn7het3Wx8lBkjliuMcpC0aFihk89rmiDfaXq7HFIZlSvGXCQ==\ntrusted comment: type=omg-slsa-v1 keyid=fe52507964977084 issued_at=2026-03-11T02:11:28.065386+00:00 artifact=bundle/registry/bundles/health.yaml sha256=d75fd3f2aa735c5f89559633a5a333bd25743c3052d416007e7084cdd4ad4b48\nPlbVkkqHuoOk+fwzZ9ke/aG8U84JZpQ5IixutxSmvXsZ5sXGn4J+Z2hdLfAB7O4l2JXCbEGzxyTWsk5He4xxDw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=fe52507964977084 issued_at=2026-03-11T02:11:28.065386+00:00 artifact=bundle/registry/bundles/health.yaml sha256=d75fd3f2aa735c5f89559633a5a333bd25743c3052d416007e7084cdd4ad4b48"
+  }
+}

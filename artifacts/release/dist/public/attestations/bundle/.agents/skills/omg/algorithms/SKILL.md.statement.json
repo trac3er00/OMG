@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/.agents/skills/omg/algorithms/SKILL.md",
+      "digest": {
+        "sha256": "48042e7ab674ef67c2d8a71a75abdd81aeee4363cb5e97c775c320d4edab33fb"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T02:12:43.543793+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T02:12:43.543793+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "9f1acb9b8f9384fa",
+    "value": "untrusted comment: signature from omg local signing key\nKgny706Z8i/uH+taAmxqw6cRCJVNhaSK4Syr22l5uBN5J5YLciMqphIwgrelF3s2OPsUqalWc8fn7hjJDbbEAA==\ntrusted comment: type=omg-slsa-v1 keyid=9f1acb9b8f9384fa issued_at=2026-03-11T02:12:43.543936+00:00 artifact=bundle/.agents/skills/omg/algorithms/SKILL.md sha256=48042e7ab674ef67c2d8a71a75abdd81aeee4363cb5e97c775c320d4edab33fb\n1bxck07lpjPss/EDafmidlzzsxwM+eD2IytJZpYrecdDhR0jlOmFb88Qw2cVK4q1wDi48gXPPVL9XrzQxej+BQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=9f1acb9b8f9384fa issued_at=2026-03-11T02:12:43.543936+00:00 artifact=bundle/.agents/skills/omg/algorithms/SKILL.md sha256=48042e7ab674ef67c2d8a71a75abdd81aeee4363cb5e97c775c320d4edab33fb"
+  }
+}

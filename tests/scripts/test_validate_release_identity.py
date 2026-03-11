@@ -118,35 +118,141 @@ class TestDerivedDrift:
         assert result["status"] == "fail"
         assert any("missing_attestation" in blocker["surface"] for blocker in result["blockers"])
 
-    def test_release_manifest_with_signed_attestation_passes(self, tmp_path):
+    def test_release_manifest_with_detached_attestation_passes(self, tmp_path):
         manifest_dir = tmp_path / "artifacts" / "release" / "dist" / "public"
         manifest_dir.mkdir(parents=True)
         digest = "a" * 64
-        statement = sign_artifact_statement(
-            artifact_path="bundle/settings.json",
-            signer_key="release-signing-key",
-            subject_digest=digest,
-        )
         manifest = {
             "schema": "OmgCompiledArtifactManifest",
             "contract_version": "2.1.1",
             "artifacts": [
-                {
-                    "path": "bundle/settings.json",
-                    "sha256": digest,
-                }
+                {"path": "bundle/settings.json", "sha256": digest}
             ],
             "attestations": [
                 {
                     "artifact_path": "bundle/settings.json",
-                    "signer_pubkey": "release-signing-key",
-                    "statement": statement,
+                    "statement_path": "attestations/bundle/settings.json.statement.json",
+                    "signature_path": "attestations/bundle/settings.json.minisig",
+                    "signer_key_id": "1f5fe64ec2f8c901",
+                    "algorithm": "ed25519-minisign",
                 }
             ],
         }
         (manifest_dir / "manifest.json").write_text(json.dumps(manifest))
 
         result = validate_derived(tmp_path, "2.1.1")
+        assert result["status"] == "ok"
+
+    def test_release_manifest_missing_statement_path_fails(self, tmp_path):
+        manifest_dir = tmp_path / "artifacts" / "release" / "dist" / "public"
+        manifest_dir.mkdir(parents=True)
+        digest = "a" * 64
+        manifest = {
+            "schema": "OmgCompiledArtifactManifest",
+            "contract_version": "2.1.1",
+            "artifacts": [
+                {"path": "bundle/settings.json", "sha256": digest}
+            ],
+            "attestations": [
+                {
+                    "artifact_path": "bundle/settings.json",
+                    "statement_path": "",
+                    "signature_path": "attestations/bundle/settings.json.minisig",
+                    "signer_key_id": "1f5fe64ec2f8c901",
+                    "algorithm": "ed25519-minisign",
+                }
+            ],
+        }
+        (manifest_dir / "manifest.json").write_text(json.dumps(manifest))
+
+        result = validate_derived(tmp_path, "2.1.1")
+        assert result["status"] == "fail"
+        assert any("missing_statement_path" in b["surface"] for b in result["blockers"])
+
+    def test_release_manifest_missing_signature_path_fails(self, tmp_path):
+        manifest_dir = tmp_path / "artifacts" / "release" / "dist" / "public"
+        manifest_dir.mkdir(parents=True)
+        digest = "a" * 64
+        manifest = {
+            "schema": "OmgCompiledArtifactManifest",
+            "contract_version": "2.1.1",
+            "artifacts": [
+                {"path": "bundle/settings.json", "sha256": digest}
+            ],
+            "attestations": [
+                {
+                    "artifact_path": "bundle/settings.json",
+                    "statement_path": "attestations/bundle/settings.json.statement.json",
+                    "signature_path": "",
+                    "signer_key_id": "1f5fe64ec2f8c901",
+                    "algorithm": "ed25519-minisign",
+                }
+            ],
+        }
+        (manifest_dir / "manifest.json").write_text(json.dumps(manifest))
+
+        result = validate_derived(tmp_path, "2.1.1")
+        assert result["status"] == "fail"
+        assert any("missing_signature_path" in b["surface"] for b in result["blockers"])
+
+    def test_release_manifest_unknown_algorithm_fails(self, tmp_path):
+        manifest_dir = tmp_path / "artifacts" / "release" / "dist" / "public"
+        manifest_dir.mkdir(parents=True)
+        digest = "a" * 64
+        manifest = {
+            "schema": "OmgCompiledArtifactManifest",
+            "contract_version": "2.1.1",
+            "artifacts": [
+                {"path": "bundle/settings.json", "sha256": digest}
+            ],
+            "attestations": [
+                {
+                    "artifact_path": "bundle/settings.json",
+                    "statement_path": "attestations/bundle/settings.json.statement.json",
+                    "signature_path": "attestations/bundle/settings.json.minisig",
+                    "signer_key_id": "1f5fe64ec2f8c901",
+                    "algorithm": "rsa-pss-256",
+                }
+            ],
+        }
+        (manifest_dir / "manifest.json").write_text(json.dumps(manifest))
+
+        result = validate_derived(tmp_path, "2.1.1")
+        assert result["status"] == "fail"
+        assert any("unknown_algorithm" in b["surface"] for b in result["blockers"])
+
+    def test_release_manifest_legacy_hmac_bridge_passes(self, tmp_path):
+        manifest_dir = tmp_path / "artifacts" / "release" / "dist" / "public"
+        manifest_dir.mkdir(parents=True)
+        digest = "a" * 64
+        statement = {
+            "_type": "https://in-toto.io/Statement/v1",
+            "predicateType": "https://slsa.dev/provenance/v1",
+            "subject": [
+                {"name": "bundle/settings.json", "digest": {"sha256": digest}}
+            ],
+            "predicate": {},
+            "signer": {"keyid": "test", "algorithm": "hmac-sha256"},
+            "issued_at": "2025-01-01T00:00:00Z",
+        }
+        manifest = {
+            "schema": "OmgCompiledArtifactManifest",
+            "contract_version": "2.1.1",
+            "artifacts": [
+                {"path": "bundle/settings.json", "sha256": digest}
+            ],
+            "attestations": [
+                {
+                    "artifact_path": "bundle/settings.json",
+                    "signer_pubkey": "test-hmac-key",
+                    "statement": statement,
+                }
+            ],
+        }
+        (manifest_dir / "manifest.json").write_text(json.dumps(manifest))
+
+        with patch.object(_mod, "verify_artifact_statement", return_value=True):
+            result = validate_derived(tmp_path, "2.1.1")
         assert result["status"] == "ok"
 
 
