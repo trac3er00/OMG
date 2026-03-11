@@ -22,6 +22,14 @@ import importlib
 HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
+_PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+try:
+    from runtime.complexity_scorer import score_complexity
+except ImportError:
+    score_complexity = None
 
 try:
     from hooks._common import setup_crash_handler, json_input, atomic_json_write, get_feature_flag, _resolve_project_dir
@@ -260,6 +268,7 @@ def _build_intent_gate_state(prompt_text, payload):
         "missing_slots": missing_slots,
         "clarification_prompt": clarification_prompt,
         "source_prompt_hash": source_prompt_hash,
+        "governance": score_complexity(prompt_text).get("governance", {}),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -299,6 +308,24 @@ parts.append(
 if detected_intent in ("fix", "implement", "refactor"):
     parts.append(
         "@verify: After EVERY change run build/lint/test. Show exit code."
+    )
+
+_gov_payload: dict[str, object] | None = None
+if score_complexity is not None and detected_intent in (
+    "fix", "implement", "refactor", "plan", "review",
+):
+    try:
+        _gov_raw = score_complexity(prompt).get("governance")
+        if isinstance(_gov_raw, dict):
+            _gov_payload = _gov_raw
+    except Exception:
+        pass
+if _gov_payload and budget_ok():
+    parts.append(
+        f"@governance: read_first={_gov_payload.get('read_first', False)} "
+        f"simplify_only={_gov_payload.get('simplify_only', False)} "
+        f"optimize_only={_gov_payload.get('optimize_only', False)} "
+        f"complexity={_gov_payload.get('complexity', 'low')}"
     )
 
 if parts and budget_ok():
@@ -403,10 +430,21 @@ if not is_crazy and not is_ulw and budget_ok():
     elif word_count > 40:
         complexity_score += 1
 
+    complexity_category = "low"
+    if score_complexity is not None:
+        try:
+            scored = score_complexity(prompt)
+            scored_category = str(scored.get("category", "low")).strip().lower()
+            if scored_category in {"trivial", "low", "medium", "high"}:
+                complexity_category = scored_category
+        except Exception:
+            pass
+
     # HIGH complexity (≥4): auto-trigger CRAZY
     if complexity_score >= 4:
         add(
             "@mode:CRAZY(auto) — Complex task detected (multi-step/multi-component). "
+            f"Complexity label={complexity_category}. "
             "All agents active: Claude=orchestrator, Codex=deep-code, Gemini=UI/UX. "
             "Work through all items systematically. Verify each step."
         )
@@ -414,6 +452,7 @@ if not is_crazy and not is_ulw and budget_ok():
     elif complexity_score >= 2:
         add(
             "@mode:PERSISTENT(auto) — Multi-step task detected. "
+            f"Complexity label={complexity_category}. "
             "Work through ALL items. Skip if blocked, continue others. "
             "Don't stop until checklist complete."
         )

@@ -9,6 +9,7 @@ import pytest
 from runtime.tool_plan_gate import build_tool_plan, tool_plan_gate_check
 import runtime.tool_plan_gate as tool_plan_gate
 from runtime.compliance_governor import evaluate_tool_compliance
+from runtime.complexity_scorer import score_complexity
 
 
 def test_build_tool_plan_returns_required_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -228,3 +229,173 @@ def test_compliance_governor_tool_precedence_blocks_council_fail_even_with_plan(
 
     assert result["status"] == "blocked"
     assert result["authority"] == "council_verdicts"
+
+
+def test_build_tool_plan_includes_governance_payload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    monkeypatch.setenv("OMG_RUN_ID", "run-governance")
+
+    goal = "update the login form validation and add error messages for each field"
+    plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+    governance_payload = cast(dict[str, object], plan["governance_payload"])
+
+    assert governance_payload == cast(dict[str, object], score_complexity(goal)["governance"])
+
+
+class TestComplexityLabel:
+    """goal_complexity must return a deterministic label in budget_estimate."""
+
+    VALID_LABELS = {"low", "medium", "high"}
+
+    def test_budget_estimate_contains_goal_complexity(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """build_tool_plan must include goal_complexity key in budget_estimate."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-shape")
+
+        plan = build_tool_plan("scan dependencies", available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+        assert "goal_complexity" in budget
+        assert budget["goal_complexity"] in self.VALID_LABELS
+
+    def test_trivial_goal_returns_low(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A short goal (< 10 words) must return 'low' complexity."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-low")
+
+        plan = build_tool_plan("fix typo", available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+        assert budget["goal_complexity"] == "low"
+
+    def test_medium_goal_returns_medium(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A mid-length goal (10-24 words) must return 'medium' complexity."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-med")
+
+        goal = "update the login form validation and add error messages for each field"
+        plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+        assert budget["goal_complexity"] == "medium"
+
+    def test_complex_goal_returns_high(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A long goal (>= 25 words) must return 'high' complexity."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-high")
+
+        goal = (
+            "refactor the authentication module, migrate the database schema, "
+            "update all frontend components to use the new API endpoints, "
+            "and deploy the staging environment with full integration tests"
+        )
+        plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+        assert budget["goal_complexity"] == "high"
+
+    def test_complexity_labels_are_deterministic(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pin: same goal must always produce same label across repeated calls."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-pin")
+
+        cases = [
+            ("fix typo", "low"),
+            ("scan security", "low"),
+            (
+                "update the login form validation and add error messages for each field",
+                "medium",
+            ),
+            (
+                "refactor the authentication module, migrate the database schema, "
+                "update all frontend components to use the new API endpoints, "
+                "and deploy the staging environment with full integration tests",
+                "high",
+            ),
+        ]
+        for goal, expected in cases:
+            plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+            budget = cast(dict[str, object], plan["budget_estimate"])
+            actual = budget["goal_complexity"]
+            assert actual == expected, (
+                f"Goal {goal!r}: expected {expected!r}, got {actual!r}"
+            )
+
+
+class TestSharedComplexityContract:
+    def test_score_complexity_contract_shape(self) -> None:
+        payload = score_complexity("fix typo")
+
+        assert isinstance(payload["score"], int)
+        assert payload["category"] in {"trivial", "low", "medium", "high"}
+        governance = cast(dict[str, object], payload["governance"])
+        assert isinstance(governance["read_first"], bool)
+        assert isinstance(governance["simplify_only"], bool)
+        assert isinstance(governance["optimize_only"], bool)
+        assert governance["complexity"] == payload["category"]
+        assert governance["complexity_score"] == payload["score"]
+
+    @pytest.mark.parametrize(
+        ("goal", "expected_label"),
+        [
+            ("fix typo", "low"),
+            ("update the login form validation and add error messages for each field", "medium"),
+            (
+                "refactor the authentication module, migrate the database schema, "
+                "update all frontend components to use the new API endpoints, "
+                "and deploy the staging environment with full integration tests",
+                "high",
+            ),
+        ],
+    )
+    def test_tool_plan_uses_same_shared_category(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        goal: str,
+        expected_label: str,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-shared")
+
+        shared = score_complexity(goal)
+        plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+
+        assert shared["category"] == expected_label
+        assert budget["goal_complexity"] == expected_label
+
+    def test_governance_flags_follow_policy_thresholds(self) -> None:
+        low_goal = "fix typo"
+        high_goal = (
+            "refactor the authentication module, migrate the database schema, "
+            "update all frontend components to use the new API endpoints, "
+            "and deploy the staging environment with full integration tests"
+        )
+
+        low_payload = score_complexity(low_goal)
+        low_governance = cast(dict[str, object], low_payload["governance"])
+        assert low_payload["category"] == "low"
+        assert low_governance["read_first"] is (cast(int, low_payload["score"]) >= 3)
+        assert low_governance["simplify_only"] is True
+        assert low_governance["optimize_only"] is False
+
+        high_payload = score_complexity(high_goal)
+        high_governance = cast(dict[str, object], high_payload["governance"])
+        assert high_payload["category"] == "high"
+        assert high_governance["read_first"] is (cast(int, high_payload["score"]) >= 3)
+        assert high_governance["simplify_only"] is False
+        assert high_governance["optimize_only"] is True

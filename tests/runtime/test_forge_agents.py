@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from runtime.forge_agents import (
+    classify_operation_intent,
     _check_backend_available,
     check_required_backends_satisfied,
     dispatch_specialists,
@@ -555,3 +556,176 @@ def test_domain_pack_included_in_dispatch_evidence(tmp_path: Path) -> None:
     assert isinstance(domain_pack, dict), "domain_pack must be a dict"
     assert "required_evidence" in domain_pack, "required_evidence missing from domain_pack"
     assert isinstance(domain_pack["required_evidence"], list), "required_evidence must be a list"
+
+
+def test_classify_operation_intent_prefers_structured_fields() -> None:
+    job: dict[str, object] = {
+        "operation": "delete",
+        "action": "add",
+        "goal": "Edit customer profile fields",
+    }
+    classification = classify_operation_intent(job)
+    assert classification["intent"] == "delete"
+    assert classification["source"] == "operation"
+
+
+def test_classify_operation_intent_detects_prompt_edit_language() -> None:
+    job: dict[str, object] = {
+        "goal": "Please update invoice approval rules for enterprise accounts",
+    }
+    classification = classify_operation_intent(job)
+    assert classification["intent"] == "edit"
+    assert classification["source"] == "goal"
+
+
+def test_dispatch_specialists_emits_operation_plan_for_business_app_request(tmp_path: Path) -> None:
+    job = _valid_job()
+    job["goal"] = "Add soft-delete and audit logging to customer records"
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "ok"
+    operation_plan = result["operation_plan"]
+    assert operation_plan["intent"] == "add"
+    assert operation_plan["mode"] == "incremental_extension"
+    assert "operation_plan" in result["adapter_evidence"][0]["orchestration"]
+
+
+def test_dispatch_invalid_specialists_remains_blocked_with_operation_hints(tmp_path: Path) -> None:
+    job = _valid_job()
+    job["goal"] = "Delete stale feature flags and add a self-service toggle"
+    job["domain"] = "algorithms"
+    job["specialists"] = ["training-architect", "simulator-engineer"]
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "invalid_specialist_domain_combination"
+
+
+# --- Task 13: Forge proof-state honesty tests ---
+
+from runtime.forge_contracts import _resolve_artifact_contracts
+from runtime.compliance_governor import evaluate_release_compliance
+
+
+_UNVERIFIED_STATUSES = {"pending_verification", "insufficient_evidence"}
+
+
+def test_dispatch_artifact_contracts_use_pending_verification(tmp_path: Path) -> None:
+    """Dispatch evidence artifact_contracts must never claim placeholder — use pending_verification."""
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    contracts = payload["artifact_contracts"]
+    for name, contract in contracts.items():
+        status = contract.get("status", "")
+        assert status != "placeholder", (
+            f"artifact_contracts[{name!r}] uses misleading 'placeholder' — must use 'pending_verification'"
+        )
+        if name != "promotion_decision":
+            assert status in _UNVERIFIED_STATUSES, (
+                f"artifact_contracts[{name!r}] status={status!r} must be in {_UNVERIFIED_STATUSES}"
+            )
+
+
+def test_dispatch_artifact_contracts_never_claim_verified_or_signed(tmp_path: Path) -> None:
+    """Dispatch evidence must not claim verified/signed/generated/passed for synthetic artifacts."""
+    result = dispatch_specialists(_valid_job(), str(tmp_path))
+    assert result["status"] == "ok"
+    evidence_path = Path(str(result["evidence_path"]))
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+
+    misleading = {"verified", "signed", "generated", "passed"}
+    contracts = payload["artifact_contracts"]
+    for name, contract in contracts.items():
+        status = contract.get("status", "")
+        assert status not in misleading, (
+            f"artifact_contracts[{name!r}] status={status!r} is misleading — no real artifact exists"
+        )
+
+
+def test_resolve_artifact_contracts_default_statuses_are_truthful() -> None:
+    """_resolve_artifact_contracts default path must use pending_verification, not verified/signed/generated."""
+    contracts = _resolve_artifact_contracts(
+        run_id="test-run-001",
+        result={},
+        evaluation_metric=0.85,
+        target_metric=0.80,
+        base_model_name="test-model",
+    )
+
+    misleading = {"verified", "signed", "generated", "passed"}
+    for name, contract in contracts.items():
+        status = contract.get("status", "")
+        assert status not in misleading, (
+            f"artifact_contracts[{name!r}] status={status!r} is misleading for synthetic artifacts"
+        )
+
+    assert contracts["dataset_lineage"]["status"] == "pending_verification"
+    assert contracts["model_card"]["status"] == "pending_verification"
+    assert contracts["checkpoint_hash"]["status"] == "pending_verification"
+    assert contracts["regression_scoreboard"]["status"] == "insufficient_evidence"
+
+
+def test_resolve_artifact_contracts_preserves_user_supplied_contracts() -> None:
+    """User-supplied artifact_contracts in result are kept but synthetic defaults get truthful status."""
+    user_contracts = {
+        "dataset_lineage": {
+            "standard": "Croissant-1.1",
+            "path": ".omg/evidence/real-lineage.json",
+            "status": "verified",
+            "lineage_hash": "abc123",
+        }
+    }
+    contracts = _resolve_artifact_contracts(
+        run_id="test-run-002",
+        result={"artifact_contracts": user_contracts},
+        evaluation_metric=0.9,
+        target_metric=0.8,
+        base_model_name="test-model",
+    )
+    assert contracts["dataset_lineage"]["status"] == "verified"
+    assert contracts["model_card"]["status"] == "pending_verification"
+    assert contracts["checkpoint_hash"]["status"] == "pending_verification"
+
+
+def test_release_compliance_blocks_pending_verification_artifacts(tmp_path: Path) -> None:
+    """Release compliance must block when artifact_contracts contain pending_verification status."""
+    release_evidence: dict[str, object] = {
+        "artifact": {
+            "artifact_contracts": {
+                "dataset_lineage": {"status": "pending_verification"},
+                "checkpoint_hash": {"status": "pending_verification"},
+            }
+        }
+    }
+    decision = evaluate_release_compliance(
+        project_dir=str(tmp_path),
+        run_id="test-run-003",
+        release_evidence=release_evidence,
+    )
+    assert decision["status"] == "blocked"
+    reason = str(decision.get("reason", ""))
+    assert "pending_verification" in reason or "insufficient" in reason
+
+
+def test_release_compliance_blocks_insufficient_evidence_artifacts(tmp_path: Path) -> None:
+    """Release compliance must block when artifact_contracts contain insufficient_evidence."""
+    release_evidence: dict[str, object] = {
+        "artifact": {
+            "artifact_contracts": {
+                "regression_scoreboard": {"status": "insufficient_evidence"},
+            }
+        }
+    }
+    decision = evaluate_release_compliance(
+        project_dir=str(tmp_path),
+        run_id="test-run-004",
+        release_evidence=release_evidence,
+    )
+    assert decision["status"] == "blocked"
+    reason = str(decision.get("reason", ""))
+    assert "insufficient" in reason or "pending" in reason

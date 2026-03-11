@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -644,3 +645,233 @@ class TestArtifactStreaming:
         with patch("runtime.subagent_dispatcher._get_project_dir", return_value=str(tmp_path)):
             result = _load_job_from_disk("nope")
             assert result is None
+
+
+# =============================================================================
+# Test: Timeout & Failure Paths (Blind-spot coverage)
+# =============================================================================
+
+
+class TestConfiguredWorkerTimeoutAndFailure:
+    """Tests for _run_configured_worker timeout, OSError, and edge-case failure paths."""
+
+    @patch("runtime.subagent_dispatcher.subprocess.run",
+           side_effect=subprocess.TimeoutExpired(cmd=["worker"], timeout=120))
+    def test_timeout_returns_error_payload(self, mock_run):
+        """_run_configured_worker should return status=error with timeout message."""
+        result = _run_configured_worker(
+            "claude --prompt {prompt}",
+            "do something",
+            project_dir="/tmp/proj",
+            worker="claude",
+        )
+        assert result["status"] == "error"
+        assert result["worker"] == "claude"
+        assert "timed out" in result["message"]
+
+    @patch("runtime.subagent_dispatcher.subprocess.run",
+           side_effect=OSError("No such file or directory"))
+    def test_oserror_returns_error_payload(self, mock_run):
+        """_run_configured_worker should return status=error when command is not found."""
+        result = _run_configured_worker(
+            "nonexistent-binary --prompt {prompt}",
+            "task",
+            project_dir="/tmp/proj",
+            worker="codex",
+        )
+        assert result["status"] == "error"
+        assert result["worker"] == "codex"
+        assert "No such file" in result["message"]
+
+    def test_empty_command_returns_error(self):
+        """_run_configured_worker should return error for empty command text."""
+        result = _run_configured_worker(
+            "",
+            "task text",
+            project_dir="/tmp/proj",
+            worker="gemini",
+        )
+        assert result["status"] == "error"
+        assert "not configured" in result["message"]
+
+    def test_malformed_template_returns_error(self):
+        """_run_configured_worker should handle invalid format placeholders gracefully."""
+        result = _run_configured_worker(
+            "cmd --prompt {prompt} --arg {unknown_placeholder}",
+            "prompt text",
+            project_dir="/tmp/proj",
+            worker="claude",
+        )
+        assert result["status"] == "error"
+        assert "invalid worker command template" in result["message"]
+
+    @patch("runtime.subagent_dispatcher.subprocess.run")
+    def test_nonzero_exit_code_returns_error_status(self, mock_run):
+        """_run_configured_worker should return status=error for nonzero exit codes."""
+        mock_run.return_value = MagicMock(returncode=1, stdout="fail output", stderr="err")
+        result = _run_configured_worker(
+            "claude --prompt {prompt}",
+            "task",
+            project_dir="/tmp/proj",
+            worker="claude",
+        )
+        assert result["status"] == "error"
+        assert result["exit_code"] == 1
+        assert result["output"] == "fail output"
+
+
+# =============================================================================
+# Test: _run_job failure propagation
+# =============================================================================
+
+
+class TestRunJobFailurePropagation:
+    """Tests for _run_job handling exceptions and mid-flight cancellation."""
+
+    @patch("runtime.subagent_dispatcher._dispatch_job_task",
+           side_effect=Exception("unexpected crash"))
+    @patch("runtime.subagent_dispatcher._persist_job")
+    def test_run_job_marks_failed_on_unexpected_exception(self, mock_persist, mock_dispatch):
+        """_run_job should mark job 'failed' when dispatch raises an unexpected exception."""
+        _jobs["crash01"] = {
+            "job_id": "crash01",
+            "agent_name": "agent",
+            "task_text": "task",
+            "isolation": "none",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+        }
+
+        _run_job("crash01")
+
+        assert _jobs["crash01"]["status"] == "failed"
+        assert "unexpected crash" in _jobs["crash01"]["error"]
+        assert "completed_at" in _jobs["crash01"]
+
+    @patch("runtime.subagent_dispatcher._dispatch_job_task")
+    @patch("runtime.subagent_dispatcher._persist_job")
+    def test_run_job_respects_mid_execution_cancellation(self, mock_persist, mock_dispatch):
+        """_run_job should not overwrite 'cancelled' status after dispatch completes."""
+        def cancel_during_dispatch(record, *, project_dir):
+            # Simulate cancellation happening while dispatch is running
+            with _lock:
+                record["status"] = "cancelled"
+            return {
+                "status": "ok",
+                "worker": "codex",
+                "exit_code": 0,
+                "output": "done",
+            }
+
+        mock_dispatch.side_effect = cancel_during_dispatch
+
+        _jobs["midcancel"] = {
+            "job_id": "midcancel",
+            "agent_name": "agent",
+            "task_text": "task",
+            "isolation": "none",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+        }
+
+        _run_job("midcancel")
+
+        # Job should remain cancelled, NOT completed
+        assert _jobs["midcancel"]["status"] == "cancelled"
+        assert len(_jobs["midcancel"]["artifacts"]) == 0
+
+    @patch("runtime.subagent_dispatcher._dispatch_job_task",
+           side_effect=RuntimeError("worker dispatch failed"))
+    @patch("runtime.subagent_dispatcher._persist_job")
+    def test_run_job_with_worktree_cleans_up_on_failure(self, mock_persist, mock_dispatch):
+        """_run_job should cleanup worktree even when dispatch fails."""
+        _jobs["wtfail"] = {
+            "job_id": "wtfail",
+            "agent_name": "agent",
+            "task_text": "task",
+            "isolation": "worktree",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+        }
+
+        with patch("runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/wt") as mock_setup, \
+             patch("runtime.subagent_dispatcher._cleanup_worktree") as mock_cleanup:
+            _run_job("wtfail")
+
+            mock_setup.assert_called_once_with("wtfail")
+            mock_cleanup.assert_called_once_with("/tmp/wt")
+            assert _jobs["wtfail"]["status"] == "failed"
+
+
+# =============================================================================
+# Test: Minimal-change prompt stays lightweight (no sub-agent escalation)
+# =============================================================================
+
+
+class TestMinimalChangeStaysLightweight:
+    """Verify that trivial/low-complexity prompts stay on the lightweight path
+    and do NOT require sub-agent escalation."""
+
+    def test_trivial_prompt_scores_low(self):
+        """A simple 'fix typo' prompt should score low complexity — no sub-agent needed."""
+        from runtime.complexity_scorer import score_complexity
+        result = score_complexity("fix typo in README")
+        assert result["category"] in ("trivial", "low"), \
+            f"Minimal-change prompt should be trivial/low, got {result['category']}"
+        gov = result["governance"]
+        assert isinstance(gov, dict)
+        assert gov["simplify_only"] is True
+
+    def test_single_word_prompt_is_trivial(self):
+        """Empty or single-word prompts should stay trivial."""
+        from runtime.complexity_scorer import score_complexity
+        result = score_complexity("hello")
+        assert result["category"] == "low"
+        gov = result["governance"]
+        assert isinstance(gov, dict)
+        assert gov["simplify_only"] is True
+
+    def test_empty_prompt_is_trivial(self):
+        """Empty prompt should score trivial — never escalate."""
+        from runtime.complexity_scorer import score_complexity
+        result = score_complexity("")
+        assert result["category"] == "trivial"
+        gov = result["governance"]
+        assert isinstance(gov, dict)
+        assert gov["simplify_only"] is True
+
+    def test_complex_prompt_scores_high(self):
+        """Multi-step prompts should score high — contrast with minimal-change."""
+        from runtime.complexity_scorer import score_complexity
+        result = score_complexity(
+            "Redesign the entire authentication system and then migrate "
+            "all files to the new microservice architecture after that deploy "
+            "the frontend and backend services across all regions"
+        )
+        assert result["category"] == "high"
+        gov = result["governance"]
+        assert isinstance(gov, dict)
+        assert gov["simplify_only"] is False
+
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "0"})
+    def test_submit_blocked_for_minimal_change_when_feature_disabled(self):
+        """Minimal-change prompts should not create sub-agent jobs when feature is off."""
+        from runtime.complexity_scorer import score_complexity
+        result = score_complexity("fix typo")
+        gov = result["governance"]
+        assert isinstance(gov, dict)
+        assert gov["simplify_only"] is True
+
+        with pytest.raises(RuntimeError, match="feature disabled"):
+            submit_job("agent", "fix typo")
+
+    def test_resolve_execution_boundary_none_stays_local(self):
+        """isolation='none' should resolve to local-only execution."""
+        from runtime.subagent_dispatcher import resolve_execution_boundary
+        boundary = resolve_execution_boundary(isolation="none")
+        assert boundary["sandbox_mode"] == "none"
+        assert boundary["worker_policy"] == "local-only"
+        assert boundary["execution_mode"] == "automation"

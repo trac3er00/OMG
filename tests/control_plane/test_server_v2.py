@@ -153,6 +153,58 @@ def test_server_test_intent_lock_v2_and_v1(tmp_path) -> None:
         thread.join(timeout=5)
 
 
+def test_mutation_gate_endpoint_v2_allows_no_lock(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    server = HTTPServer(("127.0.0.1", 0), make_handler(service))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+
+        v2_status, v2_payload = _post_json(
+            f"{base}/v2/trust/mutation-gate",
+            {"tool": "Write", "file_path": "foo.py", "project_dir": str(tmp_path), "lock_id": None},
+        )
+        assert v2_status == 200
+        assert v2_payload["status"] == "allowed"
+        assert v2_payload["reason"] == "no_active_test_intent_lock"
+        assert v2_payload["api_version"] == "v2"
+
+        v1_status, v1_payload = _post_json(
+            f"{base}/v1/trust/mutation-gate",
+            {"tool": "Write", "file_path": "foo.py", "project_dir": str(tmp_path), "lock_id": None},
+        )
+        assert v1_status == 200
+        assert v1_payload["status"] == "allowed"
+        assert v1_payload["deprecated"] is True
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
+def test_mutation_gate_endpoint_v2_blocks_strict_mode(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    server = HTTPServer(("127.0.0.1", 0), make_handler(service))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+
+        v2_status, v2_payload = _post_json(
+            f"{base}/v2/trust/mutation-gate",
+            {"tool": "Write", "file_path": "bar.py", "project_dir": str(tmp_path), "lock_id": None},
+        )
+        assert v2_status == 200
+        assert v2_payload["status"] == "blocked"
+        assert v2_payload["reason"] == "no_active_test_intent_lock"
+        assert v2_payload["api_version"] == "v2"
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
 def test_loopback_allowed_without_flag() -> None:
     with patch("sys.argv", ["server.py", "--host", "127.0.0.1"]), \
          patch("control_plane.server.run_server") as mock_run:

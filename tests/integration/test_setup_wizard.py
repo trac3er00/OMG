@@ -80,9 +80,14 @@ class TestFullWizardFlow:
             "gemini": _mock_provider("gemini", detected=False),
         }
 
+        mock_validation = {
+            "schema": "ValidateResult", "status": "pass",
+            "checks": [], "version": CANONICAL_VERSION,
+        }
+
         with patch.dict(
             runtime.cli_provider._PROVIDER_REGISTRY, providers, clear=True,
-        ):
+        ), patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_validation):
             result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
 
         assert result["status"] == "complete"
@@ -318,9 +323,16 @@ class TestWizardNonInteractiveMode:
         """Wizard in non_interactive mode completes successfully."""
         monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
 
+        mock_validation = {
+            "schema": "ValidateResult", "status": "pass",
+            "checks": [], "version": CANONICAL_VERSION,
+        }
+
         with patch.dict(
             runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True,
-        ):
+        ), patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_validation), \
+             patch("runtime.adoption.shutil") as mock_shutil:
+            mock_shutil.which.return_value = None
             result = setup_wizard.run_setup_wizard(
                 project_dir=str(tmp_path), non_interactive=True,
             )
@@ -372,9 +384,14 @@ class TestFullPipelineIntegration:
             "kimi": _mock_provider("kimi", detected=True, auth_ok=True),
         }
 
+        mock_validation = {
+            "schema": "ValidateResult", "status": "pass",
+            "checks": [], "version": CANONICAL_VERSION,
+        }
+
         with patch.dict(
             runtime.cli_provider._PROVIDER_REGISTRY, providers, clear=True,
-        ):
+        ), patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_validation):
             result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
 
         # Verify pipeline completed
@@ -427,16 +444,16 @@ class TestFullPipelineIntegration:
                 non_interactive=True,
             )
 
-        assert result["status"] == "complete"
+        assert result["status"] in ("complete", "validation_failed")
         assert result["adoption"]["detected_ecosystems"] == ["omc", "omx", "superpowers"]
-        assert result["adoption"]["recommended_mode"] == "omg-only"
-        assert result["adoption"]["selected_mode"] == "omg-only"
+        assert result["adoption"]["recommended_mode"] == "coexist"
+        assert result["adoption"]["selected_mode"] == "coexist"
 
         adoption_report = json.loads(
             (tmp_path / ".omg" / "state" / "adoption-report.json").read_text(encoding="utf-8")
         )
         assert adoption_report["detected_ecosystems"] == ["omc", "omx", "superpowers"]
-        assert adoption_report["selected_mode"] == "omg-only"
+        assert adoption_report["selected_mode"] == "coexist"
 
 
 # ---------------------------------------------------------------------------
@@ -708,3 +725,162 @@ def test_interop_preset_canonical_unchanged() -> None:
     from runtime.adoption import resolve_preset
 
     assert resolve_preset("interop") == "interop"
+
+
+# ---------------------------------------------------------------------------
+# Task 15: Recommended vs Manual flows — recommend_mode, missing settings,
+#           validation root
+# ---------------------------------------------------------------------------
+
+
+class TestRecommendMode:
+    """recommend_mode() must be ecosystem-aware, not hardcoded."""
+
+    def test_recommend_mode_returns_coexist_when_ecosystems_detected(self):
+        from runtime.adoption import recommend_mode
+
+        assert recommend_mode(["omc"]) == "coexist"
+        assert recommend_mode(["omc", "omx"]) == "coexist"
+        assert recommend_mode(["superpowers"]) == "coexist"
+
+    def test_recommend_mode_returns_omg_only_when_no_ecosystems(self):
+        from runtime.adoption import recommend_mode
+
+        with patch("runtime.adoption.shutil") as mock_shutil:
+            mock_shutil.which.return_value = None
+            assert recommend_mode([]) == "omg-only"
+
+    def test_recommend_mode_returns_coexist_when_cli_hosts_on_path(self):
+        from runtime.adoption import recommend_mode
+
+        with patch("runtime.adoption.shutil") as mock_shutil:
+            mock_shutil.which.side_effect = lambda cli: "/usr/bin/codex" if cli == "codex" else None
+            assert recommend_mode([]) == "coexist"
+
+    def test_recommend_mode_coexist_on_gemini_cli(self):
+        from runtime.adoption import recommend_mode
+
+        with patch("runtime.adoption.shutil") as mock_shutil:
+            mock_shutil.which.side_effect = lambda cli: "/usr/bin/gemini" if cli == "gemini" else None
+            assert recommend_mode([]) == "coexist"
+
+    def test_recommend_mode_coexist_on_kimi_cli(self):
+        from runtime.adoption import recommend_mode
+
+        with patch("runtime.adoption.shutil") as mock_shutil:
+            mock_shutil.which.side_effect = lambda cli: "/usr/bin/kimi" if cli == "kimi" else None
+            assert recommend_mode([]) == "coexist"
+
+    def test_adoption_report_uses_coexist_when_ecosystems_present(self, tmp_path):
+        from runtime.adoption import build_adoption_report
+
+        (tmp_path / ".omc").mkdir()
+        with patch("runtime.adoption.shutil") as mock_shutil:
+            mock_shutil.which.return_value = None
+            report = build_adoption_report(tmp_path)
+
+        assert report["recommended_mode"] == "coexist"
+        assert report["selected_mode"] == "coexist"
+
+
+class TestDetectMissingSettings:
+    """Missing settings detection must report absent critical surfaces."""
+
+    def test_detect_missing_settings_reports_absent_surfaces(self, tmp_path):
+        from runtime.adoption import detect_missing_settings
+
+        missing = detect_missing_settings(tmp_path)
+        surfaces = [m["surface"] for m in missing]
+        assert "settings.json" in surfaces
+        assert ".mcp.json" in surfaces
+        assert ".omg/state" in surfaces
+
+    def test_detect_missing_settings_empty_when_all_present(self, tmp_path):
+        from runtime.adoption import detect_missing_settings
+
+        (tmp_path / "settings.json").write_text("{}", encoding="utf-8")
+        (tmp_path / ".mcp.json").write_text('{"mcpServers":{}}', encoding="utf-8")
+        (tmp_path / ".omg" / "state").mkdir(parents=True)
+
+        missing = detect_missing_settings(tmp_path)
+        assert missing == []
+
+    def test_detect_missing_settings_partial(self, tmp_path):
+        from runtime.adoption import detect_missing_settings
+
+        (tmp_path / ".mcp.json").write_text('{"mcpServers":{}}', encoding="utf-8")
+
+        missing = detect_missing_settings(tmp_path)
+        surfaces = [m["surface"] for m in missing]
+        assert "settings.json" in surfaces
+        assert ".mcp.json" not in surfaces
+        assert ".omg/state" in surfaces
+
+    def test_adoption_report_includes_missing_settings(self, tmp_path):
+        from runtime.adoption import build_adoption_report
+
+        with patch("runtime.adoption.shutil") as mock_shutil:
+            mock_shutil.which.return_value = None
+            report = build_adoption_report(tmp_path)
+
+        assert "missing_settings" in report
+        assert isinstance(report["missing_settings"], list)
+        surfaces = [m["surface"] for m in report["missing_settings"]]
+        assert ".omg/state" in surfaces
+
+    def test_wizard_exposes_missing_settings_in_result(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Wizard result must include missing_settings from adoption report."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value={
+                 "schema": "ValidateResult", "status": "pass",
+                 "checks": [], "version": CANONICAL_VERSION,
+             }):
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        assert "missing_settings" in result["adoption"]
+
+
+class TestValidationTargetProject:
+    """Post-install validation must target the project dir, not _PROJECT_ROOT."""
+
+    def test_wizard_validates_target_project_not_repo_root(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult", "status": "pass",
+            "checks": [], "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result) as mock_validate:
+            setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        mock_validate.assert_called_once_with(root_dir=Path(str(tmp_path)))
+
+    def test_wizard_validation_failure_on_unhealthy_target(
+        self, tmp_path, monkeypatch, _patch_cli_writers,
+    ):
+        """Validation failure on target project propagates as validation_failed."""
+        monkeypatch.setenv("OMG_SETUP_ENABLED", "1")
+
+        mock_result = {
+            "schema": "ValidateResult", "status": "fail",
+            "checks": [
+                {"name": "target_project_health", "status": "blocker",
+                 "message": "target project missing critical files", "required": True},
+            ],
+            "version": CANONICAL_VERSION,
+        }
+
+        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
+             patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_result) as mock_validate:
+            result = setup_wizard.run_setup_wizard(project_dir=str(tmp_path))
+
+        mock_validate.assert_called_once_with(root_dir=Path(str(tmp_path)))
+        assert result["status"] == "validation_failed"

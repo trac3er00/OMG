@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import hashlib
 import sys
+from pathlib import Path
 from typing import Protocol, cast
 
 import pytest
@@ -80,10 +82,10 @@ import json
 
 
 @pytest.fixture()
-def mcp_module(tmp_path: object) -> _MCPMemoryServerModule:
+def mcp_module(tmp_path: Path) -> _MCPMemoryServerModule:
     module = _load_module()
     store = getattr(module, "_store")
-    store.store_path = str(tmp_path / "store.json")  # type: ignore[operator]
+    store.store_path = str(tmp_path / "store.json")
     store._items.clear()
     return module
 
@@ -225,3 +227,291 @@ def test_memory_all_resource_returns_json(mcp_module: _MCPMemoryServerModule) ->
     assert isinstance(parsed, list)
     assert len(parsed) == 1
     assert parsed[0]["key"] == "r1"
+
+
+# -------------------------------------------------------------------
+# MCP / MemoryStore failure-injection tests (blind-spot coverage)
+# -------------------------------------------------------------------
+
+from unittest.mock import patch, MagicMock
+from runtime.memory_store import MemoryStore, MemoryStoreFullError
+
+
+class TestMemoryStoreCorruptedJsonFile:
+    """MemoryStore JSON backend resilience against corrupted data on disk."""
+
+    def test_corrupted_json_file_returns_empty_store(self, tmp_path: Path) -> None:
+        store_path = str(tmp_path / "store.json")
+        Path(store_path).write_text("{{{not valid json!!!", encoding="utf-8")
+        store = MemoryStore(store_path=store_path)
+        assert store.count() == 0
+
+    def test_non_list_json_returns_empty_store(self, tmp_path: Path) -> None:
+        store_path = str(tmp_path / "store.json")
+        Path(store_path).write_text('{"key": "value"}', encoding="utf-8")
+        store = MemoryStore(store_path=store_path)
+        assert store.count() == 0
+
+    def test_empty_file_returns_empty_store(self, tmp_path: Path) -> None:
+        store_path = str(tmp_path / "store.json")
+        Path(store_path).write_text("", encoding="utf-8")
+        store = MemoryStore(store_path=store_path)
+        assert store.count() == 0
+
+
+class TestMemoryStoreDiskWriteFailure:
+    """MemoryStore behavior when disk writes fail."""
+
+    def test_add_raises_on_full_store(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": str(i)} for i in range(10_000)]
+        with pytest.raises(MemoryStoreFullError, match="full"):
+            store.add(key="overflow", content="data", source_cli="test")
+
+    def test_save_to_readonly_dir_raises(self, tmp_path: Path) -> None:
+        readonly_dir = tmp_path / "readonly"
+        readonly_dir.mkdir()
+        store_path = str(readonly_dir / "deep" / "nested" / "store.json")
+        store = MemoryStore(store_path=store_path)
+        store._items.append({"id": "x", "key": "k"})
+        import os
+        readonly_dir.chmod(0o444)
+        try:
+            with pytest.raises(OSError):
+                store._save_json_items()
+        finally:
+            readonly_dir.chmod(0o755)
+
+
+class TestMemoryStoreSearchResilience:
+    """MemoryStore search handles items with missing/malformed fields."""
+
+    def test_search_with_missing_key_field(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "1", "content": "hello world", "source_cli": "test", "tags": []}]
+        results = store.search("hello")
+        assert len(results) == 1
+
+    def test_search_with_none_tags(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "1", "key": "k", "content": "data", "source_cli": "test", "tags": None}]
+        results = store.search("data")
+        assert len(results) == 1
+
+    def test_search_with_non_list_tags(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "1", "key": "k", "content": "data", "source_cli": "test", "tags": "not-a-list"}]
+        results = store.search("data")
+        assert len(results) == 1
+
+    def test_search_no_match_returns_empty(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "1", "key": "k", "content": "data", "source_cli": "test", "tags": []}]
+        results = store.search("nonexistent-query-xyzzy")
+        assert results == []
+
+
+class TestMemoryStoreImportEdgeCases:
+    """MemoryStore import handles degenerate and duplicate items."""
+
+    def test_import_skips_duplicate_ids(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store._items = [{"id": "existing", "key": "k1", "content": "c1"}]
+        count = store.import_items([
+            {"id": "existing", "key": "k2", "content": "c2"},
+            {"id": "new-one", "key": "k3", "content": "c3"},
+        ])
+        assert count == 1
+        assert store.count() == 2
+
+    def test_import_skips_empty_id_items(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        count = store.import_items([
+            {"id": "", "key": "k1", "content": "c1"},
+            {"key": "k2", "content": "c2"},
+        ])
+        assert count == 0
+
+    def test_delete_nonexistent_returns_false(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        assert store.delete("no-such-id") is False
+
+    def test_get_nonexistent_returns_none(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        assert store.get("no-such-id") is None
+
+    def test_update_nonexistent_returns_none(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        assert store.update("no-such-id", content="new") is None
+
+
+@pytest.fixture()
+def isolated_mcp_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _MCPMemoryServerModule:
+    module = _load_module()
+    monkeypatch.setenv("OMG_MEMORY_HOST", "memory.local")
+    monkeypatch.setattr(module, "_store", MemoryStore(store_path=str(tmp_path / "isolated-store.json")))
+    return module
+
+
+class TestMemoryNamespaceRetentionAndPii:
+    def test_namespace_isolation_for_list_and_search(self, isolated_mcp_module: _MCPMemoryServerModule) -> None:
+        store_fn = getattr(isolated_mcp_module, "memory_store")
+        list_fn = getattr(isolated_mcp_module, "memory_list")
+        search_fn = getattr(isolated_mcp_module, "memory_search")
+
+        _ = store_fn(key="k1", content="alpha content", source_cli="codex", namespace="team-a")
+        _ = store_fn(key="k2", content="alpha content", source_cli="codex", namespace="team-b")
+
+        team_a_items = list_fn(namespace="team-a")
+        assert len(team_a_items) == 1
+        assert team_a_items[0]["namespace"] == "memory.local:team-a"
+
+        team_b_search = search_fn(query="alpha", namespace="team-b")
+        assert len(team_b_search) == 1
+        assert team_b_search[0]["namespace"] == "memory.local:team-b"
+
+    def test_retention_metadata_roundtrips_export_import(
+        self,
+        isolated_mcp_module: _MCPMemoryServerModule,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        store_fn = getattr(isolated_mcp_module, "memory_store")
+        export_fn = getattr(isolated_mcp_module, "memory_export")
+
+        stored = store_fn(
+            key="retention-key",
+            content="keep this",
+            source_cli="codex",
+            namespace="team-a",
+            retention_days=14,
+        )
+        assert stored["retention_days"] == 14
+
+        exported = export_fn()
+        assert exported["format"] == "omg.memory.export.v1"
+        assert exported["metadata"]["count"] == 1
+
+        mirror_module = _load_module()
+        monkeypatch.setattr(mirror_module, "_store", MemoryStore(store_path=str(tmp_path / "mirror-store.json")))
+        import_bundle_fn = getattr(mirror_module, "memory_import_bundle")
+        import_result = import_bundle_fn(bundle=exported)
+        assert import_result == {"imported": 1, "quarantined": 1}
+
+        mirror_store = getattr(mirror_module, "_store")
+        mirror_items = mirror_store.export_all(include_quarantined=True)
+        assert len(mirror_items) == 1
+        assert mirror_items[0]["retention_days"] == 14
+        assert mirror_items[0]["namespace"] == "memory.local:team-a"
+
+    def test_pii_redaction_happens_before_storage(self, isolated_mcp_module: _MCPMemoryServerModule) -> None:
+        store_fn = getattr(isolated_mcp_module, "memory_store")
+        list_fn = getattr(isolated_mcp_module, "memory_list")
+
+        raw = "email a@b.com phone 415-555-1212 ssn 123-45-6789"
+        result = store_fn(key="pii", content=raw, source_cli="codex", namespace="team-a")
+
+        assert "a@b.com" not in result["content"]
+        assert "415-555-1212" not in result["content"]
+        assert "123-45-6789" not in result["content"]
+        assert "[REDACTED:EMAIL]" in result["content"]
+        assert "[REDACTED:PHONE]" in result["content"]
+        assert "[REDACTED:SSN]" in result["content"]
+
+        persisted = list_fn(namespace="team-a")
+        assert len(persisted) == 1
+        assert persisted[0]["content"] == result["content"]
+
+
+class TestMemoryEncryptionAndQuarantine:
+    def test_encrypted_export_bundle_hides_plaintext(self, isolated_mcp_module: _MCPMemoryServerModule) -> None:
+        store_fn = getattr(isolated_mcp_module, "memory_store")
+        export_fn = getattr(isolated_mcp_module, "memory_export")
+
+        _ = store_fn(key="secret", content="super secret memory payload", source_cli="codex", namespace="team-a")
+        bundle = export_fn(namespace="team-a")
+
+        assert bundle["format"] == "omg.memory.export.v1"
+        assert "encrypted_payload" in bundle
+        assert bundle["encrypted_payload"].startswith("enc:v1:")
+        assert "super secret memory payload" not in bundle["encrypted_payload"]
+        assert bundle["integrity"]["algorithm"] == "sha256"
+
+    def test_quarantined_import_records_are_not_searchable(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        source_module = _load_module()
+        monkeypatch.setattr(source_module, "_store", MemoryStore(store_path=str(tmp_path / "source-store.json")))
+        source_store_fn = getattr(source_module, "memory_store")
+        source_export_fn = getattr(source_module, "memory_export")
+        _ = source_store_fn(key="q-item", content="payload for quarantine", source_cli="codex", namespace="team-a")
+        bundle = source_export_fn(namespace="team-a")
+
+        target_module = _load_module()
+        monkeypatch.setattr(target_module, "_store", MemoryStore(store_path=str(tmp_path / "target-store.json")))
+
+        target_import_bundle_fn = getattr(target_module, "memory_import_bundle")
+        target_search_fn = getattr(target_module, "memory_search")
+        target_list_fn = getattr(target_module, "memory_list")
+        imported = target_import_bundle_fn(bundle=bundle)
+        assert imported == {"imported": 1, "quarantined": 1}
+
+        assert target_search_fn(query="quarantine", namespace="team-a") == []
+        assert target_list_fn(namespace="team-a") == []
+
+        target_store = getattr(target_module, "_store")
+        quarantined_items = target_store.export_all(include_quarantined=True)
+        assert len(quarantined_items) == 1
+        assert quarantined_items[0]["quarantined"] is True
+
+    def test_quarantined_import_promotion_makes_record_searchable(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        source_module = _load_module()
+        monkeypatch.setattr(source_module, "_store", MemoryStore(store_path=str(tmp_path / "source-promote-store.json")))
+        source_store_fn = getattr(source_module, "memory_store")
+        source_export_fn = getattr(source_module, "memory_export")
+        _ = source_store_fn(key="promote-item", content="promotion target", source_cli="codex", namespace="team-a")
+        bundle = source_export_fn(namespace="team-a")
+
+        target_module = _load_module()
+        monkeypatch.setattr(target_module, "_store", MemoryStore(store_path=str(tmp_path / "target-promote-store.json")))
+        target_import_bundle_fn = getattr(target_module, "memory_import_bundle")
+        target_promote_fn = getattr(target_module, "memory_promote")
+        target_search_fn = getattr(target_module, "memory_search")
+        _ = target_import_bundle_fn(bundle=bundle)
+
+        target_store = getattr(target_module, "_store")
+        quarantined_items = target_store.export_all(include_quarantined=True)
+        assert len(quarantined_items) == 1
+        item_id = quarantined_items[0]["id"]
+
+        assert target_promote_fn(item_id=item_id) == {"promoted": True, "id": item_id}
+        results = target_search_fn(query="promotion", namespace="team-a")
+        assert len(results) == 1
+        assert results[0]["id"] == item_id
+
+    def test_plaintext_export_payload_is_rejected_on_import(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        target_module = _load_module()
+        monkeypatch.setattr(target_module, "_store", MemoryStore(store_path=str(tmp_path / "plaintext-reject-store.json")))
+        target_import_bundle_fn = getattr(target_module, "memory_import_bundle")
+        plaintext_payload = '[{"id":"plain-1","key":"k","content":"plaintext","source_cli":"codex","tags":[]}]'
+        bundle = {
+            "format": "omg.memory.export.v1",
+            "encrypted_payload": plaintext_payload,
+            "integrity": {
+                "sha256": hashlib.sha256(plaintext_payload.encode("utf-8")).hexdigest(),
+            },
+        }
+
+        result = target_import_bundle_fn(bundle=bundle)
+        assert result["imported"] == 0
+        assert "error" in result

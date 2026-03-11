@@ -51,6 +51,21 @@ class TestZeroInjection:
         output = _run_enhancer(prompt, project_dir=str(tmp_path))
         assert output == "", f"Expected empty output for '{prompt}', got: {output!r}"
 
+    @pytest.mark.parametrize("prompt", [
+        "sure",
+        "sounds good",
+        "what?",
+        "not sure",
+        "maybe later",
+        "I agree",
+        "cool",
+        "nice work",
+    ])
+    def test_trivial_edge_cases_no_output(self, prompt, tmp_path):
+        """Edge-case trivial prompts with no coding signals must produce empty output."""
+        output = _run_enhancer(prompt, project_dir=str(tmp_path))
+        assert output == "", f"Expected empty output for '{prompt}', got: {output!r}"
+
     def test_single_word_hello(self, tmp_path):
         """Explicit: 'hello' must produce zero contextInjection."""
         output = _run_enhancer("hello", project_dir=str(tmp_path))
@@ -128,6 +143,84 @@ class TestKeywordDetection:
         assert output != "", f"Expected non-empty output for '{prompt}'"
         parsed = json.loads(output)
         assert "contextInjection" in parsed
+
+
+class TestMinimalChangePrompt:
+    """Minimal-change prompts must NOT trigger sub-agents or heavy governance."""
+
+    @pytest.mark.parametrize("prompt", [
+        "fix one typo in README.md",
+        "fix the spelling mistake",
+        "update the version number",
+    ])
+    def test_minimal_prompt_no_heavy_mode(self, prompt, tmp_path):
+        """Small-scope prompts must not inject CRAZY or PERSISTENT mode."""
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
+
+        output = _run_enhancer(prompt, project_dir=str(tmp_path))
+        if output:
+            assert "@mode:CRAZY" not in output, (
+                f"Minimal prompt {prompt!r} must not trigger CRAZY mode"
+            )
+            assert "@mode:PERSISTENT" not in output, (
+                f"Minimal prompt {prompt!r} must not trigger PERSISTENT mode"
+            )
+
+
+class TestFastPathPinning:
+    """Cross-file regression: pin current fast-path behavior before runtime changes."""
+
+    def test_zero_injection_prompts_never_produce_output(self, tmp_path):
+        """Pin: every no-signal short prompt tested here must stay zero-injection."""
+        for prompt in ["hello", "hi", "ok", "thanks", "sure", "cool"]:
+            output = _run_enhancer(prompt, project_dir=str(tmp_path))
+            assert output == "", f"Fast-path regression: '{prompt}' produced output"
+
+    def test_keyword_prompts_always_produce_output(self, tmp_path):
+        """Pin: coding-keyword prompts must always produce contextInjection."""
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
+
+        for prompt in ["fix the bug", "implement auth", "refactor code"]:
+            output = _run_enhancer(prompt, project_dir=str(tmp_path))
+            assert output != "", f"Fast-path regression: '{prompt}' produced no output"
+            parsed = json.loads(output)
+            assert "contextInjection" in parsed
+
+
+class TestAdvisoryGovernance:
+    """Advisory governance line must appear for complex coding prompts."""
+
+    def test_complex_prompt_emits_governance_line(self, tmp_path):
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
+
+        prompt = "implement the full authentication system with JWT tokens and refresh flow"
+        output = _run_enhancer(prompt, project_dir=str(tmp_path))
+        assert output != "", "Complex coding prompt must produce output"
+        parsed = json.loads(output)
+        injection = parsed.get("contextInjection", "")
+        assert "@governance:" in injection, (
+            f"Complex coding prompt must emit @governance line, got: {injection[:200]}"
+        )
+        assert "read_first=" in injection
+        assert "simplify_only=" in injection
+        assert "complexity=" in injection
+
+    def test_trivial_prompt_no_governance(self, tmp_path):
+        output = _run_enhancer("hello", project_dir=str(tmp_path))
+        assert output == "", "Trivial prompt must still produce zero output"
+
+    def test_fix_intent_emits_governance(self, tmp_path):
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
+
+        output = _run_enhancer("fix the bug in the auth module", project_dir=str(tmp_path))
+        assert output != ""
+        parsed = json.loads(output)
+        injection = parsed.get("contextInjection", "")
+        assert "@governance:" in injection
 
 
 if __name__ == "__main__":

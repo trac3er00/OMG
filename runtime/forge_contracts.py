@@ -47,6 +47,35 @@ AXOLOTL_SEARCH_POLICY: dict[str, object] = {
     },
 }
 
+OPERATION_ORCHESTRATION_PROFILES: dict[str, dict[str, object]] = {
+    "add": {
+        "mode": "incremental_extension",
+        "priority": "scope_safeguards",
+        "required_checks": ["schema_alignment", "backward_compatibility"],
+    },
+    "edit": {
+        "mode": "targeted_refinement",
+        "priority": "change_precision",
+        "required_checks": ["delta_scope", "regression_surface"],
+    },
+    "delete": {
+        "mode": "controlled_removal",
+        "priority": "safety_first",
+        "required_checks": ["dependency_impact", "rollback_path"],
+    },
+    "unknown": {
+        "mode": "bounded_execution",
+        "priority": "contract_defaults",
+        "required_checks": ["domain_contract"],
+    },
+}
+
+
+def _normalize_required_checks(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(check) for check in value if isinstance(check, str)]
+
 
 ADAPTER_REGISTRY: dict[str, dict[str, object]] = {
     "axolotl": {
@@ -110,6 +139,14 @@ def load_forge_mvp() -> dict[str, object]:
         "stage_aliases": {
             "security_review": "regression_test",
             "threat_model": "evaluate",
+        },
+        "operation_orchestration": {
+            intent: {
+                "mode": str(profile.get("mode", "bounded_execution")),
+                "priority": str(profile.get("priority", "contract_defaults")),
+                "required_checks": _normalize_required_checks(profile.get("required_checks")),
+            }
+            for intent, profile in OPERATION_ORCHESTRATION_PROFILES.items()
         },
         "specialist_contracts": {
             "forge-cybersecurity": {
@@ -404,7 +441,7 @@ def _resolve_artifact_contracts(
             normalized["dataset_lineage"] = {
                 "standard": "Croissant-1.1",
                 "path": f".omg/evidence/forge-lineage-{run_id}.json",
-                "status": "verified",
+                "status": "pending_verification",
                 "lineage_hash": hashlib.sha256(f"lineage-{run_id}".encode()).hexdigest(),
                 "deterministic_metadata": True,
             }
@@ -412,9 +449,17 @@ def _resolve_artifact_contracts(
             normalized["model_card"] = {
                 "standard": "HuggingFace-ModelCard",
                 "path": f".omg/evidence/forge-model-card-{run_id}.md",
-                "status": "generated",
+                "status": "pending_verification",
                 "model_id": f"forge-model-{run_id}",
                 "base_model": base_model_name,
+            }
+        if "checkpoint_hash" not in normalized:
+            normalized["checkpoint_hash"] = {
+                "standard": "OpenSSF-OMS",
+                "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
+                "status": "pending_verification",
+                "sha256": hashlib.sha256(f"checkpoint-{run_id}".encode()).hexdigest(),
+                "algorithm": "sha256",
             }
         return normalized
 
@@ -422,28 +467,28 @@ def _resolve_artifact_contracts(
         "dataset_lineage": {
             "standard": "Croissant-1.1",
             "path": f".omg/evidence/forge-lineage-{run_id}.json",
-            "status": "verified",
+            "status": "pending_verification",
             "lineage_hash": hashlib.sha256(f"lineage-{run_id}".encode()).hexdigest(),
             "deterministic_metadata": True,
         },
         "model_card": {
             "standard": "HuggingFace-ModelCard",
             "path": f".omg/evidence/forge-model-card-{run_id}.md",
-            "status": "generated",
+            "status": "pending_verification",
             "model_id": f"forge-model-{run_id}",
             "base_model": base_model_name,
         },
         "checkpoint_hash": {
             "standard": "OpenSSF-OMS",
             "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
-            "status": "signed",
+            "status": "pending_verification",
             "sha256": hashlib.sha256(f"checkpoint-{run_id}".encode()).hexdigest(),
             "algorithm": "sha256",
         },
         "regression_scoreboard": {
             "standard": "lm-eval",
             "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
-            "status": "passed",
+            "status": "insufficient_evidence",
             "score": evaluation_metric,
             "target": target_metric,
         },

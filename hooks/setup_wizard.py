@@ -203,7 +203,6 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "command": "npx",
         "args": ["-y", "notebooklm-mcp@latest"],
         "default": False,
-        "min_preset": "buffet",
         "category": "productivity",
         "warning": (
             "NOTEBOOKLM MCP WARNING\n\n"
@@ -1071,7 +1070,7 @@ def run_setup_wizard(
 
     # --- Post-install validation (runs AFTER all setup writes are complete) ---
     try:
-        validation_result = _run_post_install_validate(root_dir=Path(_PROJECT_ROOT))
+        validation_result = _run_post_install_validate(root_dir=Path(project_dir))
     except Exception as exc:
         validation_result = {
             "schema": "ValidateResult",

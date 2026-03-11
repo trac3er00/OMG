@@ -125,6 +125,54 @@ def test_mutation_gate_allows_explicit_exempt_metadata(tmp_path, monkeypatch) ->
         file_path="src/app.py",
         project_dir=str(tmp_path),
         lock_id=None,
+        metadata={"exempt": True, "exempt_reason": "trusted automation flow"},
+    )
+    assert result["status"] == "exempt"
+
+
+def test_mutation_gate_demotes_exempt_without_reason(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/app.py",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        metadata={"exempt": True},
+    )
+    assert result["status"] == "blocked"
+
+
+def test_mutation_gate_exempt_with_exemption_category(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="docs/readme.md",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        exemption="docs",
         metadata={"exempt": True},
     )
     assert result["status"] == "exempt"
+
+
+def test_mutation_gate_writes_warning_artifact(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    file_path = "src/warn_target.py"
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path=file_path,
+        project_dir=str(tmp_path),
+        lock_id=None,
+    )
+    assert result["status"] == "allowed"
+
+    path_hash = sha256(file_path.encode("utf-8")).hexdigest()[:8]
+    artifact_path = tmp_path / ".omg" / "state" / "mutation_gate" / f"warn-{path_hash}.json"
+    assert artifact_path.is_file()
+
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "warning"
+    assert payload["tool"] == "Write"
+    assert payload["file_path"] == file_path
+    assert isinstance(payload.get("reason"), str)
+    assert isinstance(payload.get("ts"), str)

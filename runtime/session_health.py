@@ -252,6 +252,8 @@ def evaluate_auto_actions(
     health: dict[str, Any],
     *,
     profile_risk: dict[str, Any] | None = None,
+    project_dir: str | None = None,
+    run_id: str = "default",
 ) -> dict[str, Any]:
     recommended = str(health.get("recommended_action", "continue"))
     action = _HEALTH_TO_AUTO_ACTION.get(recommended, "warn")
@@ -273,7 +275,7 @@ def evaluate_auto_actions(
 
     reason = _build_action_reason(health, action, risk)
 
-    return {
+    result = {
         "action": action,
         "reason": reason,
         "review_route": review_route,
@@ -281,6 +283,11 @@ def evaluate_auto_actions(
         "health_status": str(health.get("status", "unknown")),
         "recommended_action": recommended,
     }
+
+    if project_dir is not None and action in ("pause", "require-review"):
+        persist_auto_action_evidence(project_dir, result, run_id=run_id)
+
+    return result
 
 
 def persist_auto_action_evidence(
@@ -340,9 +347,16 @@ def _build_action_reason(
             parts.append(f"context_health={context_health:.2f} <= warn threshold")
 
     if action == "require-review":
-        parts.append("profile_risk requires /OMG:profile-review")
+        if contamination >= _DEFAULT_THRESHOLDS["contamination_risk"]["block"]:
+            parts.append(f"contamination_risk={contamination:.2f} >= block threshold")
+        if overthinking >= _DEFAULT_THRESHOLDS["overthinking_score"]["block"]:
+            parts.append(f"overthinking_score={overthinking:.2f} >= block threshold")
+        destructive_count = len(risk.get("destructive_entries") or [])
+        if destructive_count:
+            parts.append(f"{destructive_count} destructive preference(s) detected")
+        parts.append("profile_risk requires review")
 
-    if risk.get("destructive_entries"):
+    elif risk.get("destructive_entries"):
         parts.append(f"{len(risk['destructive_entries'])} destructive preference(s) detected")
 
     if not parts:

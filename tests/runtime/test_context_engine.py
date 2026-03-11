@@ -25,8 +25,47 @@ def test_packet_has_required_keys(tmp_path):
     pkt = engine.build_packet(run_id="t-1")
     assert REQUIRED_KEYS.issubset(pkt.keys())
     assert "profile_digest" in pkt
+    assert "governance" in pkt
     assert BUDGET_KEYS.issubset(pkt["budget"].keys())
     assert CLARIFICATION_KEYS.issubset(pkt["clarification_status"].keys())
+
+
+def test_packet_governance_defaults_to_empty_dict(tmp_path):
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="t-governance-empty")
+    assert pkt["governance"] == {}
+
+
+def test_governance_populated_from_intent_gate_artifact(tmp_path):
+    """Verify governance is populated from intent_gate artifact when present."""
+    _write_json(
+        tmp_path / ".omg" / "state" / "intent_gate" / "t-governance-populated.json",
+        {
+            "schema": "IntentGateClarificationState",
+            "schema_version": "1.0.0",
+            "run_id": "t-governance-populated",
+            "intent_class": "auth_setup",
+            "confidence": 0.85,
+            "requires_clarification": True,
+            "missing_slots": ["provider"],
+            "clarification_prompt": "Clarify auth setup",
+            "source_prompt_hash": "abc123",
+            "governance": {
+                "read_first": True,
+                "simplify_only": False,
+                "optimize_only": False,
+                "complexity": "high",
+                "complexity_score": 4,
+            },
+            "updated_at": "2025-03-11T00:00:00+00:00",
+        },
+    )
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="t-governance-populated")
+    assert pkt["governance"] != {}
+    assert pkt["governance"]["complexity"] == "high"
+    assert pkt["governance"]["complexity_score"] == 4
+    assert pkt["governance"]["read_first"] is True
 
 
 def test_budget_respected(tmp_path):

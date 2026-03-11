@@ -303,6 +303,7 @@ class ContextEngine:
             "artifact_pointers": artifact_pointers,
             "artifact_handles": artifact_handles,
             "clarification_status": self._compose_clarification_status(raw),
+            "governance": self._compose_governance(raw),
             "profile_digest": load_profile_digest(self.project_dir),
             "budget": {
                 "max_chars": _MAX_SUMMARY_CHARS,
@@ -370,6 +371,15 @@ class ContextEngine:
             "clarification_prompt": prompt[:_MAX_CLARIFICATION_PROMPT_CHARS],
             "confidence": round(confidence, 2),
         }
+
+    def _compose_governance(self, raw: dict[str, Any]) -> dict[str, Any]:
+        intent_gate = raw.get("intent_gate", {})
+        if not isinstance(intent_gate, dict):
+            return {}
+        governance = intent_gate.get("governance")
+        if isinstance(governance, dict):
+            return dict(governance)
+        return {}
 
     def _compose_summary(self, raw: dict[str, Any]) -> str:
         """Compose a bounded summary from state signals."""
@@ -451,6 +461,7 @@ class ContextEngine:
                 "clarification_prompt": "",
                 "confidence": 0.0,
             },
+            "governance": {},
             "profile_digest": _empty_profile_digest(),
             "budget": {"max_chars": _MAX_SUMMARY_CHARS, "used_chars": 0},
             "delta_only": False,

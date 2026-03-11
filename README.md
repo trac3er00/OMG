@@ -6,6 +6,61 @@
 
 OMG upgrades your agent host instead of replacing it. It gives Claude Code, Codex, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
 
+## The Problem
+
+Agent hosts like Claude Code and Codex are powerful but lack governance, mutation safety, and evidence-backed verification. They often operate in a "trust me" mode where changes happen without a clear audit trail or safety gates. This leads to risky mutations, lack of interoperability between different agent stacks, and difficulty in verifying that a task was actually completed correctly.
+
+## The Solution
+
+OMG (Oh My OpenCode) provides a governance and orchestration layer that sits on top of existing agent hosts. It introduces:
+
+- **Hooks**: Pre-tool and post-tool execution gates for security and validation.
+- **Governance Payload**: Structured metadata for every action.
+- **Mutation Gate**: Prevents or warns about risky file system changes.
+- **Session Health**: Monitors the state of the session and requires review for risky states.
+- **Forge**: A modular orchestration engine for complex tasks.
+- **Memory**: A secure, namespaced, and encrypted state store.
+- **Evidence-Backed Verification**: Machine-generated proof for every claim.
+
+## Real-World Example
+
+Imagine an agent trying to delete a critical configuration file. Without OMG, the agent might just do it. With OMG's **Mutation Gate**, the action is intercepted, a warning is generated, and the user is prompted for approval. Or, when an agent claims a feature is "done", OMG's **Claim Judge** and **Proof Gate** require actual test results and build logs as evidence before the claim is accepted.
+
+## Architecture
+
+OMG operates as a middleware layer between the agent host and the underlying tools.
+
+```mermaid
+graph TD
+    Host[Agent Host: Claude Code / Codex] -->|Tool Call| Hooks[OMG Hooks]
+    Hooks -->|Security Check| Security[Security Guard / Firewall]
+    Hooks -->|Governance| ControlPlane[OMG Control Plane]
+    ControlPlane -->|State| Memory[OMG Memory]
+    ControlPlane -->|Verification| Proof[Proof Gate / Claim Judge]
+    ControlPlane -->|Orchestration| Forge[OMG Forge]
+    Hooks -->|Execution| Tool[Actual Tool Execution]
+    Tool -->|Result| Hooks
+    Hooks -->|Evidence| Proof
+```
+
+## Comparison
+
+| Feature | Raw Claude Code | Superpowers | OMG |
+| :--- | :---: | :---: | :---: |
+| **Governance** | Minimal | Plugin-based | Native Control Plane |
+| **Mutation Safety** | Basic | None | Hard Gates + Warnings |
+| **Verification** | Manual | None | Evidence-Backed Proof |
+| **Interoperability** | Single Host | Multi-Host | Universal MCP + Registry |
+| **State Management** | Volatile | Local Files | Encrypted + Namespaced |
+| **Orchestration** | Linear | Scripted | Modular Forge |
+
+## Limitations
+
+- **Not a Base Model**: OMG does not train or provide its own LLMs; it orchestrates existing ones.
+- **Local-Only**: Designed for same-machine production; no cloud-sync for state by design.
+- **Advisory-First**: In v1, many gates are advisory (warnings) rather than hard-blocking to avoid breaking workflows.
+- **Host Dependent**: Capabilities are limited by what the underlying agent host supports.
+
 - Brand: `OMG`
 - Repo: `https://github.com/trac3er00/OMG`
 - npm: `@trac3er/oh-my-god`
@@ -111,6 +166,7 @@ Compatibility references to OMC, OMX, and Superpowers are documented here: [docs
 Current local verification for this release: See `.omg/evidence/` for machine-generated verification artifacts.
 
 - Truth bundles: `claim-judge`, `test-intent-lock`, `proof-gate`
+- Evidence profiles: `browser-flow`, `forge-cybersecurity`, `interop-diagnosis`, `install-validation`, `buffet`
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
 - Sample crazy transcript: [docs/transcripts/crazy.md](docs/transcripts/crazy.md)

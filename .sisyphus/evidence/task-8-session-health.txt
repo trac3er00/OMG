@@ -1,0 +1,29 @@
+Task 8: Pause or require-review for risky session states
+=========================================================
+
+Changes
+-------
+1. runtime/session_health.py — evaluate_auto_actions()
+   - Added optional `project_dir: str | None = None` and `run_id: str = "default"` params (backward compatible)
+   - When action is "pause" or "require-review" AND project_dir is provided, automatically calls
+     persist_auto_action_evidence() so callers get deterministic evidence persistence
+
+2. runtime/session_health.py — _build_action_reason()
+   - Strengthened "require-review" reason to include specific health metrics:
+     contamination_risk value + threshold comparison, overthinking_score if above block,
+     destructive preference count, and "profile_risk requires review" suffix
+   - Before: "profile_risk requires /OMG:profile-review"
+   - After: "contamination_risk=0.85 >= block threshold; 2 destructive preference(s) detected; profile_risk requires review"
+   - Destructive entries now reported under require-review branch (not duplicated in non-review actions)
+
+Tests added
+-----------
+3 new tests in tests/runtime/test_session_health.py:
+  - test_pause_state_persists_evidence: pause with contamination=0.85 → evidence file created with specific reason
+  - test_require_review_state_persists_evidence: require-review with destructive profile → evidence file with metrics + destructive count
+  - test_healthy_session_continues_without_evidence: healthy session with project_dir → no evidence file created
+
+Test results
+------------
+33 passed (30 existing + 3 new), 0 failed
+LSP diagnostics: clean (no errors)

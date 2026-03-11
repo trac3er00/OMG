@@ -275,3 +275,74 @@ def test_verify_lock_returns_ok_for_matching_run_and_lock(tmp_path: Path) -> Non
     verdict = verify_lock(tmp_path.as_posix(), run_id="run-ok", lock_id=lock["lock_id"])
     assert verdict["status"] == "ok"
     assert verdict["lock_id"] == lock["lock_id"]
+
+
+def test_evaluate_test_delta_off_cwd_with_project_dir(tmp_path: Path) -> None:
+    """Regression test: evaluate_test_delta works when cwd != project_dir."""
+    # Create project structure in tmp_path
+    test_file = tmp_path / "tests" / "test_auth.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_login():\n    assert True\n", encoding="utf-8")
+
+    # Create lock in tmp_path (not in cwd)
+    lock = lock_intent(
+        tmp_path.as_posix(),
+        {
+            "goal": "fix auth",
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+        },
+    )
+
+    # Call evaluate_test_delta from a different cwd, but pass project_dir
+    # This should work because we explicitly pass project_dir
+    result = evaluate_test_delta(
+        {
+            "lock_id": lock["lock_id"],
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+            "old_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "new_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "override": {},
+        },
+        project_dir=tmp_path.as_posix(),
+    )
+
+    # Should pass because selectors match and test file exists
+    assert result["verdict"] == "pass"
+
+
+def test_evaluate_test_delta_off_cwd_catches_cwd_regression(tmp_path: Path) -> None:
+    """Regression test: verify that cwd-relative behavior is fixed."""
+    # Create project structure in tmp_path
+    test_file = tmp_path / "tests" / "test_auth.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_login():\n    assert True\n", encoding="utf-8")
+
+    # Create lock in tmp_path
+    lock = lock_intent(
+        tmp_path.as_posix(),
+        {
+            "goal": "fix auth",
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+        },
+    )
+
+    # Call evaluate_test_delta with mismatched selectors
+    # This should fail because selectors don't match
+    result = evaluate_test_delta(
+        {
+            "lock_id": lock["lock_id"],
+            "tests": ["tests/test_auth.py::test_logout"],  # Different selector
+            "touched_paths": ["app/auth.py"],
+            "old_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "new_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "override": {},
+        },
+        project_dir=tmp_path.as_posix(),
+    )
+
+    # Should fail because selectors don't match
+    assert result["verdict"] == "fail"
+    assert "locked_selectors_mismatch" in result["flags"]
