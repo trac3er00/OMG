@@ -203,7 +203,6 @@ MCP_CATALOG: list[dict[str, Any]] = [
         "command": "npx",
         "args": ["-y", "notebooklm-mcp@latest"],
         "default": False,
-        "min_preset": "buffet",
         "category": "productivity",
         "warning": (
             "NOTEBOOKLM MCP WARNING\n\n"
