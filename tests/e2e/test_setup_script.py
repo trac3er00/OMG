@@ -896,6 +896,8 @@ def test_npmignore_includes_hud_and_mcp():
     assert "hud/" not in npmignore, "hud/ should not be excluded from npm package"
     assert ".mcp.json" not in npmignore, ".mcp.json should not be excluded from npm package"
     assert ".claude-plugin/" not in npmignore, ".claude-plugin/ should not be excluded from npm package"
+    assert "install.sh" not in npmignore, "bare install.sh pattern would exclude nested plugin install scripts"
+    assert "/install.sh" in npmignore, "root install.sh should be ignored explicitly with a root-anchored pattern"
 
 
 def test_plugin_bundle_assets_exist_for_npm_package():

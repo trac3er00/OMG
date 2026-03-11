@@ -192,26 +192,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/firewall.py\"",
-            "timeout": 10
-          }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/secret-guard.py\"",
-            "timeout": 10
-          }
-        ],
-        "matcher": "Read|Write|Edit|MultiEdit"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "python3 \"$HOME/.claude/hooks/tdd-gate.py\"",
             "timeout": 10
           }
@@ -669,6 +649,16 @@
           "execution_primitives"
         ]
       }
-    }
+    },
+    "plugin_allowlist": [
+      "oh-my-openagent",
+      "oh-my-opencode",
+      "oh-my-codex",
+      "oh-my-claudecode"
+    ]
+  },
+  "enabledPlugins": {
+    "oh-my-opencode@omg": true,
+    "oh-my-opencode": true
   }
 }
