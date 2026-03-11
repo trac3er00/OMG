@@ -414,3 +414,65 @@ def test_auto_action_evidence_includes_timestamp(tmp_path: Path) -> None:
     persisted = json.loads(Path(path).read_text(encoding="utf-8"))
     assert "timestamp" in persisted
     assert "T" in persisted["timestamp"]  # ISO format
+
+
+# ── Pause/require-review evidence persistence ──────────────────────────────
+
+
+def test_pause_state_persists_evidence(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+        {"contamination_score": 0.85, "injection_hits": 0, "overthinking_score": 0.0},
+    )
+    health = compute_session_health(str(tmp_path), run_id="pause-ev")
+    result = evaluate_auto_actions(
+        health, project_dir=str(tmp_path), run_id="pause-ev",
+    )
+    assert result["action"] == "pause"
+    evidence_path = tmp_path / ".omg" / "state" / "session_health" / "actions" / "pause-ev.json"
+    assert evidence_path.exists()
+    persisted = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert persisted["action"] == "pause"
+    assert "contamination_risk=0.85 >= block threshold" in persisted["reason"]
+    assert persisted["bounded"] is True
+
+
+def test_require_review_state_persists_evidence(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+        {"contamination_score": 0.85, "injection_hits": 0, "overthinking_score": 0.0},
+    )
+    health = compute_session_health(str(tmp_path), run_id="review-ev")
+    profile_risk = {
+        "risk_level": "high",
+        "destructive_entries": [
+            {"field": "safety_mode", "value": "disable"},
+            {"field": "auto_approve", "value": "all"},
+        ],
+        "pending_confirmations": 2,
+        "requires_review": True,
+    }
+    result = evaluate_auto_actions(
+        health,
+        profile_risk=profile_risk,
+        project_dir=str(tmp_path),
+        run_id="review-ev",
+    )
+    assert result["action"] == "require-review"
+    evidence_path = tmp_path / ".omg" / "state" / "session_health" / "actions" / "review-ev.json"
+    assert evidence_path.exists()
+    persisted = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert persisted["action"] == "require-review"
+    assert "contamination_risk=0.85 >= block threshold" in persisted["reason"]
+    assert "2 destructive preference(s) detected" in persisted["reason"]
+    assert "profile_risk requires review" in persisted["reason"]
+
+
+def test_healthy_session_continues_without_evidence(tmp_path: Path) -> None:
+    health = compute_session_health(str(tmp_path), run_id="healthy-ev")
+    result = evaluate_auto_actions(
+        health, project_dir=str(tmp_path), run_id="healthy-ev",
+    )
+    assert result["action"] == "continue"
+    evidence_path = tmp_path / ".omg" / "state" / "session_health" / "actions" / "healthy-ev.json"
+    assert not evidence_path.exists()
