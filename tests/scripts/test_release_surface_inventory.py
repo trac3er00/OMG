@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+import yaml
 
 import pytest
 
@@ -283,3 +284,36 @@ class TestNegativeCases:
                 dupes.append(f"{s.file_path}:{s.surface_type}:{s.field}")
             seen.add(key)
         assert dupes == [], f"Duplicate surface entries: {dupes}"
+
+
+class TestPhaseOneBundleParity:
+    def test_control_plane_declares_all_canonical_hosts(self) -> None:
+        bundle_path = REPO_ROOT / "registry" / "bundles" / "control-plane.yaml"
+        payload = yaml.safe_load(bundle_path.read_text(encoding="utf-8"))
+        assert isinstance(payload, dict)
+        assert sorted(payload.get("hosts", [])) == ["claude", "codex", "gemini", "kimi"]
+
+    def test_control_plane_policy_model_has_phase1_release_expectations(self) -> None:
+        bundle_path = REPO_ROOT / "registry" / "bundles" / "control-plane.yaml"
+        payload = yaml.safe_load(bundle_path.read_text(encoding="utf-8"))
+        assert isinstance(payload, dict)
+        policy_model = payload["policy_model"]
+        evidence_contract = policy_model["evidence_contract"]
+
+        for required in (
+            "attestation_statement",
+            "attestation_verifier",
+            "claim_judge_verdict",
+            "compliance_verdict",
+        ):
+            assert required in evidence_contract
+
+    def test_plan_council_includes_release_audit_and_profile_review_surfaces(self) -> None:
+        bundle_path = REPO_ROOT / "registry" / "bundles" / "plan-council.yaml"
+        payload = yaml.safe_load(bundle_path.read_text(encoding="utf-8"))
+        assert isinstance(payload, dict)
+
+        references = payload.get("assets", {}).get("references", [])
+        assert "commands/OMG:profile-review.md" in references
+        assert "commands/OMG:validate.md" in references
+        assert "commands/OMG:release-audit.md" in references

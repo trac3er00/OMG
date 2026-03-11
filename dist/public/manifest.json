@@ -3,13 +3,15 @@
   "channel": "public",
   "hosts": [
     "claude",
-    "codex"
+    "codex",
+    "gemini",
+    "kimi"
   ],
   "contract_version": "2.1.5",
   "artifacts": [
     {
       "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
-      "sha256": "0c6b1b74a746cabe933321d27541836a5526acda02da1131616dcb09c56101bc"
+      "sha256": "bfab46adfdb8a2b5ea760dd4c8680bb91f0bde4b3431de12a5518810bda0bf78"
     },
     {
       "path": "bundle/.agents/skills/omg/algorithms/SKILL.md",
@@ -45,11 +47,11 @@
     },
     {
       "path": "bundle/.agents/skills/omg/control-plane/SKILL.md",
-      "sha256": "fe281985ffbfb4d324d0ae421653c96d501bfda4ef1462865e2868276c40a3c2"
+      "sha256": "5c6a077e0aaf6c52c5ba572e4b50ee9e250ace13807e172fd4296da47511b767"
     },
     {
       "path": "bundle/.agents/skills/omg/control-plane/openai.yaml",
-      "sha256": "a7ba723d34839c6a444b6ee4416223103cd9b2bbd9caed0d4c0aa1e7d5a523fc"
+      "sha256": "31b1dea80b7b795348ff72c4511d11c47881912c7c4756f8515d88dc1aa40fcd"
     },
     {
       "path": "bundle/.agents/skills/omg/data-lineage/SKILL.md",
@@ -208,6 +210,14 @@
       "sha256": "3e3a1ad346c36ea46ac250a03b1bc2df402116ccc442876a6405ba16ed0bda2c"
     },
     {
+      "path": "bundle/.gemini/settings.json",
+      "sha256": "88ef1e072b65a9ffa61ab0431b4d6c5f3a3e84f2e0882e9f67095607a00b249b"
+    },
+    {
+      "path": "bundle/.kimi/mcp.json",
+      "sha256": "88ef1e072b65a9ffa61ab0431b4d6c5f3a3e84f2e0882e9f67095607a00b249b"
+    },
+    {
       "path": "bundle/.mcp.json",
       "sha256": "e16897732dbd20ba7f47e5c0513b146a8d847454c8c13aa9e0a6031e5a498fa4"
     },
@@ -273,7 +283,7 @@
     },
     {
       "path": "bundle/registry/bundles/control-plane.yaml",
-      "sha256": "670dd424acd5cf3def358ff05b60cb65ebb00a613b2989f88734c6c7363bfcf7"
+      "sha256": "b2bc1b6123b30ee40db4f2ccf1c88db960656732cca5a8d76b2197389b6d3e67"
     },
     {
       "path": "bundle/registry/bundles/data-lineage.yaml",
@@ -309,7 +319,7 @@
     },
     {
       "path": "bundle/registry/bundles/plan-council.yaml",
-      "sha256": "7299d75bb00ab061cdaab0e16e12ca3538f90e8105155a268f8958380cb81b3a"
+      "sha256": "ed49e474eb3265481ef621086d4b190c67945385555a916a9698f351a73aef5a"
     },
     {
       "path": "bundle/registry/bundles/preflight.yaml",
@@ -353,7 +363,7 @@
     },
     {
       "path": "bundle/settings.json",
-      "sha256": "2b09fb6f4e14661bc82b43e604d5dbca956eba1ce565635442714282b0de66e6"
+      "sha256": "02689738526278a30d6004d203501562457410215c3967b18b6abb9e79ec4583"
     }
   ]
 }

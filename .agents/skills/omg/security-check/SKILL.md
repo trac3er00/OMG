@@ -5,7 +5,7 @@ description: "Canonical security audit bundle with provenance, trust scoring, an
 
 # OMG Security Check
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/security-check-*.json`

@@ -11,6 +11,7 @@ from runtime.runtime_contracts import (
     schema_versions,
     write_run_state,
 )
+from runtime.contract_compiler import _REQUIRED_EXECUTION_PRIMITIVES
 
 
 def test_default_layout_contains_expected_state_modules(tmp_path: Path) -> None:
@@ -303,3 +304,9 @@ def test_all_new_modules_produce_valid_json(tmp_path: Path) -> None:
         assert isinstance(parsed, dict), f"{module} did not produce a JSON object"
         assert parsed["schema_version"] == "1.0.0"
         assert parsed["run_id"] == f"run-{module}"
+
+
+def test_release_execution_primitives_include_claim_and_compliance_outcomes() -> None:
+    required = set(_REQUIRED_EXECUTION_PRIMITIVES)
+    assert "claim_judge_outcome" in required
+    assert "compliance_governor_outcome" in required

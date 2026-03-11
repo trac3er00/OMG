@@ -2,7 +2,7 @@ name: omg-test-intent-lock
 description: "Structured test-delta guard that blocks weakened tests unless explicit override evidence is present."
 allow_implicit_invocation: false
 metadata:
-  channel: enterprise
+  channel: public
   bundle_id: test-intent-lock
   title: "OMG Test Intent Lock"
 mcp_servers:
