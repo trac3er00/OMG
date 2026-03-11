@@ -47,6 +47,35 @@ AXOLOTL_SEARCH_POLICY: dict[str, object] = {
     },
 }
 
+OPERATION_ORCHESTRATION_PROFILES: dict[str, dict[str, object]] = {
+    "add": {
+        "mode": "incremental_extension",
+        "priority": "scope_safeguards",
+        "required_checks": ["schema_alignment", "backward_compatibility"],
+    },
+    "edit": {
+        "mode": "targeted_refinement",
+        "priority": "change_precision",
+        "required_checks": ["delta_scope", "regression_surface"],
+    },
+    "delete": {
+        "mode": "controlled_removal",
+        "priority": "safety_first",
+        "required_checks": ["dependency_impact", "rollback_path"],
+    },
+    "unknown": {
+        "mode": "bounded_execution",
+        "priority": "contract_defaults",
+        "required_checks": ["domain_contract"],
+    },
+}
+
+
+def _normalize_required_checks(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(check) for check in value if isinstance(check, str)]
+
 
 ADAPTER_REGISTRY: dict[str, dict[str, object]] = {
     "axolotl": {
@@ -110,6 +139,14 @@ def load_forge_mvp() -> dict[str, object]:
         "stage_aliases": {
             "security_review": "regression_test",
             "threat_model": "evaluate",
+        },
+        "operation_orchestration": {
+            intent: {
+                "mode": str(profile.get("mode", "bounded_execution")),
+                "priority": str(profile.get("priority", "contract_defaults")),
+                "required_checks": _normalize_required_checks(profile.get("required_checks")),
+            }
+            for intent, profile in OPERATION_ORCHESTRATION_PROFILES.items()
         },
         "specialist_contracts": {
             "forge-cybersecurity": {

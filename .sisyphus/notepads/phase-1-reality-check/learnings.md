@@ -82,3 +82,10 @@
 - `score_complexity()` returns `dict[str, object]` which causes LSP `__getitem__` errors on `governance` dict access — workaround: `assert isinstance(gov, dict)` before key access.
 - Validation: 812 passed, 8 failed (all pre-existing)
 - Commit: `test(runtime): cover subagent and MCP blind spots`
+
+## [2026-03-11] Task 12 modular Forge reality layer
+- Added intent-aware operation classification in `runtime/forge_agents.py` via `classify_operation_intent(job)` with structured-key precedence (`operation`, `intent`, `change_type`, `action`) and prompt-text fallback.
+- Added bounded operation plan resolution (`resolve_operation_plan`) backed by contract-defined orchestration profiles rather than freeform planning.
+- Dispatch now propagates `operation_plan` into result payload, specialist dispatch evidence, and adapter evidence orchestration metadata while preserving existing domain/specialist validation gates.
+- Added `operation_orchestration` profiles to `runtime/forge_contracts.py` (`add`, `edit`, `delete`, `unknown`) to keep orchestration modular and contract-governed.
+- TDD flow: added failing tests first in `tests/runtime/test_forge_agents.py`, confirmed import failure, then implemented and validated with `python3 -m pytest tests/runtime/test_forge_agents.py -q` (40 passed).

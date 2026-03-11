@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from runtime.forge_agents import (
+    classify_operation_intent,
     _check_backend_available,
     check_required_backends_satisfied,
     dispatch_specialists,
@@ -555,3 +556,48 @@ def test_domain_pack_included_in_dispatch_evidence(tmp_path: Path) -> None:
     assert isinstance(domain_pack, dict), "domain_pack must be a dict"
     assert "required_evidence" in domain_pack, "required_evidence missing from domain_pack"
     assert isinstance(domain_pack["required_evidence"], list), "required_evidence must be a list"
+
+
+def test_classify_operation_intent_prefers_structured_fields() -> None:
+    job: dict[str, object] = {
+        "operation": "delete",
+        "action": "add",
+        "goal": "Edit customer profile fields",
+    }
+    classification = classify_operation_intent(job)
+    assert classification["intent"] == "delete"
+    assert classification["source"] == "operation"
+
+
+def test_classify_operation_intent_detects_prompt_edit_language() -> None:
+    job: dict[str, object] = {
+        "goal": "Please update invoice approval rules for enterprise accounts",
+    }
+    classification = classify_operation_intent(job)
+    assert classification["intent"] == "edit"
+    assert classification["source"] == "goal"
+
+
+def test_dispatch_specialists_emits_operation_plan_for_business_app_request(tmp_path: Path) -> None:
+    job = _valid_job()
+    job["goal"] = "Add soft-delete and audit logging to customer records"
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "ok"
+    operation_plan = result["operation_plan"]
+    assert operation_plan["intent"] == "add"
+    assert operation_plan["mode"] == "incremental_extension"
+    assert "operation_plan" in result["adapter_evidence"][0]["orchestration"]
+
+
+def test_dispatch_invalid_specialists_remains_blocked_with_operation_hints(tmp_path: Path) -> None:
+    job = _valid_job()
+    job["goal"] = "Delete stale feature flags and add a self-service toggle"
+    job["domain"] = "algorithms"
+    job["specialists"] = ["training-architect", "simulator-engineer"]
+
+    result = dispatch_specialists(job, str(tmp_path))
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "invalid_specialist_domain_combination"

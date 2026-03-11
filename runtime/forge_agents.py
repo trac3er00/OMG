@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,64 @@ _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
     "health": ["data-curator", "training-architect"],
     "cybersecurity": ["forge-cybersecurity"],
 }
+
+_OPERATION_SYNONYMS: dict[str, set[str]] = {
+    "add": {"add", "create", "insert", "new", "introduce", "build"},
+    "edit": {"edit", "update", "modify", "change", "adjust", "revise", "patch"},
+    "delete": {"delete", "remove", "drop", "retire", "deprecate", "decommission"},
+}
+
+_OPERATION_TEXT_KEYS: tuple[str, ...] = ("goal", "request", "prompt", "task", "summary", "description")
+
+
+def _normalize_operation_candidate(value: object) -> str:
+    candidate = str(value or "").strip().lower().replace("_", " ").replace("-", " ")
+    if not candidate:
+        return ""
+    if candidate in _OPERATION_SYNONYMS:
+        return candidate
+    for intent, synonyms in _OPERATION_SYNONYMS.items():
+        if candidate in synonyms:
+            return intent
+    return ""
+
+
+def classify_operation_intent(job: dict[str, Any]) -> dict[str, str]:
+    for key in ("operation", "intent", "change_type", "action"):
+        if key in job:
+            normalized = _normalize_operation_candidate(job.get(key))
+            if normalized:
+                return {"intent": normalized, "source": key}
+
+    for key in _OPERATION_TEXT_KEYS:
+        raw_value = str(job.get(key, "") or "")
+        text = raw_value.lower()
+        if not text:
+            continue
+        for intent, synonyms in _OPERATION_SYNONYMS.items():
+            if any(re.search(rf"\b{re.escape(token)}\b", text) for token in synonyms):
+                return {"intent": intent, "source": key}
+
+    return {"intent": "unknown", "source": "none"}
+
+
+def resolve_operation_plan(job: dict[str, Any]) -> dict[str, Any]:
+    contract = load_forge_mvp()
+    orchestration = contract.get("operation_orchestration")
+    profiles = orchestration if isinstance(orchestration, dict) else {}
+    classified = classify_operation_intent(job)
+    intent = str(classified.get("intent", "unknown"))
+    profile_raw = profiles.get(intent, profiles.get("unknown", {}))
+    profile = profile_raw if isinstance(profile_raw, dict) else {}
+    checks_raw = profile.get("required_checks")
+    required_checks = [str(entry) for entry in checks_raw] if isinstance(checks_raw, list) else []
+    return {
+        "intent": intent,
+        "source": str(classified.get("source", "none")),
+        "mode": str(profile.get("mode", "bounded_execution")),
+        "priority": str(profile.get("priority", "contract_defaults")),
+        "required_checks": required_checks,
+    }
 
 
 def resolve_specialists(domain: str) -> list[str]:
@@ -133,10 +192,11 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
     specialists_dispatched = requested_specialists if requested_specialists else expected_specialists
     status = "ok" if specialists_dispatched else "noop"
     active_run_id = normalize_run_id(run_id)
+    operation_plan = resolve_operation_plan(job)
 
     job_with_specialists = dict(job)
     job_with_specialists["specialists"] = specialists_dispatched
-    adapter_evidence = resolve_adapters(job_with_specialists)
+    adapter_evidence = resolve_adapters(job_with_specialists, operation_plan=operation_plan)
 
     backends_ok, backends_reason = check_required_backends_satisfied(adapter_evidence)
     if not backends_ok:
@@ -146,6 +206,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
             "evidence_path": "",
             "reason": backends_reason,
             "adapter_evidence": adapter_evidence,
+            "operation_plan": operation_plan,
         }
 
     security_scan: dict[str, Any] | None = None
@@ -161,6 +222,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
         expected_specialists=expected_specialists,
         requested_specialists=requested_specialists,
         specialists_dispatched=specialists_dispatched,
+        operation_plan=operation_plan,
         job=job,
         security_scan=security_scan,
     )
@@ -170,6 +232,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
         "run_id": active_run_id,
         "evidence_path": evidence_path,
         "adapter_evidence": adapter_evidence,
+        "operation_plan": operation_plan,
     }
     if security_scan is not None:
         result_payload["security_scan"] = security_scan
@@ -364,7 +427,7 @@ def _resolve_axolotl_adapter(job: dict[str, Any], *, required: bool) -> dict[str
     return normalized
 
 
-def resolve_adapters(job: dict[str, Any]) -> list[dict[str, object]]:
+def resolve_adapters(job: dict[str, Any], operation_plan: dict[str, Any] | None = None) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
     dispatched_specialists = job.get("specialists", [])
     if not isinstance(dispatched_specialists, list):
@@ -382,6 +445,16 @@ def resolve_adapters(job: dict[str, Any]) -> list[dict[str, object]]:
         for backend in simulator_backends:
             is_required = require_backend and requested_backend == backend
             results.append(_resolve_simulator_adapter(job, backend=backend, required=is_required))
+
+    if operation_plan is not None:
+        for evidence in results:
+            evidence["orchestration"] = {
+                "operation_plan": {
+                    "intent": str(operation_plan.get("intent", "unknown")),
+                    "mode": str(operation_plan.get("mode", "bounded_execution")),
+                    "priority": str(operation_plan.get("priority", "contract_defaults")),
+                }
+            }
 
     return results
 
@@ -420,6 +493,7 @@ def _write_dispatch_evidence(
     expected_specialists: list[str],
     requested_specialists: list[str],
     specialists_dispatched: list[str],
+    operation_plan: dict[str, Any],
     job: dict[str, Any],
     security_scan: dict[str, Any] | None = None,
 ) -> str:
@@ -442,6 +516,7 @@ def _write_dispatch_evidence(
         "requested_specialists": requested_specialists,
         "expected_specialists": expected_specialists,
         "specialists_dispatched": specialists_dispatched,
+        "operation_plan": operation_plan,
         "contract": {
             "labs_only": bool(contract.get("labs_only", True)),
             "axolotl_hook": contract.get("axolotl_hook", ""),
