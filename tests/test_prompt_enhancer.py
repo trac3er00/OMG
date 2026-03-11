@@ -189,5 +189,39 @@ class TestFastPathPinning:
             assert "contextInjection" in parsed
 
 
+class TestAdvisoryGovernance:
+    """Advisory governance line must appear for complex coding prompts."""
+
+    def test_complex_prompt_emits_governance_line(self, tmp_path):
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
+
+        prompt = "implement the full authentication system with JWT tokens and refresh flow"
+        output = _run_enhancer(prompt, project_dir=str(tmp_path))
+        assert output != "", "Complex coding prompt must produce output"
+        parsed = json.loads(output)
+        injection = parsed.get("contextInjection", "")
+        assert "@governance:" in injection, (
+            f"Complex coding prompt must emit @governance line, got: {injection[:200]}"
+        )
+        assert "read_first=" in injection
+        assert "simplify_only=" in injection
+        assert "complexity=" in injection
+
+    def test_trivial_prompt_no_governance(self, tmp_path):
+        output = _run_enhancer("hello", project_dir=str(tmp_path))
+        assert output == "", "Trivial prompt must still produce zero output"
+
+    def test_fix_intent_emits_governance(self, tmp_path):
+        (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+        (tmp_path / ".omg" / "knowledge").mkdir(parents=True)
+
+        output = _run_enhancer("fix the bug in the auth module", project_dir=str(tmp_path))
+        assert output != ""
+        parsed = json.loads(output)
+        injection = parsed.get("contextInjection", "")
+        assert "@governance:" in injection
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
