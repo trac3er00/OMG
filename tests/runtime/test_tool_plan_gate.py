@@ -228,3 +228,94 @@ def test_compliance_governor_tool_precedence_blocks_council_fail_even_with_plan(
 
     assert result["status"] == "blocked"
     assert result["authority"] == "council_verdicts"
+
+
+class TestComplexityLabel:
+    """goal_complexity must return a deterministic label in budget_estimate."""
+
+    VALID_LABELS = {"low", "medium", "high"}
+
+    def test_budget_estimate_contains_goal_complexity(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """build_tool_plan must include goal_complexity key in budget_estimate."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-shape")
+
+        plan = build_tool_plan("scan dependencies", available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+        assert "goal_complexity" in budget
+        assert budget["goal_complexity"] in self.VALID_LABELS
+
+    def test_trivial_goal_returns_low(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A short goal (< 10 words) must return 'low' complexity."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-low")
+
+        plan = build_tool_plan("fix typo", available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+        assert budget["goal_complexity"] == "low"
+
+    def test_medium_goal_returns_medium(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A mid-length goal (10-24 words) must return 'medium' complexity."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-med")
+
+        goal = "update the login form validation and add error messages for each field"
+        plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+        assert budget["goal_complexity"] == "medium"
+
+    def test_complex_goal_returns_high(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A long goal (>= 25 words) must return 'high' complexity."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-high")
+
+        goal = (
+            "refactor the authentication module, migrate the database schema, "
+            "update all frontend components to use the new API endpoints, "
+            "and deploy the staging environment with full integration tests"
+        )
+        plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+        budget = cast(dict[str, object], plan["budget_estimate"])
+        assert budget["goal_complexity"] == "high"
+
+    def test_complexity_labels_are_deterministic(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Pin: same goal must always produce same label across repeated calls."""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+        monkeypatch.setenv("OMG_RUN_ID", "run-cx-pin")
+
+        cases = [
+            ("fix typo", "low"),
+            ("scan security", "low"),
+            (
+                "update the login form validation and add error messages for each field",
+                "medium",
+            ),
+            (
+                "refactor the authentication module, migrate the database schema, "
+                "update all frontend components to use the new API endpoints, "
+                "and deploy the staging environment with full integration tests",
+                "high",
+            ),
+        ]
+        for goal, expected in cases:
+            plan = build_tool_plan(goal, available_tools=["omg_security_check"])
+            budget = cast(dict[str, object], plan["budget_estimate"])
+            actual = budget["goal_complexity"]
+            assert actual == expected, (
+                f"Goal {goal!r}: expected {expected!r}, got {actual!r}"
+            )
