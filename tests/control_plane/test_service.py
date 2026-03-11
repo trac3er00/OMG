@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -145,7 +146,15 @@ def test_registry_verify_blocks_critical():
             }
         }
     )
-    assert status == 200
+    assert status == 403
+    assert out["action"] == "deny"
+
+
+def test_registry_verify_returns_403_for_deny_action() -> None:
+    service = ControlPlaneService(project_dir=".")
+    with patch("control_plane.service.verify_artifact", return_value={"action": "deny", "reason": "denied"}):
+        status, out = service.registry_verify({"artifact": {"id": "bad"}})
+    assert status == 403
     assert out["action"] == "deny"
 
 

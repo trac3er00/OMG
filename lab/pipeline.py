@@ -170,6 +170,31 @@ def run_pipeline(
     return result
 
 
+def _extract_artifact_payload(result: dict[str, Any]) -> dict[str, Any] | None:
+    contracts = result.get("artifact_contracts")
+    if not isinstance(contracts, dict):
+        return None
+    checkpoint = contracts.get("checkpoint_hash")
+    if not isinstance(checkpoint, dict) or str(checkpoint.get("status", "")).strip().lower() != "signed":
+        return None
+    attestation = checkpoint.get("attestation")
+    if not isinstance(attestation, dict):
+        return None
+    sha256 = str(checkpoint.get("sha256", "")).strip()
+    path = str(checkpoint.get("path", "")).strip()
+    signer_key_id = str(checkpoint.get("signer_key_id", "")).strip()
+    return {
+        "id": path,
+        "signer": signer_key_id or "forge-ephemeral",
+        "checksum": sha256,
+        "attestation": attestation,
+        "signer_pubkey": None,
+        "permissions": [],
+        "static_scan": [],
+        "risk_level": "low",
+    }
+
+
 def publish_artifact(result: dict[str, Any]) -> dict[str, Any]:
     from runtime.compliance_governor import evaluate_release_compliance
 
@@ -192,6 +217,19 @@ def publish_artifact(result: dict[str, Any]) -> dict[str, Any]:
 
     release_evidence = result.get("release_evidence")
     release_evidence_payload = dict(release_evidence) if isinstance(release_evidence, dict) else {}
+
+    artifact_payload = _extract_artifact_payload(result)
+    if artifact_payload is not None:
+        release_evidence_payload["artifact"] = artifact_payload
+
+    claims = release_evidence_payload.get("claims")
+    if isinstance(claims, list) and claims and not isinstance(release_evidence_payload.get("artifact"), dict):
+        return {
+            "status": "blocked",
+            "reason": "promotion blocked: claims present but artifact evidence missing",
+            "published": False,
+        }
+
     compliance = evaluate_release_compliance(
         project_dir=str(result.get("project_dir", ".")),
         run_id=str(result.get("run_id", "")),
@@ -367,15 +405,17 @@ def _build_checkpoint_contract(*, run_id: str, adapter_evidence: list[dict[str, 
         sha256 = str(first.get("sha256", "")).strip().lower()
         if len(sha256) != 64:
             continue
-        signer_key = "forge-local-signing-key"
+        attestation = sign_artifact_statement(path, sha256)
+        signer_info = attestation.get("signer") if isinstance(attestation, dict) else None
+        signer_key_id = str(signer_info.get("keyid", "")) if isinstance(signer_info, dict) else ""
         return {
             "standard": "OpenSSF-OMS",
             "path": path,
             "status": "signed",
             "sha256": sha256,
-            "algorithm": "sha256",
-            "attestation": sign_artifact_statement(path, signer_key, sha256),
-            "signer_pubkey": signer_key,
+            "algorithm": "ed25519-minisign",
+            "attestation": attestation,
+            "signer_key_id": signer_key_id,
         }
     return {
         "standard": "OpenSSF-OMS",
@@ -420,8 +460,8 @@ def _collect_publish_blockers(result: dict[str, Any]) -> list[str]:
     else:
         checkpoint_status = str(checkpoint.get("status", "")).strip().lower()
         attestation = checkpoint.get("attestation")
-        signer_pubkey = str(checkpoint.get("signer_pubkey", "")).strip()
-        if checkpoint_status != "signed" or not isinstance(attestation, dict) or not signer_pubkey:
+        signer_key_id = str(checkpoint.get("signer_key_id", "")).strip()
+        if checkpoint_status != "signed" or not isinstance(attestation, dict) or not signer_key_id:
             blockers.append("promotion blocked: missing attestation")
 
     regression = contracts_map.get("regression_scoreboard")

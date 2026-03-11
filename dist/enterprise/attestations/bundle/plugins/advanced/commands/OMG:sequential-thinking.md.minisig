@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+TMtEW2o4sIN+H6BOj3XgB6f4JozIu80RW9bzFGBL+Hb/m4S0Wduko2UXr/aaAp9aWlV9UmD3UESEm20SDiEACQ==
+trusted comment: type=omg-slsa-v1 keyid=45b9bdd50b2f4751 issued_at=2026-03-11T02:11:28.059526+00:00 artifact=bundle/plugins/advanced/commands/OMG:sequential-thinking.md sha256=1830de63009cb07c80cbcecf143f6df7560e7f031ac5b1d509b726d184e441da
+gz2JS8cyJF1cmiNby7Am2EYnIeaVXZNZsjuspN7xiBKHaSAt6eHQXde+ttDUJLNluTezzWARQODRWjDdT+4yDQ==

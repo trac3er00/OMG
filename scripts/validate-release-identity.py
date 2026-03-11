@@ -115,6 +115,9 @@ def validate_derived(repo_root: Path, canonical: str) -> dict[str, Any]:
     return {"status": status, "blockers": blockers}
 
 
+_KNOWN_ATTESTATION_ALGORITHMS = {"ed25519-minisign", "hmac-sha256"}
+
+
 def _collect_attestations(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     rows = payload.get("attestations")
     if not isinstance(rows, list):
@@ -124,11 +127,17 @@ def _collect_attestations(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
         if not isinstance(row, dict):
             continue
         artifact_path = str(row.get("artifact_path", "")).strip()
+        if not artifact_path:
+            continue
+        # New detached shape: statement_path + signature_path + signer_key_id + algorithm
+        if row.get("statement_path") is not None or row.get("signature_path") is not None:
+            indexed[artifact_path] = row
+            continue
+        # Legacy inline shape: statement dict + signer_pubkey string (HMAC bridge)
         statement = row.get("statement")
         signer_pubkey = row.get("signer_pubkey")
-        if not artifact_path or not isinstance(statement, dict) or not isinstance(signer_pubkey, str):
-            continue
-        indexed[artifact_path] = row
+        if isinstance(statement, dict) and isinstance(signer_pubkey, str):
+            indexed[artifact_path] = row
     return indexed
 
 
@@ -164,13 +173,47 @@ def _validate_promotion_manifest_attestations(*, rel_path: str, payload: dict[st
             })
             continue
 
+        if record.get("statement_path") is not None or record.get("signature_path") is not None:
+            statement_path = record.get("statement_path")
+            if not isinstance(statement_path, str) or not statement_path.strip():
+                blockers.append({
+                    "surface": f"{rel_path}#missing_statement_path:{artifact_path}",
+                    "found": "absent",
+                    "expected": "non-empty statement_path",
+                })
+                continue
+            signature_path = record.get("signature_path")
+            if not isinstance(signature_path, str) or not signature_path.strip():
+                blockers.append({
+                    "surface": f"{rel_path}#missing_signature_path:{artifact_path}",
+                    "found": "absent",
+                    "expected": "non-empty signature_path",
+                })
+                continue
+            algorithm = str(record.get("algorithm", "")).strip()
+            if algorithm not in _KNOWN_ATTESTATION_ALGORITHMS:
+                blockers.append({
+                    "surface": f"{rel_path}#unknown_algorithm:{artifact_path}",
+                    "found": algorithm or "<missing>",
+                    "expected": "known attestation algorithm",
+                })
+                continue
+            signer_key_id = str(record.get("signer_key_id", "")).strip()
+            if not signer_key_id:
+                blockers.append({
+                    "surface": f"{rel_path}#missing_signer_key_id:{artifact_path}",
+                    "found": "absent",
+                    "expected": "non-empty signer_key_id",
+                })
+            continue
+
         statement = record.get("statement")
         signer_pubkey = record.get("signer_pubkey")
         if not isinstance(statement, dict) or not isinstance(signer_pubkey, str):
             blockers.append({
                 "surface": f"{rel_path}#invalid_attestation:{artifact_path}",
                 "found": "malformed",
-                "expected": "statement dict and signer_pubkey",
+                "expected": "valid detached or inline attestation",
             })
             continue
 
@@ -194,7 +237,7 @@ def _validate_promotion_manifest_attestations(*, rel_path: str, payload: dict[st
             blockers.append({
                 "surface": f"{rel_path}#invalid_signature:{artifact_path}",
                 "found": "verification_failed",
-                "expected": "offline_hmac_valid_signature",
+                "expected": "valid_detached_signature",
             })
 
     return blockers

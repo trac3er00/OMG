@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+ZeMK2GNC0A0pXQadilWEGScYGBqn/OEo8HRLK/LU6KFqgNdB25AyXm4IKFmClySnXvpD7JZV5nStzZWQsBU5Bg==
+trusted comment: type=omg-slsa-v1 keyid=9668dd00084a8174 issued_at=2026-03-11T02:12:43.597963+00:00 artifact=bundle/settings.json sha256=6eaf68acbf96b25f18c443afedbe624500b6911ec52411af03fe44e41da51b0c
+ae7SeMVqVP2M6eKyVYPwa+gd6l75r/qhtS2xCPjJBtJhakfetBG3DZK5O08C9jS5dD77py4PMmzIj5QaTYOWBA==

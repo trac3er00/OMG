@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+YYVfKbTQd9pqwEISGMwokzP6AcKYzM3y27CMEFSskUIdEXHp5+gutNt1hbqAi9yfXCTevBsIgT1r0GquIkfLAg==
+trusted comment: type=omg-slsa-v1 keyid=92c8097b8704cf8c issued_at=2026-03-11T02:12:43.712345+00:00 artifact=bundle/plugins/advanced/commands/OMG:ralph-start.md sha256=31b2aded6032b5f061dbb7cd92dff53bbe3b527b9e9ba93d5043cad2847a6365
+35yPi19hSfOsyumhi4Zw2YBxES+5bT3puq230EumvpMBHlPTeFZEj25CItTbeXjO21UuON3axwLFTTF4PBvhAA==

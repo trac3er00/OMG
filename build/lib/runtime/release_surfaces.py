@@ -194,6 +194,18 @@ AUTHORED_SURFACES: list[AuthoredSurface] = [
         ["contract_version"],
         "compat contract snapshot version",
     ),
+
+    # 7. commands/OMG:validate.md — JSON example version field (line 39)
+    AuthoredSurface(
+        "commands/OMG:validate.md", "regex_line", r'^\s*"version":\s*"(\d+\.\d+\.\d+)"',
+        "validate command JSON example version",
+    ),
+
+    # 8. settings.json — banner comment literal (line 3)
+    AuthoredSurface(
+        "settings.json", "banner_literal", r'OMG (\d+\.\d+\.\d+)',
+        "settings banner comment version",
+    ),
 ]
 
 

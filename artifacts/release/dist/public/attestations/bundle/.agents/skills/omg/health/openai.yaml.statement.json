@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/.agents/skills/omg/health/openai.yaml",
+      "digest": {
+        "sha256": "5f60504efb464cbcf130e183d3991b6fe9bc90ef12c21c4ffc2e8900ae1cd6e2"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-11T02:12:43.554579+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-11T02:12:43.554579+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "a5ee06b9141b9491",
+    "value": "untrusted comment: signature from omg local signing key\nTdf7vO8pqu8bpvdkbM36a6PdIcqPSXTT7ONP0pCW2+Tt6djq3ASqXXs84rpRsjAigo4+UN3VLH5l9E6qzI3nDA==\ntrusted comment: type=omg-slsa-v1 keyid=a5ee06b9141b9491 issued_at=2026-03-11T02:12:43.554706+00:00 artifact=bundle/.agents/skills/omg/health/openai.yaml sha256=5f60504efb464cbcf130e183d3991b6fe9bc90ef12c21c4ffc2e8900ae1cd6e2\n+e9bB55rsKfq4TlnmVYG3TCLTWE3W3jQFPX0+5cFjSQzI6BrICi8SR/Bi/bdx6fzr0VOJOFieR7Aaq02VTvEDA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=a5ee06b9141b9491 issued_at=2026-03-11T02:12:43.554706+00:00 artifact=bundle/.agents/skills/omg/health/openai.yaml sha256=5f60504efb464cbcf130e183d3991b6fe9bc90ef12c21c4ffc2e8900ae1cd6e2"
+  }
+}

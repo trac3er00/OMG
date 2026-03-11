@@ -93,6 +93,23 @@ def _patch_proof_chain_ok(monkeypatch) -> None:
     )
 
 
+def _patch_claim_judge_ok(monkeypatch) -> None:
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "evaluate_release_compliance",
+        lambda **_kw: {"status": "allowed", "authority": "release", "reason": "fixture"},
+    )
+
+
+def _write_claim_judge_evidence(output_root: Path, *, run_id: str = "run-1") -> None:
+    evidence_root = output_root / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / f"claim-judge-{run_id}.json").write_text(
+        json.dumps({"schema": "ClaimJudgeOutcome", "run_id": run_id, "status": "allowed"}),
+        encoding="utf-8",
+    )
+
+
 def _write_doctor_success(output_root: Path) -> None:
     doctor_path = output_root / ".omg" / "evidence" / "doctor.json"
     doctor_path.parent.mkdir(parents=True, exist_ok=True)
@@ -345,6 +362,7 @@ def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, mo
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     _patch_fast_release_checks(monkeypatch)
     _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
 
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
@@ -380,6 +398,7 @@ def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, mo
     evidence_root.mkdir(parents=True, exist_ok=True)
     (evidence_root / "run-v2.json").write_text(json.dumps(fixture_payload), encoding="utf-8")
     _write_execution_primitives(tmp_path, run_id=fixture_run_id)
+    _write_claim_judge_evidence(tmp_path, run_id=fixture_run_id)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
@@ -733,6 +752,7 @@ def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatc
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     _patch_fast_release_checks(monkeypatch)
     _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
     public_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
@@ -758,8 +778,22 @@ def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatc
             actual_sha = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
             assert actual_sha == artifact["sha256"]
 
+        attestations = manifest.get("attestations")
+        assert isinstance(attestations, list), "manifest must contain attestations array"
+        assert len(attestations) == len(manifest["artifacts"])
+
+        required_keys = {"artifact_path", "statement_path", "signature_path", "signer_key_id", "algorithm"}
+        artifact_paths = {a["path"] for a in manifest["artifacts"]}
+        for row in attestations:
+            assert required_keys <= set(row), f"attestation row missing keys: {required_keys - set(row)}"
+            assert row["artifact_path"] in artifact_paths
+            assert row["algorithm"] == "ed25519-minisign"
+            assert (dist_root / row["statement_path"]).exists()
+            assert (dist_root / row["signature_path"]).exists()
+
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
     _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 
@@ -1555,6 +1589,7 @@ def test_release_readiness_dual_bundle_promotion_parity_happy_path(
     )
     _patch_fast_release_checks(monkeypatch)
     _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
 
     public_result = compile_contract_outputs(
         root_dir=ROOT,
@@ -1573,6 +1608,7 @@ def test_release_readiness_dual_bundle_promotion_parity_happy_path(
 
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
     _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 

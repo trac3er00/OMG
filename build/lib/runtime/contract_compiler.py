@@ -23,6 +23,7 @@ from runtime.asset_loader import resolve_asset, resolve_assets
 from runtime.proof_chain import _normalize_evidence_pack
 from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
+from runtime.compliance_governor import evaluate_release_compliance
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -30,6 +31,7 @@ from runtime.adoption import (
     CANONICAL_REPO_URL,
     CANONICAL_VERSION,
 )
+from registry.verify_artifact import sign_artifact_statement
 
 
 CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
@@ -67,11 +69,31 @@ TRUTH_COUNCIL_BUNDLES = (
     "test-intent-lock",
     "proof-gate",
 )
-REQUIRED_ADVANCED_PLUGIN_ARTIFACTS = (
-    "bundle/plugins/advanced/plugin.json",
-    "bundle/plugins/advanced/commands/OMG:deep-plan.md",
-    "bundle/plugins/advanced/commands/OMG:security-review.md",
-)
+def _get_required_advanced_plugin_artifacts(root: Path) -> tuple[str, ...]:
+    manifest_path = root / "plugins" / "advanced" / "plugin.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+
+    required: list[str] = ["bundle/plugins/advanced/plugin.json"]
+    seen = set(required)
+    commands = manifest.get("commands", {})
+    if not isinstance(commands, dict):
+        return tuple(required)
+
+    for command in commands.values():
+        if not isinstance(command, dict):
+            continue
+        command_path = command.get("path")
+        if not isinstance(command_path, str) or not command_path:
+            continue
+        bundled_path = f"bundle/plugins/advanced/{command_path}"
+        if bundled_path in seen:
+            continue
+        required.append(bundled_path)
+        seen.add(bundled_path)
+    return tuple(required)
 REQUIRED_DOC_TOKENS = (
     "execution_contract",
     "tool_policy",
@@ -115,6 +137,7 @@ REQUIRED_CODEX_AGENTS_SECTIONS = (
     "## Build & Test",
     "## Protected Paths",
     "## Evidence Contract",
+    "## Release Audit",
     "## Required Skills",
     "## Web Search Policy",
     "## Approval Constraints",
@@ -153,6 +176,36 @@ _REQUIRED_EXECUTION_PRIMITIVES = (
     "session_health_state",
     "council_verdicts",
     "forge_starter_proof",
+    "claim_judge_outcome",
+    "compliance_governor_outcome",
+)
+
+_PHASE1_FORGE_SPECIALIST_SURFACES = (
+    "forge-profile-review",
+    "forge-release-audit",
+    "forge-validate",
+)
+
+_PHASE1_RELEASE_SURFACES = (
+    "OMG:profile-review",
+    "OMG:release-audit",
+    "OMG:validate",
+)
+
+_PHASE1_ATTESTATION_REQUIREMENTS = (
+    "registry.verify_artifact.sign_artifact_statement",
+    "registry.verify_artifact.verify_artifact_statement",
+)
+
+_PHASE1_COMPLIANCE_EXPECTATIONS = (
+    "runtime.compliance_governor.evaluate_release_compliance",
+    "runtime.compliance_governor.evaluate_tool_compliance",
+)
+
+_PHASE1_RELEASE_READINESS_CHECKS = (
+    "claim_judge",
+    "compliance_governor",
+    "execution_primitives",
 )
 
 _REQUIRED_CONTEXT_METADATA = (
@@ -408,6 +461,16 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 def _write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _build_phase1_release_contract() -> dict[str, list[str]]:
+    return {
+        "forge_specialist_surfaces": list(_PHASE1_FORGE_SPECIALIST_SURFACES),
+        "release_surfaces": list(_PHASE1_RELEASE_SURFACES),
+        "attestation_requirements": list(_PHASE1_ATTESTATION_REQUIREMENTS),
+        "compliance_governor_expectations": list(_PHASE1_COMPLIANCE_EXPECTATIONS),
+        "release_readiness_checks": list(_PHASE1_RELEASE_READINESS_CHECKS),
+    }
 
 
 def _sha256_file(path: Path) -> str:
@@ -887,6 +950,7 @@ def _compile_claude_outputs(
 
     omg_settings = dict(settings.get("_omg", {}))
     omg_settings["_version"] = CANONICAL_VERSION
+    phase1_release_contract = _build_phase1_release_contract()
     omg_settings["generated"] = {
         "contract_version": CANONICAL_VERSION,
         "channel": channel,
@@ -896,6 +960,7 @@ def _compile_claude_outputs(
         "policy_model": policy_model or {},
         "subagents": subagents,
         "skills": skills,
+        "phase1_release_contract": phase1_release_contract,
     }
     settings["_omg"] = omg_settings
     _write_json(output_root / "settings.json", settings)
@@ -993,6 +1058,7 @@ def _render_codex_agents_fragment(
     codex_skills: list[str],
     evidence_fields: list[str],
     protected_planning_skills: list[str],
+    phase1_release_contract: dict[str, list[str]],
 ) -> str:
     """Render a comprehensive AGENTS.fragment.md for Codex host."""
     sections: list[str] = []
@@ -1013,6 +1079,15 @@ def _render_codex_agents_fragment(
     sections.append("The following paths require tier-gated review before mutation:\n")
     for path in protected_paths:
         sections.append(f"- `{path}`")
+    sections.append("")
+
+    sections.append("## Release Audit\n")
+    sections.append("Release readiness requires claim and compliance outcomes:\n")
+    for check in phase1_release_contract.get("release_readiness_checks", []):
+        sections.append(f"- `{check}`")
+    sections.append("Attestation requirements:")
+    for requirement in phase1_release_contract.get("attestation_requirements", []):
+        sections.append(f"- `{requirement}`")
     sections.append("")
 
     # Evidence Contract
@@ -1169,6 +1244,7 @@ def _compile_codex_outputs(
     codex_skills = _codex_skill_refs(policy_model)
     evidence_fields = _codex_evidence_fields(policy_model)
     protected_planning_skills = _codex_protected_planning_skills(bundles)
+    phase1_release_contract = _build_phase1_release_contract()
 
     agents_fragment = _render_codex_agents_fragment(
         channel=channel,
@@ -1178,6 +1254,7 @@ def _compile_codex_outputs(
         codex_skills=codex_skills,
         evidence_fields=evidence_fields,
         protected_planning_skills=protected_planning_skills,
+        phase1_release_contract=phase1_release_contract,
     )
     _write_text(shared_dir / "AGENTS.fragment.md", agents_fragment)
     artifacts.append(shared_dir / "AGENTS.fragment.md")
@@ -1214,7 +1291,6 @@ def _compile_codex_outputs(
 
 
 def _compile_gemini_outputs(output_root: Path, channel: str) -> dict[str, Any]:
-    del channel
     from runtime.mcp_config_writers import write_gemini_mcp_stdio_config
 
     config_path = output_root / ".gemini" / "settings.json"
@@ -1224,11 +1300,21 @@ def _compile_gemini_outputs(output_root: Path, channel: str) -> dict[str, Any]:
         server_name="omg-control",
         config_path=config_path,
     )
+    payload = _load_json(config_path)
+    payload["_omg"] = {
+        "_version": CANONICAL_VERSION,
+        "generated": {
+            "contract_version": CANONICAL_VERSION,
+            "channel": channel,
+            "required_bundles": list(DEFAULT_REQUIRED_BUNDLES),
+            "phase1_release_contract": _build_phase1_release_contract(),
+        },
+    }
+    _write_json(config_path, payload)
     return {"host": "gemini", "artifacts": [config_path]}
 
 
 def _compile_kimi_outputs(output_root: Path, channel: str) -> dict[str, Any]:
-    del channel
     from runtime.mcp_config_writers import write_kimi_mcp_stdio_config
 
     config_path = output_root / ".kimi" / "mcp.json"
@@ -1238,6 +1324,17 @@ def _compile_kimi_outputs(output_root: Path, channel: str) -> dict[str, Any]:
         server_name="omg-control",
         config_path=config_path,
     )
+    payload = _load_json(config_path)
+    payload["_omg"] = {
+        "_version": CANONICAL_VERSION,
+        "generated": {
+            "contract_version": CANONICAL_VERSION,
+            "channel": channel,
+            "required_bundles": list(DEFAULT_REQUIRED_BUNDLES),
+            "phase1_release_contract": _build_phase1_release_contract(),
+        },
+    }
+    _write_json(config_path, payload)
     return {"host": "kimi", "artifacts": [config_path]}
 
 
@@ -1262,18 +1359,43 @@ def _copy_release_bundle(
 
 def _build_dist_manifest(output_root: Path, *, channel: str, hosts: list[str], artifacts: list[Path]) -> Path:
     dist_root = output_root / "dist" / channel
+    artifact_entries: list[dict[str, str]] = []
+    attestation_rows: list[dict[str, str]] = []
+
+    for path in sorted(set(artifacts)):
+        rel_path = str(path.relative_to(dist_root))
+        digest = _sha256_file(path)
+        artifact_entries.append({"path": rel_path, "sha256": digest})
+
+        statement = sign_artifact_statement(
+            artifact_path=rel_path,
+            subject_digest=digest,
+        )
+
+        statement_rel = f"attestations/{rel_path}.statement.json"
+        statement_abs = dist_root / statement_rel
+        _write_json(statement_abs, statement)
+
+        sig_rel = f"attestations/{rel_path}.minisig"
+        sig_abs = dist_root / sig_rel
+        sig_value = statement.get("signature", {}).get("value", "")
+        _write_text(sig_abs, sig_value + "\n")
+
+        attestation_rows.append({
+            "artifact_path": rel_path,
+            "statement_path": statement_rel,
+            "signature_path": sig_rel,
+            "signer_key_id": statement.get("signature", {}).get("keyid", ""),
+            "algorithm": "ed25519-minisign",
+        })
+
     payload = {
         "schema": "OmgCompiledArtifactManifest",
         "channel": channel,
         "hosts": list(hosts),
         "contract_version": CANONICAL_VERSION,
-        "artifacts": [
-            {
-                "path": str(path.relative_to(dist_root)),
-                "sha256": _sha256_file(path),
-            }
-            for path in sorted(set(artifacts))
-        ],
+        "artifacts": artifact_entries,
+        "attestations": attestation_rows,
     }
     out_path = dist_root / "manifest.json"
     _write_json(out_path, payload)
@@ -1435,6 +1557,54 @@ def _check_mcp_fabric() -> dict[str, Any]:
         "ready": isinstance(instructions, str) and bool(instructions.strip()) and len(prompts) >= 1 and len(resources) >= 1,
         "prompt_count": len(prompts),
         "resource_count": len(resources),
+    }
+
+
+def _check_plugin_command_paths(root: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    details: dict[str, Any] = {}
+
+    plugin_specs: list[tuple[str, Path, Path]] = [
+        ("core", root / "plugins" / "core" / "plugin.json", root),
+        ("advanced", root / "plugins" / "advanced" / "plugin.json", root / "plugins" / "advanced"),
+    ]
+
+    for plugin_name, manifest_path, resolve_root in plugin_specs:
+        plugin_detail: dict[str, Any] = {"manifest": str(manifest_path), "commands": {}}
+        if not manifest_path.exists():
+            blockers.append(f"plugin_command_paths: missing manifest {manifest_path.relative_to(root)}")
+            plugin_detail["status"] = "error"
+            details[plugin_name] = plugin_detail
+            continue
+
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            blockers.append(f"plugin_command_paths: unreadable manifest {manifest_path.relative_to(root)}: {exc}")
+            plugin_detail["status"] = "error"
+            details[plugin_name] = plugin_detail
+            continue
+
+        commands = manifest.get("commands", {})
+        missing: list[str] = []
+        for cmd_name, cmd_config in commands.items():
+            cmd_path = cmd_config.get("path", "")
+            resolved = resolve_root / cmd_path
+            plugin_detail["commands"][cmd_name] = str(cmd_path)
+            if not resolved.exists():
+                missing.append(cmd_path)
+                blockers.append(
+                    f"plugin_command_paths: {plugin_name} command '{cmd_name}' missing source {cmd_path}"
+                )
+
+        plugin_detail["missing"] = missing
+        plugin_detail["status"] = "ok" if not missing else "error"
+        details[plugin_name] = plugin_detail
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "blockers": blockers,
+        "details": details,
     }
 
 
@@ -1761,7 +1931,7 @@ def build_release_readiness(
                     manifest_errors.append(
                         f"{required_channel}: host_parity_missing {host_name} {bundled_host_path}"
                     )
-        for req_path in REQUIRED_ADVANCED_PLUGIN_ARTIFACTS:
+        for req_path in _get_required_advanced_plugin_artifacts(root):
             if req_path not in manifest_paths:
                 manifest_errors.append(f"{required_channel}: advanced_plugin_missing {req_path}")
         if manifest_errors:
@@ -1815,6 +1985,10 @@ def build_release_readiness(
     checks["execution_primitives"] = execution_primitives
     blockers.extend(execution_primitives.get("blockers", []))
 
+    claim_judge_compliance = _check_claim_judge_compliance(output)
+    checks["claim_judge_compliance"] = claim_judge_compliance
+    blockers.extend(claim_judge_compliance.get("blockers", []))
+
     security_blockers = [
         blocker
         for blocker in evidence_check.get("blockers", [])
@@ -1836,6 +2010,10 @@ def build_release_readiness(
     package_check = _check_packaged_install_smoke(root)
     checks["package_smoke"] = package_check
     blockers.extend(package_check.get("blockers", []))
+
+    plugin_cmd_check = _check_plugin_command_paths(root)
+    checks["plugin_command_paths"] = plugin_cmd_check
+    blockers.extend(plugin_cmd_check.get("blockers", []))
 
     version_drift_check = _check_version_identity_drift(root)
     checks["version_identity_drift"] = version_drift_check
@@ -2028,6 +2206,7 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         ("session_health_state", "session_health", "SessionHealth"),
         ("council_verdicts", "council_verdicts", "CouncilVerdicts"),
     ]
+    resolved_state_payloads: dict[str, dict[str, Any]] = {}
     for token, module, schema_name in checks:
         matched_path, matched_payload = _find_state_for_run(output_root=output_root, module=module, run_id=run_id)
         if matched_path is None or matched_payload is None:
@@ -2035,6 +2214,7 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
             blockers.append(f"missing_execution_primitive: {token}")
             continue
         evidence_paths[token] = str(matched_path.relative_to(output_root)).replace("\\", "/")
+        resolved_state_payloads[token] = matched_payload
         schema = str(matched_payload.get("schema", "")).strip()
         if schema != schema_name:
             invalid.append(f"{token}:schema_mismatch")
@@ -2054,6 +2234,55 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
                 blockers.append(
                     f"invalid_execution_primitive: {token}: "
                     f"missing_context_metadata={','.join(sorted(metadata_missing))}"
+                )
+
+    claims_payload = evidence_payload.get("claims")
+    claims = claims_payload if isinstance(claims_payload, list) else []
+    if not claims or not run_id:
+        missing.append("claim_judge_outcome")
+        blockers.append("missing_execution_primitive: claim_judge_outcome")
+    else:
+        release_evidence: dict[str, object] = {"run_id": run_id, "claims": claims}
+        artifact = evidence_payload.get("artifact")
+        if isinstance(artifact, dict):
+            release_evidence["artifact"] = artifact
+        compliance = evaluate_release_compliance(
+            project_dir=str(output_root),
+            run_id=run_id,
+            release_evidence=release_evidence,
+        )
+        claim_dir = output_root / ".omg" / "evidence"
+        claim_candidates = sorted(claim_dir.glob("claim-judge-*.json")) if claim_dir.exists() else []
+        if claim_candidates:
+            claim_path = claim_candidates[-1]
+            evidence_paths["claim_judge_outcome"] = str(claim_path.relative_to(output_root)).replace("\\", "/")
+        else:
+            missing.append("claim_judge_outcome")
+            blockers.append("missing_execution_primitive: claim_judge_outcome")
+        if str(compliance.get("status", "")).strip().lower() == "blocked":
+            invalid.append("claim_judge_outcome:blocked")
+            reason = str(compliance.get("reason", "claim_judge_blocked")).strip()
+            blockers.append(f"invalid_execution_primitive: claim_judge_outcome: {reason}")
+
+    release_state = resolved_state_payloads.get("release_run_coordinator_state", {})
+    if not release_state:
+        missing.append("compliance_governor_outcome")
+        blockers.append("missing_execution_primitive: compliance_governor_outcome")
+    else:
+        evidence_paths["compliance_governor_outcome"] = evidence_paths.get("release_run_coordinator_state", "")
+        authority = str(release_state.get("compliance_authority", "")).strip()
+        reason = str(release_state.get("compliance_reason", "")).strip()
+        if not authority or not reason:
+            invalid.append("compliance_governor_outcome:missing_fields")
+            blockers.append("invalid_execution_primitive: compliance_governor_outcome: missing_fields")
+        artifact_verdict = str(release_state.get("artifact_verdict", "")).strip()
+        if artifact_verdict:
+            artifact_alg = str(release_state.get("artifact_alg", "")).strip()
+            artifact_key_id = str(release_state.get("artifact_key_id", "")).strip()
+            if not artifact_alg or not artifact_key_id:
+                invalid.append("compliance_governor_outcome:missing_artifact_audit")
+                blockers.append(
+                    "invalid_execution_primitive: compliance_governor_outcome: missing_artifact_audit_fields"
                 )
 
     profile_path = output_root / ".omg" / "state" / "profile.yaml"
@@ -2215,6 +2444,49 @@ def _find_forge_starter_proof(*, output_root: Path, run_id: str) -> tuple[Path |
             continue
         return path, payload
     return None, None
+
+
+def _sanitize_run_id(value: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "-" for ch in value.strip())
+    return cleaned or "unknown"
+
+
+def _check_claim_judge_compliance(output_root: Path) -> dict[str, Any]:
+    latest = _latest_evidence_pack(output_root)
+    if latest is None:
+        return {"status": "missing", "blockers": []}
+
+    _, evidence_payload = latest
+    run_id = str(evidence_payload.get("run_id", "")).strip()
+    claims_payload = evidence_payload.get("claims")
+    claims = claims_payload if isinstance(claims_payload, list) else []
+    if not run_id or not claims:
+        return {
+            "status": "missing",
+            "run_id": run_id,
+            "blockers": ["claim_judge_compliance_gate: missing release claims for compliance evaluation"],
+        }
+
+    release_evidence: dict[str, object] = {"run_id": run_id, "claims": claims}
+    artifact = evidence_payload.get("artifact")
+    if isinstance(artifact, dict):
+        release_evidence["artifact"] = artifact
+    decision = evaluate_release_compliance(
+        project_dir=str(output_root),
+        run_id=run_id,
+        release_evidence=release_evidence,
+    )
+    decision_status = str(decision.get("status", "")).strip().lower()
+    blockers: list[str] = []
+    if decision_status == "blocked":
+        reason = str(decision.get("reason", "compliance_gate_blocked")).strip() or "compliance_gate_blocked"
+        blockers.append(f"claim_judge_compliance_gate: {reason}")
+    return {
+        "status": "ok" if not blockers else "error",
+        "run_id": run_id,
+        "decision": decision,
+        "blockers": blockers,
+    }
 
 
 def _check_test_intent_claims(payload: dict[str, Any]) -> list[str]:
