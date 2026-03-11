@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 from runtime.runtime_contracts import (
     default_layout,
@@ -11,6 +12,7 @@ from runtime.runtime_contracts import (
     schema_versions,
     write_run_state,
 )
+from runtime.contract_compiler import _REQUIRED_EXECUTION_PRIMITIVES
 
 
 def test_default_layout_contains_expected_state_modules(tmp_path: Path) -> None:
@@ -49,7 +51,7 @@ def test_make_run_path_uses_run_scoped_state_layout(tmp_path: Path) -> None:
 
 
 def test_write_read_run_state_round_trip(tmp_path: Path) -> None:
-    payload = {
+    payload: dict[str, object] = {
         "status": "running",
         "blockers": ["missing_proof"],
         "evidence_links": [".omg/evidence/run-abc123.json"],
@@ -131,7 +133,7 @@ def test_schema_versions_exposes_new_contracts() -> None:
 
 
 def test_session_health_write_read_round_trip(tmp_path: Path) -> None:
-    payload = {
+    payload: dict[str, object] = {
         "status": "ok",
         "contamination_risk": 0.1,
         "overthinking_score": 0.2,
@@ -170,7 +172,7 @@ def test_session_health_schema_required_fields() -> None:
 
 
 def test_council_verdicts_write_read_round_trip(tmp_path: Path) -> None:
-    payload = {
+    payload: dict[str, object] = {
         "status": "ok",
         "verdicts": [{"check": "tests_pass", "result": "pass"}],
         "verification_status": "ok",
@@ -197,7 +199,7 @@ def test_council_verdicts_schema_required_fields() -> None:
 
 
 def test_rollback_manifest_write_read_round_trip(tmp_path: Path) -> None:
-    payload = {
+    payload: dict[str, object] = {
         "status": "ok",
         "step_id": "step-001",
         "local_restores": [{"file_path": "foo.py", "status": "restored"}],
@@ -228,7 +230,7 @@ def test_rollback_manifest_schema_required_fields() -> None:
 
 
 def test_release_run_write_read_round_trip(tmp_path: Path) -> None:
-    payload = {
+    payload: dict[str, object] = {
         "status": "running",
         "phase": "begin",
         "resolution_source": "cli",
@@ -297,9 +299,20 @@ def test_all_new_modules_produce_valid_json(tmp_path: Path) -> None:
         "release_run": {"status": "running", "phase": "begin", "resolution_source": "generated", "resolution_reason": "generated_new_run_id", "release_evidence": {}, "health_action": "continue"},
     }
     for module, payload in test_cases.items():
-        path_str = write_run_state(str(tmp_path), module, f"run-{module}", payload)
+        path_str = write_run_state(
+            str(tmp_path),
+            module,
+            f"run-{module}",
+            cast(dict[str, object], payload),
+        )
         raw = Path(path_str).read_text(encoding="utf-8")
         parsed = json.loads(raw)
         assert isinstance(parsed, dict), f"{module} did not produce a JSON object"
         assert parsed["schema_version"] == "1.0.0"
         assert parsed["run_id"] == f"run-{module}"
+
+
+def test_release_execution_primitives_include_claim_and_compliance_outcomes() -> None:
+    required = set(_REQUIRED_EXECUTION_PRIMITIVES)
+    assert "claim_judge_outcome" in required
+    assert "compliance_governor_outcome" in required

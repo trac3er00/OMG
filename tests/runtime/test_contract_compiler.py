@@ -80,6 +80,19 @@ def _patch_fast_release_checks(monkeypatch) -> None:
     )
 
 
+def _patch_proof_chain_ok(monkeypatch) -> None:
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_proof_chain",
+        lambda _output_root: {
+            "status": "ok",
+            "proof_chain": {"status": "ok", "blockers": []},
+            "proof_gate": {"verdict": "pass", "blockers": []},
+            "blockers": [],
+        },
+    )
+
+
 def _write_doctor_success(output_root: Path) -> None:
     doctor_path = output_root / ".omg" / "evidence" / "doctor.json"
     doctor_path.parent.mkdir(parents=True, exist_ok=True)
@@ -183,6 +196,8 @@ def _write_execution_primitives(output_root: Path, *, run_id: str = "run-1") -> 
                 "phase": "finalize",
                 "resolution_source": "test",
                 "resolution_reason": "fixture",
+                "compliance_authority": "release",
+                "compliance_reason": "compliance checks passed",
                 "updated_at": "2026-01-01T00:00:00Z",
                 "context_checksum": context_checksum,
                 "profile_version": profile_version,
@@ -329,6 +344,7 @@ def _write_execution_primitives(output_root: Path, *, run_id: str = "run-1") -> 
 def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
 
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
@@ -583,6 +599,53 @@ def test_compile_contract_outputs_writes_kimi_artifacts(tmp_path: Path) -> None:
     assert kimi_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
 
 
+def test_compile_contract_outputs_embeds_phase1_release_audit_contract_for_all_hosts(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex", "gemini", "kimi"],
+        channel="public",
+    )
+
+    assert result["status"] == "ok"
+
+    claude_settings = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
+    gemini_settings = json.loads((tmp_path / ".gemini" / "settings.json").read_text(encoding="utf-8"))
+    kimi_settings = json.loads((tmp_path / ".kimi" / "mcp.json").read_text(encoding="utf-8"))
+    codex_agents = (tmp_path / ".agents" / "skills" / "omg" / "AGENTS.fragment.md").read_text(encoding="utf-8")
+
+    for host_payload in (claude_settings, gemini_settings, kimi_settings):
+        generated = host_payload["_omg"]["generated"]
+        release_contract = generated["phase1_release_contract"]
+        assert sorted(release_contract["forge_specialist_surfaces"]) == [
+            "forge-profile-review",
+            "forge-release-audit",
+            "forge-validate",
+        ]
+        assert sorted(release_contract["release_surfaces"]) == [
+            "OMG:profile-review",
+            "OMG:release-audit",
+            "OMG:validate",
+        ]
+        assert sorted(release_contract["release_readiness_checks"]) == [
+            "claim_judge",
+            "compliance_governor",
+            "execution_primitives",
+        ]
+        assert sorted(release_contract["attestation_requirements"]) == [
+            "registry.verify_artifact.sign_artifact_statement",
+            "registry.verify_artifact.verify_artifact_statement",
+        ]
+        assert sorted(release_contract["compliance_governor_expectations"]) == [
+            "runtime.compliance_governor.evaluate_release_compliance",
+            "runtime.compliance_governor.evaluate_tool_compliance",
+        ]
+
+    assert "## Release Audit" in codex_agents
+    assert "claim_judge" in codex_agents
+    assert "compliance_governor" in codex_agents
+
+
 def test_release_readiness_blocks_missing_gemini_host_artifact(tmp_path: Path, monkeypatch) -> None:
     _patch_fast_release_checks(monkeypatch)
     monkeypatch.setattr(
@@ -614,6 +677,41 @@ def test_release_readiness_blocks_missing_gemini_host_artifact(tmp_path: Path, m
     assert any("provider_host_parity" in blocker and ".gemini/settings.json" in blocker for blocker in readiness["blockers"])
 
 
+def test_release_readiness_blocks_failed_claim_judge_or_compliance_gate(tmp_path: Path, monkeypatch) -> None:
+    _patch_fast_release_checks(monkeypatch)
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "evaluate_release_compliance",
+        lambda **_kwargs: {
+            "status": "blocked",
+            "authority": "claim_judge",
+            "reason": "claim_judge_verdict=fail",
+            "claim_judge_verdict": "fail",
+        },
+    )
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert readiness["checks"]["claim_judge_compliance"]["status"] == "error"
+    assert any("claim_judge_compliance_gate" in blocker for blocker in readiness["blockers"])
+
+
 def test_codex_compile_marks_plan_council_as_explicit_invocation(tmp_path: Path) -> None:
     result = compile_contract_outputs(
         root_dir=ROOT,
@@ -634,6 +732,7 @@ def test_codex_compile_marks_plan_council_as_explicit_invocation(tmp_path: Path)
 def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
     public_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
@@ -1455,6 +1554,7 @@ def test_release_readiness_dual_bundle_promotion_parity_happy_path(
         },
     )
     _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
 
     public_result = compile_contract_outputs(
         root_dir=ROOT,

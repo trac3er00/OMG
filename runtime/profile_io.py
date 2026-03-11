@@ -292,3 +292,37 @@ def _coerce_decay_score(raw: Any) -> float:
     if score > 1.0:
         return 1.0
     return round(score, 3)
+
+
+def assess_profile_risk(profile: dict[str, Any]) -> dict[str, Any]:
+    governed_obj = profile.get("governed_preferences")
+    governed = governed_obj if isinstance(governed_obj, dict) else {}
+
+    style_entries = governed.get("style", [])
+    style_entries = style_entries if isinstance(style_entries, list) else []
+    safety_entries = governed.get("safety", [])
+    safety_entries = safety_entries if isinstance(safety_entries, list) else []
+
+    destructive: list[dict[str, Any]] = []
+    pending = 0
+
+    for entry in style_entries + safety_entries:
+        if not isinstance(entry, dict):
+            continue
+        field = str(entry.get("field", ""))
+        value = str(entry.get("value", ""))
+        if is_destructive_preference(field, value):
+            destructive.append(entry)
+        if str(entry.get("confirmation_state", "")).strip() == "pending_confirmation":
+            pending += 1
+
+    risk_level = "low"
+    if destructive or pending > 0:
+        risk_level = "high" if destructive else "medium"
+
+    return {
+        "risk_level": risk_level,
+        "destructive_entries": destructive,
+        "pending_confirmations": pending,
+        "requires_review": risk_level in ("medium", "high"),
+    }

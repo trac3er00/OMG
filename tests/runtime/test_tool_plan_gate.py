@@ -8,6 +8,7 @@ import pytest
 
 from runtime.tool_plan_gate import build_tool_plan, tool_plan_gate_check
 import runtime.tool_plan_gate as tool_plan_gate
+from runtime.compliance_governor import evaluate_tool_compliance
 
 
 def test_build_tool_plan_returns_required_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -198,3 +199,32 @@ def test_tool_plan_gate_allows_reads_when_clarification_required(tmp_path: Path)
 
     assert result["status"] == "allowed"
     assert "read/search/review" in str(result["reason"])
+
+
+def test_compliance_governor_tool_precedence_blocks_council_fail_even_with_plan(tmp_path: Path) -> None:
+    run_id = "run-gov-council"
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-test.json").write_text("{}", encoding="utf-8")
+
+    council_dir = tmp_path / ".omg" / "state" / "council_verdicts"
+    council_dir.mkdir(parents=True, exist_ok=True)
+    (council_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "verdicts": {"evidence_completeness": {"verdict": "fail", "findings": ["missing trace"]}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = evaluate_tool_compliance(
+        project_dir=str(tmp_path),
+        run_id=run_id,
+        tool="Write",
+        has_tool_plan=True,
+    )
+
+    assert result["status"] == "blocked"
+    assert result["authority"] == "council_verdicts"

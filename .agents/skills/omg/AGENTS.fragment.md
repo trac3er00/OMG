@@ -1,11 +1,11 @@
-# OMG Codex Governance (channel: enterprise)
+# OMG Codex Governance (channel: public)
 
 ## Build & Test
 
 ```bash
 python3 -m pytest tests -q
 python3 scripts/omg.py contract validate
-python3 scripts/omg.py contract compile --host codex --channel enterprise
+python3 scripts/omg.py contract compile --host codex --channel public
 ```
 
 ## Protected Paths
@@ -17,10 +17,25 @@ The following paths require tier-gated review before mutation:
 - `.codex/**`
 - `.claude/**`
 
+## Release Audit
+
+Release readiness requires claim and compliance outcomes:
+
+- `claim_judge`
+- `compliance_governor`
+- `execution_primitives`
+Attestation requirements:
+- `registry.verify_artifact.sign_artifact_statement`
+- `registry.verify_artifact.verify_artifact_statement`
+
 ## Evidence Contract
 
 Every production action must emit evidence containing these fields:
 
+- `attestation_statement`
+- `attestation_verifier`
+- `claim_judge_verdict`
+- `compliance_verdict`
 - `executor`
 - `lineage`
 - `timestamp`

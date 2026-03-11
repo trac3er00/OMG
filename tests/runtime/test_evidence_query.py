@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import cast
 
 from runtime.evidence_query import (
     get_eval,
@@ -12,6 +13,7 @@ from runtime.evidence_query import (
     list_evidence_packs,
     query_evidence,
 )
+from runtime.data_lineage import add_lineage_edge, build_lineage_manifest, traverse_lineage
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
@@ -228,6 +230,102 @@ def test_query_evidence_enriches_jsonl_rows_with_context_metadata(tmp_path: Path
     assert rows[0]["profile_version"] == "profile-v6"
     assert rows[0]["intent_gate_version"] == "1.0.7"
     assert isinstance(rows[0]["context_checksum"], str)
+
+
+def test_query_evidence_filters_by_profile_id(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "evidence" / "run-a.json",
+        {
+            **_evidence_pack("run-a", ["trace-a"]),
+            "profile_id": "profile-a",
+        },
+    )
+    _write_json(
+        tmp_path / ".omg" / "evidence" / "run-b.json",
+        {
+            **_evidence_pack("run-b", ["trace-b"]),
+            "profile_id": "profile-b",
+        },
+    )
+
+    rows = query_evidence(str(tmp_path), profile_id="profile-a")
+
+    assert len(rows) == 1
+    assert rows[0]["run_id"] == "run-a"
+    assert rows[0]["profile_id"] == "profile-a"
+
+
+def test_query_evidence_returns_artifact_handles_not_large_payloads(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "evidence" / "run-large.json",
+        {
+            **_evidence_pack("run-large", ["trace-large"]),
+            "profile_id": "profile-large",
+            "artifacts": [
+                {
+                    "kind": "trace_zip",
+                    "path": ".omg/artifacts/run-large/trace.zip",
+                    "summary": "browser trace",
+                    "payload": "x" * 5000,
+                }
+            ],
+        },
+    )
+
+    rows = query_evidence(str(tmp_path), run_id="run-large", profile_id="profile-large")
+
+    assert len(rows) == 1
+    artifacts = rows[0]["artifacts"]
+    assert isinstance(artifacts, list)
+    assert len(artifacts) == 1
+    artifacts_list = cast(list[dict[str, object]], artifacts)
+    handle_obj = artifacts_list[0]
+    assert handle_obj["kind"] == "trace_zip"
+    assert handle_obj["path"] == ".omg/artifacts/run-large/trace.zip"
+    assert handle_obj["summary"] == "browser trace"
+    assert "payload" not in handle_obj
+    assert handle_obj["omitted_payload"] is True
+
+
+def test_lineage_adjacency_traversal_is_scoped(tmp_path: Path) -> None:
+    manifest = build_lineage_manifest(
+        str(tmp_path),
+        artifact_type="evidence-pack",
+        sources=[{"kind": "repo", "path": "runtime/evidence_query.py", "license": "MIT"}],
+        privacy="internal",
+        license="MIT",
+        derivation={"trace_id": "trace-l1"},
+        trace_id="trace-l1",
+    )
+    add_lineage_edge(
+        str(tmp_path),
+        parent_node="trace-l1",
+        child_node=str(manifest["lineage_id"]),
+        edge_type="produced",
+        run_id="run-lineage",
+        profile_id="profile-lineage",
+    )
+    add_lineage_edge(
+        str(tmp_path),
+        parent_node="trace-l1",
+        child_node="lineage-other",
+        edge_type="produced",
+        run_id="run-other",
+        profile_id="profile-lineage",
+    )
+
+    graph = traverse_lineage(
+        str(tmp_path),
+        start_node="trace-l1",
+        run_id="run-lineage",
+        profile_id="profile-lineage",
+        max_depth=2,
+    )
+
+    assert graph["start_node"] == "trace-l1"
+    assert str(manifest["lineage_id"]) in graph["nodes"]
+    assert "lineage-other" not in graph["nodes"]
+    assert len(graph["edges"]) == 1
 
 
 def test_get_evidence_pack_enriches_docs_only_requirements(tmp_path: Path) -> None:

@@ -2,7 +2,7 @@ name: omg-eval-gate
 description: "Reproducible evaluation gate that blocks regressions before release."
 allow_implicit_invocation: false
 metadata:
-  channel: enterprise
+  channel: public
   bundle_id: eval-gate
   title: "OMG Eval Gate"
 mcp_servers:

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import cast
 
+from runtime.forge_run_id import derive_run_seed
 from runtime.repro_pack import build_repro_pack
 
 
@@ -17,8 +18,8 @@ def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
     _ = path.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
 
 
-def _evidence_pack_payload() -> dict[str, object]:
-    return {
+def _evidence_pack_payload(*, include_determinism: bool = True) -> dict[str, object]:
+    payload: dict[str, object] = {
         "schema": "EvidencePack",
         "schema_version": 2,
         "run_id": "run-1",
@@ -36,6 +37,19 @@ def _evidence_pack_payload() -> dict[str, object]:
             {"kind": "incident_pack", "path": ".omg/incidents/incident-1.json", "trace_id": "trace-2"},
         ],
     }
+    if include_determinism:
+        payload.update(
+            {
+                "seed": derive_run_seed("run-1"),
+                "temperature_lock": {
+                    "critical_model_paths": 0.0,
+                    "critical_tool_paths": 0.0,
+                },
+                "determinism_version": "forge-determinism-v1",
+                "determinism_scope": "same-hardware",
+            }
+        )
+    return payload
 
 
 def _read_manifest(path: Path) -> dict[str, object]:
@@ -91,6 +105,13 @@ def test_build_repro_pack_happy_path_assembles_manifest(tmp_path: Path) -> None:
     assert manifest["evidence_pack_path"] == ".omg/evidence/run-1.json"
     assert manifest["unresolved_risks"] == ["risk:high:auth"]
     assert manifest["assembled_at"]
+    assert manifest["seed"] == derive_run_seed("run-1")
+    assert manifest["determinism_version"] == "forge-determinism-v1"
+    assert manifest["determinism_scope"] == "same-hardware"
+    assert manifest["temperature_lock"] == {
+        "critical_model_paths": 0.0,
+        "critical_tool_paths": 0.0,
+    }
 
     artifact_kinds = {
         item["kind"]
@@ -137,3 +158,18 @@ def test_build_repro_pack_manifest_uses_stable_references_only(tmp_path: Path) -
     assert all(isinstance(item.get("path"), str) and item["path"] for item in artifacts)
     assert any(item.get("sha256") for item in artifacts)
     assert all("content" not in item and "payload" not in item for item in artifacts)
+
+
+def test_build_repro_pack_returns_error_when_determinism_metadata_missing(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "evidence" / "run-1.json",
+        _evidence_pack_payload(include_determinism=False),
+    )
+
+    result = build_repro_pack(str(tmp_path), run_id="run-1")
+
+    assert result == {
+        "status": "error",
+        "run_id": "run-1",
+        "reason": "determinism_metadata_missing",
+    }

@@ -7,5 +7,61 @@
         "runtime.omg_mcp_server"
       ]
     }
+  },
+  "_omg": {
+    "_version": "2.1.5",
+    "generated": {
+      "contract_version": "2.1.5",
+      "channel": "public",
+      "required_bundles": [
+        "control-plane",
+        "plan-council",
+        "claim-judge",
+        "test-intent-lock",
+        "proof-gate",
+        "hook-governor",
+        "mcp-fabric",
+        "lsp-pack",
+        "secure-worktree-pipeline",
+        "security-check",
+        "api-twin",
+        "preflight",
+        "robotics",
+        "vision",
+        "algorithms",
+        "health",
+        "tracebank",
+        "eval-gate",
+        "delta-classifier",
+        "incident-replay",
+        "data-lineage",
+        "remote-supervisor"
+      ],
+      "phase1_release_contract": {
+        "forge_specialist_surfaces": [
+          "forge-profile-review",
+          "forge-release-audit",
+          "forge-validate"
+        ],
+        "release_surfaces": [
+          "OMG:profile-review",
+          "OMG:release-audit",
+          "OMG:validate"
+        ],
+        "attestation_requirements": [
+          "registry.verify_artifact.sign_artifact_statement",
+          "registry.verify_artifact.verify_artifact_statement"
+        ],
+        "compliance_governor_expectations": [
+          "runtime.compliance_governor.evaluate_release_compliance",
+          "runtime.compliance_governor.evaluate_tool_compliance"
+        ],
+        "release_readiness_checks": [
+          "claim_judge",
+          "compliance_governor",
+          "execution_primitives"
+        ]
+      }
+    }
   }
 }

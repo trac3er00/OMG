@@ -367,11 +367,17 @@
       "TEST_GENERATION": false,
       "DEP_HEALTH": false,
       "CODEBASE_VIZ": false,
-      "CONTEXT_MANAGER": false
+      "CONTEXT_MANAGER": false,
+      "DATA_ENFORCEMENT": false,
+      "WEB_ENFORCEMENT": false,
+      "TERMS_ENFORCEMENT": false,
+      "COUNCIL_ROUTING": false,
+      "FORGE_ALL_DOMAINS": false,
+      "NOTEBOOKLM": false
     },
     "generated": {
       "contract_version": "2.1.5",
-      "channel": "enterprise",
+      "channel": "public",
       "required_bundles": [
         "control-plane",
         "plan-council",
@@ -508,7 +514,11 @@
           "timestamp": "timestamp",
           "executor": "executor",
           "trace_id": "trace_id",
-          "lineage": "lineage"
+          "lineage": "lineage",
+          "attestation_statement": "attestation_statement",
+          "attestation_verifier": "attestation_verifier",
+          "claim_judge_verdict": "claim_judge_verdict",
+          "compliance_verdict": "compliance_verdict"
         },
         "host_rules": {
           "claude": {
@@ -550,6 +560,36 @@
             "rules": [
               "protected_paths",
               "explicit_invocation"
+            ],
+            "automations": [
+              "contract-compile",
+              "release-readiness"
+            ]
+          },
+          "gemini": {
+            "compilation_targets": [
+              ".gemini/settings.json"
+            ],
+            "mcp": [
+              "omg-control"
+            ],
+            "skills": [
+              "omg/control-plane"
+            ],
+            "automations": [
+              "contract-compile",
+              "release-readiness"
+            ]
+          },
+          "kimi": {
+            "compilation_targets": [
+              ".kimi/mcp.json"
+            ],
+            "mcp": [
+              "omg-control"
+            ],
+            "skills": [
+              "omg/control-plane"
             ],
             "automations": [
               "contract-compile",
@@ -603,7 +643,32 @@
           "name": "omg/hook-governor",
           "source": ".agents/skills/omg/hook-governor/"
         }
-      ]
+      ],
+      "phase1_release_contract": {
+        "forge_specialist_surfaces": [
+          "forge-profile-review",
+          "forge-release-audit",
+          "forge-validate"
+        ],
+        "release_surfaces": [
+          "OMG:profile-review",
+          "OMG:release-audit",
+          "OMG:validate"
+        ],
+        "attestation_requirements": [
+          "registry.verify_artifact.sign_artifact_statement",
+          "registry.verify_artifact.verify_artifact_statement"
+        ],
+        "compliance_governor_expectations": [
+          "runtime.compliance_governor.evaluate_release_compliance",
+          "runtime.compliance_governor.evaluate_tool_compliance"
+        ],
+        "release_readiness_checks": [
+          "claim_judge",
+          "compliance_governor",
+          "execution_primitives"
+        ]
+      }
     }
   }
 }

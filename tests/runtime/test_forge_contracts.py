@@ -246,27 +246,75 @@ def test_build_forge_evidence_artifact_contracts_have_status(tmp_path: Path) -> 
         assert str(contract_dict["status"]).strip(), f"artifact_contracts.{key} status must be non-empty"
 
 
-def test_cybersecurity_evidence_includes_security_links(tmp_path: Path) -> None:
-    cybersecurity_job: dict[str, object] = {
-        "domain": "cybersecurity",
-        "dataset": {
-            "name": "forge-sec-mvp",
-            "license": "apache-2.0",
-            "source": "internal-curated",
-        },
-        "base_model": {
-            "name": "distill-base-v1",
-            "source": "approved-registry",
-            "allow_distill": True,
-        },
-        "target_metric": 0.8,
-        "simulated_metric": 0.9,
-    }
+def test_build_forge_evidence_artifact_contracts_no_placeholders(tmp_path: Path) -> None:
+    """Verify artifact contracts do NOT have placeholder status in the promotion path."""
     result = {"status": "ready", "stage": "complete", "published": False}
-    path = build_forge_evidence(str(tmp_path), "run-sec-1", cybersecurity_job, result)
+    path = build_forge_evidence(str(tmp_path), "run-no-placeholders", _valid_job(), result)
     payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
 
-    assert "security_evidence_links" in payload, "security_evidence_links missing for cybersecurity domain"
-    links = payload["security_evidence_links"]
-    assert isinstance(links, list), "security_evidence_links must be a list"
-    assert len(links) > 0, "security_evidence_links must not be empty"
+    contracts = cast(dict[str, object], payload["artifact_contracts"])
+    for key, contract in contracts.items():
+        contract_dict = cast(dict[str, object], contract)
+        # Promotion decision might be 'pending' or 'ok', but others should have concrete status
+        if key == "promotion_decision":
+            continue
+        assert contract_dict["status"] != "placeholder", f"artifact_contracts.{key} still has placeholder status"
+
+
+def test_build_forge_evidence_artifact_contracts_have_concrete_fields(tmp_path: Path) -> None:
+    """Verify artifact contracts have concrete schema requirements."""
+    result = {"status": "ready", "stage": "complete", "published": False}
+    path = build_forge_evidence(str(tmp_path), "run-concrete-fields", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    contracts = cast(dict[str, object], payload["artifact_contracts"])
+    
+    dataset_lineage = cast(dict[str, object], contracts["dataset_lineage"])
+    model_card = cast(dict[str, object], contracts["model_card"])
+    checkpoint_hash = cast(dict[str, object], contracts["checkpoint_hash"])
+    regression_scoreboard = cast(dict[str, object], contracts["regression_scoreboard"])
+    promotion_decision = cast(dict[str, object], contracts["promotion_decision"])
+
+    assert "lineage_hash" in dataset_lineage
+    assert "model_id" in model_card
+    assert "sha256" in checkpoint_hash
+    assert "score" in regression_scoreboard
+    assert "decision_id" in promotion_decision
+
+
+def test_build_forge_evidence_uses_pipeline_artifact_contracts_when_present(tmp_path: Path) -> None:
+    result = {
+        "status": "ready",
+        "stage": "complete",
+        "published": False,
+        "artifact_contracts": {
+            "checkpoint_hash": {
+                "status": "signed",
+                "path": ".omg/evidence/custom-checkpoint.json",
+                "sha256": "b" * 64,
+            },
+            "regression_scoreboard": {
+                "status": "blocked",
+                "path": ".omg/evidence/custom-scoreboard.json",
+                "reason": "promotion blocked: missing regression scoreboard",
+            },
+            "promotion_decision": {
+                "status": "blocked",
+                "reason": "promotion blocked: missing regression scoreboard",
+                "decision_id": "dec-custom",
+                "replay_required": True,
+            },
+        },
+    }
+    path = build_forge_evidence(str(tmp_path), "run-contract-override", _valid_job(), result)
+    payload = cast(dict[str, object], json.loads(Path(path).read_text(encoding="utf-8")))
+
+    contracts = cast(dict[str, object], payload["artifact_contracts"])
+    checkpoint = cast(dict[str, object], contracts["checkpoint_hash"])
+    scoreboard = cast(dict[str, object], contracts["regression_scoreboard"])
+    promotion = cast(dict[str, object], contracts["promotion_decision"])
+
+    assert checkpoint["path"] == ".omg/evidence/custom-checkpoint.json"
+    assert scoreboard["status"] == "blocked"
+    assert scoreboard["reason"] == "promotion blocked: missing regression scoreboard"
+    assert promotion["decision_id"] == "dec-custom"

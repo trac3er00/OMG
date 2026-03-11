@@ -1,4 +1,3 @@
-# pyright: reportExplicitAny=false, reportAny=false, reportUnknownMemberType=false
 """OMG full AI pipeline stub: data -> refine -> train/distill -> evaluate -> regression."""
 from __future__ import annotations
 
@@ -6,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from time import monotonic
 from typing import Any
+
+from registry.verify_artifact import sign_artifact_statement
 
 from .policies import validate_job_request
 
@@ -71,7 +72,7 @@ def run_pipeline(
         adapter_by_kind.setdefault(kind, []).append(ev)
 
     target_metric = float(job.get("target_metric", 0.8))
-    simulated_metric = float(job.get("simulated_metric", target_metric))
+    live_metric = _resolve_live_metric(adapter_evidence)
     failed_stages = _normalize_stage_set(job.get("stage_failures"))
     explicit_failed_stage = str(job.get("fail_stage", "")).strip().lower()
     if explicit_failed_stage:
@@ -94,11 +95,11 @@ def run_pipeline(
             stage_status = "timeout"
         elif stage in failed_stages:
             stage_status = "failed"
-        elif stage in {"evaluate", "regression_test"} and simulated_metric < target_metric:
-            stage_status = "failed"
 
         stage_adapter_kind = _STAGE_ADAPTER_KIND.get(stage)
         stage_adapter_ev = adapter_by_kind.get(stage_adapter_kind, []) if stage_adapter_kind else []
+        if stage_status == "success" and stage_adapter_kind and _stage_adapter_failed(stage_adapter_ev):
+            stage_status = "failed"
 
         defense_snapshot: dict[str, object] = {}
         session_health_snapshot: dict[str, object] = {}
@@ -125,33 +126,31 @@ def run_pipeline(
                 "reason": f"stage timeout envelope exceeded for {stage}",
                 "stages": stages,
                 "published": False,
-                "evaluation_report": _evaluation_report(job, simulated_metric, target_metric),
+                "evaluation_report": _evaluation_report(job, live_metric, target_metric),
                 "run_id": active_run_id,
                 "stage_evidence": stage_evidence,
             }
         if stage_status == "failed":
-            if stage in {"evaluate", "regression_test"} and simulated_metric < target_metric:
-                return {
-                    "status": "failed_evaluation",
-                    "stage": "evaluate",
-                    "stages": stages,
-                    "published": False,
-                    "evaluation_report": _evaluation_report(job, simulated_metric, target_metric),
-                    "run_id": active_run_id,
-                    "stage_evidence": stage_evidence,
-                }
             return {
                 "status": "failed_stage",
                 "stage": stage,
                 "reason": f"stage execution failed for {stage}",
                 "stages": stages,
                 "published": False,
-                "evaluation_report": _evaluation_report(job, simulated_metric, target_metric),
+                "evaluation_report": _evaluation_report(job, live_metric, target_metric),
                 "run_id": active_run_id,
                 "stage_evidence": stage_evidence,
             }
 
-    report = _evaluation_report(job, simulated_metric, target_metric)
+    report = _evaluation_report(job, live_metric, target_metric)
+    promotion_blockers = _collect_promotion_blockers(job, stage_evidence, adapter_evidence, live_metric)
+    artifact_contracts = _build_artifact_contracts(
+        run_id=active_run_id,
+        target_metric=target_metric,
+        live_metric=live_metric,
+        adapter_evidence=adapter_evidence,
+        promotion_blockers=promotion_blockers,
+    )
 
     result: dict[str, Any] = {
         "status": "ready",
@@ -161,6 +160,10 @@ def run_pipeline(
         "evaluation_report": report,
         "run_id": active_run_id,
         "stage_evidence": stage_evidence,
+        "artifact_contracts": artifact_contracts,
+        "promotion_blockers": promotion_blockers,
+        "promotion_ready": len(promotion_blockers) == 0,
+        "release_evidence": _normalize_release_evidence(job),
     }
     if adapter_evidence:
         result["adapter_evidence"] = adapter_evidence
@@ -168,11 +171,37 @@ def run_pipeline(
 
 
 def publish_artifact(result: dict[str, Any]) -> dict[str, Any]:
+    from runtime.compliance_governor import evaluate_release_compliance
+
     report = result.get("evaluation_report")
     if not isinstance(report, dict) or not report.get("passed"):
         return {
             "status": "blocked",
             "reason": "evaluation report missing or not passed",
+            "published": False,
+        }
+
+    blockers = _collect_publish_blockers(result)
+    if blockers:
+        return {
+            "status": "blocked",
+            "reason": blockers[0],
+            "published": False,
+            "blockers": blockers,
+        }
+
+    release_evidence = result.get("release_evidence")
+    release_evidence_payload = dict(release_evidence) if isinstance(release_evidence, dict) else {}
+    compliance = evaluate_release_compliance(
+        project_dir=str(result.get("project_dir", ".")),
+        run_id=str(result.get("run_id", "")),
+        release_evidence=release_evidence_payload,
+    )
+    if compliance.get("status") == "blocked":
+        reason = str(compliance.get("reason", "compliance blocked")).strip()
+        return {
+            "status": "blocked",
+            "reason": f"promotion blocked: {reason}",
             "published": False,
         }
 
@@ -201,14 +230,210 @@ def run_pipeline_with_evidence(project_dir: str, job: dict[str, Any], run_id: st
     return out
 
 
-def _evaluation_report(job: dict[str, Any], simulated_metric: float, target_metric: float) -> dict[str, object]:
+def _evaluation_report(job: dict[str, Any], live_metric: float | None, target_metric: float) -> dict[str, object]:
+    metric = target_metric if live_metric is None else live_metric
     return {
         "created_at": _now(),
-        "metric": simulated_metric,
+        "metric": metric,
         "target_metric": target_metric,
-        "passed": simulated_metric >= target_metric,
+        "passed": metric >= target_metric,
         "notes": job.get("evaluation_notes", ""),
     }
+
+
+def _stage_adapter_failed(stage_adapter_ev: list[dict[str, object]]) -> bool:
+    if not stage_adapter_ev:
+        return False
+    for evidence in stage_adapter_ev:
+        status = str(evidence.get("status", "")).strip().lower()
+        if status in {"error", "blocked", "unavailable", "unavailable_backend"} and bool(evidence.get("required", False)):
+            return True
+    return False
+
+
+def _resolve_live_metric(adapter_evidence: list[dict[str, object]]) -> float | None:
+    metrics: list[float] = []
+    for evidence in adapter_evidence:
+        if str(evidence.get("kind", "")) != "simulator":
+            continue
+        episode_stats = evidence.get("episode_stats")
+        if not isinstance(episode_stats, dict):
+            continue
+        reward_obj = episode_stats.get("reward")
+        if isinstance(reward_obj, bool):
+            continue
+        if isinstance(reward_obj, (int, float)):
+            metrics.append(float(reward_obj))
+            continue
+        if isinstance(reward_obj, str):
+            try:
+                metrics.append(float(reward_obj))
+            except ValueError:
+                continue
+    if not metrics:
+        return None
+    return max(metrics)
+
+
+def _normalize_release_evidence(job: dict[str, Any]) -> dict[str, object]:
+    release_evidence = job.get("release_evidence")
+    if isinstance(release_evidence, dict):
+        return dict(release_evidence)
+    claims = job.get("claims")
+    if isinstance(claims, list):
+        return {"claims": list(claims)}
+    return {}
+
+
+def _collect_promotion_blockers(
+    job: dict[str, Any],
+    stage_evidence: list[dict[str, object]],
+    adapter_evidence: list[dict[str, object]],
+    live_metric: float | None,
+) -> list[str]:
+    blockers: list[str] = []
+    stage_by_name = {str(item.get("stage", "")): item for item in stage_evidence}
+    for required_stage in ("train_distill", "evaluate", "regression_test"):
+        stage_record = stage_by_name.get(required_stage)
+        if not isinstance(stage_record, dict) or str(stage_record.get("status", "")) != "success":
+            blockers.append("promotion blocked: missing concrete stage evidence")
+            break
+
+    has_checkpoint = False
+    for evidence in adapter_evidence:
+        if str(evidence.get("kind", "")) != "training":
+            continue
+        artifacts = evidence.get("checkpoint_artifacts")
+        if isinstance(artifacts, list) and artifacts:
+            has_checkpoint = True
+            break
+    if not has_checkpoint:
+        blockers.append("promotion blocked: missing attestation")
+
+    if live_metric is None:
+        blockers.append("promotion blocked: missing regression scoreboard")
+
+    if _requires_claims(job):
+        release_evidence = _normalize_release_evidence(job)
+        claims = release_evidence.get("claims")
+        if not isinstance(claims, list) or not claims:
+            blockers.append("promotion blocked: missing release claims")
+
+    return list(dict.fromkeys(blockers))
+
+
+def _requires_claims(job: dict[str, Any]) -> bool:
+    specialists = job.get("specialists")
+    if not isinstance(specialists, list):
+        return False
+    return "training-architect" in specialists or "simulator-engineer" in specialists
+
+
+def _build_artifact_contracts(
+    *,
+    run_id: str,
+    target_metric: float,
+    live_metric: float | None,
+    adapter_evidence: list[dict[str, object]],
+    promotion_blockers: list[str],
+) -> dict[str, object]:
+    checkpoint_contract = _build_checkpoint_contract(run_id=run_id, adapter_evidence=adapter_evidence)
+    regression_contract = _build_regression_contract(run_id=run_id, target_metric=target_metric, live_metric=live_metric)
+    promotion_status = "blocked" if promotion_blockers else "ready"
+    promotion_reason = ", ".join(promotion_blockers) if promotion_blockers else "promotion ready"
+    return {
+        "checkpoint_hash": checkpoint_contract,
+        "regression_scoreboard": regression_contract,
+        "promotion_decision": {
+            "status": promotion_status,
+            "decision_id": f"dec-{run_id}",
+            "reason": promotion_reason,
+            "replay_required": True,
+        },
+    }
+
+
+def _build_checkpoint_contract(*, run_id: str, adapter_evidence: list[dict[str, object]]) -> dict[str, object]:
+    for evidence in adapter_evidence:
+        if str(evidence.get("kind", "")) != "training":
+            continue
+        artifacts = evidence.get("checkpoint_artifacts")
+        if not isinstance(artifacts, list) or not artifacts:
+            continue
+        first = artifacts[0]
+        if not isinstance(first, dict):
+            continue
+        path = str(first.get("path", "")).strip() or f".omg/evidence/forge-checkpoint-{run_id}.json"
+        sha256 = str(first.get("sha256", "")).strip().lower()
+        if len(sha256) != 64:
+            continue
+        signer_key = "forge-local-signing-key"
+        return {
+            "standard": "OpenSSF-OMS",
+            "path": path,
+            "status": "signed",
+            "sha256": sha256,
+            "algorithm": "sha256",
+            "attestation": sign_artifact_statement(path, signer_key, sha256),
+            "signer_pubkey": signer_key,
+        }
+    return {
+        "standard": "OpenSSF-OMS",
+        "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
+        "status": "blocked",
+        "reason": "promotion blocked: missing attestation",
+    }
+
+
+def _build_regression_contract(*, run_id: str, target_metric: float, live_metric: float | None) -> dict[str, object]:
+    if live_metric is None:
+        return {
+            "standard": "lm-eval",
+            "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
+            "status": "blocked",
+            "reason": "promotion blocked: missing regression scoreboard",
+        }
+    status = "passed" if live_metric >= target_metric else "failed"
+    return {
+        "standard": "lm-eval",
+        "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
+        "status": status,
+        "score": live_metric,
+        "target": target_metric,
+    }
+
+
+def _collect_publish_blockers(result: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    inherited_blockers = result.get("promotion_blockers")
+    if isinstance(inherited_blockers, list):
+        for token in inherited_blockers:
+            reason = str(token).strip()
+            if reason:
+                blockers.append(reason)
+
+    contracts = result.get("artifact_contracts")
+    contracts_map = contracts if isinstance(contracts, dict) else {}
+    checkpoint = contracts_map.get("checkpoint_hash")
+    if not isinstance(checkpoint, dict):
+        blockers.append("promotion blocked: missing attestation")
+    else:
+        checkpoint_status = str(checkpoint.get("status", "")).strip().lower()
+        attestation = checkpoint.get("attestation")
+        signer_pubkey = str(checkpoint.get("signer_pubkey", "")).strip()
+        if checkpoint_status != "signed" or not isinstance(attestation, dict) or not signer_pubkey:
+            blockers.append("promotion blocked: missing attestation")
+
+    regression = contracts_map.get("regression_scoreboard")
+    if not isinstance(regression, dict) or str(regression.get("status", "")).strip().lower() != "passed":
+        blockers.append("promotion blocked: missing regression scoreboard")
+
+    release_evidence = result.get("release_evidence")
+    claims = release_evidence.get("claims") if isinstance(release_evidence, dict) else None
+    if not isinstance(claims, list) or not claims:
+        blockers.append("promotion blocked: missing release claims")
+
+    return list(dict.fromkeys(blockers))
 
 
 def _normalize_stage_set(value: object) -> set[str]:

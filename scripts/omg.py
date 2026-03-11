@@ -917,7 +917,7 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
 
 def cmd_profile_review(args: argparse.Namespace) -> int:
     """Read-only review of governed profile state."""
-    from runtime.profile_io import load_profile, ensure_governed_preferences, profile_version_from_map
+    from runtime.profile_io import load_profile, ensure_governed_preferences, profile_version_from_map, assess_profile_risk
 
     project_dir = _ensure_project_dir()
     profile_path = os.path.join(project_dir, ".omg", "state", "profile.yaml")
@@ -979,6 +979,8 @@ def cmd_profile_review(args: argparse.Namespace) -> int:
 
     version = profile_version_from_map(profile) if profile else ""
 
+    risk = assess_profile_risk(profile)
+
     result: dict[str, Any] = {
         "schema": "ProfileReview",
         "style": style_entries,
@@ -987,6 +989,7 @@ def cmd_profile_review(args: argparse.Namespace) -> int:
         "decay_candidates": decay_candidates,
         "provenance_summary": provenance_summary,
         "profile_version": version,
+        "risk_assessment": risk,
     }
 
     fmt = getattr(args, "format", "json")

@@ -89,6 +89,37 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
     }
 
 
+def evaluate_claims_for_release(
+    project_dir: str,
+    run_id: str,
+    claims: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    candidate_claims = claims if isinstance(claims, list) and claims else [
+        {
+            "claim_type": "release_ready",
+            "run_id": run_id,
+            "evidence_profile": "release",
+        }
+    ]
+    judged = judge_claims(project_dir, candidate_claims)
+    verdict = str(judged.get("verdict", "")).strip().lower()
+    if verdict in {"fail", "insufficient", "block", "blocked", "error"}:
+        return {
+            "status": "blocked",
+            "authority": "claim_judge",
+            "reason": f"claim_judge_verdict={verdict}",
+            "claim_judge_verdict": verdict,
+            "claim_judge": judged,
+        }
+    return {
+        "status": "allowed",
+        "authority": "claim_judge",
+        "reason": f"claim_judge_verdict={verdict or 'pass'}",
+        "claim_judge_verdict": verdict or "pass",
+        "claim_judge": judged,
+    }
+
+
 def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
     normalized_claim = _normalize_claim(claim)
     claim_type = str(normalized_claim.get("claim_type", "")).strip()

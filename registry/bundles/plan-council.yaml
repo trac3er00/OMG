@@ -6,9 +6,14 @@ description: Canonical council-style planning bundle for explicit, evidence-back
 hosts:
   - claude
   - codex
+  - gemini
+  - kimi
 assets:
   references:
     - plugins/advanced/commands/OMG:deep-plan.md
+    - commands/OMG:validate.md
+    - commands/OMG:profile-review.md
+    - commands/OMG:release-audit.md
 invocation_policy:
   user_invocable: true
   model_invocable: false

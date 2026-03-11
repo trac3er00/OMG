@@ -236,3 +236,116 @@ def _to_int(value: Any, default: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+_BOUNDED_ACTIONS = frozenset({"continue", "warn", "reflect", "pause", "require-review"})
+
+_HEALTH_TO_AUTO_ACTION: dict[str, str] = {
+    "block": "pause",
+    "reflect": "reflect",
+    "warn": "warn",
+    "continue": "continue",
+}
+
+
+def evaluate_auto_actions(
+    health: dict[str, Any],
+    *,
+    profile_risk: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    recommended = str(health.get("recommended_action", "continue"))
+    action = _HEALTH_TO_AUTO_ACTION.get(recommended, "warn")
+
+    risk = profile_risk if isinstance(profile_risk, dict) else {}
+    risk_requires_review = bool(risk.get("requires_review"))
+    has_destructive = bool(risk.get("destructive_entries"))
+
+    review_route: str | None = None
+
+    if action == "pause" and (risk_requires_review or has_destructive):
+        action = "require-review"
+        review_route = "/OMG:profile-review"
+    elif action in ("warn", "reflect") and risk_requires_review:
+        action = "require-review"
+        review_route = "/OMG:profile-review"
+    elif risk_requires_review:
+        review_route = "/OMG:profile-review"
+
+    reason = _build_action_reason(health, action, risk)
+
+    return {
+        "action": action,
+        "reason": reason,
+        "review_route": review_route,
+        "bounded": True,
+        "health_status": str(health.get("status", "unknown")),
+        "recommended_action": recommended,
+    }
+
+
+def persist_auto_action_evidence(
+    project_dir: str,
+    action_result: dict[str, Any],
+    *,
+    run_id: str = "default",
+) -> str:
+    root = Path(project_dir)
+    actions_dir = root / ".omg" / "state" / "session_health" / "actions"
+    actions_dir.mkdir(parents=True, exist_ok=True)
+    path = actions_dir / f"{run_id}.json"
+
+    evidence: dict[str, Any] = {
+        "schema": "SessionHealthAutoAction",
+        "schema_version": "1.0.0",
+        "run_id": run_id,
+        "action": str(action_result.get("action", "continue")),
+        "reason": str(action_result.get("reason", "")),
+        "review_route": action_result.get("review_route"),
+        "bounded": True,
+        "health_status": str(action_result.get("health_status", "unknown")),
+        "recommended_action": str(action_result.get("recommended_action", "continue")),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    _write_atomic(path, evidence)
+    return str(path)
+
+
+def _build_action_reason(
+    health: dict[str, Any],
+    action: str,
+    risk: dict[str, Any],
+) -> str:
+    parts: list[str] = []
+
+    contamination = _to_float(health.get("contamination_risk"), 0.0)
+    overthinking = _to_float(health.get("overthinking_score"), 0.0)
+    context_health = _to_float(health.get("context_health"), 1.0)
+
+    if action == "pause":
+        if contamination >= _DEFAULT_THRESHOLDS["contamination_risk"]["block"]:
+            parts.append(f"contamination_risk={contamination:.2f} >= block threshold")
+        if overthinking >= _DEFAULT_THRESHOLDS["overthinking_score"]["block"]:
+            parts.append(f"overthinking_score={overthinking:.2f} >= block threshold")
+    elif action == "reflect":
+        if contamination > _DEFAULT_THRESHOLDS["contamination_risk"]["reflect"]:
+            parts.append(f"contamination_risk={contamination:.2f} > reflect threshold")
+        if overthinking > _DEFAULT_THRESHOLDS["overthinking_score"]["reflect"]:
+            parts.append(f"overthinking_score={overthinking:.2f} > reflect threshold")
+    elif action == "warn":
+        verification = str(health.get("verification_status", ""))
+        if verification in ("error", "blocked"):
+            parts.append(f"verification_status={verification}")
+        if context_health <= _DEFAULT_THRESHOLDS["context_health"]["warn"]:
+            parts.append(f"context_health={context_health:.2f} <= warn threshold")
+
+    if action == "require-review":
+        parts.append("profile_risk requires /OMG:profile-review")
+
+    if risk.get("destructive_entries"):
+        parts.append(f"{len(risk['destructive_entries'])} destructive preference(s) detected")
+
+    if not parts:
+        parts.append("session healthy")
+
+    return "; ".join(parts)

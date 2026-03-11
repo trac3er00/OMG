@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from runtime.context_engine import ContextEngine, load_profile_digest
+from runtime.memory_store import MemoryStore
 from runtime.profile_io import profile_version_from_map
 
 
@@ -335,3 +336,29 @@ def test_profile_digest_ignores_governed_preferences_shape(tmp_path: Path) -> No
     assert digest["architecture_requests"] == ["layered monolith"]
     assert digest["constraints"]["api_cost"] == "minimize"
     assert digest["tags"] == ["reliability"]
+
+
+def test_packet_includes_scoped_artifact_handles_without_payloads(tmp_path: Path) -> None:
+    store = MemoryStore(store_path=str(tmp_path / ".omg" / "state" / "memory.sqlite3"))
+    store.index_artifact(
+        run_id="run-context",
+        profile_id="profile-context",
+        kind="proof_bundle",
+        path=".omg/artifacts/run-context/proof.zip",
+        summary="proof bundle handle",
+        size_bytes=4096,
+        metadata={"payload": "y" * 6000, "origin": "context-test"},
+    )
+    store.close()  # Flush WAL before ContextEngine opens a new connection
+
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="run-context")
+
+    handles = pkt["artifact_handles"]
+    assert isinstance(handles, list)
+    assert len(handles) == 1
+    assert handles[0]["kind"] == "proof_bundle"
+    assert handles[0]["path"] == ".omg/artifacts/run-context/proof.zip"
+    assert "payload" not in handles[0]
+    assert handles[0]["metadata"]["origin"] == "context-test"
+    assert handles[0]["metadata"]["omitted_payload"] is True

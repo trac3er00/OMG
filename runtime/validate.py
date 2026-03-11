@@ -15,7 +15,7 @@ from runtime.adoption import CANONICAL_VERSION
 from runtime.compat import run_doctor, _doctor_check
 from runtime.contract_compiler import validate_contract_registry
 from runtime.plugin_diagnostics import run_plugin_diagnostics
-from runtime.profile_io import load_profile, ensure_governed_preferences
+from runtime.profile_io import load_profile, ensure_governed_preferences, assess_profile_risk
 
 
 def _check_contract_registry(root_dir: Path) -> dict[str, Any]:
@@ -81,9 +81,13 @@ def _check_profile_governor(root_dir: Path) -> dict[str, Any]:
         if isinstance(e, dict) and e.get("confirmation_state") == "pending_confirmation"
     )
 
+    risk = assess_profile_risk(profile)
+    risk_level = str(risk.get("risk_level", "low"))
+
     parts = [f"{len(style_entries)} style, {len(safety_entries)} safety"]
     if pending:
         parts.append(f"{pending} pending confirmation")
+    parts.append(f"risk={risk_level}")
 
     return _doctor_check(
         "profile_governor",

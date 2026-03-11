@@ -34,6 +34,20 @@ python3 scripts/omg.py profile-review [--format json|text]
 }
 ```
 
+## Auto-action routing
+
+Session health auto-actions may route to this command when governed profile
+state becomes risky. When `evaluate_auto_actions()` in `runtime/session_health.py`
+returns `require-review`, the agent is directed here to inspect risk before
+proceeding. This command remains strictly read-only — it never mutates
+`profile.yaml` or applies autonomous fixes.
+
+Bounded auto-actions that may trigger this route:
+
+- **pause** — session blocked due to high contamination or overthinking; destructive preferences escalate to require-review
+- **require-review** — profile risk detected (destructive preferences or pending confirmations)
+- **warn** — verification errors combined with profile risk
+
 ## Report sections
 
 1. **Style preferences** — governed style entries with source, learned_at, decay metadata
@@ -41,3 +55,4 @@ python3 scripts/omg.py profile-review [--format json|text]
 3. **Pending confirmations** — entries marked `pending_confirmation` (destructive signals awaiting user approval)
 4. **Decay candidates** — style entries with `decay_score > 0` that may be stale
 5. **Provenance summary** — recent profile update events from `profile_provenance.recent_updates`
+6. **Risk assessment** — overall risk level, destructive entries, and review requirement
