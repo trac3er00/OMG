@@ -60,9 +60,16 @@ def test_trust_release_identity_is_canonical():
     assert "compat" in core_plugin["commands"]
     assert "plan-council" in core_plugin["roles"]
 
+    _ATTESTATION_REQUIRED_KEYS = {"artifact_path", "statement_path", "signature_path", "signer_key_id", "algorithm"}
     for manifest in (dist_public, dist_enterprise, release_public, release_enterprise):
         assert manifest["schema"] == "OmgCompiledArtifactManifest"
         assert manifest["contract_version"] == CANONICAL_VERSION
+        attestations = manifest.get("attestations")
+        assert isinstance(attestations, list), "compiled manifest must include attestations array"
+        assert len(attestations) == len(manifest["artifacts"])
+        for row in attestations:
+            assert _ATTESTATION_REQUIRED_KEYS <= set(row), f"attestation row missing: {_ATTESTATION_REQUIRED_KEYS - set(row)}"
+            assert row["algorithm"] == "ed25519-minisign"
 
     assert readme.startswith("# OMG")
     assert "https://github.com/trac3er00/OMG" in readme

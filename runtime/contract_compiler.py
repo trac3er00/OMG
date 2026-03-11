@@ -31,6 +31,7 @@ from runtime.adoption import (
     CANONICAL_REPO_URL,
     CANONICAL_VERSION,
 )
+from registry.verify_artifact import sign_artifact_statement
 
 
 CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
@@ -1358,18 +1359,43 @@ def _copy_release_bundle(
 
 def _build_dist_manifest(output_root: Path, *, channel: str, hosts: list[str], artifacts: list[Path]) -> Path:
     dist_root = output_root / "dist" / channel
+    artifact_entries: list[dict[str, str]] = []
+    attestation_rows: list[dict[str, str]] = []
+
+    for path in sorted(set(artifacts)):
+        rel_path = str(path.relative_to(dist_root))
+        digest = _sha256_file(path)
+        artifact_entries.append({"path": rel_path, "sha256": digest})
+
+        statement = sign_artifact_statement(
+            artifact_path=rel_path,
+            subject_digest=digest,
+        )
+
+        statement_rel = f"attestations/{rel_path}.statement.json"
+        statement_abs = dist_root / statement_rel
+        _write_json(statement_abs, statement)
+
+        sig_rel = f"attestations/{rel_path}.minisig"
+        sig_abs = dist_root / sig_rel
+        sig_value = statement.get("signature", {}).get("value", "")
+        _write_text(sig_abs, sig_value + "\n")
+
+        attestation_rows.append({
+            "artifact_path": rel_path,
+            "statement_path": statement_rel,
+            "signature_path": sig_rel,
+            "signer_key_id": statement.get("signature", {}).get("keyid", ""),
+            "algorithm": "ed25519-minisign",
+        })
+
     payload = {
         "schema": "OmgCompiledArtifactManifest",
         "channel": channel,
         "hosts": list(hosts),
         "contract_version": CANONICAL_VERSION,
-        "artifacts": [
-            {
-                "path": str(path.relative_to(dist_root)),
-                "sha256": _sha256_file(path),
-            }
-            for path in sorted(set(artifacts))
-        ],
+        "artifacts": artifact_entries,
+        "attestations": attestation_rows,
     }
     out_path = dist_root / "manifest.json"
     _write_json(out_path, payload)
@@ -2249,6 +2275,15 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         if not authority or not reason:
             invalid.append("compliance_governor_outcome:missing_fields")
             blockers.append("invalid_execution_primitive: compliance_governor_outcome: missing_fields")
+        artifact_verdict = str(release_state.get("artifact_verdict", "")).strip()
+        if artifact_verdict:
+            artifact_alg = str(release_state.get("artifact_alg", "")).strip()
+            artifact_key_id = str(release_state.get("artifact_key_id", "")).strip()
+            if not artifact_alg or not artifact_key_id:
+                invalid.append("compliance_governor_outcome:missing_artifact_audit")
+                blockers.append(
+                    "invalid_execution_primitive: compliance_governor_outcome: missing_artifact_audit_fields"
+                )
 
     profile_path = output_root / ".omg" / "state" / "profile.yaml"
     if not profile_path.exists():

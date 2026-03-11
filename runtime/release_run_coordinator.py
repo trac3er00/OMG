@@ -192,6 +192,7 @@ class ReleaseRunCoordinator:
             },
         )
 
+        artifact_audit = _extract_artifact_audit(release_evidence)
         self._write_state(
             canonical_run_id,
             {
@@ -204,6 +205,10 @@ class ReleaseRunCoordinator:
                 "rollback_path": rollback_path,
                 "compliance_authority": str(compliance.get("authority", "")),
                 "compliance_reason": str(compliance.get("reason", "")),
+                "artifact_alg": artifact_audit.get("artifact_alg", ""),
+                "artifact_key_id": artifact_audit.get("artifact_key_id", ""),
+                "artifact_subject_sha256": artifact_audit.get("artifact_subject_sha256", ""),
+                "artifact_verdict": str(compliance.get("reason", "")),
                 "evidence_links": list(evidence_links),
             },
         )
@@ -271,6 +276,33 @@ class ReleaseRunCoordinator:
         if not candidates:
             return ""
         return candidates[-1].stem
+
+
+def _extract_artifact_audit(release_evidence: dict[str, object]) -> dict[str, str]:
+    if not isinstance(release_evidence, dict):
+        return {}
+    artifact = release_evidence.get("artifact")
+    if not isinstance(artifact, dict):
+        return {"artifact_alg": "", "artifact_key_id": "", "artifact_subject_sha256": ""}
+    attestation = artifact.get("attestation")
+    if not isinstance(attestation, dict):
+        return {"artifact_alg": "", "artifact_key_id": "", "artifact_subject_sha256": ""}
+    signer = attestation.get("signer")
+    alg = str(signer.get("algorithm", "")) if isinstance(signer, dict) else ""
+    key_id = str(signer.get("keyid", "")) if isinstance(signer, dict) else ""
+    subject = attestation.get("subject")
+    subject_sha256 = ""
+    if isinstance(subject, list) and subject:
+        first = subject[0]
+        if isinstance(first, dict):
+            digest = first.get("digest")
+            if isinstance(digest, dict):
+                subject_sha256 = str(digest.get("sha256", ""))
+    return {
+        "artifact_alg": alg,
+        "artifact_key_id": key_id,
+        "artifact_subject_sha256": subject_sha256,
+    }
 
 
 def resolve_canonical_run_id(
