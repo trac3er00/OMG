@@ -89,3 +89,9 @@
 - Dispatch now propagates `operation_plan` into result payload, specialist dispatch evidence, and adapter evidence orchestration metadata while preserving existing domain/specialist validation gates.
 - Added `operation_orchestration` profiles to `runtime/forge_contracts.py` (`add`, `edit`, `delete`, `unknown`) to keep orchestration modular and contract-governed.
 - TDD flow: added failing tests first in `tests/runtime/test_forge_agents.py`, confirmed import failure, then implemented and validated with `python3 -m pytest tests/runtime/test_forge_agents.py -q` (40 passed).
+
+## [2026-03-11] Task 10 memory contracts
+- Added host-qualified namespace contract (<host>:<namespace>) to memory add/search/list/import paths while keeping existing interfaces backward compatible via optional params.
+- Added retention metadata (retention_days, computed expires_at) and consistent expiry filtering for list/search/export operations.
+- Added inline PII redaction before persistence for email, US phone, and SSN patterns in both store and import flows.
+- Added isolated MCP tests that replace module _store with tmp_path JSON backend to avoid shared sqlite-state failures.

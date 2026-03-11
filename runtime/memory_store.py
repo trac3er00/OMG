@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,13 @@ _PREFERENCE_ALLOWED_FIELDS = (
     "user_vector.tags",
 )
 _INLINE_METADATA_MAX = 512
+_DEFAULT_NAMESPACE = "default"
+_DEFAULT_MEMORY_HOST = "127.0.0.1"
+_PII_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED:EMAIL]"),
+    (re.compile(r"\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b"), "[REDACTED:PHONE]"),
+    (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[REDACTED:SSN]"),
+)
 _Item = dict[str, Any]  # pyright: ignore[reportExplicitAny]
 
 
@@ -62,6 +70,8 @@ class MemoryStore:
         *,
         run_id: str = "",
         profile_id: str = "",
+        namespace: str = _DEFAULT_NAMESPACE,
+        retention_days: int | None = None,
     ) -> _Item:
         if self.count() >= _MAX_ITEMS:
             raise MemoryStoreFullError(
@@ -70,14 +80,21 @@ class MemoryStore:
             )
 
         now = _utc_now_iso()
+        canonical_namespace = _qualify_namespace(namespace)
+        canonical_retention_days = _normalize_retention_days(retention_days)
+        expires_at = _compute_expires_at(now, canonical_retention_days)
+        redacted_content = _redact_pii(content)
         item: _Item = {
             "id": str(uuid.uuid4()),
             "key": key,
-            "content": content,
+            "content": redacted_content,
             "source_cli": source_cli,
             "tags": tags if tags is not None else [],
             "run_id": run_id,
             "profile_id": profile_id,
+            "namespace": canonical_namespace,
+            "retention_days": canonical_retention_days,
+            "expires_at": expires_at,
             "created_at": now,
             "updated_at": now,
         }
@@ -90,8 +107,9 @@ class MemoryStore:
         conn.execute(
             """
             INSERT INTO memories(
-                id, key, content, source_cli, tags_json, run_id, profile_id, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, key, content, source_cli, tags_json, run_id, profile_id,
+                namespace, retention_days, expires_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item["id"],
@@ -101,6 +119,9 @@ class MemoryStore:
                 json.dumps(item["tags"], ensure_ascii=True),
                 run_id,
                 profile_id,
+                canonical_namespace,
+                canonical_retention_days,
+                expires_at,
                 now,
                 now,
             ),
@@ -179,19 +200,27 @@ class MemoryStore:
         self,
         query: str,
         source_cli: str | None = None,
+        *,
+        namespace: str | None = None,
     ) -> list[_Item]:
         if self._backend == "json":
             q = query.lower()
             results: list[_Item] = []
+            canonical_namespace = _qualify_namespace(namespace) if namespace is not None else None
             for item in self._items:
+                normalized_item = _normalize_item(item)
+                if _is_expired(normalized_item):
+                    continue
                 if source_cli is not None and item["source_cli"] != source_cli:
+                    continue
+                if canonical_namespace is not None and normalized_item.get("namespace") != canonical_namespace:
                     continue
                 key_str = str(item.get("key", "")).lower()
                 content_str = str(item.get("content", "")).lower()
                 tags_raw = item.get("tags", [])
                 tags_str = " ".join(str(t).lower() for t in tags_raw) if isinstance(tags_raw, list) else ""
                 if q in key_str or q in content_str or q in tags_str:
-                    results.append(item)
+                    results.append(normalized_item)
             return results
 
         params: list[Any] = []
@@ -204,6 +233,11 @@ class MemoryStore:
         if source_cli is not None:
             sql += " AND source_cli = ?"
             params.append(source_cli)
+        if namespace is not None:
+            sql += " AND namespace = ?"
+            params.append(_qualify_namespace(namespace))
+        sql += " AND (expires_at IS NULL OR expires_at = '' OR expires_at > ?)"
+        params.append(_utc_now_iso())
         sql += " ORDER BY updated_at DESC"
         rows = self._sqlite_conn().execute(sql, tuple(params)).fetchall()
         return [self._row_to_item(row) for row in rows]
@@ -214,15 +248,19 @@ class MemoryStore:
         *,
         run_id: str | None = None,
         profile_id: str | None = None,
+        namespace: str | None = None,
     ) -> list[_Item]:
         if self._backend == "json":
-            out = list(self._items)
+            out = [_normalize_item(item) for item in self._items if not _is_expired(item)]
             if source_cli is not None:
                 out = [i for i in out if i.get("source_cli") == source_cli]
             if run_id is not None:
                 out = [i for i in out if str(i.get("run_id", "")) == run_id]
             if profile_id is not None:
                 out = [i for i in out if str(i.get("profile_id", "")) == profile_id]
+            if namespace is not None:
+                canonical_namespace = _qualify_namespace(namespace)
+                out = [i for i in out if str(i.get("namespace", "")) == canonical_namespace]
             return out
 
         where: list[str] = []
@@ -236,6 +274,11 @@ class MemoryStore:
         if profile_id is not None:
             where.append("profile_id = ?")
             params.append(profile_id)
+        if namespace is not None:
+            where.append("namespace = ?")
+            params.append(_qualify_namespace(namespace))
+        where.append("(expires_at IS NULL OR expires_at = '' OR expires_at > ?)")
+        params.append(_utc_now_iso())
 
         sql = "SELECT * FROM memories"
         if where:
@@ -254,7 +297,7 @@ class MemoryStore:
             for item in items:
                 item_id = str(item.get("id", ""))
                 if item_id and item_id not in existing_ids:
-                    self._items.append(item)
+                    self._items.append(_normalize_item(item))
                     existing_ids.add(item_id)
                     added += 1
             if added:
@@ -276,22 +319,30 @@ class MemoryStore:
             tags = item.get("tags") if isinstance(item.get("tags"), list) else []
             created_at = str(item.get("created_at", "")) or _utc_now_iso()
             updated_at = str(item.get("updated_at", "")) or created_at
+            namespace = _qualify_namespace(item.get("namespace", _DEFAULT_NAMESPACE))
+            retention_days = _normalize_retention_days(item.get("retention_days"))
+            expires_at = str(item.get("expires_at", "")).strip() or _compute_expires_at(created_at, retention_days)
+            redacted_content = _redact_pii(content)
             run_id = str(item.get("run_id", ""))
             profile_id = str(item.get("profile_id", ""))
             conn.execute(
                 """
                 INSERT INTO memories(
-                    id, key, content, source_cli, tags_json, run_id, profile_id, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    id, key, content, source_cli, tags_json, run_id, profile_id,
+                    namespace, retention_days, expires_at, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item_id,
                     key,
-                    content,
+                    redacted_content,
                     source_cli,
                     json.dumps(tags, ensure_ascii=True),
                     run_id,
                     profile_id,
+                    namespace,
+                    retention_days,
+                    expires_at,
                     created_at,
                     updated_at,
                 ),
@@ -300,7 +351,7 @@ class MemoryStore:
                 {
                     "id": item_id,
                     "key": key,
-                    "content": content,
+                    "content": redacted_content,
                     "tags": tags,
                 }
             )
@@ -595,11 +646,15 @@ class MemoryStore:
                 tags_json TEXT NOT NULL,
                 run_id TEXT NOT NULL DEFAULT '',
                 profile_id TEXT NOT NULL DEFAULT '',
+                namespace TEXT NOT NULL DEFAULT '127.0.0.1:default',
+                retention_days INTEGER,
+                expires_at TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
             """
         )
+        _ensure_memory_columns(conn)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(run_id, profile_id, updated_at)")
         conn.execute(
             """
@@ -684,6 +739,8 @@ class MemoryStore:
         self._sqlite_conn().execute("DELETE FROM memories_fts WHERE id = ?", (item_id,))
 
     def _row_to_item(self, row: sqlite3.Row) -> _Item:
+        raw_expires_at = row["expires_at"] if "expires_at" in row.keys() else None
+        expires_at = _normalize_expires_at(raw_expires_at)
         return {
             "id": row["id"],
             "key": row["key"],
@@ -692,6 +749,9 @@ class MemoryStore:
             "tags": _parse_json_array(row["tags_json"]),
             "run_id": row["run_id"],
             "profile_id": row["profile_id"],
+            "namespace": _qualify_namespace(row["namespace"] if "namespace" in row.keys() else _DEFAULT_NAMESPACE),
+            "retention_days": _normalize_retention_days(row["retention_days"] if "retention_days" in row.keys() else None),
+            "expires_at": expires_at,
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }
@@ -889,6 +949,103 @@ def _sanitize_artifact_handle(handle: dict[str, Any]) -> dict[str, Any]:
     sanitized["metadata"] = _sanitize_metadata(metadata)
     sanitized.pop("payload", None)
     return sanitized
+
+
+def _normalize_item(item: _Item) -> _Item:
+    normalized = dict(item)
+    normalized["content"] = _redact_pii(str(item.get("content", "")))
+    normalized["namespace"] = _qualify_namespace(item.get("namespace", _DEFAULT_NAMESPACE))
+    normalized["retention_days"] = _normalize_retention_days(item.get("retention_days"))
+    created_at = str(item.get("created_at", "")).strip() or _utc_now_iso()
+    normalized_expires_at = _normalize_expires_at(item.get("expires_at"))
+    normalized["expires_at"] = normalized_expires_at or _compute_expires_at(created_at, normalized["retention_days"])
+    return normalized
+
+
+def _redact_pii(content: str) -> str:
+    redacted = content
+    for pattern, token in _PII_PATTERNS:
+        redacted = pattern.sub(token, redacted)
+    return redacted
+
+
+def _qualify_namespace(namespace: object) -> str:
+    text = str(namespace or "").strip()
+    if not text:
+        text = _DEFAULT_NAMESPACE
+    if ":" in text:
+        host, local = text.split(":", 1)
+        if host.strip() and local.strip():
+            return f"{host.strip()}:{local.strip()}"
+    host = os.environ.get("OMG_MEMORY_HOST", _DEFAULT_MEMORY_HOST).strip() or _DEFAULT_MEMORY_HOST
+    return f"{host}:{text}"
+
+
+def _normalize_retention_days(raw: object) -> int | None:
+    if raw is None or raw == "":
+        return None
+    value = int(str(raw).strip())
+    if value < 0:
+        raise ValueError("retention_days must be >= 0")
+    return value
+
+
+def _compute_expires_at(created_at: str, retention_days: int | None) -> str | None:
+    if retention_days is None:
+        return None
+    try:
+        created_dt = datetime.fromisoformat(created_at)
+    except ValueError:
+        created_dt = datetime.now(timezone.utc)
+    if created_dt.tzinfo is None:
+        created_dt = created_dt.replace(tzinfo=timezone.utc)
+    return (created_dt + timedelta(days=retention_days)).isoformat()
+
+
+def _is_expired(item: _Item) -> bool:
+    expires_at = _normalize_expires_at(item.get("expires_at")) or ""
+    if not expires_at:
+        return False
+    try:
+        expires_dt = datetime.fromisoformat(expires_at)
+    except ValueError:
+        return False
+    if expires_dt.tzinfo is None:
+        expires_dt = expires_dt.replace(tzinfo=timezone.utc)
+    return expires_dt <= datetime.now(timezone.utc)
+
+
+def _normalize_expires_at(raw: object) -> str | None:
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    if not text or text.lower() == "none":
+        return None
+    return text
+
+
+def _ensure_memory_columns(conn: sqlite3.Connection) -> None:
+    columns = {
+        str(row["name"]): str(row["name"])
+        for row in conn.execute("PRAGMA table_info(memories)").fetchall()
+    }
+    if "namespace" not in columns:
+        _safe_add_memory_column(
+            conn,
+            "ALTER TABLE memories ADD COLUMN namespace TEXT NOT NULL DEFAULT '127.0.0.1:default'",
+        )
+    if "retention_days" not in columns:
+        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN retention_days INTEGER")
+    if "expires_at" not in columns:
+        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN expires_at TEXT")
+
+
+def _safe_add_memory_column(conn: sqlite3.Connection, ddl: str) -> None:
+    try:
+        conn.execute(ddl)
+    except sqlite3.OperationalError as exc:
+        if "duplicate column name" not in str(exc).lower():
+            raise
 
 
 def _utc_now_iso() -> str:

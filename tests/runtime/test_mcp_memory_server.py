@@ -342,3 +342,78 @@ class TestMemoryStoreImportEdgeCases:
     def test_update_nonexistent_returns_none(self, tmp_path: Path) -> None:
         store = MemoryStore(store_path=str(tmp_path / "store.json"))
         assert store.update("no-such-id", content="new") is None
+
+
+@pytest.fixture()
+def isolated_mcp_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _MCPMemoryServerModule:
+    module = _load_module()
+    monkeypatch.setenv("OMG_MEMORY_HOST", "memory.local")
+    monkeypatch.setattr(module, "_store", MemoryStore(store_path=str(tmp_path / "isolated-store.json")))
+    return module
+
+
+class TestMemoryNamespaceRetentionAndPii:
+    def test_namespace_isolation_for_list_and_search(self, isolated_mcp_module: _MCPMemoryServerModule) -> None:
+        store_fn = getattr(isolated_mcp_module, "memory_store")
+        list_fn = getattr(isolated_mcp_module, "memory_list")
+        search_fn = getattr(isolated_mcp_module, "memory_search")
+
+        _ = store_fn(key="k1", content="alpha content", source_cli="codex", namespace="team-a")
+        _ = store_fn(key="k2", content="alpha content", source_cli="codex", namespace="team-b")
+
+        team_a_items = list_fn(namespace="team-a")
+        assert len(team_a_items) == 1
+        assert team_a_items[0]["namespace"] == "memory.local:team-a"
+
+        team_b_search = search_fn(query="alpha", namespace="team-b")
+        assert len(team_b_search) == 1
+        assert team_b_search[0]["namespace"] == "memory.local:team-b"
+
+    def test_retention_metadata_roundtrips_export_import(
+        self,
+        isolated_mcp_module: _MCPMemoryServerModule,
+        tmp_path: Path,
+    ) -> None:
+        store_fn = getattr(isolated_mcp_module, "memory_store")
+        export_fn = getattr(isolated_mcp_module, "memory_export")
+
+        stored = store_fn(
+            key="retention-key",
+            content="keep this",
+            source_cli="codex",
+            namespace="team-a",
+            retention_days=14,
+        )
+        assert stored["retention_days"] == 14
+
+        exported = export_fn()
+        assert len(exported) == 1
+        assert exported[0]["retention_days"] == 14
+        assert exported[0]["namespace"] == "memory.local:team-a"
+
+        mirror_store = MemoryStore(store_path=str(tmp_path / "mirror-store.json"))
+        imported_count = mirror_store.import_items(exported)
+        assert imported_count == 1
+
+        mirror_items = mirror_store.export_all()
+        assert len(mirror_items) == 1
+        assert mirror_items[0]["retention_days"] == 14
+        assert mirror_items[0]["namespace"] == "memory.local:team-a"
+
+    def test_pii_redaction_happens_before_storage(self, isolated_mcp_module: _MCPMemoryServerModule) -> None:
+        store_fn = getattr(isolated_mcp_module, "memory_store")
+        list_fn = getattr(isolated_mcp_module, "memory_list")
+
+        raw = "email a@b.com phone 415-555-1212 ssn 123-45-6789"
+        result = store_fn(key="pii", content=raw, source_cli="codex", namespace="team-a")
+
+        assert "a@b.com" not in result["content"]
+        assert "415-555-1212" not in result["content"]
+        assert "123-45-6789" not in result["content"]
+        assert "[REDACTED:EMAIL]" in result["content"]
+        assert "[REDACTED:PHONE]" in result["content"]
+        assert "[REDACTED:SSN]" in result["content"]
+
+        persisted = list_fn(namespace="team-a")
+        assert len(persisted) == 1
+        assert persisted[0]["content"] == result["content"]

@@ -75,10 +75,21 @@ def memory_store(
     content: str,
     source_cli: str,
     tags: list[str] | None = None,
+    namespace: str = "default",
+    retention_days: int | None = None,
 ) -> dict[str, Any]:
     try:
-        return _store.add(key=key, content=content, source_cli=source_cli, tags=tags)
+        return _store.add(
+            key=key,
+            content=content,
+            source_cli=source_cli,
+            tags=tags,
+            namespace=namespace,
+            retention_days=retention_days,
+        )
     except MemoryStoreFullError as exc:
+        return {"error": str(exc)}
+    except ValueError as exc:
         return {"error": str(exc)}
 
 
@@ -86,15 +97,17 @@ def memory_store(
 def memory_search(
     query: str,
     source_cli: str | None = None,
+    namespace: str | None = None,
 ) -> list[dict[str, Any]]:
-    return _store.search(query=query, source_cli=source_cli)
+    return _store.search(query=query, source_cli=source_cli, namespace=namespace)
 
 
 @mcp.tool()
 def memory_list(
     source_cli: str | None = None,
+    namespace: str | None = None,
 ) -> list[dict[str, Any]]:
-    return _store.list_all(source_cli=source_cli)
+    return _store.list_all(source_cli=source_cli, namespace=namespace)
 
 
 @mcp.tool()
