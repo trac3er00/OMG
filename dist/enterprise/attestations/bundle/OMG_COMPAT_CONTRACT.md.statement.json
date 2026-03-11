@@ -5,7 +5,7 @@
     {
       "name": "bundle/OMG_COMPAT_CONTRACT.md",
       "digest": {
-        "sha256": "1655c8df26a2abd48c306fa509b6b380b643df0cccfb7e5dbd19e16bf10fe8c3"
+        "sha256": "9c5d190c31f719a00c0ce7ea36f2163f657512a0903c29831e43ecf6787ee7d8"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-11T19:44:52.166314+00:00"
+      "timestamp": "2026-03-11T20:10:49.373263+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-11T19:44:52.166314+00:00",
+  "issued_at": "2026-03-11T20:10:49.373263+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "b3d6ec4a2d8ff073",
-    "value": "untrusted comment: signature from omg local signing key\nJBYzPVAV2M2jZYMhyHgFFuN8BTJHvRv0PytHlRCqAA1JmISl4a3HX+YfcRJBQIELvMzhLBQ02JsnBEMFQmBnDg==\ntrusted comment: type=omg-slsa-v1 keyid=b3d6ec4a2d8ff073 issued_at=2026-03-11T19:44:52.166426+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=1655c8df26a2abd48c306fa509b6b380b643df0cccfb7e5dbd19e16bf10fe8c3\nWFB/2R/EEgXhD6tjgnl+tR3SVs4HhSYRQMYGUyJ9CX/gP7RGXfqIzPFG+Dskx7hs5GnM33Lfnq1fx/LWVmpIAA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=b3d6ec4a2d8ff073 issued_at=2026-03-11T19:44:52.166426+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=1655c8df26a2abd48c306fa509b6b380b643df0cccfb7e5dbd19e16bf10fe8c3"
+    "keyid": "58743feacfbd2929",
+    "value": "untrusted comment: signature from omg local signing key\n8uFnhM0Jqvb4hEopipn0ki9EsuaWzN+CtgtvkgNMxKm8cXRwIZwRJ0ZAJNgnK3hUz8n3+fNuC3bC7xce9+wjAQ==\ntrusted comment: type=omg-slsa-v1 keyid=58743feacfbd2929 issued_at=2026-03-11T20:10:49.373370+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=9c5d190c31f719a00c0ce7ea36f2163f657512a0903c29831e43ecf6787ee7d8\nWK7ZaLTNmO2Bs6G9+76RbsK3+kp6+pdUXnvQo5kS+BmJ387zrz5p6YVcmBIzP0sDSzFS5XEpJ0SVod0h8PMoBA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=58743feacfbd2929 issued_at=2026-03-11T20:10:49.373370+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=9c5d190c31f719a00c0ce7ea36f2163f657512a0903c29831e43ecf6787ee7d8"
   }
 }

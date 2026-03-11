@@ -1,6 +1,6 @@
 ---
 title: OMG Production Control Plane
-version: 2.1.7
+version: 2.1.8
 canonical_hosts:
   - claude
   - codex

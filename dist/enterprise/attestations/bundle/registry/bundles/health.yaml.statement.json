@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/health.yaml",
       "digest": {
-        "sha256": "65f204312efc41f731efd67c83c9b39c01537981f228289a26ca6f3410044442"
+        "sha256": "091fbcda35e949761a153dacedc3008297e76bc597224c9d912b868008020261"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-11T19:44:52.209296+00:00"
+      "timestamp": "2026-03-11T20:10:49.384845+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-11T19:44:52.209296+00:00",
+  "issued_at": "2026-03-11T20:10:49.384845+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "df8603a746c9d009",
-    "value": "untrusted comment: signature from omg local signing key\n6hJuXH6GMx0WEmpcZVqrY4MfUKajXHiGehnEC6c7g9QFxHbRZaNTyvpQnyhku7AR2/OeN5QY6iSy51Oe8zbqDg==\ntrusted comment: type=omg-slsa-v1 keyid=df8603a746c9d009 issued_at=2026-03-11T19:44:52.209410+00:00 artifact=bundle/registry/bundles/health.yaml sha256=65f204312efc41f731efd67c83c9b39c01537981f228289a26ca6f3410044442\nsYHdY4ay1tBQVVk7yWyoEXdOzV39Xtc71P6CIev2+EptcvnjZVca8Y9HqXgGJxCQs3O8cveRz1lPQqXt4PrUBA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=df8603a746c9d009 issued_at=2026-03-11T19:44:52.209410+00:00 artifact=bundle/registry/bundles/health.yaml sha256=65f204312efc41f731efd67c83c9b39c01537981f228289a26ca6f3410044442"
+    "keyid": "f1b18ba804600cca",
+    "value": "untrusted comment: signature from omg local signing key\nypqXMz/P7Gkip/dswkC9t0tFupQxdHmS5SBql6NTKfpUucNr4RDYM+KutJBUF5w1qPi9Usx570MEAjEqbcfRAQ==\ntrusted comment: type=omg-slsa-v1 keyid=f1b18ba804600cca issued_at=2026-03-11T20:10:49.384955+00:00 artifact=bundle/registry/bundles/health.yaml sha256=091fbcda35e949761a153dacedc3008297e76bc597224c9d912b868008020261\nKk52OqpCveIJc1wzaggm4v59DIeO4tdsPKIU3IMnXtE77FvSR1GhwB1cQKObS6SOBJQX66WW9nAfTcGJXBNqBA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=f1b18ba804600cca issued_at=2026-03-11T20:10:49.384955+00:00 artifact=bundle/registry/bundles/health.yaml sha256=091fbcda35e949761a153dacedc3008297e76bc597224c9d912b868008020261"
   }
 }

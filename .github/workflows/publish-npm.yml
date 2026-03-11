@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g. 2.1.7) — must match CANONICAL_VERSION in runtime/adoption.py'
+        description: 'Version to publish (e.g. 2.1.8) — must match CANONICAL_VERSION in runtime/adoption.py'
         required: true
         type: string
       commit_sha:
@@ -45,6 +45,27 @@ jobs:
         with:
           ref: ${{ steps.target.outputs.sha }}
           fetch-depth: 0
+
+      - name: Pre-release tag safety check
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ steps.target.outputs.version }}"
+          REPO="trac3er00/OMG"
+          TAG="v${VERSION}"
+          # Fail fast if GitHub has an immutable release ghost for this tag
+          RESPONSE=$(gh api "repos/${REPO}/releases/tags/${TAG}" 2>&1 || true)
+          if echo "$RESPONSE" | grep -q '"immutable": true'; then
+            echo "FATAL: Tag ${TAG} was used by an immutable release (even if deleted)."
+            echo "GitHub permanently locks this tag name. Bump the version and retry."
+            exit 1
+          fi
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}"; then
+            echo "WARNING: Tag ${TAG} already exists on remote — tag creation will be skipped."
+          else
+            echo "OK: Tag ${TAG} is clear for creation."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push tag (workflow_dispatch only, if tag doesn't exist)
         if: github.event_name == 'workflow_dispatch'

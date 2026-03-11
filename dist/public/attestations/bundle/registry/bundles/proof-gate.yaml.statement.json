@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/proof-gate.yaml",
       "digest": {
-        "sha256": "00323541740fd0bc41c54c44d90f316455e9762f618125ce9fc08546c488d016"
+        "sha256": "29c21e39fd6de2c96e2cd84c00ab9e2b2d84fe6fce1a96f71115488a8445d530"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-11T19:44:50.856554+00:00"
+      "timestamp": "2026-03-11T20:10:48.622134+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-11T19:44:50.856554+00:00",
+  "issued_at": "2026-03-11T20:10:48.622134+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "36c4056bcae278f0",
-    "value": "untrusted comment: signature from omg local signing key\nK4D4bOiRFPMpXwq/hhxukL+84SuvzqSCGe+fkxRqC6/2xtUKIv03iQ3L5SHNZZ0MymiU4XRjJm0suIs/LvDMAg==\ntrusted comment: type=omg-slsa-v1 keyid=36c4056bcae278f0 issued_at=2026-03-11T19:44:50.856671+00:00 artifact=bundle/registry/bundles/proof-gate.yaml sha256=00323541740fd0bc41c54c44d90f316455e9762f618125ce9fc08546c488d016\nlfedslYcJO7n71IVjAwD+tMCPNODPYGJl3/UbszYRKIJmz0n0nr89L8kYttUtaZ0aXpw9ov98dPMJNEbcnFWCw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=36c4056bcae278f0 issued_at=2026-03-11T19:44:50.856671+00:00 artifact=bundle/registry/bundles/proof-gate.yaml sha256=00323541740fd0bc41c54c44d90f316455e9762f618125ce9fc08546c488d016"
+    "keyid": "15e23a5d4399f402",
+    "value": "untrusted comment: signature from omg local signing key\nkgjoynG1O+wIlpAuW0LsOFqgLOFW9d75aHcsBOaLzWjFSKaXNe2WILipzpRhMd5cYSH/rds7DIkjNnRjSWf6DA==\ntrusted comment: type=omg-slsa-v1 keyid=15e23a5d4399f402 issued_at=2026-03-11T20:10:48.622242+00:00 artifact=bundle/registry/bundles/proof-gate.yaml sha256=29c21e39fd6de2c96e2cd84c00ab9e2b2d84fe6fce1a96f71115488a8445d530\nzsbdCMjpDgHtW51fC+TASeXMaX27+qEABfSYigBsxE5SK6pa10/sFI5WVLWntBNqbmfQeBMfb7wvEauIWPwsCg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=15e23a5d4399f402 issued_at=2026-03-11T20:10:48.622242+00:00 artifact=bundle/registry/bundles/proof-gate.yaml sha256=29c21e39fd6de2c96e2cd84c00ab9e2b2d84fe6fce1a96f71115488a8445d530"
   }
 }
