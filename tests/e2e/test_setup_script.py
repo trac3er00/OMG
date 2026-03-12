@@ -1008,6 +1008,17 @@ def test_plugin_uninstall_script_is_non_interactive():
     assert "uninstall --non-interactive" in uninstall_sh
 
 
+def test_plugin_update_script_runs_plugin_bundle_update_non_interactive():
+    update_sh = (ROOT / ".claude-plugin" / "scripts" / "update.sh").read_text(encoding="utf-8")
+    assert "update --install-as-plugin --non-interactive" in update_sh
+
+
+def test_plugin_update_script_checks_npm_latest_before_local_update():
+    update_sh = (ROOT / ".claude-plugin" / "scripts" / "update.sh").read_text(encoding="utf-8")
+    assert "npm view \"$PKG_NAME\" version" in update_sh
+    assert "npm install --prefix" in update_sh
+
+
 # --- Python version and managed runtime regression tests ---
 
 
