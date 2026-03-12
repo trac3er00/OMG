@@ -26,9 +26,9 @@ echo "=== Validating release identity ==="
 python3 scripts/validate-release-identity.py --scope all --forbid-version "${FORBID_VERSION}"
 
 if command -v pyenv >/dev/null 2>&1 && pyenv prefix 3.12.7 >/dev/null 2>&1; then
-  PYENV_VERSION=3.12.7 python -m pytest -q
+  PYENV_VERSION=3.12.7 python -m pytest -q -o addopts=''
 else
-  python3 -m pytest -q
+  python3 -m pytest -q -o addopts=''
 fi
 
 echo "[verify-standalone] passed"
