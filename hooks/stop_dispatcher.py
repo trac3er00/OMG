@@ -9,14 +9,20 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import warnings
 
-sys.path.insert(0, os.path.dirname(__file__))
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+HOOKS_DIR = str(Path(__file__).resolve().parent)
+PROJECT_ROOT = str(Path(HOOKS_DIR).parent)
+PORTABLE_RUNTIME_ROOT = str(Path(PROJECT_ROOT) / "omg-runtime")
+for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from hooks._common import (  # noqa: E402
     atomic_json_write,
     block_decision,
+    bootstrap_runtime_paths,
     check_performance_budget,
     get_feature_flag,
     get_project_dir,
@@ -30,6 +36,8 @@ from hooks._common import (  # noqa: E402
     STOP_CHECK_MAX_MS,
 )
 from hooks.state_migration import resolve_state_file  # noqa: E402
+
+bootstrap_runtime_paths(__file__)
 
 from runtime.release_run_coordinator import resolve_current_run_id  # noqa: E402
 from runtime import test_intent_lock  # noqa: E402

@@ -74,6 +74,11 @@
       "description": "Set cognitive mode for the session",
       "category": "config"
     },
+    "preset": {
+      "path": "commands/OMG:preset.md",
+      "description": "Inspect or apply the canonical OMG preset for the current project",
+      "category": "config"
+    },
     "domain-init": {
       "path": "commands/OMG:domain-init.md",
       "description": "Alias for domain scaffolding (use init instead)",
@@ -152,7 +157,8 @@
     "config": {
       "description": "Configuration and settings",
       "commands": [
-        "mode"
+        "mode",
+        "preset"
       ]
     },
     "observability": {

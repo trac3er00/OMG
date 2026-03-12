@@ -415,6 +415,22 @@ def test_ownership_preset_escalation() -> None:
     assert any(conflict.code == "preset_escalation" and conflict.severity == "warning" for conflict in conflicts)
 
 
+def test_ownership_preset_escalation_accepts_buffet_floor() -> None:
+    records = [
+        PluginInteropRecord(
+            plugin_id="omg-core",
+            layer="authored",
+            host="codex",
+            source="plugin_manifest",
+            preset_floor="buffet",
+        )
+    ]
+
+    conflicts = classify_conflicts(records)
+
+    assert any(conflict.code == "preset_escalation" and conflict.severity == "warning" for conflict in conflicts)
+
+
 def test_ownership_partial_install() -> None:
     records = [
         PluginInteropRecord(

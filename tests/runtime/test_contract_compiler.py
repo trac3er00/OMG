@@ -11,6 +11,7 @@ import yaml
 from runtime.adoption import CANONICAL_VERSION
 from runtime.evidence_requirements import requirements_for_profile
 from runtime import contract_compiler as contract_compiler_module
+from runtime.release_surfaces import get_authored_paths
 from runtime.contract_compiler import (
     DEFAULT_REQUIRED_BUNDLES,
     REQUIRED_CLAUDE_HOOK_EVENTS,
@@ -1843,6 +1844,40 @@ def test_malformed_pyproject_toml_produces_explicit_parse_blocker(
     assert any("<pattern not found>" in b for b in pyproject_blockers), (
         f"Malformed pyproject.toml must surface parser fallout from shared check_surface: {pyproject_blockers}"
     )
+
+
+def test_version_drift_allows_missing_source_only_surface_in_package_layout(
+    tmp_path: Path,
+) -> None:
+    for rel_path in get_authored_paths():
+        if rel_path == ".claude-plugin/scripts/install.sh":
+            continue
+        target = tmp_path / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / rel_path, target)
+
+    result = contract_compiler_module._check_version_identity_drift(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+
+
+def test_version_drift_blocks_missing_source_only_surface_in_source_layout(
+    tmp_path: Path,
+) -> None:
+    for rel_path in get_authored_paths():
+        if rel_path == ".claude-plugin/scripts/install.sh":
+            continue
+        target = tmp_path / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / rel_path, target)
+
+    (tmp_path / ".git").mkdir()
+
+    result = contract_compiler_module._check_version_identity_drift(tmp_path)
+
+    assert result["status"] == "error"
+    assert any(".claude-plugin/scripts/install.sh" in blocker for blocker in result["blockers"])
 
 
 # ── Version identity drift integration with build_release_readiness ────────

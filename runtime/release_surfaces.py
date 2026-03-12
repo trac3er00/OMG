@@ -14,6 +14,7 @@ Consumers:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Union
 
 # ── Valid surface type identifiers ──────────────────────────────────────────
@@ -48,6 +49,7 @@ class AuthoredSurface:
     surface_type: str
     field: Union[list[Union[str, int]], str]
     description: str = ""
+    source_only: bool = False
 
 
 # ── Explicit YAML bundle names (22 files) ──────────────────────────────────
@@ -186,6 +188,7 @@ AUTHORED_SURFACES: list[AuthoredSurface] = [
         ".claude-plugin/scripts/install.sh", "banner_literal",
         r'v(\d+\.\d+\.\d+)',
         "installer banner version",
+        source_only=True,
     ),
 
     # 6. runtime/omg_compat_contract_snapshot.json — contract_version field
@@ -253,3 +256,10 @@ def get_authored_paths() -> list[str]:
 def get_derived_dirs() -> list[str]:
     """Return all generated directory paths."""
     return list(DERIVED_SURFACE_DIRS)
+
+
+def surface_applies_to_root(surface: AuthoredSurface, root_dir: Path) -> bool:
+    """Return whether a surface should be enforced for the given root layout."""
+    if not surface.source_only:
+        return True
+    return (root_dir / ".git").exists()

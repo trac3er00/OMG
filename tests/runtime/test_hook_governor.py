@@ -14,22 +14,23 @@ _PROJECT_ROOT = str(Path(__file__).parent.parent.parent)
 
 def test_canonical_order_loads_from_bundle():
     order = get_canonical_order("PreToolUse", project_dir=_PROJECT_ROOT)
-    assert order[:4] == ["firewall", "secret-guard", "tdd-gate", "pre-tool-inject"]
+    assert order[:3] == ["firewall", "secret-guard", "pre-tool-inject"]
+    assert "tdd-gate" not in order
 
 
 def test_validate_order_accepts_valid_sequence():
-    result = validate_order("PreToolUse", ["firewall", "secret-guard", "tdd-gate", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
+    result = validate_order("PreToolUse", ["firewall", "secret-guard", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
     assert result == {"status": "ok", "blockers": []}
 
 
 def test_validate_order_blocks_missing_required_security_hook():
-    result = validate_order("PreToolUse", ["secret-guard", "tdd-gate", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
+    result = validate_order("PreToolUse", ["secret-guard", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
     assert result["status"] == "blocked"
     assert "missing required security hook: firewall" in result["blockers"]
 
 
 def test_validate_order_detects_out_of_order_hooks():
-    result = validate_order("PreToolUse", ["secret-guard", "firewall", "tdd-gate", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
+    result = validate_order("PreToolUse", ["secret-guard", "firewall", "pre-tool-inject"], project_dir=_PROJECT_ROOT)
     assert result["status"] == "blocked"
     assert any("hook order violation" in blocker for blocker in result["blockers"])
 
@@ -94,7 +95,8 @@ def test_hook_inventory_fully_classified():
                     for hook_def in hook_entry["hooks"]:
                         if isinstance(hook_def, dict) and "command" in hook_def:
                             cmd = hook_def["command"]
-                            # Extract filename from command like: python3 "$HOME/.claude/hooks/firewall.py"
+                            # Extract filename from commands like:
+                            # "$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/firewall.py"
                             if "hooks/" in cmd:
                                 filename = cmd.split("hooks/")[-1].split('"')[0]
                                 registered_hooks.add(filename)
@@ -139,6 +141,7 @@ def test_hook_inventory_fully_classified():
         "shadow_manager.py",
         "state_migration.py",
         "stop-gate.py",
+        "tdd-gate.py",
         "test-validator.py",
         "todo-state-tracker.py",
         "trust_review.py",
@@ -179,7 +182,7 @@ def test_hook_inventory_catches_unclassified():
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": 'python3 "$HOME/.claude/hooks/firewall.py"',
+                                "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/firewall.py"',
                             }
                         ]
                     }

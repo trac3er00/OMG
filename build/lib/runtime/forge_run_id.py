@@ -2,6 +2,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
+
+
+DETERMINISM_VERSION = "forge-determinism-v1"
+DETERMINISM_SCOPE = "same-hardware"
+_TEMPERATURE_LOCK = {
+    "critical_model_paths": 0.0,
+    "critical_tool_paths": 0.0,
+}
 
 
 def generate_run_id() -> str:
@@ -13,6 +22,24 @@ def generate_run_id() -> str:
         str: Compact UTC format run ID.
     """
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+
+
+def derive_run_seed(run_id: str) -> int:
+    is_valid, reason = validate_run_id(run_id)
+    if not is_valid:
+        raise ValueError(f"invalid run_id for deterministic seed derivation: {reason}")
+
+    digest = hashlib.sha256(run_id.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], byteorder="big", signed=False)
+
+
+def build_deterministic_contract(run_id: str) -> dict[str, object]:
+    return {
+        "seed": derive_run_seed(run_id),
+        "temperature_lock": dict(_TEMPERATURE_LOCK),
+        "determinism_version": DETERMINISM_VERSION,
+        "determinism_scope": DETERMINISM_SCOPE,
+    }
 
 
 def validate_run_id(run_id: str) -> tuple[bool, str]:

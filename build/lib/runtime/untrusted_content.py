@@ -164,6 +164,31 @@ def write_trust_evidence(inputs: list[dict[str, Any]], output_dir: str | Path) -
     return evidence_path.as_posix()
 
 
+def write_sandbox_budget_evidence(
+    *,
+    project_dir: str | Path,
+    run_id: str,
+    budget: dict[str, Any],
+    isolation: dict[str, Any],
+) -> str:
+    tagged = tag_content(
+        {
+            "source_type": "workspace",
+            "source_ref": f"forge:{run_id}",
+            "content": {
+                "run_id": run_id,
+                "budget": budget,
+                "isolation": isolation,
+            },
+        },
+        TrustTier.BALANCED,
+    )
+    return write_trust_evidence(
+        [tagged],
+        output_dir=Path(project_dir) / EVIDENCE_REL_DIR,
+    )
+
+
 def mark_untrusted_content(
     project_dir: str,
     *,
