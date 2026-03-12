@@ -171,7 +171,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/session-start.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/session-start.py\"",
             "timeout": 10
           }
         ]
@@ -182,7 +182,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/session-end-capture.py\""
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/session-end-capture.py\""
           }
         ]
       }
@@ -192,17 +192,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/tdd-gate.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/firewall.py\"",
             "timeout": 10
           }
         ],
-        "matcher": ""
+        "matcher": "Bash"
       },
       {
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/pre-tool-inject.py\""
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/secret-guard.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": "Read|Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/pre-tool-inject.py\""
           }
         ],
         "matcher": ""
@@ -213,7 +223,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/circuit-breaker.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/circuit-breaker.py\"",
             "timeout": 10
           }
         ],
@@ -223,7 +233,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/tool-ledger.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/tool-ledger.py\"",
             "timeout": 10
           }
         ],
@@ -233,7 +243,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/test_generator_hook.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/test_generator_hook.py\"",
             "timeout": 10
           }
         ],
@@ -243,7 +253,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/budget_governor.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/budget_governor.py\"",
             "timeout": 10
           }
         ],
@@ -255,7 +265,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/post-tool-failure.py\""
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/post-tool-failure.py\""
           }
         ]
       }
@@ -265,7 +275,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/stop_dispatcher.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/stop_dispatcher.py\"",
             "timeout": 90
           }
         ],
@@ -277,7 +287,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/user-prompt-submit.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/user-prompt-submit.py\"",
             "timeout": 10
           }
         ]
@@ -288,7 +298,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$HOME/.claude/hooks/instructions-loaded.py\"",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/instructions-loaded.py\"",
             "timeout": 10
           }
         ]

@@ -122,7 +122,7 @@ def test_merge_replaces_stale_hook_command_variants(tmp_path: Path):
                     "hooks": [
                         {
                             "type": "command",
-                            "command": 'python3 "$HOME/.claude/hooks/firewall.py"',
+                            "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/firewall.py"',
                         }
                     ],
                 }
@@ -141,7 +141,7 @@ def test_merge_replaces_stale_hook_command_variants(tmp_path: Path):
     hooks = merged["hooks"]["PreToolUse"]
     assert len(hooks) == 1
     command = hooks[0]["hooks"][0]["command"]
-    assert command == 'python3 "$HOME/.claude/hooks/firewall.py"'
+    assert command == '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/firewall.py"'
 
 
 def test_merge_replaces_duplicate_stale_hook_entries(tmp_path: Path):
@@ -152,7 +152,7 @@ def test_merge_replaces_duplicate_stale_hook_entries(tmp_path: Path):
                     "hooks": [
                         {
                             "type": "command",
-                            "command": 'python3 "$HOME/.claude/hooks/session-start.py"',
+                            "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/session-start.py"',
                         }
                     ],
                 },
@@ -174,7 +174,7 @@ def test_merge_replaces_duplicate_stale_hook_entries(tmp_path: Path):
                     "hooks": [
                         {
                             "type": "command",
-                            "command": 'python3 "$HOME/.claude/hooks/session-start.py"',
+                            "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/session-start.py"',
                         }
                     ],
                 }
@@ -193,7 +193,7 @@ def test_merge_replaces_duplicate_stale_hook_entries(tmp_path: Path):
     hooks = merged["hooks"]["SessionStart"]
     assert len(hooks) == 1
     command = hooks[0]["hooks"][0]["command"]
-    assert command == 'python3 "$HOME/.claude/hooks/session-start.py"'
+    assert command == '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/session-start.py"'
 
 
 def test_merge_normalizes_hook_identity_aliases(tmp_path: Path):
@@ -218,7 +218,7 @@ def test_merge_normalizes_hook_identity_aliases(tmp_path: Path):
                     "hooks": [
                         {
                             "type": "command",
-                            "command": 'python3 "$HOME/.claude/hooks/stop_dispatcher.py"',
+                            "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/stop_dispatcher.py"',
                         }
                     ],
                 }
@@ -237,7 +237,7 @@ def test_merge_normalizes_hook_identity_aliases(tmp_path: Path):
     hooks = merged["hooks"]["Stop"]
     assert len(hooks) == 1
     command = hooks[0]["hooks"][0]["command"]
-    assert command == 'python3 "$HOME/.claude/hooks/stop_dispatcher.py"'
+    assert command == '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/stop_dispatcher.py"'
 
 
 def test_merge_treats_blank_and_missing_matchers_as_same_group(tmp_path: Path):
@@ -263,7 +263,7 @@ def test_merge_treats_blank_and_missing_matchers_as_same_group(tmp_path: Path):
                     "hooks": [
                         {
                             "type": "command",
-                            "command": 'python3 "$HOME/.claude/hooks/stop_dispatcher.py"',
+                            "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/stop_dispatcher.py"',
                         }
                     ],
                 }
@@ -283,7 +283,7 @@ def test_merge_treats_blank_and_missing_matchers_as_same_group(tmp_path: Path):
     assert len(hooks) == 1
     assert hooks[0]["matcher"] == ""
     command = hooks[0]["hooks"][0]["command"]
-    assert command == 'python3 "$HOME/.claude/hooks/stop_dispatcher.py"'
+    assert command == '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/stop_dispatcher.py"'
 
 
 def test_merge_moves_managed_permission_to_new_category(tmp_path: Path):

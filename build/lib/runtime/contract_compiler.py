@@ -764,7 +764,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/user-prompt-submit.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/user-prompt-submit.py"',
                         "timeout": 10,
                     }
                 ],
@@ -775,7 +775,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/firewall.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/firewall.py"',
                         "timeout": 10,
                     }
                 ],
@@ -785,7 +785,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/secret-guard.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/secret-guard.py"',
                         "timeout": 10,
                     }
                 ],
@@ -797,7 +797,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/tool-ledger.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/tool-ledger.py"',
                         "timeout": 10,
                     }
                 ],
@@ -809,7 +809,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/post-tool-failure.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/post-tool-failure.py"',
                     }
                 ],
             }
@@ -819,7 +819,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/instructions-loaded.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/instructions-loaded.py"',
                         "timeout": 10,
                     }
                 ],

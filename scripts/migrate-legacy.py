@@ -50,61 +50,61 @@ CANONICAL_HOOKS: dict[str, list[dict[str, Any]]] = {
     "PreToolUse": [
         {
             "matcher": "Bash",
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/firewall.py"', "timeout": 5}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/firewall.py"', "timeout": 5}],
         },
         {
             "matcher": "Read|Write|Edit|MultiEdit",
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/secret-guard.py"', "timeout": 5}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/secret-guard.py"', "timeout": 5}],
         },
     ],
     "PostToolUse": [
         {
             "matcher": "Bash|Write|Edit|MultiEdit",
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/tool-ledger.py"', "timeout": 10}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/tool-ledger.py"', "timeout": 10}],
         },
         {
             "matcher": "Bash",
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/circuit-breaker.py"', "timeout": 10}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/circuit-breaker.py"', "timeout": 10}],
         },
         {
             "matcher": "Write|Edit|MultiEdit",
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/post-write.py"', "timeout": 30}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/post-write.py"', "timeout": 30}],
         },
         {
             "matcher": "Write|Edit|MultiEdit",
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/shadow_manager.py"', "timeout": 15}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/shadow_manager.py"', "timeout": 15}],
         },
     ],
     "Stop": [
         {
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/quality-gate.py"', "timeout": 10}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/quality-gate.py"', "timeout": 10}],
         },
         {
             "hooks": [
-                {"type": "command", "command": 'python3 "$HOME/.claude/hooks/stop-gate.py"', "timeout": 15},
-                {"type": "command", "command": 'python3 "$HOME/.claude/hooks/test-validator.py"', "timeout": 30},
-                {"type": "command", "command": 'python3 "$HOME/.claude/hooks/quality-runner.py"', "timeout": 180},
+                {"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/stop-gate.py"', "timeout": 15},
+                {"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/test-validator.py"', "timeout": 30},
+                {"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/quality-runner.py"', "timeout": 180},
             ],
         },
     ],
     "PreCompact": [
         {
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/pre-compact.py"', "timeout": 15}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/pre-compact.py"', "timeout": 15}],
         },
     ],
     "SessionStart": [
         {
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/session-start.py"', "timeout": 10}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/session-start.py"', "timeout": 10}],
         },
     ],
     "UserPromptSubmit": [
         {
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/prompt-enhancer.py"', "timeout": 10}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/prompt-enhancer.py"', "timeout": 10}],
         },
     ],
     "ConfigChange": [
         {
-            "hooks": [{"type": "command", "command": 'python3 "$HOME/.claude/hooks/config-guard.py"', "timeout": 10}],
+            "hooks": [{"type": "command", "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/config-guard.py"', "timeout": 10}],
         },
     ],
 }

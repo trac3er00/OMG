@@ -625,7 +625,7 @@ def test_setup_install_registers_session_start_hook(tmp_path: Path):
         for hook in cast(list[dict[str, object]], entry.get("hooks") or [])
         if isinstance(hook, dict)
     ]
-    assert 'python3 "$HOME/.claude/hooks/session-start.py"' in commands
+    assert '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/session-start.py"' in commands
 
 
 def test_setup_install_copies_all_registered_hook_command_targets(tmp_path: Path):
