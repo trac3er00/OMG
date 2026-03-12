@@ -7,11 +7,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-
 from registry.verify_artifact import (
     _canonical_json,
     _key_id_from_public_key,
+    _load_ed25519_backend,
     _load_trusted_signers,
     _parse_minisign_detached,
     _utc_now,
@@ -126,8 +125,11 @@ def verify_approval_artifact(
     if not isinstance(public_key_b64, str) or not public_key_b64:
         return {"valid": False, "reason": "invalid trusted signer public key"}
     try:
+        _, _, Ed25519PublicKey = _load_ed25519_backend()
         public_key_raw = base64.b64decode(public_key_b64, validate=True)
         public_key = Ed25519PublicKey.from_public_bytes(public_key_raw)
+    except ModuleNotFoundError as exc:
+        return {"valid": False, "reason": str(exc)}
     except Exception:
         return {"valid": False, "reason": "invalid trusted signer public key"}
 
