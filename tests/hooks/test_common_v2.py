@@ -146,6 +146,35 @@ def test_get_feature_flag_env_var_overrides_omg():
         del os.environ["OMG_COST_TRACKING_ENABLED"]
 
 
+def test_bootstrap_runtime_paths_adds_active_project_dir():
+    """Installed hooks should import repo-local runtime packages via CLAUDE_PROJECT_DIR."""
+    import _common
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hook_anchor = Path(tmpdir) / ".claude" / "hooks" / "firewall.py"
+        hook_anchor.parent.mkdir(parents=True, exist_ok=True)
+        project_dir = Path(tmpdir) / "workspace"
+        project_dir.mkdir()
+
+        old_project_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+        original_sys_path = list(sys.path)
+        try:
+            os.environ["CLAUDE_PROJECT_DIR"] = str(project_dir)
+            while str(project_dir) in sys.path:
+                sys.path.remove(str(project_dir))
+
+            _common.bootstrap_runtime_paths(str(hook_anchor))
+
+            resolved_sys_path = {str(Path(path).resolve()) for path in sys.path}
+            assert str(project_dir.resolve()) in resolved_sys_path
+        finally:
+            sys.path[:] = original_sys_path
+            if old_project_dir is not None:
+                os.environ["CLAUDE_PROJECT_DIR"] = old_project_dir
+            else:
+                os.environ.pop("CLAUDE_PROJECT_DIR", None)
+
+
 if __name__ == "__main__":
     # Run tests manually if pytest not available
     test_get_feature_flag_reads_from_omg_namespace()

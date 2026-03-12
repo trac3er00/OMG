@@ -30,6 +30,15 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
     )
 
 
+def test_vision_command_family_is_registered() -> None:
+    result = _run(["vision", "--help"])
+
+    assert result.returncode == 0
+    assert "ocr" in result.stdout
+    assert "compare" in result.stdout
+    assert "analyze" in result.stdout
+
+
 def _seed_release_readiness_fixtures(tmp_path: Path, *, include_primitives: bool = True, omit: set[str] | None = None) -> None:
     omitted = omit or set()
     prepare = subprocess.run(

@@ -41,13 +41,16 @@ class TmuxSessionManager:
             _logger.warning("Failed to check tmux session %r: %s", name, exc)
             return False
 
-    def create_session(self, name: str) -> bool:
+    def create_session(self, name: str, cwd: str | None = None) -> bool:
         """Create a detached tmux session and return success state."""
         if not self.is_tmux_available():
             return False
         try:
+            cmd = ["tmux", "new-session", "-d", "-s", name]
+            if cwd:
+                cmd.extend(["-c", cwd])
             result = subprocess.run(
-                ["tmux", "new-session", "-d", "-s", name],
+                cmd,
                 capture_output=True,
                 text=True,
                 check=False,
@@ -124,11 +127,11 @@ class TmuxSessionManager:
             _logger.warning("Failed to send tmux command to %r: %s", name, exc)
             return ""
 
-    def get_or_create_session(self, name: str) -> str:
+    def get_or_create_session(self, name: str, cwd: str | None = None) -> str:
         """Return a fresh tmux session name, recreating stale sessions if needed."""
         if self.session_exists(name):
             _ = self.kill_session(name)
-        if not self.create_session(name):
+        if not self.create_session(name, cwd=cwd):
             raise RuntimeError(f"Unable to create tmux session: {name}")
         return name
 

@@ -250,20 +250,29 @@ def main():
         resolve_state_file(project_dir, "state/ledger/failure-tracker.json", "ledger/failure-tracker.json"),
         resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"),
     ]
-    cached = read_cache(snapshot_files)
     saved = []
     for src in snapshot_files:
-        if cached.get(src) is not None:
+        if os.path.exists(src):
             dst = os.path.join(snapshot_dir, os.path.basename(src))
             if snapshot_file(src, dst, MAX_SNAPSHOT_BYTES):
                 saved.append(os.path.basename(src))
 
-    profile = first_lines(cached.get(resolve_state_file(project_dir, "state/profile.yaml", "profile.yaml")), 20)
-    wm = first_lines(cached.get(resolve_state_file(project_dir, "state/working-memory.md", "working-memory.md")), 15)
-    plan = first_lines(cached.get(resolve_state_file(project_dir, "state/_plan.md", "_plan.md")), 10)
-    checklist = first_lines(cached.get(resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")), 50)
-    tracker = cached.get(resolve_state_file(project_dir, "state/ledger/failure-tracker.json", "ledger/failure-tracker.json"))
-    ralph_loop = cached.get(resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"))
+    summary_files = {
+        "profile": resolve_state_file(project_dir, "state/profile.yaml", "profile.yaml"),
+        "working_memory": resolve_state_file(project_dir, "state/working-memory.md", "working-memory.md"),
+        "plan": resolve_state_file(project_dir, "state/_plan.md", "_plan.md"),
+        "checklist": resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md"),
+        "tracker": resolve_state_file(project_dir, "state/ledger/failure-tracker.json", "ledger/failure-tracker.json"),
+        "ralph_loop": resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"),
+    }
+    cached = read_cache(list(summary_files.values()))
+
+    profile = first_lines(cached.get(summary_files["profile"]), 20)
+    wm = first_lines(cached.get(summary_files["working_memory"]), 15)
+    plan = first_lines(cached.get(summary_files["plan"]), 10)
+    checklist = first_lines(cached.get(summary_files["checklist"]), 50)
+    tracker = cached.get(summary_files["tracker"])
+    ralph_loop = cached.get(summary_files["ralph_loop"])
 
     parts = [
         f"# Handoff -- {datetime.now().strftime('%Y-%m-%d %H:%M')}",

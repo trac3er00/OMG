@@ -66,6 +66,16 @@ def test_graceful_when_tmux_not_available():
         assert mgr.cleanup_stale_sessions() == 0
 
 
+def test_create_session_passes_cwd_when_provided() -> None:
+    mgr = TmuxSessionManager()
+    with patch.object(mgr, "is_tmux_available", return_value=True):
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            assert mgr.create_session("omg-test", cwd="/tmp/project") is True
+    mock_run.assert_called_once()
+    assert mock_run.call_args.args[0] == ["tmux", "new-session", "-d", "-s", "omg-test", "-c", "/tmp/project"]
+
+
 @pytest.mark.skipif(not TMUX_AVAILABLE, reason="tmux not available")
 def test_session_lifecycle_create_exists_kill():
     """Full lifecycle: create, verify exists, kill, verify gone."""

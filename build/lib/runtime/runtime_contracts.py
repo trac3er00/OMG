@@ -121,6 +121,10 @@ def write_run_state(project_dir: str, module: str, run_id: str, payload: dict[st
     tmp_path = path.with_name(f"{path.name}.tmp")
     _ = tmp_path.write_text(json.dumps(state, indent=2, ensure_ascii=True), encoding="utf-8")
     _ = os.rename(tmp_path, path)
+    latest_path = path.parent / "latest.json"
+    latest_tmp_path = latest_path.with_name("latest.json.tmp")
+    _ = latest_tmp_path.write_text(json.dumps(state, indent=2, ensure_ascii=True), encoding="utf-8")
+    _ = os.rename(latest_tmp_path, latest_path)
     return str(path)
 
 
@@ -224,6 +228,15 @@ def _resolve_active_run_id(project_dir: Path, run_id: str | None) -> str:
     candidate = os.environ.get("OMG_RUN_ID", "").strip()
     if candidate:
         return candidate
+
+    active_run_path = project_dir / ".omg" / "shadow" / "active-run"
+    if active_run_path.exists():
+        try:
+            candidate = active_run_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            candidate = ""
+        if candidate:
+            return candidate
 
     for path in (
         project_dir / ".omg" / "state" / "defense_state" / "current.json",

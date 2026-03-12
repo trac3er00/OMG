@@ -720,3 +720,99 @@ def test_hud_renders_completed_verification_without_progress(tmp_path: Path):
     assert out.returncode == 0
     lowered = out.stdout.lower()
     assert "verification ok" in lowered
+
+
+def test_hud_prefers_active_run_verification_state(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    verification_dir = state_dir / "verification_controller"
+    verification_dir.mkdir(parents=True)
+    shadow_dir = project / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True)
+    (shadow_dir / "active-run").write_text("run-active\n", encoding="utf-8")
+
+    (verification_dir / "run-active.json").write_text(
+        json.dumps({
+            "schema": "VerificationControllerState",
+            "schema_version": "1.0.0",
+            "run_id": "run-active",
+            "status": "running",
+            "blockers": [],
+            "evidence_links": [],
+            "progress": {"step": 2, "total": 4, "current_stage": "tests"},
+            "updated_at": "2026-03-10T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+    (state_dir / "background-verification.json").write_text(
+        json.dumps({
+            "schema": "BackgroundVerificationState",
+            "schema_version": 2,
+            "run_id": "run-stale",
+            "status": "blocked",
+            "blockers": ["old blocker"],
+            "evidence_links": [],
+            "progress": {},
+            "updated_at": "2026-03-01T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    lowered = out.stdout.lower()
+    assert "verification running" in lowered
+    assert "2/4" in lowered
+    assert "verification blocked" not in lowered
+
+
+def test_hud_prefers_session_health_latest_file(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    health_dir = project / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True)
+    (health_dir / "zz-old.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "zz-old",
+            "contamination_risk": 0.9,
+            "overthinking_score": 0.9,
+            "context_health": 0.1,
+            "verification_status": "blocked",
+            "recommended_action": "block",
+            "thresholds": {},
+            "updated_at": "2026-03-01T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+    (health_dir / "latest.json").write_text(
+        json.dumps({
+            "schema": "SessionHealth",
+            "schema_version": "1.0.0",
+            "run_id": "latest",
+            "contamination_risk": 0.12,
+            "overthinking_score": 0.18,
+            "context_health": 0.88,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+            "thresholds": {},
+            "updated_at": "2026-03-10T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    lowered = out.stdout.lower()
+    assert "contam:12%" in lowered
+    assert "overthink:18%" in lowered
+    assert "health:88%" in lowered
+    assert "block" not in lowered

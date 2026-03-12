@@ -8,6 +8,7 @@ from typing import cast
 from runtime.runtime_contracts import (
     default_layout,
     make_run_path,
+    read_session_health,
     read_run_state,
     schema_versions,
     write_run_state,
@@ -157,6 +158,9 @@ def test_session_health_write_read_round_trip(tmp_path: Path) -> None:
     assert loaded["recommended_action"] == "continue"
     assert "updated_at" in loaded
 
+    latest = json.loads((tmp_path / ".omg" / "state" / "session_health" / "latest.json").read_text(encoding="utf-8"))
+    assert latest["run_id"] == "run-sh1"
+
 
 def test_session_health_schema_required_fields() -> None:
     sv = schema_versions()["session_health"]
@@ -168,6 +172,42 @@ def test_session_health_schema_required_fields() -> None:
         "recommended_action",
     ):
         assert field in sv["required_fields"], f"session_health missing required {field!r}"
+
+
+def test_read_session_health_prefers_active_run(tmp_path: Path) -> None:
+    _ = write_run_state(
+        str(tmp_path),
+        "session_health",
+        "run-active",
+        {
+            "status": "ok",
+            "contamination_risk": 0.2,
+            "overthinking_score": 0.1,
+            "context_health": 0.8,
+            "verification_status": "ok",
+            "recommended_action": "continue",
+        },
+    )
+    _ = write_run_state(
+        str(tmp_path),
+        "session_health",
+        "run-other",
+        {
+            "status": "ok",
+            "contamination_risk": 0.7,
+            "overthinking_score": 0.6,
+            "context_health": 0.3,
+            "verification_status": "blocked",
+            "recommended_action": "warn",
+        },
+    )
+    active_run = tmp_path / ".omg" / "shadow" / "active-run"
+    active_run.parent.mkdir(parents=True, exist_ok=True)
+    active_run.write_text("run-active\n", encoding="utf-8")
+
+    payload = read_session_health(str(tmp_path))
+    assert payload is not None
+    assert payload["run_id"] == "run-active"
 
 
 

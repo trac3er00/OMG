@@ -42,7 +42,12 @@ class OpenCodeProvider(CLIProvider):
 
     def invoke(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny, reportImplicitOverride]
         try:
-            result = self.run_tool(["opencode", prompt], timeout=timeout)
+            result = self.run_tool(
+                ["opencode", prompt],
+                timeout=timeout,
+                cwd=project_dir,
+                env={"CLAUDE_PROJECT_DIR": project_dir},
+            )
             return {
                 "model": "opencode-cli",
                 "output": result.stdout,

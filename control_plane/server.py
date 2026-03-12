@@ -36,6 +36,8 @@ def _read_json(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
 _POST_ROUTE_TABLE = {
     "/v2/policy/evaluate": ("policy_evaluate", False),
     "/v1/policy/evaluate": ("policy_evaluate", True),
+    "/v2/vision/jobs": ("vision_jobs", False),
+    "/v1/vision/jobs": ("vision_jobs", True),
     "/v2/trust/review": ("trust_review", False),
     "/v1/trust/review": ("trust_review", True),
     "/v2/evidence/ingest": ("evidence_ingest", False),

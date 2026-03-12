@@ -1142,6 +1142,8 @@ def _render_codex_agents_fragment(
     auto_str = ", ".join(codex_automations) if codex_automations else "contract-compile"
     sections.append(f"- Rules: `{rules_str}`")
     sections.append(f"- Automations: `{auto_str}`")
+    sections.append("- Defer to the repo's `AGENTS.md` / `AGENTS.override.md` instruction hierarchy before OMG-specific guidance.")
+    sections.append("- Do not mirror or override Codex built-in slash commands; OMG guidance applies through MCP, skills, and generated rules.")
     sections.append("- Require explicit invocation for protected production planning skills.")
     sections.append("")
 
@@ -1172,6 +1174,11 @@ def _render_codex_rules(
     lines.append("## Required Skills\n")
     for skill in (codex_skills or ["omg/control-plane"]):
         lines.append(f"- `{skill}`")
+    lines.append("")
+
+    lines.append("## Host Interop\n")
+    lines.append("- Respect the repo `AGENTS.md` / `AGENTS.override.md` chain before applying OMG-specific rules.")
+    lines.append("- Keep OMG guidance separate from Codex built-in slash commands.")
     lines.append("")
 
     lines.append("## Protected Planning Surface\n")

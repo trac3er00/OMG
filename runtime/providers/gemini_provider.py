@@ -62,6 +62,8 @@ class GeminiProvider(CLIProvider):
             result = self.run_tool(
                 ["gemini", "-p", prompt],
                 timeout=timeout,
+                cwd=project_dir,
+                env={"CLAUDE_PROJECT_DIR": project_dir},
             )
             return {
                 "model": "gemini-cli",
@@ -83,8 +85,15 @@ class GeminiProvider(CLIProvider):
         try:
             mgr = TmuxSessionManager()
             session_name = mgr.make_session_name("gemini", unique_id=str(uuid.uuid4())[:8])
-            session = mgr.get_or_create_session(session_name)
-            output = mgr.send_command(session, f"gemini -p {shlex.quote(prompt)}", timeout=timeout)
+            session = mgr.get_or_create_session(session_name, cwd=project_dir)
+            output = mgr.send_command(
+                session,
+                (
+                    f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+                    f"gemini -p {shlex.quote(prompt)}"
+                ),
+                timeout=timeout,
+            )
             mgr.kill_session(session)
             return {"model": "gemini-cli", "output": output, "exit_code": 0}
         except Exception as exc:
