@@ -9,6 +9,8 @@ from uuid import uuid4
 import json
 
 from runtime.context_engine import ContextEngine
+from runtime.compliance_governor import evaluate_tool_compliance
+from runtime.complexity_scorer import score_complexity
 from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
 from runtime.runtime_contracts import read_run_state
 
@@ -19,20 +21,6 @@ _TOOL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "omg_security_check": ("security", "scan", "vulnerability", "audit", "auth", "token", "secret"),
     "omg-control": ("policy", "governance", "release", "proof", "control plane"),
 }
-
-_READ_ONLY_TOOL_HINTS = (
-    "read",
-    "search",
-    "review",
-    "grep",
-    "glob",
-    "list",
-    "ls",
-    "context7",
-    "websearch",
-)
-_MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
-
 
 def build_tool_plan(
     goal: str,
@@ -50,14 +38,13 @@ def build_tool_plan(
     )
     council = _read_council_verdicts(str(_project_dir()), canonical_run_id)
 
-    project_dir = _project_dir()
     selected_tools: list[dict[str, object]] = []
     for tool_name in normalized_tools:
         if _is_tool_needed(tool_name, normalized_goal):
             selected_tools.append(
                 {
                     "name": tool_name,
-                    "args": _default_args(tool_name, normalized_goal, bounded_context, project_dir=project_dir),
+                    "args": _default_args(tool_name, normalized_goal, bounded_context),
                     "rationale": _rationale(tool_name),
                 }
             )
@@ -67,13 +54,20 @@ def build_tool_plan(
         selected_tools.append(
             {
                 "name": fallback,
-                "args": _default_args(fallback, normalized_goal, bounded_context, project_dir=project_dir),
+                "args": _default_args(fallback, normalized_goal, bounded_context),
                 "rationale": "fallback: no explicit keyword match; keep single minimal tool",
             }
         )
 
     selected_tools = _apply_context_optimization(selected_tools, bounded_context, council)
     plan_id = _new_plan_id(run_id=canonical_run_id)
+    _governance: dict[str, object] = {}
+    try:
+        governance_raw = score_complexity(normalized_goal).get("governance")
+        if isinstance(governance_raw, Mapping):
+            _governance = {str(key): value for key, value in governance_raw.items()}
+    except Exception:
+        pass
     payload: dict[str, object] = {
         "plan_id": plan_id,
         "goal": normalized_goal,
@@ -84,11 +78,12 @@ def build_tool_plan(
             "goal_complexity": _goal_complexity(normalized_goal),
         },
         "context_packet": bounded_context,
+        "governance_payload": _governance,
         "council_verdicts": council.get("verdicts", {}),
         "run_id": canonical_run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    _persist_plan(project_dir, plan_id, payload)
+    _persist_plan(_project_dir(), plan_id, payload)
     return payload
 
 
@@ -117,43 +112,21 @@ def tool_plan_gate_check(project_dir: str, run_id: str | None, tool: str) -> dic
         fallback_context=None,
     )
     clarification = _clarification_status(context_packet)
-    if clarification["requires_clarification"]:
-        reason = _clarification_reason(str(clarification["clarification_prompt"]))
-        if _is_mutation_capable_tool(tool):
-            _persist_gate_error(project_dir, run_id, tool, reason)
-            return {
-                "status": "blocked",
-                "reason": reason,
-                "run_id": run_id,
-                "tool": tool,
-                "clarification_status": clarification,
-            }
-        if _is_read_search_review_tool(tool):
-            return {
-                "status": "allowed",
-                "reason": "clarification pending; read/search/review tool allowed",
-                "run_id": run_id,
-                "clarification_status": clarification,
-            }
-
-    if has_tool_plan_for_run(project_dir, run_id):
-        council = _read_council_verdicts(project_dir, run_id)
-        verdict = _council_gate_verdict(council)
-        if verdict["blocked"]:
-            reason = str(verdict["reason"])
-            _persist_gate_error(project_dir, run_id, tool, reason)
-            return {
-                "status": "blocked",
-                "reason": reason,
-                "run_id": run_id,
-                "tool": tool,
-                "council_verdicts": council.get("verdicts", {}),
-            }
-        return {"status": "allowed", "reason": "tool plan present", "run_id": run_id}
-
-    reason = "tool plan required before mutation-capable MCP evaluation"
-    _persist_gate_error(project_dir, run_id, tool, reason)
-    return {"status": "blocked", "reason": reason, "run_id": run_id, "tool": tool}
+    decision = evaluate_tool_compliance(
+        project_dir=project_dir,
+        run_id=run_id,
+        tool=tool,
+        has_tool_plan=has_tool_plan_for_run(project_dir, run_id),
+        clarification_status=clarification,
+    )
+    reason = str(decision.get("reason", ""))
+    if decision.get("status") == "blocked":
+        _persist_gate_error(project_dir, run_id, tool, reason)
+    return {
+        **decision,
+        "run_id": run_id,
+        "tool": tool,
+    }
 
 
 def _normalize_tools(available_tools: list[str]) -> list[str]:
@@ -175,15 +148,7 @@ def _is_tool_needed(tool_name: str, goal: str) -> bool:
     return any(token in lowered_goal for token in keywords)
 
 
-def _default_args(
-    tool_name: str,
-    goal: str,
-    context_packet: dict[str, object] | None,
-    *,
-    project_dir: Path,
-) -> dict[str, object]:
-    token = tool_name.strip().lower()
-
+def _default_args(tool_name: str, goal: str, context_packet: dict[str, object] | None) -> dict[str, object]:
     if tool_name == "context7":
         return {"query": goal}
     if tool_name == "websearch":
@@ -192,23 +157,6 @@ def _default_args(
         return {"scope": ".", "include_live_enrichment": False}
     if tool_name == "omg-control":
         return {"query": goal}
-
-    if token in {"todowrite", "proxy_todowrite"}:
-        content = goal.strip()[:120] or "Track current task"
-        return {
-            "todos": [
-                {
-                    "content": content,
-                    "status": "in_progress",
-                    "priority": "medium",
-                }
-            ]
-        }
-    if token in {"read", "proxy_read"}:
-        default_target = project_dir / "README.md"
-        if not default_target.exists():
-            default_target = project_dir
-        return {"filePath": str(default_target)}
 
     context_hint = ""
     if isinstance(context_packet, dict):
@@ -230,12 +178,10 @@ def _estimate_context_chars(context_packet: dict[str, object] | None) -> int:
 
 
 def _goal_complexity(goal: str) -> str:
-    length = len(goal.split())
-    if length >= 25:
-        return "high"
-    if length >= 10:
-        return "medium"
-    return "low"
+    category = str(score_complexity(goal).get("category", "low"))
+    if category == "trivial":
+        return "low"
+    return category
 
 
 def _new_plan_id(run_id: str | None) -> str:
@@ -246,8 +192,8 @@ def _new_plan_id(run_id: str | None) -> str:
 
 def _project_dir(project_dir: str | None = None) -> Path:
     if project_dir:
-        return Path(project_dir).resolve()
-    return Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())).resolve()
+        return Path(project_dir)
+    return Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
 
 
 def _persist_plan(project_dir: Path, plan_id: str, payload: dict[str, object]) -> None:
@@ -336,23 +282,6 @@ def _read_council_verdicts(project_dir: str, run_id: str | None) -> dict[str, ob
     return {}
 
 
-def _council_gate_verdict(council: dict[str, object]) -> dict[str, object]:
-    verdicts = council.get("verdicts")
-    if not isinstance(verdicts, dict):
-        return {"blocked": False, "reason": ""}
-
-    for critic_name, critic_payload in verdicts.items():
-        if not isinstance(critic_payload, dict):
-            continue
-        token = str(critic_payload.get("verdict", "")).strip().lower()
-        if token == "fail":
-            return {
-                "blocked": True,
-                "reason": f"council critic '{critic_name}' failed; block mutation-capable tool execution",
-            }
-    return {"blocked": False, "reason": ""}
-
-
 def _apply_context_optimization(
     tools: list[dict[str, object]],
     context_packet: dict[str, object],
@@ -405,24 +334,3 @@ def _clarification_status(context_packet: dict[str, object]) -> dict[str, object
         "clarification_prompt": prompt,
         "confidence": round(max(0.0, min(1.0, confidence)), 2),
     }
-
-
-def _clarification_reason(clarification_prompt: str) -> str:
-    prompt = " ".join(str(clarification_prompt or "").split())
-    if prompt:
-        return f"Clarification required before mutation: {prompt}"
-    return "Clarification required before mutation: provide the missing intent details."
-
-
-def _is_mutation_capable_tool(tool: str) -> bool:
-    token = str(tool or "").strip().lower()
-    if token in _MUTATION_TOOLS:
-        return True
-    return token.startswith("bash:")
-
-
-def _is_read_search_review_tool(tool: str) -> bool:
-    token = str(tool or "").strip().lower()
-    if not token:
-        return False
-    return any(hint in token for hint in _READ_ONLY_TOOL_HINTS)

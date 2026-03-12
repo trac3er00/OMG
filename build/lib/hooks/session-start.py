@@ -9,17 +9,21 @@ import os
 import sys
 import time as _time
 import re as _re
+from pathlib import Path
 
-HOOKS_DIR = os.path.dirname(__file__)
-PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-if HOOKS_DIR not in sys.path:
-    sys.path.insert(0, HOOKS_DIR)
+HOOKS_DIR = str(Path(__file__).resolve().parent)
+PROJECT_ROOT = str(Path(HOOKS_DIR).parent)
+PORTABLE_RUNTIME_ROOT = str(Path(PROJECT_ROOT) / "omg-runtime")
+for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
-from hooks._common import setup_crash_handler, json_input, get_feature_flag, _resolve_project_dir
+from hooks._common import bootstrap_runtime_paths, setup_crash_handler, json_input, get_feature_flag, _resolve_project_dir
 from hooks.state_migration import resolve_state_file, resolve_state_dir
 from hooks._budget import BUDGET_SESSION_TOTAL, BUDGET_SESSION_IDLE
+
+bootstrap_runtime_paths(__file__)
+
 from runtime.context_engine import render_profile_digest_text
 
 setup_crash_handler("session-start", fail_closed=False)
