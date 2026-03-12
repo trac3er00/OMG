@@ -63,7 +63,7 @@ CONFLICT_SEVERITY_MAP: dict[ConflictCode, ConflictSeverity] = {
 
 SUPPORTED_HOSTS: set[str] = {"claude", "codex", "gemini", "kimi", "opencode"}
 SECURITY_PRETOOL_PLUGINS: tuple[str, ...] = ("firewall", "secret-guard")
-PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs")
+PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs", "buffet")
 _PRESET_ORDER_INDEX: dict[str, int] = {name: idx for idx, name in enumerate(PRESET_ORDER)}
 _SEVERITY_RANK: dict[str, int] = {
     ConflictSeverity.BLOCKER.value: 0,

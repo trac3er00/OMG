@@ -85,7 +85,7 @@ Options:
   --mode=omg-only|coexist
                      Native OMG adoption mode for overlapping ecosystems
   --adopt=auto       Detect OMG-adjacent ecosystems during install/update
-  --preset=safe|balanced|interop|labs
+  --preset=safe|balanced|interop|labs|buffet
                      User-facing preset for managed OMG features
   --enable-browser   Enable optional OMG browser capability metadata and guidance
   -h, --help         Show this help
@@ -265,7 +265,10 @@ parse_args() {
     esac
 
     case "$OMG_PRESET" in
-        safe|balanced|interop|labs) ;;
+        plugins-first)
+            OMG_PRESET="interop"
+            ;;
+        safe|balanced|interop|labs|buffet) ;;
         *)
             echo "Unknown OMG preset: $OMG_PRESET"
             exit 1
