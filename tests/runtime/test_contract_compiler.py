@@ -1455,6 +1455,8 @@ def test_release_readiness_plugin_command_security_review_not_required(
 ) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
@@ -1465,6 +1467,7 @@ def test_release_readiness_plugin_command_security_review_not_required(
 
     _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
     _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
     _write_doctor_success(tmp_path)
     _write_eval_ok(tmp_path)
 

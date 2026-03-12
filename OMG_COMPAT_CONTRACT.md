@@ -94,6 +94,8 @@ Codex outputs compile to:
 - `.agents/skills/omg/<bundle>/openai.yaml`
 - generated Codex MCP and rule fragments under `.agents/skills/omg/`
 
+Codex compilation must remain compatible with the host's native instruction hierarchy (`AGENTS.md`, `AGENTS.override.md`) and progressive-disclosure skill loading. OMG-generated artifacts document and constrain OMG behavior; they do not replace Codex built-in slash commands.
+
 ## roadmap_extensions
 
 The contract reserves compilation anchors for:

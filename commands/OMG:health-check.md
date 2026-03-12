@@ -24,7 +24,10 @@ Run all checks silently, report only issues:
 
 5. **Tools**: Hooks installed? OMG team aliases available? MCP servers listed?
    - Check ~/.claude/hooks/.omg-version exists.
-   - Check if `~/.claude/commands/OMG:teams.md` and `OMG:ccg.md` exist (WARN if missing, not FAIL).
+   - Check if Claude sees OMG through plugin-managed skills/surfaces rather than legacy `~/.claude/commands/` files:
+     - `~/.claude/plugins/known_marketplaces.json` contains `omg`
+     - `~/.claude/plugins/cache/omg/omg/<version>/.claude-plugin/plugin.json` exists
+     - WARN if only legacy command files exist without the plugin-managed surface
    - List MCP servers from .mcp.json (informational).
 
 6. **Failures**: Stale failure patterns in failure-tracker.json?

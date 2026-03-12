@@ -6,14 +6,18 @@ Delegates file policy decisions to policy_engine.py.
 import json
 import os
 import sys
+from pathlib import Path
 
-HOOKS_DIR = os.path.dirname(__file__)
-PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
-for path in (HOOKS_DIR, PROJECT_ROOT):
+HOOKS_DIR = str(Path(__file__).resolve().parent)
+PROJECT_ROOT = str(Path(HOOKS_DIR).parent)
+PORTABLE_RUNTIME_ROOT = str(Path(PROJECT_ROOT) / "omg-runtime")
+for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from _common import setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
+from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
+
+bootstrap_runtime_paths(__file__)
 
 # Fail-closed: deny on crash (security hook)
 setup_crash_handler("secret-guard", fail_closed=True)

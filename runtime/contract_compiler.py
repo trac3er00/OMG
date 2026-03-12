@@ -764,7 +764,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/user-prompt-submit.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/user-prompt-submit.py"',
                         "timeout": 10,
                     }
                 ],
@@ -775,7 +775,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/firewall.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/firewall.py"',
                         "timeout": 10,
                     }
                 ],
@@ -785,7 +785,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/secret-guard.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/secret-guard.py"',
                         "timeout": 10,
                     }
                 ],
@@ -797,7 +797,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/tool-ledger.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/tool-ledger.py"',
                         "timeout": 10,
                     }
                 ],
@@ -809,7 +809,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/post-tool-failure.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/post-tool-failure.py"',
                     }
                 ],
             }
@@ -819,7 +819,7 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": 'python3 "$HOME/.claude/hooks/instructions-loaded.py"',
+                        "command": '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/instructions-loaded.py"',
                         "timeout": 10,
                     }
                 ],
@@ -1142,6 +1142,8 @@ def _render_codex_agents_fragment(
     auto_str = ", ".join(codex_automations) if codex_automations else "contract-compile"
     sections.append(f"- Rules: `{rules_str}`")
     sections.append(f"- Automations: `{auto_str}`")
+    sections.append("- Defer to the repo's `AGENTS.md` / `AGENTS.override.md` instruction hierarchy before OMG-specific guidance.")
+    sections.append("- Do not mirror or override Codex built-in slash commands; OMG guidance applies through MCP, skills, and generated rules.")
     sections.append("- Require explicit invocation for protected production planning skills.")
     sections.append("")
 
@@ -1172,6 +1174,11 @@ def _render_codex_rules(
     lines.append("## Required Skills\n")
     for skill in (codex_skills or ["omg/control-plane"]):
         lines.append(f"- `{skill}`")
+    lines.append("")
+
+    lines.append("## Host Interop\n")
+    lines.append("- Respect the repo `AGENTS.md` / `AGENTS.override.md` chain before applying OMG-specific rules.")
+    lines.append("- Keep OMG guidance separate from Codex built-in slash commands.")
     lines.append("")
 
     lines.append("## Protected Planning Surface\n")

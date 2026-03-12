@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from typing import cast
 
@@ -88,3 +89,18 @@ def test_write_mcp_config_uses_mcp_key(monkeypatch: pytest.MonkeyPatch, tmp_path
     data = cast(dict[str, object], json.loads(config_path.read_text()))
     assert "mcp" in data
     assert "mcpServers" not in data
+
+
+def test_invoke_uses_project_cwd(monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = OpenCodeProvider()
+    fake = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
+
+    def _run_tool(cmd: list[str], *, timeout: int = 30, cwd: str | None = None, env: dict[str, str] | None = None):
+        assert cmd == ["opencode", "hello"]
+        assert cwd == "/tmp/project"
+        assert env == {"CLAUDE_PROJECT_DIR": "/tmp/project"}
+        return fake
+
+    monkeypatch.setattr(provider, "run_tool", _run_tool)
+    result = provider.invoke("hello", "/tmp/project", timeout=12)
+    assert result == {"model": "opencode-cli", "output": "ok", "exit_code": 0}

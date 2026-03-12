@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from runtime.vision_jobs import run_vision_job
@@ -39,3 +40,23 @@ def test_compare_job_uses_cache_on_second_run(tmp_path: Path) -> None:
     assert first["status"] == "ok"
     assert second["status"] == "ok"
     assert second["cached"] is True
+
+
+def test_compare_job_requires_two_inputs(tmp_path: Path) -> None:
+    left = tmp_path / "a.png"
+    _write_color_image(left, (255, 255, 255))
+
+    payload = {"mode": "compare", "inputs": ["a.png"]}
+
+    with pytest.raises(ValueError, match="at least two input files"):
+        run_vision_job(str(tmp_path), payload)
+
+
+def test_unimplemented_modes_fail_closed(tmp_path: Path) -> None:
+    target = tmp_path / "a.png"
+    _write_color_image(target, (255, 255, 255))
+
+    payload = {"mode": "analyze", "inputs": ["a.png"]}
+
+    with pytest.raises(ValueError, match="not implemented yet"):
+        run_vision_job(str(tmp_path), payload)

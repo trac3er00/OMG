@@ -267,7 +267,7 @@ Actions:
 Key Options:
   --install-as-plugin   Install as plugin bundle (Claude plugin system)
   --mode=omg-only|coexist  Adoption mode
-  --preset=safe|balanced|interop|labs  Feature set
+  --preset=safe|balanced|interop|labs|buffet  Feature set
   --merge-policy=ask|apply|skip  Settings merge behavior
 ```
 
@@ -377,4 +377,3 @@ Key Options:
 | `OMG_COMPAT_CONTRACT.md` | Host compilation rules contract | 105 |
 | `docs/install/claude-code.md` | Claude Code install guide | 31 |
 | `docs/install/codex.md` | Codex install guide | 29 |
-

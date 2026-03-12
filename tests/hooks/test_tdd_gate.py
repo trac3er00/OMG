@@ -118,6 +118,45 @@ def test_mutation_gate_allows_read_only_bash_without_lock(tmp_path, monkeypatch)
     assert result["status"] == "allowed"
 
 
+def test_mutation_gate_allows_read_only_bash_with_discard_redirection(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    result = check_mutation_allowed(
+        tool="Bash",
+        file_path=".",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        command="ls /tmp 2>/dev/null",
+        run_id="run-redirect-readonly",
+    )
+    assert result["status"] == "allowed"
+
+
+def test_mutation_gate_allows_read_only_bash_with_fd_duplication(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    result = check_mutation_allowed(
+        tool="Bash",
+        file_path=".",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        command="which rg >/dev/null 2>&1",
+        run_id="run-fd-dup",
+    )
+    assert result["status"] == "allowed"
+
+
+def test_mutation_gate_still_blocks_real_file_redirection(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    result = check_mutation_allowed(
+        tool="Bash",
+        file_path=".",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        command="echo done > build.log",
+        run_id="run-real-write",
+    )
+    assert result["status"] == "blocked"
+
+
 def test_mutation_gate_allows_explicit_exempt_metadata(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
     result = check_mutation_allowed(

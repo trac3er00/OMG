@@ -98,7 +98,12 @@ class TestInvoke:
         fake = subprocess.CompletedProcess(args=[], returncode=0, stdout="task completed", stderr="")
         with patch.object(provider, "run_tool", return_value=fake) as mock_rt:
             result = provider.invoke("fix bug", "/project", timeout=60)
-            mock_rt.assert_called_once_with(["kimi", "--print", "-p", "fix bug"], timeout=60)
+            mock_rt.assert_called_once_with(
+                ["kimi", "--print", "-p", "fix bug"],
+                timeout=60,
+                cwd="/project",
+                env={"CLAUDE_PROJECT_DIR": "/project"},
+            )
             assert result == {"model": "kimi-cli", "output": "task completed", "exit_code": 0}
 
     def test_timeout_returns_error_fallback(self, provider: KimiCodeProvider) -> None:
@@ -130,7 +135,10 @@ class TestInvokeJson:
         with patch.object(provider, "run_tool", return_value=fake) as mock_rt:
             result = provider.invoke_json("fix bug", "/project", timeout=90)
             mock_rt.assert_called_once_with(
-                ["kimi", "--print", "--output-format", "stream-json", "-p", "fix bug"], timeout=90,
+                ["kimi", "--print", "--output-format", "stream-json", "-p", "fix bug"],
+                timeout=90,
+                cwd="/project",
+                env={"CLAUDE_PROJECT_DIR": "/project"},
             )
             assert result == {"model": "kimi-cli", "output": '{"event":"done"}', "exit_code": 0}
 
@@ -163,7 +171,7 @@ class TestInvokeTmux:
         result = provider.invoke_tmux("fix bug", "/project", timeout=90)
 
         mgr.make_session_name.assert_called_once()
-        mgr.get_or_create_session.assert_called_once_with("omg-kimi-abc")
+        mgr.get_or_create_session.assert_called_once_with("omg-kimi-abc", cwd="/project")
         mgr.send_command.assert_called_once()
         mgr.kill_session.assert_called_once_with("omg-kimi-abc")
         assert result == {"model": "kimi-cli", "output": "kimi output here", "exit_code": 0}
@@ -194,7 +202,7 @@ class TestInvokeTmux:
 
         mgr.send_command.assert_called_once_with(
             "omg-kimi-abc",
-            f"kimi --print -p {shlex.quote(prompt)}",
+            f"env CLAUDE_PROJECT_DIR={shlex.quote('/project')} kimi --print -p {shlex.quote(prompt)}",
             timeout=90,
         )
 

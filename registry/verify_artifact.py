@@ -11,9 +11,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-
 
 @dataclass
 class SupplyArtifact:
@@ -31,6 +28,17 @@ _IN_TOTO_STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
 _SLSA_PREDICATE_TYPE = "https://slsa.dev/provenance/v1"
 _TRUST_ROOT_PATH = Path(__file__).with_name("trusted_signers.json")
 _DEFAULT_DEV_SIGNER_KEY_ID = "1f5fe64ec2f8c901"
+
+
+def _load_ed25519_backend() -> tuple[Any, Any, Any]:
+    try:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "cryptography backend unavailable; run OMG setup to provision the managed venv"
+        ) from exc
+    return serialization, Ed25519PrivateKey, Ed25519PublicKey
 
 
 def _utc_now() -> str:
@@ -186,6 +194,8 @@ def sign_artifact(
     if len(clean_digest) != 64 or any(ch not in "0123456789abcdef" for ch in clean_digest):
         raise ValueError("subject_digest_must_be_sha256_hex")
 
+    serialization, Ed25519PrivateKey, _ = _load_ed25519_backend()
+
     if signer_private_key:
         private_raw = base64.b64decode(signer_private_key, validate=True)
         if len(private_raw) != 32:
@@ -288,6 +298,11 @@ def sign_artifact_statement(
 
 
 def _verify_ed25519_statement(statement: dict[str, Any]) -> tuple[bool, str]:
+    try:
+        _, _, Ed25519PublicKey = _load_ed25519_backend()
+    except ModuleNotFoundError as exc:
+        return False, str(exc)
+
     key_id = _statement_key_id(statement)
     if not key_id:
         return False, "missing signer key id"

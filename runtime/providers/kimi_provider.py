@@ -66,6 +66,8 @@ class KimiCodeProvider(CLIProvider):
             result = self.run_tool(
                 ["kimi", "--print", "-p", prompt],
                 timeout=timeout,
+                cwd=project_dir,
+                env={"CLAUDE_PROJECT_DIR": project_dir},
             )
             return {
                 "model": "kimi-cli",
@@ -85,6 +87,8 @@ class KimiCodeProvider(CLIProvider):
             result = self.run_tool(
                 ["kimi", "--print", "--output-format", "stream-json", "-p", prompt],
                 timeout=timeout,
+                cwd=project_dir,
+                env={"CLAUDE_PROJECT_DIR": project_dir},
             )
             return {
                 "model": "kimi-cli",
@@ -106,8 +110,15 @@ class KimiCodeProvider(CLIProvider):
         try:
             mgr = TmuxSessionManager()
             session_name = mgr.make_session_name("kimi", unique_id=str(uuid.uuid4())[:8])
-            session = mgr.get_or_create_session(session_name)
-            output = mgr.send_command(session, f"kimi --print -p {shlex.quote(prompt)}", timeout=timeout)
+            session = mgr.get_or_create_session(session_name, cwd=project_dir)
+            output = mgr.send_command(
+                session,
+                (
+                    f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+                    f"kimi --print -p {shlex.quote(prompt)}"
+                ),
+                timeout=timeout,
+            )
             mgr.kill_session(session)
             return {"model": "kimi-cli", "output": output, "exit_code": 0}
         except Exception as exc:

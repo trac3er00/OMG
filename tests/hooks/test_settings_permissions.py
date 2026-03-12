@@ -75,8 +75,16 @@ def test_pretool_use_registers_security_guards_before_injection():
         for entry in entries
     }
 
-    assert commands_by_matcher["Bash"] == ['python3 "$HOME/.claude/hooks/firewall.py"']
+    assert commands_by_matcher["Bash"] == ['"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/firewall.py"']
     assert commands_by_matcher["Read|Write|Edit|MultiEdit"] == [
-        'python3 "$HOME/.claude/hooks/secret-guard.py"'
+        '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/secret-guard.py"'
     ]
-    assert commands_by_matcher[""] == ['python3 "$HOME/.claude/hooks/pre-tool-inject.py"']
+    assert commands_by_matcher[""] == ['"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/pre-tool-inject.py"']
+
+    pretool_commands = [
+        hook["command"]
+        for entry in entries
+        for hook in entry.get("hooks", [])
+        if isinstance(hook, dict) and "command" in hook
+    ]
+    assert '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/tdd-gate.py"' not in pretool_commands
