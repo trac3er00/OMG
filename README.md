@@ -12,7 +12,7 @@ Agent hosts like Claude Code and Codex are powerful but lack governance, mutatio
 
 ## The Solution
 
-OMG (Oh My OpenCode) provides a governance and orchestration layer that sits on top of existing agent hosts. It introduces:
+OMG (Oh My God) provides a governance and orchestration layer that sits on top of existing agent hosts. It introduces:
 
 - **Hooks**: Pre-tool and post-tool execution gates for security and validation.
 - **Governance Payload**: Structured metadata for every action.
