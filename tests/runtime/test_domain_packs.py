@@ -18,6 +18,7 @@ def test_vision_domain_pack_shape():
     assert contract["required_approvals"] == []
     assert "dataset-provenance" in contract["required_evidence"]
     assert "drift-check" in contract["required_evidence"]
+    assert "vision-artifacts" in contract["required_evidence"]
     assert "dataset-lineage" in contract["policy_modules"]
     assert "vision-regression" in contract["eval_hooks"]
     assert "incident-replay" in contract["replay_hooks"]

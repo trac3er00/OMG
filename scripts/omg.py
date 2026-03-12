@@ -29,6 +29,10 @@ ROOT_DIR = Path(SCRIPTS_DIR).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from hooks._common import bootstrap_runtime_paths
+
+bootstrap_runtime_paths(__file__)
+
 from hooks.policy_engine import evaluate_bash_command
 from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change, write_trust_manifest
@@ -329,6 +333,40 @@ def cmd_domain_pack(args: argparse.Namespace) -> int:
     result = get_domain_pack_contract(args.name)
     print(json.dumps(result, indent=2))
     return 0
+
+
+def _emit_vision_placeholder(command: str) -> int:
+    print(
+        json.dumps(
+            {
+                "status": "error",
+                "error_code": "INVALID_VISION_INPUT",
+                "message": f"{command} is registered, but runtime execution is not implemented yet",
+            },
+            indent=2,
+        )
+    )
+    return 2
+
+
+def cmd_vision_ocr(args: argparse.Namespace) -> int:
+    return _emit_vision_placeholder("vision ocr")
+
+
+def cmd_vision_compare(args: argparse.Namespace) -> int:
+    return _emit_vision_placeholder("vision compare")
+
+
+def cmd_vision_analyze(args: argparse.Namespace) -> int:
+    return _emit_vision_placeholder("vision analyze")
+
+
+def cmd_vision_batch(args: argparse.Namespace) -> int:
+    return _emit_vision_placeholder("vision batch")
+
+
+def cmd_vision_eval(args: argparse.Namespace) -> int:
+    return _emit_vision_placeholder("vision eval")
 
 
 def cmd_trace_record(args: argparse.Namespace) -> int:
@@ -1180,6 +1218,19 @@ def build_parser() -> argparse.ArgumentParser:
     domain_pack = sub.add_parser("domain-pack", help="Inspect optional domain pack contracts")
     domain_pack.add_argument("--name", required=True, choices=["robotics", "vision", "algorithms", "health"])
     domain_pack.set_defaults(func=cmd_domain_pack)
+
+    vision = sub.add_parser("vision", help="OCR, visual diff, and semantic image analysis")
+    vision_sub = vision.add_subparsers(dest="vision_command", required=True)
+    vision_ocr = vision_sub.add_parser("ocr", help="Extract text from one or more images")
+    vision_ocr.set_defaults(func=cmd_vision_ocr)
+    vision_compare = vision_sub.add_parser("compare", help="Compare one or more images deterministically")
+    vision_compare.set_defaults(func=cmd_vision_compare)
+    vision_analyze = vision_sub.add_parser("analyze", help="Run semantic image analysis")
+    vision_analyze.set_defaults(func=cmd_vision_analyze)
+    vision_batch = vision_sub.add_parser("batch", help="Run a vision batch job")
+    vision_batch.set_defaults(func=cmd_vision_batch)
+    vision_eval = vision_sub.add_parser("eval", help="Evaluate vision job outputs")
+    vision_eval.set_defaults(func=cmd_vision_eval)
 
     tracebank = sub.add_parser("tracebank", help="Record structured route traces")
     tracebank.add_argument("--trace-type", required=True)
