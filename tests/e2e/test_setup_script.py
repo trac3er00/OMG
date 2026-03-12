@@ -223,7 +223,7 @@ def test_setup_script_exists_and_help_lists_subcommands():
     assert "--install-as-plugin" in out
     assert "--mode=omg-only|coexist" in out
     assert "--adopt=auto" in out
-    assert "--preset=safe|balanced|interop|labs" in out
+    assert "--preset=safe|balanced|interop|labs|buffet" in out
     assert "--clear-omc" not in out
     assert "--without-legacy-aliases" not in out
 
@@ -347,6 +347,19 @@ def test_setup_install_registers_primary_omg_commands(tmp_path: Path):
     commands_dir = claude_dir / "commands"
     assert (commands_dir / "OMG:setup.md").exists()
     assert (commands_dir / "OMG:crazy.md").exists()
+    assert (commands_dir / "OMG:preset.md").exists()
+
+
+def test_setup_install_accepts_buffet_preset(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--preset=buffet"],
+        env=env,
+    )
+    assert proc.returncode == 0
 
 
 def test_setup_install_preserves_existing_custom_deprecated_command_name(tmp_path: Path):
@@ -389,6 +402,31 @@ def test_setup_install_provisions_portable_omg_runtime(tmp_path: Path):
     assert payload["status"] == "ok"
     evidence = cast(dict[str, object], payload["evidence"])
     assert evidence["target"] == "gemini"
+
+
+def test_setup_install_provisions_runtime_registry_and_doctor_outside_repo(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir), "HOME": str(home_dir)}
+
+    proc = _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+    assert proc.returncode == 0
+
+    registry_dir = claude_dir / "omg-runtime" / "registry"
+    assert registry_dir.is_dir()
+    assert (registry_dir / "verify_artifact.py").exists()
+
+    doctor = subprocess.run(
+        [sys.executable, "-S", str(claude_dir / "omg-runtime" / "scripts" / "omg.py"), "doctor"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert "ModuleNotFoundError" not in doctor.stderr
+    assert "Traceback" not in doctor.stderr
+    assert doctor.stdout.strip()
 
 
 def test_setup_install_hooks_can_import_portable_runtime_outside_repo(tmp_path: Path):

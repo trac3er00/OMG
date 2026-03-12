@@ -27,6 +27,16 @@ def test_core_plugin_manifest_includes_new_canonical_surfaces():
     assert "api-twin" in commands
     assert "preflight" in commands
     assert "browser" in commands
+    assert "preset" in commands
+    assert commands["preset"]["path"] == "commands/OMG:preset.md"
+
+
+def test_core_plugin_manifest_config_category_includes_preset() -> None:
+    manifest = json.loads((ROOT / "plugins" / "core" / "plugin.json").read_text(encoding="utf-8"))
+    config_commands = manifest["categories"]["config"]["commands"]
+
+    assert "mode" in config_commands
+    assert "preset" in config_commands
 
 
 def test_advanced_plugin_manifest_no_longer_markets_security_review():

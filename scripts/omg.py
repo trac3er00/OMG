@@ -29,6 +29,10 @@ ROOT_DIR = Path(SCRIPTS_DIR).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from hooks._common import bootstrap_runtime_paths
+
+bootstrap_runtime_paths(__file__)
+
 from hooks.policy_engine import evaluate_bash_command
 from hooks.shadow_manager import create_evidence_pack
 from hooks.trust_review import review_config_change, write_trust_manifest
