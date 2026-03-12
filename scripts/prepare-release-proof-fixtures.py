@@ -6,6 +6,18 @@ import hashlib
 import json
 from pathlib import Path
 
+from registry.verify_artifact import sign_artifact_statement
+
+
+_DEV_PRIVATE_KEY = "Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8="
+_DEV_KEY_ID = "1f5fe64ec2f8c901"
+_DETERMINISM_VERSION = "forge-determinism-v1"
+_DETERMINISM_SCOPE = "same-hardware"
+_TEMPERATURE_LOCK = {
+    "critical_model_paths": 0.0,
+    "critical_tool_paths": 0.0,
+}
+
 
 def _write_json(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -22,6 +34,16 @@ def _context_checksum(*, run_id: str, profile_version: str, intent_gate_version:
     return hashlib.sha256(material.encode("utf-8", errors="ignore")).hexdigest()
 
 
+def _build_deterministic_contract(run_id: str) -> dict[str, object]:
+    digest = hashlib.sha256(run_id.encode("utf-8")).digest()
+    return {
+        "seed": int.from_bytes(digest[:8], byteorder="big", signed=False),
+        "temperature_lock": dict(_TEMPERATURE_LOCK),
+        "determinism_version": _DETERMINISM_VERSION,
+        "determinism_scope": _DETERMINISM_SCOPE,
+    }
+
+
 def prepare_release_proof_fixtures(output_root: Path) -> None:
     trace_id = "trace-1"
     eval_id = "eval-1"
@@ -34,6 +56,23 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
         profile_version=profile_version,
         intent_gate_version=intent_gate_version,
     )
+    deterministic_contract = _build_deterministic_contract(run_id)
+    artifact_digest = hashlib.sha256(f"{run_id}:release-artifact".encode("utf-8")).hexdigest()
+    artifact_path = f"dist/public/{run_id}-release-bundle.tgz"
+    artifact = {
+        "id": f"release-{run_id}",
+        "signer": "omg-local",
+        "checksum": f"sha256:{artifact_digest}",
+        "attestation": sign_artifact_statement(
+            artifact_path=artifact_path,
+            subject_digest=artifact_digest,
+            signer_key=_DEV_PRIVATE_KEY,
+            signer_key_id=_DEV_KEY_ID,
+        ),
+        "permissions": ["read"],
+        "static_scan": [],
+        "risk_level": "low",
+    }
 
     junit_path = output_root / ".omg" / "evidence" / "junit.xml"
     coverage_path = output_root / ".omg" / "evidence" / "coverage.xml"
@@ -122,12 +161,18 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             {
                 "schema": "EvidencePack",
                 "run_id": run_id,
+                "evidence_profile": "release",
                 "timestamp": "2026-03-07T00:00:00Z",
                 "executor": {"user": "release-bot", "pid": 1},
                 "environment": {"hostname": "localhost", "platform": "linux"},
                 "context_checksum": context_checksum,
                 "profile_version": profile_version,
                 "intent_gate_version": intent_gate_version,
+                "seed": deterministic_contract["seed"],
+                "temperature_lock": deterministic_contract["temperature_lock"],
+                "determinism_version": deterministic_contract["determinism_version"],
+                "determinism_scope": deterministic_contract["determinism_scope"],
+                "artifact": artifact,
             "tests": [{"name": "release_readiness", "passed": True}],
             "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
             "diff_summary": {"files": 1},
@@ -138,11 +183,13 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "claims": [
                 {
                     "claim_type": "release_ready",
+                    "run_id": run_id,
+                    "evidence_profile": "release",
                     "artifacts": [
-                        "junit.xml",
-                        "coverage.xml",
-                        "results.sarif",
-                        "browser_trace.json",
+                        ".omg/evidence/junit.xml",
+                        ".omg/evidence/coverage.xml",
+                        ".omg/evidence/results.sarif",
+                        ".omg/evidence/browser_trace.json",
                     ],
                     "trace_ids": [trace_id],
                 }
@@ -204,6 +251,12 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "phase": "finalize",
             "resolution_source": "fixtures",
             "resolution_reason": "deterministic_release_seed",
+            "compliance_authority": "release",
+            "compliance_reason": "compliance checks passed",
+            "artifact_verdict": "allow",
+            "artifact_alg": "ed25519-minisign",
+            "artifact_key_id": _DEV_KEY_ID,
+            "artifact_subject_sha256": artifact_digest,
             "updated_at": "2026-03-07T00:00:00Z",
             "context_checksum": context_checksum,
             "profile_version": profile_version,
