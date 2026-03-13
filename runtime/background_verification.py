@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 BACKGROUND_VERIFICATION_REL_PATH = Path(".omg") / "state" / "background-verification.json"
 
@@ -35,14 +35,25 @@ def publish_verification_state(
     return str(path)
 
 
-def read_verification_state(project_dir: str) -> dict[str, Any] | None:
+def read_verification_state(project_dir: str, run_id: str | None = None) -> dict[str, Any] | None:
     path = Path(project_dir) / BACKGROUND_VERIFICATION_REL_PATH
     if not path.exists():
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(payload, dict) and payload.get("schema") == "BackgroundVerificationState":
-            return payload
+        if not isinstance(payload, dict):
+            return None
+        if payload.get("schema") != "BackgroundVerificationState":
+            return None
+        if int(payload.get("schema_version", 0)) != 2:
+            return None
+        status = str(payload.get("status", "")).strip()
+        if status not in _VALID_STATUSES:
+            return None
+        expected_run_id = str(run_id or "").strip()
+        if expected_run_id and str(payload.get("run_id", "")).strip() != expected_run_id:
+            return None
+        return payload
     except (json.JSONDecodeError, OSError):
         pass
     return None
@@ -89,7 +100,7 @@ def skipped_stages_for_profile(evidence_profile: str | None) -> list[str]:
 
 
 def run_validation_with_timeout(
-    fn: object,
+    fn: Callable[[], str],
     timeout_seconds: float = 60.0,
 ) -> dict[str, Any]:
     """Execute a validation callable with a timeout gate.
@@ -101,7 +112,7 @@ def run_validation_with_timeout(
     import concurrent.futures
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(fn)  # type: ignore[arg-type]
+        future = pool.submit(fn)
         try:
             result = future.result(timeout=timeout_seconds)
             return {"status": result, "timed_out": False}

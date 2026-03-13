@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from registry.verify_artifact import verify_artifact_statement
 from runtime import artifact_parsers
 from runtime.context_engine import load_profile_digest
 from runtime.evidence_query import get_evidence_pack
@@ -124,10 +125,13 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
     normalized_claim = _normalize_claim(claim)
     claim_type = str(normalized_claim.get("claim_type", "")).strip()
     subject = str(normalized_claim.get("subject", "")).strip()
+    run_id = str(claim.get("run_id", "")).strip()
     artifacts = _as_non_empty_str_list(normalized_claim.get("artifacts"))
     trace_ids = _as_non_empty_str_list(normalized_claim.get("trace_ids"))
     security_scans = normalized_claim.get("security_scans")
     browser_evidence = normalized_claim.get("browser_evidence")
+    excluded_failures = _as_non_empty_list(normalized_claim.get("excluded_failures"))
+    excluded_failures_waiver_path = str(normalized_claim.get("excluded_failures_waiver_path", "")).strip()
     evidence_profile = str(normalized_claim.get("evidence_profile", "")).strip()
     evidence_requirements = requirements_for_profile(evidence_profile)
     requirement_set = {str(item).strip() for item in evidence_requirements if str(item).strip()}
@@ -188,6 +192,15 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    reasons.extend(
+        _validate_excluded_failures_policy(
+            project_dir=project_dir,
+            run_id=run_id,
+            excluded_failures=excluded_failures,
+            waiver_path=excluded_failures_waiver_path,
+        )
+    )
+
     strict_mode = os.environ.get("OMG_PROOF_CHAIN_STRICT", "0").strip() == "1"
     strict_causal_chain = strict_mode or _claim_type_enforces_strict_causal_chain(
         claim_type=claim_type,
@@ -228,6 +241,8 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             "lineage": normalized_claim.get("lineage") if isinstance(normalized_claim.get("lineage"), dict) else {},
             "security_scans": security_scans if isinstance(security_scans, list) else [],
             "browser_evidence": browser_evidence if isinstance(browser_evidence, list) else [],
+            "excluded_failures": excluded_failures,
+            "excluded_failures_waiver_path": excluded_failures_waiver_path,
             "causal_chain": causal_chain,
             "advisories": advisories,
             "evidence_profile": evidence_profile,
@@ -254,6 +269,13 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
     claim_browser_evidence = claim.get("browser_evidence")
     browser_evidence = claim_browser_evidence if isinstance(claim_browser_evidence, list) else _as_non_empty_dict_list(evidence.get("browser_evidence"))
 
+    claim_excluded_failures = claim.get("excluded_failures")
+    excluded_failures = claim_excluded_failures if isinstance(claim_excluded_failures, list) else _as_non_empty_list(evidence.get("excluded_failures"))
+
+    excluded_failures_waiver_path = str(
+        claim.get("excluded_failures_waiver_path", evidence.get("excluded_failures_waiver_path", ""))
+    ).strip()
+
     lock_verification = claim.get("lock_verification") if isinstance(claim.get("lock_verification"), dict) else _as_dict(evidence.get("lock_verification"))
     causal_chain = {
         "lock_id": str(claim.get("lock_id", evidence.get("lock_id", ""))).strip(),
@@ -275,9 +297,125 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
         "lineage": lineage,
         "security_scans": security_scans,
         "browser_evidence": browser_evidence,
+        "excluded_failures": excluded_failures,
+        "excluded_failures_waiver_path": excluded_failures_waiver_path,
         "causal_chain": causal_chain,
         "evidence_profile": str(claim.get("evidence_profile", evidence.get("evidence_profile", ""))).strip(),
     }
+
+
+def _validate_excluded_failures_policy(
+    *,
+    project_dir: str,
+    run_id: str,
+    excluded_failures: list[Any],
+    waiver_path: str,
+) -> list[dict[str, Any]]:
+    if not excluded_failures:
+        return []
+
+    if not waiver_path:
+        return [
+            {
+                "code": "excluded_failures_without_signed_waiver",
+                "message": "Excluded failures require a signed waiver artifact.",
+                "field": "excluded_failures",
+            }
+        ]
+
+    waiver_file = Path(waiver_path)
+    if not waiver_file.is_absolute():
+        waiver_file = Path(project_dir) / waiver_file
+    if not waiver_file.exists():
+        return [
+            {
+                "code": "excluded_failures_without_signed_waiver",
+                "message": f"Excluded failures waiver artifact not found: {waiver_path}",
+                "field": "excluded_failures_waiver_path",
+            }
+        ]
+
+    try:
+        waiver_payload = json.loads(waiver_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        waiver_payload = None
+    if not isinstance(waiver_payload, dict):
+        return [
+            {
+                "code": "excluded_failures_without_signed_waiver",
+                "message": "Excluded failures waiver artifact must be valid JSON.",
+                "field": "excluded_failures_waiver_path",
+            }
+        ]
+
+    statement = _extract_signed_statement(waiver_payload)
+    if not isinstance(statement, dict) or not verify_artifact_statement(statement):
+        return [
+            {
+                "code": "excluded_failures_without_signed_waiver",
+                "message": "Excluded failures waiver artifact must include a valid signed attestation statement.",
+                "field": "excluded_failures_waiver_path",
+            }
+        ]
+
+    waiver_run_id = str(waiver_payload.get("run_id", "")).strip()
+    if run_id and waiver_run_id and waiver_run_id != run_id:
+        return [
+            {
+                "code": "excluded_failures_without_signed_waiver",
+                "message": "Excluded failures waiver artifact run_id does not match claim run_id.",
+                "field": "excluded_failures_waiver_path",
+            }
+        ]
+
+    waiver_exclusions = _as_non_empty_list(waiver_payload.get("excluded_failures"))
+    if not waiver_exclusions:
+        return [
+            {
+                "code": "excluded_failures_without_signed_waiver",
+                "message": "Excluded failures waiver artifact must enumerate excluded failures.",
+                "field": "excluded_failures_waiver_path",
+            }
+        ]
+
+    required = {_normalize_exclusion_token(item) for item in excluded_failures}
+    provided = {_normalize_exclusion_token(item) for item in waiver_exclusions}
+    if not required.issubset(provided):
+        return [
+            {
+                "code": "excluded_failures_without_signed_waiver",
+                "message": "Excluded failures waiver artifact does not authorize all excluded failures.",
+                "field": "excluded_failures",
+            }
+        ]
+    return []
+
+
+def _extract_signed_statement(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if "_type" in payload and "subject" in payload and "predicateType" in payload:
+        return payload
+    candidate = payload.get("attestation_statement")
+    if isinstance(candidate, dict):
+        return candidate
+    candidate = payload.get("statement")
+    if isinstance(candidate, dict):
+        return candidate
+    candidate = payload.get("attestation")
+    if isinstance(candidate, dict):
+        return candidate
+    return None
+
+
+def _normalize_exclusion_token(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for field in ("id", "test", "name", "reason"):
+            token = str(value.get(field, "")).strip()
+            if token:
+                return token
+        return json.dumps(value, sort_keys=True, ensure_ascii=True)
+    return str(value).strip()
 
 
 def _validate_causal_chain(causal_chain: dict[str, Any], *, require_versions: bool) -> list[str]:
@@ -379,6 +517,19 @@ def _as_non_empty_str_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _as_non_empty_list(value: Any) -> list[Any]:
+    if not isinstance(value, list):
+        return []
+    items: list[Any] = []
+    for item in value:
+        if isinstance(item, str) and not item.strip():
+            continue
+        if item in ({}, []):
+            continue
+        items.append(item)
+    return items
 
 
 def _as_non_empty_dict_list(value: Any) -> list[dict[str, Any]]:

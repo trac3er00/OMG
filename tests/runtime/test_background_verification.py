@@ -121,6 +121,42 @@ def test_read_verification_state_degrades_gracefully_on_corrupt_file(tmp_path: P
     assert result is None
 
 
+def test_read_verification_state_returns_none_for_run_id_mismatch(tmp_path: Path) -> None:
+    from runtime.background_verification import publish_verification_state, read_verification_state
+
+    publish_verification_state(
+        project_dir=str(tmp_path),
+        run_id="run-current",
+        status="running",
+        blockers=[],
+        evidence_links=[],
+        progress={"step": 1, "total": 1},
+    )
+
+    result = read_verification_state(str(tmp_path), run_id="run-other")
+    assert result is None
+
+
+def test_read_verification_state_rejects_legacy_schema_version(tmp_path: Path) -> None:
+    from runtime.background_verification import read_verification_state
+
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "background-verification.json").write_text(
+        json.dumps(
+            {
+                "schema": "BackgroundVerificationState",
+                "schema_version": 1,
+                "run_id": "run-legacy",
+                "status": "ok",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert read_verification_state(str(tmp_path)) is None
+
+
 def test_state_file_has_schema_version_2(tmp_path: Path) -> None:
     """Schema version must be exactly 2."""
     from runtime.background_verification import publish_verification_state

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 
@@ -1635,6 +1636,75 @@ def test_execution_primitives_missing_profile_fails_closed_to_full_requirements(
 
     assert result["required_evidence_requirements"] == requirements_for_profile(None)
     assert any(item.startswith("missing_execution_primitive:") for item in result["blockers"])
+
+
+def test_release_readiness_blocks_stale_exec_kernel_evidence(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    evidence_path = tmp_path / ".omg" / "evidence" / "run-1.json"
+    exec_kernel_path = tmp_path / ".omg" / "state" / "exec-kernel" / "run-1.json"
+    stale_mtime = max(1.0, evidence_path.stat().st_mtime - 7200.0)
+    os.utime(exec_kernel_path, (stale_mtime, stale_mtime))
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("stale_execution_primitive: exec_kernel_state" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_excluded_failures_without_signed_waiver(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    evidence_path = tmp_path / ".omg" / "evidence" / "run-1.json"
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    payload["excluded_failures"] = [
+        {
+            "id": "pytest::test_flaky_release_gate",
+            "reason": "known deterministic fixture",
+        }
+    ]
+    payload.pop("excluded_failures_waiver_path", None)
+    evidence_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("excluded_failures_without_signed_waiver" in blocker for blocker in readiness["blockers"])
 
 
 def test_release_readiness_dual_bundle_promotion_parity_happy_path(

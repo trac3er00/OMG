@@ -394,3 +394,32 @@ def test_release_readiness_names_proof_chain_blocker_when_trace_link_is_missing(
 
     assert readiness["status"] == "error"
     assert "proof_chain_linkage: proof_chain_missing_trace_id" in readiness["blockers"]
+
+
+def test_assemble_proof_chain_publishes_background_state_with_evidence_run_id(tmp_path: Path) -> None:
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    _ = (evidence_root / "run-proof-background.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "run_id": "run-proof-background",
+                "timestamp": "2026-03-08T00:00:00+00:00",
+                "executor": {"user": "tester", "pid": 1234},
+                "environment": {"hostname": "localhost", "platform": "darwin"},
+                "trace_ids": ["trace-proof-background"],
+                "lineage": {"trace_id": "trace-proof-background", "lineage_id": "lineage-proof-background"},
+                "security_scans": [],
+                "tests": [{"name": "worker_implementation", "passed": True}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    proof_chain = importlib.import_module("runtime.proof_chain")
+    chain = proof_chain.assemble_proof_chain(str(tmp_path))
+
+    state_path = tmp_path / ".omg" / "state" / "background-verification.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert chain["run_id"] == "run-proof-background"
+    assert state["run_id"] == "run-proof-background"
