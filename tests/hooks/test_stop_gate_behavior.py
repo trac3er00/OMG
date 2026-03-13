@@ -26,14 +26,17 @@ def _write_ledger(project: Path, entries: list[dict]) -> Path:
     return ledger
 
 
-def _run_stop_gate(project: Path) -> subprocess.CompletedProcess[str]:
+def _run_stop_gate(project: Path, env_extras: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(project)}
+    if env_extras:
+        env.update(env_extras)
     return subprocess.run(
         ["python3", str(STOP_GATE)],
         input="{}",
         text=True,
         capture_output=True,
         cwd=str(ROOT),
-        env={**os.environ, "CLAUDE_PROJECT_DIR": str(project)},
+        env=env,
         check=False,
     )
 
@@ -104,7 +107,7 @@ def test_source_writes_warn_mode_emits_advisory_not_block(tmp_path: Path):
         ],
     )
 
-    proc = _run_stop_gate(project)
+    proc = _run_stop_gate(project, env_extras={"OMG_PROOF_CHAIN_STRICT": "0"})
     assert proc.returncode == 0
     assert proc.stdout.strip() == ""
     assert "omg advisory" in proc.stderr.lower()
@@ -122,7 +125,7 @@ def test_write_failure_check_ignores_internal_and_unknown_status(tmp_path: Path)
         ],
     )
 
-    proc = _run_stop_gate(project)
+    proc = _run_stop_gate(project, env_extras={"OMG_PROOF_CHAIN_STRICT": "0"})
     assert proc.returncode == 0
     assert proc.stdout.strip() == ""
 

@@ -12,6 +12,7 @@ from runtime.untrusted_content import (
     TRUST_TIER_CONFIG,
     TrustTier,
     get_untrusted_content_state,
+    mark_untrusted_content,
 )
 
 
@@ -120,6 +121,22 @@ class PlaywrightPack:
 
         timestamp = datetime.now(timezone.utc).isoformat()
 
+        mark_untrusted_content(
+            str(self.project_dir),
+            source_type="browser",
+            source_ref=str(fixture),
+            content=json.dumps(
+                {
+                    "event": "playwright_run_smoke",
+                    "fixture": str(fixture),
+                    "isolated": self.isolated,
+                },
+                sort_keys=True,
+                ensure_ascii=True,
+            ),
+            tier=TrustTier.BROWSER,
+        )
+
         artifacts = self.emit_artifacts(output_dir)
         metadata = self._build_metadata(timestamp=timestamp)
 
@@ -175,6 +192,22 @@ class PlaywrightPack:
         final_metadata = self._build_metadata()
         if metadata:
             final_metadata.update(metadata)
+
+        mark_untrusted_content(
+            str(self.project_dir),
+            source_type="browser",
+            source_ref=str(output_root),
+            content=json.dumps(
+                {
+                    "event": "playwright_ingest_external_artifacts",
+                    "artifacts": sorted(artifacts.keys()),
+                    "metadata": final_metadata,
+                },
+                sort_keys=True,
+                ensure_ascii=True,
+            ),
+            tier=TrustTier.BROWSER,
+        )
 
         evidence_path = _write_browser_evidence(
             output_root,

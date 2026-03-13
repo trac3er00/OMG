@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -17,10 +18,35 @@ _READ_ONLY_TOOL_HINTS = (
     "glob",
     "list",
     "ls",
-    "context7",
-    "websearch",
 )
 _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
+_EXTERNAL_EXECUTION_TOOL_HINTS = (
+    "context7",
+    "websearch",
+    "web_search",
+    "browser",
+    "playwright",
+    "chrome-devtools",
+)
+_EXTERNAL_BASH_PATTERNS = (
+    re.compile(r"(?:^|[\s;&|()])(curl|wget)\b"),
+    re.compile(r"(?:^|[\s;&|()])(ssh|scp|rsync)\b"),
+    re.compile(r"\bgit\s+(clone|fetch|pull)\b"),
+)
+_MUTATION_BASH_PATTERNS = (
+    r"\b(git\s+(add|commit|push|rebase|cherry-pick|merge|tag))\b",
+    r"\b(rm|mv|cp|tee|touch|mkdir|rmdir|ln)\b",
+    r"\b(sed\s+-i|perl\s+-pi)\b",
+    r"\b(chmod|chown)\b",
+)
+_HARMLESS_REDIRECTION_PATTERNS = (
+    re.compile(r"(?:^|[\s;&|()])\d*>>?\s*/dev/(?:null|stdout|stderr)(?=\s|$)"),
+    re.compile(r"(?:^|[\s;&|()])\d*>&\d+(?=\s|$)"),
+    re.compile(r"(?:^|[\s;&|()])\d*>&-(?=\s|$)"),
+)
+_FILE_WRITE_REDIRECTION_PATTERN = re.compile(
+    r"(?:^|[\s;&|()])\d*>>?(?!\s*(?:/dev/(?:null|stdout|stderr)\b|&\d+\b|&-\b))\s*\S+"
+)
 
 
 def evaluate_tool_compliance(
@@ -30,18 +56,26 @@ def evaluate_tool_compliance(
     tool: str,
     has_tool_plan: bool,
     clarification_status: dict[str, object] | None = None,
+    tool_input: dict[str, object] | None = None,
 ) -> dict[str, object]:
     clarification = _normalized_clarification_status(clarification_status)
     if clarification["requires_clarification"]:
         reason = _clarification_reason(str(clarification["clarification_prompt"]))
-        if _is_mutation_capable_tool(tool):
+        if _is_mutation_capable_tool(tool, tool_input=tool_input):
             return {
                 "status": "blocked",
                 "authority": "clarification",
                 "reason": reason,
                 "clarification_status": clarification,
             }
-        if _is_read_search_review_tool(tool):
+        if _is_external_execution_tool(tool, tool_input=tool_input):
+            return {
+                "status": "blocked",
+                "authority": "clarification",
+                "reason": _clarification_external_reason(str(clarification["clarification_prompt"])),
+                "clarification_status": clarification,
+            }
+        if _is_read_search_review_tool(tool, tool_input=tool_input):
             return {
                 "status": "allowed",
                 "authority": "clarification",
@@ -266,17 +300,73 @@ def _clarification_reason(clarification_prompt: str) -> str:
     return "Clarification required before mutation: provide the missing intent details."
 
 
-def _is_mutation_capable_tool(tool: str) -> bool:
+def _clarification_external_reason(clarification_prompt: str) -> str:
+    prompt = " ".join(str(clarification_prompt or "").split())
+    if prompt:
+        return f"Clarification required before external execution: {prompt}"
+    return "Clarification required before external execution: provide the missing intent details."
+
+
+def classify_bash_command_mode(command: str) -> str:
+    normalized_command = str(command or "").strip()
+    if not normalized_command:
+        return "read"
+    if _is_mutation_capable_bash(normalized_command):
+        return "mutation"
+    lowered = normalized_command.lower()
+    for pattern in _EXTERNAL_BASH_PATTERNS:
+        if pattern.search(lowered):
+            return "external"
+    return "read"
+
+
+def _is_mutation_capable_bash(command: str) -> bool:
+    normalized_command = str(command or "").strip()
+    if not normalized_command:
+        return False
+    lowered = _strip_harmless_redirections(normalized_command.lower())
+    for pattern in _MUTATION_BASH_PATTERNS:
+        if re.search(pattern, lowered):
+            return True
+    if _FILE_WRITE_REDIRECTION_PATTERN.search(lowered):
+        return True
+    return False
+
+
+def _strip_harmless_redirections(command: str) -> str:
+    sanitized = command
+    for pattern in _HARMLESS_REDIRECTION_PATTERNS:
+        sanitized = pattern.sub(" ", sanitized)
+    return re.sub(r"\s+", " ", sanitized).strip()
+
+
+def _is_mutation_capable_tool(tool: str, *, tool_input: dict[str, object] | None = None) -> bool:
     token = str(tool or "").strip().lower()
+    if token == "bash":
+        mode = classify_bash_command_mode(str((tool_input or {}).get("command", "")))
+        return mode == "mutation"
     if token in _MUTATION_TOOLS:
         return True
-    return token.startswith("bash:")
+    return token == "bash:mutation"
 
 
-def _is_read_search_review_tool(tool: str) -> bool:
+def _is_external_execution_tool(tool: str, *, tool_input: dict[str, object] | None = None) -> bool:
+    token = str(tool or "").strip().lower()
+    if token == "bash":
+        mode = classify_bash_command_mode(str((tool_input or {}).get("command", "")))
+        return mode == "external"
+    if token == "bash:external":
+        return True
+    return any(hint in token for hint in _EXTERNAL_EXECUTION_TOOL_HINTS)
+
+
+def _is_read_search_review_tool(tool: str, *, tool_input: dict[str, object] | None = None) -> bool:
     token = str(tool or "").strip().lower()
     if not token:
         return False
+    if token == "bash":
+        mode = classify_bash_command_mode(str((tool_input or {}).get("command", "")))
+        return mode == "read"
     return any(hint in token for hint in _READ_ONLY_TOOL_HINTS)
 
 

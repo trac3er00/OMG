@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/.agents/skills/omg/delta-classifier/openai.yaml",
+      "digest": {
+        "sha256": "b06422d0afc62af4085b38ead53ab28096beec5ae943ed317207bd7edacfc59c"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-13T03:48:12.324814+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-13T03:48:12.324814+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "3c229a93d6fcb875",
+    "value": "untrusted comment: signature from omg local signing key\nTo4mCQypjCuJJpbaOjgrRYpJ6IIu3d5oU58FVaxP81UI/lQIHsf7vRDXmzkndyLSiLPcGcepQdPJuf3iYnf+AQ==\ntrusted comment: type=omg-slsa-v1 keyid=3c229a93d6fcb875 issued_at=2026-03-13T03:48:12.324920+00:00 artifact=bundle/.agents/skills/omg/delta-classifier/openai.yaml sha256=b06422d0afc62af4085b38ead53ab28096beec5ae943ed317207bd7edacfc59c\niLF7CUPwi542QTWJ4bULbiucShIr0axYlXUsto4JSyOdSSJjrEy8EPdXIKTIzbhJNbyPxnD/PbKF7vZ7qgCyDw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=3c229a93d6fcb875 issued_at=2026-03-13T03:48:12.324920+00:00 artifact=bundle/.agents/skills/omg/delta-classifier/openai.yaml sha256=b06422d0afc62af4085b38ead53ab28096beec5ae943ed317207bd7edacfc59c"
+  }
+}

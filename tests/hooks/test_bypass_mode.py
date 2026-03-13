@@ -79,7 +79,8 @@ def test_firewall_bypass_skips_ask_for_ssh():
 
 
 def test_firewall_bypass_skips_ask_for_git_force_push():
-    out = run_hook_json("hooks/firewall.py", _bash_bypass("git push --force origin main"))
+    out = run_hook_json("hooks/firewall.py", _bash_bypass("git push --force origin main"),
+                        env_overrides={"OMG_TDD_GATE_STRICT": "0"})
     assert get_decision(out) is None, f"bypass mode should suppress ask for git push --force, got: {out}"
 
 

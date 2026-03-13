@@ -1,0 +1,49 @@
+id: test-intent-lock
+kind: proof
+version: 2.1.9
+title: OMG Test Intent Lock
+description: Structured test-delta guard that blocks weakened tests unless explicit override evidence is present.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/test_intent_lock.py
+invocation_policy:
+  user_invocable: true
+  model_invocable: true
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: low
+  allowed_tools:
+    claude:
+      - Read
+      - Grep
+      - Bash(python3:*)
+    codex:
+      - Read
+      - Grep
+      - Bash(python3:*)
+lifecycle_hooks:
+  native:
+    - PostToolUse
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - python
+evidence_outputs:
+  artifacts:
+    - .omg/evidence/test-intent-lock-*.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+channel_overrides:
+  public:
+    posture: self-serve
+  enterprise:
+    posture: managed

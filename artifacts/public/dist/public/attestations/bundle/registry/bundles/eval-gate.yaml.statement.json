@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/eval-gate.yaml",
+      "digest": {
+        "sha256": "f8d4cc8db65a568bea308da4ce4bd3aeade4cbbeabb6063ef930b9595c3ff0ce"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-13T03:48:12.359752+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-13T03:48:12.359752+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "c5d4bff77bb059cc",
+    "value": "untrusted comment: signature from omg local signing key\nmOkJB+YV2CTmx5wEE/v61OA/zGjqO0qTP6hgIiegv/JOJjq5AWz79R5w8xgyKUdmKJoIKrFeJ3lzJuo6BmaiCg==\ntrusted comment: type=omg-slsa-v1 keyid=c5d4bff77bb059cc issued_at=2026-03-13T03:48:12.359864+00:00 artifact=bundle/registry/bundles/eval-gate.yaml sha256=f8d4cc8db65a568bea308da4ce4bd3aeade4cbbeabb6063ef930b9595c3ff0ce\nbm3pYxCpCWnkHeMRm+hMk2w3ZuGN2TP59PdL3nCZ9mmAFKxKHjx/1mfveWU+krNhmlmeRZPdjXkvTZ1GEad3DQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=c5d4bff77bb059cc issued_at=2026-03-13T03:48:12.359864+00:00 artifact=bundle/registry/bundles/eval-gate.yaml sha256=f8d4cc8db65a568bea308da4ce4bd3aeade4cbbeabb6063ef930b9595c3ff0ce"
+  }
+}

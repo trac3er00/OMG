@@ -1,0 +1,36 @@
+{
+  "name": "omg",
+  "description": "Marketplace metadata for the OMG Claude plugin",
+  "owner": {
+    "name": "trac3er00"
+  },
+  "metadata": {
+    "description": "OMG - Oh-My-God for Claude Code and supported agent hosts",
+    "version": "2.1.9",
+    "homepage": "https://github.com/trac3er00/OMG",
+    "repository": "https://github.com/trac3er00/OMG"
+  },
+  "plugins": [
+    {
+      "name": "omg",
+      "description": "OMG plugin layer for Claude Code and supported agent hosts with native setup, orchestration, and interop.",
+      "version": "2.1.9",
+      "source": "./",
+      "author": {
+        "name": "trac3er00"
+      },
+      "license": "MIT",
+      "category": "productivity",
+      "tags": [
+        "orchestration",
+        "automation",
+        "multi-agent",
+        "omg",
+        "codex",
+        "gemini",
+        "crazy-mode"
+      ]
+    }
+  ],
+  "version": "2.1.9"
+}

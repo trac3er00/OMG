@@ -54,6 +54,11 @@ def _version_label(path: str) -> str:
     return f"{path} must be {CANONICAL_VERSION}"
 
 
+def _require_generated_path(path: Path, rel: str, fix_hint: str) -> Path:
+    assert path.exists(), f"{rel} missing.\nFix: {fix_hint}"
+    return path
+
+
 # ─────────────────────────────────────────────
 # 1. Core authored surfaces
 # ─────────────────────────────────────────────
@@ -171,9 +176,15 @@ def test_gate_manifest_contract_version(manifest_path: str):
     Fix: run  python3 scripts/omg.py contract compile --host claude --host codex --channel <channel>
               python3 scripts/omg.py contract compile --host claude --host codex --channel <channel> --output-root artifacts/release
     """
-    p = ROOT / manifest_path
-    if not p.exists():
-        pytest.skip(f"{manifest_path} does not exist (not yet compiled)")
+    p = _require_generated_path(
+        ROOT / manifest_path,
+        manifest_path,
+        (
+            "python3 scripts/omg.py contract compile --host claude --host codex "
+            f"--channel {'public' if 'public' in manifest_path else 'enterprise'}"
+            + (" --output-root artifacts/release" if manifest_path.startswith("artifacts/release/") else "")
+        ),
+    )
     manifest = json.loads(p.read_text(encoding="utf-8"))
     assert manifest["contract_version"] == CANONICAL_VERSION, \
         (
@@ -192,9 +203,15 @@ def test_gate_manifest_contract_version(manifest_path: str):
 ])
 def test_gate_manifest_attestations_present(manifest_path: str):
     """Compiled manifests must include ed25519 attestations for all artifacts."""
-    p = ROOT / manifest_path
-    if not p.exists():
-        pytest.skip(f"{manifest_path} does not exist")
+    p = _require_generated_path(
+        ROOT / manifest_path,
+        manifest_path,
+        (
+            "python3 scripts/omg.py contract compile --host claude --host codex "
+            f"--channel {'public' if 'public' in manifest_path else 'enterprise'}"
+            + (" --output-root artifacts/release" if manifest_path.startswith("artifacts/release/") else "")
+        ),
+    )
     manifest = json.loads(p.read_text(encoding="utf-8"))
     attestations = manifest.get("attestations", [])
     artifacts = manifest.get("artifacts", [])
@@ -219,9 +236,15 @@ _DIST_BUNDLE_DIRS = [
 
 @pytest.mark.parametrize("bundle_root", _DIST_BUNDLE_DIRS)
 def test_gate_dist_bundle_settings_version(bundle_root: str):
-    p = ROOT / bundle_root / "settings.json"
-    if not p.exists():
-        pytest.skip(f"{bundle_root}/settings.json does not exist")
+    p = _require_generated_path(
+        ROOT / bundle_root / "settings.json",
+        f"{bundle_root}/settings.json",
+        (
+            "python3 scripts/omg.py contract compile --host claude --host codex "
+            f"--channel {'public' if 'public' in bundle_root else 'enterprise'}"
+            + (" --output-root artifacts/release" if bundle_root.startswith("artifacts/release/") else "")
+        ),
+    )
     s = json.loads(p.read_text(encoding="utf-8"))
     assert s["_omg"]["_version"] == CANONICAL_VERSION, \
         _version_label(f"{bundle_root}/settings.json")
@@ -229,9 +252,15 @@ def test_gate_dist_bundle_settings_version(bundle_root: str):
 
 @pytest.mark.parametrize("bundle_root", _DIST_BUNDLE_DIRS)
 def test_gate_dist_bundle_plugin_json_version(bundle_root: str):
-    p = ROOT / bundle_root / ".claude-plugin" / "plugin.json"
-    if not p.exists():
-        pytest.skip(f"{bundle_root}/.claude-plugin/plugin.json does not exist")
+    p = _require_generated_path(
+        ROOT / bundle_root / ".claude-plugin" / "plugin.json",
+        f"{bundle_root}/.claude-plugin/plugin.json",
+        (
+            "python3 scripts/omg.py contract compile --host claude --host codex "
+            f"--channel {'public' if 'public' in bundle_root else 'enterprise'}"
+            + (" --output-root artifacts/release" if bundle_root.startswith("artifacts/release/") else "")
+        ),
+    )
     plugin = json.loads(p.read_text(encoding="utf-8"))
     assert plugin["version"] == CANONICAL_VERSION, \
         _version_label(f"{bundle_root}/.claude-plugin/plugin.json")
@@ -246,9 +275,11 @@ def test_gate_build_lib_adoption_version():
 
     Fix: python3 -m build --wheel
     """
-    p = ROOT / "build" / "lib" / "runtime" / "adoption.py"
-    if not p.exists():
-        pytest.skip("build/lib/runtime/adoption.py does not exist (run: python3 -m build --wheel)")
+    p = _require_generated_path(
+        ROOT / "build" / "lib" / "runtime" / "adoption.py",
+        "build/lib/runtime/adoption.py",
+        "python3 -m build --wheel",
+    )
     text = p.read_text(encoding="utf-8")
     assert f'CANONICAL_VERSION = "{CANONICAL_VERSION}"' in text, \
         (
@@ -267,9 +298,11 @@ def test_gate_build_lib_adoption_version():
 ])
 def test_gate_host_config_version(config_path: str):
     """Gemini and Kimi generated configs must carry the canonical version."""
-    p = ROOT / config_path
-    if not p.exists():
-        pytest.skip(f"{config_path} does not exist")
+    p = _require_generated_path(
+        ROOT / config_path,
+        config_path,
+        "python3 scripts/sync-release-identity.py",
+    )
     data = json.loads(p.read_text(encoding="utf-8"))
     omg = data.get("_omg", {})
     assert omg.get("_version") == CANONICAL_VERSION, \

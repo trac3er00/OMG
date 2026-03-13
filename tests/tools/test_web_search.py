@@ -6,11 +6,12 @@ Tests provider abstraction, SearchResult dataclass, WebSearchManager,
 credential lookup, and CLI interface.
 """
 
+import importlib
 import json
 import os
 import subprocess
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,14 +24,12 @@ tools_dir = os.path.join(os.path.dirname(__file__), "..", "..", "tools")
 if tools_dir not in sys.path:
     sys.path.insert(0, tools_dir)
 
-import web_search
-from web_search import (
-    Provider,
-    SearchResult,
-    WebSearchManager,
-    get_api_key,
-    manager,
-)
+web_search = importlib.import_module("web_search")
+Provider = web_search.Provider
+SearchResult = web_search.SearchResult
+WebSearchManager = web_search.WebSearchManager
+get_api_key = web_search.get_api_key
+manager = web_search.manager
 
 
 # --- Concrete test provider ---
@@ -39,7 +38,8 @@ from web_search import (
 class MockProvider(Provider):
     """A concrete provider for testing."""
 
-    def __init__(self, results: List[Dict[str, str]] = None, fetch_content: str = ""):
+    def __init__(self, results: Optional[List[Dict[str, str]]] = None, fetch_content: str = ""):
+        super().__init__()
         self._results = results or []
         self._fetch_content = fetch_content
 
@@ -186,11 +186,14 @@ class TestWebSearchManager:
             {"title": "R2", "url": "https://b.com", "snippet": "S2"},
         ])
         mgr.register_provider("test_prov", prov)
-        results = mgr.search("hello world")
+        with patch.object(web_search, "_mark_external_ingress") as marker:
+            results = mgr.search("hello world")
         assert len(results) == 2
         assert isinstance(results[0], SearchResult)
         assert results[0].title == "R1"
         assert results[0].source == "test_prov"
+        marker.assert_called_once()
+        assert marker.call_args.kwargs["source_ref"] == "search:test_prov"
 
     def test_get_providers_list(self):
         """get_providers returns registered provider names."""
@@ -242,8 +245,11 @@ class TestWebSearchManager:
         """fetch() dispatches to the correct provider."""
         mgr = WebSearchManager()
         mgr.register_provider("fp", MockProvider(fetch_content="fetched!"))
-        content = mgr.fetch("https://example.com")
+        with patch.object(web_search, "_mark_external_ingress") as marker:
+            content = mgr.fetch("https://example.com")
         assert content == "fetched!"
+        marker.assert_called_once()
+        assert marker.call_args.kwargs["source_ref"] == "fetch:fp:https://example.com"
 
     def test_fetch_returns_empty_when_disabled(self):
         """fetch() returns empty string when feature flag disabled."""
@@ -290,6 +296,31 @@ class TestCredentialLookup:
                 with patch.dict(os.environ, {"SERPER_API_KEY": "env-key-789"}):
                     key = get_api_key("serper")
                     assert key == "env-key-789"
+
+    def test_credential_store_runtime_error_falls_back_to_env(self):
+        """get_api_key falls back to env var when credential store raises RuntimeError."""
+        mock_store = MagicMock()
+        mock_store.get_active_key.side_effect = RuntimeError(
+            "Secure credential backend unavailable: cryptography is required"
+        )
+
+        with patch.object(web_search, "_HAS_CREDENTIAL_STORE", True):
+            with patch.object(web_search, "_credential_store", mock_store):
+                with patch.dict(os.environ, {"EXA_API_KEY": "runtime-fallback"}):
+                    key = get_api_key("exa")
+                    assert key == "runtime-fallback"
+                    mock_store.get_active_key.assert_called_once_with("exa")
+
+    def test_credential_store_value_error_falls_back_to_env(self):
+        """get_api_key falls back to env var when credential store raises ValueError."""
+        mock_store = MagicMock()
+        mock_store.get_active_key.side_effect = ValueError("bad passphrase")
+
+        with patch.object(web_search, "_HAS_CREDENTIAL_STORE", True):
+            with patch.object(web_search, "_credential_store", mock_store):
+                with patch.dict(os.environ, {"SERPER_API_KEY": "value-fallback"}):
+                    key = get_api_key("serper")
+                    assert key == "value-fallback"
 
 
 # =============================================================================

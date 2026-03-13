@@ -1,0 +1,45 @@
+id: algorithms
+kind: domain-pack
+version: 2.1.9
+title: OMG Algorithms Pack
+description: Determinism and benchmark attachments for algorithm-heavy work.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/domain_packs.py
+invocation_policy:
+  user_invocable: true
+  model_invocable: true
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: medium
+  allowed_tools:
+    claude:
+      - Read
+    codex:
+      - Read
+lifecycle_hooks:
+  native:
+    - PostToolUse
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - python
+evidence_outputs:
+  artifacts:
+    - .omg/evals/latest.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+channel_overrides:
+  public:
+    benchmarks: advisory
+  enterprise:
+    benchmarks: required

@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-filesystem@2026.1.14",
+        "."
+      ]
+    },
+    "omg-control": {
+      "command": "python3",
+      "args": [
+        "-m",
+        "runtime.omg_mcp_server"
+      ]
+    }
+  }
+}

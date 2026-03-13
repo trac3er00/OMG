@@ -1,0 +1,12 @@
+name: omg-plan-council
+description: "Canonical council-style planning bundle for explicit, evidence-backed deep plans."
+allow_implicit_invocation: false
+metadata:
+  channel: public
+  bundle_id: plan-council
+  title: "OMG Plan Council"
+mcp_servers:
+  - omg-control
+allowed_tools:
+  - "Read"
+  - "Grep"

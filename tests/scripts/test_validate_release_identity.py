@@ -221,7 +221,7 @@ class TestDerivedDrift:
         assert result["status"] == "fail"
         assert any("unknown_algorithm" in b["surface"] for b in result["blockers"])
 
-    def test_release_manifest_legacy_hmac_bridge_passes(self, tmp_path):
+    def test_release_manifest_legacy_hmac_bridge_is_rejected(self, tmp_path):
         manifest_dir = tmp_path / "artifacts" / "release" / "dist" / "public"
         manifest_dir.mkdir(parents=True)
         digest = "a" * 64
@@ -234,6 +234,11 @@ class TestDerivedDrift:
             "predicate": {},
             "signer": {"keyid": "test", "algorithm": "hmac-sha256"},
             "issued_at": "2025-01-01T00:00:00Z",
+            "signature": {
+                "alg": "hmac-sha256",
+                "keyid": "test",
+                "value": "dGVzdA==",
+            },
         }
         manifest = {
             "schema": "OmgCompiledArtifactManifest",
@@ -251,9 +256,9 @@ class TestDerivedDrift:
         }
         (manifest_dir / "manifest.json").write_text(json.dumps(manifest))
 
-        with patch.object(_mod, "verify_artifact_statement", return_value=True):
-            result = validate_derived(tmp_path, "2.1.1")
-        assert result["status"] == "ok"
+        result = validate_derived(tmp_path, "2.1.1")
+        assert result["status"] == "fail"
+        assert any("invalid_signature" in b["surface"] for b in result["blockers"])
 
 
 class TestScopedResidue:

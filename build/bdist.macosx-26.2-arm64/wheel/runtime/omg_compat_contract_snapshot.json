@@ -1,0 +1,916 @@
+{
+  "schema": "OmgCompatContractSnapshot",
+  "contract_version": "2.1.9",
+  "count": 47,
+  "contracts": [
+    {
+      "skill": "analyze",
+      "route": "maintainer",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "AnalysisCompatArtifact"
+      },
+      "side_effects": [
+        ".omg/evidence/analysis-analyze.json"
+      ],
+      "notes": "Writes structured analysis evidence artifact."
+    },
+    {
+      "skill": "autopilot",
+      "route": "runtime_ship",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "RuntimeDispatchResult"
+      },
+      "side_effects": [
+        ".omg/state/persistent-mode.json"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "beads",
+      "route": "maintainer",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "MaintainerCompatArtifact"
+      },
+      "side_effects": [
+        ".omg/evidence/compat-beads.json"
+      ],
+      "notes": "Maps to maintainer route for context engineering artifacts."
+    },
+    {
+      "skill": "build-fix",
+      "route": "runtime_ship",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "RuntimeDispatchResult"
+      },
+      "side_effects": [
+        ".omg/state/build-fix.md"
+      ],
+      "notes": "Creates targeted fix checklist and routes execution to runtime."
+    },
+    {
+      "skill": "cancel",
+      "route": "cancel",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": []
+      },
+      "outputs": {
+        "schema": "CancelResult"
+      },
+      "side_effects": [
+        ".omg/shadow/active-run (removed when exists)"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "ccg",
+      "route": "ccg",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files",
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "TeamDispatchResult"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "claude-flow",
+      "route": "ccg",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files",
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "TeamDispatchResult"
+      },
+      "side_effects": [],
+      "notes": "Maps to CCG route for multi-agent orchestration semantics."
+    },
+    {
+      "skill": "claude-mem",
+      "route": "memory",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "StateMutationResult"
+      },
+      "side_effects": [
+        ".omg/state/working-memory.md"
+      ],
+      "notes": "Maps to memory route for durable working-context updates."
+    },
+    {
+      "skill": "code-review",
+      "route": "review",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files"
+        ]
+      },
+      "outputs": {
+        "schema": "ReviewSynthesis"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "compound-engineering",
+      "route": "ccg",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files",
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "TeamDispatchResult"
+      },
+      "side_effects": [],
+      "notes": "Maps to CCG route for compounding, iterative orchestration."
+    },
+    {
+      "skill": "compounding-engineering",
+      "route": "ccg",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files",
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "TeamDispatchResult"
+      },
+      "side_effects": [],
+      "notes": "Alias to compound-engineering orchestration route."
+    },
+    {
+      "skill": "configure-notifications",
+      "route": "health",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "HealthSnapshot"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "configure-openclaw",
+      "route": "health",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "HealthSnapshot"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "deepinit",
+      "route": "init",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "BootstrapResult"
+      },
+      "side_effects": [
+        ".omg/state/*",
+        ".omg/idea.yml",
+        ".omg/policy.yaml",
+        ".omg/runtime.yaml"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "external-context",
+      "route": "teams",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files",
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "TeamDispatchResult"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "hooks-mastery",
+      "route": "health",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "HealthSnapshot"
+      },
+      "side_effects": [],
+      "notes": "Maps to health route for hook quality and readiness checks."
+    },
+    {
+      "skill": "hud",
+      "route": "health",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "HealthSnapshot"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "learn-about-omg",
+      "route": "learn",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "LearningArtifact"
+      },
+      "side_effects": [
+        ".omg/knowledge/learning/learn-about-omg.md"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "learner",
+      "route": "learn",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "LearningArtifact"
+      },
+      "side_effects": [
+        ".omg/knowledge/learning/learner.md"
+      ],
+      "notes": "Writes learning note into .omg/knowledge/learning."
+    },
+    {
+      "skill": "mcp-setup",
+      "route": "health",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "HealthSnapshot"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "memsearch",
+      "route": "memory",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "StateMutationResult"
+      },
+      "side_effects": [
+        ".omg/state/working-memory.md"
+      ],
+      "notes": "Maps to memory route for retrieval-oriented context search workflow."
+    },
+    {
+      "skill": "note",
+      "route": "memory",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "StateMutationResult"
+      },
+      "side_effects": [
+        ".omg/knowledge/notes.md"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "omg-doctor",
+      "route": "health",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "HealthSnapshot"
+      },
+      "side_effects": [],
+      "notes": "Health checks run against OMG standalone layout."
+    },
+    {
+      "skill": "omg-help",
+      "route": "help",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": []
+      },
+      "outputs": {
+        "schema": "CompatibilityHelp"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "omg-setup",
+      "route": "init",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "BootstrapResult"
+      },
+      "side_effects": [
+        ".omg/state/*",
+        ".omg/idea.yml",
+        ".omg/policy.yaml",
+        ".omg/runtime.yaml"
+      ],
+      "notes": "Bootstraps OMG standalone state and baseline config files."
+    },
+    {
+      "skill": "omg-superpowers",
+      "route": "plan",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "PlanningArtifacts"
+      },
+      "side_effects": [
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md"
+      ],
+      "notes": "Imports TDD-first planning discipline into OMG plan route."
+    },
+    {
+      "skill": "omg-teams",
+      "route": "teams",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files",
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "TeamDispatchResult"
+      },
+      "side_effects": [],
+      "notes": "Legacy tmux worker dispatch replaced by internal Team router."
+    },
+    {
+      "skill": "pipeline",
+      "route": "pipeline",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "LabPipelineResult"
+      },
+      "side_effects": [],
+      "notes": "Routes to OMG lab policy+pipeline executor."
+    },
+    {
+      "skill": "plan",
+      "route": "plan",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "PlanningArtifacts"
+      },
+      "side_effects": [
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md",
+        ".omg/idea.yml"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "planning-with-files",
+      "route": "plan",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "PlanningArtifacts"
+      },
+      "side_effects": [
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md"
+      ],
+      "notes": "Strengthens file-native planning artifacts in .omg/state."
+    },
+    {
+      "skill": "project-session-manager",
+      "route": "memory",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "SessionState"
+      },
+      "side_effects": [
+        ".omg/state/session.json"
+      ],
+      "notes": "Session metadata maintained in .omg/state/session.json."
+    },
+    {
+      "skill": "ralph",
+      "route": "runtime_ship",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "RuntimeDispatchResult"
+      },
+      "side_effects": [
+        ".omg/state/persistent-mode.json"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "ralph-init",
+      "route": "init",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "BootstrapResult"
+      },
+      "side_effects": [
+        ".omg/state/*",
+        ".omg/idea.yml",
+        ".omg/policy.yaml",
+        ".omg/runtime.yaml"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "ralph-wiggum",
+      "route": "runtime_ship",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "RuntimeDispatchResult"
+      },
+      "side_effects": [
+        ".omg/state/persistent-mode.json"
+      ],
+      "notes": "Persistent iteration loop via runtime persistent-mode state."
+    },
+    {
+      "skill": "ralplan",
+      "route": "plan",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "PlanningArtifacts"
+      },
+      "side_effects": [
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md",
+        ".omg/idea.yml"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "release",
+      "route": "runtime_ship",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "RuntimeDispatchResult"
+      },
+      "side_effects": [
+        ".omg/evidence/release-draft.md"
+      ],
+      "notes": "Routes to runtime ship and emits release draft artifact."
+    },
+    {
+      "skill": "review",
+      "route": "review",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files"
+        ]
+      },
+      "outputs": {
+        "schema": "ReviewSynthesis"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "sci-omg",
+      "route": "maintainer",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "AnalysisCompatArtifact"
+      },
+      "side_effects": [
+        ".omg/evidence/analysis-sci-omg.json"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "security-review",
+      "route": "security_check",
+      "maturity": "native",
+      "inputs": {
+        "required": [],
+        "optional": [
+          "problem"
+        ]
+      },
+      "outputs": {
+        "schema": "SecurityCheckResult"
+      },
+      "side_effects": [],
+      "notes": "Deprecated alias to the canonical OMG security-check engine."
+    },
+    {
+      "skill": "skill",
+      "route": "learn",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "LearningArtifact"
+      },
+      "side_effects": [
+        ".omg/knowledge/learning/skill.md"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "tdd",
+      "route": "plan",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "PlanningArtifacts"
+      },
+      "side_effects": [
+        ".omg/state/_plan.md",
+        ".omg/state/_checklist.md",
+        ".omg/idea.yml"
+      ],
+      "notes": "Generates plan/checklist scaffolding for red-green-refactor workflow."
+    },
+    {
+      "skill": "team",
+      "route": "teams",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files",
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "TeamDispatchResult"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "trace",
+      "route": "maintainer",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "AnalysisCompatArtifact"
+      },
+      "side_effects": [
+        ".omg/evidence/analysis-trace.json"
+      ],
+      "notes": "Writes trace evidence artifact for debugging chain."
+    },
+    {
+      "skill": "ultrapilot",
+      "route": "runtime_ship",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "RuntimeDispatchResult"
+      },
+      "side_effects": [
+        ".omg/state/persistent-mode.json"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "ultraqa",
+      "route": "review",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context",
+          "files"
+        ]
+      },
+      "outputs": {
+        "schema": "ReviewSynthesis"
+      },
+      "side_effects": [],
+      "notes": ""
+    },
+    {
+      "skill": "ultrawork",
+      "route": "runtime_ship",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "expected_outcome"
+        ]
+      },
+      "outputs": {
+        "schema": "RuntimeDispatchResult"
+      },
+      "side_effects": [
+        ".omg/state/persistent-mode.json"
+      ],
+      "notes": ""
+    },
+    {
+      "skill": "writer-memory",
+      "route": "memory",
+      "maturity": "native",
+      "inputs": {
+        "required": [
+          "problem"
+        ],
+        "optional": [
+          "context"
+        ]
+      },
+      "outputs": {
+        "schema": "StateMutationResult"
+      },
+      "side_effects": [
+        ".omg/knowledge/writer-memory.md"
+      ],
+      "notes": "Writes long-form memory artifact for writing workflows."
+    }
+  ],
+  "generated_at": "2026-03-09T21:20:44.496932+00:00"
+}

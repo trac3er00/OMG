@@ -1,0 +1,47 @@
+id: tracebank
+kind: evidence
+version: 2.1.9
+title: OMG Tracebank
+description: Structured plan-to-patch-to-verify trace capture for OMG routes.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/tracebank.py
+invocation_policy:
+  user_invocable: true
+  model_invocable: true
+  allow_implicit_invocation: true
+tool_policy:
+  side_effect_level: medium
+  allowed_tools:
+    claude:
+      - Read
+      - Bash(python3:*)
+    codex:
+      - Read
+      - Bash(python3:*)
+lifecycle_hooks:
+  native:
+    - PostToolUse
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - python
+evidence_outputs:
+  artifacts:
+    - .omg/tracebank/events.jsonl
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+channel_overrides:
+  public:
+    retention: project-local
+  enterprise:
+    retention: policy-managed

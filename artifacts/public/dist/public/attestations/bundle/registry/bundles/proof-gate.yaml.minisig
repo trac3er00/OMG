@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+gh6ASkLy5bRnoGKMKIIuRbWpNGLfXFbnEfYMExOYiLwihTEShEwHkPfybdrW8HSqMuGGL5SKmYK5tuLahsnFDQ==
+trusted comment: type=omg-slsa-v1 keyid=60ef5399ca911a89 issued_at=2026-03-13T03:48:12.364754+00:00 artifact=bundle/registry/bundles/proof-gate.yaml sha256=205c9fe0e96043886b0ad6ad4382e8adb65961898cf7b45b84bb0c53cec132b7
+vr6qxI+d/7rcefbnIRaJr9MmYhgaTEtkLbneqakD0vP57P0Cat++BCBQvZdGMzpq2vlmopcartWJCDqX7bgTCQ==

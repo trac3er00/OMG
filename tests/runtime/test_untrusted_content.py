@@ -59,9 +59,13 @@ def test_mark_untrusted_content_persists_tier_and_evidence(tmp_path: Path) -> No
     assert state["last_trust_label"] == "UNTRUSTED_EXTERNAL_CONTENT"
     assert state["last_trust_score"] == 0.0
     assert state["provenance"][-1]["_trust_label"] == "UNTRUSTED_EXTERNAL_CONTENT"
+    assert state["provenance"][-1]["source_type"] == "web"
+    assert state["provenance"][-1]["trust_tier"] == "research"
 
     artifact_path = Path(state["evidence_artifacts"][-1])
     assert artifact_path.exists()
+    assert state["last_evidence_artifact"] == str(artifact_path)
+    assert state["provenance"][-1]["evidence_artifact"] == str(artifact_path)
     artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
     assert artifact["inputs"][0]["trust_label"] == "UNTRUSTED_EXTERNAL_CONTENT"
 
