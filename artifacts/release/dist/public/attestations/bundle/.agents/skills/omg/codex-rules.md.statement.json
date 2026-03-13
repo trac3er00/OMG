@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/codex-rules.md",
       "digest": {
-        "sha256": "939b128a1904e0d8b2b21208a308b558bcd51bd6c0de32e60e59d6744821e9d0"
+        "sha256": "c89e14571ba6e43c7141f90826954ae33b5c3b66ae9c9538b31b6fa5ec05a42e"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-11T20:10:56.646833+00:00"
+      "timestamp": "2026-03-13T00:52:30.313826+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-11T20:10:56.646833+00:00",
+  "issued_at": "2026-03-13T00:52:30.313826+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "a419a3a0faf7e445",
-    "value": "untrusted comment: signature from omg local signing key\nkyAMcBpKSq4/w/ddwDnS3eXBg2Cju40UXJty+HRy/3gb6+n1nr9j4ri7Yr236qxY2FuzbHsM3sIMieUYSWCTDg==\ntrusted comment: type=omg-slsa-v1 keyid=a419a3a0faf7e445 issued_at=2026-03-11T20:10:56.646952+00:00 artifact=bundle/.agents/skills/omg/codex-rules.md sha256=939b128a1904e0d8b2b21208a308b558bcd51bd6c0de32e60e59d6744821e9d0\nuHa1Wywv9zwgqMDOop/KRAHnOG6IOFPHYY0pq3sGhu/TxsouMi61kGHna4JnMgPzsk3pTHtud4awr9/AtcolAA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=a419a3a0faf7e445 issued_at=2026-03-11T20:10:56.646952+00:00 artifact=bundle/.agents/skills/omg/codex-rules.md sha256=939b128a1904e0d8b2b21208a308b558bcd51bd6c0de32e60e59d6744821e9d0"
+    "keyid": "e185aefe8cc07b69",
+    "value": "untrusted comment: signature from omg local signing key\npuJ8fbmiabLQQbmJzEeB/FPhiMpUKkEw97jr6VjyqD1parXahil7XteeQ3yn+bv81hpeeDvdudU+cpeHn+DZCQ==\ntrusted comment: type=omg-slsa-v1 keyid=e185aefe8cc07b69 issued_at=2026-03-13T00:52:30.313947+00:00 artifact=bundle/.agents/skills/omg/codex-rules.md sha256=c89e14571ba6e43c7141f90826954ae33b5c3b66ae9c9538b31b6fa5ec05a42e\n7E1zG8Fzlmd8ulV2MUDyci1FfwQFfhH9bRiW+1aTo65kkiwN2QWpYhGv70KyHWxoJ02HQp2+ECBPQpjHvkJqDQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=e185aefe8cc07b69 issued_at=2026-03-13T00:52:30.313947+00:00 artifact=bundle/.agents/skills/omg/codex-rules.md sha256=c89e14571ba6e43c7141f90826954ae33b5c3b66ae9c9538b31b6fa5ec05a42e"
   }
 }

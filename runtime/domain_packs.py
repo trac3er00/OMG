@@ -16,7 +16,7 @@ DOMAIN_PACKS: dict[str, dict[str, Any]] = {
     "vision": {
         "name": "vision",
         "required_approvals": [],
-        "required_evidence": ["dataset-provenance", "drift-check"],
+        "required_evidence": ["dataset-provenance", "drift-check", "vision-artifacts"],
         "policy_modules": ["dataset-lineage", "drift-gate"],
         "eval_hooks": ["vision-regression"],
         "replay_hooks": ["incident-replay"],

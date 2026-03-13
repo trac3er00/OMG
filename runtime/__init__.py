@@ -13,6 +13,8 @@ from .compat import (
     list_omg_skills,
 )
 from .ecosystem import ecosystem_status, list_ecosystem_repos, resolve_ecosystem_selection, sync_ecosystem_repos
+from .vision_artifacts import write_vision_artifacts
+from .vision_jobs import run_vision_job
 
 __all__ = [
     "build_compat_gap_report",
@@ -29,4 +31,6 @@ __all__ = [
     "list_ecosystem_repos",
     "resolve_ecosystem_selection",
     "sync_ecosystem_repos",
+    "run_vision_job",
+    "write_vision_artifacts",
 ]

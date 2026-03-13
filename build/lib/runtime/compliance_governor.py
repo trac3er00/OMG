@@ -101,7 +101,12 @@ def evaluate_release_compliance(
         }
 
     if not isinstance(release_evidence, dict):
-        return {"status": "blocked", "authority": "artifact", "reason": "no release evidence supplied"}
+        return {
+            "status": "blocked",
+            "authority": "release",
+            "reason": "no release evidence supplied",
+            **artifact_audit,
+        }
 
     raw_claims = release_evidence.get("claims")
     claims = raw_claims if isinstance(raw_claims, list) else []

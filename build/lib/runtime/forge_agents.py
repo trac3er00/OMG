@@ -5,6 +5,7 @@ import importlib
 import importlib.util
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,64 @@ _DOMAIN_SPECIALISTS: dict[str, list[str]] = {
     "health": ["data-curator", "training-architect"],
     "cybersecurity": ["forge-cybersecurity"],
 }
+
+_OPERATION_SYNONYMS: dict[str, set[str]] = {
+    "add": {"add", "create", "insert", "new", "introduce", "build"},
+    "edit": {"edit", "update", "modify", "change", "adjust", "revise", "patch"},
+    "delete": {"delete", "remove", "drop", "retire", "deprecate", "decommission"},
+}
+
+_OPERATION_TEXT_KEYS: tuple[str, ...] = ("goal", "request", "prompt", "task", "summary", "description")
+
+
+def _normalize_operation_candidate(value: object) -> str:
+    candidate = str(value or "").strip().lower().replace("_", " ").replace("-", " ")
+    if not candidate:
+        return ""
+    if candidate in _OPERATION_SYNONYMS:
+        return candidate
+    for intent, synonyms in _OPERATION_SYNONYMS.items():
+        if candidate in synonyms:
+            return intent
+    return ""
+
+
+def classify_operation_intent(job: dict[str, Any]) -> dict[str, str]:
+    for key in ("operation", "intent", "change_type", "action"):
+        if key in job:
+            normalized = _normalize_operation_candidate(job.get(key))
+            if normalized:
+                return {"intent": normalized, "source": key}
+
+    for key in _OPERATION_TEXT_KEYS:
+        raw_value = str(job.get(key, "") or "")
+        text = raw_value.lower()
+        if not text:
+            continue
+        for intent, synonyms in _OPERATION_SYNONYMS.items():
+            if any(re.search(rf"\b{re.escape(token)}\b", text) for token in synonyms):
+                return {"intent": intent, "source": key}
+
+    return {"intent": "unknown", "source": "none"}
+
+
+def resolve_operation_plan(job: dict[str, Any]) -> dict[str, Any]:
+    contract = load_forge_mvp()
+    orchestration = contract.get("operation_orchestration")
+    profiles = orchestration if isinstance(orchestration, dict) else {}
+    classified = classify_operation_intent(job)
+    intent = str(classified.get("intent", "unknown"))
+    profile_raw = profiles.get(intent, profiles.get("unknown", {}))
+    profile = profile_raw if isinstance(profile_raw, dict) else {}
+    checks_raw = profile.get("required_checks")
+    required_checks = [str(entry) for entry in checks_raw] if isinstance(checks_raw, list) else []
+    return {
+        "intent": intent,
+        "source": str(classified.get("source", "none")),
+        "mode": str(profile.get("mode", "bounded_execution")),
+        "priority": str(profile.get("priority", "contract_defaults")),
+        "required_checks": required_checks,
+    }
 
 
 def resolve_specialists(domain: str) -> list[str]:
@@ -133,10 +192,11 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
     specialists_dispatched = requested_specialists if requested_specialists else expected_specialists
     status = "ok" if specialists_dispatched else "noop"
     active_run_id = normalize_run_id(run_id)
+    operation_plan = resolve_operation_plan(job)
 
     job_with_specialists = dict(job)
     job_with_specialists["specialists"] = specialists_dispatched
-    adapter_evidence = resolve_adapters(job_with_specialists)
+    adapter_evidence = resolve_adapters(job_with_specialists, operation_plan=operation_plan)
 
     backends_ok, backends_reason = check_required_backends_satisfied(adapter_evidence)
     if not backends_ok:
@@ -146,6 +206,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
             "evidence_path": "",
             "reason": backends_reason,
             "adapter_evidence": adapter_evidence,
+            "operation_plan": operation_plan,
         }
 
     security_scan: dict[str, Any] | None = None
@@ -161,6 +222,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
         expected_specialists=expected_specialists,
         requested_specialists=requested_specialists,
         specialists_dispatched=specialists_dispatched,
+        operation_plan=operation_plan,
         job=job,
         security_scan=security_scan,
     )
@@ -170,6 +232,7 @@ def dispatch_specialists(job: dict[str, Any], project_dir: str, run_id: str | No
         "run_id": active_run_id,
         "evidence_path": evidence_path,
         "adapter_evidence": adapter_evidence,
+        "operation_plan": operation_plan,
     }
     if security_scan is not None:
         result_payload["security_scan"] = security_scan
@@ -221,7 +284,150 @@ def _check_simulator_available(name: str) -> bool:
     return _check_backend_available(name)
 
 
-def resolve_adapters(job: dict[str, Any]) -> list[dict[str, object]]:
+def _resolve_simulator_adapter(job: dict[str, Any], *, backend: str, required: bool) -> dict[str, object]:
+    adapter_hooks: dict[str, str] = {
+        "pybullet": "lab.pybullet_adapter",
+        "gazebo": "lab.gazebo_adapter",
+        "isaac_gym": "lab.isaac_gym_adapter",
+    }
+    module_name = adapter_hooks.get(backend)
+    if not module_name:
+        return {
+            "adapter": backend,
+            "kind": "simulator",
+            "status": "error",
+            "required": required,
+            "reason": f"unknown simulator backend: {backend}",
+            "available": False,
+        }
+
+    module = importlib.import_module(module_name)
+    run_adapter = getattr(module, "run")
+
+    run_id = str(job.get("run_id", "")).strip() or None
+    sandbox_root = str(job.get("project_dir", "."))
+    raw_timeout = job.get("simulator_timeout_seconds", 30)
+    try:
+        timeout_seconds = max(1, int(raw_timeout))
+    except (TypeError, ValueError):
+        timeout_seconds = 30
+
+    evidence = run_adapter(
+        job,
+        backend_mode="live",
+        run_id=run_id,
+        timeout_seconds=timeout_seconds,
+        sandbox_root=sandbox_root,
+    )
+    status = str(evidence.get("status", "error"))
+    if not required and status == "unavailable_backend":
+        status = "skipped_unavailable_backend"
+    normalized: dict[str, object] = {
+        "adapter": backend,
+        "kind": "simulator",
+        "status": status,
+        "required": required,
+        "reason": str(evidence.get("reason", "")),
+        "available": bool(evidence.get("available", False)),
+    }
+    for key in (
+        "backend",
+        "seed",
+        "episode_stats",
+        "replay_metadata",
+        "availability_reason",
+        "fidelity_backend",
+        "throughput_role",
+        "run_id",
+    ):
+        if key in evidence:
+            normalized[key] = evidence[key]
+    normalized["promotion_blocked"] = bool(required and status in {"unavailable_backend", "skipped_unavailable_backend", "error", "blocked"})
+    if not required:
+        normalized["promotion_blocked"] = False
+    return normalized
+
+
+def _resolve_axolotl_mode(job: dict[str, Any]) -> str:
+    explicit_mode = str(job.get("axolotl_mode", "")).strip().lower()
+    if explicit_mode:
+        return explicit_mode
+    reward_heads = job.get("reward_heads")
+    if isinstance(reward_heads, bool):
+        return "live_sft"
+    if isinstance(reward_heads, (int, float)):
+        count = int(reward_heads)
+    elif isinstance(reward_heads, list):
+        count = len(reward_heads)
+    elif isinstance(reward_heads, dict):
+        count = len(reward_heads)
+    elif isinstance(reward_heads, str) and reward_heads.strip().isdigit():
+        count = int(reward_heads.strip())
+    else:
+        count = 0
+    if count > 1:
+        return "live_gdpo"
+    if count == 1:
+        return "live_grpo"
+    return "live_sft"
+
+
+def _resolve_axolotl_adapter(job: dict[str, Any], *, required: bool) -> dict[str, object]:
+    from lab.axolotl_adapter import run as run_axolotl_adapter
+
+    mode = _resolve_axolotl_mode(job)
+    run_id = str(job.get("run_id", "")).strip() or None
+    sandbox_root = str(job.get("project_dir", "."))
+    raw_timeout = job.get("axolotl_timeout_seconds", 30)
+    try:
+        timeout_seconds = max(1, int(raw_timeout))
+    except (TypeError, ValueError):
+        timeout_seconds = 30
+
+    evidence = run_axolotl_adapter(
+        job,
+        backend_mode=mode,
+        run_id=run_id,
+        timeout_seconds=timeout_seconds,
+        sandbox_root=sandbox_root,
+    )
+
+    status = str(evidence.get("status", "error"))
+    reason = str(evidence.get("reason", ""))
+    available = bool(evidence.get("available", False))
+
+    if not required and status == "unavailable_backend":
+        status = "skipped_unavailable_backend"
+
+    normalized: dict[str, object] = {
+        "adapter": "axolotl",
+        "kind": "training",
+        "status": status,
+        "required": required,
+        "reason": reason,
+        "available": available,
+        "mode": str(evidence.get("mode", mode)),
+    }
+    for key in (
+        "run_id",
+        "evidence_path",
+        "checkpoint_path",
+        "checkpoint_paths",
+        "checkpoint_artifacts",
+        "search_scores",
+        "search_best_trial",
+        "resume_metadata",
+        "sidecar_required",
+        "sidecar_evidence_path",
+    ):
+        if key in evidence:
+            normalized[key] = evidence[key]
+    if "promotion_blocked" in evidence:
+        normalized["promotion_blocked"] = evidence["promotion_blocked"] if required else False
+    return normalized
+
+
+def resolve_adapters(job: dict[str, Any], operation_plan: dict[str, Any] | None = None) -> list[dict[str, object]]:
     results: list[dict[str, object]] = []
     dispatched_specialists = job.get("specialists", [])
     if not isinstance(dispatched_specialists, list):
@@ -231,29 +437,24 @@ def resolve_adapters(job: dict[str, Any]) -> list[dict[str, object]]:
     require_backend = bool(job.get("require_backend", False))
 
     if "training-architect" in dispatched_specialists:
-        available = _check_axolotl_available()
-        results.append({
-            "adapter": "axolotl",
-            "kind": "training",
-            "status": "invoked" if available else "skipped_unavailable_backend",
-            "required": require_backend and requested_backend == "axolotl",
-            "reason": "" if available else "axolotl not installed",
-            "available": available,
-        })
+        axolotl_required = require_backend and requested_backend == "axolotl"
+        results.append(_resolve_axolotl_adapter(job, required=axolotl_required))
 
     if "simulator-engineer" in dispatched_specialists:
         simulator_backends = _resolve_simulator_backends(requested_backend)
         for backend in simulator_backends:
-            available = _check_simulator_available(backend)
             is_required = require_backend and requested_backend == backend
-            results.append({
-                "adapter": backend,
-                "kind": "simulator",
-                "status": "invoked" if available else "skipped_unavailable_backend",
-                "required": is_required,
-                "reason": "" if available else f"{backend} not installed",
-                "available": available,
-            })
+            results.append(_resolve_simulator_adapter(job, backend=backend, required=is_required))
+
+    if operation_plan is not None:
+        for evidence in results:
+            evidence["orchestration"] = {
+                "operation_plan": {
+                    "intent": str(operation_plan.get("intent", "unknown")),
+                    "mode": str(operation_plan.get("mode", "bounded_execution")),
+                    "priority": str(operation_plan.get("priority", "contract_defaults")),
+                }
+            }
 
     return results
 
@@ -267,8 +468,16 @@ def _resolve_simulator_backends(requested: str) -> list[str]:
 
 
 def check_required_backends_satisfied(adapter_evidence: list[dict[str, object]]) -> tuple[bool, str]:
+    unavailable_statuses = {
+        "skipped_unavailable_backend",
+        "unavailable",
+        "unavailable_backend",
+        "error",
+        "blocked",
+    }
     for ev in adapter_evidence:
-        if ev.get("required") is True and ev.get("status") == "skipped_unavailable_backend":
+        status = str(ev.get("status", ""))
+        if ev.get("required") is True and status in unavailable_statuses:
             adapter_name = str(ev.get("adapter", "unknown"))
             return False, f"required backend unavailable: {adapter_name}"
     return True, "ok"
@@ -284,6 +493,7 @@ def _write_dispatch_evidence(
     expected_specialists: list[str],
     requested_specialists: list[str],
     specialists_dispatched: list[str],
+    operation_plan: dict[str, Any],
     job: dict[str, Any],
     security_scan: dict[str, Any] | None = None,
 ) -> str:
@@ -306,6 +516,7 @@ def _write_dispatch_evidence(
         "requested_specialists": requested_specialists,
         "expected_specialists": expected_specialists,
         "specialists_dispatched": specialists_dispatched,
+        "operation_plan": operation_plan,
         "contract": {
             "labs_only": bool(contract.get("labs_only", True)),
             "axolotl_hook": contract.get("axolotl_hook", ""),
@@ -327,25 +538,25 @@ def _write_dispatch_evidence(
             "dataset_lineage": {
                 "standard": "Croissant-1.1",
                 "path": f".omg/evidence/forge-lineage-{run_id}.json",
-                "status": "placeholder",
+                "status": "pending_verification",
                 "reason": "dataset lineage artifact not yet generated",
             },
             "model_card": {
                 "standard": "HuggingFace-ModelCard",
                 "path": f".omg/evidence/forge-model-card-{run_id}.md",
-                "status": "placeholder",
+                "status": "pending_verification",
                 "reason": "model card artifact not yet generated",
             },
             "checkpoint_hash": {
                 "standard": "OpenSSF-OMS",
                 "path": f".omg/evidence/forge-checkpoint-{run_id}.json",
-                "status": "placeholder",
+                "status": "pending_verification",
                 "reason": "checkpoint hash artifact not yet generated",
             },
             "regression_scoreboard": {
                 "standard": "lm-eval",
                 "path": f".omg/evidence/forge-scoreboard-{run_id}.json",
-                "status": "placeholder",
+                "status": "insufficient_evidence",
                 "reason": "regression scoreboard artifact not yet generated",
             },
             "promotion_decision": {

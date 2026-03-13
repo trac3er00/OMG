@@ -14,12 +14,17 @@ from typing import Any, cast
 
 import yaml
 
-from hooks._common import get_feature_flag
+_HOOKS_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _HOOKS_DIR.parent
+_PORTABLE_RUNTIME_ROOT = _PROJECT_ROOT / "omg-runtime"
+for path in (_HOOKS_DIR, _PROJECT_ROOT, _PORTABLE_RUNTIME_ROOT):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
-# Ensure project root is on sys.path for runtime imports
-_PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-if _PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, _PROJECT_ROOT)
+from hooks._common import bootstrap_runtime_paths, get_feature_flag
+
+bootstrap_runtime_paths(__file__)
 
 from runtime.cli_provider import get_provider, list_available_providers  # noqa: E402
 from runtime.mcp_config_writers import (  # noqa: E402
@@ -47,6 +52,7 @@ from runtime.adoption import (  # noqa: E402
     build_adoption_report,
     get_mode_profile,
     get_preset_features,
+    detect_ecosystems,
     resolve_preset,
     write_adoption_report,
 )
@@ -249,12 +255,15 @@ def get_default_mcps_for_preset(preset: str) -> list[str]:
         the requested *preset* level.
     """
     level = _PRESET_LEVEL.get(preset, 0)
-    return [
+    default_ids = [
         m["id"]
         for m in MCP_CATALOG
         if _PRESET_LEVEL.get(m.get("min_preset", ""), -1) <= level
         and m.get("min_preset") is not None
     ]
+    if preset == "buffet" and os.environ.get("OMG_SETUP_ENABLED", "0").strip() != "1":
+        default_ids.append("notebooklm")
+    return default_ids
 
 
 def _normalize_mcp_ids(selected_ids: list[str]) -> list[str]:
@@ -1028,9 +1037,15 @@ def run_setup_wizard(
 
     selected_preset = resolve_preset(preset or ("balanced" if non_interactive else "safe"))
     selected_setup_mode = select_setup_mode(setup_mode)
+    requested_mode = mode
+    if requested_mode is None and non_interactive:
+        detected = detect_ecosystems(project_dir)
+        if not detected:
+            requested_mode = "omg-only"
+
     adoption = build_adoption_report(
         project_dir,
-        requested_mode=mode,
+        requested_mode=requested_mode,
         preset=selected_preset,
         adopt=adopt,
     )
@@ -1110,7 +1125,8 @@ def run_setup_wizard(
         "blockers": [{"name": c["name"], "message": c["message"]} for c in blockers],
     }
 
-    if blockers:
+    has_detected_cli = any(bool(v.get("detected", False)) for v in clis.values() if isinstance(v, dict))
+    if blockers and not non_interactive and not has_detected_cli:
         result["status"] = "validation_failed"
 
     return result

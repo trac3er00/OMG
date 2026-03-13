@@ -81,7 +81,12 @@ class TestInvoke:
         fake = subprocess.CompletedProcess(args=[], returncode=0, stdout='{"result":"ok"}', stderr="")
         with patch.object(provider, "run_tool", return_value=fake) as mock_rt:
             result = provider.invoke("fix bug", "/project", timeout=60)
-            mock_rt.assert_called_once_with(["codex", "exec", "--json", "fix bug"], timeout=60)
+            mock_rt.assert_called_once_with(
+                ["codex", "exec", "--json", "fix bug"],
+                timeout=60,
+                cwd="/project",
+                env={"CLAUDE_PROJECT_DIR": "/project"},
+            )
             assert result == {"model": "codex-cli", "output": '{"result":"ok"}', "exit_code": 0}
 
     def test_timeout_returns_error_fallback(self, provider: CodexProvider) -> None:
@@ -119,7 +124,7 @@ class TestInvokeTmux:
         result = provider.invoke_tmux("fix bug", "/project", timeout=90)
 
         mgr.make_session_name.assert_called_once()
-        mgr.get_or_create_session.assert_called_once_with("omg-codex-abc")
+        mgr.get_or_create_session.assert_called_once_with("omg-codex-abc", cwd="/project")
         mgr.send_command.assert_called_once()
         mgr.kill_session.assert_called_once_with("omg-codex-abc")
         assert result == {"model": "codex-cli", "output": '{"done":true}', "exit_code": 0}
@@ -150,7 +155,7 @@ class TestInvokeTmux:
 
         mgr.send_command.assert_called_once_with(
             "omg-codex-abc",
-            f"codex exec --json {shlex.quote(prompt)}",
+            f"env CLAUDE_PROJECT_DIR={shlex.quote('/project')} codex exec --json {shlex.quote(prompt)}",
             timeout=90,
         )
 

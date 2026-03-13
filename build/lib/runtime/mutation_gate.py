@@ -19,7 +19,14 @@ _MUTATION_BASH_PATTERNS = (
     r"\b(rm|mv|cp|tee|touch|mkdir|rmdir|ln)\b",
     r"\b(sed\s+-i|perl\s+-pi)\b",
     r"\b(chmod|chown)\b",
-    r">\s*[^\s]",
+)
+_HARMLESS_REDIRECTION_PATTERNS = (
+    re.compile(r"(?:^|[\s;&|()])\d*>>?\s*/dev/(?:null|stdout|stderr)(?=\s|$)"),
+    re.compile(r"(?:^|[\s;&|()])\d*>&\d+(?=\s|$)"),
+    re.compile(r"(?:^|[\s;&|()])\d*>&-(?=\s|$)"),
+)
+_FILE_WRITE_REDIRECTION_PATTERN = re.compile(
+    r"(?:^|[\s;&|()])\d*>>?(?!\s*(?:/dev/(?:null|stdout|stderr)\b|&\d+\b|&-\b))\s*\S+"
 )
 
 
@@ -43,7 +50,7 @@ def check_mutation_allowed(
     explicit_exempt = bool(metadata_obj.get("exempt") is True)
     strict_mode = os.environ.get("OMG_TDD_GATE_STRICT", "0").strip() == "1"
 
-    if explicit_exempt:
+    if explicit_exempt and (normalized_exemption in _EXEMPTIONS or metadata_obj.get("exempt_reason")):
         return {
             "status": "exempt",
             "reason": "metadata exemption allows mutation without lock",
@@ -86,6 +93,7 @@ def check_mutation_allowed(
             "lock_id": normalized_lock_id,
         }
 
+    _write_warning_artifact(project_dir, normalized_tool, normalized_file_path, reason)
     warnings.warn(
         f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
         RuntimeWarning,
@@ -102,11 +110,39 @@ def _is_mutation_capable_bash(command: str) -> bool:
     normalized_command = str(command or "").strip()
     if not normalized_command:
         return False
-    lowered = normalized_command.lower()
+    lowered = _strip_harmless_redirections(normalized_command.lower())
     for pattern in _MUTATION_BASH_PATTERNS:
         if re.search(pattern, lowered):
             return True
+    if _FILE_WRITE_REDIRECTION_PATTERN.search(lowered):
+        return True
     return False
+
+
+def _strip_harmless_redirections(command: str) -> str:
+    sanitized = command
+    for pattern in _HARMLESS_REDIRECTION_PATTERNS:
+        sanitized = pattern.sub(" ", sanitized)
+    return re.sub(r"\s+", " ", sanitized).strip()
+
+
+def _write_warning_artifact(project_dir: str, tool: str, file_path: str, reason: str) -> None:
+    state_dir = Path(project_dir) / ".omg" / "state" / "mutation_gate"
+    state_dir.mkdir(parents=True, exist_ok=True)
+
+    path_hash = sha256(file_path.encode("utf-8")).hexdigest()[:8]
+    artifact_path = state_dir / f"warn-{path_hash}.json"
+    payload = {
+        "status": "warning",
+        "tool": tool,
+        "file_path": file_path,
+        "reason": reason,
+        "ts": datetime.now(timezone.utc).isoformat(),
+    }
+
+    temp_path = artifact_path.with_suffix(".tmp")
+    temp_path.write_text(json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8")
+    os.replace(temp_path, artifact_path)
 
 
 def _write_block_artifact(project_dir: str, tool: str, file_path: str, reason: str) -> None:

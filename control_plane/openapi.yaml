@@ -29,6 +29,23 @@ paths:
       responses:
         '200':
           description: Decision result
+  /v2/vision/jobs:
+    post:
+      summary: Submit a vision analysis job
+      responses:
+        '202':
+          description: Accepted
+        '400':
+          description: Invalid vision payload
+  /v1/vision/jobs:
+    post:
+      deprecated: true
+      summary: Deprecated alias of /v2/vision/jobs
+      responses:
+        '202':
+          description: Accepted
+        '400':
+          description: Invalid vision payload
   /v2/trust/review:
     post:
       summary: Review trust-sensitive config changes

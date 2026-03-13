@@ -300,6 +300,30 @@ def test_firewall_allows_read_when_clarification_required(tmp_path) -> None:
     assert get_decision(out) is None
 
 
+def test_firewall_allows_read_only_redirect_when_session_health_is_blocked(tmp_path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    (state_dir / "defense_state").mkdir(parents=True, exist_ok=True)
+    (state_dir / "defense_state" / "current.json").write_text(
+        json.dumps(
+            {
+                "risk_level": "medium",
+                "contamination_score": 0.0,
+                "overthinking_score": 1.0,
+                "premature_fixer_score": 0.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("ls /tmp 2>/dev/null"),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-readonly-redirect"},
+    )
+
+    assert get_decision(out) is None
+
+
 def test_firewall_blocks_poisoned_mutation_attempt(tmp_path) -> None:
     out = run_hook_json(
         "hooks/firewall.py",

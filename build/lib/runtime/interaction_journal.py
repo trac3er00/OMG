@@ -310,12 +310,15 @@ class InteractionJournal:
         normalized_run_id = run_id.strip()
         if not normalized_run_id:
             return None
+        fallback = f".omg/evidence/repro-pack-{normalized_run_id}.json"
         try:
             result = build_repro_pack(str(self.project_dir), normalized_run_id)
         except Exception:
-            return None
+            evidence_path = self.project_dir / ".omg" / "evidence" / f"{normalized_run_id}.json"
+            return fallback if evidence_path.exists() else None
         if result.get("status") != "ok":
-            return None
+            evidence_path = self.project_dir / ".omg" / "evidence" / f"{normalized_run_id}.json"
+            return fallback if evidence_path.exists() else None
         path = result.get("path")
         return str(path) if isinstance(path, str) and path else None
 

@@ -82,7 +82,7 @@ def test_package_prompt_contains_user_prompt(monkeypatch: pytest.MonkeyPatch) ->
 def test_invoke_codex_timeout_returns_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
 
-    def _raise_timeout(_cmd: list[str], *, timeout: int = 30) -> object:
+    def _raise_timeout(_cmd: list[str], *, timeout: int = 30, cwd: str | None = None, env: dict[str, str] | None = None) -> object:
         raise subprocess.TimeoutExpired(cmd="codex", timeout=timeout)
 
     monkeypatch.setattr(team_router, "_run_tool", _raise_timeout)
@@ -94,7 +94,7 @@ def test_invoke_codex_timeout_returns_timeout_error(monkeypatch: pytest.MonkeyPa
 
 def test_check_tool_auth_reports_authenticated(monkeypatch: pytest.MonkeyPatch) -> None:
     completed = subprocess.CompletedProcess(args=["codex", "auth", "status"], returncode=0, stdout="logged in", stderr="")
-    monkeypatch.setattr(team_router, "_run_tool", lambda _cmd, timeout=15: completed)
+    monkeypatch.setattr(team_router, "_run_tool", lambda _cmd, timeout=15, cwd=None, env=None: completed)
 
     ok, message = team_router._check_tool_auth("codex")
 
@@ -104,7 +104,7 @@ def test_check_tool_auth_reports_authenticated(monkeypatch: pytest.MonkeyPatch) 
 
 def test_check_tool_auth_reports_not_authenticated(monkeypatch: pytest.MonkeyPatch) -> None:
     completed = subprocess.CompletedProcess(args=["gemini", "auth", "status"], returncode=1, stdout="", stderr="not logged in")
-    monkeypatch.setattr(team_router, "_run_tool", lambda _cmd, timeout=15: completed)
+    monkeypatch.setattr(team_router, "_run_tool", lambda _cmd, timeout=15, cwd=None, env=None: completed)
 
     ok, message = team_router._check_tool_auth("gemini")
 
@@ -157,7 +157,7 @@ def test_invoke_codex_tmux_falls_back_when_tmux_unavailable(monkeypatch: pytest.
         def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
             return "omg-codex-123"
 
-        def get_or_create_session(self, name: str) -> str:
+        def get_or_create_session(self, name: str, cwd: str | None = None) -> str:
             return name
 
         def send_command(self, name: str, command: str, timeout: int = 120) -> str:
@@ -186,7 +186,7 @@ def test_invoke_codex_tmux_quotes_prompt_and_reports_exit_code(monkeypatch: pyte
         def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
             return "omg-codex-xyz"
 
-        def get_or_create_session(self, name: str) -> str:
+        def get_or_create_session(self, name: str, cwd: str | None = None) -> str:
             return name
 
         def send_command(self, name: str, command: str, timeout: int = 120) -> str:
@@ -206,6 +206,7 @@ def test_invoke_codex_tmux_quotes_prompt_and_reports_exit_code(monkeypatch: pyte
     result = team_router.invoke_codex_tmux(prompt, "/tmp")
 
     assert shlex.quote(prompt) in fake_mgr.last_command
+    assert "CLAUDE_PROJECT_DIR=/tmp" in fake_mgr.last_command
     assert result == {"model": "codex-cli", "output": "ok-json", "exit_code": 7}
     assert fake_mgr.killed == ["omg-codex-xyz"]
 
@@ -218,7 +219,7 @@ def test_invoke_gemini_tmux_reports_exit_code(monkeypatch: pytest.MonkeyPatch) -
         def make_session_name(self, provider: str, unique_id: str | None = None) -> str:
             return "omg-gemini-xyz"
 
-        def get_or_create_session(self, name: str) -> str:
+        def get_or_create_session(self, name: str, cwd: str | None = None) -> str:
             return name
 
         def send_command(self, name: str, command: str, timeout: int = 120) -> str:
@@ -236,3 +237,33 @@ def test_invoke_gemini_tmux_reports_exit_code(monkeypatch: pytest.MonkeyPatch) -
 
     assert result == {"model": "gemini-cli", "output": "gemini-output", "exit_code": 3}
     assert fake_mgr.killed == ["omg-gemini-xyz"]
+
+
+def test_invoke_codex_uses_project_cwd_and_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
+
+    fake = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
+
+    def _run_tool(_cmd: list[str], *, timeout: int = 30, cwd: str | None = None, env: dict[str, str] | None = None):
+        assert cwd == "/tmp/project"
+        assert env == {"CLAUDE_PROJECT_DIR": "/tmp/project"}
+        return fake
+
+    monkeypatch.setattr(team_router, "_run_tool", _run_tool)
+    result = team_router.invoke_codex("hello", "/tmp/project")
+    assert result == {"model": "codex-cli", "output": "ok", "exit_code": 0}
+
+
+def test_invoke_gemini_uses_project_cwd_and_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(team_router, "_check_tool_available", lambda _name: True)
+
+    fake = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok", stderr="")
+
+    def _run_tool(_cmd: list[str], *, timeout: int = 30, cwd: str | None = None, env: dict[str, str] | None = None):
+        assert cwd == "/tmp/project"
+        assert env == {"CLAUDE_PROJECT_DIR": "/tmp/project"}
+        return fake
+
+    monkeypatch.setattr(team_router, "_run_tool", _run_tool)
+    result = team_router.invoke_gemini("hello", "/tmp/project")
+    assert result == {"model": "gemini-cli", "output": "ok", "exit_code": 0}

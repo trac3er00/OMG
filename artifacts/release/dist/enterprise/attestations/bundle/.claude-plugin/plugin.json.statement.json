@@ -5,7 +5,7 @@
     {
       "name": "bundle/.claude-plugin/plugin.json",
       "digest": {
-        "sha256": "16821ddc7fa220d7e629838cde987073af6c2114cb88ad2aac86456b758546b0"
+        "sha256": "3df7cd8fa667f1d27c76dd57f05d25091b63eb78badc68e712549e8ebfbfaff0"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-11T20:10:57.179611+00:00"
+      "timestamp": "2026-03-13T00:52:30.866075+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-11T20:10:57.179611+00:00",
+  "issued_at": "2026-03-13T00:52:30.866075+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "7bb88557eae5dbc9",
-    "value": "untrusted comment: signature from omg local signing key\n0GC9zKLHe0N18zreaf1GVoPdgcOvmBQ2Msbbu82jeUO+0aQOo1sVvolMZcvDFj7zvm+0u9LLgKtkynqlQo5UDA==\ntrusted comment: type=omg-slsa-v1 keyid=7bb88557eae5dbc9 issued_at=2026-03-11T20:10:57.179717+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=16821ddc7fa220d7e629838cde987073af6c2114cb88ad2aac86456b758546b0\nDeWtp0et7NZMEoYDcLi7AA9hJks+kcwXd6Fqz+F5N3ibD1Xye/gy65Z51VkeJxxYHwkKkrsxdtnUJD2giphdAQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=7bb88557eae5dbc9 issued_at=2026-03-11T20:10:57.179717+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=16821ddc7fa220d7e629838cde987073af6c2114cb88ad2aac86456b758546b0"
+    "keyid": "93e69ff2caef842b",
+    "value": "untrusted comment: signature from omg local signing key\nxuVm4EA7CySuyIoHJlOXRQlB1VDK4zU4aP1YWRNf6M7Qb95OnWPwbqd/zXXDO7bpGMEXo9PlI8iwCc70DSVhBA==\ntrusted comment: type=omg-slsa-v1 keyid=93e69ff2caef842b issued_at=2026-03-13T00:52:30.866245+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=3df7cd8fa667f1d27c76dd57f05d25091b63eb78badc68e712549e8ebfbfaff0\nIEVuHlx6hweGLS04taCfaACm04T7/o39Jk8bmhPfDyhn2m7gDlPAnaFIHCXYnQ3UHXpQ8Qa+E83uloI25casCQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=93e69ff2caef842b issued_at=2026-03-13T00:52:30.866245+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=3df7cd8fa667f1d27c76dd57f05d25091b63eb78badc68e712549e8ebfbfaff0"
   }
 }

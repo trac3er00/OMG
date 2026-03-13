@@ -3,7 +3,9 @@ import json
 import os
 import sys
 import fcntl
+import site
 from datetime import datetime, timezone
+from pathlib import Path
 
 # --- Stop-Block Loop Breaker ---
 _STOP_BLOCK_TRACKER = ".omg/state/ledger/.stop-block-tracker.json"
@@ -18,6 +20,61 @@ _LOOP_BLOCK_REASONS = {"planning_gate", "ralph_loop", "quality_check", "block_de
 PRE_TOOL_INJECT_MAX_MS = 100
 STOP_CHECK_MAX_MS = 15000
 STOP_DISPATCHER_TOTAL_MAX_MS = 90000
+
+
+def _managed_site_packages(runtime_root: Path) -> list[Path]:
+    venv_root = runtime_root / ".venv"
+    if not venv_root.is_dir():
+        return []
+
+    candidates: list[Path] = []
+    for pattern in ("lib/python*/site-packages", "Lib/site-packages"):
+        for path in venv_root.glob(pattern):
+            if path.is_dir():
+                candidates.append(path.resolve())
+    return candidates
+
+
+def bootstrap_runtime_paths(anchor: str | os.PathLike[str] | None = None) -> None:
+    """Add the repo root or portable omg-runtime root to ``sys.path``.
+
+    Installed hooks live under ``~/.claude/hooks`` while the portable runtime is
+    provisioned under ``~/.claude/omg-runtime``. Repo-local execution instead
+    keeps ``hooks/``, ``runtime/``, ``lab/`` and related packages side by side.
+    This helper resolves both layouts and is safe to call repeatedly.
+    """
+    anchor_path = Path(anchor).resolve() if anchor is not None else Path(__file__).resolve()
+    hooks_dir = anchor_path.parent
+    parent_dir = hooks_dir.parent
+
+    candidates: list[Path] = [hooks_dir]
+    for candidate in (
+        parent_dir,
+        parent_dir / "omg-runtime",
+        hooks_dir / "omg-runtime",
+    ):
+        if candidate not in candidates:
+            candidates.append(candidate)
+
+    project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "").strip()
+    if project_dir:
+        project_path = Path(project_dir).resolve()
+        for candidate in (
+            project_path,
+            project_path / "omg-runtime",
+        ):
+            if candidate not in candidates:
+                candidates.append(candidate)
+
+    for candidate in candidates:
+        candidate_str = str(candidate)
+        if candidate.is_dir() and candidate_str not in sys.path:
+            sys.path.insert(0, candidate_str)
+        for site_packages in _managed_site_packages(candidate):
+            site.addsitedir(str(site_packages))
+
+
+bootstrap_runtime_paths()
 
 def json_input():
     """Parse JSON from stdin. Returns dict or exits 0 on parse failure."""

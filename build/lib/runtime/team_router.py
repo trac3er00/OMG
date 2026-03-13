@@ -82,18 +82,29 @@ def _check_tool_available(tool_name: str) -> bool:
     return False
 
 
-def _run_tool(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+def _run_tool(
+    cmd: list[str],
+    *,
+    timeout: int = 30,
+    cwd: str | None = None,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     """Run an external tool with a mandatory timeout.
 
     Every subprocess call in the team router MUST go through this helper
     to guarantee the ``timeout`` parameter is always set.
     """
+    proc_env = os.environ.copy()
+    if env:
+        proc_env.update({key: str(value) for key, value in env.items()})
     return subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         check=False,
         timeout=timeout,
+        cwd=cwd,
+        env=proc_env,
     )
 
 
@@ -411,6 +422,8 @@ def invoke_codex(prompt: str, project_dir: str, timeout: int = 120) -> dict[str,
         result = _run_tool(
             ["codex", "exec", "--json", prompt],
             timeout=timeout,
+            cwd=project_dir,
+            env={"CLAUDE_PROJECT_DIR": project_dir},
         )
         return {
             "model": "codex-cli",
@@ -448,9 +461,13 @@ def invoke_codex_tmux(prompt: str, project_dir: str, timeout: int = 120) -> dict
     session: str | None = None
     try:
         session_name = mgr.make_session_name("codex", unique_id=str(uuid.uuid4())[:8])
-        session = mgr.get_or_create_session(session_name)
+        session = mgr.get_or_create_session(session_name, cwd=project_dir)
         quoted_prompt = shlex.quote(prompt)
-        cmd = f"codex exec --json {quoted_prompt}; printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+        cmd = (
+            f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+            f"codex exec --json {quoted_prompt}; "
+            f"printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+        )
         raw_output = mgr.send_command(session, cmd, timeout=timeout)
         output, exit_code = _parse_tmux_command_result(raw_output)
         return {"model": "codex-cli", "output": output, "exit_code": exit_code}
@@ -470,6 +487,8 @@ def invoke_gemini(prompt: str, project_dir: str, timeout: int = 120) -> dict[str
         result = _run_tool(
             ["gemini", "-p", prompt],
             timeout=timeout,
+            cwd=project_dir,
+            env={"CLAUDE_PROJECT_DIR": project_dir},
         )
         return {
             "model": "gemini-cli",
@@ -493,9 +512,13 @@ def invoke_gemini_tmux(prompt: str, project_dir: str, timeout: int = 120) -> dic
     session: str | None = None
     try:
         session_name = mgr.make_session_name("gemini", unique_id=str(uuid.uuid4())[:8])
-        session = mgr.get_or_create_session(session_name)
+        session = mgr.get_or_create_session(session_name, cwd=project_dir)
         quoted_prompt = shlex.quote(prompt)
-        cmd = f"gemini -p {quoted_prompt}; printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+        cmd = (
+            f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+            f"gemini -p {quoted_prompt}; "
+            f"printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+        )
         raw_output = mgr.send_command(session, cmd, timeout=timeout)
         output, exit_code = _parse_tmux_command_result(raw_output)
         return {"model": "gemini-cli", "output": output, "exit_code": exit_code}

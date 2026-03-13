@@ -1,6 +1,6 @@
 {
   "name": "omg-core",
-  "version": "2.1.8",
+  "version": "2.1.9",
   "description": "Core OMG commands - native setup, routing, orchestration, and verification surfaces",
   "type": "omg-plugin",
   "commands": {
@@ -72,6 +72,11 @@
     "mode": {
       "path": "commands/OMG:mode.md",
       "description": "Set cognitive mode for the session",
+      "category": "config"
+    },
+    "preset": {
+      "path": "commands/OMG:preset.md",
+      "description": "Inspect or apply the canonical OMG preset for the current project",
       "category": "config"
     },
     "domain-init": {
@@ -152,7 +157,8 @@
     "config": {
       "description": "Configuration and settings",
       "commands": [
-        "mode"
+        "mode",
+        "preset"
       ]
     },
     "observability": {

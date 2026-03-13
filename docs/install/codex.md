@@ -33,3 +33,5 @@ Optional browser capability:
 
 - `/OMG:*` slash commands are Claude Code surfaces, not Codex CLI surfaces
 - Codex consumes OMG through native MCP plus the generated Codex pack under `.agents/skills/omg/`
+- Codex keeps its own built-in slash commands and instruction files. OMG should stay compatible with Codex's native `AGENTS.md` hierarchy and skill loading rather than trying to mirror built-in `/personality`, `/approvals`, `/agent`, or related host commands.
+- Generated OMG Codex artifacts are expected to compose with the repo's `AGENTS.md` / `AGENTS.override.md` flow and the host's progressive-disclosure skill loading.

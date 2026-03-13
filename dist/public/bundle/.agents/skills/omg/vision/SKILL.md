@@ -1,6 +1,6 @@
 ---
 name: omg-vision
-description: "Vision-specific lineage, drift, and replay attachments."
+description: "Vision-specific OCR, comparison, lineage, drift, and replay attachments."
 ---
 
 # OMG Vision Pack

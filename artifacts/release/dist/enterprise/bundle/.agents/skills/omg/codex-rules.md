@@ -18,6 +18,11 @@
 - `omg/control-plane`
 - `omg/mcp-fabric`
 
+## Host Interop
+
+- Respect the repo `AGENTS.md` / `AGENTS.override.md` chain before applying OMG-specific rules.
+- Keep OMG guidance separate from Codex built-in slash commands.
+
 ## Protected Planning Surface
 
 - `omg/plan-council` (explicit invocation only)

@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="$CLAUDE_DIR/.omg-backup-$BACKUP_TS"
-VERSION="2.1.8"
+VERSION="2.1.9"
 
 PLUGIN_NAME="omg"
 PLUGIN_MARKETPLACE="omg"
@@ -85,7 +85,7 @@ Options:
   --mode=omg-only|coexist
                      Native OMG adoption mode for overlapping ecosystems
   --adopt=auto       Detect OMG-adjacent ecosystems during install/update
-  --preset=safe|balanced|interop|labs
+  --preset=safe|balanced|interop|labs|buffet
                      User-facing preset for managed OMG features
   --enable-browser   Enable optional OMG browser capability metadata and guidance
   -h, --help         Show this help
@@ -265,7 +265,10 @@ parse_args() {
     esac
 
     case "$OMG_PRESET" in
-        safe|balanced|interop|labs) ;;
+        plugins-first)
+            OMG_PRESET="interop"
+            ;;
+        safe|balanced|interop|labs|buffet) ;;
         *)
             echo "Unknown OMG preset: $OMG_PRESET"
             exit 1
@@ -1811,13 +1814,21 @@ run_install_like() {
             [[ "$CLAUDE_DIR/omg-runtime/hooks" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/hooks" >&2; exit 1; }
             [[ "$CLAUDE_DIR/omg-runtime/lab" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/lab" >&2; exit 1; }
             [[ "$CLAUDE_DIR/omg-runtime/plugins" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/plugins" >&2; exit 1; }
+            [[ "$CLAUDE_DIR/omg-runtime/registry" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/registry" >&2; exit 1; }
+            [[ "$CLAUDE_DIR/omg-runtime/tools" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/tools" >&2; exit 1; }
+            [[ "$CLAUDE_DIR/omg-runtime/control_plane" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/control_plane" >&2; exit 1; }
+            [[ "$CLAUDE_DIR/omg-runtime/omg_natives" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/omg_natives" >&2; exit 1; }
             [[ "$CLAUDE_DIR/omg-runtime/yaml.py" == "$CLAUDE_DIR"* ]] || { echo "ERROR: symlink target outside expected directory: $CLAUDE_DIR/omg-runtime/yaml.py" >&2; exit 1; }
             
-            rm -rf "$CLAUDE_DIR/omg-runtime/runtime" "$CLAUDE_DIR/omg-runtime/hooks" "$CLAUDE_DIR/omg-runtime/lab" "$CLAUDE_DIR/omg-runtime/plugins" "$CLAUDE_DIR/omg-runtime/yaml.py"
+            rm -rf "$CLAUDE_DIR/omg-runtime/runtime" "$CLAUDE_DIR/omg-runtime/hooks" "$CLAUDE_DIR/omg-runtime/lab" "$CLAUDE_DIR/omg-runtime/plugins" "$CLAUDE_DIR/omg-runtime/registry" "$CLAUDE_DIR/omg-runtime/tools" "$CLAUDE_DIR/omg-runtime/control_plane" "$CLAUDE_DIR/omg-runtime/omg_natives" "$CLAUDE_DIR/omg-runtime/yaml.py"
             ln -s "$SCRIPT_DIR/runtime" "$CLAUDE_DIR/omg-runtime/runtime"
             ln -s "$SCRIPT_DIR/hooks" "$CLAUDE_DIR/omg-runtime/hooks"
             ln -s "$SCRIPT_DIR/lab" "$CLAUDE_DIR/omg-runtime/lab"
             ln -s "$SCRIPT_DIR/plugins" "$CLAUDE_DIR/omg-runtime/plugins"
+            ln -s "$SCRIPT_DIR/registry" "$CLAUDE_DIR/omg-runtime/registry"
+            ln -s "$SCRIPT_DIR/tools" "$CLAUDE_DIR/omg-runtime/tools"
+            ln -s "$SCRIPT_DIR/control_plane" "$CLAUDE_DIR/omg-runtime/control_plane"
+            ln -s "$SCRIPT_DIR/omg_natives" "$CLAUDE_DIR/omg-runtime/omg_natives"
             ln -s "$SCRIPT_DIR/yaml.py" "$CLAUDE_DIR/omg-runtime/yaml.py"
             
             [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
@@ -1828,11 +1839,15 @@ run_install_like() {
             mkdir -p "$CLAUDE_DIR/omg-runtime/scripts"
             cp "$SCRIPT_DIR/scripts/omg.py" "$CLAUDE_DIR/omg-runtime/scripts/omg.py"
             [[ "$CLAUDE_DIR/omg-runtime/runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime/runtime" >&2; exit 1; }
-            rm -rf "$CLAUDE_DIR/omg-runtime/runtime" "$CLAUDE_DIR/omg-runtime/hooks" "$CLAUDE_DIR/omg-runtime/lab" "$CLAUDE_DIR/omg-runtime/plugins" "$CLAUDE_DIR/omg-runtime/yaml.py"
+            rm -rf "$CLAUDE_DIR/omg-runtime/runtime" "$CLAUDE_DIR/omg-runtime/hooks" "$CLAUDE_DIR/omg-runtime/lab" "$CLAUDE_DIR/omg-runtime/plugins" "$CLAUDE_DIR/omg-runtime/registry" "$CLAUDE_DIR/omg-runtime/tools" "$CLAUDE_DIR/omg-runtime/control_plane" "$CLAUDE_DIR/omg-runtime/omg_natives" "$CLAUDE_DIR/omg-runtime/yaml.py"
             cp -R "$SCRIPT_DIR/runtime" "$CLAUDE_DIR/omg-runtime/"
             cp -R "$SCRIPT_DIR/hooks" "$CLAUDE_DIR/omg-runtime/"
             cp -R "$SCRIPT_DIR/lab" "$CLAUDE_DIR/omg-runtime/"
             cp -R "$SCRIPT_DIR/plugins" "$CLAUDE_DIR/omg-runtime/"
+            cp -R "$SCRIPT_DIR/registry" "$CLAUDE_DIR/omg-runtime/"
+            cp -R "$SCRIPT_DIR/tools" "$CLAUDE_DIR/omg-runtime/"
+            cp -R "$SCRIPT_DIR/control_plane" "$CLAUDE_DIR/omg-runtime/"
+            cp -R "$SCRIPT_DIR/omg_natives" "$CLAUDE_DIR/omg-runtime/"
             cp "$SCRIPT_DIR/yaml.py" "$CLAUDE_DIR/omg-runtime/yaml.py"
             [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
             find "$CLAUDE_DIR/omg-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true

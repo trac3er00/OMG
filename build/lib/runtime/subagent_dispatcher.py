@@ -84,6 +84,27 @@ def _jobs_dir() -> str:
     return os.path.join(_get_project_dir(), ".omg", "state", "jobs")
 
 
+def resolve_execution_boundary(*, isolation: str = "worktree") -> dict[str, Any]:
+    normalized = isolation.strip().lower() if isolation else "none"
+    if normalized == "worktree":
+        return {
+            "sandbox_mode": "ephemeral_worktree",
+            "worker_policy": os.environ.get("OMG_WORKER_POLICY", "managed-local"),
+            "execution_mode": "local_supervisor",
+        }
+    if normalized == "container":
+        return {
+            "sandbox_mode": "container-like",
+            "worker_policy": os.environ.get("OMG_WORKER_POLICY", "managed-local"),
+            "execution_mode": "automation",
+        }
+    return {
+        "sandbox_mode": "none",
+        "worker_policy": "local-only",
+        "execution_mode": "automation",
+    }
+
+
 def _job_path(job_id: str) -> str:
     """Return the file path for a specific job."""
     return os.path.join(_jobs_dir(), f"{job_id}.json")

@@ -6,7 +6,7 @@
  * and native options via `omgHud`.
  */
 
-import { readFileSync, existsSync, readdirSync, realpathSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -87,7 +87,7 @@ function readOmgVersion() {
     // fall through to static fallback
   }
 
-  return "2.1.8";
+  return "2.1.9";
 }
 
 const OMG_VERSION = readOmgVersion();
@@ -698,18 +698,86 @@ function readBackgroundVerificationState(stateDir) {
   };
 }
 
+function readActiveRunId(stateDir) {
+  const activeRunPath = join(dirname(stateDir), "shadow", "active-run");
+  try {
+    if (!existsSync(activeRunPath)) return null;
+    const value = readFileSync(activeRunPath, "utf8").trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeVerificationState(data) {
+  if (!data || typeof data !== "object") return null;
+  const schema = data.schema;
+  if (schema !== "VerificationControllerState" && schema !== "BackgroundVerificationState") {
+    return null;
+  }
+  return {
+    status: data.status || "unknown",
+    blockers: Array.isArray(data.blockers) ? data.blockers : [],
+    evidence_links: Array.isArray(data.evidence_links) ? data.evidence_links : [],
+    progress: data.progress || {},
+    updated_at: data.updated_at || null,
+    run_id: data.run_id || null,
+  };
+}
+
+function readVerificationState(stateDir) {
+  const activeRunId = readActiveRunId(stateDir);
+  const candidates = [];
+  if (activeRunId) {
+    candidates.push(join(stateDir, "verification_controller", `${activeRunId}.json`));
+  }
+  candidates.push(join(stateDir, "verification_controller", "latest.json"));
+  candidates.push(join(stateDir, "background-verification.json"));
+
+  for (const candidate of candidates) {
+    const normalized = normalizeVerificationState(readJsonSafe(candidate));
+    if (activeRunId && normalized?.run_id && normalized.run_id !== activeRunId) {
+      continue;
+    }
+    if (normalized) return normalized;
+  }
+  return null;
+}
+
 function readLatestSessionHealth(stateDir) {
   const healthDir = join(stateDir, "session_health");
   if (!existsSync(healthDir)) return null;
   try {
+    const activeRunId = readActiveRunId(stateDir);
+    const candidates = [];
+    if (activeRunId) {
+      candidates.push(join(healthDir, `${activeRunId}.json`));
+    }
+    candidates.push(join(healthDir, "latest.json"));
+    for (const candidate of candidates) {
+      const data = readJsonSafe(candidate);
+      if (activeRunId && data?.run_id && data.run_id !== activeRunId) continue;
+      if (data?.schema === "SessionHealth") return data;
+    }
+
     const files = readdirSync(healthDir)
-      .filter((f) => f.endsWith(".json") && !f.endsWith(".tmp"))
-      .sort();
-    if (files.length === 0) return null;
-    const latest = files[files.length - 1];
-    const data = readJsonSafe(join(healthDir, latest));
-    if (!data || data.schema !== "SessionHealth") return null;
-    return data;
+      .filter((f) => f.endsWith(".json") && !f.endsWith(".tmp") && f !== "latest.json")
+      .map((f) => {
+        const fullPath = join(healthDir, f);
+        try {
+          return { fullPath, mtimeMs: statSync(fullPath).mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs);
+    for (const file of files) {
+      const data = readJsonSafe(file.fullPath);
+      if (activeRunId && data?.run_id && data.run_id !== activeRunId) continue;
+      if (data?.schema === "SessionHealth") return data;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -1356,7 +1424,7 @@ async function main() {
     }
 
     const verificationStateDir = join(cwd, ".omg", "state");
-    const verificationState = readBackgroundVerificationState(verificationStateDir);
+    const verificationState = readVerificationState(verificationStateDir);
     els.push(renderVerificationStatus(verificationState));
 
     // Session health monitor

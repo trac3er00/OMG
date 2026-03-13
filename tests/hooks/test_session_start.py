@@ -65,7 +65,7 @@ def test_settings_register_session_start_hook():
         for hook in entry.get("hooks", []):
             if isinstance(hook, dict):
                 commands.append(hook.get("command"))
-    assert 'python3 "$HOME/.claude/hooks/session-start.py"' in commands
+    assert '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/session-start.py"' in commands
 
 
 # ━━━ Subprocess-based runtime behavior tests ━━━

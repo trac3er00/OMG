@@ -30,6 +30,46 @@ class ControlPlaneService:
     def __init__(self, project_dir: str | None = None):
         self.project_dir = project_dir or os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 
+    def vision_jobs(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        if not isinstance(payload, dict):
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_VISION_INPUT",
+                "message": "vision job payload must be an object",
+            }
+
+        mode = str(payload.get("mode", "")).strip()
+        inputs = payload.get("inputs")
+        valid_modes = {"ocr", "compare", "analyze", "batch", "eval"}
+
+        if mode not in valid_modes:
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_VISION_INPUT",
+                "message": f"mode must be one of: {', '.join(sorted(valid_modes))}",
+            }
+        if not isinstance(inputs, list) or not inputs or not all(isinstance(item, str) and item.strip() for item in inputs):
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_VISION_INPUT",
+                "message": "inputs must be a non-empty list of file paths",
+            }
+
+        missing = [item for item in inputs if not (Path(self.project_dir) / item).exists()]
+        if missing:
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_VISION_INPUT",
+                "message": f"input paths do not exist: {', '.join(missing)}",
+            }
+
+        return 202, {
+            "status": "accepted",
+            "job_type": "vision",
+            "mode": mode,
+            "input_count": len(inputs),
+        }
+
     def policy_evaluate(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         tool = str(payload.get("tool", ""))
         input_data = payload.get("input", {})

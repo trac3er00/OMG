@@ -142,7 +142,7 @@ def verify_lock(project_dir: str, run_id: str | None, lock_id: str | None = None
     }
 
 
-def evaluate_test_delta(delta: dict[str, Any]) -> dict[str, Any]:
+def evaluate_test_delta(delta: dict[str, Any], project_dir: str | None = None) -> dict[str, Any]:
     override = delta.get("override")
     waiver_artifact = delta.get("waiver_artifact")
     if _has_override(override):
@@ -160,7 +160,10 @@ def evaluate_test_delta(delta: dict[str, Any]) -> dict[str, Any]:
     lock_payload: dict[str, Any] | None = None
     lock_id = str(delta.get("lock_id", "")).strip()
     if lock_id:
-        lock_payload = _load_lock_payload(lock_id)
+        if project_dir:
+            lock_payload = _load_lock_payload_from_project(project_dir, lock_id)
+        else:
+            lock_payload = _load_lock_payload(lock_id)
         if lock_payload is None:
             return {
                 "verdict": "fail",
@@ -175,6 +178,7 @@ def evaluate_test_delta(delta: dict[str, Any]) -> dict[str, Any]:
             old_tests=old_tests,
             new_tests=new_tests,
             touched_paths=touched_paths,
+            project_dir=project_dir,
         )
         if contract_reasons and not _has_waiver_artifact(waiver_artifact):
             unique_flags = list(dict.fromkeys(contract_flags))
@@ -352,6 +356,7 @@ def _evaluate_locked_contract(
     old_tests: list[dict[str, Any]],
     new_tests: list[dict[str, Any]],
     touched_paths: list[str],
+    project_dir: str | None = None,
 ) -> tuple[list[str], list[str]]:
     reasons: list[str] = []
     flags: list[str] = []
@@ -375,7 +380,8 @@ def _evaluate_locked_contract(
             path_key = str(selector_path).strip()
             if not path_key:
                 continue
-            current_hash = _hash_test_file(Path("."), path_key)
+            hash_project_dir = Path(project_dir) if project_dir else Path(".")
+            current_hash = _hash_test_file(hash_project_dir, path_key)
             expected_hash_value = str(expected_hash).strip() if expected_hash is not None else None
             if expected_hash_value and current_hash is None:
                 flags.append("locked_test_file_missing")

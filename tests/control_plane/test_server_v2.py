@@ -4,6 +4,7 @@ import json
 from http.server import HTTPServer
 from threading import Thread
 from unittest.mock import patch
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from control_plane.server import _main, make_handler
@@ -17,9 +18,13 @@ def _post_json(url: str, payload: dict[str, object]) -> tuple[int, dict[str, obj
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urlopen(req, timeout=5) as response:
-        body = response.read().decode("utf-8")
-        return response.status, json.loads(body)
+    try:
+        with urlopen(req, timeout=5) as response:
+            body = response.read().decode("utf-8")
+            return response.status, json.loads(body)
+    except HTTPError as exc:
+        body = exc.read().decode("utf-8")
+        return exc.code, json.loads(body)
 
 
 def test_server_supports_v2_endpoints_and_v1_aliases(tmp_path) -> None:
@@ -45,6 +50,34 @@ def test_server_supports_v2_endpoints_and_v1_aliases(tmp_path) -> None:
         assert v1_status == 200
         assert v1_payload["action"] == "deny"
         assert v1_payload["deprecated"] is True
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+
+def test_server_supports_vision_job_endpoints_and_aliases(tmp_path) -> None:
+    service = ControlPlaneService(project_dir=str(tmp_path))
+    server = HTTPServer(("127.0.0.1", 0), make_handler(service))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+
+        v2_status, v2_payload = _post_json(
+            f"{base}/v2/vision/jobs",
+            {"mode": "compare", "inputs": ["left.png", "right.png"]},
+        )
+        assert v2_status == 400
+        assert v2_payload["error_code"] == "INVALID_VISION_INPUT"
+        assert v2_payload["api_version"] == "v2"
+
+        v1_status, v1_payload = _post_json(
+            f"{base}/v1/vision/jobs",
+            {"mode": "compare", "inputs": ["left.png", "right.png"]},
+        )
+        assert v1_status == 400
+        assert v1_payload["deprecated"] is True
+        assert v1_payload["error_code"] == "INVALID_VISION_INPUT"
     finally:
         server.shutdown()
         thread.join(timeout=5)

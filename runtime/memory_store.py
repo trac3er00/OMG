@@ -7,7 +7,6 @@ import sqlite3
 import uuid
 import base64
 import hashlib
-import secrets
 import socket
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -54,12 +53,30 @@ class MemoryStore:
     def __init__(self, store_path: str | None = None) -> None:
         if store_path is None:
             store_path = str(Path.home() / ".omg" / "shared-memory" / "store.sqlite3")
-        self.store_path: str = store_path
-        self._backend = "json" if Path(store_path).suffix.lower() == ".json" else "sqlite"
         self._memory_host = (os.environ.get("OMG_MEMORY_HOST", _DEFAULT_MEMORY_HOST).strip() or _DEFAULT_MEMORY_HOST)
         self._conn: sqlite3.Connection | None = None
         self._fts_enabled = False
         self._items: list[_Item] = []
+        self._store_path = ""
+        self._backend = "json"
+
+        self.store_path = store_path
+
+    @property
+    def store_path(self) -> str:
+        return self._store_path
+
+    @store_path.setter
+    def store_path(self, store_path: str) -> None:
+        normalized_path = str(store_path)
+        if normalized_path == self._store_path:
+            return
+
+        self.close()
+        self._store_path = normalized_path
+        self._backend = "json" if Path(normalized_path).suffix.lower() == ".json" else "sqlite"
+        self._items = []
+        self._fts_enabled = False
 
         if self._backend == "json":
             self._items = self._load_json_items()
@@ -312,7 +329,7 @@ class MemoryStore:
     def export_all(self, *, include_quarantined: bool = False) -> list[_Item]:
         return self.list_all(include_quarantined=include_quarantined)
 
-    def import_items(self, items: list[_Item], *, quarantined: bool = True) -> int:
+    def import_items(self, items: list[_Item], *, quarantined: bool = False) -> int:
         if self._backend == "json":
             existing_ids = {str(i["id"]) for i in self._items}
             added = 0
@@ -680,20 +697,7 @@ class MemoryStore:
         path = Path(self.store_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_name(f"{path.name}.tmp")
-        payload = json.dumps(self._items, separators=(",", ":"), ensure_ascii=True)
-        encrypted_payload = self._encrypt_text(payload, purpose="json-at-rest")
-        envelope = {
-            "format": _JSON_ENVELOPE_FORMAT,
-            "encrypted": True,
-            "alg": "fernet" if _has_fernet else "xor-base64",
-            "host": self._memory_host,
-            "nonce": secrets.token_hex(8),
-            "payload": encrypted_payload,
-            "integrity": {
-                "sha256": hashlib.sha256(encrypted_payload.encode("utf-8")).hexdigest(),
-            },
-        }
-        _ = tmp_path.write_text(json.dumps(envelope, indent=2, ensure_ascii=True) + "\n")
+        _ = tmp_path.write_text(json.dumps(self._items, indent=2, ensure_ascii=True) + "\n")
         _ = os.replace(tmp_path, path)
 
     def _sqlite_conn(self) -> sqlite3.Connection:
@@ -882,7 +886,13 @@ def project_preference_signals(
         return []
 
     limit = max(1, min(int(max_signals), _PREFERENCE_SIGNAL_LIMIT))
-    store = MemoryStore(store_path=store_path)
+    resolved_store_path = store_path
+    if resolved_store_path is None:
+        legacy_json_path = Path.home() / ".omg" / "shared-memory" / "store.json"
+        if legacy_json_path.exists():
+            resolved_store_path = str(legacy_json_path)
+
+    store = MemoryStore(store_path=resolved_store_path)
     items = list(reversed(store.list_all()))
     results: list[dict[str, Any]] = []
     seen: set[tuple[str, str, str, str]] = set()

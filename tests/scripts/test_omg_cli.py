@@ -30,299 +30,64 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
     )
 
 
+def test_vision_command_family_is_registered() -> None:
+    result = _run(["vision", "--help"])
+
+    assert result.returncode == 0
+    assert "ocr" in result.stdout
+    assert "compare" in result.stdout
+    assert "analyze" in result.stdout
+
+
 def _seed_release_readiness_fixtures(tmp_path: Path, *, include_primitives: bool = True, omit: set[str] | None = None) -> None:
     omitted = omit or set()
-    context_checksum = "ctx-run-1"
-    profile_version = "profile-v1"
-    intent_gate_version = "1.0.0"
+    prepare = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "prepare-release-proof-fixtures.py"), "--output-root", str(tmp_path)],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert prepare.returncode == 0, prepare.stdout + prepare.stderr
+    doctor = _run(["doctor", "--format", "json"])
+    assert doctor.returncode == 0, doctor.stdout + doctor.stderr
+    doctor_path = tmp_path / ".omg" / "evidence" / "doctor.json"
+    doctor_path.parent.mkdir(parents=True, exist_ok=True)
+    doctor_path.write_text(doctor.stdout, encoding="utf-8")
 
-    evidence_root = tmp_path / ".omg" / "evidence"
-    evidence_root.mkdir(parents=True, exist_ok=True)
-    (evidence_root / "doctor.json").write_text(
-        json.dumps(
-            {
-                "schema": "DoctorResult",
-                "status": "pass",
-                "checks": [
-                    {"name": "python_version", "status": "ok", "required": True},
-                    {"name": "fastmcp", "status": "ok", "required": True},
-                    {"name": "omg_control_reachable", "status": "ok", "required": True},
-                    {"name": "policy_files", "status": "ok", "required": True},
-                    {"name": "metadata_drift", "status": "ok", "required": True},
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-    (evidence_root / "run-1.json").write_text(
-        json.dumps(
-            {
-                "schema": "EvidencePack",
-                "run_id": "run-1",
-                "timestamp": "2026-03-07T00:00:00Z",
-                "executor": {"user": "tester", "pid": 1},
-                "environment": {"hostname": "localhost", "platform": "darwin"},
-                "context_checksum": context_checksum,
-                "profile_version": profile_version,
-                "intent_gate_version": intent_gate_version,
-                "tests": [{"name": "worker_implementation", "passed": True}],
-                "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
-                "diff_summary": {"files": 1},
-                "reproducibility": {"cmd": "pytest -q"},
-                "unresolved_risks": [],
-                "provenance": [{"source": "security-check"}],
-                "trust_scores": {"overall": 1.0},
-                "api_twin": {},
-                "test_delta": {
-                    "override": {"approved_by": "tester"},
-                    "lock_id": "lock-1",
-                    "waiver_artifact": {"artifact_path": ".omg/evidence/waiver-tests-lock-1.json", "reason": "approved"},
-                },
-                "claims": [
-                    {
-                        "claim_type": "tests_passed",
-                        "trace_ids": ["trace-1"],
-                        "artifacts": ["junit.xml", "coverage.xml", "results.sarif", "trace.zip"],
-                    }
-                ],
-                "trace_ids": ["trace-1"],
-                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
-                "intent_gate_state": {"path": ".omg/state/intent_gate/run-1.json", "run_id": "run-1"},
-                "profile_digest": {"path": ".omg/state/profile.yaml", "profile_version": profile_version},
-                "session_health_state": {"path": ".omg/state/session_health/run-1.json", "run_id": "run-1"},
-                "council_verdicts": {"path": ".omg/state/council_verdicts/run-1.json", "run_id": "run-1"},
-                "forge_starter_proof": {"path": ".omg/evidence/forge-specialists-run-1.json", "run_id": "run-1"},
-            }
-        ),
-        encoding="utf-8",
-    )
-    (evidence_root / "security-check.json").write_text(
-        json.dumps(
-            {
-                "schema": "SecurityCheckResult",
-                "status": "ok",
-                "evidence": {"sarif_path": ".omg/evidence/results.sarif"},
-            }
-        ),
-        encoding="utf-8",
-    )
-    (evidence_root / "results.sarif").write_text("{}", encoding="utf-8")
-    (evidence_root / "forge-specialists-run-1.json").write_text(
-        json.dumps(
-            {
-                "schema": "ForgeSpecialistDispatchEvidence",
-                "schema_version": "1.0.0",
-                "run_id": "run-1",
-                "status": "ok",
-                "proof_backed": True,
-                "specialists_dispatched": ["training-architect"],
-                "context_checksum": context_checksum,
-                "profile_version": profile_version,
-                "intent_gate_version": intent_gate_version,
-            }
-        ),
-        encoding="utf-8",
-    )
+    if include_primitives and not omitted:
+        return
 
-    lineage_root = tmp_path / ".omg" / "lineage"
-    lineage_root.mkdir(parents=True, exist_ok=True)
-    (lineage_root / "lineage-1.json").write_text(
-        json.dumps({"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"}),
-        encoding="utf-8",
-    )
-
-    eval_root = tmp_path / ".omg" / "evals"
-    eval_root.mkdir(parents=True, exist_ok=True)
-    (eval_root / "latest.json").write_text(
-        json.dumps(
+    removable_paths = {
+        "release_run_coordinator": tmp_path / ".omg" / "state" / "release_run_coordinator" / "run-1.json",
+        "test_intent_lock": tmp_path / ".omg" / "state" / "test-intent-lock" / "lock-1.json",
+        "rollback_manifest": tmp_path / ".omg" / "state" / "rollback_manifest" / "run-1-step-1.json",
+        "session_health": tmp_path / ".omg" / "state" / "session_health" / "run-1.json",
+        "intent_gate": tmp_path / ".omg" / "state" / "intent_gate" / "run-1.json",
+        "profile_digest": tmp_path / ".omg" / "state" / "profile.yaml",
+        "council_verdicts": tmp_path / ".omg" / "state" / "council_verdicts" / "run-1.json",
+        "forge_starter_proof": tmp_path / ".omg" / "evidence" / "forge-specialists-run-1.json",
+    }
+    to_remove = set(omitted)
+    if not include_primitives:
+        to_remove.update(
             {
-                "schema": "EvalGateResult",
-                "eval_id": "eval-1",
-                "trace_id": "trace-1",
-                "lineage": {"trace_id": "trace-1", "path": ".omg/lineage/lineage-1.json"},
-                "timestamp": "2026-03-07T00:00:00Z",
-                "executor": {"user": "tester", "pid": 1},
-                "environment": {"hostname": "localhost", "platform": "darwin"},
-                "status": "ok",
-                "summary": {"regressed": False},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    tracebank_root = tmp_path / ".omg" / "tracebank"
-    tracebank_root.mkdir(parents=True, exist_ok=True)
-    (tracebank_root / "events.jsonl").write_text(
-        json.dumps(
-            {
-                "schema": "TracebankRecord",
-                "trace_id": "trace-1",
-                "timestamp": "2026-03-07T00:00:00Z",
-                "executor": {"user": "tester", "pid": 1},
-                "environment": {"hostname": "localhost", "platform": "darwin"},
-                "path": ".omg/tracebank/events.jsonl",
+                "release_run_coordinator",
+                "test_intent_lock",
+                "rollback_manifest",
+                "session_health",
+                "intent_gate",
+                "profile_digest",
+                "council_verdicts",
+                "forge_starter_proof",
             }
         )
-        + "\n",
-        encoding="utf-8",
-    )
 
-    if include_primitives:
-        state_root = tmp_path / ".omg" / "state"
-
-        if "release_run_coordinator" not in omitted:
-            release_state_dir = state_root / "release_run_coordinator"
-            release_state_dir.mkdir(parents=True, exist_ok=True)
-            (release_state_dir / "run-1.json").write_text(
-                json.dumps(
-                    {
-                        "schema": "ReleaseRunCoordinatorState",
-                        "schema_version": "1.0.0",
-                        "run_id": "run-1",
-                        "status": "ok",
-                        "phase": "finalize",
-                        "resolution_source": "cli",
-                        "resolution_reason": "explicit",
-                        "updated_at": "2026-03-07T00:00:00Z",
-                        "context_checksum": context_checksum,
-                        "profile_version": profile_version,
-                        "intent_gate_version": intent_gate_version,
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-        if "test_intent_lock" not in omitted:
-            lock_dir = state_root / "test-intent-lock"
-            lock_dir.mkdir(parents=True, exist_ok=True)
-            (lock_dir / "lock-1.json").write_text(
-                json.dumps(
-                    {
-                        "schema": "TestIntentLock",
-                        "lock_id": "lock-1",
-                        "status": "ok",
-                        "intent": {"run_id": "run-1"},
-                        "context_checksum": context_checksum,
-                        "profile_version": profile_version,
-                        "intent_gate_version": intent_gate_version,
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-        if "rollback_manifest" not in omitted:
-            rollback_dir = state_root / "rollback_manifest"
-            rollback_dir.mkdir(parents=True, exist_ok=True)
-            (rollback_dir / "run-1-step-1.json").write_text(
-                json.dumps(
-                    {
-                        "schema": "RollbackManifest",
-                        "schema_version": "1.0.0",
-                        "run_id": "run-1",
-                        "status": "ok",
-                        "step_id": "step-1",
-                        "local_restores": [],
-                        "compensating_actions": [],
-                        "side_effects": [],
-                        "updated_at": "2026-03-07T00:00:00Z",
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-        if "session_health" not in omitted:
-            health_dir = state_root / "session_health"
-            health_dir.mkdir(parents=True, exist_ok=True)
-            (health_dir / "run-1.json").write_text(
-                json.dumps(
-                    {
-                        "schema": "SessionHealth",
-                        "schema_version": "1.0.0",
-                        "run_id": "run-1",
-                        "status": "ok",
-                        "contamination_risk": 0.1,
-                        "overthinking_score": 0.1,
-                        "context_health": 0.9,
-                        "verification_status": "ok",
-                        "recommended_action": "continue",
-                        "updated_at": "2026-03-07T00:00:00Z",
-                        "context_checksum": context_checksum,
-                        "profile_version": profile_version,
-                        "intent_gate_version": intent_gate_version,
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-        if "intent_gate" not in omitted:
-            intent_gate_dir = state_root / "intent_gate"
-            intent_gate_dir.mkdir(parents=True, exist_ok=True)
-            (intent_gate_dir / "run-1.json").write_text(
-                json.dumps(
-                    {
-                        "schema": "IntentGateDecision",
-                        "schema_version": intent_gate_version,
-                        "run_id": "run-1",
-                        "intent_gate_version": intent_gate_version,
-                        "requires_clarification": False,
-                        "intent_class": "release_readiness",
-                        "clarification_prompt": "",
-                        "confidence": 0.98,
-                        "context_checksum": context_checksum,
-                        "profile_version": profile_version,
-                        "updated_at": "2026-03-07T00:00:00Z",
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-        if "profile_digest" not in omitted:
-            (state_root / "profile.yaml").write_text(
-                "\n".join(
-                    [
-                        "profile_version: profile-v1",
-                        "preferences:",
-                        "  architecture_requests:",
-                        "    - release_readiness",
-                        "user_vector:",
-                        "  summary: cli fixture profile",
-                        "profile_provenance:",
-                        "  checksum: profile-v1",
-                        "",
-                    ]
-                ),
-                encoding="utf-8",
-            )
-
-        if "council_verdicts" not in omitted:
-            council_dir = state_root / "council_verdicts"
-            council_dir.mkdir(parents=True, exist_ok=True)
-            (council_dir / "run-1.json").write_text(
-                json.dumps(
-                    {
-                        "schema": "CouncilVerdicts",
-                        "schema_version": "1.0.0",
-                        "run_id": "run-1",
-                        "status": "ok",
-                        "verification_status": "ok",
-                        "context_checksum": context_checksum,
-                        "profile_version": profile_version,
-                        "intent_gate_version": intent_gate_version,
-                        "verdicts": {
-                            "skeptic": {"verdict": "pass"},
-                            "hallucination_auditor": {"verdict": "pass"},
-                            "evidence_completeness": {"verdict": "pass"},
-                        },
-                        "updated_at": "2026-03-07T00:00:00Z",
-                    }
-                ),
-                encoding="utf-8",
-            )
-
-        if "forge_starter_proof" in omitted:
-            forge_path = evidence_root / "forge-specialists-run-1.json"
-            if forge_path.exists():
-                forge_path.unlink()
+    for key in to_remove:
+        path = removable_paths.get(key)
+        if path and path.exists():
+            path.unlink()
 
 
 def test_cli_help_uses_canonical_identity():

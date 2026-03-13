@@ -52,6 +52,8 @@ class CodexProvider(CLIProvider):
             result = self.run_tool(
                 ["codex", "exec", "--json", prompt],
                 timeout=timeout,
+                cwd=project_dir,
+                env={"CLAUDE_PROJECT_DIR": project_dir},
             )
             return {
                 "model": "codex-cli",
@@ -73,8 +75,15 @@ class CodexProvider(CLIProvider):
         try:
             mgr = TmuxSessionManager()
             session_name = mgr.make_session_name("codex", unique_id=str(uuid.uuid4())[:8])
-            session = mgr.get_or_create_session(session_name)
-            output = mgr.send_command(session, f"codex exec --json {shlex.quote(prompt)}", timeout=timeout)
+            session = mgr.get_or_create_session(session_name, cwd=project_dir)
+            output = mgr.send_command(
+                session,
+                (
+                    f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+                    f"codex exec --json {shlex.quote(prompt)}"
+                ),
+                timeout=timeout,
+            )
             mgr.kill_session(session)
             return {"model": "codex-cli", "output": output, "exit_code": 0}
         except Exception as exc:

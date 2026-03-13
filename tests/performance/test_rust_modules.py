@@ -7,9 +7,11 @@ registration with the global REGISTRY via bind_function().
 from __future__ import annotations
 
 import os
+import shutil
 import time
 
 import pytest
+from PIL import Image
 
 from omg_natives._bindings import REGISTRY, get_binding
 from omg_natives.grep import grep
@@ -313,6 +315,27 @@ class TestImage:
         spec = get_binding("image")
         assert spec is not None
         assert spec.python_fallback is image
+
+    def test_image_compare_reports_delta(self, tmp_path):
+        left = tmp_path / "left.png"
+        right = tmp_path / "right.png"
+        Image.new("RGB", (24, 24), (255, 255, 255)).save(left)
+        Image.new("RGB", (24, 24), (0, 0, 0)).save(right)
+
+        result = image(str(left), "compare", other_path=str(right))
+
+        assert result["status"] == "ok"
+        assert result["pixel_delta_ratio"] > 0
+
+    @pytest.mark.skipif(shutil.which("tesseract") is None, reason="tesseract binary required")
+    def test_image_ocr_reports_text_field(self, tmp_path):
+        target = tmp_path / "ocr.png"
+        Image.new("RGB", (120, 60), (255, 255, 255)).save(target)
+
+        result = image(str(target), "ocr")
+
+        assert result["status"] == "ok"
+        assert "text" in result
 
 
 # ---------------------------------------------------------------------------

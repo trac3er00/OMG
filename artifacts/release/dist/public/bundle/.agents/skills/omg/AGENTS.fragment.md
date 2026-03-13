@@ -70,4 +70,6 @@ Council planning skills are protected and explicit-invocation only:
 
 - Rules: `protected_paths, explicit_invocation`
 - Automations: `contract-compile, release-readiness`
+- Defer to the repo's `AGENTS.md` / `AGENTS.override.md` instruction hierarchy before OMG-specific guidance.
+- Do not mirror or override Codex built-in slash commands; OMG guidance applies through MCP, skills, and generated rules.
 - Require explicit invocation for protected production planning skills.

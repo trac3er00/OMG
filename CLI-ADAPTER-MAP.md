@@ -162,7 +162,7 @@ OMG supports 4 canonical CLI targets with dedicated provider implementations and
   - `~/.claude/settings.json` → `enabledPlugins[plugin_ref] = true`
   - `~/.claude/plugins/installed_plugins.json` → Plugin metadata with installed path, version, timestamp
 - **Plugin Ref Format:** `omg@omg` (name@marketplace_id)
-- **Version:** `2.1.8` (from package.json)
+- **Version:** `2.1.9` (from package.json)
 
 #### C. Plugin Unregistration (Lines 631-669)
 - **Function:** `unregister_plugin_from_registry(plugin_ref)`
@@ -206,7 +206,7 @@ OMG supports 4 canonical CLI targets with dedicated provider implementations and
 ```json
 {
   "name": "@trac3er/oh-my-god",
-  "version": "2.1.8",
+  "version": "2.1.9",
   "scripts": {
     "postinstall": "./OMG-setup.sh install --non-interactive",
     "update": "./OMG-setup.sh update",
@@ -238,7 +238,7 @@ CANONICAL_REPO_URL = "https://github.com/trac3er00/OMG"
 CANONICAL_PACKAGE_NAME = "@trac3er/oh-my-god"
 CANONICAL_PLUGIN_ID = "omg"
 CANONICAL_MARKETPLACE_ID = "omg"
-CANONICAL_VERSION = "2.1.8"
+CANONICAL_VERSION = "2.1.9"
 ```
 
 ---
@@ -267,7 +267,7 @@ Actions:
 Key Options:
   --install-as-plugin   Install as plugin bundle (Claude plugin system)
   --mode=omg-only|coexist  Adoption mode
-  --preset=safe|balanced|interop|labs  Feature set
+  --preset=safe|balanced|interop|labs|buffet  Feature set
   --merge-policy=ask|apply|skip  Settings merge behavior
 ```
 
@@ -377,4 +377,3 @@ Key Options:
 | `OMG_COMPAT_CONTRACT.md` | Host compilation rules contract | 105 |
 | `docs/install/claude-code.md` | Claude Code install guide | 31 |
 | `docs/install/codex.md` | Codex install guide | 29 |
-

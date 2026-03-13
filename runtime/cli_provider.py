@@ -2,19 +2,32 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from abc import ABC, abstractmethod
 from typing import Any
+from typing import Mapping
 
 
-def _run_tool(cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+def _run_tool(
+    cmd: list[str],
+    *,
+    timeout: int = 30,
+    cwd: str | None = None,
+    env: Mapping[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     """Run an external tool with a mandatory timeout."""
+    proc_env = os.environ.copy()
+    if env:
+        proc_env.update({key: str(value) for key, value in env.items()})
     return subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         check=False,
         timeout=timeout,
+        cwd=cwd,
+        env=proc_env,
     )
 
 
@@ -53,9 +66,16 @@ class CLIProvider(ABC):
     def write_mcp_config(self, server_url: str, server_name: str = "memory-server") -> None:
         """Write or update MCP server configuration for this provider."""
 
-    def run_tool(self, cmd: list[str], *, timeout: int = 30) -> subprocess.CompletedProcess[str]:
+    def run_tool(
+        self,
+        cmd: list[str],
+        *,
+        timeout: int = 30,
+        cwd: str | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         """Execute subprocess commands via mandatory timeout helper."""
-        return _run_tool(cmd, timeout=timeout)
+        return _run_tool(cmd, timeout=timeout, cwd=cwd, env=env)
 
 
 _PROVIDER_REGISTRY: dict[str, CLIProvider] = {}
