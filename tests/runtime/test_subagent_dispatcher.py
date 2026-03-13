@@ -501,7 +501,8 @@ class TestRunJob:
     @patch("runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/fake-worktree")
     @patch("runtime.subagent_dispatcher._cleanup_worktree")
     @patch("runtime.subagent_dispatcher._persist_job")
-    def test_run_with_worktree_isolation(self, mock_persist, mock_cleanup, mock_setup, mock_dispatch):
+    @patch("runtime.subagent_dispatcher._enforce_merge_writer_gate")
+    def test_run_with_worktree_isolation(self, mock_gate, mock_persist, mock_cleanup, mock_setup, mock_dispatch):
         """_run_job should setup and cleanup worktree when isolation='worktree'."""
         _jobs["wt01"] = {
             "job_id": "wt01",
@@ -515,6 +516,7 @@ class TestRunJob:
 
         _run_job("wt01")
 
+        mock_gate.assert_called_once()
         mock_setup.assert_called_once_with("wt01")
         mock_dispatch.assert_called_once()
         mock_cleanup.assert_called_once_with("/tmp/fake-worktree")
@@ -797,7 +799,8 @@ class TestRunJobFailurePropagation:
             "error": None,
         }
 
-        with patch("runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/wt") as mock_setup, \
+        with patch("runtime.subagent_dispatcher._enforce_merge_writer_gate"), \
+             patch("runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/wt") as mock_setup, \
              patch("runtime.subagent_dispatcher._cleanup_worktree") as mock_cleanup:
             _run_job("wtfail")
 

@@ -129,6 +129,19 @@ def tool_plan_gate_check(project_dir: str, run_id: str | None, tool: str) -> dic
     }
 
 
+def governed_tool_plan_gate_check(
+    project_dir: str,
+    run_id: str | None,
+    lane_name: str,
+    tool: str,
+) -> dict[str, object]:
+    decision = tool_plan_gate_check(project_dir=project_dir, run_id=run_id, tool=tool)
+    return {
+        **decision,
+        "lane_name": str(lane_name).strip().lower(),
+    }
+
+
 def _normalize_tools(available_tools: list[str]) -> list[str]:
     output: list[str] = []
     seen: set[str] = set()

@@ -87,7 +87,10 @@ class TestInvoke:
                 cwd="/project",
                 env={"CLAUDE_PROJECT_DIR": "/project"},
             )
-            assert result == {"model": "codex-cli", "output": '{"result":"ok"}', "exit_code": 0}
+            assert result["model"] == "codex-cli"
+            assert result["output"] == '{"result":"ok"}'
+            assert result["exit_code"] == 0
+            assert result["normalized_output"]["status"] == "ok"
 
     def test_timeout_returns_error_fallback(self, provider: CodexProvider) -> None:
         with patch.object(provider, "run_tool", side_effect=subprocess.TimeoutExpired(cmd="codex", timeout=120)):
@@ -127,7 +130,10 @@ class TestInvokeTmux:
         mgr.get_or_create_session.assert_called_once_with("omg-codex-abc", cwd="/project")
         mgr.send_command.assert_called_once()
         mgr.kill_session.assert_called_once_with("omg-codex-abc")
-        assert result == {"model": "codex-cli", "output": '{"done":true}', "exit_code": 0}
+        assert result["model"] == "codex-cli"
+        assert result["output"] == '{"done":true}'
+        assert result["exit_code"] == 0
+        assert result["normalized_output"]["status"] == "ok"
 
     @patch("runtime.providers.codex_provider.TmuxSessionManager")
     def test_tmux_failure_falls_back_to_invoke(self, mock_mgr_cls: MagicMock, provider: CodexProvider) -> None:

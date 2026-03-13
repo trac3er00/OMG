@@ -1,0 +1,10 @@
+{
+  "schema": "ChaosFixture",
+  "fixture_id": "transposition_pressure_fixture",
+  "run_id": "chaos-transposition-pressure-001",
+  "iterations": 32,
+  "target_key": "G",
+  "expected_verification_hash": "2021a33ad369f4c8ddee9899794c409cf409a76792d2dde6dff060b8ae55a0f4",
+  "max_runtime_seconds": 1.5,
+  "trace_id": "trace-chaos-transposition-pressure"
+}

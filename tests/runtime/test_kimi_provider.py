@@ -104,7 +104,10 @@ class TestInvoke:
                 cwd="/project",
                 env={"CLAUDE_PROJECT_DIR": "/project"},
             )
-            assert result == {"model": "kimi-cli", "output": "task completed", "exit_code": 0}
+            assert result["model"] == "kimi-cli"
+            assert result["output"] == "task completed"
+            assert result["exit_code"] == 0
+            assert result["normalized_output"]["status"] == "ok"
 
     def test_timeout_returns_error_fallback(self, provider: KimiCodeProvider) -> None:
         with patch.object(provider, "run_tool", side_effect=subprocess.TimeoutExpired(cmd="kimi", timeout=120)):
@@ -140,7 +143,10 @@ class TestInvokeJson:
                 cwd="/project",
                 env={"CLAUDE_PROJECT_DIR": "/project"},
             )
-            assert result == {"model": "kimi-cli", "output": '{"event":"done"}', "exit_code": 0}
+            assert result["model"] == "kimi-cli"
+            assert result["output"] == '{"event":"done"}'
+            assert result["exit_code"] == 0
+            assert result["normalized_output"]["status"] == "ok"
 
     def test_timeout_returns_error_fallback(self, provider: KimiCodeProvider) -> None:
         with patch.object(provider, "run_tool", side_effect=subprocess.TimeoutExpired(cmd="kimi", timeout=120)):
@@ -174,7 +180,10 @@ class TestInvokeTmux:
         mgr.get_or_create_session.assert_called_once_with("omg-kimi-abc", cwd="/project")
         mgr.send_command.assert_called_once()
         mgr.kill_session.assert_called_once_with("omg-kimi-abc")
-        assert result == {"model": "kimi-cli", "output": "kimi output here", "exit_code": 0}
+        assert result["model"] == "kimi-cli"
+        assert result["output"] == "kimi output here"
+        assert result["exit_code"] == 0
+        assert result["normalized_output"]["status"] == "ok"
 
     @patch("runtime.providers.kimi_provider.TmuxSessionManager")
     def test_tmux_failure_falls_back_to_invoke(self, mock_mgr_cls: MagicMock, provider: KimiCodeProvider) -> None:

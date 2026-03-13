@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from runtime.runtime_contracts import write_run_state
+from runtime.runtime_contracts import read_session_health, write_run_state
 
 
 _SESSION_HEALTH_REL = Path(".omg") / "state" / "session_health"
@@ -36,6 +36,8 @@ def compute_session_health(
     pressure = _read_json(root / _CONTEXT_PRESSURE_REL)
     verification = _read_verification(root, run_id)
     journal_count = _count_journal_entries(root / _JOURNAL_REL)
+    worker_stall = _read_worker_stall_state(root, run_id)
+    envelope_pressure = _read_envelope_pressure(project_dir, run_id)
 
     contamination_risk = _clamp(_to_float(defense.get("contamination_score"), 0.0))
     injection_hits = _to_int(defense.get("injection_hits"), 0)
@@ -70,6 +72,8 @@ def compute_session_health(
         clarification_sensitive=clarification_sensitive,
         context_health=context_health,
         verification_status=verification_status,
+        worker_stall=worker_stall,
+        envelope_pressure=envelope_pressure,
     )
     recommended_action = action_recommendations[0] if action_recommendations else "continue"
     reflect_triggers = {
@@ -103,11 +107,15 @@ def compute_session_health(
         "defense_pause_required": bool(reflect_triggers["contamination"] or reflect_triggers["overthinking"]),
         "reflect_triggers": reflect_triggers,
         "thresholds": dict(_DEFAULT_THRESHOLDS),
+        "worker_stall": worker_stall,
+        "envelope_pressure": envelope_pressure,
         "sources": {
             "defense_state": bool(defense),
             "context_pressure": bool(pressure),
             "verification": verification_status != "unknown",
             "journal": journal_count > 0,
+            "worker_heartbeats": bool(worker_stall.get("stalled_count")),
+            "budget_envelopes": bool(envelope_pressure),
         },
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -124,6 +132,8 @@ def _recommend_actions(
     clarification_sensitive: bool,
     context_health: float,
     verification_status: str,
+    worker_stall: dict[str, Any] | None = None,
+    envelope_pressure: dict[str, float] | None = None,
 ) -> list[str]:
     thresholds = _DEFAULT_THRESHOLDS
     actions: list[str] = []
@@ -132,6 +142,12 @@ def _recommend_actions(
         actions.append("block")
     if overthinking_score >= thresholds["overthinking_score"]["block"]:
         actions.append("block")
+
+    ep = envelope_pressure or {}
+    for _dim, ratio in ep.items():
+        if ratio >= 1.0:
+            actions.append("block")
+            break
 
     if actions:
         return ["block"]
@@ -147,9 +163,18 @@ def _recommend_actions(
     if context_health <= thresholds["context_health"]["critical"]:
         actions.append("reflect")
 
+    for _dim, ratio in ep.items():
+        if 0.80 <= ratio < 1.0:
+            actions.append("warn")
+            break
+
     if verification_status in ("error", "blocked"):
         actions.append("warn")
     if context_health <= thresholds["context_health"]["warn"]:
+        actions.append("warn")
+
+    stall_count = int((worker_stall or {}).get("stalled_count", 0))
+    if stall_count > 0:
         actions.append("warn")
 
     if actions:
@@ -185,6 +210,52 @@ def _read_verification(root: Path, run_id: str) -> dict[str, Any]:
     if payload and payload.get("schema") == "BackgroundVerificationState":
         return payload
     return {}
+
+
+def _read_worker_stall_state(root: Path, run_id: str) -> dict[str, Any]:
+    hb_dir = root / ".omg" / "state" / "worker-heartbeats"
+    if not hb_dir.exists():
+        return {"stalled_count": 0, "stalled_workers": []}
+
+    stalled: list[dict[str, Any]] = []
+    now = datetime.now(timezone.utc)
+    try:
+        for path in hb_dir.glob("*.json"):
+            if path.name.endswith(".tmp"):
+                continue
+            record = _read_json(path)
+            if not record:
+                continue
+            status = str(record.get("status", ""))
+            if status in ("terminated", "completed", "failed"):
+                continue
+            if status == "stalled":
+                stalled.append(record)
+                continue
+            last_hb = record.get("last_heartbeat_at", "")
+            if not last_hb:
+                continue
+            try:
+                last_ts = datetime.fromisoformat(last_hb)
+                if last_ts.tzinfo is None:
+                    last_ts = last_ts.replace(tzinfo=timezone.utc)
+                if (now - last_ts).total_seconds() > 60:
+                    stalled.append(record)
+            except (ValueError, TypeError):
+                pass
+    except OSError:
+        pass
+
+    return {"stalled_count": len(stalled), "stalled_workers": stalled}
+
+
+def _read_envelope_pressure(project_dir: str, run_id: str) -> dict[str, float]:
+    try:
+        from runtime.budget_envelopes import get_budget_envelope_manager
+        mgr = get_budget_envelope_manager(project_dir)
+        return mgr.get_envelope_pressure(run_id)
+    except Exception:
+        return {}
 
 
 def _count_journal_entries(journal_dir: Path) -> int:
@@ -363,3 +434,91 @@ def _build_action_reason(
         parts.append("session healthy")
 
     return "; ".join(parts)
+
+
+def collect_session_health_risks(project_dir: str, run_id: str) -> list[dict[str, object]]:
+    payload = read_session_health(project_dir, run_id=run_id, compat=True)
+    if not isinstance(payload, dict):
+        return [
+            {
+                "severity": "medium",
+                "surface": "live_session",
+                "title": "Session health state missing",
+                "description": "No session health artifact found for issue scan context.",
+                "fix_guidance": "Run session health computation before promotion decisions.",
+                "evidence_links": [".omg/state/session_health/latest.json"],
+                "approval_required": False,
+                "approval_reason": "",
+            }
+        ]
+
+    issues: list[dict[str, object]] = []
+    contamination = _to_float(payload.get("contamination_risk"), 0.0)
+    recommended_action = str(payload.get("recommended_action", "continue"))
+    worker_stall_obj = payload.get("worker_stall")
+    worker_stall = worker_stall_obj if isinstance(worker_stall_obj, dict) else {}
+    stalled_count = _to_int(worker_stall.get("stalled_count"), 0)
+    envelope_pressure = payload.get("envelope_pressure")
+    pressure_values: list[float] = []
+    if isinstance(envelope_pressure, dict):
+        for value in envelope_pressure.values():
+            pressure_values.append(_to_float(value, 0.0))
+    pressure_max = max(pressure_values) if pressure_values else 0.0
+
+    if contamination >= 0.7:
+        issues.append(
+            {
+                "severity": "high",
+                "surface": "live_session",
+                "title": "High contamination risk detected",
+                "description": f"Session contamination_risk={contamination:.2f} exceeds blocking threshold.",
+                "fix_guidance": "Pause destructive actions and require signed review before applying fixes.",
+                "evidence_links": [f".omg/state/session_health/{run_id}.json", ".omg/state/session_health/latest.json"],
+                "approval_required": True,
+                "approval_reason": "signed approval required for high-risk session remediation",
+            }
+        )
+
+    if stalled_count > 0:
+        issues.append(
+            {
+                "severity": "medium",
+                "surface": "live_session",
+                "title": "Stalled worker signals detected",
+                "description": f"Session has {stalled_count} stalled worker heartbeat(s).",
+                "fix_guidance": "Inspect worker replay evidence and terminate stalled runs explicitly.",
+                "evidence_links": [".omg/state/worker-heartbeats/", ".omg/evidence/subagents/"],
+                "approval_required": False,
+                "approval_reason": "",
+            }
+        )
+
+    if pressure_max >= 1.0:
+        issues.append(
+            {
+                "severity": "high",
+                "surface": "live_session",
+                "title": "Budget envelope breached",
+                "description": f"At least one budget envelope dimension is at {pressure_max:.2f}x of its limit.",
+                "fix_guidance": "Reduce workload or explicitly re-approve budget envelope expansion.",
+                "evidence_links": [f".omg/state/budget-envelopes/{run_id}.json"],
+                "approval_required": True,
+                "approval_reason": "signed approval required to proceed beyond budget limits",
+            }
+        )
+
+    if not issues and recommended_action in {"warn", "reflect"}:
+        issues.append(
+            {
+                "severity": "low",
+                "surface": "live_session",
+                "title": "Session recommends caution",
+                "description": f"Session recommended_action is '{recommended_action}'.",
+                "fix_guidance": "Review health signals before running high-impact workflows.",
+                "evidence_links": [f".omg/state/session_health/{run_id}.json", ".omg/state/session_health/latest.json"],
+                "approval_required": False,
+                "approval_reason": "",
+            }
+        )
+
+    return issues

@@ -1,0 +1,9 @@
+{
+  "schema": "ChaosFixture",
+  "fixture_id": "worker_stall_fixture",
+  "run_id": "chaos-worker-stall-001",
+  "worker_pid": 4242,
+  "stall_threshold_seconds": 2.0,
+  "stale_by_seconds": 5.0,
+  "trace_id": "trace-chaos-worker-stall"
+}

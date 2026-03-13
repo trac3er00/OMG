@@ -40,6 +40,7 @@ from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evide
 from runtime.forge_agents import dispatch_specialists, resolve_specialists
 from runtime.forge_contracts import load_forge_mvp, validate_forge_job
 from runtime.forge_run_id import normalize_run_id
+from runtime.issue_surface import IssueSurface
 from runtime.dispatcher import dispatch_runtime
 from runtime.api_twin import ingest_contract, record_fixture, serve_fixture, verify_fixture
 from runtime.data_lineage import build_lineage_manifest
@@ -208,10 +209,41 @@ def cmd_ship(args: argparse.Namespace) -> int:
 
 
 def cmd_fix(args: argparse.Namespace) -> int:
+    project_dir = _ensure_project_dir()
+    issue_surface = IssueSurface(project_dir=project_dir)
+    scan_run_id = f"fix-{_sanitize_token(args.issue)}-{_now_run_id()}"
+    issue_report = issue_surface.scan(
+        scan_run_id,
+        surfaces=["live_session", "plugin_interop", "governed_tools", "forge_runs"],
+    )
     goal = f"Fix issue {args.issue}"
     dispatched = dispatch_runtime(args.runtime, {"goal": goal, "acceptance": [f"issue-{args.issue}-resolved"]})
+    dispatched["issue_surface"] = {
+        "run_id": issue_report.run_id,
+        "report_path": str(issue_report.summary.get("report_path", "")),
+        "summary": issue_report.summary,
+    }
     print(json.dumps(dispatched, indent=2))
     return 0 if dispatched.get("status") == "ok" else 2
+
+
+def cmd_issue(args: argparse.Namespace) -> int:
+    run_id = args.run_id or _now_run_id()
+    surfaces = [item.strip() for item in str(args.surfaces).split(",") if item.strip()]
+    issue_surface = IssueSurface(project_dir=_ensure_project_dir())
+    report = issue_surface.scan(run_id, surfaces=surfaces or None)
+
+    result: dict[str, Any] = {
+        "schema": "IssueCommandResult",
+        "status": "ok",
+        "run_id": run_id,
+        "report_path": str(report.summary.get("report_path", "")),
+        "report": report.to_dict(),
+    }
+    if args.simulate_surface and args.simulate_scenario:
+        result["simulation"] = issue_surface.simulate_failure(args.simulate_surface, args.simulate_scenario)
+    print(json.dumps(result, indent=2))
+    return 0
 
 
 def cmd_secure(args: argparse.Namespace) -> int:
@@ -1159,6 +1191,20 @@ def build_parser() -> argparse.ArgumentParser:
     fix.add_argument("--issue", required=True)
     fix.add_argument("--runtime", default="claude", choices=["claude", "gpt", "local"])
     fix.set_defaults(func=cmd_fix)
+
+    issue = sub.add_parser("issue", help="Active issue diagnostics and red-team simulation")
+    issue.add_argument("--run-id", default="")
+    issue.add_argument(
+        "--surfaces",
+        default="",
+        help=(
+            "Comma-separated surfaces to scan: "
+            "live_session,forge_runs,hooks,skills,mcps,plugin_interop,governed_tools,domain_pipelines"
+        ),
+    )
+    issue.add_argument("--simulate-surface", default="")
+    issue.add_argument("--simulate-scenario", default="")
+    issue.set_defaults(func=cmd_issue)
 
     undo = sub.add_parser("undo", help="Undo last interaction step")
     undo.add_argument("--step-id", default="", help="Journal step ID to undo (latest if omitted)")

@@ -12,6 +12,13 @@ from pathlib import Path
 from typing import cast
 import yaml
 
+from runtime.canonical_surface import (
+    get_all_supported_hosts,
+    get_canonical_hosts,
+    get_compat_hosts,
+    is_canonical_parity_host,
+    is_compat_only_host,
+)
 from runtime.hook_governor import validate_order
 
 
@@ -61,7 +68,7 @@ CONFLICT_SEVERITY_MAP: dict[ConflictCode, ConflictSeverity] = {
     ConflictCode.HOST_PRECEDENCE_OVERLAP: ConflictSeverity.INFO,
 }
 
-SUPPORTED_HOSTS: set[str] = {"claude", "codex", "gemini", "kimi", "opencode"}
+SUPPORTED_HOSTS: set[str] = set(get_all_supported_hosts())
 SECURITY_PRETOOL_PLUGINS: tuple[str, ...] = ("firewall", "secret-guard")
 PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs", "buffet")
 _PRESET_ORDER_INDEX: dict[str, int] = {name: idx for idx, name in enumerate(PRESET_ORDER)}
@@ -69,6 +76,12 @@ _SEVERITY_RANK: dict[str, int] = {
     ConflictSeverity.BLOCKER.value: 0,
     ConflictSeverity.WARNING.value: 1,
     ConflictSeverity.INFO.value: 2,
+}
+
+_ISSUE_SEVERITY_MAP: dict[str, str] = {
+    ConflictSeverity.BLOCKER.value: "high",
+    ConflictSeverity.WARNING.value: "medium",
+    ConflictSeverity.INFO.value: "low",
 }
 
 
@@ -174,7 +187,12 @@ def validate_plugin_allowlist_entry(payload: Mapping[str, object]) -> None:
     if not isinstance(source, str) or not source:
         raise ValueError("source must be a non-empty string")
     if not isinstance(host, str) or host not in SUPPORTED_HOSTS:
-        raise ValueError(f"host must be one of {sorted(SUPPORTED_HOSTS)}")
+        canonical_hosts = ", ".join(get_canonical_hosts())
+        compat_hosts = ", ".join(get_compat_hosts())
+        raise ValueError(
+            f"host must be one of {sorted(SUPPORTED_HOSTS)} "
+            f"(canonical parity: {canonical_hosts}; compatibility-only: {compat_hosts})"
+        )
     if not isinstance(resource_type, str) or resource_type not in {"mcp_server", "skill", "plugin"}:
         raise ValueError("resource_type must be one of: mcp_server, skill, plugin")
     if not isinstance(reason, str) or not reason.strip():
@@ -404,13 +422,17 @@ def classify_conflicts(records: list[PluginInteropRecord]) -> list[ConflictResul
             )
 
     for record in records:
-        if record.host not in SUPPORTED_HOSTS:
+        normalized_host = record.host.strip().lower()
+        if not (is_canonical_parity_host(normalized_host) or is_compat_only_host(normalized_host)):
+            canonical_hosts = ", ".join(get_canonical_hosts())
+            compat_hosts = ", ".join(get_compat_hosts())
             add_conflict(
                 ConflictCode.UNSUPPORTED_HOST,
                 [record.plugin_id],
                 [record.host],
                 f"Plugin '{record.plugin_id}' targets unsupported host '{record.host}'.",
-                "Use one of the supported hosts: claude, codex, gemini, kimi, opencode.",
+                f"Use one of the supported hosts: canonical parity [{canonical_hosts}] "
+                f"or compatibility-only [{compat_hosts}].",
             )
 
     for record in records:
@@ -461,7 +483,8 @@ def classify_conflicts(records: list[PluginInteropRecord]) -> list[ConflictResul
 
 
 def approval_status_for_record(record: PluginInteropRecord, approvals: list[PluginAllowlistEntry]) -> str:
-    if record.host not in SUPPORTED_HOSTS:
+    normalized_host = record.host.strip().lower()
+    if not (is_canonical_parity_host(normalized_host) or is_compat_only_host(normalized_host)):
         return "blocked"
 
     record_conflicts = classify_conflicts([record])
@@ -480,6 +503,10 @@ def get_approval_status_for_all(
     records: list[PluginInteropRecord], approvals: list[PluginAllowlistEntry]
 ) -> dict[str, str]:
     return {record.plugin_id: approval_status_for_record(record, approvals) for record in records}
+
+
+def conflict_severity_to_issue_severity(severity: str) -> str:
+    return _ISSUE_SEVERITY_MAP.get(str(severity).strip().lower(), "info")
 
 
 def _approval_sources_for_record(record: PluginInteropRecord) -> set[str]:
@@ -995,6 +1022,7 @@ __all__ = [
     "PluginInteropRecord",
     "Source",
     "approval_status_for_record",
+    "conflict_severity_to_issue_severity",
     "classify_conflicts",
     "discover_host_plugin_state",
     "discover_omg_plugin_state",

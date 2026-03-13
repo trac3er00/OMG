@@ -237,6 +237,13 @@ SCOPED_RESIDUE_TARGETS: list[str] = [
 ]
 
 
+RUNTIME_BEHAVIOR_SURFACES: tuple[str, ...] = (
+    "execution_primitives",
+    "provider_host_parity",
+    "host_semantic_parity",
+)
+
+
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 def get_authored_paths() -> list[str]:
@@ -256,6 +263,10 @@ def get_authored_paths() -> list[str]:
 def get_derived_dirs() -> list[str]:
     """Return all generated directory paths."""
     return list(DERIVED_SURFACE_DIRS)
+
+
+def get_runtime_behavior_surfaces() -> list[str]:
+    return list(RUNTIME_BEHAVIOR_SURFACES)
 
 
 def surface_applies_to_root(surface: AuthoredSurface, root_dir: Path) -> bool:

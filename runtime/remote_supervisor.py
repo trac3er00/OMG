@@ -10,18 +10,29 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from runtime.exec_kernel import get_exec_kernel
+from runtime.release_run_coordinator import resolve_current_run_id
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def issue_local_supervisor_session(project_dir: str, *, worker_id: str, shared_secret: str) -> dict[str, Any]:
+def issue_local_supervisor_session(
+    project_dir: str,
+    *,
+    worker_id: str,
+    shared_secret: str,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    resolved_run_id = run_id or resolve_current_run_id(project_dir)
     session_id = f"session-{uuid4().hex}"
     issued_at = _now()
     token_payload = {
         "session_id": session_id,
         "worker_id": worker_id,
         "issued_at": issued_at,
+        "run_id": resolved_run_id,
     }
     payload_json = json.dumps(token_payload, sort_keys=True, separators=(",", ":"))
     signature = hmac.new(shared_secret.encode("utf-8"), payload_json.encode("utf-8"), hashlib.sha256).hexdigest()
@@ -35,6 +46,7 @@ def issue_local_supervisor_session(project_dir: str, *, worker_id: str, shared_s
         "session_id": session_id,
         "worker_id": worker_id,
         "issued_at": issued_at,
+        "run_id": resolved_run_id,
         "local_only": True,
         "token": token,
     }
@@ -44,6 +56,8 @@ def issue_local_supervisor_session(project_dir: str, *, worker_id: str, shared_s
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({k: v for k, v in result.items() if k != "token"}, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
     result["path"] = rel_path.as_posix()
+    if resolved_run_id:
+        get_exec_kernel(project_dir).record_supervisor_session(resolved_run_id, result)
     return result
 
 
@@ -60,5 +74,6 @@ def verify_local_supervisor_token(token: str, *, shared_secret: str) -> dict[str
         "session_id": str(payload["session_id"]),
         "worker_id": str(payload["worker_id"]),
         "issued_at": str(payload["issued_at"]),
+        "run_id": str(payload.get("run_id") or ""),
         "local_only": True,
     }

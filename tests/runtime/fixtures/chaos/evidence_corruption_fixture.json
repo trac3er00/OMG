@@ -1,0 +1,15 @@
+{
+  "schema": "ChaosFixture",
+  "fixture_id": "evidence_corruption_fixture",
+  "run_id": "chaos-evidence-corruption-001",
+  "claim_type": "release_ready",
+  "evidence_profile": "release",
+  "trace_id": "trace-chaos-evidence-corruption",
+  "artifact": {
+    "kind": "junit",
+    "path": "artifacts/corrupt-junit.xml",
+    "sha256": "seeded-corrupt-artifact",
+    "parser": "junit",
+    "summary": "seeded-corrupt-junit"
+  }
+}

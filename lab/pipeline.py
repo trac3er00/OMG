@@ -1,6 +1,7 @@
 """OMG full AI pipeline stub: data -> refine -> train/distill -> evaluate -> regression."""
 from __future__ import annotations
 
+import importlib
 from datetime import datetime, timezone
 from pathlib import Path
 from time import monotonic
@@ -147,7 +148,14 @@ def run_pipeline(
             }
 
     report = _evaluation_report(job, live_metric, target_metric)
-    promotion_blockers = _collect_promotion_blockers(job, stage_evidence, adapter_evidence, live_metric)
+    domain_pack_gate = _resolve_domain_pack_gate(job, stage_evidence, adapter_evidence, live_metric)
+    promotion_blockers = _collect_promotion_blockers(
+        job,
+        stage_evidence,
+        adapter_evidence,
+        live_metric,
+        domain_pack_gate=domain_pack_gate,
+    )
     artifact_contracts = _build_artifact_contracts(
         run_id=active_run_id,
         target_metric=target_metric,
@@ -164,6 +172,7 @@ def run_pipeline(
         "evaluation_report": report,
         "run_id": active_run_id,
         "stage_evidence": stage_evidence,
+        "domain_pack_gate": domain_pack_gate,
         "promotion_blockers": promotion_blockers,
         "promotion_ready": len(promotion_blockers) == 0,
         "release_evidence": _normalize_release_evidence(job),
@@ -201,7 +210,8 @@ def _extract_artifact_payload(result: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def publish_artifact(result: dict[str, Any]) -> dict[str, Any]:
-    from runtime.compliance_governor import evaluate_release_compliance
+    governor_module = importlib.import_module("runtime.compliance_governor")
+    evaluate_release_compliance = getattr(governor_module, "evaluate_release_compliance")
 
     report = result.get("evaluation_report")
     if not isinstance(report, dict) or not report.get("passed"):
@@ -339,11 +349,35 @@ def _collect_promotion_blockers(
     stage_evidence: list[dict[str, object]],
     adapter_evidence: list[dict[str, object]],
     live_metric: float | None,
+    *,
+    domain_pack_gate: dict[str, object] | None = None,
 ) -> list[str]:
-    if not adapter_evidence:
-        return []
-
     blockers: list[str] = []
+
+    gate = domain_pack_gate if isinstance(domain_pack_gate, dict) else {}
+    missing_approvals_raw = gate.get("missing_approvals")
+    missing_evidence_raw = gate.get("missing_evidence")
+    missing_approvals: list[str] = []
+    if isinstance(missing_approvals_raw, list):
+        for item in missing_approvals_raw:
+            missing_approvals.append(str(item))
+    missing_evidence: list[str] = []
+    if isinstance(missing_evidence_raw, list):
+        for item in missing_evidence_raw:
+            missing_evidence.append(str(item))
+    domain_name = str(gate.get("domain", "")).strip()
+    if missing_approvals:
+        blockers.append(
+            f"promotion blocked: domain '{domain_name}' missing required approvals: {', '.join(missing_approvals)}"
+        )
+    if missing_evidence:
+        blockers.append(
+            f"promotion blocked: domain '{domain_name}' missing required evidence: {', '.join(missing_evidence)}"
+        )
+
+    if not adapter_evidence:
+        return list(dict.fromkeys(blockers))
+
     stage_by_name = {str(item.get("stage", "")): item for item in stage_evidence}
     for required_stage in ("train_distill", "evaluate", "regression_test"):
         stage_record = stage_by_name.get(required_stage)
@@ -372,6 +406,144 @@ def _collect_promotion_blockers(
             blockers.append("promotion blocked: missing release claims")
 
     return list(dict.fromkeys(blockers))
+
+
+def _resolve_domain_pack_gate(
+    job: dict[str, Any],
+    stage_evidence: list[dict[str, object]],
+    adapter_evidence: list[dict[str, object]],
+    live_metric: float | None,
+) -> dict[str, object]:
+    from runtime.domain_packs import get_required_approvals, get_required_evidence
+    from runtime.evidence_requirements import requirements_for_profile
+    from runtime.forge_contracts import load_forge_mvp
+
+    domain = str(job.get("domain", "")).strip().lower()
+    if not domain:
+        return {
+            "domain": "",
+            "required_approvals": [],
+            "required_evidence": [],
+            "present_approvals": [],
+            "present_evidence": [],
+            "missing_approvals": [],
+            "missing_evidence": [],
+            "evidence_profile": "",
+        }
+
+    try:
+        required_approvals = get_required_approvals(domain)
+        required_evidence = get_required_evidence(domain)
+    except KeyError:
+        required_approvals = []
+        required_evidence = []
+
+    profile = ""
+    contract = load_forge_mvp()
+    profile_map = contract.get("domain_evidence_profiles")
+    if isinstance(profile_map, dict):
+        profile = str(profile_map.get(domain, "")).strip()
+
+    provided_approvals = _collect_provided_approvals(job)
+    provided_evidence = _collect_provided_evidence(job, stage_evidence, adapter_evidence, live_metric)
+
+    profile_requirements = requirements_for_profile(profile)
+    profile_required_runtime = [item for item in profile_requirements if item in _RUNTIME_CHECKABLE_PROFILE_REQUIREMENTS]
+    merged_required_evidence = list(dict.fromkeys([*required_evidence, *profile_required_runtime]))
+
+    missing_approvals = [token for token in required_approvals if token not in provided_approvals]
+    missing_evidence = [token for token in merged_required_evidence if token not in provided_evidence]
+    return {
+        "domain": domain,
+        "required_approvals": required_approvals,
+        "required_evidence": merged_required_evidence,
+        "present_approvals": sorted(provided_approvals),
+        "present_evidence": sorted(provided_evidence),
+        "missing_approvals": missing_approvals,
+        "missing_evidence": missing_evidence,
+        "evidence_profile": profile,
+    }
+
+
+_RUNTIME_CHECKABLE_PROFILE_REQUIREMENTS = frozenset(
+    {
+        "artifact_contracts",
+        "audit-trail",
+        "benchmark-harness",
+        "determinism-check",
+        "drift-check",
+        "human-review",
+        "provenance",
+        "restricted-tools",
+        "signed_checkpoint",
+        "signed_lineage",
+        "signed_model_card",
+        "simulator-episode-evidence",
+        "vision-artifacts",
+    }
+)
+
+
+def _collect_provided_approvals(job: dict[str, Any]) -> set[str]:
+    approvals: set[str] = set()
+    raw = job.get("approvals")
+    if isinstance(raw, list):
+        approvals.update(str(item).strip() for item in raw if str(item).strip())
+
+    release_evidence = _normalize_release_evidence(job)
+    release_approvals = release_evidence.get("approvals")
+    if isinstance(release_approvals, list):
+        approvals.update(str(item).strip() for item in release_approvals if str(item).strip())
+    return approvals
+
+
+def _collect_provided_evidence(
+    job: dict[str, Any],
+    stage_evidence: list[dict[str, object]],
+    adapter_evidence: list[dict[str, object]],
+    live_metric: float | None,
+) -> set[str]:
+    evidence: set[str] = set()
+
+    for key in ("evidence", "domain_evidence"):
+        raw = job.get(key)
+        if isinstance(raw, list):
+            evidence.update(str(item).strip() for item in raw if str(item).strip())
+
+    release_evidence = _normalize_release_evidence(job)
+    raw_release_evidence = release_evidence.get("evidence")
+    if isinstance(raw_release_evidence, list):
+        evidence.update(str(item).strip() for item in raw_release_evidence if str(item).strip())
+
+    if isinstance(job.get("dataset"), dict):
+        evidence.update({"dataset-provenance", "provenance", "signed_lineage"})
+    if isinstance(job.get("base_model"), dict):
+        evidence.update({"signed_model_card", "restricted-tools"})
+    if live_metric is not None:
+        evidence.update({"drift-check", "benchmark-harness"})
+
+    if stage_evidence:
+        evidence.add("audit-trail")
+
+    for adapter in adapter_evidence:
+        kind = str(adapter.get("kind", "")).strip().lower()
+        if kind == "training":
+            artifacts = adapter.get("checkpoint_artifacts")
+            if isinstance(artifacts, list) and artifacts:
+                evidence.update({"signed_checkpoint", "artifact_contracts", "determinism-check"})
+
+        if kind != "simulator":
+            continue
+
+        replay_metadata = adapter.get("replay_metadata")
+        if isinstance(replay_metadata, dict) and replay_metadata:
+            evidence.add("simulator-replay")
+
+        episode_stats = adapter.get("episode_stats")
+        if isinstance(episode_stats, dict) and episode_stats:
+            evidence.update({"simulator-episode-evidence", "vision-artifacts", "kill-switch-check"})
+
+    return {item for item in evidence if item}
 
 
 def _requires_claims(job: dict[str, Any]) -> bool:

@@ -23,6 +23,14 @@ OMG keeps verification visible instead of burying it in implementation details.
   - session health: `.omg/state/session_health/<run_id>.json`
   - council verdicts: `.omg/state/council_verdicts/<run_id>.json`
   - Forge starter proof (`proof_backed: true`): `.omg/evidence/forge-specialists-*.json`
+  - exec kernel state: `.omg/state/exec-kernel/<run_id>.json`
+  - worker watchdog replay: `.omg/evidence/subagents/<run_id>-replay.json`
+  - merge writer provenance: `.omg/evidence/merge-writer-<run_id>.json`
+  - tool fabric ledger: `.omg/state/ledger/tool-ledger.jsonl`
+  - budget envelope state: `.omg/state/budget-envelopes/<run_id>.json`
+  - issue report: `.omg/evidence/issues/<run_id>.json`
+  - host parity report: `.omg/evidence/host-parity-<run_id>.json`
+  - music OMR testbed evidence: `.omg/evidence/music-omr-<run_id>.json`
 
 ## Forge v0.3 Evidence
 
@@ -51,9 +59,9 @@ Forge v0.3 introduces richer evidence artifacts for domain-specific training and
 |----------|------|--------|------------|------------|---------------|
 | Claude Code | Canonical | host-native | host-native | yes | primary |
 | Codex | Canonical | yes | yes | yes | primary |
-| OpenCode | Compatibility | yes | yes | yes | supported |
-| Gemini | Compatibility | yes | yes | yes | supported |
-| Kimi | Compatibility | yes | yes | yes | supported |
+| Gemini | Canonical | yes | yes | yes | primary |
+| Kimi | Canonical | yes | yes | yes | primary |
+| OpenCode | Compatibility-only | yes | yes | yes | supported |
 
 ## Adoption Evidence
 

@@ -60,6 +60,14 @@ jobs:
               "session_health_state",
               "council_verdicts",
               "forge_starter_proof",
+              "music_omr_testbed_evidence",
+              "exec_kernel_state",
+              "worker_watchdog_replay",
+              "merge_writer_provenance",
+              "tool_fabric_ledger",
+              "budget_envelope_state",
+              "issue_report",
+              "host_parity_report",
           }
           evidence_paths = checks.get("evidence_paths", {})
           missing = sorted(item for item in required if not str(evidence_paths.get(item, "")).strip())
@@ -74,6 +82,9 @@ jobs:
 
       - name: Run standalone verification
         run: ./scripts/verify-standalone.sh
+
+      - name: Run deterministic chaos matrix
+        run: python3 -m pytest tests/runtime/test_release_chaos.py tests/perf/test_performance_v2.py tests/runtime/test_subagent_dispatcher.py tests/runtime/test_plugin_interop.py tests/runtime/test_background_verification.py -q
 
       - name: Validate full release identity
         run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${FORBID_VERSION:-}"

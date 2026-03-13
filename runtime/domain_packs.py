@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from runtime.canonical_surface import DOMAIN_DEFAULTS
+
 
 DOMAIN_PACKS: dict[str, dict[str, Any]] = {
     "robotics": {
@@ -47,8 +49,27 @@ DOMAIN_PACKS: dict[str, dict[str, Any]] = {
     },
 }
 
+if set(DOMAIN_PACKS) != set(DOMAIN_DEFAULTS["all_domain_packs"]):
+    raise ValueError("domain pack definitions drifted from canonical defaults")
+
 
 def get_domain_pack_contract(name: str) -> dict[str, Any]:
     if name not in DOMAIN_PACKS:
         raise KeyError(name)
     return dict(DOMAIN_PACKS[name])
+
+
+def get_required_approvals(name: str) -> list[str]:
+    contract = get_domain_pack_contract(name)
+    raw = contract.get("required_approvals")
+    if not isinstance(raw, list):
+        return []
+    return [str(item) for item in raw if str(item).strip()]
+
+
+def get_required_evidence(name: str) -> list[str]:
+    contract = get_domain_pack_contract(name)
+    raw = contract.get("required_evidence")
+    if not isinstance(raw, list):
+        return []
+    return [str(item) for item in raw if str(item).strip()]

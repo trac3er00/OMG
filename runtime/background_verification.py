@@ -108,3 +108,18 @@ def run_validation_with_timeout(
         except concurrent.futures.TimeoutError:
             future.cancel()
             return {"status": "timeout", "timed_out": True}
+
+
+def check_worker_stalls(project_dir: str) -> dict[str, Any]:
+    """Check for stalled workers via WorkerWatchdog; returns stall summary with run_ids."""
+    try:
+        from runtime.worker_watchdog import get_worker_watchdog
+        watchdog = get_worker_watchdog(project_dir)
+        stalled = watchdog.get_stalled_workers()
+        return {
+            "stalled_count": len(stalled),
+            "stalled_run_ids": [str(w.get("run_id", "")) for w in stalled],
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception:
+        return {"stalled_count": 0, "stalled_run_ids": [], "checked_at": datetime.now(timezone.utc).isoformat()}

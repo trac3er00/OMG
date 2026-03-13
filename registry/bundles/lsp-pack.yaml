@@ -41,6 +41,20 @@ execution_contract:
   modes:
     - embedded
     - local_supervisor
+tool_fabric:
+  lane: lsp-pack
+  enforcement_order:
+    - tool_selection
+    - approval_state
+    - evidence_requirements
+    - attestation_proof_validation
+    - execution
+  tools:
+    - Read
+  requires_signed_approval: false
+  requires_attestation: false
+  required_evidence:
+    - .omg/evidence/lsp-diagnostics.json
 channel_overrides:
   public:
     diagnostics: advisory

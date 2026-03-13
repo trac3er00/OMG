@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 from runtime.forge_agents import (
     classify_operation_intent,
@@ -612,39 +613,41 @@ from runtime.compliance_governor import evaluate_release_compliance
 _UNVERIFIED_STATUSES = {"pending_verification", "insufficient_evidence"}
 
 
-def test_dispatch_artifact_contracts_use_pending_verification(tmp_path: Path) -> None:
-    """Dispatch evidence artifact_contracts must never claim placeholder — use pending_verification."""
+def test_dispatch_artifact_contracts_emit_signed_flows(tmp_path: Path) -> None:
     result = dispatch_specialists(_valid_job(), str(tmp_path))
     assert result["status"] == "ok"
     evidence_path = Path(str(result["evidence_path"]))
     payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
 
     contracts = payload["artifact_contracts"]
-    for name, contract in contracts.items():
-        status = contract.get("status", "")
-        assert status != "placeholder", (
-            f"artifact_contracts[{name!r}] uses misleading 'placeholder' — must use 'pending_verification'"
-        )
-        if name != "promotion_decision":
-            assert status in _UNVERIFIED_STATUSES, (
-                f"artifact_contracts[{name!r}] status={status!r} must be in {_UNVERIFIED_STATUSES}"
-            )
+    assert isinstance(contracts, dict)
+    for name in ("dataset_lineage", "model_card", "checkpoint_hash"):
+        contract = contracts[name]
+        assert isinstance(contract, dict)
+        assert contract["status"] == "signed"
+        assert contract["signer_key_id"] != ""
+        assert isinstance(contract.get("attestation"), dict)
+        assert str(contract.get("path", "")).startswith(".omg/evidence/")
 
 
-def test_dispatch_artifact_contracts_never_claim_verified_or_signed(tmp_path: Path) -> None:
-    """Dispatch evidence must not claim verified/signed/generated/passed for synthetic artifacts."""
+def test_dispatch_artifact_contracts_include_live_simulator_episode_evidence(tmp_path: Path) -> None:
     result = dispatch_specialists(_valid_job(), str(tmp_path))
     assert result["status"] == "ok"
     evidence_path = Path(str(result["evidence_path"]))
     payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert isinstance(payload, dict)
 
-    misleading = {"verified", "signed", "generated", "passed"}
+    assert "simulator_episode_evidence" in payload
+    sim_ev = payload["simulator_episode_evidence"]
+    assert isinstance(sim_ev, dict)
+    assert sim_ev["episode_count"] >= 1
     contracts = payload["artifact_contracts"]
-    for name, contract in contracts.items():
-        status = contract.get("status", "")
-        assert status not in misleading, (
-            f"artifact_contracts[{name!r}] status={status!r} is misleading — no real artifact exists"
-        )
+    assert isinstance(contracts, dict)
+    sim_contract = contracts["simulator_episode"]
+    assert isinstance(sim_contract, dict)
+    assert sim_contract["status"] == "signed"
+    assert isinstance(sim_contract.get("attestation"), dict)
 
 
 def test_resolve_artifact_contracts_default_statuses_are_truthful() -> None:
@@ -659,15 +662,20 @@ def test_resolve_artifact_contracts_default_statuses_are_truthful() -> None:
 
     misleading = {"verified", "signed", "generated", "passed"}
     for name, contract in contracts.items():
-        status = contract.get("status", "")
+        contract_dict = cast(dict[str, object], contract)
+        status = contract_dict.get("status", "")
         assert status not in misleading, (
             f"artifact_contracts[{name!r}] status={status!r} is misleading for synthetic artifacts"
         )
 
-    assert contracts["dataset_lineage"]["status"] == "pending_verification"
-    assert contracts["model_card"]["status"] == "pending_verification"
-    assert contracts["checkpoint_hash"]["status"] == "pending_verification"
-    assert contracts["regression_scoreboard"]["status"] == "insufficient_evidence"
+    dataset_lineage = cast(dict[str, object], contracts["dataset_lineage"])
+    model_card = cast(dict[str, object], contracts["model_card"])
+    checkpoint_hash = cast(dict[str, object], contracts["checkpoint_hash"])
+    regression_scoreboard = cast(dict[str, object], contracts["regression_scoreboard"])
+    assert dataset_lineage["status"] == "pending_verification"
+    assert model_card["status"] == "pending_verification"
+    assert checkpoint_hash["status"] == "pending_verification"
+    assert regression_scoreboard["status"] == "insufficient_evidence"
 
 
 def test_resolve_artifact_contracts_preserves_user_supplied_contracts() -> None:
@@ -687,9 +695,12 @@ def test_resolve_artifact_contracts_preserves_user_supplied_contracts() -> None:
         target_metric=0.8,
         base_model_name="test-model",
     )
-    assert contracts["dataset_lineage"]["status"] == "verified"
-    assert contracts["model_card"]["status"] == "pending_verification"
-    assert contracts["checkpoint_hash"]["status"] == "pending_verification"
+    dataset_lineage = cast(dict[str, object], contracts["dataset_lineage"])
+    model_card = cast(dict[str, object], contracts["model_card"])
+    checkpoint_hash = cast(dict[str, object], contracts["checkpoint_hash"])
+    assert dataset_lineage["status"] == "verified"
+    assert model_card["status"] == "pending_verification"
+    assert checkpoint_hash["status"] == "pending_verification"
 
 
 def test_release_compliance_blocks_pending_verification_artifacts(tmp_path: Path) -> None:

@@ -32,7 +32,7 @@ def _get_feature_flag_enabled() -> bool:
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
-        from _common import get_feature_flag  # type: ignore[import-untyped]
+        from _common import get_feature_flag  # type: ignore[import-untyped]  # pyright: ignore[reportMissingImports]
         return get_feature_flag("SNAPSHOT", default=False)
     except ImportError:
         return False
@@ -46,7 +46,7 @@ def _get_atomic_json_write():
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
-        from _common import atomic_json_write  # type: ignore[import-untyped]
+        from _common import atomic_json_write  # type: ignore[import-untyped]  # pyright: ignore[reportMissingImports]
         return atomic_json_write
     except ImportError:
         return None
@@ -234,6 +234,15 @@ def delete_snapshot(snapshot_id: str, state_dir: str = ".omg/state") -> bool:
     return deleted
 
 
+def collect_snapshot_signals(state_dir: str = ".omg/state") -> Dict[str, Any]:
+    snapshots = list_snapshots(state_dir=state_dir)
+    latest = snapshots[0] if snapshots else {}
+    return {
+        "snapshot_count": len(snapshots),
+        "latest_snapshot_id": str(latest.get("id", "")) if isinstance(latest, dict) else "",
+    }
+
+
 # --- Branch / Fork API ---
 
 
@@ -252,7 +261,7 @@ def _get_branching_flag_enabled() -> bool:
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
-        from _common import get_feature_flag  # type: ignore[import-untyped]
+        from _common import get_feature_flag  # type: ignore[import-untyped]  # pyright: ignore[reportMissingImports]
         return get_feature_flag("BRANCHING", default=False)
     except ImportError:
         return False
@@ -442,7 +451,7 @@ def _get_merge_flag_enabled() -> bool:
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
-        from _common import get_feature_flag  # type: ignore[import-untyped]
+        from _common import get_feature_flag  # type: ignore[import-untyped]  # pyright: ignore[reportMissingImports]
         return get_feature_flag("MERGE", default=False)
     except ImportError:
         return False

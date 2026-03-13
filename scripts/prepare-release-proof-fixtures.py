@@ -91,6 +91,18 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
     intent_gate_path = output_root / ".omg" / "state" / "intent_gate" / "run-1.json"
     profile_path = output_root / ".omg" / "state" / "profile.yaml"
     tracebank_path = output_root / ".omg" / "tracebank" / "events.jsonl"
+    exec_kernel_path = output_root / ".omg" / "state" / "exec-kernel" / "run-1.json"
+    watchdog_path = output_root / ".omg" / "evidence" / "subagents" / "run-1-replay.json"
+    merge_writer_path = output_root / ".omg" / "evidence" / "merge-writer-run-1.json"
+    ledger_path = output_root / ".omg" / "state" / "ledger" / "tool-ledger.jsonl"
+    budget_path = output_root / ".omg" / "state" / "budget-envelopes" / "run-1.json"
+    issue_report_path = output_root / ".omg" / "evidence" / "issues" / "run-1.json"
+    host_parity_path = output_root / ".omg" / "evidence" / "host-parity-run-1.json"
+    music_omr_path = output_root / ".omg" / "evidence" / "music-omr-run-1.json"
+
+    # Ensure directories exist
+    for p in [exec_kernel_path, watchdog_path, merge_writer_path, ledger_path, budget_path, issue_report_path, host_parity_path, music_omr_path]:
+        p.parent.mkdir(parents=True, exist_ok=True)
 
     _write_text(
         junit_path,
@@ -224,6 +236,38 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
                     "path": ".omg/evidence/forge-specialists-run-1.json",
                     "run_id": run_id,
                 },
+                "exec_kernel_state": {
+                    "path": ".omg/state/exec-kernel/run-1.json",
+                    "run_id": run_id,
+                },
+                "worker_watchdog_replay": {
+                    "path": ".omg/evidence/subagents/run-1-replay.json",
+                    "run_id": run_id,
+                },
+                "merge_writer_provenance": {
+                    "path": ".omg/evidence/merge-writer-run-1.json",
+                    "run_id": run_id,
+                },
+                "tool_fabric_ledger": {
+                    "path": ".omg/state/ledger/tool-ledger.jsonl",
+                    "run_id": run_id,
+                },
+                "budget_envelope_state": {
+                    "path": ".omg/state/budget-envelopes/run-1.json",
+                    "run_id": run_id,
+                },
+                "issue_report": {
+                    "path": ".omg/evidence/issues/run-1.json",
+                    "run_id": run_id,
+                },
+                "host_parity_report": {
+                    "path": ".omg/evidence/host-parity-run-1.json",
+                    "run_id": run_id,
+                },
+                "music_omr_testbed_evidence": {
+                    "path": ".omg/evidence/music-omr-run-1.json",
+                    "run_id": run_id,
+                },
             },
     )
     _write_json(
@@ -341,6 +385,80 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "context_checksum": context_checksum,
             "profile_version": profile_version,
             "updated_at": "2026-03-07T00:00:00Z",
+        },
+    )
+    _write_json(
+        exec_kernel_path,
+        {
+            "schema": "ExecKernelRunState",
+            "run_id": run_id,
+            "status": "queued",
+            "kernel_enabled": True,
+        },
+    )
+    _write_json(
+        watchdog_path,
+        {
+            "schema": "WorkerReplayEvidence",
+            "run_id": run_id,
+            "reason": "completed",
+        },
+    )
+    _write_json(
+        merge_writer_path,
+        {
+            "schema": "MergeWriterProvenance",
+            "run_id": run_id,
+            "acquired_at": "2026-03-07T00:00:00Z",
+            "released_at": "2026-03-07T00:00:01Z",
+        },
+    )
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger_path.write_text(
+        json.dumps({"ts": "2026-03-07T00:00:00Z", "tool": "ls", "run_id": run_id}) + "\n",
+        encoding="utf-8",
+    )
+    _write_json(
+        budget_path,
+        {
+            "schema": "BudgetEnvelopeState",
+            "run_id": run_id,
+            "usage": {"cpu_seconds_used": 0.1},
+        },
+    )
+    _write_json(
+        issue_report_path,
+        {
+            "schema": "IssueReport",
+            "run_id": run_id,
+            "issues": [],
+        },
+    )
+    _write_json(
+        host_parity_path,
+        {
+            "schema": "HostParityReport",
+            "run_id": run_id,
+            "timestamp": "2026-03-07T00:00:00Z",
+            "canonical_hosts": ["claude", "codex"],
+            "parity_results": {
+                "passed": True,
+                "drift_detected": False,
+                "drift_details": [],
+                "host_results": {
+                    "claude": {"present": True, "passed": True, "reason": "baseline"},
+                    "codex": {"present": True, "passed": True, "reason": "structured-equivalent"},
+                }
+            },
+            "overall_status": "ok",
+        },
+    )
+    _write_json(
+        music_omr_path,
+        {
+            "schema": "MusicOMREvidence",
+            "run_id": run_id,
+            "results": {},
         },
     )
     _write_text(

@@ -88,7 +88,10 @@ class TestInvoke:
                 cwd="/project",
                 env={"CLAUDE_PROJECT_DIR": "/project"},
             )
-            assert result == {"model": "gemini-cli", "output": "some output text", "exit_code": 0}
+            assert result["model"] == "gemini-cli"
+            assert result["output"] == "some output text"
+            assert result["exit_code"] == 0
+            assert result["normalized_output"]["status"] == "ok"
 
     def test_timeout_returns_error_fallback(self, provider: GeminiProvider) -> None:
         with patch.object(provider, "run_tool", side_effect=subprocess.TimeoutExpired(cmd="gemini", timeout=120)):
@@ -128,7 +131,10 @@ class TestInvokeTmux:
         mgr.get_or_create_session.assert_called_once_with("omg-gemini-abc", cwd="/project")
         mgr.send_command.assert_called_once()
         mgr.kill_session.assert_called_once_with("omg-gemini-abc")
-        assert result == {"model": "gemini-cli", "output": "gemini output here", "exit_code": 0}
+        assert result["model"] == "gemini-cli"
+        assert result["output"] == "gemini output here"
+        assert result["exit_code"] == 0
+        assert result["normalized_output"]["status"] == "ok"
 
     @patch("runtime.providers.gemini_provider.TmuxSessionManager")
     def test_tmux_failure_falls_back_to_invoke(self, mock_mgr_cls: MagicMock, provider: GeminiProvider) -> None:

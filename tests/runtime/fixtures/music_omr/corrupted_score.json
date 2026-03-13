@@ -1,0 +1,9 @@
+{
+  "score_id": "corrupted_score",
+  "title": "Corrupted Score",
+  "image_data": "corrupted_base64_data",
+  "metadata": {
+    "composer": "Unknown",
+    "tempo": -1
+  }
+}

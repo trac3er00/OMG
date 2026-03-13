@@ -11,10 +11,22 @@ import uuid
 from typing import Any
 
 from runtime.cli_provider import CLIProvider, register_provider
+from runtime.host_parity import normalize_output
 from runtime.mcp_config_writers import write_kimi_mcp_config
 from runtime.tmux_session_manager import TmuxSessionManager
 
 _logger = logging.getLogger(__name__)
+
+
+def _attach_normalized_output(payload: dict[str, Any], *, prompt: str, project_dir: str) -> dict[str, Any]:
+    normalized = normalize_output(
+        "kimi",
+        payload,
+        context={"prompt": prompt, "project_dir": project_dir},
+    )
+    merged = dict(payload)
+    merged["normalized_output"] = normalized
+    return merged
 
 HOST_RULES = {
     "compilation_targets": [".kimi/mcp.json"],
@@ -69,11 +81,11 @@ class KimiCodeProvider(CLIProvider):
                 cwd=project_dir,
                 env={"CLAUDE_PROJECT_DIR": project_dir},
             )
-            return {
+            return _attach_normalized_output({
                 "model": "kimi-cli",
                 "output": result.stdout,
                 "exit_code": result.returncode,
-            }
+            }, prompt=prompt, project_dir=project_dir)
         except subprocess.TimeoutExpired:
             return {"error": "kimi-cli timeout", "fallback": "claude"}
         except FileNotFoundError:
@@ -90,11 +102,11 @@ class KimiCodeProvider(CLIProvider):
                 cwd=project_dir,
                 env={"CLAUDE_PROJECT_DIR": project_dir},
             )
-            return {
+            return _attach_normalized_output({
                 "model": "kimi-cli",
                 "output": result.stdout,
                 "exit_code": result.returncode,
-            }
+            }, prompt=prompt, project_dir=project_dir)
         except subprocess.TimeoutExpired:
             return {"error": "kimi-cli timeout", "fallback": "claude"}
         except FileNotFoundError:
@@ -120,7 +132,11 @@ class KimiCodeProvider(CLIProvider):
                 timeout=timeout,
             )
             mgr.kill_session(session)
-            return {"model": "kimi-cli", "output": output, "exit_code": 0}
+            return _attach_normalized_output(
+                {"model": "kimi-cli", "output": output, "exit_code": 0},
+                prompt=prompt,
+                project_dir=project_dir,
+            )
         except Exception as exc:
             _logger.warning("tmux kimi invocation failed, falling back to subprocess: %s", exc)
             return self.invoke(prompt, project_dir, timeout=timeout)

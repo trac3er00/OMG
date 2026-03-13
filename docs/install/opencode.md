@@ -27,4 +27,4 @@ cd OMG
 ## Notes
 
 - OpenCode consumes OMG through compatibility-host MCP registration
-- canonical v1 contract hosts remain Claude Code and Codex
+- canonical v2.1.9 behavior-parity hosts are Claude Code, Codex, Gemini CLI, and Kimi CLI

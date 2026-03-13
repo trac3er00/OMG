@@ -189,6 +189,27 @@ def _check_thresholds(
     return new_messages
 
 
+def _check_budget_envelope(project_dir: str) -> str:
+    run_id = os.environ.get("OMG_RUN_ID", "").strip()
+    if not run_id:
+        return ""
+    try:
+        parent = os.path.dirname(HOOKS_DIR)
+        if parent not in sys.path:
+            sys.path.insert(0, parent)
+        from runtime.budget_envelopes import get_budget_envelope_manager
+
+        mgr = get_budget_envelope_manager(project_dir)
+        result = mgr.check_envelope(run_id)
+        if result.status == "ok":
+            return ""
+        action_tag = {"warn": "@envelope-warning", "reflect": "@envelope-critical", "block": "@envelope-limit"}
+        tag = action_tag.get(result.governance_action, "@envelope-warning")
+        return f"{tag}: {result.reason} [action={result.governance_action}]"
+    except Exception:
+        return ""
+
+
 def main() -> None:
     setup_crash_handler("budget-governor", fail_closed=False)
 
@@ -223,6 +244,10 @@ def main() -> None:
     threshold_alerts = _check_thresholds(used_pct, project_dir, session_id)
     if threshold_alerts:
         context += "\n" + "\n".join(threshold_alerts)
+
+    envelope_context = _check_budget_envelope(project_dir)
+    if envelope_context:
+        context += "\n" + envelope_context
 
     json.dump({"additionalContext": context}, sys.stdout)
     sys.exit(0)

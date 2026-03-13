@@ -164,8 +164,25 @@ def _extract_task_description(project_dir: str) -> str | None:
     return None
 
 
+def _is_merge_writer_locked(project_dir: str) -> bool:
+    try:
+        _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _root not in sys.path:
+            sys.path.insert(0, _root)
+        from runtime.merge_writer import MergeWriter  # pyright: ignore[reportMissingImports]
+        return MergeWriter(project_dir).is_locked()
+    except Exception:
+        return False
+
+
 def _create_branch(project_dir: str, branch_name: str) -> bool:
     """Create and checkout a new branch. Returns True on success."""
+    if _is_merge_writer_locked(project_dir):
+        print(
+            f"[OMG branch-manager] Branch creation blocked: merge-writer lock is held",
+            file=sys.stderr,
+        )
+        return False
     try:
         result = subprocess.run(
             ["git", "-C", project_dir, "checkout", "-b", branch_name],

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import importlib
+import os
+import shutil
 from typing import Any
 
+from runtime.canonical_surface import is_canonical_parity_host
 from runtime.cli_provider import get_provider
 
 
@@ -124,16 +127,24 @@ def _domain_fit(task_text: str) -> str:
 
 
 def _probe_provider(provider: str) -> tuple[bool, bool | None, str]:
-    if provider == "claude":
-        return True, True, "built-in"
+    normalized_provider = str(provider).strip().lower()
+    if normalized_provider == "claude":
+        claude_bin = os.environ.get("OMG_CLAUDE_BIN", "claude")
+        worker_cmd = os.environ.get("OMG_CLAUDE_WORKER_CMD", "").strip()
+        if worker_cmd or shutil.which(claude_bin) is not None:
+            return True, None, "cli-detected"
+        return False, False, "provider CLI unavailable"
 
-    module_name = f"runtime.providers.{provider}_provider"
+    if not is_canonical_parity_host(normalized_provider):
+        return False, False, "unsupported provider"
+
+    module_name = f"runtime.providers.{normalized_provider}_provider"
     try:
         _ = importlib.import_module(module_name)
     except Exception as exc:
         return False, False, f"provider module import failed: {exc}"
 
-    cli_provider = get_provider(provider)
+    cli_provider = get_provider(normalized_provider)
     if cli_provider is None:
         return False, False, "provider not registered"
 

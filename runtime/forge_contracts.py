@@ -152,7 +152,7 @@ def load_forge_mvp() -> dict[str, object]:
             "forge-cybersecurity": {
                 "labs_only": True,
                 "allowed_domains": ["cybersecurity"],
-                "evidence_profile": "forge-run",
+                "evidence_profile": "security-audit",
                 "proof_backed_dispatch": True,
                 "stage_alias": "regression_test",
                 "evidence_outputs": {
@@ -163,6 +163,24 @@ def load_forge_mvp() -> dict[str, object]:
                 },
                 "reuses_scanner": "runtime.security_check",
             },
+            "music-omr": {
+                "labs_only": True,
+                "allowed_domains": ["music-omr"],
+                "evidence_profile": "music-omr",
+                "proof_backed_dispatch": True,
+                "stage_alias": "regression_test",
+                "evidence_outputs": {
+                    "omr_json": ".omg/evidence/music-omr-*.json",
+                },
+                "reuses_scanner": "runtime.music_omr_testbed",
+            },
+        },
+        "domain_evidence_profiles": {
+            "vision": "forge-vision",
+            "robotics": "forge-run",
+            "algorithms": "transposition-flow",
+            "health": "health-flow",
+            "cybersecurity": "security-audit",
         },
         "adapter_registry": dict(ADAPTER_REGISTRY),
         "axolotl_search_policy": dict(AXOLOTL_SEARCH_POLICY),
