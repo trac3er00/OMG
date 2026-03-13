@@ -701,9 +701,36 @@ function readBackgroundVerificationState(stateDir) {
 function readActiveRunId(stateDir) {
   const activeRunPath = join(dirname(stateDir), "shadow", "active-run");
   try {
-    if (!existsSync(activeRunPath)) return null;
-    const value = readFileSync(activeRunPath, "utf8").trim();
-    return value || null;
+    if (existsSync(activeRunPath)) {
+      const value = readFileSync(activeRunPath, "utf8").trim();
+      if (value) return value;
+    }
+  } catch {
+    return readActiveCoordinatorRunId(stateDir);
+  }
+  return readActiveCoordinatorRunId(stateDir);
+}
+
+function readActiveCoordinatorRunId(stateDir) {
+  const projectDir = dirname(dirname(stateDir));
+  try {
+    const output = execFileSync(
+      "python3",
+      [
+        "-c",
+        "from runtime.release_run_coordinator import get_active_coordinator_run_id; import os; print(get_active_coordinator_run_id(os.environ.get('OMG_HUD_PROJECT_DIR')) or '')",
+      ],
+      {
+        cwd: projectDir,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        env: {
+          ...process.env,
+          OMG_HUD_PROJECT_DIR: projectDir,
+        },
+      },
+    ).trim();
+    return output || null;
   } catch {
     return null;
   }
@@ -727,10 +754,18 @@ function normalizeVerificationState(data) {
 
 function readVerificationState(stateDir) {
   const activeRunId = readActiveRunId(stateDir);
-  const candidates = [];
-  if (activeRunId) {
-    candidates.push(join(stateDir, "verification_controller", `${activeRunId}.json`));
+  if (!activeRunId) {
+    return {
+      status: "no_active_run",
+      blockers: [],
+      evidence_links: [],
+      progress: {},
+      updated_at: null,
+      run_id: null,
+    };
   }
+  const candidates = [];
+  candidates.push(join(stateDir, "verification_controller", `${activeRunId}.json`));
   candidates.push(join(stateDir, "verification_controller", "latest.json"));
   candidates.push(join(stateDir, "background-verification.json"));
 
@@ -1019,6 +1054,9 @@ function renderBackgroundTasks(tasks) {
 
 function renderVerificationStatus(state) {
   if (!state) return dim("verification: unknown");
+  if (state.status === "no_active_run") {
+    return dim("verification: no active run");
+  }
   const { status, blockers, evidence_links, progress } = state;
   const blockerCount = blockers.length;
   const latestEvidence = evidence_links.length > 0

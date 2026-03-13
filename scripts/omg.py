@@ -685,6 +685,10 @@ def cmd_teams(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_team(args: argparse.Namespace) -> int:
+    return cmd_teams(args)
+
+
 def cmd_ccg(args: argparse.Namespace) -> int:
     files = [f.strip() for f in args.files.split(",") if f.strip()] if args.files else []
     result = execute_ccg_mode(
@@ -1395,6 +1399,14 @@ def build_parser() -> argparse.ArgumentParser:
     teams.add_argument("--files", default="")
     teams.add_argument("--expected-outcome", default="")
     teams.set_defaults(func=cmd_teams)
+
+    team = sub.add_parser("team", help="Internal OMG staged team routing (canonical)")
+    team.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "ccg"])
+    team.add_argument("--problem", required=True)
+    team.add_argument("--context", default="")
+    team.add_argument("--files", default="")
+    team.add_argument("--expected-outcome", default="")
+    team.set_defaults(func=cmd_team)
 
     ccg = sub.add_parser("ccg", help="OMG CCG (tri-track) routing")
     ccg.add_argument("--problem", required=True)
