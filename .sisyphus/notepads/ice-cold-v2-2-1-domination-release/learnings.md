@@ -74,3 +74,9 @@
 - Mutation-capable operations now require run-bound signed approval plus run-bound attestation metadata before execution, with approval scope/digest binding to the active `run_id`.
 - Evidence requirements are now run-scoped (`{run_id}` paths) and freshness-checked (`generated_at` + max age), and mutation lanes fail closed on stale or mismatched run metadata.
 - Added RED->GREEN coverage for approved governed execution with fresh evidence and for fail-closed mutation blocking on missing attestation or stale evidence.
+
+
+## [2026-03-13] Task 8: Zero-Failure Hardening
+- Hardened release-readiness execution primitive checks to fail closed on stale evidence, run_id mismatches, and excluded-failures lists without a signed waiver artifact.
+- Enforced strict verification state semantics (`schema_version==2`, valid status, optional run_id match) and fixed proof-chain publishing to record background state under evidence `run_id`.
+- Aligned workflow gates so compat/readiness block publish for the same release surface, while plugin diagnostics remain advisory.
