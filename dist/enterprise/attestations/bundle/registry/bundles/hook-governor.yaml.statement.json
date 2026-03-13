@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/hook-governor.yaml",
       "digest": {
-        "sha256": "983f11e5dc59032f97db2c353b804005b02f81e75e351b4fde97b12b441e6a3c"
+        "sha256": "c9b52245cc6a70c0d1d0a3b636cbce409dcf179f1ab4cbd7148099bcc3abb43f"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-13T00:09:44.305028+00:00"
+      "timestamp": "2026-03-13T00:52:29.812668+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-13T00:09:44.305028+00:00",
+  "issued_at": "2026-03-13T00:52:29.812668+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "ce2fb98f60707810",
-    "value": "untrusted comment: signature from omg local signing key\nyXUV8aOHuscuKS58SlHcJck3MonobFvxSDNBcLKmR7O5ynBWzRYAKni/jjp5eOIAHnzNOrl0N+yntDwAEUZtDQ==\ntrusted comment: type=omg-slsa-v1 keyid=ce2fb98f60707810 issued_at=2026-03-13T00:09:44.305136+00:00 artifact=bundle/registry/bundles/hook-governor.yaml sha256=983f11e5dc59032f97db2c353b804005b02f81e75e351b4fde97b12b441e6a3c\nVtyxojQR3c9NpjhkNDuiPxo6+wn8Hqxll3ujyPf0UGlbJBjvw3eixlpHE83vffvhwMTjcNRi/MPqy9+INT0vAg==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=ce2fb98f60707810 issued_at=2026-03-13T00:09:44.305136+00:00 artifact=bundle/registry/bundles/hook-governor.yaml sha256=983f11e5dc59032f97db2c353b804005b02f81e75e351b4fde97b12b441e6a3c"
+    "keyid": "ce707e09c620faf6",
+    "value": "untrusted comment: signature from omg local signing key\n2ui+dUGfwQTMbX0qY1s/KYcQSO4FmTZg6QTUENH+e78SwLwhkDkigHWgD3EKx8g/lIGYbrs/VPJBNZxKWA70Ag==\ntrusted comment: type=omg-slsa-v1 keyid=ce707e09c620faf6 issued_at=2026-03-13T00:52:29.812784+00:00 artifact=bundle/registry/bundles/hook-governor.yaml sha256=c9b52245cc6a70c0d1d0a3b636cbce409dcf179f1ab4cbd7148099bcc3abb43f\nbdC4233WXRc+jiao/Qt785bo/bgUU8+FlWYzEVMoDr6KGaQhYOr65P5mLIE8ihSIRaIWAJFqxwZo/7OJFQbsBA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=ce707e09c620faf6 issued_at=2026-03-13T00:52:29.812784+00:00 artifact=bundle/registry/bundles/hook-governor.yaml sha256=c9b52245cc6a70c0d1d0a3b636cbce409dcf179f1ab4cbd7148099bcc3abb43f"
   }
 }

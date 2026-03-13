@@ -5,7 +5,7 @@
     {
       "name": "bundle/settings.json",
       "digest": {
-        "sha256": "6ae7b440a73f918e06484b4fa6cbc78c2efa0a526edf081e8ab683876ef05647"
+        "sha256": "10d0d0e1365752b5058e51e448847ce0d97779e9b5f6511d54eb299ede2e7985"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-13T00:09:43.803383+00:00"
+      "timestamp": "2026-03-13T00:52:29.300773+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-13T00:09:43.803383+00:00",
+  "issued_at": "2026-03-13T00:52:29.300773+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "34f44646946b46ca",
-    "value": "untrusted comment: signature from omg local signing key\necbuGJyehWee9eNSg48ct7gJl2BFqQFERogkzOYGhcUkmbzvz1oTz3h1MyMONVHzs8nAJAmYUWMiaF3nWpBLCQ==\ntrusted comment: type=omg-slsa-v1 keyid=34f44646946b46ca issued_at=2026-03-13T00:09:43.803489+00:00 artifact=bundle/settings.json sha256=6ae7b440a73f918e06484b4fa6cbc78c2efa0a526edf081e8ab683876ef05647\n13Erg/ahmkNlRdx17tyHm5C4UwQpv4pPVwaoBf83mCe2mcSTw9YM9TUMqbPMSniaEkeD1ZrTv6XsKknWNFQlBQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=34f44646946b46ca issued_at=2026-03-13T00:09:43.803489+00:00 artifact=bundle/settings.json sha256=6ae7b440a73f918e06484b4fa6cbc78c2efa0a526edf081e8ab683876ef05647"
+    "keyid": "9694c3edfbc07348",
+    "value": "untrusted comment: signature from omg local signing key\n3Vd2kzt2ZHeNDxC1FXjqJ2D03JV/VVzAkAtaQEe8Uw9iYjAyddj7htK0zMdbEgSaLes4T+olmYloGuyAWUm1CA==\ntrusted comment: type=omg-slsa-v1 keyid=9694c3edfbc07348 issued_at=2026-03-13T00:52:29.300959+00:00 artifact=bundle/settings.json sha256=10d0d0e1365752b5058e51e448847ce0d97779e9b5f6511d54eb299ede2e7985\nGergTOfHcXvwzGtv0d/bPZaZm/pD+QTzKZ3FUBDIkg6My1uw/hh12vTEb/m+tZZWPbm8Pi0ljX9JRiO8evSGBg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=9694c3edfbc07348 issued_at=2026-03-13T00:52:29.300959+00:00 artifact=bundle/settings.json sha256=10d0d0e1365752b5058e51e448847ce0d97779e9b5f6511d54eb299ede2e7985"
   }
 }

@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-13T00:09:45.316297+00:00"
+      "timestamp": "2026-03-13T00:52:30.866075+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-13T00:09:45.316297+00:00",
+  "issued_at": "2026-03-13T00:52:30.866075+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "3087a0b23567cb4f",
-    "value": "untrusted comment: signature from omg local signing key\nKdh04t2xsC7CLWtURl9h7WErXtIo99QqHHb2npEc3t+dz6N0k6xjdbVW7D0E4WPi6C+OKhF6T/UsXiltWRgVCw==\ntrusted comment: type=omg-slsa-v1 keyid=3087a0b23567cb4f issued_at=2026-03-13T00:09:45.316408+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=3df7cd8fa667f1d27c76dd57f05d25091b63eb78badc68e712549e8ebfbfaff0\ns7B4g+JWXYndG3Vxu5YXUJLsLeAlPBsXU3M1k4HRJD+ujI7hYHJW94lD81DgmlZtcYtCm2roRgRCEIkqNLiSAg==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=3087a0b23567cb4f issued_at=2026-03-13T00:09:45.316408+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=3df7cd8fa667f1d27c76dd57f05d25091b63eb78badc68e712549e8ebfbfaff0"
+    "keyid": "93e69ff2caef842b",
+    "value": "untrusted comment: signature from omg local signing key\nxuVm4EA7CySuyIoHJlOXRQlB1VDK4zU4aP1YWRNf6M7Qb95OnWPwbqd/zXXDO7bpGMEXo9PlI8iwCc70DSVhBA==\ntrusted comment: type=omg-slsa-v1 keyid=93e69ff2caef842b issued_at=2026-03-13T00:52:30.866245+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=3df7cd8fa667f1d27c76dd57f05d25091b63eb78badc68e712549e8ebfbfaff0\nIEVuHlx6hweGLS04taCfaACm04T7/o39Jk8bmhPfDyhn2m7gDlPAnaFIHCXYnQ3UHXpQ8Qa+E83uloI25casCQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=93e69ff2caef842b issued_at=2026-03-13T00:52:30.866245+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=3df7cd8fa667f1d27c76dd57f05d25091b63eb78badc68e712549e8ebfbfaff0"
   }
 }
