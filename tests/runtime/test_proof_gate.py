@@ -1,13 +1,36 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
+import subprocess
+import sys
+from typing import cast
+
+import pytest
 
 from runtime.evidence_requirements import FULL_REQUIREMENTS
 from runtime.proof_gate import evaluate_proof_gate
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def _seed_release_readiness_fixtures(output_root: Path) -> None:
+    prepare = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "prepare-release-proof-fixtures.py"), "--output-root", str(output_root)],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert prepare.returncode == 0, prepare.stdout + prepare.stderr
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def test_proof_gate_fails_when_claims_are_empty() -> None:
@@ -427,3 +450,100 @@ def test_proof_gate_missing_or_empty_evidence_profile_fails_closed_to_full_requi
         assert result["verdict"] == "fail"
         assert "proof_gate_missing_artifact_junit" in result["blockers"]
         assert result["evidence_summary"]["evidence_requirements"] == list(FULL_REQUIREMENTS)
+
+
+def test_proof_gate_strict_release_chain_passes_with_lock_provenance_and_mutation_waiver(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_release_readiness_fixtures(tmp_path)
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+
+    evidence_root = tmp_path / ".omg" / "evidence"
+    junit_path = evidence_root / "junit.xml"
+    coverage_path = evidence_root / "coverage.xml"
+    sarif_path = evidence_root / "results.sarif"
+    browser_trace_path = evidence_root / "browser_trace.json"
+
+    security_evidence = cast(
+        dict[str, object],
+        json.loads((evidence_root / "security-check.json").read_text(encoding="utf-8")),
+    )
+    lock_state = cast(
+        dict[str, object],
+        json.loads(
+        (tmp_path / ".omg" / "state" / "test-intent-lock" / "lock-1.json").read_text(encoding="utf-8")
+        ),
+    )
+    proof_result = evaluate_proof_gate(
+        {
+            "claims": [
+                {
+                    "claim_type": "release_ready",
+                    "lock_id": "lock-1",
+                    "evidence": {
+                        "artifacts": [
+                            {
+                                "kind": "junit",
+                                "path": str(junit_path),
+                                "sha256": _sha256(junit_path),
+                                "parser": "junit",
+                                "summary": "release junit",
+                                "trace_id": "trace-1",
+                            },
+                            {
+                                "kind": "coverage",
+                                "path": str(coverage_path),
+                                "sha256": _sha256(coverage_path),
+                                "parser": "coverage",
+                                "summary": "release coverage",
+                                "trace_id": "trace-1",
+                            },
+                            {
+                                "kind": "sarif",
+                                "path": str(sarif_path),
+                                "sha256": _sha256(sarif_path),
+                                "parser": "sarif",
+                                "summary": "release security",
+                                "trace_id": "trace-1",
+                            },
+                            {
+                                "kind": "browser_trace",
+                                "path": str(browser_trace_path),
+                                "sha256": _sha256(browser_trace_path),
+                                "parser": "playwright",
+                                "summary": "release browser trace",
+                                "trace_id": "trace-1",
+                            },
+                        ],
+                        "trace_ids": ["trace-1"],
+                    },
+                }
+            ],
+            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-1"},
+            "eval_output": {"trace_id": "trace-1", "status": "ok"},
+            "security_evidence": security_evidence,
+            "browser_evidence": {
+                "schema": "BrowserEvidence",
+                "artifacts": {"trace": str(browser_trace_path)},
+                "metadata": {"trace_id": "trace-1"},
+            },
+            "test_intent_lock": lock_state,
+            "test_delta": {
+                "flags": ["weakened_assertions"],
+                "lock_id": "lock-1",
+                "waiver_artifact": {
+                    "artifact_path": ".omg/evidence/waiver-tests-lock-1.json",
+                    "reason": "approved release fixture",
+                },
+            },
+            "evidence_profile": "release",
+        }
+    )
+
+    assert proof_result["verdict"] == "pass"
+    assert proof_result["blockers"] == []
+    assert proof_result["evidence_summary"]["trace_id"] == "trace-1"
+    assert proof_result["evidence_summary"]["has_lock_evidence"] is True
+    assert proof_result["evidence_summary"]["has_waiver_artifact"] is True
+    assert proof_result["evidence_summary"]["required_artifacts"] == ["junit", "coverage", "sarif", "browser_trace"]

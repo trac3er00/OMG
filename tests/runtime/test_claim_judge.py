@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
+import sys
+from typing import cast
 
 import pytest
 
@@ -10,6 +13,19 @@ from runtime.release_run_coordinator import ReleaseRunCoordinator
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def _seed_release_readiness_fixtures(output_root: Path) -> None:
+    prepare = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "prepare-release-proof-fixtures.py"), "--output-root", str(output_root)],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert prepare.returncode == 0, prepare.stdout + prepare.stderr
 
 
 def test_claim_judge_fails_when_artifacts_are_missing() -> None:
@@ -582,3 +598,57 @@ def test_release_run_coordinator_finalize_blocks_when_claim_judge_blocks(tmp_pat
         )
     )
     assert "claim_judge_verdict" in " ".join(str(token) for token in verification.get("blockers", []))
+
+
+def test_evaluate_claims_for_release_strict_runtime_chain_passes_and_emits_provenance_artifact(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+    _seed_release_readiness_fixtures(tmp_path)
+
+    evidence_pack = cast(
+        dict[str, object],
+        json.loads((tmp_path / ".omg" / "evidence" / "run-1.json").read_text(encoding="utf-8")),
+    )
+    result = evaluate_claims_for_release(
+        project_dir=tmp_path.as_posix(),
+        run_id="run-1",
+        claims=[
+            {
+                "claim_type": "runtime_release_ready",
+                "run_id": "run-1",
+                "evidence_profile": "release",
+                "lock_id": "lock-1",
+                "delta_summary": {
+                    "flags": ["weakened_assertions"],
+                    "mutated_paths": ["runtime/proof_gate.py"],
+                },
+                "verification_status": "ok",
+                "lock_verification": {"status": "ok"},
+                "waiver_artifact_path": ".omg/evidence/waiver-tests-lock-1.json",
+                "provenance": [{"source": "browser", "artifact": ".omg/evidence/browser_trace.json"}],
+            }
+        ],
+    )
+
+    assert result["status"] == "allowed"
+    assert result["claim_judge_verdict"] == "pass"
+
+    artifact_payload = cast(
+        dict[str, object],
+        json.loads((tmp_path / ".omg" / "evidence" / "claim-judge-run-1.json").read_text(encoding="utf-8")),
+    )
+    result_payload = cast(dict[str, object], artifact_payload["result"])
+    claim_payload = cast(dict[str, object], artifact_payload["claim"])
+    evidence_payload = cast(dict[str, object], result_payload["evidence"])
+    causal_chain = cast(dict[str, object], evidence_payload["causal_chain"])
+    provenance_entries = cast(list[dict[str, object]], claim_payload["provenance"])
+
+    assert result_payload["verdict"] == "pass"
+    assert provenance_entries[0]["source"] == "browser"
+    assert causal_chain["lock_id"] == "lock-1"
+    assert causal_chain["verification_status"] == "ok"
+    assert causal_chain["context_checksum"] == evidence_pack["context_checksum"]
+    assert causal_chain["profile_version"] == evidence_pack["profile_version"]
+    assert causal_chain["intent_gate_version"] == evidence_pack["intent_gate_version"]

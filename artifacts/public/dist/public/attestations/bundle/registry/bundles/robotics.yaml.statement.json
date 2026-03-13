@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/robotics.yaml",
+      "digest": {
+        "sha256": "863c5847b561b4fb0705cdaa9d021dec08fd5b2993cf4530a400de5e0f86d76a"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-13T03:48:12.365757+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-13T03:48:12.365757+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "23bd2da6463b6ec6",
+    "value": "untrusted comment: signature from omg local signing key\nH3ir1nDNEI4udIzxkPrB7EoOnjykiZseebxXnXZwQKWR/Lvan3pjQ8/uA6Nf7jA74ZrQpj23xT8xoaRMHpBjDA==\ntrusted comment: type=omg-slsa-v1 keyid=23bd2da6463b6ec6 issued_at=2026-03-13T03:48:12.365864+00:00 artifact=bundle/registry/bundles/robotics.yaml sha256=863c5847b561b4fb0705cdaa9d021dec08fd5b2993cf4530a400de5e0f86d76a\n77zDXP+ujZ2qPhg0gPTCgIlxsYeKFpc4WbNFwsUFHZgCBLngjTbQZF8qvzJVTdsMZfp0Og4G4Kz/ytDOJZadBw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=23bd2da6463b6ec6 issued_at=2026-03-13T03:48:12.365864+00:00 artifact=bundle/registry/bundles/robotics.yaml sha256=863c5847b561b4fb0705cdaa9d021dec08fd5b2993cf4530a400de5e0f86d76a"
+  }
+}

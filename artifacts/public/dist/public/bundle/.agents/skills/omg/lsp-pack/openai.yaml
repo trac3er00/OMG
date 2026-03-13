@@ -1,0 +1,11 @@
+name: omg-lsp-pack
+description: "Optional LSP-backed diagnostics and navigation bundle for production verification."
+allow_implicit_invocation: false
+metadata:
+  channel: public
+  bundle_id: lsp-pack
+  title: "OMG LSP Pack"
+mcp_servers:
+  - omg-control
+allowed_tools:
+  - "Read"

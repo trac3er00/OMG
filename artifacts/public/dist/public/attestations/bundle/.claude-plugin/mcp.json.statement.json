@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/.claude-plugin/mcp.json",
+      "digest": {
+        "sha256": "14208140297f635cc5155cfe063c9b8a6193a3d0a264e0686cf3b80789208f27"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-13T03:48:12.346407+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-13T03:48:12.346407+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "436c724b9b215118",
+    "value": "untrusted comment: signature from omg local signing key\nCinU3AsS32eZX9pC8Pjot9t+4PaJ9eriYVHacHIEhcvHJ/27rc15SA/T5WMHs8H/aOBSj/yY+mhmWMlDfuI5DQ==\ntrusted comment: type=omg-slsa-v1 keyid=436c724b9b215118 issued_at=2026-03-13T03:48:12.346535+00:00 artifact=bundle/.claude-plugin/mcp.json sha256=14208140297f635cc5155cfe063c9b8a6193a3d0a264e0686cf3b80789208f27\ncBsYJy0qYDtCvaSIe+MCtnjxj9mARlj/XDtkpSr+vBWeWgLy7rZDTLWdlST1t0JETLPERRM4Txf1ngaro7kHAQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=436c724b9b215118 issued_at=2026-03-13T03:48:12.346535+00:00 artifact=bundle/.claude-plugin/mcp.json sha256=14208140297f635cc5155cfe063c9b8a6193a3d0a264e0686cf3b80789208f27"
+  }
+}
