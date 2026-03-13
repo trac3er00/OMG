@@ -258,6 +258,14 @@ def _build_intent_gate_state(prompt_text, payload):
     run_id = _resolve_run_id(payload, source_prompt_hash)
     signal_hits = _count_signals(INTENT_MAP[intent_class]["signals"], prompt_text)
     confidence = min(0.99, 0.76 + (signal_hits * 0.07) + (0.06 if intent_class == "ambiguous_config" else 0.0))
+    governance_payload = {}
+    if score_complexity is not None:
+        try:
+            governance_raw = score_complexity(prompt_text).get("governance")
+            if isinstance(governance_raw, dict):
+                governance_payload = governance_raw
+        except Exception:
+            governance_payload = {}
 
     return {
         "schema": "IntentGateClarificationState",
@@ -269,7 +277,7 @@ def _build_intent_gate_state(prompt_text, payload):
         "missing_slots": missing_slots,
         "clarification_prompt": clarification_prompt,
         "source_prompt_hash": source_prompt_hash,
-        "governance": score_complexity(prompt_text).get("governance", {}),
+        "governance": governance_payload,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -309,6 +317,12 @@ parts.append(
 if detected_intent in ("fix", "implement", "refactor"):
     parts.append(
         "@verify: After EVERY change run build/lint/test. Show exit code."
+    )
+    methodology_run_id = _resolve_run_id(data, _hash_prompt(prompt))
+    parts.append(
+        "@methodology: "
+        f"run_id={methodology_run_id} require plan+lock+done_when before mutation; "
+        "verify done_when after run."
     )
 
 _gov_payload: dict[str, object] | None = None

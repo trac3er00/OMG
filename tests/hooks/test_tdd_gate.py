@@ -19,6 +19,26 @@ def test_mutation_gate_blocks_without_lock_in_strict_mode(tmp_path, monkeypatch)
     assert result["lock_id"] is None
 
 
+def test_mutation_blocks_without_lock(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    run_id = "run-missing-lock"
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-min.json").write_text("{}", encoding="utf-8")
+
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/app.py",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        run_id=run_id,
+        metadata={"done_when": ["tests pass"]},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "no_active_test_intent_lock"
+
+
 def test_mutation_gate_allows_docs_exemption_without_lock(tmp_path) -> None:
     result = check_mutation_allowed(
         tool="Write",
@@ -27,6 +47,18 @@ def test_mutation_gate_allows_docs_exemption_without_lock(tmp_path) -> None:
         lock_id=None,
         exemption="docs",
     )
+    assert result["status"] == "exempt"
+
+
+def test_docs_exemption_passes(tmp_path) -> None:
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="docs/notes.md",
+        project_dir=str(tmp_path),
+        lock_id=None,
+        exemption="docs",
+    )
+
     assert result["status"] == "exempt"
 
 
@@ -215,3 +247,87 @@ def test_mutation_gate_writes_block_artifact_by_default(tmp_path, monkeypatch) -
     assert payload["file_path"] == file_path
     assert isinstance(payload.get("reason"), str)
     assert isinstance(payload.get("ts"), str)
+
+
+def test_mutation_gate_blocks_without_plan(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    run_id = "run-no-plan"
+    lock_id = "lock-no-plan"
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": run_id}}),
+        encoding="utf-8",
+    )
+
+    result = check_mutation_allowed(
+        tool="Edit",
+        file_path="src/main.py",
+        project_dir=str(tmp_path),
+        lock_id=lock_id,
+        run_id=run_id,
+        metadata={"done_when": ["all checks green"]},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "tool_plan_required"
+
+
+def test_mutation_gate_blocks_without_done_when(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    run_id = "run-no-done-when"
+    lock_id = "lock-no-done-when"
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": run_id}}),
+        encoding="utf-8",
+    )
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-min.json").write_text("{}", encoding="utf-8")
+
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/main.py",
+        project_dir=str(tmp_path),
+        lock_id=lock_id,
+        run_id=run_id,
+        metadata={},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "done_when_required"
+
+
+def test_mutation_gate_binds_to_active_coordinator_run_id(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    active_run_id = "run-active"
+    mismatched_run_id = "run-metadata"
+    shadow_dir = tmp_path / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True, exist_ok=True)
+    (shadow_dir / "active-run").write_text(f"{active_run_id}\n", encoding="utf-8")
+
+    lock_id = "lock-active"
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": active_run_id}}),
+        encoding="utf-8",
+    )
+
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{active_run_id}-plan-min.json").write_text("{}", encoding="utf-8")
+
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/main.py",
+        project_dir=str(tmp_path),
+        lock_id=lock_id,
+        run_id=mismatched_run_id,
+        metadata={"done_when": ["tests pass"]},
+    )
+
+    assert result["status"] == "allowed"
+    assert result["lock_id"] == lock_id

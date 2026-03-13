@@ -8,8 +8,9 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 
-from runtime.release_run_coordinator import resolve_current_run_id
-from runtime.test_intent_lock import verify_lock
+from runtime.release_run_coordinator import get_active_coordinator_run_id, resolve_current_run_id
+from runtime.test_intent_lock import verify_done_when, verify_lock
+from runtime.tool_plan_gate import has_tool_plan_for_run
 
 
 _MUTATING_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
@@ -75,34 +76,84 @@ def check_mutation_allowed(
             "lock_id": normalized_lock_id,
         }
 
-    resolved_run_id = str(run_id or "").strip() or resolve_current_run_id(project_dir=project_dir)
+    resolved_run_id = (
+        get_active_coordinator_run_id(project_dir=project_dir)
+        or str(run_id or "").strip()
+        or resolve_current_run_id(project_dir=project_dir)
+    )
+
     verification = verify_lock(project_dir, run_id=resolved_run_id, lock_id=normalized_lock_id)
-    if verification.get("status") == "ok":
+    if verification.get("status") != "ok":
+        reason = str(verification.get("reason", "no_active_test_intent_lock"))
+        if strict_mode:
+            _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+            return {
+                "status": "blocked",
+                "reason": reason,
+                "lock_id": normalized_lock_id,
+            }
+
+        _write_warning_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+        warnings.warn(
+            f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         return {
             "status": "allowed",
-            "reason": "active test intent lock found",
-            "lock_id": str(verification.get("lock_id") or normalized_lock_id or "") or None,
-        }
-
-    reason = str(verification.get("reason", "no_active_test_intent_lock"))
-    if strict_mode:
-        _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
-        return {
-            "status": "blocked",
             "reason": reason,
             "lock_id": normalized_lock_id,
         }
 
-    _write_warning_artifact(project_dir, normalized_tool, normalized_file_path, reason)
-    warnings.warn(
-        f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
-        RuntimeWarning,
-        stacklevel=2,
-    )
+    if resolved_run_id and not has_tool_plan_for_run(project_dir, resolved_run_id):
+        reason = "tool_plan_required"
+        if strict_mode:
+            _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+            return {
+                "status": "blocked",
+                "reason": reason,
+                "lock_id": normalized_lock_id,
+            }
+        _write_warning_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+        warnings.warn(
+            f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return {
+            "status": "allowed",
+            "reason": reason,
+            "lock_id": normalized_lock_id,
+        }
+
+    if resolved_run_id:
+        done_when_verification = verify_done_when(metadata_obj, run_id=resolved_run_id)
+        if done_when_verification.get("status") != "ok":
+            reason = str(done_when_verification.get("reason", "done_when_required"))
+            if strict_mode:
+                _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+                return {
+                    "status": "blocked",
+                    "reason": reason,
+                    "lock_id": normalized_lock_id,
+                }
+
+            _write_warning_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+            warnings.warn(
+                f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return {
+                "status": "allowed",
+                "reason": reason,
+                "lock_id": normalized_lock_id,
+            }
+
     return {
         "status": "allowed",
-        "reason": reason,
-        "lock_id": normalized_lock_id,
+        "reason": "active test intent lock found",
+        "lock_id": str(verification.get("lock_id") or normalized_lock_id or "") or None,
     }
 
 
