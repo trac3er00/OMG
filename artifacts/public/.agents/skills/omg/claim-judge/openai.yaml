@@ -1,0 +1,13 @@
+name: omg-claim-judge
+description: "Evidence-backed claim validator for structured release and completion claims."
+allow_implicit_invocation: false
+metadata:
+  channel: public
+  bundle_id: claim-judge
+  title: "OMG Claim Judge"
+mcp_servers:
+  - omg-control
+allowed_tools:
+  - "Read"
+  - "Grep"
+  - "Bash(python3:*)"

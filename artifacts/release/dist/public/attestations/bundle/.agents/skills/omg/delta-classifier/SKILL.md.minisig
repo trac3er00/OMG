@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-c1uYEdfi07H5LRlb7FGl5tlDgmHbW2BUGnJnMW9kUwJqgDmWsQI13VrgzXMY3BAvbOTlIVNo466HYXb6mg07Cw==
-trusted comment: type=omg-slsa-v1 keyid=5791e2753221dbda issued_at=2026-03-13T00:52:30.317305+00:00 artifact=bundle/.agents/skills/omg/delta-classifier/SKILL.md sha256=a4ab3112459178d08d6f54b83c38c6638833e97479808f0d88bba8e56c50b20c
-6HFieyirhglbkSL7/uCT4soBX/m1JJcztErDskBso73NHhAmTHQvPgftlgvvd6ZFIB2MCnSL+Kfi5WMf+KjdBg==
+YmhqLsw2qyWgavMbbqRsooOpnRei5BctF8egIkKKEdKYTKFPconKrgi+Mmyepv6dE6p/sSfiAMMjFxKHTFiAAA==
+trusted comment: type=omg-slsa-v1 keyid=ab59942d496e8485 issued_at=2026-03-13T03:39:30.237343+00:00 artifact=bundle/.agents/skills/omg/delta-classifier/SKILL.md sha256=a4ab3112459178d08d6f54b83c38c6638833e97479808f0d88bba8e56c50b20c
+Kmt4xzbRvB8GLhJqC7Dbigywnk55iM+OncUqR2HUxcNHRV3se3KycgXWRIaSTkUtHVyevQOJf5BIY8QIaKtlDg==
