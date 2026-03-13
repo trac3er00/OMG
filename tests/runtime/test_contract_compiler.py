@@ -170,6 +170,14 @@ def _write_evidence(
         "session_health_state": {"path": ".omg/state/session_health/run-1.json", "run_id": "run-1"},
         "council_verdicts": {"path": ".omg/state/council_verdicts/run-1.json", "run_id": "run-1"},
         "forge_starter_proof": {"path": ".omg/evidence/forge-specialists-run-1.json", "run_id": "run-1"},
+        "exec_kernel_state": {"path": ".omg/state/exec-kernel/run-1.json", "run_id": "run-1"},
+        "worker_watchdog_replay": {"path": ".omg/evidence/subagents/run-1-replay.json", "run_id": "run-1"},
+        "merge_writer_provenance": {"path": ".omg/evidence/merge-writer-run-1.json", "run_id": "run-1"},
+        "tool_fabric_ledger": {"path": ".omg/state/ledger/tool-ledger.jsonl", "run_id": "run-1"},
+        "budget_envelope_state": {"path": ".omg/state/budget-envelopes/run-1.json", "run_id": "run-1"},
+        "issue_report": {"path": ".omg/evidence/issues/run-1.json", "run_id": "run-1"},
+        "host_parity_report": {"path": ".omg/evidence/host-parity-run-1.json", "run_id": "run-1"},
+        "music_omr_testbed_evidence": {"path": ".omg/evidence/music-omr-run-1.json", "run_id": "run-1"},
     }
     if include_claims:
         payload["claims"] = [
@@ -355,6 +363,69 @@ def _write_execution_primitives(output_root: Path, *, run_id: str = "run-1") -> 
                 "intent_gate_version": intent_gate_version,
             }
         ),
+        encoding="utf-8",
+    )
+
+    # --- 8 new execution primitives (Phase 1 Pro Release Kernel) ---
+    exec_kernel_dir = state_root / "exec-kernel"
+    exec_kernel_dir.mkdir(parents=True, exist_ok=True)
+    (exec_kernel_dir / f"{run_id}.json").write_text(
+        json.dumps({"schema": "ExecKernelRunState", "run_id": run_id, "status": "queued", "kernel_enabled": True}),
+        encoding="utf-8",
+    )
+
+    subagents_dir = evidence_root / "subagents"
+    subagents_dir.mkdir(parents=True, exist_ok=True)
+    (subagents_dir / f"{run_id}-replay.json").write_text(
+        json.dumps({"schema": "WorkerReplayEvidence", "run_id": run_id, "reason": "completed"}),
+        encoding="utf-8",
+    )
+
+    (evidence_root / f"merge-writer-{run_id}.json").write_text(
+        json.dumps({
+            "schema": "MergeWriterProvenance",
+            "run_id": run_id,
+            "acquired_at": "2026-01-01T00:00:00Z",
+            "released_at": "2026-01-01T00:00:01Z",
+        }),
+        encoding="utf-8",
+    )
+
+    ledger_dir = state_root / "ledger"
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+    (ledger_dir / "tool-ledger.jsonl").write_text(
+        json.dumps({"ts": "2026-01-01T00:00:00Z", "tool": "ls", "run_id": run_id}) + "\n",
+        encoding="utf-8",
+    )
+
+    budget_dir = state_root / "budget-envelopes"
+    budget_dir.mkdir(parents=True, exist_ok=True)
+    (budget_dir / f"{run_id}.json").write_text(
+        json.dumps({"schema": "BudgetEnvelopeState", "run_id": run_id, "usage": {"cpu_seconds_used": 0.1}}),
+        encoding="utf-8",
+    )
+
+    issues_dir = evidence_root / "issues"
+    issues_dir.mkdir(parents=True, exist_ok=True)
+    (issues_dir / f"{run_id}.json").write_text(
+        json.dumps({"schema": "IssueReport", "run_id": run_id, "issues": []}),
+        encoding="utf-8",
+    )
+
+    (evidence_root / f"host-parity-{run_id}.json").write_text(
+        json.dumps({
+            "schema": "HostParityReport",
+            "run_id": run_id,
+            "timestamp": "2026-01-01T00:00:00Z",
+            "canonical_hosts": ["claude", "codex"],
+            "parity_results": {"passed": True, "drift_detected": False, "drift_details": [], "host_results": {}},
+            "overall_status": "ok",
+        }),
+        encoding="utf-8",
+    )
+
+    (evidence_root / f"music-omr-{run_id}.json").write_text(
+        json.dumps({"schema": "MusicOMREvidence", "run_id": run_id, "results": {}}),
         encoding="utf-8",
     )
 

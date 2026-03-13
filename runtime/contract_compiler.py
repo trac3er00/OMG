@@ -2426,6 +2426,37 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
                 f"missing_context_metadata={','.join(sorted(forge_metadata_missing))}"
             )
 
+    # ── Resolve evidence-pack-embedded primitives ──────────────────────────
+    # The evidence pack stores new execution primitives as nested dicts with
+    # a "path" key.  Resolve each one against output_root.
+    _pack_embedded_primitives = (
+        "exec_kernel_state",
+        "worker_watchdog_replay",
+        "merge_writer_provenance",
+        "tool_fabric_ledger",
+        "budget_envelope_state",
+        "issue_report",
+        "host_parity_report",
+        "music_omr_testbed_evidence",
+    )
+    for token in _pack_embedded_primitives:
+        entry = evidence_payload.get(token)
+        if not isinstance(entry, dict):
+            missing.append(token)
+            blockers.append(f"missing_execution_primitive: {token}")
+            continue
+        rel_path = str(entry.get("path", "")).strip()
+        if not rel_path:
+            missing.append(token)
+            blockers.append(f"missing_execution_primitive: {token}")
+            continue
+        resolved = output_root / rel_path
+        if not resolved.exists():
+            missing.append(token)
+            blockers.append(f"missing_execution_primitive: {token}")
+            continue
+        evidence_paths[token] = rel_path
+
     return {
         "status": "ok" if not blockers else "error",
         "run_id": run_id,
