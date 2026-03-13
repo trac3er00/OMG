@@ -23,10 +23,13 @@ from collections import Counter
 from datetime import datetime, timezone
 
 HOOKS_DIR = os.path.dirname(__file__)
+PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
-from _common import _resolve_project_dir, should_skip_stop_hooks
+from hooks._common import _resolve_project_dir, should_skip_stop_hooks
 
 # --- Builtins excluded from parameterized-gap detection ---
 _BUILTIN_FUNCS = frozenset({
@@ -36,6 +39,9 @@ _BUILTIN_FUNCS = frozenset({
     "expect", "require", "import", "open", "super", "getattr", "setattr",
     "hasattr", "sorted", "enumerate", "zip", "map", "filter", "min", "max",
 })
+_MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
+_SKIP_DIR_SEGMENTS = frozenset({"build", "dist", "node_modules", ".git"})
+_TEST_DIR_NAMES = frozenset({"tests", "test", "__tests__"})
 
 
 def analyze_test_content(content, filename="test.py"):
@@ -267,6 +273,31 @@ def persist_metrics(project_dir, analysis):
         pass  # Crash isolation: never fail the hook
 
 
+def _is_test_file(rel_path):
+    """
+    Heuristic: is this path likely a test file (vs source module)?
+
+    Excludes build artifacts and source modules that happen to start with
+    ``test_`` but live outside test directories (e.g. ``runtime/test_intent_lock.py``).
+    """
+    parts = rel_path.replace("\\", "/").split("/")
+    # Skip build artifacts and vendored code
+    if any(seg in _SKIP_DIR_SEGMENTS for seg in parts[:-1]):
+        return False
+    basename = parts[-1].lower() if parts else ""
+    # Standard test file patterns (checked against basename)
+    if any(p in basename for p in (".test.", ".spec.", "_test.", ".tests.")):
+        return True
+    # __tests__ directory anywhere in path
+    if "__tests__" in rel_path:
+        return True
+    # test_ prefix: only match if file is in a test directory or at repo root
+    if basename.startswith("test_"):
+        parent_dirs = {p.lower() for p in parts[:-1]}
+        return not parent_dirs or bool(parent_dirs & _TEST_DIR_NAMES)
+    return False
+
+
 def check_test_quality(data, project_dir):
     """Core test-quality validation. Returns list of block-reason strings."""
     import subprocess
@@ -279,8 +310,7 @@ def check_test_quality(data, project_dir):
             capture_output=True, text=True, timeout=10, cwd=project_dir
         )
         for f in result.stdout.strip().split("\n"):
-            if f and any(p in f.lower() for p in
-                         [".test.", ".spec.", "_test.", "test_", "__tests__", ".tests."]):
+            if f and _is_test_file(f):
                 full = os.path.join(project_dir, f)
                 if os.path.exists(full):
                     test_files.append(full)
@@ -344,6 +374,44 @@ def check_test_quality(data, project_dir):
     return []
 
 
+def check_methodology_contract(data):
+    if not isinstance(data, dict):
+        return []
+
+    tool_name = str(data.get("tool_name", "")).strip().lower()
+    if tool_name not in _MUTATION_TOOLS:
+        return []
+
+    tool_input = data.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return ["METHODOLOGY: mutation-capable flow requires metadata with done_when criteria"]
+
+    exemption = str(tool_input.get("exemption", "")).strip().lower()
+    if exemption == "docs":
+        return []
+
+    metadata = tool_input.get("metadata")
+    if not isinstance(metadata, dict):
+        return ["METHODOLOGY: mutation-capable flow requires metadata with done_when criteria"]
+
+    done_when = metadata.get("done_when")
+    if isinstance(done_when, str) and done_when.strip():
+        return []
+    if isinstance(done_when, list):
+        if any(str(item).strip() for item in done_when):
+            return []
+    if isinstance(done_when, dict):
+        criteria = done_when.get("criteria")
+        if isinstance(criteria, str) and criteria.strip():
+            return []
+        if isinstance(criteria, list) and any(str(item).strip() for item in criteria):
+            return []
+        if str(done_when.get("summary", "")).strip():
+            return []
+
+    return ["METHODOLOGY: done_when criteria required before mutation-capable execution"]
+
+
 # Standalone execution (backward compat: invoked directly by hook runner)
 if __name__ == "__main__":
     try:
@@ -356,6 +424,7 @@ if __name__ == "__main__":
 
     project_dir = _resolve_project_dir()
     blocks = check_test_quality(data, project_dir)
+    blocks.extend(check_methodology_contract(data))
     if blocks:
         json.dump({"decision": "block", "reason": blocks[0]}, sys.stdout)
     sys.exit(0)

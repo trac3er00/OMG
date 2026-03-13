@@ -7,6 +7,7 @@ import importlib
 import importlib.util
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import re
 import shutil
@@ -24,6 +25,7 @@ from runtime.proof_chain import _normalize_evidence_pack
 from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
+from runtime.release_run_coordinator import get_active_coordinator_run_id
 from runtime.release_surfaces import get_runtime_behavior_surfaces
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
@@ -33,13 +35,14 @@ from runtime.adoption import (
     CANONICAL_VERSION,
 )
 from runtime.canonical_surface import CANONICAL_PARITY_HOSTS, get_canonical_hosts
-from registry.verify_artifact import sign_artifact_statement
+from registry.verify_artifact import sign_artifact_statement, verify_artifact_statement
 
 
 CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
 SCHEMA_PATH = Path("registry") / "omg-capability.schema.json"
 BUNDLES_DIR = Path("registry") / "bundles"
 SUPPORTED_HOSTS = tuple(get_canonical_hosts())
+RELEASE_BLOCKING_HOSTS = tuple(get_canonical_hosts())
 SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
@@ -225,6 +228,8 @@ _REQUIRED_CONTEXT_METADATA = (
     "profile_version",
     "intent_gate_version",
 )
+
+_DEFAULT_EXECUTION_PRIMITIVE_MAX_AGE_SECONDS = 3600.0
 
 
 def _ensure_list(
@@ -1860,20 +1865,27 @@ def _check_provider_host_parity(output_root: Path, providers: dict[str, dict[str
 def _check_host_semantic_parity(
     output_root: Path,
     required_hosts: set[str],
+    release_run_id: str = "",
 ) -> dict[str, Any]:
     evidence_dir = output_root / ".omg" / "evidence"
     parity_files = sorted(evidence_dir.glob("host-parity-*.json")) if evidence_dir.exists() else []
     report_path = parity_files[-1] if parity_files else None
-    require_report = os.environ.get("OMG_REQUIRE_HOST_PARITY_REPORT", "").strip().lower() in {
+    require_report_env = os.environ.get("OMG_REQUIRE_HOST_PARITY_REPORT", "").strip().lower() in {
         "1",
         "true",
         "yes",
         "on",
     }
+    canonical_required_hosts = {
+        host
+        for host in required_hosts
+        if host in RELEASE_BLOCKING_HOSTS
+    }
+    require_report = require_report_env or bool(canonical_required_hosts)
 
     if report_path is None:
         return {
-            "status": "missing",
+            "status": "error" if require_report else "missing",
             "report": None,
             "blockers": ["host_semantic_parity: missing host parity report"] if require_report else [],
         }
@@ -1898,6 +1910,9 @@ def _check_host_semantic_parity(
     passed = bool(parity_results.get("passed")) if isinstance(parity_results, dict) else False
 
     blockers: list[str] = []
+    report_run_id = str(report.get("run_id", "")).strip()
+    if release_run_id and report_run_id and report_run_id != release_run_id:
+        blockers.append("host_parity_report:cross_run")
     if missing_hosts:
         blockers.append(f"host_semantic_parity: report missing canonical hosts {missing_hosts}")
     if overall_status and overall_status != "ok":
@@ -1968,7 +1983,12 @@ def build_release_readiness(
     output = _resolve_output_root(root, output_root)
     blockers: list[str] = []
     checks: dict[str, Any] = {}
-    required_provider_hosts: set[str] = set()
+    provider_override = {
+        item.strip().lower()
+        for item in os.environ.get("OMG_RELEASE_READY_PROVIDERS", "").split(",")
+        if item.strip()
+    }
+    required_provider_hosts: set[str] = set(provider_override or RELEASE_BLOCKING_HOSTS)
 
     validation = validate_contract_registry(root)
     checks["contract_validation"] = validation
@@ -1996,9 +2016,14 @@ def build_release_readiness(
             if _sha256_file(artifact_path) != expected_sha:
                 manifest_errors.append(f"{required_channel}: sha mismatch for {rel_path}")
         manifest_paths = {str(a.get("path", "")) for a in manifest.get("artifacts", []) if isinstance(a, dict)}
-        declared_hosts = [str(host) for host in manifest.get("hosts", []) if str(host).strip()]
+        declared_hosts = [str(host).strip().lower() for host in manifest.get("hosts", []) if str(host).strip()]
         if not declared_hosts:
             declared_hosts = get_canonical_hosts()
+        missing_required_hosts = sorted(host for host in required_provider_hosts if host not in declared_hosts)
+        if missing_required_hosts:
+            manifest_errors.append(
+                f"{required_channel}: canonical_host_compile_parity_missing {missing_required_hosts}"
+            )
         required_provider_hosts.update(declared_hosts)
         for host_name in declared_hosts:
             for host_path in HOST_COMPILED_ARTIFACTS.get(host_name, ()):
@@ -2117,7 +2142,11 @@ def build_release_readiness(
     checks["provider_host_parity"] = provider_parity
     blockers.extend(provider_parity.get("blockers", []))
 
-    host_semantic_parity = _check_host_semantic_parity(output, required_provider_hosts)
+    host_semantic_parity = _check_host_semantic_parity(
+        output,
+        required_provider_hosts,
+        release_run_id=str(evidence_check.get("run_id", "")).strip(),
+    )
     checks["host_semantic_parity"] = host_semantic_parity
     blockers.extend(host_semantic_parity.get("blockers", []))
 
@@ -2221,13 +2250,200 @@ def _missing_context_metadata(payload: dict[str, Any]) -> list[str]:
     return missing
 
 
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _execution_primitive_max_age_seconds() -> float:
+    raw = str(os.environ.get("OMG_EXECUTION_PRIMITIVE_MAX_AGE_SECONDS", "")).strip()
+    if not raw:
+        return _DEFAULT_EXECUTION_PRIMITIVE_MAX_AGE_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        return _DEFAULT_EXECUTION_PRIMITIVE_MAX_AGE_SECONDS
+    return value if value >= 0 else _DEFAULT_EXECUTION_PRIMITIVE_MAX_AGE_SECONDS
+
+
+def _as_non_empty_list(value: Any) -> list[Any]:
+    if not isinstance(value, list):
+        return []
+    items: list[Any] = []
+    for item in value:
+        if isinstance(item, str) and not item.strip():
+            continue
+        if item in ({}, []):
+            continue
+        items.append(item)
+    return items
+
+
+def _normalize_exclusion_token(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for field in ("id", "test", "name", "reason"):
+            token = str(value.get(field, "")).strip()
+            if token:
+                return token
+        return json.dumps(value, sort_keys=True, ensure_ascii=True)
+    return str(value).strip()
+
+
+def _extract_signed_statement(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if "_type" in payload and "subject" in payload and "predicateType" in payload:
+        return payload
+    for key in ("attestation_statement", "statement", "attestation"):
+        candidate = payload.get(key)
+        if isinstance(candidate, dict):
+            return candidate
+    return None
+
+
+def _resolve_relative_path(*, output_root: Path, rel_path: str) -> Path | None:
+    candidate = Path(rel_path)
+    if not rel_path or candidate.is_absolute():
+        return None
+    resolved = (output_root / candidate).resolve()
+    root = output_root.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        return None
+    return resolved
+
+
+def _load_json_or_none(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = _load_json(path)
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _jsonl_has_run_id(path: Path, run_id: str) -> bool:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and str(payload.get("run_id", "")).strip() == run_id:
+            return True
+    return False
+
+
+def _is_stale_execution_primitive(path: Path, *, evidence_mtime: float, max_age_seconds: float) -> bool:
+    try:
+        primitive_mtime = path.stat().st_mtime
+    except OSError:
+        return False
+    return (evidence_mtime - primitive_mtime) > max_age_seconds
+
+
+def _check_excluded_failures_waiver(
+    *,
+    output_root: Path,
+    evidence_payload: dict[str, Any],
+    run_id: str,
+) -> dict[str, Any]:
+    excluded_failures = _as_non_empty_list(evidence_payload.get("excluded_failures"))
+    blockers: list[str] = []
+    waiver_path = str(evidence_payload.get("excluded_failures_waiver_path", "")).strip()
+    if not waiver_path:
+        waiver = evidence_payload.get("excluded_failures_waiver")
+        if isinstance(waiver, dict):
+            waiver_path = str(waiver.get("path", "")).strip()
+
+    if not excluded_failures:
+        return {
+            "status": "ok",
+            "excluded_failures": [],
+            "waiver_path": waiver_path,
+            "blockers": [],
+        }
+
+    if not waiver_path:
+        blockers.append("excluded_failures_without_signed_waiver: missing waiver artifact path")
+        return {
+            "status": "error",
+            "excluded_failures": excluded_failures,
+            "waiver_path": waiver_path,
+            "blockers": blockers,
+        }
+
+    resolved_path = _resolve_relative_path(output_root=output_root, rel_path=waiver_path)
+    if resolved_path is None:
+        blockers.append("excluded_failures_without_signed_waiver: waiver path outside output root")
+        return {
+            "status": "error",
+            "excluded_failures": excluded_failures,
+            "waiver_path": waiver_path,
+            "blockers": blockers,
+        }
+
+    waiver_payload = _load_json_or_none(resolved_path)
+    if not isinstance(waiver_payload, dict):
+        blockers.append("excluded_failures_without_signed_waiver: unreadable waiver artifact")
+        return {
+            "status": "error",
+            "excluded_failures": excluded_failures,
+            "waiver_path": waiver_path,
+            "blockers": blockers,
+        }
+
+    statement = _extract_signed_statement(waiver_payload)
+    if not isinstance(statement, dict) or not verify_artifact_statement(statement):
+        blockers.append("excluded_failures_without_signed_waiver: invalid waiver signature")
+        return {
+            "status": "error",
+            "excluded_failures": excluded_failures,
+            "waiver_path": waiver_path,
+            "blockers": blockers,
+        }
+
+    waiver_run_id = str(waiver_payload.get("run_id", "")).strip()
+    if run_id and waiver_run_id and waiver_run_id != run_id:
+        blockers.append("excluded_failures_without_signed_waiver: waiver run_id mismatch")
+
+    authorized_failures = _as_non_empty_list(waiver_payload.get("excluded_failures"))
+    if not authorized_failures:
+        blockers.append("excluded_failures_without_signed_waiver: waiver missing excluded_failures list")
+    else:
+        required_tokens = {_normalize_exclusion_token(item) for item in excluded_failures}
+        authorized_tokens = {_normalize_exclusion_token(item) for item in authorized_failures}
+        if not required_tokens.issubset(authorized_tokens):
+            blockers.append("excluded_failures_without_signed_waiver: waiver does not authorize all exclusions")
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "excluded_failures": excluded_failures,
+        "waiver_path": waiver_path,
+        "blockers": blockers,
+    }
+
+
 def _check_execution_primitives(*, output_root: Path, evidence_profile: str | None = None) -> dict[str, Any]:
     blockers: list[str] = []
     missing: list[str] = []
     invalid: list[str] = []
     evidence_paths: dict[str, str] = {key: "" for key in _REQUIRED_EXECUTION_PRIMITIVES}
+    require_exec_kernel_evidence = _env_truthy("OMG_REQUIRE_EXEC_KERNEL_EVIDENCE")
+    require_governed_tool_evidence = _env_truthy("OMG_REQUIRE_GOVERNED_TOOL_EVIDENCE")
+    excluded_failures_policy: dict[str, Any] = {
+        "status": "ok",
+        "excluded_failures": [],
+        "waiver_path": "",
+        "blockers": [],
+    }
     resolved_profile = (evidence_profile or "").strip()
     required_evidence_requirements = requirements_for_profile(resolved_profile)
+    active_run_id = get_active_coordinator_run_id(str(output_root)) or ""
 
     latest = _latest_evidence_pack(output_root)
     if latest is None:
@@ -2238,6 +2454,8 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
             "run_id": "",
             "evidence_profile": resolved_profile,
             "required_evidence_requirements": list(required_evidence_requirements),
+            "require_exec_kernel_evidence": require_exec_kernel_evidence,
+            "require_governed_tool_evidence": require_governed_tool_evidence,
             "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
             "missing": missing,
             "invalid": invalid,
@@ -2255,6 +2473,8 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
             "run_id": "",
             "evidence_profile": resolved_profile,
             "required_evidence_requirements": list(required_evidence_requirements),
+            "require_exec_kernel_evidence": require_exec_kernel_evidence,
+            "require_governed_tool_evidence": require_governed_tool_evidence,
             "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
             "missing": list(_REQUIRED_EXECUTION_PRIMITIVES),
             "invalid": invalid,
@@ -2266,10 +2486,19 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         resolved_profile = str(evidence_payload.get("evidence_profile", "")).strip()
         required_evidence_requirements = requirements_for_profile(resolved_profile)
 
+    try:
+        evidence_mtime = evidence_path.stat().st_mtime
+    except OSError:
+        evidence_mtime = datetime.now(timezone.utc).timestamp()
+    max_age_seconds = _execution_primitive_max_age_seconds()
+
     run_id = str(evidence_payload.get("run_id", "")).strip()
     if not run_id:
         invalid.append("run_id_unresolved")
         blockers.append("invalid_execution_primitive: run_id_unresolved")
+    if active_run_id and run_id and run_id != active_run_id:
+        invalid.append("run_id_cross_run")
+        blockers.append("execution_primitive:cross_run")
 
     evidence_metadata_missing = _missing_context_metadata(evidence_payload)
     if evidence_metadata_missing:
@@ -2277,6 +2506,19 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         blockers.append(
             "invalid_execution_primitive: release_evidence_pack: "
             f"missing_context_metadata={','.join(sorted(evidence_metadata_missing))}"
+        )
+
+    excluded_failures_policy = _check_excluded_failures_waiver(
+        output_root=output_root,
+        evidence_payload=evidence_payload,
+        run_id=run_id,
+    )
+    if excluded_failures_policy.get("status") != "ok":
+        invalid.append("excluded_failures:missing_signed_waiver")
+        blockers.extend(
+            item
+            for item in excluded_failures_policy.get("blockers", [])
+            if isinstance(item, str)
         )
 
     checks: list[tuple[str, str, str]] = [
@@ -2295,6 +2537,10 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
             continue
         evidence_paths[token] = str(matched_path.relative_to(output_root)).replace("\\", "/")
         resolved_state_payloads[token] = matched_payload
+        payload_run_id = str(matched_payload.get("run_id", "")).strip()
+        if run_id and payload_run_id and payload_run_id != run_id:
+            invalid.append(f"{token}:cross_run")
+            blockers.append(f"cross_run_execution_primitive: {token}")
         schema = str(matched_payload.get("schema", "")).strip()
         if schema != schema_name:
             invalid.append(f"{token}:schema_mismatch")
@@ -2315,6 +2561,13 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
                     f"invalid_execution_primitive: {token}: "
                     f"missing_context_metadata={','.join(sorted(metadata_missing))}"
                 )
+        if _is_stale_execution_primitive(
+            matched_path,
+            evidence_mtime=evidence_mtime,
+            max_age_seconds=max_age_seconds,
+        ):
+            invalid.append(f"{token}:stale")
+            blockers.append(f"stale_execution_primitive: {token}")
 
     claims_payload = evidence_payload.get("claims")
     claims = claims_payload if isinstance(claims_payload, list) else []
@@ -2400,10 +2653,21 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         blockers.append("missing_execution_primitive: tdd_proof_chain_lock")
     else:
         evidence_paths["tdd_proof_chain_lock"] = str(lock_path.relative_to(output_root)).replace("\\", "/")
+        lock_run_id = str(lock_payload.get("run_id", "")).strip()
+        if run_id and lock_run_id and lock_run_id != run_id:
+            invalid.append("tdd_proof_chain_lock:cross_run")
+            blockers.append("cross_run_execution_primitive: tdd_proof_chain_lock")
         lock_status = str(lock_payload.get("status", "")).strip().lower()
         if lock_status in {"", "error", "blocked"}:
             invalid.append("tdd_proof_chain_lock:status_invalid")
             blockers.append("invalid_execution_primitive: tdd_proof_chain_lock: status_invalid")
+        if _is_stale_execution_primitive(
+            lock_path,
+            evidence_mtime=evidence_mtime,
+            max_age_seconds=max_age_seconds,
+        ):
+            invalid.append("tdd_proof_chain_lock:stale")
+            blockers.append("stale_execution_primitive: tdd_proof_chain_lock")
 
     forge_path, forge_payload = _find_forge_starter_proof(output_root=output_root, run_id=run_id)
     if forge_path is None or forge_payload is None:
@@ -2411,6 +2675,10 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         blockers.append("missing_execution_primitive: forge_starter_proof")
     else:
         evidence_paths["forge_starter_proof"] = str(forge_path.relative_to(output_root)).replace("\\", "/")
+        forge_run_id = str(forge_payload.get("run_id", "")).strip()
+        if run_id and forge_run_id and forge_run_id != run_id:
+            invalid.append("forge_starter_proof:cross_run")
+            blockers.append("cross_run_execution_primitive: forge_starter_proof")
         forge_schema = str(forge_payload.get("schema", "")).strip()
         if forge_schema != "ForgeSpecialistDispatchEvidence":
             invalid.append("forge_starter_proof:schema_mismatch")
@@ -2425,6 +2693,13 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
                 "invalid_execution_primitive: forge_starter_proof: "
                 f"missing_context_metadata={','.join(sorted(forge_metadata_missing))}"
             )
+        if _is_stale_execution_primitive(
+            forge_path,
+            evidence_mtime=evidence_mtime,
+            max_age_seconds=max_age_seconds,
+        ):
+            invalid.append("forge_starter_proof:stale")
+            blockers.append("stale_execution_primitive: forge_starter_proof")
 
     # ── Resolve evidence-pack-embedded primitives ──────────────────────────
     # The evidence pack stores new execution primitives as nested dicts with
@@ -2445,23 +2720,70 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
             missing.append(token)
             blockers.append(f"missing_execution_primitive: {token}")
             continue
+        entry_run_id = str(entry.get("run_id", "")).strip()
+        if run_id and entry_run_id and entry_run_id != run_id:
+            invalid.append(f"{token}:cross_run")
+            blockers.append(f"cross_run_execution_primitive: {token}")
         rel_path = str(entry.get("path", "")).strip()
         if not rel_path:
             missing.append(token)
             blockers.append(f"missing_execution_primitive: {token}")
             continue
-        resolved = output_root / rel_path
+        resolved = _resolve_relative_path(output_root=output_root, rel_path=rel_path)
+        if resolved is None:
+            invalid.append(f"{token}:invalid_path")
+            blockers.append(f"invalid_execution_primitive: {token}: invalid_path")
+            continue
         if not resolved.exists():
             missing.append(token)
             blockers.append(f"missing_execution_primitive: {token}")
             continue
-        evidence_paths[token] = rel_path
+        normalized_rel_path = str(resolved.relative_to(output_root)).replace("\\", "/")
+        evidence_paths[token] = normalized_rel_path
+        if token == "tool_fabric_ledger":
+            if run_id and not _jsonl_has_run_id(resolved, run_id):
+                invalid.append(f"{token}:run_id_missing")
+                blockers.append(f"invalid_execution_primitive: {token}: run_id_missing")
+        else:
+            payload = _load_json_or_none(resolved)
+            if isinstance(payload, dict):
+                payload_run_id = str(payload.get("run_id", "")).strip()
+                if run_id and payload_run_id and payload_run_id != run_id:
+                    invalid.append(f"{token}:cross_run")
+                    blockers.append(f"cross_run_execution_primitive: {token}")
+                if token == "exec_kernel_state" and require_exec_kernel_evidence:
+                    if str(payload.get("schema", "")).strip() != "ExecKernelRunState":
+                        invalid.append("exec_kernel_state:schema_mismatch")
+                        blockers.append("invalid_execution_primitive: exec_kernel_state: schema_mismatch")
+                    if payload.get("kernel_enabled") is not True:
+                        invalid.append("exec_kernel_state:kernel_disabled")
+                        blockers.append("invalid_execution_primitive: exec_kernel_state: kernel_disabled")
+            elif token == "exec_kernel_state" and require_exec_kernel_evidence:
+                invalid.append("exec_kernel_state:unreadable")
+                blockers.append("invalid_execution_primitive: exec_kernel_state: unreadable")
+        if token == "tool_fabric_ledger" and require_governed_tool_evidence:
+            try:
+                ledger_size = resolved.stat().st_size
+            except OSError:
+                ledger_size = 0
+            if ledger_size <= 0:
+                invalid.append("tool_fabric_ledger:empty")
+                blockers.append("invalid_execution_primitive: tool_fabric_ledger: empty")
+        if _is_stale_execution_primitive(
+            resolved,
+            evidence_mtime=evidence_mtime,
+            max_age_seconds=max_age_seconds,
+        ):
+            invalid.append(f"{token}:stale")
+            blockers.append(f"stale_execution_primitive: {token}")
 
     return {
         "status": "ok" if not blockers else "error",
         "run_id": run_id,
         "evidence_profile": resolved_profile,
         "required_evidence_requirements": list(required_evidence_requirements),
+        "require_exec_kernel_evidence": require_exec_kernel_evidence,
+        "require_governed_tool_evidence": require_governed_tool_evidence,
         "evidence_pack": str(evidence_path.relative_to(output_root)).replace("\\", "/"),
         "required": list(_REQUIRED_EXECUTION_PRIMITIVES),
         "missing": sorted(set(missing)),

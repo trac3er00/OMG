@@ -24,6 +24,11 @@ _OMG_ROOT = os.path.dirname(_ROUTER_DIR)
 _logger = logging.getLogger(__name__)
 _ROUTING_MODE_DEFAULT = "normal"
 _ROUTING_MODE_CLARIFICATION = "planning_read_only"
+_TEAM_STAGED_FLOW = ["team-plan", "team-exec", "team-verify", "team-fix"]
+_TEAM_COMMAND_ALIASES = {
+    "canonical": "/OMG:team",
+    "compatibility": ["/OMG:teams"],
+}
 
 # Import providers to trigger auto-registration in provider registry
 try:
@@ -279,6 +284,8 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
 
     evidence = {
         "target": target,
+        "staged_flow": list(_TEAM_STAGED_FLOW),
+        "command_aliases": dict(_TEAM_COMMAND_ALIASES),
         "equalizer": equalizer_decision,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "context_length": len(req.context or ""),
@@ -680,6 +687,26 @@ def execute_crazy_mode(
         context_parts.append(f"Focus files: {', '.join(files[:8])}")
     full_context = "\n\n".join(context_parts) if context_parts else ""
     
+    run_id = resolve_coordinator_run_id(project_dir=project_dir)
+    kernel = get_exec_kernel(project_dir)
+    if run_id:
+        kernel.register_run(run_id, source="team_router.execute_crazy_mode", reason="crazy_mode")
+    context_packet = _build_router_context_packet(
+        project_dir=project_dir,
+        run_id=run_id,
+        summary=full_context,
+        files=files,
+    )
+    clarification_status = _extract_clarification_status(context_packet)
+    if clarification_status.get("requires_clarification") is True:
+        return _build_clarification_blocked_result(
+            mode="crazy",
+            target_worker_count=5,
+            run_id=run_id,
+            clarification_status=clarification_status,
+            problem=problem,
+        )
+
     worker_tasks = [
         {
             "agent_name": "architect-mode",
@@ -743,17 +770,6 @@ def execute_crazy_mode(
         + "\n\nProvide a unified action plan with dependency ordering."
     )
 
-    run_id = resolve_coordinator_run_id(project_dir=project_dir)
-    kernel = get_exec_kernel(project_dir)
-    if run_id:
-        kernel.register_run(run_id, source="team_router.execute_crazy_mode", reason="crazy_mode")
-    context_packet = _build_router_context_packet(
-        project_dir=project_dir,
-        run_id=run_id,
-        summary=full_context,
-        files=files,
-    )
-
     council_verdicts = run_critics(
         candidate={"output": synthesis_prompt},
         context_packet=context_packet,
@@ -771,6 +787,8 @@ def execute_crazy_mode(
 
     return {
         "status": "ok",
+        "stages": list(_TEAM_STAGED_FLOW),
+        "current_stage": "team-fix",
         "phases": [
             {"phase": 1, "agent": "claude-orchestrator", "status": "completed"},
             *[
@@ -829,6 +847,26 @@ def execute_ccg_mode(
         context_parts.append(f"Focus files: {', '.join(files[:8])}")
     full_context = "\n\n".join(context_parts) if context_parts else ""
 
+    run_id = resolve_coordinator_run_id(project_dir=project_dir)
+    kernel = get_exec_kernel(project_dir)
+    if run_id:
+        kernel.register_run(run_id, source="team_router.execute_ccg_mode", reason="ccg_mode")
+    context_packet = _build_router_context_packet(
+        project_dir=project_dir,
+        run_id=run_id,
+        summary=full_context,
+        files=files,
+    )
+    clarification_status = _extract_clarification_status(context_packet)
+    if clarification_status.get("requires_clarification") is True:
+        return _build_clarification_blocked_result(
+            mode="ccg",
+            target_worker_count=2,
+            run_id=run_id,
+            clarification_status=clarification_status,
+            problem=problem,
+        )
+
     worker_tasks = [
         {
             "agent_name": "backend-engineer",
@@ -865,17 +903,6 @@ def execute_ccg_mode(
         + "\n\nProvide a unified action plan merging backend and frontend perspectives."
     )
 
-    run_id = resolve_coordinator_run_id(project_dir=project_dir)
-    kernel = get_exec_kernel(project_dir)
-    if run_id:
-        kernel.register_run(run_id, source="team_router.execute_ccg_mode", reason="ccg_mode")
-    context_packet = _build_router_context_packet(
-        project_dir=project_dir,
-        run_id=run_id,
-        summary=full_context,
-        files=files,
-    )
-
     council_verdicts = run_critics(
         candidate={"output": synthesis_prompt},
         context_packet=context_packet,
@@ -893,6 +920,8 @@ def execute_ccg_mode(
 
     return {
         "status": "ok",
+        "stages": list(_TEAM_STAGED_FLOW),
+        "current_stage": "team-fix",
         "phases": [
             {"phase": 1, "agent": "claude-orchestrator", "status": "completed"},
             *[
@@ -925,6 +954,41 @@ def execute_ccg_mode(
             "run_id": run_id,
             "attach_log": kernel.attach_log(run_id) if run_id else "",
         },
+    }
+
+
+def _build_clarification_blocked_result(
+    *,
+    mode: str,
+    target_worker_count: int,
+    run_id: str | None,
+    clarification_status: dict[str, Any],
+    problem: str,
+) -> dict[str, Any]:
+    prompt = str(clarification_status.get("clarification_prompt", "")).strip()
+    findings = [
+        f"Staged flow halted at team-plan for {mode} routing",
+        "Clarification unresolved before worker dispatch",
+    ]
+    if prompt:
+        findings.append(f"Clarification request: {prompt}")
+    return {
+        "status": "clarification_required",
+        "stages": list(_TEAM_STAGED_FLOW),
+        "current_stage": "team-plan",
+        "parallel_execution": False,
+        "sequential_execution": False,
+        "worker_count": 0,
+        "target_worker_count": target_worker_count,
+        "findings": findings,
+        "actions": [
+            "Clarify intent and acceptance criteria",
+            "Confirm required files and expected outcome",
+            "Re-run /OMG:team once clarification is resolved",
+        ],
+        "clarification_status": clarification_status,
+        "problem": problem,
+        "run_id": run_id,
     }
 
 

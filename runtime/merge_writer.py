@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from typing import cast
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +102,30 @@ class MergeWriter:
 
     def _provenance_path(self, run_id: str) -> Path:
         return self.project_dir / ".omg" / "evidence" / f"merge-writer-{run_id}.json"
+
+    def _active_coordinator_run_id(self) -> str:
+        shadow_path = self.project_dir / ".omg" / "shadow" / "active-run"
+        if shadow_path.exists():
+            try:
+                shadow = shadow_path.read_text(encoding="utf-8").strip()
+            except OSError:
+                shadow = ""
+            if shadow:
+                return shadow
+
+        state_dir = self.project_dir / ".omg" / "state" / "release_run_coordinator"
+        if not state_dir.exists():
+            return ""
+        candidates = sorted(state_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        for path in reversed(candidates):
+            payload = _read_json(path)
+            if not payload:
+                continue
+            payload_dict = cast(dict[str, object], payload)
+            run_id = str(payload_dict.get("run_id", "")).strip()
+            if run_id:
+                return run_id
+        return ""
 
     # --- Public API ---------------------------------------------------------
 
@@ -206,9 +231,34 @@ class MergeWriter:
         run_id = existing.get("run_id", "")
         return run_id if run_id else None
 
+    def check_authorization_details(self, run_id: str) -> dict[str, Any]:
+        owner_run_id = self.get_current_owner() or ""
+        active_run_id = self._active_coordinator_run_id()
+        owner_matches = bool(owner_run_id) and owner_run_id == run_id
+        active_matches = (not active_run_id) or active_run_id == run_id
+        authorized = owner_matches and active_matches
+
+        reason = "authorized"
+        if not owner_run_id:
+            reason = "merge_writer_lock_missing"
+        elif owner_run_id != run_id:
+            reason = f"merge_writer_owner_mismatch:{owner_run_id}"
+        elif active_run_id and active_run_id != run_id:
+            reason = f"active_run_mismatch:{active_run_id}"
+
+        return {
+            "run_id": run_id,
+            "owner_run_id": owner_run_id,
+            "active_run_id": active_run_id,
+            "owner_matches": owner_matches,
+            "active_matches": active_matches,
+            "authorized": authorized,
+            "reason": reason,
+        }
+
     def check_authorization(self, run_id: str) -> bool:
         """Return True if *run_id* is the current authorized writer."""
-        return self.get_current_owner() == run_id
+        return bool(self.check_authorization_details(run_id).get("authorized"))
 
     # --- Governance helpers -------------------------------------------------
 
@@ -244,8 +294,16 @@ class MergeWriter:
                 f"but no lock is held",
             )
 
-        if not self.check_authorization(run_id):
-            owner = self.get_current_owner() or "unknown"
+        details = self.check_authorization_details(run_id)
+        if not details.get("authorized"):
+            owner = str(details.get("owner_run_id") or "unknown")
+            active = str(details.get("active_run_id") or "")
+            if active and active != run_id:
+                raise MergeWriterAuthorizationError(
+                    run_id,
+                    f"mutation_type={mutation_type} denied: active coordinator run_id="
+                    f"{active}, not {run_id}",
+                )
             raise MergeWriterAuthorizationError(
                 run_id,
                 f"mutation_type={mutation_type} denied: lock held by "

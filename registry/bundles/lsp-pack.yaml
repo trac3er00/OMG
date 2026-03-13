@@ -19,8 +19,10 @@ tool_policy:
   allowed_tools:
     claude:
       - Read
+      - Edit
     codex:
       - Read
+      - Edit
 lifecycle_hooks:
   native:
     - PostToolUse
@@ -36,7 +38,7 @@ lsp_contract:
     - typescript
 evidence_outputs:
   artifacts:
-    - .omg/evidence/lsp-diagnostics.json
+    - .omg/evidence/lsp-pack-{run_id}.json
 execution_contract:
   modes:
     - embedded
@@ -51,10 +53,26 @@ tool_fabric:
     - execution
   tools:
     - Read
+    - Edit
+  semantic_operations:
+    - name: lsp_read_diagnostics
+      tool: Read
+      mutation_capable: false
+      requires_explicit_promotion: false
+    - name: lsp_promoted_edit
+      tool: Edit
+      mutation_capable: true
+      requires_explicit_promotion: true
   requires_signed_approval: false
+  requires_signed_approval_for_mutation: true
   requires_attestation: false
+  requires_attestation_for_mutation: true
+  read_only_by_default: true
+  require_run_scoped_evidence: true
+  require_fresh_evidence: true
+  evidence_max_age_seconds: 3600
   required_evidence:
-    - .omg/evidence/lsp-diagnostics.json
+    - .omg/evidence/lsp-pack-{run_id}.json
 channel_overrides:
   public:
     diagnostics: advisory

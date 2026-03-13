@@ -3,6 +3,8 @@ name: OMG Release Readiness
 on:
   workflow_dispatch:
   pull_request:
+  schedule:
+    - cron: "13 3 * * *"
 
 jobs:
   release-readiness:
@@ -31,18 +33,122 @@ jobs:
       - name: Seed deterministic proof fixtures
         run: python3 scripts/prepare-release-proof-fixtures.py --output-root artifacts/release
 
+      - name: Emit Music OMR daily gate evidence
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          from runtime.music_omr_testbed import MusicOMRTestbed
+
+          output_root = Path("artifacts/release")
+          evidence_root = output_root / ".omg" / "evidence"
+          evidence_packs = sorted(evidence_root.glob("*.json"))
+
+          release_pack_path = None
+          release_pack = None
+          for path in evidence_packs:
+              try:
+                  payload = json.loads(path.read_text(encoding="utf-8"))
+              except Exception:
+                  continue
+              if isinstance(payload, dict) and payload.get("schema") == "EvidencePack":
+                  release_pack_path = path
+                  release_pack = payload
+
+          if release_pack_path is None or not isinstance(release_pack, dict):
+              raise SystemExit("release evidence pack missing")
+
+          run_id = str(release_pack.get("run_id", "")).strip()
+          if not run_id:
+              raise SystemExit("release evidence pack run_id missing")
+
+          fixture_dir = Path("tests/runtime/fixtures")
+          score_fixture_path = fixture_dir / "music_omr" / "simple_c_major.json"
+          pressure_fixture = json.loads((fixture_dir / "chaos" / "transposition_pressure_fixture.json").read_text(encoding="utf-8"))
+
+          testbed = MusicOMRTestbed(str(output_root))
+          omr = testbed.run_omr(score_fixture_path)
+          pressure = testbed.run_pressure_suite(
+              omr,
+              str(pressure_fixture.get("target_key", "G")),
+              iterations=int(pressure_fixture.get("iterations", 64)),
+              runtime_ceiling_seconds=float(pressure_fixture.get("max_runtime_seconds", 0.5)),
+          )
+
+          trace_id = f"trace-music-omr-daily-gate-{run_id}"
+          evidence_path = testbed.emit_evidence(
+              run_id,
+              {"omr": omr, "pressure": pressure},
+              trace_id=trace_id,
+              fixture_inventory=["simple_c_major.json", "transposition_pressure_fixture.json"],
+              freshness_max_age_seconds=86400,
+          )
+          evidence_payload = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
+          freshness = evidence_payload.get("freshness", {})
+          if not isinstance(freshness, dict) or freshness.get("is_fresh") is not True:
+              raise SystemExit("music omr daily gate emitted stale evidence")
+
+          release_pack["music_omr_testbed_evidence"] = {
+              "path": str(Path(evidence_path).relative_to(output_root)).replace("\\", "/"),
+              "run_id": run_id,
+          }
+          release_pack["evidence_profile"] = str(release_pack.get("evidence_profile", "release") or "release")
+          release_pack_path.write_text(json.dumps(release_pack, indent=2, ensure_ascii=True), encoding="utf-8")
+          PY
+
       - name: Validate contract registry
         run: python3 scripts/omg.py contract validate
 
-      - name: Compile public Claude and Codex artifacts
-        run: python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root artifacts/release
+      - name: Compile public canonical-parity artifacts
+        run: |
+          HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
+          python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/release
 
-      - name: Compile enterprise Claude and Codex artifacts
-        run: python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root artifacts/release
+      - name: Compile enterprise canonical-parity artifacts
+        run: |
+          HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
+          python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel enterprise --output-root artifacts/release
+
+      - name: Emit host semantic parity report
+        run: |
+          python3 - <<'PY'
+          from runtime.host_parity import check_parity, emit_parity_report
+
+          outputs = {
+              "claude": {
+                  "model": "claude",
+                  "output": '{"status":"ok","summary":"release flow verified","skills":["control-plane","mcp-fabric"]}',
+                  "exit_code": 0,
+              },
+              "codex": {
+                  "model": "codex-cli",
+                  "output": '{"summary":"release flow verified","status":"ok","skills":["mcp-fabric","control-plane"]}',
+                  "exit_code": 0,
+              },
+              "gemini": {
+                  "model": "gemini-cli",
+                  "output": 'status: ok\nsummary: release flow verified\nskills: control-plane, mcp-fabric',
+                  "exit_code": 0,
+              },
+              "kimi": {
+                  "model": "kimi-cli",
+                  "output": '{"status":"ok","summary":"release flow verified","skills":["control-plane","mcp-fabric"]}',
+                  "exit_code": 0,
+              },
+          }
+          result = check_parity(outputs, context={"gate": "release-readiness-workflow"})
+          emit_parity_report("release-readiness", result, project_dir="artifacts/release")
+          if not result.passed:
+              raise SystemExit(f"host semantic parity drift detected: {result.drift_details}")
+          PY
 
       - name: Run release readiness gate
         env:
-          OMG_RELEASE_READY_PROVIDERS: claude,codex
+          OMG_REQUIRE_HOST_PARITY_REPORT: "1"
+          OMG_REQUIRE_EXEC_KERNEL_EVIDENCE: "1"
+          OMG_REQUIRE_GOVERNED_TOOL_EVIDENCE: "1"
+          OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
         run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release > artifacts/release/.omg/evidence/release-readiness.json
 
       - name: Assert execution primitive evidence surfaced

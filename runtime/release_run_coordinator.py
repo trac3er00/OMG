@@ -462,6 +462,15 @@ def resolve_current_run_id(project_dir: str | None = None, cli_run_id: str | Non
     return resolved.run_id or None
 
 
+def get_active_coordinator_run_id(project_dir: str | None = None) -> str | None:
+    root = _project_dir(project_dir)
+    shadow = _read_shadow_run_id(str(root))
+    if shadow:
+        return shadow
+    active = _read_active_coordinator_run(str(root))
+    return active or None
+
+
 def _project_dir(project_dir: str | None = None) -> Path:
     if project_dir:
         return Path(project_dir)

@@ -6,5 +6,8 @@
   "target_key": "G",
   "expected_verification_hash": "2021a33ad369f4c8ddee9899794c409cf409a76792d2dde6dff060b8ae55a0f4",
   "max_runtime_seconds": 1.5,
-  "trace_id": "trace-chaos-transposition-pressure"
+  "trace_id": "trace-chaos-transposition-pressure",
+  "pressure_ceiling_iterations": 64,
+  "evidence_freshness_max_age_seconds": 30,
+  "deterministic_seed": "chaos-pressure-seed-001"
 }

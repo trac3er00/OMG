@@ -32,6 +32,16 @@ OMG keeps verification visible instead of burying it in implementation details.
   - host parity report: `.omg/evidence/host-parity-<run_id>.json`
   - music OMR testbed evidence: `.omg/evidence/music-omr-<run_id>.json`
 
+## Permanent Music OMR Daily Gate
+
+Music OMR is the permanent daily release gate artifact. Release readiness requires a fresh Music OMR evidence file tied to the active run id.
+
+- Gate cadence: daily scheduled run via `.github/workflows/omg-release-readiness.yml`
+- Run scope: `run_id` must match the active release evidence pack run
+- Freshness metadata: `freshness.generated_at`, `freshness.max_age_seconds`, `freshness.expires_at`, `freshness.is_fresh`
+- Fixture inventory: `fixture_inventory` must include deterministic fixture ids (for this gate: `simple_c_major.json`, `transposition_pressure_fixture.json`)
+- Trace metadata: `trace.trace_id`, `trace.gate=music-omr-daily`, `trace.run_scope=release-run`
+
 ## Forge v0.3 Evidence
 
 Forge v0.3 introduces richer evidence artifacts for domain-specific training and evaluation.

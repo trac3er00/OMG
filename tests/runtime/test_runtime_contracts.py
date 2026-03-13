@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import cast
 
+import yaml
+
 from runtime.runtime_contracts import (
     default_layout,
     make_run_path,
@@ -356,3 +358,36 @@ def test_release_execution_primitives_include_claim_and_compliance_outcomes() ->
     required = set(_REQUIRED_EXECUTION_PRIMITIVES)
     assert "claim_judge_outcome" in required
     assert "compliance_governor_outcome" in required
+
+
+def test_tool_fabric_lanes_are_semantic_and_run_scoped() -> None:
+    bundles_dir = Path("registry") / "bundles"
+    with (bundles_dir / "hash-edit.yaml").open("r", encoding="utf-8") as handle:
+        hash_edit = cast(dict[str, object], yaml.safe_load(handle))
+    with (bundles_dir / "lsp-pack.yaml").open("r", encoding="utf-8") as handle:
+        lsp_pack = cast(dict[str, object], yaml.safe_load(handle))
+    with (bundles_dir / "ast-pack.yaml").open("r", encoding="utf-8") as handle:
+        ast_pack = cast(dict[str, object], yaml.safe_load(handle))
+
+    hash_contract = cast(dict[str, object], hash_edit["tool_fabric"])
+    lsp_contract = cast(dict[str, object], lsp_pack["tool_fabric"])
+    ast_contract = cast(dict[str, object], ast_pack["tool_fabric"])
+
+    assert isinstance(hash_contract["semantic_operations"], list)
+    assert hash_contract["single_file_hash_bound"] is True
+    assert hash_contract["requires_signed_approval_for_mutation"] is True
+    assert hash_contract["requires_attestation_for_mutation"] is True
+    assert hash_contract["require_run_scoped_evidence"] is True
+    assert "{run_id}" in cast(list[str], hash_contract["required_evidence"])[0]
+
+    assert isinstance(lsp_contract["semantic_operations"], list)
+    assert lsp_contract["read_only_by_default"] is True
+    assert lsp_contract["requires_signed_approval"] is False
+    assert lsp_contract["requires_signed_approval_for_mutation"] is True
+    assert lsp_contract["requires_attestation_for_mutation"] is True
+
+    assert isinstance(ast_contract["semantic_operations"], list)
+    assert ast_contract["dry_run_first"] is True
+    assert ast_contract["requires_signed_approval_for_mutation"] is True
+    assert ast_contract["requires_attestation_for_mutation"] is True
+    assert ast_contract["require_run_scoped_evidence"] is True

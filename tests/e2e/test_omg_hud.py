@@ -361,6 +361,9 @@ def test_hud_renders_verification_status_when_state_present(tmp_path: Path):
     project = tmp_path / "project"
     state_dir = project / ".omg" / "state"
     state_dir.mkdir(parents=True)
+    shadow_dir = project / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True)
+    (shadow_dir / "active-run").write_text("test-run-1\n", encoding="utf-8")
 
     verification_state = {
         "schema": "BackgroundVerificationState",
@@ -395,7 +398,7 @@ def test_hud_renders_fallback_when_verification_state_missing(tmp_path: Path):
     out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
     assert out.returncode == 0
     lowered = out.stdout.lower()
-    assert "verification: unknown" in lowered
+    assert "verification: no active run" in lowered
 
 
 def test_hud_renders_blocker_count_when_blockers_present(tmp_path: Path):
@@ -406,6 +409,9 @@ def test_hud_renders_blocker_count_when_blockers_present(tmp_path: Path):
     project = tmp_path / "project"
     state_dir = project / ".omg" / "state"
     state_dir.mkdir(parents=True)
+    shadow_dir = project / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True)
+    (shadow_dir / "active-run").write_text("test-run-2\n", encoding="utf-8")
 
     verification_state = {
         "schema": "BackgroundVerificationState",
@@ -636,6 +642,9 @@ def test_hud_renders_verification_progress_step_total(tmp_path: Path):
     project = tmp_path / "project"
     state_dir = project / ".omg" / "state"
     state_dir.mkdir(parents=True)
+    shadow_dir = project / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True)
+    (shadow_dir / "active-run").write_text("test-progress-1\n", encoding="utf-8")
 
     verification_state = {
         "schema": "BackgroundVerificationState",
@@ -668,6 +677,9 @@ def test_hud_renders_verification_progress_with_current_stage(tmp_path: Path):
     project = tmp_path / "project"
     state_dir = project / ".omg" / "state"
     state_dir.mkdir(parents=True)
+    shadow_dir = project / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True)
+    (shadow_dir / "active-run").write_text("test-progress-2\n", encoding="utf-8")
 
     verification_state = {
         "schema": "BackgroundVerificationState",
@@ -700,6 +712,9 @@ def test_hud_renders_completed_verification_without_progress(tmp_path: Path):
     project = tmp_path / "project"
     state_dir = project / ".omg" / "state"
     state_dir.mkdir(parents=True)
+    shadow_dir = project / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True)
+    (shadow_dir / "active-run").write_text("test-done\n", encoding="utf-8")
 
     verification_state = {
         "schema": "BackgroundVerificationState",
@@ -768,6 +783,39 @@ def test_hud_prefers_active_run_verification_state(tmp_path: Path):
     assert "verification running" in lowered
     assert "2/4" in lowered
     assert "verification blocked" not in lowered
+
+
+def test_hud_shows_no_active_run_instead_of_latest_fallback(tmp_path: Path):
+    home = tmp_path / "home"
+    claude = home / ".claude"
+    claude.mkdir(parents=True)
+
+    project = tmp_path / "project"
+    state_dir = project / ".omg" / "state"
+    verification_dir = state_dir / "verification_controller"
+    verification_dir.mkdir(parents=True)
+
+    (verification_dir / "latest.json").write_text(
+        json.dumps({
+            "schema": "VerificationControllerState",
+            "schema_version": "1.0.0",
+            "run_id": "run-stale",
+            "status": "blocked",
+            "blockers": ["stale blocker"],
+            "evidence_links": [".omg/evidence/stale.json"],
+            "progress": {},
+            "updated_at": "2026-03-10T12:00:00Z",
+        }),
+        encoding="utf-8",
+    )
+
+    payload = _stdin_payload(project)
+    out = _run_hud(payload, {"HOME": str(home), "CLAUDE_CONFIG_DIR": str(claude)})
+    assert out.returncode == 0
+    lowered = out.stdout.lower()
+    assert "no active run" in lowered
+    assert "verification blocked" not in lowered
+    assert "verification running" not in lowered
 
 
 def test_hud_prefers_session_health_latest_file(tmp_path: Path):

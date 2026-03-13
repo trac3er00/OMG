@@ -20,6 +20,8 @@ FULL_REQUIREMENTS: Final[list[str]] = [
     "simulator-episode-evidence",
 ]
 
+HARDENED_READINESS_REQUIREMENTS: Final[list[str]] = list(FULL_REQUIREMENTS)
+
 EVIDENCE_REQUIREMENTS_BY_PROFILE: Final[dict[str, list[str]]] = {
     "code-change": [
         "tests",
@@ -72,31 +74,22 @@ EVIDENCE_REQUIREMENTS_BY_PROFILE: Final[dict[str, list[str]]] = {
         "trace_link",
         "artifact_contracts",
     ],
-    "forge-vision": [
-        "tests",
-        "lsp_clean",
-        "provenance",
-        "trace_link",
-        "artifact_contracts",
+    "forge-vision": list(HARDENED_READINESS_REQUIREMENTS)
+    + [
         "vision-artifacts",
         "drift-check",
-        "signed_lineage",
-        "signed_model_card",
-        "signed_checkpoint",
-        "simulator-episode-evidence",
     ],
-    "health-flow": [
-        "tests",
-        "lsp_clean",
-        "provenance",
-        "trace_link",
-        "artifact_contracts",
+    "health-flow": list(HARDENED_READINESS_REQUIREMENTS)
+    + [
         "human-review",
         "audit-trail",
         "restricted-tools",
-        "signed_lineage",
-        "signed_model_card",
-        "signed_checkpoint",
+    ],
+    "team-flow": list(HARDENED_READINESS_REQUIREMENTS)
+    + [
+        "human-review",
+        "audit-trail",
+        "restricted-tools",
     ],
     "transposition-flow": [
         "tests",

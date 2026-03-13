@@ -112,11 +112,22 @@ def build_chaos_replay_pack(
     blockers: list[str] | None = None,
     trace_id: str | None = None,
     deterministic_seed: str | None = None,
+    evidence_freshness_max_age_seconds: float | None = None,
 ) -> dict[str, Any]:
     scenario_slug = _slug(scenario)
     incident_id = f"chaos-{scenario_slug}-{uuid4().hex[:12]}"
     expected_blockers = _to_blockers(expected_outcome.get("blockers"))
     observed_blockers = _to_blockers(observed.get("blockers"))
+    generated_at = _now()
+
+    evidence_freshness: dict[str, Any] = {
+        "generated_at": generated_at,
+        "fixture_id": fixture,
+        "trace_id": trace_id or "",
+    }
+    if evidence_freshness_max_age_seconds is not None:
+        evidence_freshness["max_age_seconds"] = evidence_freshness_max_age_seconds
+
     payload: dict[str, Any] = {
         "schema": "ChaosReplayPack",
         "incident_id": incident_id,
@@ -124,12 +135,13 @@ def build_chaos_replay_pack(
         "scenario": scenario,
         "fixture": fixture,
         "fault": fault,
-        "generated_at": _now(),
+        "generated_at": generated_at,
         "trace_id": trace_id or "",
         "deterministic_seed": deterministic_seed or "",
         "expected_outcome": expected_outcome,
         "observed": observed,
         "blockers": blockers or expected_blockers or observed_blockers,
+        "evidence_freshness": evidence_freshness,
         "reproduction_steps": [
             f"Load fixture '{fixture}' and inject fault '{fault}'.",
             "Execute the deterministic chaos scenario with bounded timeout.",

@@ -327,7 +327,7 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
         evidence_links = [selected_path] if selected_path else []
         publish_verification_state(
             project_dir=project_dir,
-            run_id=str(chain.get("eval_id", "")),
+            run_id=str(chain.get("run_id", "")),
             status=str(validation["status"]),
             blockers=list(validation.get("blockers", [])),
             evidence_links=evidence_links,

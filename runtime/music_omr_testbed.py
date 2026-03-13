@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
+from datetime import datetime, timedelta, timezone
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+
+from runtime.release_run_coordinator import get_active_coordinator_run_id
 
 
 @dataclass
@@ -157,25 +161,110 @@ class MusicOMRTestbed:
             evidence_path="",
         )
 
-    def emit_evidence(self, run_id: str, results: dict[str, Any]) -> str:
+    def run_pressure_suite(
+        self,
+        omr_result: OMRResult,
+        target_key: str,
+        *,
+        iterations: int,
+        runtime_ceiling_seconds: float,
+    ) -> dict[str, Any]:
+        """Run N transpositions and validate determinism + runtime ceiling.
+
+        Returns a structured result with hashes, elapsed time, and a
+        determinism flag suitable for chaos replay evidence.
+        """
+        hashes: list[str] = []
+        started = time.perf_counter()
+        for _ in range(iterations):
+            result = self.run_transposition(omr_result, target_key)
+            hashes.append(result.verification_hash)
+        elapsed = time.perf_counter() - started
+
+        unique_hashes = set(hashes)
+        deterministic = len(unique_hashes) == 1
+
+        return {
+            "deterministic": deterministic,
+            "unique_hash": next(iter(unique_hashes)) if deterministic else None,
+            "hash_count": len(unique_hashes),
+            "iterations": iterations,
+            "elapsed_seconds": elapsed,
+            "within_ceiling": elapsed < runtime_ceiling_seconds,
+            "runtime_ceiling_seconds": runtime_ceiling_seconds,
+        }
+
+    def _resolve_run_id(self, requested_run_id: str) -> str:
+        run_id = requested_run_id.strip()
+        if run_id:
+            return run_id
+        active_run_id = get_active_coordinator_run_id(str(self.project_dir))
+        if active_run_id:
+            return active_run_id
+        raise ValueError("run_id required: no active coordinator run found")
+
+    @staticmethod
+    def _is_fresh(generated_at: str, max_age_seconds: float) -> bool:
+        if max_age_seconds <= 0:
+            return False
+        try:
+            generated = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        now = datetime.now(timezone.utc)
+        if generated.tzinfo is None:
+            generated = generated.replace(tzinfo=timezone.utc)
+        return (now - generated).total_seconds() <= max_age_seconds
+
+    def emit_evidence(
+        self,
+        run_id: str,
+        results: dict[str, Any],
+        *,
+        trace_id: str = "",
+        fixture_inventory: list[str] | None = None,
+        freshness_max_age_seconds: float = 86_400,
+    ) -> str:
         """Writes evidence to .omg/evidence/music-omr-<run_id>.json."""
         evidence_dir = self.project_dir / ".omg" / "evidence"
         evidence_dir.mkdir(parents=True, exist_ok=True)
-        
-        evidence_path = evidence_dir / f"music-omr-{run_id}.json"
-        
-        payload = {
+        resolved_run_id = self._resolve_run_id(run_id)
+
+        evidence_path = evidence_dir / f"music-omr-{resolved_run_id}.json"
+
+        generated_at = datetime.now(timezone.utc)
+        expires_at = generated_at + timedelta(seconds=freshness_max_age_seconds)
+        if fixture_inventory is None:
+            fixture_inventory = [
+                "simple_c_major.json",
+                "transposition_pressure_fixture.json",
+            ]
+
+        payload: dict[str, Any] = {
             "schema": "MusicOMREvidence",
-            "schema_version": "1.0.0",
-            "run_id": run_id,
+            "schema_version": "2.0.0",
+            "run_id": resolved_run_id,
+            "trace_id": trace_id,
+            "trace": {
+                "trace_id": trace_id,
+                "gate": "music-omr-daily",
+                "run_scope": "release-run",
+            },
+            "fixture_inventory": list(dict.fromkeys(fixture_inventory)),
+            "freshness": {
+                "generated_at": generated_at.isoformat(),
+                "expires_at": expires_at.isoformat(),
+                "max_age_seconds": freshness_max_age_seconds,
+                "is_fresh": self._is_fresh(generated_at.isoformat(), freshness_max_age_seconds),
+            },
             "results": {},
         }
-        
+
         for key, value in results.items():
             if hasattr(value, "__dataclass_fields__"):
                 payload["results"][key] = asdict(value)
             else:
                 payload["results"][key] = value
-                
+
         evidence_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return str(evidence_path)

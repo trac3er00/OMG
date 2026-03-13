@@ -114,6 +114,69 @@ def test_tool_plan_gate_blocks_when_council_evidence_fails(tmp_path: Path) -> No
     assert "council" in str(result["reason"]).lower()
 
 
+def test_tool_plan_gate_blocks_mutation_without_lock(tmp_path: Path) -> None:
+    run_id = "run-missing-lock"
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-test.json").write_text("{}", encoding="utf-8")
+
+    result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Write",
+        tool_input={"metadata": {"done_when": ["tests pass"]}},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "test_intent_lock_required_before_mutation"
+
+
+def test_tool_plan_gate_blocks_mutation_without_done_when(tmp_path: Path) -> None:
+    run_id = "run-missing-done-when"
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-test.json").write_text("{}", encoding="utf-8")
+
+    lock_id = "lock-ready"
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": run_id}}),
+        encoding="utf-8",
+    )
+
+    result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Write",
+        tool_input={"lock_id": lock_id, "metadata": {}},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "done_when_required_before_mutation"
+
+
+def test_tool_plan_gate_blocks_mutation_without_plan(tmp_path: Path) -> None:
+    run_id = "run-missing-plan"
+    lock_id = "lock-without-plan"
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": run_id}}),
+        encoding="utf-8",
+    )
+
+    result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Write",
+        tool_input={"lock_id": lock_id, "metadata": {"done_when": ["all checks pass"]}},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["authority"] == "tool_plan"
+
+
 def test_build_tool_plan_uses_bounded_context_packet_for_optimization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

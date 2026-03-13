@@ -24,6 +24,10 @@ def test_packet_has_required_keys(tmp_path):
     engine = ContextEngine(str(tmp_path))
     pkt = engine.build_packet(run_id="t-1")
     assert REQUIRED_KEYS.issubset(pkt.keys())
+    assert pkt["packet_version"] == "v2"
+    assert "release_metadata" in pkt
+    assert "provenance_pointers" in pkt
+    assert "provenance_only" in pkt
     assert "profile_digest" in pkt
     assert "governance" in pkt
     assert BUDGET_KEYS.issubset(pkt["budget"].keys())
@@ -401,3 +405,101 @@ def test_packet_includes_scoped_artifact_handles_without_payloads(tmp_path: Path
     assert "payload" not in handles[0]
     assert handles[0]["metadata"]["origin"] == "context-test"
     assert handles[0]["metadata"]["omitted_payload"] is True
+
+
+def test_context_engine_uses_active_coordinator_release_metadata(tmp_path: Path) -> None:
+    run_id = "run-active-coordinator"
+    shadow_path = tmp_path / ".omg" / "shadow" / "active-run"
+    shadow_path.parent.mkdir(parents=True, exist_ok=True)
+    shadow_path.write_text(f"{run_id}\n", encoding="utf-8")
+    _write_json(
+        tmp_path / ".omg" / "state" / "release_run_coordinator" / f"{run_id}.json",
+        {
+            "run_id": run_id,
+            "status": "running",
+            "phase": "mutate",
+            "resolution_source": "cli",
+            "resolution_reason": "test",
+            "health_action": "continue",
+        },
+    )
+
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="other-run")
+
+    release_metadata = pkt["release_metadata"]
+    assert pkt["coordinator_run_id"] == run_id
+    assert release_metadata["run_id"] == run_id
+    assert release_metadata["phase"] == "mutate"
+    assert release_metadata["status"] == "running"
+    assert str(Path(".omg") / "state" / "release_run_coordinator" / f"{run_id}.json") in pkt["provenance_pointers"]
+
+
+def test_context_engine_ambiguity_uses_provenance_only_packet(tmp_path: Path) -> None:
+    run_id = "run-ambiguous-context"
+    _write_json(
+        tmp_path / ".omg" / "state" / "intent_gate" / f"{run_id}.json",
+        {
+            "run_id": run_id,
+            "intent_class": "ambiguous_config",
+            "confidence": 0.9,
+            "requires_clarification": True,
+            "missing_slots": ["provider", "desired_action"],
+            "clarification_prompt": "Clarify provider and desired action.",
+            "updated_at": "2026-03-13T00:00:00+00:00",
+        },
+    )
+    _write_json(
+        tmp_path / ".omg" / "state" / "architecture_signal" / "latest.json",
+        {"summary": "derived architecture signal should be suppressed"},
+    )
+    _write_json(
+        tmp_path / ".omg" / "state" / "defense_state" / "current.json",
+        {"risk_level": "high", "actions": ["block"]},
+    )
+
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id=run_id)
+
+    assert pkt["packet_version"] == "v2"
+    assert pkt["provenance_only"] is True
+    assert pkt["clarification_status"]["requires_clarification"] is True
+    assert "defense:" not in pkt["summary"]
+    assert "arch:" not in pkt["summary"]
+    assert "derived_action_summary" not in pkt
+    assert str(Path(".omg") / "state" / "intent_gate" / f"{run_id}.json") in pkt["provenance_pointers"]
+
+
+def test_context_engine_indexes_governed_packet_metadata_without_raw_content(tmp_path: Path) -> None:
+    profile_path = tmp_path / ".omg" / "state" / "profile.yaml"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        "\n".join(
+            [
+                "preferences:",
+                "  architecture_requests:",
+                "    - deterministic",
+                "profile_version: profile-v2-context",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id="run-context-index")
+    profile_id = str(pkt["profile_digest"]["profile_version"])
+    store = MemoryStore(store_path=str(tmp_path / ".omg" / "state" / "memory.sqlite3"))
+    handles = store.query_artifacts(
+        run_id="run-context-index",
+        profile_id=profile_id,
+        kind="context_engine_v2_packet",
+    )
+
+    assert len(handles) == 1
+    handle = handles[0]
+    assert handle["path"] == ".omg/state/context_engine_packet.json"
+    assert handle["summary"] == "governed context packet index"
+    assert handle["metadata"]["packet_version"] == "v2"
+    assert handle["metadata"]["provenance_only"] is False
+    assert "summary" not in handle["metadata"]
+    assert "payload" not in handle["metadata"]

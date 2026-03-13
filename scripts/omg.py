@@ -70,6 +70,7 @@ from runtime.compat import (
 from runtime.validate import run_validate, format_text as validate_format_text
 from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
 from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
+from runtime.canonical_surface import get_canonical_hosts
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
 from runtime.release_run_coordinator import resolve_current_run_id
@@ -685,6 +686,10 @@ def cmd_teams(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_team(args: argparse.Namespace) -> int:
+    return cmd_teams(args)
+
+
 def cmd_ccg(args: argparse.Namespace) -> int:
     files = [f.strip() for f in args.files.split(",") if f.strip()] if args.files else []
     result = execute_ccg_mode(
@@ -901,6 +906,10 @@ def cmd_contract_compile(args: argparse.Namespace) -> int:
 
 
 def cmd_release_readiness(args: argparse.Namespace) -> int:
+    if not os.environ.get("OMG_RELEASE_READY_PROVIDERS", "").strip():
+        os.environ["OMG_RELEASE_READY_PROVIDERS"] = ",".join(get_canonical_hosts())
+    if not os.environ.get("OMG_REQUIRE_HOST_PARITY_REPORT", "").strip():
+        os.environ["OMG_REQUIRE_HOST_PARITY_REPORT"] = "1"
     result = build_release_readiness(
         root_dir=ROOT_DIR,
         output_root=args.output_root,
@@ -1395,6 +1404,14 @@ def build_parser() -> argparse.ArgumentParser:
     teams.add_argument("--files", default="")
     teams.add_argument("--expected-outcome", default="")
     teams.set_defaults(func=cmd_teams)
+
+    team = sub.add_parser("team", help="Internal OMG staged team routing (canonical)")
+    team.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "ccg"])
+    team.add_argument("--problem", required=True)
+    team.add_argument("--context", default="")
+    team.add_argument("--files", default="")
+    team.add_argument("--expected-outcome", default="")
+    team.set_defaults(func=cmd_team)
 
     ccg = sub.add_parser("ccg", help="OMG CCG (tri-track) routing")
     ccg.add_argument("--problem", required=True)

@@ -9,10 +9,14 @@ from uuid import uuid4
 import json
 
 from runtime.context_engine import ContextEngine
-from runtime.compliance_governor import evaluate_tool_compliance
+from runtime.compliance_governor import classify_bash_command_mode, evaluate_tool_compliance
 from runtime.complexity_scorer import score_complexity
-from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
+from runtime.release_run_coordinator import (
+    get_active_coordinator_run_id,
+    resolve_current_run_id as resolve_coordinator_run_id,
+)
 from runtime.runtime_contracts import read_run_state
+from runtime.test_intent_lock import verify_done_when, verify_lock
 
 
 _TOOL_KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -21,6 +25,7 @@ _TOOL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "omg_security_check": ("security", "scan", "vulnerability", "audit", "auth", "token", "secret"),
     "omg-control": ("policy", "governance", "release", "proof", "control plane"),
 }
+_MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
 
 def build_tool_plan(
     goal: str,
@@ -108,29 +113,62 @@ def tool_plan_gate_check(
     tool: str,
     tool_input: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    if not run_id:
+    effective_run_id = get_active_coordinator_run_id(project_dir=project_dir) or run_id
+    if not effective_run_id:
         return {"status": "allowed", "reason": "run_id unavailable; skip tool plan gate"}
+
+    tool_input_obj = tool_input if isinstance(tool_input, dict) else {}
+    has_plan = has_tool_plan_for_run(project_dir, effective_run_id)
 
     context_packet = _resolve_bounded_context_packet(
         project_dir=project_dir,
-        run_id=run_id,
+        run_id=effective_run_id,
         fallback_context=None,
     )
     clarification = _clarification_status(context_packet)
     decision = evaluate_tool_compliance(
         project_dir=project_dir,
-        run_id=run_id,
+        run_id=effective_run_id,
         tool=tool,
-        has_tool_plan=has_tool_plan_for_run(project_dir, run_id),
+        has_tool_plan=has_plan,
         clarification_status=clarification,
         tool_input=tool_input,
     )
     reason = str(decision.get("reason", ""))
     if decision.get("status") == "blocked":
-        _persist_gate_error(project_dir, run_id, tool, reason)
+        _persist_gate_error(project_dir, effective_run_id, tool, reason)
+        return {
+            **decision,
+            "run_id": effective_run_id,
+            "tool": tool,
+        }
+
+    if _is_mutation_capable_tool(tool, tool_input_obj) and not _is_docs_exemption(tool_input_obj):
+        lock_id = _extract_lock_id(tool_input_obj)
+        lock_verdict = verify_lock(project_dir, run_id=effective_run_id, lock_id=lock_id)
+        if lock_verdict.get("status") != "ok":
+            return {
+                "status": "blocked",
+                "authority": "test_intent_lock",
+                "reason": "test_intent_lock_required_before_mutation",
+                "run_id": effective_run_id,
+                "tool": tool,
+            }
+
+        metadata = _extract_metadata(tool_input_obj)
+        done_when_verdict = verify_done_when(metadata, run_id=effective_run_id)
+        if done_when_verdict.get("status") != "ok":
+            return {
+                "status": "blocked",
+                "authority": "done_when",
+                "reason": "done_when_required_before_mutation",
+                "run_id": effective_run_id,
+                "tool": tool,
+            }
+
     return {
         **decision,
-        "run_id": run_id,
+        "run_id": effective_run_id,
         "tool": tool,
     }
 
@@ -353,3 +391,38 @@ def _clarification_status(context_packet: dict[str, object]) -> dict[str, object
         "clarification_prompt": prompt,
         "confidence": round(max(0.0, min(1.0, confidence)), 2),
     }
+
+
+def _is_mutation_capable_tool(tool: str, tool_input: dict[str, object]) -> bool:
+    token = str(tool or "").strip().lower()
+    if token == "bash":
+        return classify_bash_command_mode(str(tool_input.get("command", ""))) == "mutation"
+    return token in _MUTATION_TOOLS
+
+
+def _extract_metadata(tool_input: dict[str, object]) -> dict[str, object]:
+    metadata = tool_input.get("metadata")
+    if isinstance(metadata, dict):
+        return dict(metadata)
+    return {}
+
+
+def _extract_lock_id(tool_input: dict[str, object]) -> str | None:
+    lock_id = tool_input.get("lock_id")
+    if isinstance(lock_id, str) and lock_id.strip():
+        return lock_id.strip()
+    metadata = _extract_metadata(tool_input)
+    metadata_lock_id = metadata.get("lock_id")
+    if isinstance(metadata_lock_id, str) and metadata_lock_id.strip():
+        return metadata_lock_id.strip()
+    return None
+
+
+def _is_docs_exemption(tool_input: dict[str, object]) -> bool:
+    exemption = str(tool_input.get("exemption", "")).strip().lower()
+    if exemption == "docs":
+        return True
+    metadata = _extract_metadata(tool_input)
+    if metadata.get("exempt") is True and str(metadata.get("exemption", "")).strip().lower() == "docs":
+        return True
+    return False

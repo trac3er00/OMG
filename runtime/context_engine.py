@@ -30,6 +30,11 @@ _PROFILE_DIGEST_CONSTRAINT_MAX = 5
 _PACKET_REL_PATH = Path(".omg") / "state" / "context_engine_packet.json"
 _PROFILE_REL_PATH = Path(".omg") / "state" / "profile.yaml"
 _MEMORY_STORE_REL_PATH = Path(".omg") / "state" / "memory.sqlite3"
+_RELEASE_COORDINATOR_REL_BASE = Path(".omg") / "state" / "release_run_coordinator"
+_CONTEXT_PACKET_KIND = "context_engine_v2_packet"
+_CONTEXT_PACKET_SUMMARY = "governed context packet index"
+_PACKET_VERSION = "v2"
+_MAX_PROVENANCE_POINTERS = 24
 
 _STATE_PATHS = {
     "architecture_signal": Path(".omg") / "state" / "architecture_signal" / "latest.json",
@@ -272,21 +277,51 @@ class ContextEngine:
     # ------------------------------------------------------------------
 
     def _build(self, run_id: str, *, delta_only: bool) -> dict[str, Any]:
-        raw = self._read_all_state(run_id)
-        artifact_pointers = self._collect_artifact_pointers(run_id)
-        artifact_handles = self._collect_artifact_handles(run_id)
+        profile_digest = load_profile_digest(self.project_dir)
+        profile_id_raw = str(profile_digest.get("profile_version", "")).strip()
+        profile_id = profile_id_raw if profile_id_raw else None
 
-        if not artifact_pointers and not artifact_handles and all(v == {} for v in raw.values()):
-            pkt = self._fallback(run_id)
+        coordinator_run_id = self._resolve_coordinator_run_id(run_id)
+        scoped_run_id = coordinator_run_id or run_id
+
+        raw = self._read_all_state(scoped_run_id)
+        clarification_status = self._compose_clarification_status(raw)
+        ambiguity_state = self._compose_ambiguity_state(raw)
+        provenance_only = bool(ambiguity_state.get("unresolved") is True)
+
+        release_metadata, release_pointers = self._compose_release_metadata(scoped_run_id)
+        artifact_pointers = self._collect_artifact_pointers(scoped_run_id)
+        provenance_pointers = self._merge_provenance_pointers(artifact_pointers, release_pointers)
+        artifact_handles = self._collect_artifact_handles(scoped_run_id, profile_id=profile_id)
+
+        if (
+            not provenance_pointers
+            and not artifact_handles
+            and all(v == {} for v in raw.values())
+            and not release_metadata
+        ):
+            pkt = self._fallback(run_id, coordinator_run_id=coordinator_run_id)
             pkt["delta_only"] = delta_only
-            pkt["profile_digest"] = load_profile_digest(self.project_dir)
+            pkt["profile_digest"] = profile_digest
             self._persist_packet(pkt)
+            self._index_governed_packet(pkt, scoped_run_id=scoped_run_id, profile_id=profile_id)
             return pkt
 
-        summary = self._compose_summary(raw)
-        current_snapshot = self._snapshot_key(raw)
+        summary = (
+            self._provenance_only_summary(clarification_status)
+            if provenance_only
+            else self._compose_summary(raw)
+        )
+        current_snapshot = self._snapshot_key(
+            {
+                **raw,
+                "_release_metadata": release_metadata,
+                "_ambiguity_state": ambiguity_state,
+                "_provenance_only": provenance_only,
+            }
+        )
 
-        if delta_only and self._last_snapshot is not None:
+        if delta_only and self._last_snapshot is not None and not provenance_only:
             changed_keys: list[str] = []
             for key in current_snapshot:
                 if current_snapshot.get(key) != self._last_snapshot.get(key):
@@ -295,16 +330,23 @@ class ContextEngine:
             if not changed_keys:
                 summary = "no changes since last packet"
                 artifact_pointers = []
+                provenance_pointers = []
 
         self._last_snapshot = current_snapshot
 
         packet: dict[str, Any] = {
+            "packet_version": _PACKET_VERSION,
             "summary": summary,
             "artifact_pointers": artifact_pointers,
+            "provenance_pointers": provenance_pointers,
             "artifact_handles": artifact_handles,
-            "clarification_status": self._compose_clarification_status(raw),
+            "clarification_status": clarification_status,
+            "ambiguity_state": ambiguity_state,
+            "provenance_only": provenance_only,
             "governance": self._compose_governance(raw),
-            "profile_digest": load_profile_digest(self.project_dir),
+            "release_metadata": release_metadata,
+            "coordinator_run_id": coordinator_run_id,
+            "profile_digest": profile_digest,
             "budget": {
                 "max_chars": _MAX_SUMMARY_CHARS,
                 "used_chars": len(summary),
@@ -313,8 +355,11 @@ class ContextEngine:
             "run_id": run_id,
             "deterministic_contract": build_deterministic_contract(run_id),
         }
+        if not provenance_only:
+            packet["derived_action_summary"] = summary
 
         self._persist_packet(packet)
+        self._index_governed_packet(packet, scoped_run_id=scoped_run_id, profile_id=profile_id)
         return packet
 
     def _read_all_state(self, run_id: str) -> dict[str, Any]:
@@ -351,6 +396,152 @@ class ContextEngine:
         if (self.project_dir / intent_gate_rel).exists():
             pointers.append(str(intent_gate_rel))
         return pointers
+
+    def _resolve_coordinator_run_id(self, run_id: str) -> str:
+        try:
+            module = __import__("runtime.release_run_coordinator", fromlist=["get_active_coordinator_run_id"])
+            resolver = getattr(module, "get_active_coordinator_run_id", None)
+            if callable(resolver):
+                active_run_id = resolver(str(self.project_dir))
+                if isinstance(active_run_id, str) and active_run_id.strip():
+                    return active_run_id.strip()
+        except Exception:
+            pass
+        return run_id
+
+    def _compose_release_metadata(self, run_id: str) -> tuple[dict[str, Any], list[str]]:
+        run_token = str(run_id).strip()
+        if not run_token:
+            return {}, []
+
+        state_rel = _RELEASE_COORDINATOR_REL_BASE / f"{run_token}.json"
+        evidence_rel = _RELEASE_COORDINATOR_REL_BASE / f"{run_token}-release-evidence.json"
+        council_rel = _RELEASE_COORDINATOR_REL_BASE / run_token / "council.json"
+        rollback_rel = _RELEASE_COORDINATOR_REL_BASE / run_token / "rollback.json"
+
+        pointers: list[str] = []
+        for rel_path in (state_rel, evidence_rel, council_rel, rollback_rel):
+            if (self.project_dir / rel_path).exists():
+                pointers.append(str(rel_path))
+
+        state_payload = self._read_json(self.project_dir / state_rel)
+        evidence_payload = self._read_json(self.project_dir / evidence_rel)
+        if not state_payload and not evidence_payload and not pointers:
+            return {}, []
+
+        evidence_links_obj = state_payload.get("evidence_links")
+        evidence_links = evidence_links_obj if isinstance(evidence_links_obj, list) else []
+        claims_obj = evidence_payload.get("claims")
+        claims = claims_obj if isinstance(claims_obj, list) else []
+        artifact_obj = evidence_payload.get("artifact")
+        artifact = artifact_obj if isinstance(artifact_obj, dict) else {}
+        attestation_obj = artifact.get("attestation")
+
+        metadata = {
+            "run_id": str(state_payload.get("run_id", run_token)).strip(),
+            "status": str(state_payload.get("status", "")).strip()[:24],
+            "phase": str(state_payload.get("phase", "")).strip()[:24],
+            "resolution_source": str(state_payload.get("resolution_source", "")).strip()[:24],
+            "resolution_reason": str(state_payload.get("resolution_reason", "")).strip()[:80],
+            "health_action": str(state_payload.get("health_action", "")).strip()[:48],
+            "compliance_authority": str(state_payload.get("compliance_authority", "")).strip()[:48],
+            "compliance_reason": str(state_payload.get("compliance_reason", "")).strip()[:120],
+            "evidence_links_count": len(evidence_links),
+            "claim_count": len(claims),
+            "has_release_evidence": bool(evidence_payload),
+            "artifact_attested": isinstance(attestation_obj, dict),
+        }
+        return metadata, pointers
+
+    def _merge_provenance_pointers(self, pointers: list[str], release_pointers: list[str]) -> list[str]:
+        merged: list[str] = []
+        seen: set[str] = set()
+        for raw_pointer in [*pointers, *release_pointers]:
+            pointer = str(raw_pointer).strip()
+            if not pointer or pointer in seen:
+                continue
+            seen.add(pointer)
+            merged.append(pointer)
+            if len(merged) >= _MAX_PROVENANCE_POINTERS:
+                break
+        return merged
+
+    def _compose_ambiguity_state(self, raw: dict[str, Any]) -> dict[str, Any]:
+        intent_gate_obj = raw.get("intent_gate")
+        intent_gate = intent_gate_obj if isinstance(intent_gate_obj, dict) else {}
+        missing_slots_obj = intent_gate.get("missing_slots")
+        missing_slots_raw = missing_slots_obj if isinstance(missing_slots_obj, list) else []
+        missing_slots: list[str] = []
+        for raw_slot in missing_slots_raw:
+            slot = _clean_single_line(raw_slot)[:32]
+            if not slot:
+                continue
+            missing_slots.append(slot)
+            if len(missing_slots) >= 6:
+                break
+
+        requires_clarification = bool(intent_gate.get("requires_clarification") is True)
+        unresolved = requires_clarification or bool(missing_slots)
+        return {
+            "status": "unresolved" if unresolved else "resolved",
+            "unresolved": unresolved,
+            "requires_clarification": requires_clarification,
+            "missing_slots": missing_slots,
+            "updated_at": str(intent_gate.get("updated_at", "")).strip()[:48],
+        }
+
+    def _provenance_only_summary(self, clarification_status: dict[str, Any]) -> str:
+        intent_class = str(clarification_status.get("intent_class", "")).strip()
+        if intent_class:
+            return f"clarification pending for intent={intent_class}; provenance-only packet"[:_MAX_SUMMARY_CHARS]
+        return "clarification pending; provenance-only packet"
+
+    def _index_governed_packet(self, packet: dict[str, Any], *, scoped_run_id: str, profile_id: str | None) -> None:
+        run_token = str(scoped_run_id).strip()
+        if not run_token:
+            return
+
+        clarification_obj = packet.get("clarification_status")
+        clarification = clarification_obj if isinstance(clarification_obj, dict) else {}
+        release_obj = packet.get("release_metadata")
+        release_metadata = release_obj if isinstance(release_obj, dict) else {}
+
+        metadata: dict[str, Any] = {
+            "packet_version": str(packet.get("packet_version", "")).strip(),
+            "coordinator_run_id": str(packet.get("coordinator_run_id", "")).strip(),
+            "provenance_only": bool(packet.get("provenance_only") is True),
+            "artifact_pointer_count": len(packet.get("artifact_pointers", [])) if isinstance(packet.get("artifact_pointers"), list) else 0,
+            "provenance_pointer_count": len(packet.get("provenance_pointers", [])) if isinstance(packet.get("provenance_pointers"), list) else 0,
+            "artifact_handle_count": len(packet.get("artifact_handles", [])) if isinstance(packet.get("artifact_handles"), list) else 0,
+            "requires_clarification": bool(clarification.get("requires_clarification") is True),
+            "intent_class": str(clarification.get("intent_class", "")).strip()[:48],
+            "release_phase": str(release_metadata.get("phase", "")).strip()[:24],
+            "release_status": str(release_metadata.get("status", "")).strip()[:24],
+        }
+
+        try:
+            store = MemoryStore(store_path=str(self.project_dir / _MEMORY_STORE_REL_PATH))
+            scoped_profile_id = str(profile_id or "")
+            existing = store.query_artifacts(
+                run_id=run_token,
+                profile_id=scoped_profile_id or None,
+                kind=_CONTEXT_PACKET_KIND,
+                limit=1,
+            )
+            if existing:
+                store.close()
+                return
+            store.index_artifact(
+                run_id=run_token,
+                profile_id=scoped_profile_id,
+                kind=_CONTEXT_PACKET_KIND,
+                path=str(_PACKET_REL_PATH),
+                summary=_CONTEXT_PACKET_SUMMARY,
+                metadata=metadata,
+            )
+            store.close()
+        except Exception:
+            pass
 
     def _compose_clarification_status(self, raw: dict[str, Any]) -> dict[str, Any]:
         intent_gate = raw.get("intent_gate", {})
@@ -450,10 +641,12 @@ class ContextEngine:
         except Exception:
             pass  # crash isolation
 
-    def _fallback(self, run_id: str) -> dict[str, Any]:
+    def _fallback(self, run_id: str, *, coordinator_run_id: str = "") -> dict[str, Any]:
         return {
+            "packet_version": _PACKET_VERSION,
             "summary": "no context signals available",
             "artifact_pointers": [],
+            "provenance_pointers": [],
             "artifact_handles": [],
             "clarification_status": {
                 "requires_clarification": False,
@@ -461,7 +654,17 @@ class ContextEngine:
                 "clarification_prompt": "",
                 "confidence": 0.0,
             },
+            "ambiguity_state": {
+                "status": "resolved",
+                "unresolved": False,
+                "requires_clarification": False,
+                "missing_slots": [],
+                "updated_at": "",
+            },
+            "provenance_only": False,
             "governance": {},
+            "release_metadata": {},
+            "coordinator_run_id": coordinator_run_id,
             "profile_digest": _empty_profile_digest(),
             "budget": {"max_chars": _MAX_SUMMARY_CHARS, "used_chars": 0},
             "delta_only": False,
@@ -469,11 +672,19 @@ class ContextEngine:
             "deterministic_contract": build_deterministic_contract(run_id),
         }
 
-    def _collect_artifact_handles(self, run_id: str) -> list[dict[str, Any]]:
+    def _collect_artifact_handles(self, run_id: str, *, profile_id: str | None = None) -> list[dict[str, Any]]:
+        run_token = str(run_id).strip()
+        if not run_token:
+            return []
         try:
-            profile_id_raw = str(load_profile_digest(self.project_dir).get("profile_version", "")).strip()
-            profile_id = profile_id_raw if profile_id_raw else None
+            profile_id_raw = str(profile_id or "").strip()
+            if not profile_id_raw:
+                digest_profile_id = str(load_profile_digest(self.project_dir).get("profile_version", "")).strip()
+                profile_id_raw = digest_profile_id
+            scoped_profile_id = profile_id_raw if profile_id_raw else None
             store = MemoryStore(store_path=str(self.project_dir / _MEMORY_STORE_REL_PATH))
-            return store.query_artifacts(run_id=run_id, profile_id=profile_id)
+            handles = store.query_artifacts(run_id=run_token, profile_id=scoped_profile_id)
+            store.close()
+            return handles
         except Exception:
             return []

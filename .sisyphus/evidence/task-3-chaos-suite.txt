@@ -1,0 +1,26 @@
+........../Users/cminseo/.pyenv/versions/3.13.12/lib/python3.13/site-packages/coverage/report_core.py:113: CoverageWarning: Couldn't parse '/Users/cminseo/Documents/scripts/Shell/OMG/hooks/idle-detector.py': Couldn't use data file '/Users/cminseo/Documents/scripts/Shell/OMG/.coverage': no such table: tracer (couldnt-parse); see https://coverage.readthedocs.io/en/7.13.4/messages.html#warning-couldnt-parse
+10 passed in 2.70s
+---
+cachedir: .pytest_cache
+tests/runtime/test_release_chaos.py::test_chaos_replay_from_saved_evidence 
+tests/runtime/test_release_chaos.py::test_transposition_pressure_ceiling_deterministic 
+tests/runtime/test_release_chaos.py::test_plugin_interop_breakage_surfaced 
+tests/runtime/test_release_chaos.py::test_evidence_corruption_blocks_release 
+tests/runtime/test_release_chaos.py::test_bug_fix_read_first_flow 
+tests/runtime/test_release_chaos.py::test_worker_stall_detected_and_escalated 
+tests/runtime/test_release_chaos.py::test_hello_without_subagents 
+tests/runtime/test_release_chaos.py::test_transposition_pressure_under_load 
+tests/runtime/test_release_chaos.py::test_hello_no_subagent_spawn_and_bounded_context 
+tests/runtime/test_release_chaos.py::test_hello_prompt_keeps_context_packet_bounded 
+[gw9] [ 10%] PASSED tests/runtime/test_release_chaos.py::test_chaos_replay_from_saved_evidence 
+[gw0] [ 20%] PASSED tests/runtime/test_release_chaos.py::test_hello_without_subagents 
+[gw8] [ 30%] PASSED tests/runtime/test_release_chaos.py::test_transposition_pressure_ceiling_deterministic 
+[gw3] [ 40%] PASSED tests/runtime/test_release_chaos.py::test_bug_fix_read_first_flow 
+[gw6] [ 50%] PASSED tests/runtime/test_release_chaos.py::test_evidence_corruption_blocks_release 
+[gw5] [ 60%] PASSED tests/runtime/test_release_chaos.py::test_plugin_interop_breakage_surfaced 
+[gw7] [ 70%] PASSED tests/runtime/test_release_chaos.py::test_transposition_pressure_under_load 
+[gw4] [ 80%] PASSED tests/runtime/test_release_chaos.py::test_worker_stall_detected_and_escalated 
+[gw1] [ 90%] PASSED tests/runtime/test_release_chaos.py::test_hello_prompt_keeps_context_packet_bounded 
+[gw2] [100%] PASSED tests/runtime/test_release_chaos.py::test_hello_no_subagent_spawn_and_bounded_context 
+hooks/test_generator_hook.py                  56     56     0%   7-119
+runtime/test_intent_lock.py                  283    283     0%   1-445

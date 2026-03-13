@@ -20,6 +20,22 @@ dispatch_team = team_router.dispatch_team
 package_prompt = team_router.package_prompt
 
 
+def test_dispatch_team_emits_staged_flow_metadata():
+    result = dispatch_team(TeamDispatchRequest(target="codex", problem="debug auth bug")).to_dict()
+
+    assert result["status"] == "ok"
+    assert result["evidence"]["staged_flow"] == [
+        "team-plan",
+        "team-exec",
+        "team-verify",
+        "team-fix",
+    ]
+    assert result["evidence"]["command_aliases"] == {
+        "canonical": "/OMG:team",
+        "compatibility": ["/OMG:teams"],
+    }
+
+
 def _target(problem: str) -> str:
     out = dispatch_team(TeamDispatchRequest(target="auto", problem=problem)).to_dict()
     return out["evidence"]["target"]
@@ -283,6 +299,76 @@ def test_execute_ccg_mode_updates_health_and_defense_after_council_persist(monke
     )
 
     assert events == ["persist", "defense", "health"]
+
+
+def test_execute_ccg_mode_blocks_worker_dispatch_when_context_requires_clarification(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_RUN_ID", "run-ccg-clarify")
+
+    monkeypatch.setattr(
+        team_router,
+        "_build_router_context_packet",
+        lambda **_kwargs: {
+            "summary": "ctx",
+            "clarification_status": {
+                "requires_clarification": True,
+                "intent_class": "ambiguous",
+                "clarification_prompt": "Please clarify expected output format",
+                "confidence": 0.42,
+            },
+        },
+    )
+
+    def _unexpected_workers(*_args, **_kwargs):
+        raise AssertionError("workers should not be launched for unresolved context")
+
+    monkeypatch.setattr(team_router, "execute_agents_parallel", _unexpected_workers)
+
+    result = team_router.execute_ccg_mode(
+        problem="review ui+api",
+        project_dir=str(tmp_path),
+        context="ctx",
+        files=["ui.tsx"],
+    )
+
+    assert result["status"] == "clarification_required"
+    assert result["worker_count"] == 0
+    assert result["stages"] == ["team-plan", "team-exec", "team-verify", "team-fix"]
+    assert result["current_stage"] == "team-plan"
+
+
+def test_execute_crazy_mode_blocks_worker_dispatch_when_context_requires_clarification(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_RUN_ID", "run-crazy-clarify")
+
+    monkeypatch.setattr(
+        team_router,
+        "_build_router_context_packet",
+        lambda **_kwargs: {
+            "summary": "ctx",
+            "clarification_status": {
+                "requires_clarification": True,
+                "intent_class": "ambiguous",
+                "clarification_prompt": "Please clarify expected output format",
+                "confidence": 0.42,
+            },
+        },
+    )
+
+    def _unexpected_workers(*_args, **_kwargs):
+        raise AssertionError("workers should not be launched for unresolved context")
+
+    monkeypatch.setattr(team_router, "execute_agents_parallel", _unexpected_workers)
+
+    result = team_router.execute_crazy_mode(
+        problem="stabilize auth and ui",
+        project_dir=str(tmp_path),
+        context="ctx",
+        files=["auth.py"],
+    )
+
+    assert result["status"] == "clarification_required"
+    assert result["worker_count"] == 0
+    assert result["stages"] == ["team-plan", "team-exec", "team-verify", "team-fix"]
+    assert result["current_stage"] == "team-plan"
 
 
 def test_execute_agents_parallel_preserves_all_results_when_orders_collide(monkeypatch):

@@ -52,6 +52,28 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _active_coordinator_run_id(project_dir: Path) -> str:
+    shadow_path = project_dir / ".omg" / "shadow" / "active-run"
+    if shadow_path.exists():
+        try:
+            shadow = shadow_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            shadow = ""
+        if shadow:
+            return shadow
+
+    state_dir = project_dir / ".omg" / "state" / "release_run_coordinator"
+    if not state_dir.exists():
+        return ""
+    candidates = sorted(state_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
+    for path in reversed(candidates):
+        payload = _read_json(path)
+        run_id = str(payload.get("run_id", "")).strip()
+        if run_id:
+            return run_id
+    return ""
+
+
 class WorkerWatchdog:
     """Monitor workers by run_id with heartbeats, stall detection, and termination."""
 
@@ -71,6 +93,18 @@ class WorkerWatchdog:
 
     def _worktree_dir(self, run_id: str) -> Path:
         return self.project_dir / ".omg" / "worktrees" / run_id
+
+    def _ownership_metadata(self, run_id: str) -> dict[str, Any]:
+        from runtime.merge_writer import get_merge_writer
+
+        active_run_id = _active_coordinator_run_id(self.project_dir)
+        merge_writer = get_merge_writer(str(self.project_dir))
+        merge_writer_details = merge_writer.check_authorization_details(run_id)
+        return {
+            "run_id": run_id,
+            "active_run_id": active_run_id,
+            "merge_writer": merge_writer_details,
+        }
 
     # --- Heartbeats ---
 
@@ -107,6 +141,7 @@ class WorkerWatchdog:
             "last_heartbeat_at": _now_iso(),
             "first_heartbeat_at": existing.get("first_heartbeat_at", _now_iso()),
             "metadata": metadata or existing.get("metadata", {}),
+            "ownership": self._ownership_metadata(run_id),
         }
 
         _write_atomic_json(path, record)
@@ -344,7 +379,10 @@ class WorkerWatchdog:
             "heartbeat_snapshot": heartbeat or self.read_heartbeat(run_id),
             "termination": termination,
             "cleanup": cleanup,
-            "extra": extra or {},
+            "extra": {
+                **(extra or {}),
+                "ownership": self._ownership_metadata(run_id),
+            },
         }
 
         _write_atomic_json(path, payload)

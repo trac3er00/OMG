@@ -3,27 +3,26 @@ name: Publish to npm
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g. 2.1.8) — must match CANONICAL_VERSION in runtime/adoption.py'
+        description: "Version to publish (e.g. 2.1.8) — must match CANONICAL_VERSION in runtime/adoption.py"
         required: true
         type: string
       commit_sha:
-        description: 'Commit SHA to tag and publish (defaults to HEAD of main)'
+        description: "Commit SHA to tag and publish (defaults to HEAD of main)"
         required: false
         type: string
-        default: ''
+        default: ""
 
 jobs:
-  publish:
-    name: Publish @trac3er/oh-my-god to npm
+  resolve-target:
+    name: Resolve target release surface
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+      version: ${{ steps.target.outputs.version }}
     steps:
       - name: Resolve target commit
         id: target
@@ -31,28 +30,132 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             SHA="${{ inputs.commit_sha }}"
             if [ -z "$SHA" ]; then
-              SHA=$(git ls-remote origin refs/heads/main | cut -f1)
+              SHA=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | cut -f1)
             fi
-            echo "sha=$SHA" >> $GITHUB_OUTPUT
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
           else
-            echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
-            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           fi
 
+  compat-gate:
+    name: Compat gate (publish surface)
+    needs: resolve-target
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target surface
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-target.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install .[test]
+
+      - name: Verify canonical release identity
+        run: python3 scripts/sync-release-identity.py --check
+
+      - name: Prepare compatibility artifacts directory
+        run: mkdir -p artifacts
+
+      - name: OMG compatibility GA gate
+        run: python3 scripts/omg.py compat gate --max-bridge 0 --output artifacts/omg-compat-gap.json
+
+      - name: Plugin interop diagnostics (advisory)
+        continue-on-error: true
+        run: python3 scripts/omg.py diagnose-plugins --format json
+
+      - name: Export contract snapshot
+        run: python3 scripts/omg.py compat snapshot --output artifacts/omg-compat-contracts.json
+
+      - name: Check committed snapshot drift
+        run: python3 scripts/check-omg-compat-contract-snapshot.py --strict-version
+
+      - name: Validate canonical contract registry
+        run: python3 scripts/omg.py contract validate
+
+  release-readiness:
+    name: Release readiness (publish surface)
+    needs: resolve-target
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target surface
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-target.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install .[test]
+
+      - name: Verify canonical release identity
+        run: python3 scripts/sync-release-identity.py --check
+
+      - name: Prepare artifact roots
+        run: mkdir -p artifacts/release/.omg/evidence
+
+      - name: Capture doctor output
+        run: python3 scripts/omg.py doctor --format json > artifacts/release/.omg/evidence/doctor.json
+
+      - name: Seed deterministic proof fixtures
+        run: python3 scripts/prepare-release-proof-fixtures.py --output-root artifacts/release
+
+      - name: Validate contract registry
+        run: python3 scripts/omg.py contract validate
+
+      - name: Compile public canonical-parity artifacts
+        run: |
+          HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
+          python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/release
+
+      - name: Compile enterprise canonical-parity artifacts
+        run: |
+          HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
+          python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel enterprise --output-root artifacts/release
+
+      - name: Run release readiness gate
+        env:
+          OMG_REQUIRE_HOST_PARITY_REPORT: "1"
+          OMG_REQUIRE_EXEC_KERNEL_EVIDENCE: "1"
+          OMG_REQUIRE_GOVERNED_TOOL_EVIDENCE: "1"
+          OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
+        run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release > artifacts/release/.omg/evidence/release-readiness.json
+
+  publish:
+    name: Publish @trac3er/oh-my-god to npm
+    needs:
+      - resolve-target
+      - compat-gate
+      - release-readiness
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.target.outputs.sha }}
+          ref: ${{ needs.resolve-target.outputs.sha }}
           fetch-depth: 0
 
       - name: Pre-release tag safety check
         if: github.event_name == 'workflow_dispatch'
         run: |
-          VERSION="${{ steps.target.outputs.version }}"
+          VERSION="${{ needs.resolve-target.outputs.version }}"
           REPO="trac3er00/OMG"
           TAG="v${VERSION}"
-          # Fail fast if GitHub has an immutable release ghost for this tag
           RESPONSE=$(gh api "repos/${REPO}/releases/tags/${TAG}" 2>&1 || true)
           if echo "$RESPONSE" | grep -q '"immutable": true'; then
             echo "FATAL: Tag ${TAG} was used by an immutable release (even if deleted)."
@@ -71,16 +174,14 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
         run: |
-          VERSION="${{ steps.target.outputs.version }}"
-          SHA="${{ steps.target.outputs.sha }}"
-          # Skip if tag already exists on remote
+          VERSION="${{ needs.resolve-target.outputs.version }}"
+          SHA="${{ needs.resolve-target.outputs.sha }}"
           if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q "refs/tags/v${VERSION}"; then
             echo "Tag v${VERSION} already exists on remote — skipping tag creation"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Create annotated tag at the target commit
           git tag "v${VERSION}" "${SHA}" -m "Release v${VERSION} — published via workflow dispatch"
           git push origin "v${VERSION}" && echo "Created and pushed tag v${VERSION} at ${SHA}" || \
             echo "WARNING: Tag push failed (tag protection rule) — continuing with publish"
@@ -88,12 +189,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
 
-      - name: Extract version from tag
+      - name: Extract version from target surface
         id: version
-        run: echo "VERSION=${{ steps.target.outputs.version }}" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${{ needs.resolve-target.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Verify package.json version matches tag
         run: |
@@ -122,6 +223,7 @@ jobs:
 
       - name: Validate full release identity
         run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${FORBID_VERSION:-}"
+
       - name: Validate contract
         run: python3 scripts/omg.py contract validate
 

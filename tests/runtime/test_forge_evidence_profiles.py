@@ -4,7 +4,7 @@ from typing import Any
 
 from lab.pipeline import run_pipeline
 from runtime.compliance_governor import evaluate_release_compliance
-from runtime.evidence_requirements import requirements_for_profile
+from runtime.evidence_requirements import FULL_REQUIREMENTS, requirements_for_profile
 from runtime.forge_agents import dispatch_specialists
 
 
@@ -64,6 +64,16 @@ def test_domain_profiles_forge_vision_health_transposition_are_enforced() -> Non
     assert set(requirements_for_profile("forge-vision")).issuperset({"signed_lineage", "signed_model_card"})
     assert "human-review" in requirements_for_profile("health-flow")
     assert "benchmark-harness" in requirements_for_profile("transposition-flow")
+
+
+def test_hardened_profiles_require_release_grade_evidence() -> None:
+    hardened = ("forge-vision", "health-flow", "team-flow")
+
+    for profile in hardened:
+        required = set(requirements_for_profile(profile))
+        assert set(FULL_REQUIREMENTS).issubset(required)
+        assert "trace_link" in required
+        assert "artifact_contracts" in required
 
 
 def test_security_audit_profile_requires_signed_artifacts(tmp_path) -> None:

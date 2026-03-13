@@ -59,7 +59,7 @@ OMG supports 4 canonical CLI targets with dedicated provider implementations and
 - **Install Doc:** `docs/install/codex.md`
 - **Preset Recommendation:** `interop` (multi-host workflow)
 
-### C. Gemini CLI (Compatibility)
+### C. Gemini CLI (Canonical compile/semantic parity)
 **File:** `runtime/providers/gemini_provider.py`
 **Class:** `GeminiProvider`
 **Config Writer:** `runtime/mcp_config_writers.py::write_gemini_mcp_config()`
@@ -87,7 +87,7 @@ OMG supports 4 canonical CLI targets with dedicated provider implementations and
   - `skills`: `["omg/control-plane", "omg/mcp-fabric"]`
   - `automations`: `["contract-validate", "provider-routing"]`
 
-### D. Kimi Code CLI (Compatibility)
+### D. Kimi Code CLI (Canonical compile/semantic parity)
 **File:** `runtime/providers/kimi_provider.py`
 **Class:** `KimiCodeProvider`
 **Config Writer:** `runtime/mcp_config_writers.py::write_kimi_mcp_config()`
@@ -119,6 +119,8 @@ OMG supports 4 canonical CLI targets with dedicated provider implementations and
 ---
 
 ## 2. CONFIG WRITER FUNCTIONS (Core Integration Points)
+
+OpenCode remains a compatibility-only adapter surface and is intentionally excluded from release-blocking host parity checks.
 
 **File:** `runtime/mcp_config_writers.py` (233 lines)
 

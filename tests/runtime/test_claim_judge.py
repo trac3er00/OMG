@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -8,12 +9,15 @@ from typing import cast
 
 import pytest
 
+from registry.verify_artifact import sign_artifact_statement
 from runtime.claim_judge import evaluate_claims_for_release, judge_claim, judge_claims
 from runtime.release_run_coordinator import ReleaseRunCoordinator
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 ROOT = Path(__file__).resolve().parents[2]
+_DEV_PRIVATE_KEY = "Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8="
+_DEV_KEY_ID = "1f5fe64ec2f8c901"
 
 
 def _seed_release_readiness_fixtures(output_root: Path) -> None:
@@ -538,6 +542,57 @@ def test_claim_judge_release_profile_still_blocks_failed_security_scans() -> Non
 
     assert result["verdict"] == "block"
     assert any(reason["code"] == "security_scan_failed" for reason in result["reasons"])
+
+
+def test_claim_judge_blocks_excluded_failures_without_signed_waiver_artifact(tmp_path: Path) -> None:
+    result = judge_claim(
+        {
+            "claim_type": "release_ready",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+            "evidence_profile": "release",
+            "excluded_failures": ["tests/runtime/test_release.py::test_known_flake"],
+            "project_dir": str(tmp_path),
+        }
+    )
+
+    assert result["verdict"] == "block"
+    assert any(reason["code"] == "excluded_failures_without_signed_waiver" for reason in result["reasons"])
+
+
+def test_claim_judge_accepts_excluded_failures_with_signed_waiver_artifact(tmp_path: Path) -> None:
+    waiver_path = tmp_path / ".omg" / "evidence" / "excluded-failures-waiver-run-1.json"
+    waiver_path.parent.mkdir(parents=True, exist_ok=True)
+    waiver_digest = hashlib.sha256(b"excluded-failures-waiver-run-1").hexdigest()
+    waiver_payload = {
+        "schema": "ExcludedFailuresWaiver",
+        "run_id": "run-1",
+        "excluded_failures": ["tests/runtime/test_release.py::test_known_flake"],
+        "attestation_statement": sign_artifact_statement(
+            artifact_path=".omg/evidence/excluded-failures-waiver-run-1.json",
+            subject_digest=waiver_digest,
+            signer_key=_DEV_PRIVATE_KEY,
+            signer_key_id=_DEV_KEY_ID,
+        ),
+    }
+    waiver_path.write_text(json.dumps(waiver_payload), encoding="utf-8")
+
+    result = judge_claim(
+        {
+            "claim_type": "release_ready",
+            "subject": "demo",
+            "run_id": "run-1",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+            "evidence_profile": "release",
+            "excluded_failures": ["tests/runtime/test_release.py::test_known_flake"],
+            "excluded_failures_waiver_path": ".omg/evidence/excluded-failures-waiver-run-1.json",
+            "project_dir": str(tmp_path),
+        }
+    )
+
+    assert result["verdict"] == "pass"
 
 
 def test_claim_judge_missing_or_empty_evidence_profile_fails_closed() -> None:

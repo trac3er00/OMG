@@ -17,6 +17,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from runtime.worker_watchdog import WorkerWatchdog, get_worker_watchdog
+from runtime.merge_writer import MergeWriter, MergeWriterAuthorizationError
 
 
 # =============================================================================
@@ -268,6 +269,35 @@ class TestReplayEvidence:
 
         assert result["termination"]["sigterm_sent"] is True
         assert result["cleanup"]["cleaned"] is True
+
+    def test_emit_replay_includes_merge_writer_ownership_metadata(self, tmp_path: Path) -> None:
+        active_run_path = tmp_path / ".omg" / "shadow" / "active-run"
+        active_run_path.parent.mkdir(parents=True, exist_ok=True)
+        active_run_path.write_text("run-ev-owned\n", encoding="utf-8")
+
+        merge_writer = MergeWriter(str(tmp_path))
+        merge_writer.acquire("run-ev-owned", reason="replay ownership")
+
+        wd = WorkerWatchdog(str(tmp_path))
+        result = wd.emit_replay_evidence("run-ev-owned", "ownership_check")
+
+        ownership = result["extra"]["ownership"]
+        assert ownership["active_run_id"] == "run-ev-owned"
+        assert ownership["merge_writer"]["owner_run_id"] == "run-ev-owned"
+        assert ownership["merge_writer"]["authorized"] is True
+
+
+class TestMergeAuthorizationBinding:
+    def test_require_authorization_blocks_when_active_run_does_not_match(self, tmp_path: Path) -> None:
+        active_run_path = tmp_path / ".omg" / "shadow" / "active-run"
+        active_run_path.parent.mkdir(parents=True, exist_ok=True)
+        active_run_path.write_text("run-active\n", encoding="utf-8")
+
+        merge_writer = MergeWriter(str(tmp_path))
+        merge_writer.acquire("run-owner", reason="active mismatch")
+
+        with pytest.raises(MergeWriterAuthorizationError, match="active coordinator run_id"):
+            merge_writer.require_authorization("run-owner", isolation="worktree")
 
 
 # =============================================================================

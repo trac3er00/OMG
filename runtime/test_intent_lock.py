@@ -142,6 +142,33 @@ def verify_lock(project_dir: str, run_id: str | None, lock_id: str | None = None
     }
 
 
+def verify_done_when(metadata: dict[str, Any] | None, run_id: str | None) -> dict[str, Any]:
+    metadata_obj = metadata if isinstance(metadata, dict) else {}
+    criteria = _extract_done_when_criteria(metadata_obj.get("done_when"))
+    if not criteria:
+        return {
+            "status": "missing_done_when",
+            "reason": "done_when_required",
+            "run_id": str(run_id or "").strip() or None,
+        }
+
+    done_when_run_id = _extract_done_when_run_id(metadata_obj.get("done_when"))
+    normalized_run_id = str(run_id or "").strip()
+    if done_when_run_id and normalized_run_id and done_when_run_id != normalized_run_id:
+        return {
+            "status": "done_when_contract_mismatch",
+            "reason": "done_when_run_id_mismatch",
+            "run_id": normalized_run_id,
+        }
+
+    return {
+        "status": "ok",
+        "reason": "done_when_present",
+        "run_id": normalized_run_id or done_when_run_id or None,
+        "done_when": criteria,
+    }
+
+
 def evaluate_test_delta(delta: dict[str, Any], project_dir: str | None = None) -> dict[str, Any]:
     override = delta.get("override")
     waiver_artifact = delta.get("waiver_artifact")
@@ -294,6 +321,30 @@ def _normalize_string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _extract_done_when_criteria(value: Any) -> list[str]:
+    if isinstance(value, str):
+        token = value.strip()
+        return [token] if token else []
+    if isinstance(value, list):
+        return _normalize_string_list(value)
+    if isinstance(value, dict):
+        criteria = value.get("criteria")
+        if isinstance(criteria, str):
+            token = criteria.strip()
+            return [token] if token else []
+        if isinstance(criteria, list):
+            return _normalize_string_list(criteria)
+        summary = str(value.get("summary", "")).strip()
+        return [summary] if summary else []
+    return []
+
+
+def _extract_done_when_run_id(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("run_id", "")).strip()
+    return ""
 
 
 def _selector_to_path(selector: str) -> str:

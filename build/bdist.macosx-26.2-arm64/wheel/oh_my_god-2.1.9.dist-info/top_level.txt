@@ -1,7 +1,0 @@
-agents
-commands
-control_plane
-hooks
-plugins
-registry
-runtime
