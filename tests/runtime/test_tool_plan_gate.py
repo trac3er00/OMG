@@ -202,6 +202,111 @@ def test_tool_plan_gate_allows_reads_when_clarification_required(tmp_path: Path)
     assert "read/search/review" in str(result["reason"])
 
 
+def test_tool_plan_gate_blocks_mutating_bash_when_clarification_required(tmp_path: Path) -> None:
+    run_id = "run-clarify-bash-mutation"
+    intent_gate_dir = tmp_path / ".omg" / "state" / "intent_gate"
+    intent_gate_dir.mkdir(parents=True, exist_ok=True)
+    (intent_gate_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "requires_clarification": True,
+                "intent_class": "ambiguous_config",
+                "clarification_prompt": "Clarify target scope.",
+                "confidence": 0.88,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = tool_plan_gate_check(str(tmp_path), run_id, "Bash", tool_input={"command": "mkdir blocked"})
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "Clarification required before mutation: Clarify target scope."
+
+
+def test_tool_plan_gate_blocks_external_bash_when_clarification_required(tmp_path: Path) -> None:
+    run_id = "run-clarify-bash-external"
+    intent_gate_dir = tmp_path / ".omg" / "state" / "intent_gate"
+    intent_gate_dir.mkdir(parents=True, exist_ok=True)
+    (intent_gate_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "requires_clarification": True,
+                "intent_class": "ambiguous_config",
+                "clarification_prompt": "Clarify target scope.",
+                "confidence": 0.88,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": "curl https://example.com"},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "Clarification required before external execution: Clarify target scope."
+
+
+def test_tool_plan_gate_allows_local_read_bash_when_clarification_required(tmp_path: Path) -> None:
+    run_id = "run-clarify-bash-read"
+    intent_gate_dir = tmp_path / ".omg" / "state" / "intent_gate"
+    intent_gate_dir.mkdir(parents=True, exist_ok=True)
+    (intent_gate_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "requires_clarification": True,
+                "intent_class": "ambiguous_config",
+                "clarification_prompt": "Clarify target scope.",
+                "confidence": 0.88,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = tool_plan_gate_check(str(tmp_path), run_id, "Bash", tool_input={"command": "ls -la"})
+
+    assert result["status"] == "allowed"
+    assert "read/search/review" in str(result["reason"])
+
+
+@pytest.mark.parametrize(
+    "tool_name",
+    [
+        "websearch_web_search_exa",
+        "context7_query-docs",
+        "playwright",
+        "browser_tool",
+        "web_search",
+    ],
+)
+def test_tool_plan_gate_blocks_external_lookup_tools_when_clarification_required(
+    tmp_path: Path,
+    tool_name: str,
+) -> None:
+    result = evaluate_tool_compliance(
+        project_dir=str(tmp_path),
+        run_id="run-clarify-external-tools",
+        tool=tool_name,
+        has_tool_plan=False,
+        clarification_status={
+            "requires_clarification": True,
+            "intent_class": "ambiguous_config",
+            "clarification_prompt": "Clarify target scope.",
+            "confidence": 0.88,
+        },
+    )
+
+    assert result["status"] == "blocked"
+    assert result["reason"] == "Clarification required before external execution: Clarify target scope."
+
+
 def test_compliance_governor_tool_precedence_blocks_council_fail_even_with_plan(tmp_path: Path) -> None:
     run_id = "run-gov-council"
     plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
