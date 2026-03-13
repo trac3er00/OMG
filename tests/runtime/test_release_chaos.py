@@ -14,6 +14,8 @@ from runtime.issue_surface import IssueSurface
 from runtime.music_omr_testbed import MusicOMRTestbed
 from runtime.worker_watchdog import WorkerWatchdog
 
+_HELLO_CONTEXT_BUDGET_MAX_CHARS = 1000
+
 
 _FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "chaos"
 _MUSIC_FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "music_omr"
@@ -55,6 +57,50 @@ def test_hello_prompt_keeps_context_packet_bounded(tmp_path: Path) -> None:
     assert packet["budget"]["used_chars"] <= packet["budget"]["max_chars"]
     assert len(packet["summary"]) <= packet["budget"]["max_chars"]
     assert packet["provenance_only"] is False
+
+
+def test_hello_no_subagent_spawn_and_bounded_context(tmp_path: Path) -> None:
+    complexity = score_complexity("hello")
+    governance = complexity.get("governance")
+    assert isinstance(governance, dict)
+
+    assert complexity["category"] in {"trivial", "low"}
+    assert governance.get("simplify_only") is True
+    assert governance.get("read_first") is False
+    assert governance.get("subagent_allowed", True) is not True or governance.get("simplify_only") is True
+
+    packet = ContextEngine(str(tmp_path)).build_packet(run_id="chaos-hello-no-subagent")
+    assert packet["packet_version"] == "v2"
+    assert packet["budget"]["max_chars"] == _HELLO_CONTEXT_BUDGET_MAX_CHARS
+    assert packet["budget"]["used_chars"] <= _HELLO_CONTEXT_BUDGET_MAX_CHARS
+    assert len(packet["summary"]) <= _HELLO_CONTEXT_BUDGET_MAX_CHARS
+    assert packet["provenance_only"] is False
+
+    pack = build_chaos_replay_pack(
+        str(tmp_path),
+        run_id="chaos-hello-no-subagent-bounded",
+        scenario="hello_no_subagent_bounded_context",
+        fixture="inline:hello",
+        fault="subagent_spawn_denied_and_context_bounded",
+        expected_outcome={"status": "ok", "blockers": []},
+        observed={
+            "status": "ok",
+            "category": complexity["category"],
+            "context_used_chars": packet["budget"]["used_chars"],
+            "context_max_chars": packet["budget"]["max_chars"],
+            "subagent_blocked": True,
+        },
+        trace_id="trace-chaos-hello-no-subagent",
+        evidence_freshness_max_age_seconds=30,
+    )
+
+    assert (tmp_path / pack["path"]).exists()
+    assert pack["evidence_freshness"]["trace_id"] == "trace-chaos-hello-no-subagent"
+    assert pack["evidence_freshness"]["max_age_seconds"] == 30
+
+    replay = replay_chaos_pack(str(tmp_path), pack["path"])
+    assert replay["reproduced"] is True
+    assert replay["status"] == "ok"
 
 
 def test_bug_fix_read_first_flow(tmp_path: Path) -> None:
@@ -206,15 +252,20 @@ def test_transposition_pressure_under_load(tmp_path: Path) -> None:
     omr = testbed.run_omr(score_fixture_path)
     assert omr.notes
 
-    hashes: list[str] = []
-    started = time.perf_counter()
-    for _ in range(int(fixture["iterations"])):
-        result = testbed.run_transposition(omr, str(fixture["target_key"]))
-        hashes.append(result.verification_hash)
-    elapsed = time.perf_counter() - started
+    pressure = testbed.run_pressure_suite(
+        omr,
+        str(fixture["target_key"]),
+        iterations=int(fixture["iterations"]),
+        runtime_ceiling_seconds=float(fixture["max_runtime_seconds"]),
+    )
 
-    assert set(hashes) == {str(fixture["expected_verification_hash"])}
-    assert elapsed < float(fixture["max_runtime_seconds"])
+    assert pressure["deterministic"] is True
+    assert pressure["unique_hash"] == str(fixture["expected_verification_hash"])
+    assert pressure["within_ceiling"] is True
+    assert pressure["iterations"] == int(fixture["iterations"])
+
+    trace_id = str(fixture.get("trace_id", ""))
+    freshness_max = float(fixture.get("evidence_freshness_max_age_seconds", 30))
 
     pack = build_chaos_replay_pack(
         str(tmp_path),
@@ -223,11 +274,76 @@ def test_transposition_pressure_under_load(tmp_path: Path) -> None:
         fixture="transposition_pressure_fixture.json",
         fault="high_iteration_transposition_pressure",
         expected_outcome={"status": "ok", "blockers": []},
-        observed={"status": "ok", "elapsed_seconds": elapsed, "iterations": int(fixture["iterations"])},
-        trace_id=str(fixture.get("trace_id", "")),
+        observed={
+            "status": "ok",
+            "elapsed_seconds": pressure["elapsed_seconds"],
+            "iterations": pressure["iterations"],
+            "deterministic": pressure["deterministic"],
+        },
+        trace_id=trace_id,
+        deterministic_seed=str(fixture.get("deterministic_seed", "")),
+        evidence_freshness_max_age_seconds=freshness_max,
     )
 
     assert (tmp_path / pack["path"]).exists()
+    assert pack["trace_id"] == trace_id
+    assert pack["evidence_freshness"]["trace_id"] == trace_id
+    assert pack["evidence_freshness"]["max_age_seconds"] == freshness_max
+    assert pack["deterministic_seed"] == str(fixture.get("deterministic_seed", ""))
+
+    evidence_path = testbed.emit_evidence(
+        str(fixture["run_id"]),
+        {"pressure": pressure},
+        trace_id=trace_id,
+    )
+    assert Path(evidence_path).exists()
+
+    replay = replay_chaos_pack(str(tmp_path), pack["path"])
+    assert replay["reproduced"] is True
+    assert replay["status"] == "ok"
+
+
+def test_transposition_pressure_ceiling_deterministic(tmp_path: Path) -> None:
+    fixture = _load_fixture("transposition_pressure_fixture.json")
+    score_fixture_path = _MUSIC_FIXTURE_DIR / "simple_c_major.json"
+    ceiling = int(fixture.get("pressure_ceiling_iterations", 64))
+
+    testbed = MusicOMRTestbed(str(tmp_path))
+    omr = testbed.run_omr(score_fixture_path)
+    assert omr.notes
+
+    pressure = testbed.run_pressure_suite(
+        omr,
+        str(fixture["target_key"]),
+        iterations=ceiling,
+        runtime_ceiling_seconds=float(fixture["max_runtime_seconds"]) * 3,
+    )
+
+    assert pressure["deterministic"] is True
+    assert pressure["unique_hash"] == str(fixture["expected_verification_hash"])
+    assert pressure["within_ceiling"] is True
+
+    trace_id = f"trace-pressure-ceiling-{ceiling}"
+    pack = build_chaos_replay_pack(
+        str(tmp_path),
+        run_id=f"chaos-pressure-ceiling-{ceiling}",
+        scenario="transposition_pressure_ceiling",
+        fixture="transposition_pressure_fixture.json",
+        fault="pressure_ceiling_determinism",
+        expected_outcome={"status": "ok", "blockers": []},
+        observed={
+            "status": "ok",
+            "ceiling_iterations": ceiling,
+            "deterministic": pressure["deterministic"],
+            "elapsed_seconds": pressure["elapsed_seconds"],
+        },
+        trace_id=trace_id,
+        evidence_freshness_max_age_seconds=float(fixture.get("evidence_freshness_max_age_seconds", 30)),
+    )
+
+    assert (tmp_path / pack["path"]).exists()
+    assert pack["trace_id"] == trace_id
+    assert pack["evidence_freshness"]["trace_id"] == trace_id
 
 
 def test_chaos_replay_from_saved_evidence(tmp_path: Path) -> None:

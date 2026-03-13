@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -157,17 +158,51 @@ class MusicOMRTestbed:
             evidence_path="",
         )
 
-    def emit_evidence(self, run_id: str, results: dict[str, Any]) -> str:
+    def run_pressure_suite(
+        self,
+        omr_result: OMRResult,
+        target_key: str,
+        *,
+        iterations: int,
+        runtime_ceiling_seconds: float,
+    ) -> dict[str, Any]:
+        """Run N transpositions and validate determinism + runtime ceiling.
+
+        Returns a structured result with hashes, elapsed time, and a
+        determinism flag suitable for chaos replay evidence.
+        """
+        hashes: list[str] = []
+        started = time.perf_counter()
+        for _ in range(iterations):
+            result = self.run_transposition(omr_result, target_key)
+            hashes.append(result.verification_hash)
+        elapsed = time.perf_counter() - started
+
+        unique_hashes = set(hashes)
+        deterministic = len(unique_hashes) == 1
+
+        return {
+            "deterministic": deterministic,
+            "unique_hash": next(iter(unique_hashes)) if deterministic else None,
+            "hash_count": len(unique_hashes),
+            "iterations": iterations,
+            "elapsed_seconds": elapsed,
+            "within_ceiling": elapsed < runtime_ceiling_seconds,
+            "runtime_ceiling_seconds": runtime_ceiling_seconds,
+        }
+
+    def emit_evidence(self, run_id: str, results: dict[str, Any], *, trace_id: str = "") -> str:
         """Writes evidence to .omg/evidence/music-omr-<run_id>.json."""
         evidence_dir = self.project_dir / ".omg" / "evidence"
         evidence_dir.mkdir(parents=True, exist_ok=True)
         
         evidence_path = evidence_dir / f"music-omr-{run_id}.json"
         
-        payload = {
+        payload: dict[str, Any] = {
             "schema": "MusicOMREvidence",
             "schema_version": "1.0.0",
             "run_id": run_id,
+            "trace_id": trace_id,
             "results": {},
         }
         
