@@ -123,10 +123,11 @@ def _find_missing_templates(root: Path) -> list[str]:
 
 
 def _find_internal_docs(root: Path) -> list[str]:
+    violations: list[str] = []
     plans_dir = root / "docs" / "plans"
-    if plans_dir.exists():
-        return [f"{plans_dir.relative_to(root)}: internal planning docs must not ship in public branch"]
-    return []
+    if plans_dir.exists() and any(path.is_file() for path in plans_dir.rglob("*")):
+        violations.append("docs/plans/: internal planning docs must not ship in public branch")
+    return violations
 
 
 def _normalize_link_target(raw: str) -> str:

@@ -14,6 +14,7 @@ from runtime.vision_cache import build_cache_key, load_cached_result, store_cach
 
 
 VALID_VISION_MODES = frozenset({"ocr", "compare", "analyze", "batch", "eval"})
+IMPLEMENTED_VISION_MODES = frozenset({"ocr", "compare"})
 
 
 def _resolve_inputs(project_dir: str, inputs: list[str]) -> list[str]:
@@ -33,8 +34,12 @@ def normalize_vision_payload(project_dir: str, payload: dict[str, Any]) -> dict[
     raw_inputs = payload.get("inputs")
     if mode not in VALID_VISION_MODES:
         raise ValueError(f"unsupported vision mode: {mode}")
+    if mode not in IMPLEMENTED_VISION_MODES:
+        raise ValueError(f"vision mode is not implemented yet: {mode}")
     if not isinstance(raw_inputs, list) or not raw_inputs or not all(isinstance(item, str) and item.strip() for item in raw_inputs):
         raise ValueError("inputs must be a non-empty list of file paths")
+    if mode == "compare" and len(raw_inputs) < 2:
+        raise ValueError("compare mode requires at least two input files")
 
     resolved_inputs = _resolve_inputs(project_dir, raw_inputs)
     for input_path in resolved_inputs:

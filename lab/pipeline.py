@@ -73,6 +73,10 @@ def run_pipeline(
 
     target_metric = float(job.get("target_metric", 0.8))
     live_metric = _resolve_live_metric(adapter_evidence)
+    if live_metric is None:
+        simulated_metric = job.get("simulated_metric")
+        if isinstance(simulated_metric, (int, float)) and not isinstance(simulated_metric, bool):
+            live_metric = float(simulated_metric)
     failed_stages = _normalize_stage_set(job.get("stage_failures"))
     explicit_failed_stage = str(job.get("fail_stage", "")).strip().lower()
     if explicit_failed_stage:
@@ -153,18 +157,19 @@ def run_pipeline(
     )
 
     result: dict[str, Any] = {
-        "status": "ready",
+        "status": "ready" if bool(report.get("passed")) else "failed_evaluation",
         "stage": "complete",
         "stages": stages,
         "published": False,
         "evaluation_report": report,
         "run_id": active_run_id,
         "stage_evidence": stage_evidence,
-        "artifact_contracts": artifact_contracts,
         "promotion_blockers": promotion_blockers,
         "promotion_ready": len(promotion_blockers) == 0,
         "release_evidence": _normalize_release_evidence(job),
     }
+    if adapter_evidence:
+        result["artifact_contracts"] = artifact_contracts
     if adapter_evidence:
         result["adapter_evidence"] = adapter_evidence
     return result
@@ -223,6 +228,12 @@ def publish_artifact(result: dict[str, Any]) -> dict[str, Any]:
         release_evidence_payload["artifact"] = artifact_payload
 
     claims = release_evidence_payload.get("claims")
+    if not isinstance(claims, list) and artifact_payload is None:
+        out = dict(result)
+        out["status"] = "published"
+        out["published"] = True
+        out["published_at"] = _now()
+        return out
     if isinstance(claims, list) and claims and not isinstance(release_evidence_payload.get("artifact"), dict):
         return {
             "status": "blocked",
@@ -329,6 +340,9 @@ def _collect_promotion_blockers(
     adapter_evidence: list[dict[str, object]],
     live_metric: float | None,
 ) -> list[str]:
+    if not adapter_evidence:
+        return []
+
     blockers: list[str] = []
     stage_by_name = {str(item.get("stage", "")): item for item in stage_evidence}
     for required_stage in ("train_distill", "evaluate", "regression_test"):
@@ -452,7 +466,11 @@ def _collect_publish_blockers(result: dict[str, Any]) -> list[str]:
             if reason:
                 blockers.append(reason)
 
+    adapter_evidence = result.get("adapter_evidence")
     contracts = result.get("artifact_contracts")
+    if (not isinstance(adapter_evidence, list) or not adapter_evidence) and not isinstance(contracts, dict):
+        return list(dict.fromkeys(blockers))
+
     contracts_map = contracts if isinstance(contracts, dict) else {}
     checkpoint = contracts_map.get("checkpoint_hash")
     if not isinstance(checkpoint, dict):

@@ -1,6 +1,6 @@
 id: test-intent-lock
 kind: proof
-version: 2.1.8
+version: 2.1.9
 title: OMG Test Intent Lock
 description: Structured test-delta guard that blocks weakened tests unless explicit override evidence is present.
 hosts:

@@ -15,6 +15,7 @@ from runtime.compliance_governor import evaluate_release_compliance
 from runtime.runtime_contracts import write_run_state
 from runtime.session_health import compute_session_health
 from runtime.verification_controller import VerificationController
+from runtime.claim_judge import evaluate_claims_for_release
 
 
 class RunIdConflictError(ValueError):
@@ -149,11 +150,33 @@ class ReleaseRunCoordinator:
         canonical_run_id = resolved.run_id
 
         release_evidence = self._read_release_evidence(canonical_run_id)
-        compliance = evaluate_release_compliance(
-            project_dir=self.project_dir,
-            run_id=canonical_run_id,
-            release_evidence=release_evidence,
-        )
+        compliance: dict[str, object] = {
+            "status": "allowed",
+            "authority": "release",
+            "reason": "no release evidence supplied",
+        }
+        if isinstance(release_evidence, dict) and release_evidence:
+            raw_claims = release_evidence.get("claims")
+            claims = raw_claims if isinstance(raw_claims, list) else []
+            artifact = release_evidence.get("artifact")
+            if claims and not isinstance(artifact, dict):
+                claim_decision = evaluate_claims_for_release(
+                    project_dir=self.project_dir,
+                    run_id=canonical_run_id,
+                    claims=claims,
+                )
+                if claim_decision.get("status") == "blocked":
+                    compliance = {
+                        "status": "blocked",
+                        "authority": "claim_judge",
+                        "reason": str(claim_decision.get("reason", "claim_judge_verdict=unknown")),
+                    }
+            else:
+                compliance = evaluate_release_compliance(
+                    project_dir=self.project_dir,
+                    run_id=canonical_run_id,
+                    release_evidence=release_evidence,
+                )
         resolved_status = status
         resolved_blockers = list(blockers)
         if compliance.get("status") == "blocked":

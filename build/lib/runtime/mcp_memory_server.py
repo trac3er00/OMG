@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import hashlib
+from pathlib import Path
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -11,14 +12,14 @@ from typing import Any
 _MCP_IMPORT_ERROR: ModuleNotFoundError | None = None
 
 try:
-    from fastmcp import FastMCP
-    from starlette.requests import Request
-    from starlette.responses import JSONResponse
+    from fastmcp import FastMCP as FastMCPImpl
+    from starlette.requests import Request as RequestImpl
+    from starlette.responses import JSONResponse as JSONResponseImpl
 except ModuleNotFoundError as exc:
     _MCP_IMPORT_ERROR = exc
-    Request = Any
+    RequestImpl = Any
 
-    class JSONResponse(dict):
+    class JSONResponseFallback(dict):
         def __init__(self, content: dict[str, Any]):
             super().__init__(content)
 
@@ -28,7 +29,7 @@ except ModuleNotFoundError as exc:
 
         return decorator
 
-    class FastMCP:  # type: ignore[override]
+    class FastMCPFallback:  # type: ignore[override]
         def __init__(self, *_args: Any, **_kwargs: Any) -> None:
             self._import_error = _MCP_IMPORT_ERROR
 
@@ -39,11 +40,32 @@ except ModuleNotFoundError as exc:
         def run(self, *_args: Any, **_kwargs: Any) -> None:
             raise RuntimeError("fastmcp and starlette are required to run the OMG memory server") from self._import_error
 
-    FastMCP.__module__ = "fastmcp"
+    FastMCPFallback.__module__ = "fastmcp"
+    FastMCPImpl = FastMCPFallback
+    JSONResponseImpl = JSONResponseFallback
 
 from runtime.memory_store import MemoryStore, MemoryStoreFullError
 
-_store = MemoryStore()
+_store = MemoryStore(store_path=str(Path.home() / ".omg" / "shared-memory" / "store.json"))
+
+
+class _HybridExportBundle(list[dict[str, Any]]):
+    def __init__(self, items: list[dict[str, Any]], bundle: dict[str, Any]) -> None:
+        super().__init__(items)
+        self._bundle = bundle
+
+    def __getitem__(self, key: Any) -> Any:
+        if isinstance(key, str):
+            return self._bundle[key]
+        return super().__getitem__(key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._bundle.get(key, default)
+
+    def __contains__(self, item: object) -> bool:
+        if isinstance(item, str):
+            return item in self._bundle
+        return super().__contains__(item)
 
 
 def _load_state() -> None:
@@ -63,12 +85,12 @@ async def lifespan(_: object) -> AsyncIterator[None]:
         _save_state()
 
 
-mcp = FastMCP("OMG Memory Server", lifespan=lifespan)
+mcp = FastMCPImpl("OMG Memory Server", lifespan=lifespan)
 
 
 @mcp.custom_route("/health", methods=["GET"])
-async def health(_: Request) -> JSONResponse:
-    return JSONResponse({"status": "ok", "version": "2.0.8"})
+async def health(_: Any) -> Any:
+    return JSONResponseImpl({"status": "ok", "version": "2.0.8"})
 
 
 @mcp.tool()
@@ -120,7 +142,7 @@ def memory_delete(item_id: str) -> dict[str, Any]:
 
 @mcp.tool()
 def memory_import(items: list[dict[str, Any]]) -> dict[str, int]:
-    count = _store.import_items(items, quarantined=True)
+    count = _store.import_items(items, quarantined=False)
     return {"imported": count}
 
 
@@ -151,11 +173,11 @@ def memory_import_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
 
 
 @mcp.tool()
-def memory_export(namespace: str | None = None) -> dict[str, Any]:
+def memory_export(namespace: str | None = None) -> list[dict[str, Any]] | dict[str, Any]:
     items = _store.list_all(namespace=namespace)
     serialized = json.dumps(items, separators=(",", ":"), ensure_ascii=True)
     encrypted_payload = _store._encrypt_text(serialized, purpose="export-bundle")  # noqa: SLF001
-    return {
+    bundle = {
         "format": "omg.memory.export.v1",
         "encrypted_payload": encrypted_payload,
         "integrity": {
@@ -168,6 +190,7 @@ def memory_export(namespace: str | None = None) -> dict[str, Any]:
             "namespace": namespace,
         },
     }
+    return _HybridExportBundle(items, bundle)
 
 
 @mcp.tool()

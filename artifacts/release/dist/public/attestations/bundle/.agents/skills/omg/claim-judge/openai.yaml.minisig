@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-6Xwdbs36SWKqlvk8HyoHKoSSm5aPDPOenw79wG6hbgAHvCJKYWMbBFNwwm2dsbDqLTmWRgFHgDRyg9vEiX/dAg==
-trusted comment: type=omg-slsa-v1 keyid=0aa744c03aed8387 issued_at=2026-03-11T20:10:56.645335+00:00 artifact=bundle/.agents/skills/omg/claim-judge/openai.yaml sha256=b64dc801159a6e9adcd704326122f64c1bad7f71d87f22ada47918f7527151cc
-NeR25IScqj28RFm+s/tqPYcFapCjAyD51PDMTA+CsTas9ry5+L+6pa0m0VBlGvxP/pGyP00tw4BsuxtL6mXtAw==
+TT1vJ/AFQqhIf6PMotJzAdQELdkDOgSkrcszqEo+LqLEWgY7jxj9Pu6Vz/pwG7tR1VAMaZQjjKBjP5zBk3cbAg==
+trusted comment: type=omg-slsa-v1 keyid=d0d4443beb3bd85f issued_at=2026-03-13T00:09:44.791392+00:00 artifact=bundle/.agents/skills/omg/claim-judge/openai.yaml sha256=b64dc801159a6e9adcd704326122f64c1bad7f71d87f22ada47918f7527151cc
+HHm1LHr0OL3tUnp7RQvmAoDxBzrq3FPuE2lw0CF1Lj90mFLkreC98vvbK01wxgm/Ws0MZjmrYnWX1BBL/MndDg==

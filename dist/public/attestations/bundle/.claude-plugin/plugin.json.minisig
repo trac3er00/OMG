@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-4OHyM+ESsvquSb9iXDHdM57Zk8CG1q2RddhB5/zJTtrvu+0i1pT0Y04esr/FfcQTBU02CoJmBRvf7wE8Aff9AQ==
-trusted comment: type=omg-slsa-v1 keyid=66c4247e7ecb62dc issued_at=2026-03-11T20:10:48.604540+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=16821ddc7fa220d7e629838cde987073af6c2114cb88ad2aac86456b758546b0
-kyQn94wAUDi6B1TvVXS+BzXiI81yRC7zGSLADI43zmUadfpqEfu6Nt90/ORSYHtBcC6mZZf/rZ0P32NwitPxDA==
+9MkaZuhLXagglq0aPNsdSPKzZGvZfZ83lLCs/xAR14Zcp31/jA3bqeDbWKJshtzgK0MNnTXrhiybc6wI0MFkAw==
+trusted comment: type=omg-slsa-v1 keyid=21c60523806dffde issued_at=2026-03-13T00:09:43.780506+00:00 artifact=bundle/.claude-plugin/plugin.json sha256=3df7cd8fa667f1d27c76dd57f05d25091b63eb78badc68e712549e8ebfbfaff0
+TuGH7OHMUwRrFcAemB9bkLxC8zO0Wd+TkyXF/xjGKar/YqrhNC09qUFdKt0FF/NhrwNV66dpDdLifuKqw4EuBA==
