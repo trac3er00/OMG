@@ -133,7 +133,7 @@ def write_trust_evidence(inputs: list[dict[str, Any]], output_dir: str | Path) -
     normalized_inputs: list[dict[str, Any]] = []
     for item in inputs:
         data = dict(item)
-        trust_tier = str(data.get("_trust_tier", "research"))
+        trust_tier = str(data.get("trust_tier", data.get("_trust_tier", "research")))
         trust_label = str(data.get("_trust_label", "UNTRUSTED_EXTERNAL_CONTENT"))
         try:
             trust_score = float(data.get("_trust_score", 0.0))
@@ -203,20 +203,24 @@ def mark_untrusted_content(
     resolved_tier = normalize_trust_tier(tier) if tier is not None else trust_tier_for_source(source_type)
     entry = tag_content(
         {
-        "source_type": source_type,
-        "source_ref": source_ref,
-        "quarantined_fragments": quarantined,
-        "sanitized_content": sanitized,
+            "source_type": source_type,
+            "source_ref": source_ref,
+            "quarantined_fragments": quarantined,
+            "sanitized_content": sanitized,
         },
         resolved_tier,
     )
+    entry["trust_tier"] = resolved_tier.value
     entry["trust_score"] = entry.get("_trust_score", 0.0)
-    provenance = list(state.get("provenance", []))
-    provenance.append(entry)
+
     evidence_path = write_trust_evidence(
         [entry],
         output_dir=Path(project_dir) / EVIDENCE_REL_DIR,
     )
+    entry["evidence_artifact"] = evidence_path
+
+    provenance = list(state.get("provenance", []))
+    provenance.append(entry)
 
     prior_scores = state.get("trust_scores", {})
     next_external_score = min(
@@ -232,6 +236,7 @@ def mark_untrusted_content(
         "last_trust_tier": resolved_tier.value,
         "last_trust_label": entry.get("_trust_label"),
         "last_trust_score": entry.get("_trust_score"),
+        "last_evidence_artifact": evidence_path,
         "sanitized_content": sanitized,
         "quarantined_fragments": quarantined,
         "provenance": provenance[-20:],

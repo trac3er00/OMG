@@ -52,6 +52,32 @@ _has_credential_store: Optional[bool] = None
 _HAS_CREDENTIAL_STORE = None
 
 
+def _resolve_project_dir() -> str:
+    return os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+
+
+def _mark_external_ingress(*, source_ref: str, content: Any) -> None:
+    try:
+        from runtime.untrusted_content import TrustTier, mark_untrusted_content
+    except Exception:
+        return
+
+    payload = content
+    if not isinstance(payload, str):
+        payload = json.dumps(payload, sort_keys=True, ensure_ascii=True)
+
+    try:
+        mark_untrusted_content(
+            _resolve_project_dir(),
+            source_type="web",
+            source_ref=source_ref,
+            content=payload,
+            tier=TrustTier.RESEARCH,
+        )
+    except Exception:
+        return
+
+
 def _check_credential_store() -> bool:
     """Check if credential_store is available (cached after first check)."""
     global _has_credential_store, _credential_store
@@ -195,7 +221,7 @@ def get_api_key(provider_name: str) -> Optional[str]:
             key = _credential_store.get_active_key(provider_name)
             if key:
                 return key
-        except Exception:
+        except (RuntimeError, ValueError, OSError):
             pass  # Fall through to env var
 
     # Fallback to environment variable
@@ -307,6 +333,15 @@ class WebSearchManager:
         for item in raw_results:
             item.setdefault("source", provider_name)
             results.append(SearchResult.from_dict(item))
+
+        _mark_external_ingress(
+            source_ref=f"search:{provider_name}",
+            content={
+                "query": query,
+                "provider": provider_name,
+                "results": [result.to_dict() for result in results],
+            },
+        )
         return results
 
     def fetch(
@@ -330,12 +365,30 @@ class WebSearchManager:
         provider_name = provider or self._default_provider
         if provider_name and provider_name in self._providers:
             try:
-                return self._providers[provider_name].fetch(url)
+                content = self._providers[provider_name].fetch(url)
             except Exception:
                 return ""
+            _mark_external_ingress(
+                source_ref=f"fetch:{provider_name}:{url}",
+                content={
+                    "url": url,
+                    "provider": provider_name,
+                    "content": content,
+                },
+            )
+            return content
 
         # Fallback: use stdlib urllib if no provider available
-        return _stdlib_fetch(url)
+        content = _stdlib_fetch(url)
+        _mark_external_ingress(
+            source_ref=f"fetch:stdlib:{url}",
+            content={
+                "url": url,
+                "provider": "stdlib",
+                "content": content,
+            },
+        )
+        return content
 
 
 # =============================================================================

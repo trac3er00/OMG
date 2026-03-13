@@ -26,6 +26,7 @@ setup_crash_handler("firewall", fail_closed=True)
 
 try:
     from policy_engine import evaluate_bash_command, to_pretool_hook_output, scan_mutation_command, ask, deny  # pyright: ignore[reportImplicitRelativeImport]
+    from runtime.compliance_governor import classify_bash_command_mode
     from runtime.defense_state import DefenseState
     from runtime.session_health import compute_session_health
     from runtime.mutation_gate import check_mutation_allowed
@@ -266,7 +267,9 @@ gate_result = check_mutation_allowed(
     run_id=run_id or None,
     metadata=metadata if isinstance(metadata, dict) else None,
 )
-is_mutation_capable = str(gate_result.get("reason", "")) != "tool is read-only for mutation gate"
+bash_mode = classify_bash_command_mode(cmd)
+is_mutation_capable = bash_mode == "mutation"
+is_external_execution = bash_mode == "external"
 clarification_state = _read_clarification_state(get_project_dir(), run_id)
 if is_mutation_capable:
     defense_decision = _mutating_defense_decision(
@@ -277,8 +280,17 @@ if is_mutation_capable:
     if defense_decision is not None:
         decision = defense_decision
 
-if clarification_state.get("requires_clarification") is True and is_mutation_capable:
-    deny_decision(_clarification_reason(str(clarification_state.get("clarification_prompt", ""))))
+if clarification_state.get("requires_clarification") is True and (is_mutation_capable or is_external_execution):
+    prompt = str(clarification_state.get("clarification_prompt", ""))
+    if is_external_execution:
+        reason = (
+            f"Clarification required before external execution: {prompt}"
+            if prompt
+            else "Clarification required before external execution: provide the missing intent details."
+        )
+        deny_decision(reason)
+    else:
+        deny_decision(_clarification_reason(prompt))
     sys.exit(0)
 
 if is_mutation_capable and gate_result.get("status") == "blocked":

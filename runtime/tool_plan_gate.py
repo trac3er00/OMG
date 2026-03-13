@@ -102,7 +102,12 @@ def has_tool_plan_for_run(project_dir: str, run_id: str | None) -> bool:
     return any(plans_dir.glob(f"{run_prefix}-plan-*.json"))
 
 
-def tool_plan_gate_check(project_dir: str, run_id: str | None, tool: str) -> dict[str, object]:
+def tool_plan_gate_check(
+    project_dir: str,
+    run_id: str | None,
+    tool: str,
+    tool_input: dict[str, object] | None = None,
+) -> dict[str, object]:
     if not run_id:
         return {"status": "allowed", "reason": "run_id unavailable; skip tool plan gate"}
 
@@ -118,6 +123,7 @@ def tool_plan_gate_check(project_dir: str, run_id: str | None, tool: str) -> dic
         tool=tool,
         has_tool_plan=has_tool_plan_for_run(project_dir, run_id),
         clarification_status=clarification,
+        tool_input=tool_input,
     )
     reason = str(decision.get("reason", ""))
     if decision.get("status") == "blocked":

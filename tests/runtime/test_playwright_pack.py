@@ -7,6 +7,7 @@ from runtime.playwright_pack import PlaywrightPack, IsolationError
 from runtime.untrusted_content import (
     TrustTier,
     clear_untrusted_content,
+    get_untrusted_content_state,
     mark_untrusted_content,
 )
 
@@ -120,6 +121,14 @@ def test_browser_pack_non_isolated_with_browser_tier_includes_metadata(tmp_path)
     assert result["metadata"]["trust_tier"] == "browser"
     assert result["metadata"]["isolated"] is False
     assert result["metadata"]["trust_score"] == 0.0
+
+    state = get_untrusted_content_state(str(tmp_path))
+    assert state["last_source_type"] == "browser"
+    assert state["last_trust_tier"] == "browser"
+    assert state["last_evidence_artifact"]
+    assert state["provenance"][-1]["source_type"] == "browser"
+    assert state["provenance"][-1]["trust_tier"] == "browser"
+    assert state["provenance"][-1]["evidence_artifact"] == state["last_evidence_artifact"]
 
 
 def test_browser_pack_smoke_fixture_exists():

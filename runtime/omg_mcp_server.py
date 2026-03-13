@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from runtime.asset_loader import resolve_asset
+from runtime.compliance_governor import classify_bash_command_mode
 from runtime.tool_plan_gate import resolve_current_run_id, tool_plan_gate_check
 
 _mcp_import_error: ModuleNotFoundError | None = None
@@ -138,8 +139,13 @@ def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
         if not run_id:
             run_id = resolve_current_run_id()
 
-        if tool in {"Write", "Edit", "MultiEdit"}:
-            tool_plan_result = tool_plan_gate_check(_service().project_dir, run_id, tool)
+        should_gate_tool_plan = tool in {"Write", "Edit", "MultiEdit"}
+        if tool == "Bash":
+            bash_mode = classify_bash_command_mode(str(input.get("command", ""))) if isinstance(input, dict) else "read"
+            should_gate_tool_plan = bash_mode in {"mutation", "external"}
+
+        if should_gate_tool_plan:
+            tool_plan_result = tool_plan_gate_check(_service().project_dir, run_id, tool, tool_input=input)
             if tool_plan_result.get("status") == "blocked":
                 return tool_plan_result
 
