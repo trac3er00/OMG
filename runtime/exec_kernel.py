@@ -4,7 +4,9 @@ from dataclasses import asdict, dataclass
 import json
 import os
 from pathlib import Path
+from types import ModuleType
 from typing import Any
+from typing import cast
 from uuid import uuid4
 
 
@@ -97,6 +99,45 @@ class ExecKernel:
             "read_only": True,
         }
 
+    def _resolve_run_id(self, run_id: str | None) -> str:
+        module = cast(
+            ModuleType,
+            __import__("runtime.release_run_coordinator", fromlist=["resolve_canonical_run_id"]),
+        )
+        resolver = cast(object, getattr(module, "resolve_canonical_run_id", None))
+        if callable(resolver):
+            resolved_obj = resolver(
+                str(self.project_dir),
+                cli_run_id=run_id,
+                generate_if_missing=True,
+            )
+            resolved = cast(object, resolved_obj)
+            resolved_run_id = str(getattr(resolved, "run_id", "")).strip()
+            if resolved_run_id:
+                return resolved_run_id
+        return str(run_id or uuid4())
+
+    def _active_run_id(self) -> str:
+        shadow_path = self.project_dir / ".omg" / "shadow" / "active-run"
+        if not shadow_path.exists():
+            return ""
+        try:
+            return shadow_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            return ""
+
+    def _ownership_snapshot(self, run_id: str) -> dict[str, Any]:
+        from runtime.merge_writer import get_merge_writer
+
+        merge_writer = get_merge_writer(str(self.project_dir))
+        merge_writer_details = merge_writer.check_authorization_details(run_id)
+        active_run_id = self._active_run_id()
+        return {
+            "active_run_id": active_run_id,
+            "run_id": run_id,
+            "merge_writer": merge_writer_details,
+        }
+
     def register_run(
         self,
         run_id: str | None,
@@ -106,9 +147,10 @@ class ExecKernel:
         source: str = "runtime",
         reason: str = "",
     ) -> KernelRun:
-        resolved_run_id = str(run_id or uuid4())
+        resolved_run_id = self._resolve_run_id(run_id)
         isolation = self.normalize_isolation(isolation_mode)
         hooks = tuple(evidence_hooks or _DEFAULT_EVIDENCE_HOOKS)
+        ownership = self._ownership_snapshot(resolved_run_id)
         kernel_run = KernelRun(
             run_id=resolved_run_id,
             isolation_mode=str(isolation["requested"]),
@@ -123,6 +165,7 @@ class ExecKernel:
                 "reason": reason,
                 "kernel_run": asdict(kernel_run),
                 "isolation": isolation,
+                "ownership": ownership,
                 "evidence_hooks": list(hooks),
                 "attach_log": kernel_run.attach_log,
             },
@@ -144,10 +187,12 @@ class ExecKernel:
             evidence_hooks=evidence_hooks,
             source="submit_worker",
         )
+        canonical_run_id = kernel_run.run_id
         isolation = self.normalize_isolation(kernel_run.isolation_mode)
+        ownership = self._ownership_snapshot(canonical_run_id)
         if isolation["requested"] == "container":
             state = self._write_state(
-                run_id,
+                canonical_run_id,
                 {
                     "status": "deferred",
                     "dispatch": {
@@ -155,13 +200,15 @@ class ExecKernel:
                         "reason": isolation["reason"],
                         "agent_name": agent_name,
                     },
+                    "ownership": ownership,
                 },
             )
             return {
                 "status": "deferred",
-                "run_id": run_id,
+                "run_id": canonical_run_id,
                 "job_id": None,
                 "isolation": isolation,
+                "ownership": ownership,
                 "kernel_enabled": self.enabled,
                 "state_path": state.get("state_path", ""),
                 "reason": isolation["reason"],
@@ -174,12 +221,12 @@ class ExecKernel:
             agent_name,
             task_text,
             isolation=dispatch_isolation,
-            run_id=run_id,
+            run_id=canonical_run_id,
             evidence_hooks=list(kernel_run.evidence_hooks),
             attach_log=kernel_run.attach_log,
         )
         state = self._write_state(
-            run_id,
+            canonical_run_id,
             {
                 "status": "queued",
                 "dispatch": {
@@ -190,13 +237,15 @@ class ExecKernel:
                     "isolation": isolation,
                     "passthrough": not self.enabled,
                 },
+                "ownership": ownership,
             },
         )
         return {
             "status": "queued",
-            "run_id": run_id,
+            "run_id": canonical_run_id,
             "job_id": job_id,
             "isolation": isolation,
+            "ownership": ownership,
             "kernel_enabled": self.enabled,
             "attach_log": kernel_run.attach_log,
             "evidence_hooks": list(kernel_run.evidence_hooks),
