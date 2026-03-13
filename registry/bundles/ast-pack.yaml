@@ -38,7 +38,7 @@ lsp_contract:
     - typescript
 evidence_outputs:
   artifacts:
-    - .omg/evidence/ast-pack.json
+    - .omg/evidence/ast-pack-{run_id}.json
 execution_contract:
   modes:
     - embedded
@@ -54,10 +54,25 @@ tool_fabric:
   tools:
     - Grep
     - Edit
+  semantic_operations:
+    - name: ast_search
+      tool: Grep
+      mutation_capable: false
+      requires_explicit_promotion: false
+    - name: ast_rewrite
+      tool: Edit
+      mutation_capable: true
+      requires_explicit_promotion: true
   requires_signed_approval: true
+  requires_signed_approval_for_mutation: true
   requires_attestation: false
+  requires_attestation_for_mutation: true
+  dry_run_first: true
+  require_run_scoped_evidence: true
+  require_fresh_evidence: true
+  evidence_max_age_seconds: 3600
   required_evidence:
-    - .omg/evidence/ast-pack.json
+    - .omg/evidence/ast-pack-{run_id}.json
 channel_overrides:
   public:
     posture: advisory

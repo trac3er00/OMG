@@ -36,7 +36,7 @@ lsp_contract:
     - typescript
 evidence_outputs:
   artifacts:
-    - .omg/evidence/hash-edit.json
+    - .omg/evidence/hash-edit-{run_id}.json
 execution_contract:
   modes:
     - embedded
@@ -51,10 +51,21 @@ tool_fabric:
     - execution
   tools:
     - Edit
+  semantic_operations:
+    - name: single_file_hash_edit
+      tool: Edit
+      mutation_capable: true
+      requires_explicit_promotion: false
   requires_signed_approval: true
+  requires_signed_approval_for_mutation: true
   requires_attestation: false
+  requires_attestation_for_mutation: true
+  single_file_hash_bound: true
+  require_run_scoped_evidence: true
+  require_fresh_evidence: true
+  evidence_max_age_seconds: 3600
   required_evidence:
-    - .omg/evidence/hash-edit.json
+    - .omg/evidence/hash-edit-{run_id}.json
 channel_overrides:
   public:
     posture: advisory

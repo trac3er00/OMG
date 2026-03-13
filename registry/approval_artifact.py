@@ -30,6 +30,7 @@ class ApprovalArtifact:
     signer_key_id: str
     issued_at: str
     signature: str
+    run_id: str = ""
 
 
 def _approval_signing_payload(approval: ApprovalArtifact) -> dict[str, object]:
@@ -42,6 +43,7 @@ def _approval_signing_payload(approval: ApprovalArtifact) -> dict[str, object]:
         "signer_key_id": approval.signer_key_id,
         "issued_at": approval.issued_at,
         "type": _APPROVAL_TYPE,
+        "run_id": approval.run_id,
     }
 
 
@@ -52,6 +54,7 @@ def create_approval_artifact(
     reason: str,
     signer_key_id: str,
     signer_private_key: str,
+    run_id: str = "",
 ) -> ApprovalArtifact:
 
     clean_digest = str(artifact_digest).strip().lower()
@@ -74,6 +77,7 @@ def create_approval_artifact(
         signer_key_id=signer_key_id,
         issued_at=issued_at,
         signature="",
+        run_id=str(run_id).strip(),
     )
 
     sig_result = sign_artifact(
@@ -108,6 +112,9 @@ def verify_approval_artifact(
     for field in required:
         if not isinstance(data.get(field), str) or not data[field].strip():
             return {"valid": False, "reason": f"missing or empty field: {field}"}
+    run_id_value = data.get("run_id", "")
+    if run_id_value is not None and not isinstance(run_id_value, str):
+        return {"valid": False, "reason": "run_id must be a string when present"}
 
     clean_expected = str(expected_artifact_digest).strip().lower()
     clean_actual = str(data["artifact_digest"]).strip().lower()
@@ -151,6 +158,7 @@ def verify_approval_artifact(
         signer_key_id=key_id,
         issued_at=data["issued_at"],
         signature="",
+        run_id=str(run_id_value).strip(),
     )
     payload = _approval_signing_payload(temp_approval)
 
@@ -205,4 +213,24 @@ def verify_tool_approval(
     run_id: str,
 ) -> dict[str, Any]:
     expected_digest = build_tool_approval_digest(lane_name=lane_name, tool_name=tool_name, run_id=run_id)
-    return verify_approval_artifact(approval, expected_artifact_digest=expected_digest)
+    verified = verify_approval_artifact(approval, expected_artifact_digest=expected_digest)
+    if not bool(verified.get("valid")):
+        return verified
+
+    approval_obj: dict[str, Any]
+    if isinstance(approval, ApprovalArtifact):
+        approval_obj = asdict(approval)
+    elif isinstance(approval, dict):
+        approval_obj = dict(approval)
+    else:
+        return {"valid": False, "reason": "invalid approval artifact type"}
+
+    run_binding = str(approval_obj.get("run_id", "")).strip()
+    if not run_binding:
+        scope = str(approval_obj.get("scope", "")).strip()
+        token = f"/runs/{run_id}"
+        if token in scope:
+            run_binding = run_id
+    if run_binding != str(run_id).strip():
+        return {"valid": False, "reason": "approval artifact run_id mismatch"}
+    return verified
