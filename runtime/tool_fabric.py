@@ -1,4 +1,5 @@
 from __future__ import annotations
+# pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false
 
 import json
 import os
