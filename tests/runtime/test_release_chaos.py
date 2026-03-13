@@ -297,6 +297,20 @@ def test_transposition_pressure_under_load(tmp_path: Path) -> None:
         trace_id=trace_id,
     )
     assert Path(evidence_path).exists()
+    evidence_payload = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
+    freshness = evidence_payload.get("freshness", {})
+    fixture_inventory = evidence_payload.get("fixture_inventory", [])
+    trace = evidence_payload.get("trace", {})
+    assert isinstance(freshness, dict)
+    assert float(freshness.get("max_age_seconds", 0)) > 0
+    assert str(freshness.get("generated_at", "")).strip() != ""
+    assert isinstance(fixture_inventory, list)
+    assert "transposition_pressure_fixture.json" in fixture_inventory
+    assert "simple_c_major.json" in fixture_inventory
+    assert isinstance(trace, dict)
+    assert trace.get("trace_id") == trace_id
+    assert trace.get("gate") == "music-omr-daily"
+    assert trace.get("run_scope") == "release-run"
 
     replay = replay_chaos_pack(str(tmp_path), pack["path"])
     assert replay["reproduced"] is True

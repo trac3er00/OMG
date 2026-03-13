@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -1149,6 +1150,56 @@ def test_release_readiness_blocks_unwaived_high_risk_security(tmp_path: Path, mo
 
     assert readiness["status"] == "error"
     assert any("security_blocker_unwaived" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_stale_music_omr_daily_gate(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    stale_music_evidence_path = tmp_path / ".omg" / "evidence" / "music-omr-run-1.json"
+    stale_music_evidence = {
+        "schema": "MusicOMREvidence",
+        "schema_version": "2.0.0",
+        "run_id": "run-1",
+        "trace": {
+            "trace_id": "trace-stale-music-omr",
+            "gate": "music-omr-daily",
+            "run_scope": "release-run",
+        },
+        "fixture_inventory": ["simple_c_major.json", "transposition_pressure_fixture.json"],
+        "freshness": {
+            "generated_at": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
+            "max_age_seconds": 86400,
+        },
+        "results": {"pressure": {"deterministic": True}},
+    }
+    stale_music_evidence_path.write_text(json.dumps(stale_music_evidence, indent=2), encoding="utf-8")
+    stale_ts = (datetime.now(timezone.utc) - timedelta(days=2)).timestamp()
+    os.utime(stale_music_evidence_path, (stale_ts, stale_ts))
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any(
+        "stale_execution_primitive: music_omr_testbed_evidence" in blocker
+        for blocker in readiness["blockers"]
+    )
 
 
 def test_release_readiness_blocks_prose_only_proof_claims(tmp_path: Path, monkeypatch) -> None:

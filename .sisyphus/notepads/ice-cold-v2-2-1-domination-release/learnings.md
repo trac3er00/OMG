@@ -80,3 +80,9 @@
 - Hardened release-readiness execution primitive checks to fail closed on stale evidence, run_id mismatches, and excluded-failures lists without a signed waiver artifact.
 - Enforced strict verification state semantics (`schema_version==2`, valid status, optional run_id match) and fixed proof-chain publishing to record background state under evidence `run_id`.
 - Aligned workflow gates so compat/readiness block publish for the same release surface, while plugin diagnostics remain advisory.
+
+## [2026-03-13] Task 9: Music OMR Daily Gate
+- Promoted Music OMR evidence to schema v2 with explicit `freshness`, `fixture_inventory`, and `trace` metadata while preserving deterministic fixture-first behavior.
+- Bound Music OMR evidence to release run scope by resolving/validating `run_id` and encoding `trace.gate=music-omr-daily` for permanent gate semantics.
+- Hardened `forge-vision`, `health-flow`, and new `team-flow` profiles to inherit full readiness requirements, then layer domain-specific controls.
+- Added readiness regression coverage proving stale Music OMR daily-gate evidence blocks release progression and updated CI workflow to emit/check fresh daily Music OMR artifacts.
