@@ -25,6 +25,7 @@ from runtime.proof_chain import _normalize_evidence_pack
 from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
+from runtime.release_run_coordinator import get_active_coordinator_run_id
 from runtime.release_surfaces import get_runtime_behavior_surfaces
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
@@ -2442,6 +2443,7 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
     }
     resolved_profile = (evidence_profile or "").strip()
     required_evidence_requirements = requirements_for_profile(resolved_profile)
+    active_run_id = get_active_coordinator_run_id(str(output_root)) or ""
 
     latest = _latest_evidence_pack(output_root)
     if latest is None:
@@ -2494,6 +2496,9 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
     if not run_id:
         invalid.append("run_id_unresolved")
         blockers.append("invalid_execution_primitive: run_id_unresolved")
+    if active_run_id and run_id and run_id != active_run_id:
+        invalid.append("run_id_cross_run")
+        blockers.append("execution_primitive:cross_run")
 
     evidence_metadata_missing = _missing_context_metadata(evidence_payload)
     if evidence_metadata_missing:

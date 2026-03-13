@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -1687,6 +1688,22 @@ def test_execution_primitives_missing_profile_fails_closed_to_full_requirements(
 
     assert result["required_evidence_requirements"] == requirements_for_profile(None)
     assert any(item.startswith("missing_execution_primitive:") for item in result["blockers"])
+
+
+def test_execution_primitives_blocks_cross_run_evidence_pack(tmp_path: Path) -> None:
+    stale_run_id = "stale-run-456"
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    evidence_path = tmp_path / ".omg" / "evidence" / "run-1.json"
+    evidence_payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    evidence_payload["run_id"] = stale_run_id
+    evidence_payload["context_checksum"] = f"ctx-{stale_run_id}"
+    evidence_path.write_text(json.dumps(evidence_payload), encoding="utf-8")
+    _write_execution_primitives(tmp_path, run_id=stale_run_id)
+
+    with patch("runtime.contract_compiler.get_active_coordinator_run_id", return_value="active-run-123"):
+        result = contract_compiler_module._check_execution_primitives(output_root=tmp_path)
+
+    assert "execution_primitive:cross_run" in result["blockers"]
 
 
 def test_release_readiness_blocks_stale_exec_kernel_evidence(tmp_path: Path, monkeypatch) -> None:

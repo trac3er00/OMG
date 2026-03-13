@@ -86,3 +86,15 @@
 - Bound Music OMR evidence to release run scope by resolving/validating `run_id` and encoding `trace.gate=music-omr-daily` for permanent gate semantics.
 - Hardened `forge-vision`, `health-flow`, and new `team-flow` profiles to inherit full readiness requirements, then layer domain-specific controls.
 - Added readiness regression coverage proving stale Music OMR daily-gate evidence blocks release progression and updated CI workflow to emit/check fresh daily Music OMR artifacts.
+
+## [2026-03-13] Task F4: Scope Fidelity Check
+- `HEAD~9..HEAD` scope scan shows no competitor imports and no container-support promise; container language remains explicitly deferred/unsupported.
+- `scripts/omg.py` adds `cmd_team` as an alias to `cmd_teams` plus parser aliasing, not a distinct orchestration mode.
+- Release gating hardening remains run-scoped in `runtime/contract_compiler.py` via `run_id_unresolved`, cross-run primitive blockers, and stale primitive blockers.
+- Host surface claims remain bounded: canonical parity hosts are release-blocking while OpenCode stays compatibility-only/non-blocking.
+
+
+## [2026-03-13] Task F1: Host Parity Run Scope
+- `_check_host_semantic_parity` now accepts `release_run_id` and blocks cross-run report reuse with `host_parity_report:cross_run` when evidence run and report run differ.
+- `build_release_readiness` now passes run scope from `checks["evidence"]["run_id"]` into host semantic parity validation, preventing stale latest-file selection from satisfying release readiness.
+- Added regression test `test_semantic_parity_blocks_cross_run_report` to enforce run-scoped host parity acceptance.
