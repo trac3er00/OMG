@@ -40,6 +40,8 @@ _BUILTIN_FUNCS = frozenset({
     "hasattr", "sorted", "enumerate", "zip", "map", "filter", "min", "max",
 })
 _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
+_SKIP_DIR_SEGMENTS = frozenset({"build", "dist", "node_modules", ".git"})
+_TEST_DIR_NAMES = frozenset({"tests", "test", "__tests__"})
 
 
 def analyze_test_content(content, filename="test.py"):
@@ -271,6 +273,31 @@ def persist_metrics(project_dir, analysis):
         pass  # Crash isolation: never fail the hook
 
 
+def _is_test_file(rel_path):
+    """
+    Heuristic: is this path likely a test file (vs source module)?
+
+    Excludes build artifacts and source modules that happen to start with
+    ``test_`` but live outside test directories (e.g. ``runtime/test_intent_lock.py``).
+    """
+    parts = rel_path.replace("\\", "/").split("/")
+    # Skip build artifacts and vendored code
+    if any(seg in _SKIP_DIR_SEGMENTS for seg in parts[:-1]):
+        return False
+    basename = parts[-1].lower() if parts else ""
+    # Standard test file patterns (checked against basename)
+    if any(p in basename for p in (".test.", ".spec.", "_test.", ".tests.")):
+        return True
+    # __tests__ directory anywhere in path
+    if "__tests__" in rel_path:
+        return True
+    # test_ prefix: only match if file is in a test directory or at repo root
+    if basename.startswith("test_"):
+        parent_dirs = {p.lower() for p in parts[:-1]}
+        return not parent_dirs or bool(parent_dirs & _TEST_DIR_NAMES)
+    return False
+
+
 def check_test_quality(data, project_dir):
     """Core test-quality validation. Returns list of block-reason strings."""
     import subprocess
@@ -283,8 +310,7 @@ def check_test_quality(data, project_dir):
             capture_output=True, text=True, timeout=10, cwd=project_dir
         )
         for f in result.stdout.strip().split("\n"):
-            if f and any(p in f.lower() for p in
-                         [".test.", ".spec.", "_test.", "test_", "__tests__", ".tests."]):
+            if f and _is_test_file(f):
                 full = os.path.join(project_dir, f)
                 if os.path.exists(full):
                     test_files.append(full)
