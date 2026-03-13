@@ -8,6 +8,7 @@ from typing import Any
 
 from runtime.claim_judge import evaluate_claims_for_release
 from runtime.complexity_scorer import score_complexity
+from runtime.context_engine import ContextEngine
 from runtime.incident_replay import build_chaos_replay_pack, replay_chaos_pack
 from runtime.issue_surface import IssueSurface
 from runtime.music_omr_testbed import MusicOMRTestbed
@@ -44,6 +45,16 @@ def test_hello_without_subagents(tmp_path: Path) -> None:
     )
 
     assert (tmp_path / pack["path"]).exists()
+
+
+def test_hello_prompt_keeps_context_packet_bounded(tmp_path: Path) -> None:
+    packet = ContextEngine(str(tmp_path)).build_packet(run_id="chaos-hello-context-budget")
+
+    assert packet["packet_version"] == "v2"
+    assert packet["budget"]["max_chars"] == 1000
+    assert packet["budget"]["used_chars"] <= packet["budget"]["max_chars"]
+    assert len(packet["summary"]) <= packet["budget"]["max_chars"]
+    assert packet["provenance_only"] is False
 
 
 def test_bug_fix_read_first_flow(tmp_path: Path) -> None:
