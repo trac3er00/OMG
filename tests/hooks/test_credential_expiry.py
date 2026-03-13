@@ -10,6 +10,7 @@ Tests:
 7. get_rotation_schedule_days returns default 90
 8. check_expiry handles missing expires_at gracefully
 """
+# pyright: reportMissingImports=false
 from __future__ import annotations
 
 import io
@@ -249,3 +250,35 @@ class TestCheckExpiryNoExpiresAt:
         # Credentials without expires_at should not appear in expiry report
         assert isinstance(result, list)
         assert len(result) == 0
+
+
+class TestFailClosedCryptoBackend:
+    def test_encrypt_store_raises_when_cryptography_missing(self, monkeypatch):
+        import credential_store
+
+        original_import = __import__
+
+        def _deny_cryptography_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "cryptography.fernet":
+                raise ImportError("cryptography unavailable")
+            return original_import(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(credential_store, "_CRYPTO_BACKEND", None)
+        monkeypatch.setattr(credential_store, "_Fernet", None)
+        monkeypatch.setattr(credential_store, "_InvalidToken", None)
+
+        key = credential_store.derive_key(b"passphrase", b"0123456789abcdef")
+        with patch("builtins.__import__", side_effect=_deny_cryptography_import):
+            with pytest.raises(RuntimeError, match="Secure credential backend unavailable"):
+                credential_store.encrypt_store({"version": 1, "providers": {}}, key)
+
+    def test_get_active_key_returns_none_when_backend_unavailable(self):
+        from credential_store import get_active_key
+
+        d = _make_project_dir()
+        with patch.dict(os.environ, {
+            "OMG_CREDENTIAL_PASSPHRASE": "test-passphrase-secure",
+            "OMG_MULTI_CREDENTIAL_ENABLED": "1",
+        }):
+            with patch("credential_store.load_store", side_effect=RuntimeError("crypto missing")):
+                assert get_active_key("openai", project_dir=d) is None

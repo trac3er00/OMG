@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pyright: reportConstantRedefinition=false, reportMissingTypeArgument=false
 """OMG Multi-Credential Encrypted Store
 
 Fernet-based encrypted credential storage with PBKDF2HMAC key derivation.
@@ -17,27 +18,24 @@ import base64
 import gc
 import getpass
 import hashlib
-import hmac
 import json
 import os
 import sys
 from datetime import datetime, timezone
 from typing import Any
 
-# --- Ensure hooks dir is on sys.path for _common imports ---
 HOOKS_DIR = os.path.dirname(os.path.abspath(__file__))
-if HOOKS_DIR not in sys.path:
-    sys.path.insert(0, HOOKS_DIR)
+PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
-from _common import (
+from hooks._common import (
     atomic_json_write,
     get_feature_flag,
     get_project_dir,
     setup_crash_handler,
 )
 
-# Credential storage prefers Fernet, but standalone/no-vendor verification
-# still needs a local authenticated fallback when optional crypto wheels are absent.
 setup_crash_handler("credential_store", fail_closed=True)
 
 # --- Lazy-loaded cryptography imports ---
@@ -47,9 +45,11 @@ _CRYPTO_BACKEND: str | None = None
 
 
 def _ensure_crypto():
-    """Prefer cryptography, but allow a stdlib fallback in standalone mode."""
+    """Require cryptography/Fernet for credential-store encryption."""
     global _Fernet, _InvalidToken, _CRYPTO_BACKEND
     if _CRYPTO_BACKEND is not None:
+        if _CRYPTO_BACKEND != "fernet" or _Fernet is None or _InvalidToken is None:
+            raise RuntimeError("Secure credential backend unavailable: cryptography is required")
         return
     try:
         from cryptography.fernet import Fernet, InvalidToken
@@ -57,10 +57,11 @@ def _ensure_crypto():
         _Fernet = Fernet
         _InvalidToken = InvalidToken
         _CRYPTO_BACKEND = "fernet"
-    except ImportError:
+    except ImportError as exc:
         _Fernet = None
-        _InvalidToken = ValueError
-        _CRYPTO_BACKEND = "stdlib"
+        _InvalidToken = None
+        _CRYPTO_BACKEND = "unavailable"
+        raise RuntimeError("Secure credential backend unavailable: cryptography is required") from exc
 
 
 # --- Constants ---
@@ -73,57 +74,6 @@ MIN_PASSPHRASE_LEN = 8
 
 # Default empty store schema
 _EMPTY_STORE = {"version": 1, "providers": {}}
-_STDLIB_TOKEN_PREFIX = b"OMG1"
-
-
-def _raw_key(key: bytes) -> bytes:
-    return base64.urlsafe_b64decode(key)
-
-
-def _derive_keystream(secret: bytes, nonce: bytes, length: int) -> bytes:
-    chunks: list[bytes] = []
-    counter = 0
-    produced = 0
-    while produced < length:
-        block = hmac.new(secret, nonce + counter.to_bytes(4, "big"), hashlib.sha256).digest()
-        chunks.append(block)
-        produced += len(block)
-        counter += 1
-    return b"".join(chunks)[:length]
-
-
-def _encrypt_store_stdlib(payload: bytes, key: bytes) -> bytes:
-    secret = _raw_key(key)
-    nonce = os.urandom(16)
-    keystream = _derive_keystream(secret, nonce, len(payload))
-    ciphertext = bytes(left ^ right for left, right in zip(payload, keystream))
-    digest = hmac.new(secret, _STDLIB_TOKEN_PREFIX + nonce + ciphertext, hashlib.sha256).digest()
-    return base64.urlsafe_b64encode(_STDLIB_TOKEN_PREFIX + nonce + digest + ciphertext)
-
-
-def _decrypt_store_stdlib(token: bytes, key: bytes) -> dict | None:
-    try:
-        payload = base64.urlsafe_b64decode(token)
-    except Exception as exc:  # pragma: no cover - invalid base64 still handled as bad token
-        raise ValueError("Decryption failed: wrong passphrase or corrupted store") from exc
-
-    if not payload.startswith(_STDLIB_TOKEN_PREFIX):
-        return None
-    if len(payload) < len(_STDLIB_TOKEN_PREFIX) + 16 + 32:
-        raise ValueError("Decryption failed: wrong passphrase or corrupted store")
-
-    secret = _raw_key(key)
-    prefix_len = len(_STDLIB_TOKEN_PREFIX)
-    nonce = payload[prefix_len : prefix_len + 16]
-    digest = payload[prefix_len + 16 : prefix_len + 48]
-    ciphertext = payload[prefix_len + 48 :]
-    expected = hmac.new(secret, _STDLIB_TOKEN_PREFIX + nonce + ciphertext, hashlib.sha256).digest()
-    if not hmac.compare_digest(digest, expected):
-        raise ValueError("Decryption failed: wrong passphrase or corrupted store")
-
-    keystream = _derive_keystream(secret, nonce, len(ciphertext))
-    plaintext = bytes(left ^ right for left, right in zip(ciphertext, keystream))
-    return json.loads(plaintext.decode("utf-8"))
 
 
 # =============================================================================
@@ -151,7 +101,7 @@ def derive_key(passphrase: bytes, salt: bytes, kdf_config: dict | None = None) -
 
 
 def encrypt_store(data: dict, key: bytes) -> bytes:
-    """Encrypt credential store payload with Fernet or the stdlib fallback.
+    """Encrypt credential store payload with Fernet.
 
     Args:
         data: Credential store dict to encrypt
@@ -159,12 +109,15 @@ def encrypt_store(data: dict, key: bytes) -> bytes:
 
     Returns:
         Token bytes
+
+    Raises:
+        RuntimeError: If secure cryptography backend is unavailable
     """
     _ensure_crypto()
     payload = json.dumps(data, separators=(",", ":")).encode("utf-8")
-    if _CRYPTO_BACKEND == "fernet" and _Fernet is not None:
-        return _Fernet(key).encrypt(payload)
-    return _encrypt_store_stdlib(payload, key)
+    if _Fernet is None:
+        raise RuntimeError("Secure credential backend unavailable: cryptography is required")
+    return _Fernet(key).encrypt(payload)
 
 
 def decrypt_store(token: bytes, key: bytes) -> dict:
@@ -179,14 +132,11 @@ def decrypt_store(token: bytes, key: bytes) -> dict:
 
     Raises:
         ValueError: If passphrase is wrong or store contents are corrupted
+        RuntimeError: If secure cryptography backend is unavailable
     """
-    fallback = _decrypt_store_stdlib(token, key)
-    if fallback is not None:
-        return fallback
-
     _ensure_crypto()
-    if _CRYPTO_BACKEND != "fernet" or _Fernet is None or _InvalidToken is None:
-        raise ValueError("Decryption failed: wrong passphrase or corrupted store")
+    if _Fernet is None or _InvalidToken is None:
+        raise RuntimeError("Secure credential backend unavailable: cryptography is required")
 
     f = _Fernet(key)
     try:
@@ -618,7 +568,7 @@ def get_active_key(provider: str, project_dir: str | None = None) -> str | None:
 
     try:
         store = load_store(passphrase, project_dir)
-    except (ValueError, OSError):
+    except (ValueError, OSError, RuntimeError):
         return None
 
     providers = store.get("providers", {})
@@ -661,7 +611,7 @@ def advance_key(provider: str, project_dir: str | None = None) -> None:
 
     try:
         store = load_store(passphrase, project_dir)
-    except (ValueError, OSError):
+    except (ValueError, OSError, RuntimeError):
         return
 
     providers = store.get("providers", {})
@@ -688,7 +638,7 @@ def advance_key(provider: str, project_dir: str | None = None) -> None:
     # Failover only advances on error, not after success
     try:
         save_store(store, passphrase, project_dir)
-    except (ValueError, OSError):
+    except (ValueError, OSError, RuntimeError):
         pass  # Best-effort; don't crash the API call
 
 

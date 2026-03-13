@@ -96,3 +96,38 @@ def test_auto_select_tier_preflight_large_operation_is_tier3():
 
 def test_auto_select_tier_preflight_small_operation_degrades_to_tier2():
     assert _token_counter.auto_select_tier("preflight", "small") == 2
+
+
+def test_get_anthropic_api_key_runtime_error_falls_back_to_env(monkeypatch: pytest.MonkeyPatch):
+    """RuntimeError from credential store falls back to ANTHROPIC_API_KEY env var."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-fallback-key")
+
+    def _raise_runtime(*_args, **_kwargs):
+        raise RuntimeError("Secure credential backend unavailable: cryptography is required")
+
+    import types
+    fake_mod = types.ModuleType("credential_store")
+    fake_mod.get_active_key = _raise_runtime  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "credential_store", fake_mod)
+
+    result = _token_counter._get_anthropic_api_key()
+    assert result == "env-fallback-key"
+
+
+def test_get_anthropic_api_key_import_error_falls_back_to_env(monkeypatch: pytest.MonkeyPatch):
+    """ImportError from credential store falls back to ANTHROPIC_API_KEY env var."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-import-key")
+    monkeypatch.delitem(sys.modules, "credential_store", raising=False)
+
+    import importlib as _il
+    orig_import = _il.import_module
+
+    def _fail_import(name, *args, **kwargs):
+        if name == "credential_store":
+            raise ImportError("No module named 'credential_store'")
+        return orig_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(_il, "import_module", _fail_import)
+
+    result = _token_counter._get_anthropic_api_key()
+    assert result == "env-import-key"

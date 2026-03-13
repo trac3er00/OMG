@@ -2,8 +2,6 @@
 
 import base64
 import hashlib
-import hmac
-import json
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
@@ -26,9 +24,9 @@ def _key_id_from_private_key(private_key_b64: str) -> str:
     return hashlib.sha256(public_raw).hexdigest()[:16]
 
 
-def _legacy_statement(secret: str, digest: str) -> dict[str, Any]:
-    key_id = hashlib.sha256(secret.encode("utf-8")).hexdigest()[:16]
-    statement: dict[str, object] = {
+def _legacy_statement(digest: str) -> dict[str, Any]:
+    key_id = "legacy-key"
+    return {
         "_type": "https://in-toto.io/Statement/v1",
         "predicateType": "https://slsa.dev/provenance/v1",
         "subject": [{"name": "dist/public/pkg-legacy.whl", "digest": {"sha256": digest}}],
@@ -49,26 +47,12 @@ def _legacy_statement(secret: str, digest: str) -> dict[str, Any]:
             "mode": "local-offline",
         },
         "issued_at": "2026-03-10T00:00:00+00:00",
+        "signature": {
+            "alg": "hmac-sha256",
+            "keyid": key_id,
+            "value": base64.b64encode(b"legacy-hmac-signature").decode("ascii"),
+        },
     }
-    payload = {
-        "_type": statement.get("_type"),
-        "predicateType": statement.get("predicateType"),
-        "subject": statement.get("subject"),
-        "predicate": statement.get("predicate"),
-        "signer": statement.get("signer"),
-        "issued_at": statement.get("issued_at"),
-    }
-    signature = hmac.new(
-        secret.encode("utf-8"),
-        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8"),
-        hashlib.sha256,
-    ).digest()
-    statement["signature"] = {
-        "alg": "hmac-sha256",
-        "keyid": key_id,
-        "value": base64.b64encode(signature).decode("ascii"),
-    }
-    return statement
 
 
 def test_warn_and_run_unsigned_returns_ask():
@@ -174,12 +158,9 @@ def test_tampered_signature_is_blocked():
     assert result["trusted"] is False
 
 
-def test_legacy_hmac_fixture_verifies_via_bridge(monkeypatch):
+def test_legacy_hmac_fixture_is_rejected():
     digest = hashlib.sha256(b"pkg-legacy").hexdigest()
-    secret = "legacy-secret"
-    statement = _legacy_statement(secret=secret, digest=digest)
-    key_id = statement["signature"]["keyid"]
-    monkeypatch.setenv("OMG_LEGACY_HMAC_KEYS", json.dumps({key_id: secret}))
+    statement = _legacy_statement(digest=digest)
 
     result = verify_artifact(
         {
@@ -191,7 +172,8 @@ def test_legacy_hmac_fixture_verifies_via_bridge(monkeypatch):
             "static_scan": [],
         },
     )
-    assert result["action"] == "allow"
+    assert result["action"] == "block"
+    assert "unsupported signing algorithm" in result["reason"]
 
 
 def test_new_signing_path_never_emits_hmac_sha256():

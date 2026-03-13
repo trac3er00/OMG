@@ -145,7 +145,7 @@ def _get_anthropic_api_key() -> str | None:
         key = store_mod.get_active_key("anthropic")
         if key:
             return key
-    except Exception:
+    except (ImportError, RuntimeError, ValueError, OSError, AttributeError):
         pass
     return os.environ.get("ANTHROPIC_API_KEY")
 

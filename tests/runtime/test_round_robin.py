@@ -215,6 +215,15 @@ class TestGetActiveCredential:
         "OMG_ROUND_ROBIN_ENABLED": "1",
         "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
     }, clear=False)
+    @patch("credential_store.load_store", side_effect=RuntimeError("secure backend unavailable"))
+    def test_secure_backend_error_returns_none(self, mock_load):
+        result = get_active_credential("openai")
+        assert result is None
+
+    @patch.dict(os.environ, {
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
+    }, clear=False)
     @patch("credential_store.save_store")
     @patch("credential_store.load_store")
     def test_empty_store_returns_none(self, mock_load, mock_save):
@@ -235,6 +244,19 @@ class TestGetActiveCredential:
         mock_load.return_value = store
         result = get_active_credential("openai")
         assert result == "sk-test-key-0"
+
+    @patch.dict(os.environ, {
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
+    }, clear=False)
+    @patch("credential_store.save_store", side_effect=RuntimeError("secure backend unavailable"))
+    @patch("credential_store.load_store")
+    def test_save_store_runtime_error_still_returns_key(self, mock_load, mock_save):
+        """Returns key even when save_store raises RuntimeError (best-effort persist)."""
+        mock_load.return_value = _make_store("openai", num_keys=2, active_index=0)
+        result = get_active_credential("openai")
+        assert result == "sk-test-key-0"
+        mock_save.assert_called_once()
 
 
 # =============================================================================
@@ -302,6 +324,27 @@ class TestOnRateLimit:
     def test_store_error_returns_none(self, mock_load):
         """Returns None gracefully on store errors."""
         assert on_rate_limit("openai") is None
+
+    @patch.dict(os.environ, {
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
+    }, clear=False)
+    @patch("credential_store.load_store", side_effect=RuntimeError("secure backend unavailable"))
+    def test_secure_backend_error_returns_none(self, mock_load):
+        assert on_rate_limit("openai") is None
+
+    @patch.dict(os.environ, {
+        "OMG_ROUND_ROBIN_ENABLED": "1",
+        "OMG_CREDENTIAL_PASSPHRASE": "test-pass",
+    }, clear=False)
+    @patch("credential_store.save_store", side_effect=RuntimeError("secure backend unavailable"))
+    @patch("credential_store.load_store")
+    def test_save_store_runtime_error_still_returns_next_key(self, mock_load, mock_save):
+        """Returns next key even when save_store raises RuntimeError."""
+        mock_load.return_value = _make_store("openai", num_keys=3, active_index=0)
+        result = on_rate_limit("openai")
+        assert result == "sk-test-key-1"
+        mock_save.assert_called_once()
 
     @patch.dict(os.environ, {
         "OMG_ROUND_ROBIN_ENABLED": "1",
