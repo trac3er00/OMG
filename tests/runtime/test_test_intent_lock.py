@@ -258,6 +258,69 @@ def test_locked_contract_enforcement(
     assert expected_flag in result["flags"]
 
 
+@pytest.mark.parametrize(
+    "tamper_action, expected_flag",
+    [
+        pytest.param("delete", "locked_test_file_missing", id="test-file-deleted-after-lock"),
+        pytest.param("modify", "locked_test_file_changed", id="test-file-modified-after-lock"),
+    ],
+)
+def test_test_file_tampering_after_lock_blocks(
+    auth_project: Path,
+    monkeypatch,
+    tamper_action: str,
+    expected_flag: str,
+) -> None:
+    """User deletes or modifies a locked test file — system detects the breach."""
+    monkeypatch.chdir(auth_project)
+    lock = lock_intent(
+        ".",
+        {
+            "goal": "fix auth",
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+        },
+    )
+
+    test_file = auth_project / "tests" / "test_auth.py"
+    if tamper_action == "delete":
+        test_file.unlink()
+    else:
+        test_file.write_text("def test_login():\n    pass  # gutted\n", encoding="utf-8")
+
+    result = evaluate_test_delta(
+        {
+            "lock_id": lock["lock_id"],
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+            "old_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "new_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "override": {},
+        }
+    )
+
+    assert result["verdict"] == "fail"
+    assert expected_flag in result["flags"]
+
+
+def test_stale_lock_id_reference_blocks(tmp_path: Path) -> None:
+    """User references a lock_id that doesn't exist on disk — system fails closed."""
+    result = evaluate_test_delta(
+        {
+            "lock_id": "nonexistent-lock-id",
+            "tests": ["tests/test_auth.py::test_login"],
+            "touched_paths": ["app/auth.py"],
+            "old_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "new_tests": [{"name": "integration-auth", "kind": "integration", "assertions": 4}],
+            "override": {},
+        },
+        project_dir=tmp_path.as_posix(),
+    )
+
+    assert result["verdict"] == "fail"
+    assert "missing_lock_state" in result["flags"]
+
+
 # ---------------------------------------------------------------------------
 # verify_lock — system validates lock state against active run
 # ---------------------------------------------------------------------------
@@ -297,6 +360,28 @@ def test_verify_lock_outcomes(
     verdict = verify_lock(tmp_path.as_posix(), run_id=verify_run_id, lock_id=lock_id)
     assert verdict["status"] == expected_status
     assert verdict["reason"] == expected_reason
+
+
+def test_verify_lock_discovers_lock_by_run_id(tmp_path: Path) -> None:
+    """User calls verify_lock with just run_id — system auto-discovers the matching lock."""
+    lock = lock_intent(
+        tmp_path.as_posix(),
+        {"goal": "fix auth", "run_id": "run-auto", "tests": ["tests/test_auth.py::test_login"]},
+    )
+
+    verdict = verify_lock(tmp_path.as_posix(), run_id="run-auto")
+
+    assert verdict["status"] == "ok"
+    assert verdict["run_id"] == "run-auto"
+    assert verdict["lock_id"] == lock["lock_id"]
+
+
+def test_verify_lock_with_no_identifiers_reports_missing(tmp_path: Path) -> None:
+    """User calls verify_lock with neither run_id nor lock_id — system reports missing."""
+    verdict = verify_lock(tmp_path.as_posix(), run_id=None)
+
+    assert verdict["status"] == "missing_lock"
+    assert verdict["run_id"] is None
 
 
 # ---------------------------------------------------------------------------
