@@ -1,0 +1,10 @@
+[Task 7 Host Parity Regression Evidence]
+Date: 2026-03-13
+
+Command:
+python3 -m pytest tests/runtime/test_host_parity.py -q -k regression_is_reported_as_drift
+
+Exit status: 0
+Result summary:
+- 1 passed
+- regression drift check remained release-blocking

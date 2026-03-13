@@ -1,0 +1,20 @@
+[Task 7 Host Parity Evidence]
+Date: 2026-03-13
+
+Command:
+python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public --output-root artifacts/public
+
+Exit status: 0
+Result summary:
+- schema: OmgContractCompileResult
+- status: ok
+- channel: public
+- hosts: claude,codex,gemini,kimi
+- manifest: dist/public/manifest.json
+
+Command:
+python3 -m pytest tests/runtime/test_host_parity.py -q
+
+Exit status: 0
+Result summary:
+- 6 passed

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from runtime import equalizer
+from runtime.contract_compiler import _check_host_semantic_parity
 from runtime.host_parity import check_parity, emit_parity_report, normalize_output
 
 
@@ -37,7 +39,7 @@ def test_canonical_hosts_produce_equivalent_normalized_outcomes() -> None:
     assert result.drift_details == []
 
 
-def test_host_specific_regression_is_reported_as_drift() -> None:
+def test_regression_is_reported_as_drift() -> None:
     outputs = {
         "claude": {"output": '{"status":"ok","result":"pass"}', "exit_code": 0},
         "codex": {"output": '{"status":"ok","result":"pass"}', "exit_code": 0},
@@ -50,6 +52,13 @@ def test_host_specific_regression_is_reported_as_drift() -> None:
     assert result.passed is False
     assert result.drift_detected is True
     assert any("kimi" in detail for detail in result.drift_details)
+
+
+def test_semantic_parity_report_is_required_for_canonical_hosts(tmp_path: Path) -> None:
+    result = _check_host_semantic_parity(tmp_path, {"claude", "codex", "gemini", "kimi"})
+
+    assert result["status"] == "error"
+    assert result["blockers"] == ["host_semantic_parity: missing host parity report"]
 
 
 def test_gemini_text_output_normalizes_to_structured_form() -> None:

@@ -16,6 +16,7 @@ from typing import Any
 from hooks.policy_engine import evaluate_bash_command
 from lab.pipeline import run_pipeline
 from runtime.adoption import CANONICAL_VERSION
+from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
 from runtime.dispatcher import dispatch_runtime
 from runtime.plugin_diagnostics import run_plugin_diagnostics
 from runtime.security_check import run_security_check
@@ -330,11 +331,19 @@ def get_compat_skill_contract(skill: str) -> dict[str, Any] | None:
 
 
 def build_contract_snapshot_payload(*, include_generated_at: bool = True) -> dict[str, Any]:
+    canonical_hosts = get_canonical_hosts()
+    compat_hosts = get_compat_hosts()
     payload: dict[str, Any] = {
         "schema": CONTRACT_SNAPSHOT_SCHEMA,
         "contract_version": CONTRACT_SNAPSHOT_VERSION,
         "count": len(LEGACY_SKILL_CONTRACTS),
         "contracts": list_compat_skill_contracts(),
+        "host_surfaces": {
+            "canonical_parity_hosts": canonical_hosts,
+            "release_blocking_hosts": canonical_hosts,
+            "compatibility_only_hosts": compat_hosts,
+            "release_non_blocking_hosts": compat_hosts,
+        },
     }
     if include_generated_at:
         payload["generated_at"] = _now()

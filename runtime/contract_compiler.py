@@ -40,6 +40,7 @@ CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
 SCHEMA_PATH = Path("registry") / "omg-capability.schema.json"
 BUNDLES_DIR = Path("registry") / "bundles"
 SUPPORTED_HOSTS = tuple(get_canonical_hosts())
+RELEASE_BLOCKING_HOSTS = tuple(get_canonical_hosts())
 SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
@@ -1864,16 +1865,22 @@ def _check_host_semantic_parity(
     evidence_dir = output_root / ".omg" / "evidence"
     parity_files = sorted(evidence_dir.glob("host-parity-*.json")) if evidence_dir.exists() else []
     report_path = parity_files[-1] if parity_files else None
-    require_report = os.environ.get("OMG_REQUIRE_HOST_PARITY_REPORT", "").strip().lower() in {
+    require_report_env = os.environ.get("OMG_REQUIRE_HOST_PARITY_REPORT", "").strip().lower() in {
         "1",
         "true",
         "yes",
         "on",
     }
+    canonical_required_hosts = {
+        host
+        for host in required_hosts
+        if host in RELEASE_BLOCKING_HOSTS
+    }
+    require_report = require_report_env or bool(canonical_required_hosts)
 
     if report_path is None:
         return {
-            "status": "missing",
+            "status": "error" if require_report else "missing",
             "report": None,
             "blockers": ["host_semantic_parity: missing host parity report"] if require_report else [],
         }
@@ -1968,7 +1975,7 @@ def build_release_readiness(
     output = _resolve_output_root(root, output_root)
     blockers: list[str] = []
     checks: dict[str, Any] = {}
-    required_provider_hosts: set[str] = set()
+    required_provider_hosts: set[str] = set(RELEASE_BLOCKING_HOSTS)
 
     validation = validate_contract_registry(root)
     checks["contract_validation"] = validation
@@ -1996,9 +2003,14 @@ def build_release_readiness(
             if _sha256_file(artifact_path) != expected_sha:
                 manifest_errors.append(f"{required_channel}: sha mismatch for {rel_path}")
         manifest_paths = {str(a.get("path", "")) for a in manifest.get("artifacts", []) if isinstance(a, dict)}
-        declared_hosts = [str(host) for host in manifest.get("hosts", []) if str(host).strip()]
+        declared_hosts = [str(host).strip().lower() for host in manifest.get("hosts", []) if str(host).strip()]
         if not declared_hosts:
             declared_hosts = get_canonical_hosts()
+        missing_canonical_hosts = sorted(host for host in RELEASE_BLOCKING_HOSTS if host not in declared_hosts)
+        if missing_canonical_hosts:
+            manifest_errors.append(
+                f"{required_channel}: canonical_host_compile_parity_missing {missing_canonical_hosts}"
+            )
         required_provider_hosts.update(declared_hosts)
         for host_name in declared_hosts:
             for host_path in HOST_COMPILED_ARTIFACTS.get(host_name, ()):

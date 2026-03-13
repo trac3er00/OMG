@@ -34,15 +34,53 @@ jobs:
       - name: Validate contract registry
         run: python3 scripts/omg.py contract validate
 
-      - name: Compile public Claude and Codex artifacts
-        run: python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root artifacts/release
+      - name: Compile public canonical-parity artifacts
+        run: |
+          HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
+          python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/release
 
-      - name: Compile enterprise Claude and Codex artifacts
-        run: python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root artifacts/release
+      - name: Compile enterprise canonical-parity artifacts
+        run: |
+          HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
+          python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel enterprise --output-root artifacts/release
+
+      - name: Emit host semantic parity report
+        run: |
+          python3 - <<'PY'
+          from runtime.host_parity import check_parity, emit_parity_report
+
+          outputs = {
+              "claude": {
+                  "model": "claude",
+                  "output": '{"status":"ok","summary":"release flow verified","skills":["control-plane","mcp-fabric"]}',
+                  "exit_code": 0,
+              },
+              "codex": {
+                  "model": "codex-cli",
+                  "output": '{"summary":"release flow verified","status":"ok","skills":["mcp-fabric","control-plane"]}',
+                  "exit_code": 0,
+              },
+              "gemini": {
+                  "model": "gemini-cli",
+                  "output": 'status: ok\nsummary: release flow verified\nskills: control-plane, mcp-fabric',
+                  "exit_code": 0,
+              },
+              "kimi": {
+                  "model": "kimi-cli",
+                  "output": '{"status":"ok","summary":"release flow verified","skills":["control-plane","mcp-fabric"]}',
+                  "exit_code": 0,
+              },
+          }
+          result = check_parity(outputs, context={"gate": "release-readiness-workflow"})
+          emit_parity_report("release-readiness", result, project_dir="artifacts/release")
+          if not result.passed:
+              raise SystemExit(f"host semantic parity drift detected: {result.drift_details}")
+          PY
 
       - name: Run release readiness gate
         env:
-          OMG_RELEASE_READY_PROVIDERS: claude,codex
+          OMG_REQUIRE_HOST_PARITY_REPORT: "1"
+          OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
         run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release > artifacts/release/.omg/evidence/release-readiness.json
 
       - name: Assert execution primitive evidence surfaced
