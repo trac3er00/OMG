@@ -7,7 +7,7 @@ from runtime.mutation_gate import check_mutation_allowed
 
 
 def test_mutation_gate_blocks_without_lock_in_strict_mode(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Write",
         file_path="src/app.py",
@@ -56,7 +56,7 @@ def test_mutation_gate_does_not_block_read_only_tools(tmp_path) -> None:
     assert result["status"] == "allowed"
 
 
-def test_mutation_gate_warns_without_lock_when_not_strict(tmp_path, monkeypatch) -> None:
+def test_mutation_gate_blocks_without_lock_by_default(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Write",
@@ -64,12 +64,12 @@ def test_mutation_gate_warns_without_lock_when_not_strict(tmp_path, monkeypatch)
         project_dir=str(tmp_path),
         lock_id=None,
     )
-    assert result["status"] == "allowed"
+    assert result["status"] == "blocked"
     assert result["reason"] == "no_active_test_intent_lock"
 
 
 def test_mutation_gate_writes_block_artifact(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     file_path = "src/app.py"
     result = check_mutation_allowed(
         tool="MultiEdit",
@@ -92,7 +92,7 @@ def test_mutation_gate_writes_block_artifact(tmp_path, monkeypatch) -> None:
 
 
 def test_mutation_gate_blocks_mutating_bash_without_lock_in_strict_mode(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Bash",
         file_path=".",
@@ -106,7 +106,7 @@ def test_mutation_gate_blocks_mutating_bash_without_lock_in_strict_mode(tmp_path
 
 
 def test_mutation_gate_allows_read_only_bash_without_lock(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Bash",
         file_path=".",
@@ -119,7 +119,7 @@ def test_mutation_gate_allows_read_only_bash_without_lock(tmp_path, monkeypatch)
 
 
 def test_mutation_gate_allows_read_only_bash_with_discard_redirection(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Bash",
         file_path=".",
@@ -132,7 +132,7 @@ def test_mutation_gate_allows_read_only_bash_with_discard_redirection(tmp_path, 
 
 
 def test_mutation_gate_allows_read_only_bash_with_fd_duplication(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Bash",
         file_path=".",
@@ -145,7 +145,7 @@ def test_mutation_gate_allows_read_only_bash_with_fd_duplication(tmp_path, monke
 
 
 def test_mutation_gate_still_blocks_real_file_redirection(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Bash",
         file_path=".",
@@ -158,7 +158,7 @@ def test_mutation_gate_still_blocks_real_file_redirection(tmp_path, monkeypatch)
 
 
 def test_mutation_gate_allows_explicit_exempt_metadata(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Write",
         file_path="src/app.py",
@@ -170,7 +170,7 @@ def test_mutation_gate_allows_explicit_exempt_metadata(tmp_path, monkeypatch) ->
 
 
 def test_mutation_gate_demotes_exempt_without_reason(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Write",
         file_path="src/app.py",
@@ -182,7 +182,7 @@ def test_mutation_gate_demotes_exempt_without_reason(tmp_path, monkeypatch) -> N
 
 
 def test_mutation_gate_exempt_with_exemption_category(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("OMG_TDD_GATE_STRICT", "1")
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     result = check_mutation_allowed(
         tool="Write",
         file_path="docs/readme.md",
@@ -194,7 +194,7 @@ def test_mutation_gate_exempt_with_exemption_category(tmp_path, monkeypatch) -> 
     assert result["status"] == "exempt"
 
 
-def test_mutation_gate_writes_warning_artifact(tmp_path, monkeypatch) -> None:
+def test_mutation_gate_writes_block_artifact_by_default(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
     file_path = "src/warn_target.py"
     result = check_mutation_allowed(
@@ -203,14 +203,14 @@ def test_mutation_gate_writes_warning_artifact(tmp_path, monkeypatch) -> None:
         project_dir=str(tmp_path),
         lock_id=None,
     )
-    assert result["status"] == "allowed"
+    assert result["status"] == "blocked"
 
     path_hash = sha256(file_path.encode("utf-8")).hexdigest()[:8]
-    artifact_path = tmp_path / ".omg" / "state" / "mutation_gate" / f"warn-{path_hash}.json"
+    artifact_path = tmp_path / ".omg" / "state" / "mutation_gate" / f"{path_hash}.json"
     assert artifact_path.is_file()
 
     payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    assert payload["status"] == "warning"
+    assert payload["status"] == "blocked"
     assert payload["tool"] == "Write"
     assert payload["file_path"] == file_path
     assert isinstance(payload.get("reason"), str)

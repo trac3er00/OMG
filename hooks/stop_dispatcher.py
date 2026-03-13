@@ -636,7 +636,7 @@ def check_bare_done(data, project_dir):
 
 
 def _proof_chain_strict_enabled() -> bool:
-    return os.environ.get("OMG_PROOF_CHAIN_STRICT", "0").strip() == "1"
+    return os.environ.get("OMG_PROOF_CHAIN_STRICT", "1").strip() != "0"
 
 
 def _load_test_delta_from_evidence(project_dir: str, run_id: str | None) -> dict[str, object]:
@@ -728,7 +728,7 @@ def check_tdd_proof_chain(data, project_dir):
     advisories = data.setdefault("_stop_advisories", [])
     advisories.append(
         "[OMG advisory] tdd proof chain incomplete: active lock evidence or waiver artifact is missing. "
-        "Set OMG_PROOF_CHAIN_STRICT=1 to hard-block completion."
+        "Production default is fail-closed; OMG_PROOF_CHAIN_STRICT=0 downgrades to advisory."
     )
     return []
 
