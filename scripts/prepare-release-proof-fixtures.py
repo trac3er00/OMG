@@ -440,7 +440,7 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "schema": "HostParityReport",
             "run_id": run_id,
             "timestamp": "2026-03-07T00:00:00Z",
-            "canonical_hosts": ["claude", "codex"],
+            "canonical_hosts": ["claude", "codex", "gemini", "kimi"],
             "parity_results": {
                 "passed": True,
                 "drift_detected": False,
@@ -448,6 +448,8 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
                 "host_results": {
                     "claude": {"present": True, "passed": True, "reason": "baseline"},
                     "codex": {"present": True, "passed": True, "reason": "structured-equivalent"},
+                    "gemini": {"present": True, "passed": True, "reason": "structured-equivalent"},
+                    "kimi": {"present": True, "passed": True, "reason": "structured-equivalent"},
                 }
             },
             "overall_status": "ok",
