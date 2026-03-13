@@ -48,7 +48,7 @@ def check_mutation_allowed(
     normalized_command = str(command or "").strip()
     metadata_obj = metadata if isinstance(metadata, dict) else {}
     explicit_exempt = bool(metadata_obj.get("exempt") is True)
-    strict_mode = os.environ.get("OMG_TDD_GATE_STRICT", "0").strip() == "1"
+    strict_mode = os.environ.get("OMG_TDD_GATE_STRICT", "1").strip() != "0"
 
     if explicit_exempt and (normalized_exemption in _EXEMPTIONS or metadata_obj.get("exempt_reason")):
         return {
