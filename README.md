@@ -71,7 +71,7 @@ graph TD
 
 - Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
 - Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
-- Multi-host support: Claude Code and Codex (canonical), Gemini CLI, Kimi CLI, and OpenCode (compatibility providers).
+- Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI are canonical behavior-parity hosts; OpenCode is compatibility-only.
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
 - Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.
@@ -84,7 +84,7 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 - Executable registry: `registry/omg-capability.schema.json` and `registry/bundles/*.yaml`
 - Generated Codex pack: `.agents/skills/omg/`
 - Validation: `python3 scripts/omg.py contract validate`
-- Compilation: `python3 scripts/omg.py contract compile --host claude --host codex --channel public`
+- Compilation: `python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public`
 - Release gate: `python3 scripts/omg.py release readiness --channel dual`
 
 ![OMG HUD](docs/assets/omg-hud.svg)
@@ -166,6 +166,12 @@ Compatibility references to OMC, OMX, and Superpowers are documented here: [docs
 Current local verification for this release: See `.omg/evidence/` for machine-generated verification artifacts.
 
 - Truth bundles: `claim-judge`, `test-intent-lock`, `proof-gate`
+- Execution Kernel: `exec-kernel` facade with `worker-watchdog` stall detection and `merge-writer` provenance
+- Governed Tool Fabric: Lane-based tool governance with signed approval and ledgering
+- Budget Envelopes: Multi-dimensional resource tracking (CPU, memory, wall time, tokens, network)
+- Issue Surface: Active red-team and diagnostic surface via `/OMG:issue`
+- Host Parity: Semantic host parity normalization across canonical providers
+- Music OMR: Flagship testbed for OMR and live transposition
 - Evidence profiles: `browser-flow`, `forge-cybersecurity`, `interop-diagnosis`, `install-validation`, `buffet`
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)

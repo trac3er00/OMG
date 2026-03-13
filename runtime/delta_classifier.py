@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+from runtime.canonical_surface import RELEASE_SURFACE_LABELS
+
 
 _CATEGORY_RULES: dict[str, tuple[str, ...]] = {
     "auth": ("auth", "token", "secret", "login", "credential"),
@@ -65,6 +67,8 @@ _FORGE_TOKENS: tuple[str, ...] = (
     "lab job",
 )
 
+_EVIDENCE_PROFILES = RELEASE_SURFACE_LABELS["evidence_profiles"]
+
 
 def classify_project_changes(
     project_dir: str,
@@ -102,20 +106,20 @@ def _classify_evidence_profile(*, goal: str, touched_files: list[str], categorie
     lowered_files = [path.lower() for path in touched_files]
 
     if _contains_any(lowered_goal, _RELEASE_TOKENS) or any(_contains_any(path, _RELEASE_TOKENS) for path in lowered_files):
-        return "release"
+        return _EVIDENCE_PROFILES["release"]
 
     if _contains_any(lowered_goal, _FORGE_TOKENS) or any(_contains_any(path, _FORGE_TOKENS) for path in lowered_files):
-        return "forge-run"
+        return _EVIDENCE_PROFILES["forge_run"]
 
     if set(categories) & set(_SECURITY_CATEGORY_HINTS):
-        return "security-audit"
+        return _EVIDENCE_PROFILES["security_audit"]
     if _contains_any(lowered_goal, _SECURITY_TOKENS) or any(_contains_any(path, _SECURITY_TOKENS) for path in lowered_files):
-        return "security-audit"
+        return _EVIDENCE_PROFILES["security_audit"]
 
     if lowered_files and all(_is_docs_file(path) for path in lowered_files):
-        return "docs-only"
+        return _EVIDENCE_PROFILES["docs_only"]
 
-    return "code-change"
+    return _EVIDENCE_PROFILES["code_change"]
 
 
 def _is_docs_file(path: str) -> bool:

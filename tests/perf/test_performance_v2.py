@@ -12,7 +12,9 @@ Mocks all subprocess/HTTP calls — no real external I/O.
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 import sys
 import time
 from unittest.mock import patch
@@ -191,6 +193,7 @@ BUDGET_STOP_MS = 15000      # Stop hooks per check
 BUDGET_TOOLCHAIN_MS = 50    # Toolchain availability check
 BUDGET_GRAPH_MS = 5000      # Graph builder
 BUDGET_SECRET_SCAN_MS = 500  # Secret path scanning (10k paths)
+BUDGET_CHAOS_FIXTURE_MS = 100
 
 
 # ===========================================================================
@@ -443,4 +446,27 @@ class TestNativeParserPerformance:
         assert result is False
         assert elapsed_ms < BUDGET_TOOLCHAIN_MS, (
             f"is_toolchain_available(missing) took {elapsed_ms:.1f}ms > {BUDGET_TOOLCHAIN_MS}ms budget"
+        )
+
+
+class TestChaosFixturePerformance:
+    def test_chaos_fixture_load_20x(self) -> None:
+        fixture = (
+            Path(_PROJECT_ROOT)
+            / "tests"
+            / "runtime"
+            / "fixtures"
+            / "chaos"
+            / "worker_stall_fixture.json"
+        )
+        assert fixture.exists(), "chaos fixture must exist"
+
+        start = time.perf_counter()
+        for _ in range(20):
+            payload = json.loads(fixture.read_text(encoding="utf-8"))
+            assert payload.get("fixture_id") == "worker_stall_fixture"
+        elapsed_ms = (time.perf_counter() - start) * 1000
+
+        assert elapsed_ms < BUDGET_CHAOS_FIXTURE_MS, (
+            f"chaos fixture load(20x) took {elapsed_ms:.1f}ms > {BUDGET_CHAOS_FIXTURE_MS}ms budget"
         )

@@ -53,7 +53,18 @@ entry = {
     "ts": datetime.now(timezone.utc).isoformat(),
     "pid": os.getpid(),
     "tool": tool_name,
+    "surface_tags": [],
 }
+
+if isinstance(tool_input, dict):
+    lane_name = tool_input.get("lane_name", tool_input.get("lane"))
+    if isinstance(lane_name, str) and lane_name.strip():
+        entry["lane"] = lane_name.strip().lower()
+        entry["surface_tags"].append("governed_tools")
+    governed_tool = tool_input.get("tool_name")
+    if isinstance(governed_tool, str) and governed_tool.strip() and governed_tool != tool_name:
+        entry["governed_tool"] = governed_tool.strip()
+        entry["surface_tags"].append("governed_tools")
 
 # Link ledger entries to OMG v1 run/evidence artifacts when available.
 run_id = os.environ.get("OMG_RUN_ID")
@@ -69,6 +80,7 @@ if run_id:
     entry["run_id"] = run_id
 
 if tool_name == "Bash":
+    entry["surface_tags"].append("hooks")
     entry["command"] = tool_input.get("command", "")[:500]
     if isinstance(tool_response, dict):
         entry["exit_code"] = tool_response.get("exitCode", tool_response.get("exit_code"))
@@ -107,6 +119,10 @@ if run_id:
     ev_path = os.path.join(project_dir, ".omg", "evidence", f"{run_id}.json")
     if os.path.exists(ev_path):
         entry["evidence_path"] = os.path.relpath(ev_path, project_dir)
+        entry["evidence_links"] = [entry["evidence_path"]]
+
+if not entry["surface_tags"]:
+    entry.pop("surface_tags", None)
 
 # ── Latency tracking: duration_ms ──
 # Prefer startTime/endTime from hook stdin (ISO8601), fall back to wall clock.

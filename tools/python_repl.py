@@ -18,7 +18,7 @@ import sys
 import traceback
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Union, cast
 
 
 # --- Lazy imports for hooks/_common.py ---
@@ -61,11 +61,11 @@ def _check_jupyter() -> bool:
     global _HAS_JUPYTER, _jupyter_client
     if _HAS_JUPYTER is None:
         try:
-            import jupyter_client as _jc
+            import jupyter_client as _jc  # pyright: ignore[reportMissingImports]
             _jupyter_client = _jc
-            _HAS_JUPYTER = True
+            _HAS_JUPYTER = True  # pyright: ignore[reportConstantRedefinition]
         except ImportError:
-            _HAS_JUPYTER = False
+            _HAS_JUPYTER = False  # pyright: ignore[reportConstantRedefinition]
     return _HAS_JUPYTER
 
 
@@ -112,7 +112,7 @@ def _get_helpers_flag() -> bool:
     return False
 
 
-def _build_prelude_namespace() -> dict:
+def _build_prelude_namespace() -> dict[str, Any]:
     """Build the prelude namespace with helper functions for REPL sessions.
 
     Returns a dict of helper functions injected into every session when
@@ -140,7 +140,7 @@ def _build_prelude_namespace() -> dict:
         except Exception:
             return False
 
-    def lines(path: str) -> list:
+    def lines(path: str) -> list[str]:
         """Read file lines as list. Returns empty list on error."""
         try:
             with open(path, "r") as f:
@@ -148,7 +148,7 @@ def _build_prelude_namespace() -> dict:
         except Exception:
             return []
 
-    def search_code(pattern: str, path: str = ".", ext=None) -> list:
+    def search_code(pattern: str, path: str = ".", ext: str | None = None) -> list[dict[str, Any]]:
         """Grep-like search across files. Returns list of {file, line, match} dicts."""
         results = []
         try:
@@ -173,7 +173,7 @@ def _build_prelude_namespace() -> dict:
             pass
         return results
 
-    def grep(pattern: str, text: str) -> list:
+    def grep(pattern: str, text: str) -> list[str]:
         """Regex grep on a string. Returns matching lines."""
         try:
             compiled = _re.compile(pattern)
@@ -181,7 +181,7 @@ def _build_prelude_namespace() -> dict:
         except Exception:
             return []
 
-    def insert_at(lines_list: list, index: int, new_line: str) -> list:
+    def insert_at(lines_list: list[str], index: int, new_line: str) -> list[str]:
         """Insert a line at index. Returns new list."""
         try:
             result = list(lines_list)
@@ -190,7 +190,7 @@ def _build_prelude_namespace() -> dict:
         except Exception:
             return list(lines_list)
 
-    def delete_lines(lines_list: list, start: int, end: int) -> list:
+    def delete_lines(lines_list: list[str], start: int, end: int) -> list[str]:
         """Delete lines from start to end (exclusive). Returns new list."""
         try:
             result = list(lines_list)
@@ -221,6 +221,24 @@ _STATE_DIR = ".omg/state/repl_sessions"
 def _now_iso() -> str:
     """Current UTC time as ISO-8601 string."""
     return datetime.now(timezone.utc).isoformat()
+
+
+def _exec_kernel_metadata() -> Dict[str, Any]:
+    try:
+        from runtime.exec_kernel import get_exec_kernel
+        from runtime.release_run_coordinator import resolve_current_run_id
+
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+        run_id = resolve_current_run_id(project_dir)
+        kernel = get_exec_kernel(project_dir)
+        return {
+            "run_id": run_id,
+            "enabled": kernel.enabled,
+            "attach_log": kernel.attach_log(run_id) if run_id else "",
+            "evidence_hooks": [".omg/evidence/subagents"],
+        }
+    except Exception:
+        return {"run_id": None, "enabled": False, "attach_log": "", "evidence_hooks": []}
 
 
 def _validate_session_id(session_id: str) -> str:
@@ -280,6 +298,8 @@ class _IPythonSession:
     """Wraps a jupyter_client kernel for code execution."""
 
     def __init__(self):
+        if _jupyter_client is None:
+            raise RuntimeError("jupyter_client unavailable")
         km, kc = _jupyter_client.manager.start_new_kernel(kernel_name="python3")
         self.kernel_manager = km
         self.kernel_client = kc
@@ -478,8 +498,10 @@ def start_repl_session(session_id: Optional[str] = None) -> Dict[str, Any]:
     # Inject prelude helpers if enabled
     if _get_helpers_flag():
         prelude = _build_prelude_namespace()
-        if hasattr(backend, "namespace"):
-            backend.namespace.update(prelude)
+        backend_any = backend
+        namespace_obj = getattr(backend_any, "namespace", None)
+        if isinstance(namespace_obj, dict):
+            namespace_obj.update(prelude)
     _persist_session(new_id)
 
     return _session_info(_sessions[new_id])
@@ -506,20 +528,23 @@ def execute_code(session_id: str, code_str: str) -> Dict[str, Any]:
     if _get_sandbox_flag():
         from tools.python_sandbox import execute_sandboxed
         session = _sessions[session_id]
-        backend = session.get("_backend")
-        ns = backend.namespace if hasattr(backend, "namespace") else None
+        backend_any = session.get("_backend")
+        namespace_obj = getattr(backend_any, "namespace", None)
+        ns = namespace_obj if isinstance(namespace_obj, dict) else None
         output = execute_sandboxed(code_str, namespace=ns)
         session["exec_count"] += 1
         session["last_used"] = _now_iso()
         output["exec_count"] = session["exec_count"]
+        output["exec_kernel"] = _exec_kernel_metadata()
         _persist_session(session_id)
         return output
 
     session = _sessions[session_id]
     backend = session["_backend"]
+    output: Dict[str, Any]
 
     try:
-        output = backend.execute(code_str)
+        output = cast(Dict[str, Any], backend.execute(code_str))
     except Exception as e:
         output = {
             "stdout": "",
@@ -531,6 +556,7 @@ def execute_code(session_id: str, code_str: str) -> Dict[str, Any]:
     session["exec_count"] += 1
     session["last_used"] = _now_iso()
     output["exec_count"] = session["exec_count"]
+    output["exec_kernel"] = _exec_kernel_metadata()
 
     _persist_session(session_id)
     return output

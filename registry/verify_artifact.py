@@ -461,3 +461,33 @@ def verify_artifact(artifact: dict[str, Any], mode: str = "warn_and_run") -> dic
         "controls": [],
         "trusted": True,
     }
+
+
+def verify_tool_attestation(
+    *,
+    lane_name: str,
+    tool_name: str,
+    artifact: dict[str, Any] | None,
+    mode: str = "warn_and_run",
+) -> dict[str, Any]:
+    if not isinstance(artifact, dict):
+        return {
+            "status": "blocked",
+            "reason": f"missing attestation artifact for lane={lane_name} tool={tool_name}",
+            "action": "deny",
+        }
+    decision = verify_artifact(artifact, mode=mode)
+    action = str(decision.get("action", "")).strip().lower()
+    if action == "allow":
+        return {
+            "status": "allowed",
+            "reason": str(decision.get("reason", "artifact verified")),
+            "action": action,
+            "artifact": decision,
+        }
+    return {
+        "status": "blocked",
+        "reason": str(decision.get("reason", "attestation verification failed")),
+        "action": action or "deny",
+        "artifact": decision,
+    }

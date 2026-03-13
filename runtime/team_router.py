@@ -36,6 +36,7 @@ except ImportError:
 from runtime.runtime_profile import resolve_parallel_workers
 from runtime.runtime_contracts import write_run_state
 from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
+from runtime.exec_kernel import get_exec_kernel
 from runtime.context_engine import ContextEngine
 from runtime.context_engine import render_profile_digest_text
 from runtime.defense_state import DefenseState
@@ -286,6 +287,10 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
         "clarification_status": clarification_status,
         "cli_health": cli_health,
         "live_connection": all(h.get("live_connection") for h in cli_health.values()) if cli_health else True,
+        "exec_kernel": {
+            "enabled": get_exec_kernel(_OMG_ROOT).enabled,
+            "run_id": resolve_coordinator_run_id(project_dir=_OMG_ROOT),
+        },
     }
 
     return TeamDispatchResult(status="ok", findings=findings, actions=actions, evidence=evidence)
@@ -739,6 +744,9 @@ def execute_crazy_mode(
     )
 
     run_id = resolve_coordinator_run_id(project_dir=project_dir)
+    kernel = get_exec_kernel(project_dir)
+    if run_id:
+        kernel.register_run(run_id, source="team_router.execute_crazy_mode", reason="crazy_mode")
     context_packet = _build_router_context_packet(
         project_dir=project_dir,
         run_id=run_id,
@@ -790,6 +798,11 @@ def execute_crazy_mode(
             f"Council status: {council_status}",
         ],
         "council_verdicts": council_verdicts,
+        "exec_kernel": {
+            "enabled": kernel.enabled,
+            "run_id": run_id,
+            "attach_log": kernel.attach_log(run_id) if run_id else "",
+        },
     }
 
 
@@ -853,6 +866,9 @@ def execute_ccg_mode(
     )
 
     run_id = resolve_coordinator_run_id(project_dir=project_dir)
+    kernel = get_exec_kernel(project_dir)
+    if run_id:
+        kernel.register_run(run_id, source="team_router.execute_ccg_mode", reason="ccg_mode")
     context_packet = _build_router_context_packet(
         project_dir=project_dir,
         run_id=run_id,
@@ -904,6 +920,11 @@ def execute_ccg_mode(
             f"Council status: {council_status}",
         ],
         "council_verdicts": council_verdicts,
+        "exec_kernel": {
+            "enabled": kernel.enabled,
+            "run_id": run_id,
+            "attach_log": kernel.attach_log(run_id) if run_id else "",
+        },
     }
 
 

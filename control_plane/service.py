@@ -24,6 +24,7 @@ from runtime.mutation_gate import check_mutation_allowed
 from runtime.runtime_contracts import read_run_state
 from runtime.security_check import run_security_check
 from runtime.test_intent_lock import lock_intent, verify_intent
+from runtime.tool_fabric import ToolFabric
 
 
 class ControlPlaneService:
@@ -347,6 +348,76 @@ class ControlPlaneService:
             metadata=metadata,
         )
         return 200, result
+
+    def tool_fabric_request(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        if not isinstance(payload, dict):
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_TOOL_FABRIC_INPUT",
+                "message": "payload must be an object",
+            }
+
+        lane_name = str(payload.get("lane_name", "")).strip()
+        tool_name = str(payload.get("tool_name", "")).strip()
+        run_id = str(payload.get("run_id", "")).strip()
+        context = payload.get("context")
+
+        if not lane_name:
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_TOOL_FABRIC_INPUT",
+                "message": "lane_name is required",
+            }
+        if not tool_name:
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_TOOL_FABRIC_INPUT",
+                "message": "tool_name is required",
+            }
+        if not run_id:
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_TOOL_FABRIC_INPUT",
+                "message": "run_id is required",
+            }
+        if context is not None and not isinstance(context, dict):
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_TOOL_FABRIC_INPUT",
+                "message": "context must be an object when provided",
+            }
+
+        fabric = ToolFabric(project_dir=self.project_dir)
+        bundle_map = {
+            "lsp-pack": "registry/bundles/lsp-pack.yaml",
+            "hash-edit": "registry/bundles/hash-edit.yaml",
+            "ast-pack": "registry/bundles/ast-pack.yaml",
+            "terminal-lane": "registry/bundles/terminal-lane.yaml",
+        }
+        for lane, bundle_path in bundle_map.items():
+            fabric.register_lane(lane, bundle_path)
+
+        try:
+            result = fabric.request_tool(
+                lane_name=lane_name,
+                tool_name=tool_name,
+                run_id=run_id,
+                context=context if isinstance(context, dict) else None,
+            )
+        except ValueError as exc:
+            return 400, {
+                "status": "error",
+                "error_code": "INVALID_TOOL_FABRIC_INPUT",
+                "message": str(exc),
+            }
+
+        payload_out = {
+            "status": "allowed" if result.allowed else "blocked",
+            "reason": result.reason,
+            "evidence_path": result.evidence_path,
+            "ledger_entry": result.ledger_entry,
+        }
+        return (200 if result.allowed else 403), payload_out
 
     def session_health(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         run_id = payload.get("run_id")

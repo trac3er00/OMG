@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from registry.approval_artifact import load_approval_artifact_from_path, verify_approval_artifact
-from registry.verify_artifact import verify_artifact
+from registry.verify_artifact import verify_artifact, verify_tool_attestation
 from runtime.claim_judge import evaluate_claims_for_release
 from runtime.runtime_contracts import read_run_state
 
@@ -159,6 +159,53 @@ def evaluate_release_compliance(
         "authority": "release",
         "reason": "compliance checks passed",
         **artifact_audit,
+    }
+
+
+def evaluate_governed_tool_request(
+    *,
+    project_dir: str,
+    run_id: str,
+    lane_name: str,
+    tool: str,
+    has_tool_plan: bool,
+    attestation_artifact: dict[str, object] | None,
+    require_attestation: bool,
+    clarification_status: dict[str, object] | None = None,
+) -> dict[str, object]:
+    plan_decision = evaluate_tool_compliance(
+        project_dir=project_dir,
+        run_id=run_id,
+        tool=tool,
+        has_tool_plan=has_tool_plan,
+        clarification_status=clarification_status,
+    )
+    if plan_decision.get("status") == "blocked":
+        return plan_decision
+
+    if not require_attestation:
+        return {
+            "status": "allowed",
+            "authority": "governed_tool",
+            "reason": "compliance checks passed without attestation requirement",
+        }
+
+    attestation_decision = verify_tool_attestation(
+        lane_name=lane_name,
+        tool_name=tool,
+        artifact=attestation_artifact,
+        mode="warn_and_run",
+    )
+    if attestation_decision.get("status") == "blocked":
+        return {
+            "status": "blocked",
+            "authority": "artifact",
+            "reason": str(attestation_decision.get("reason", "attestation required")),
+        }
+    return {
+        "status": "allowed",
+        "authority": "governed_tool",
+        "reason": "compliance checks passed",
     }
 
 

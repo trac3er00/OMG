@@ -216,8 +216,18 @@ def test_load_forge_mvp_includes_cybersecurity_specialist_contract() -> None:
 
     assert cybersecurity["labs_only"] is True
     assert cybersecurity["allowed_domains"] == ["cybersecurity"]
-    assert cybersecurity["evidence_profile"] == "forge-run"
+    assert cybersecurity["evidence_profile"] == "security-audit"
     assert cybersecurity["stage_alias"] == "regression_test"
+
+
+def test_load_forge_mvp_includes_domain_evidence_profiles() -> None:
+    contract = load_forge_mvp()
+    profiles = cast(dict[str, str], contract["domain_evidence_profiles"])
+
+    assert profiles["vision"] == "forge-vision"
+    assert profiles["health"] == "health-flow"
+    assert profiles["algorithms"] == "transposition-flow"
+    assert profiles["cybersecurity"] == "security-audit"
 
 
 def test_build_forge_evidence_includes_artifact_contracts(tmp_path: Path) -> None:

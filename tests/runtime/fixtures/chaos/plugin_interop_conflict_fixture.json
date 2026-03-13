@@ -1,0 +1,16 @@
+{
+  "schema": "ChaosFixture",
+  "fixture_id": "plugin_interop_conflict_fixture",
+  "run_id": "chaos-plugin-interop-001",
+  "diagnostics": {
+    "records": [],
+    "conflicts": [
+      {
+        "code": "mcp_name_collision",
+        "severity": "blocker",
+        "detail": "Deterministic chaos fixture: two plugins claim filesystem on claude.",
+        "next_action": "Keep one owner per host/MCP name and remove conflicting declaration."
+      }
+    ]
+  }
+}

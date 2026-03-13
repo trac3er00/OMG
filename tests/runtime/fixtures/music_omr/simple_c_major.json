@@ -1,0 +1,9 @@
+{
+  "score_id": "simple_c_major",
+  "title": "Simple C Major Scale",
+  "image_data": "base64_encoded_image_data_here",
+  "metadata": {
+    "composer": "Test Composer",
+    "tempo": 120
+  }
+}

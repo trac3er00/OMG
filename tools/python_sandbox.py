@@ -624,6 +624,24 @@ def _run_isolated_python(code: str, timeout_seconds: int) -> Dict[str, Any]:
     }
 
 
+def _exec_kernel_metadata() -> Dict[str, Any]:
+    try:
+        from runtime.exec_kernel import get_exec_kernel
+        from runtime.release_run_coordinator import resolve_current_run_id
+
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+        run_id = resolve_current_run_id(project_dir)
+        kernel = get_exec_kernel(project_dir)
+        return {
+            "run_id": run_id,
+            "enabled": kernel.enabled,
+            "attach_log": kernel.attach_log(run_id) if run_id else "",
+            "evidence_hooks": [".omg/evidence/subagents"],
+        }
+    except Exception:
+        return {"run_id": None, "enabled": False, "attach_log": "", "evidence_hooks": []}
+
+
 def execute_budgeted_run(
     *,
     trainer_code: str,
@@ -692,6 +710,7 @@ def execute_budgeted_run(
         },
         "trainer": trainer_result,
         "sidecar": sidecar_result,
+        "exec_kernel": _exec_kernel_metadata(),
     }
 
 

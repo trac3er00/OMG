@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -184,3 +185,24 @@ def load_approval_artifact_from_path(
         "reason": result["reason"],
         "approval": data if result["valid"] else None,
     }
+
+
+def build_tool_approval_digest(lane_name: str, tool_name: str, run_id: str) -> str:
+    payload = {
+        "lane": str(lane_name).strip().lower(),
+        "tool": str(tool_name).strip(),
+        "run_id": str(run_id).strip(),
+        "type": "omg-tool-fabric-approval-v1",
+    }
+    return hashlib.sha256(_canonical_json(payload)).hexdigest()
+
+
+def verify_tool_approval(
+    approval: ApprovalArtifact | dict[str, Any],
+    *,
+    lane_name: str,
+    tool_name: str,
+    run_id: str,
+) -> dict[str, Any]:
+    expected_digest = build_tool_approval_digest(lane_name=lane_name, tool_name=tool_name, run_id=run_id)
+    return verify_approval_artifact(approval, expected_artifact_digest=expected_digest)

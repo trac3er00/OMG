@@ -24,6 +24,7 @@ from runtime.proof_chain import _normalize_evidence_pack
 from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
+from runtime.release_surfaces import get_runtime_behavior_surfaces
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -31,13 +32,14 @@ from runtime.adoption import (
     CANONICAL_REPO_URL,
     CANONICAL_VERSION,
 )
+from runtime.canonical_surface import CANONICAL_PARITY_HOSTS, get_canonical_hosts
 from registry.verify_artifact import sign_artifact_statement
 
 
 CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
 SCHEMA_PATH = Path("registry") / "omg-capability.schema.json"
 BUNDLES_DIR = Path("registry") / "bundles"
-SUPPORTED_HOSTS = ("claude", "codex", "gemini", "kimi")
+SUPPORTED_HOSTS = tuple(get_canonical_hosts())
 SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
@@ -178,6 +180,14 @@ _REQUIRED_EXECUTION_PRIMITIVES = (
     "forge_starter_proof",
     "claim_judge_outcome",
     "compliance_governor_outcome",
+    "exec_kernel_state",
+    "worker_watchdog_replay",
+    "merge_writer_provenance",
+    "tool_fabric_ledger",
+    "budget_envelope_state",
+    "issue_report",
+    "host_parity_report",
+    "music_omr_testbed_evidence",
 )
 
 _PHASE1_FORGE_SPECIALIST_SURFACES = (
@@ -207,6 +217,8 @@ _PHASE1_RELEASE_READINESS_CHECKS = (
     "compliance_governor",
     "execution_primitives",
 )
+
+_PHASE1_RUNTIME_BEHAVIOR_SURFACES = tuple(get_runtime_behavior_surfaces())
 
 _REQUIRED_CONTEXT_METADATA = (
     "context_checksum",
@@ -403,7 +415,7 @@ def _validate_policy_model(
         required_fields=("compilation_targets", "skills", "agents_fragments", "rules", "automations"),
         errors=errors,
     )
-    for host_name in ("gemini", "kimi"):
+    for host_name in tuple(host for host in CANONICAL_PARITY_HOSTS if host not in {"claude", "codex"}):
         if host_name in host_rules or host_name in declared_hosts:
             _validate_host_rule(
                 bundle_id=bundle_id,
@@ -470,6 +482,7 @@ def _build_phase1_release_contract() -> dict[str, list[str]]:
         "attestation_requirements": list(_PHASE1_ATTESTATION_REQUIREMENTS),
         "compliance_governor_expectations": list(_PHASE1_COMPLIANCE_EXPECTATIONS),
         "release_readiness_checks": list(_PHASE1_RELEASE_READINESS_CHECKS),
+        "runtime_behavior_surfaces": list(_PHASE1_RUNTIME_BEHAVIOR_SURFACES),
     }
 
 
@@ -1844,6 +1857,62 @@ def _check_provider_host_parity(output_root: Path, providers: dict[str, dict[str
     }
 
 
+def _check_host_semantic_parity(
+    output_root: Path,
+    required_hosts: set[str],
+) -> dict[str, Any]:
+    evidence_dir = output_root / ".omg" / "evidence"
+    parity_files = sorted(evidence_dir.glob("host-parity-*.json")) if evidence_dir.exists() else []
+    report_path = parity_files[-1] if parity_files else None
+    require_report = os.environ.get("OMG_REQUIRE_HOST_PARITY_REPORT", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+    if report_path is None:
+        return {
+            "status": "missing",
+            "report": None,
+            "blockers": ["host_semantic_parity: missing host parity report"] if require_report else [],
+        }
+
+    try:
+        report = _load_json(report_path)
+    except Exception as exc:
+        return {
+            "status": "error",
+            "report": str(report_path.relative_to(output_root)),
+            "blockers": [f"host_semantic_parity: failed to parse report ({exc})"],
+        }
+
+    canonical_hosts = {
+        str(host).strip().lower()
+        for host in report.get("canonical_hosts", [])
+        if str(host).strip()
+    }
+    missing_hosts = sorted(host for host in required_hosts if host not in canonical_hosts)
+    overall_status = str(report.get("overall_status", "")).strip().lower()
+    parity_results = report.get("parity_results", {})
+    passed = bool(parity_results.get("passed")) if isinstance(parity_results, dict) else False
+
+    blockers: list[str] = []
+    if missing_hosts:
+        blockers.append(f"host_semantic_parity: report missing canonical hosts {missing_hosts}")
+    if overall_status and overall_status != "ok":
+        blockers.append(f"host_semantic_parity: report overall_status={overall_status}")
+    if isinstance(parity_results, dict) and not passed:
+        blockers.append("host_semantic_parity: parity check reported drift")
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "report": str(report_path.relative_to(output_root)),
+        "required_hosts": sorted(required_hosts),
+        "blockers": blockers,
+    }
+
+
 def _has_waiver(risk: dict[str, Any]) -> bool:
     return bool(
         risk.get("waived")
@@ -1929,7 +1998,7 @@ def build_release_readiness(
         manifest_paths = {str(a.get("path", "")) for a in manifest.get("artifacts", []) if isinstance(a, dict)}
         declared_hosts = [str(host) for host in manifest.get("hosts", []) if str(host).strip()]
         if not declared_hosts:
-            declared_hosts = ["claude", "codex"]
+            declared_hosts = get_canonical_hosts()
         required_provider_hosts.update(declared_hosts)
         for host_name in declared_hosts:
             for host_path in HOST_COMPILED_ARTIFACTS.get(host_name, ()):
@@ -2047,6 +2116,10 @@ def build_release_readiness(
     provider_parity = _check_provider_host_parity(output, required_providers)
     checks["provider_host_parity"] = provider_parity
     blockers.extend(provider_parity.get("blockers", []))
+
+    host_semantic_parity = _check_host_semantic_parity(output, required_provider_hosts)
+    checks["host_semantic_parity"] = host_semantic_parity
+    blockers.extend(host_semantic_parity.get("blockers", []))
 
     worktree_ready = shutil.which("git") is not None and (root / ".git").exists()
     checks["worktree"] = {"ready": worktree_ready}
@@ -2352,6 +2425,37 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
                 "invalid_execution_primitive: forge_starter_proof: "
                 f"missing_context_metadata={','.join(sorted(forge_metadata_missing))}"
             )
+
+    # ── Resolve evidence-pack-embedded primitives ──────────────────────────
+    # The evidence pack stores new execution primitives as nested dicts with
+    # a "path" key.  Resolve each one against output_root.
+    _pack_embedded_primitives = (
+        "exec_kernel_state",
+        "worker_watchdog_replay",
+        "merge_writer_provenance",
+        "tool_fabric_ledger",
+        "budget_envelope_state",
+        "issue_report",
+        "host_parity_report",
+        "music_omr_testbed_evidence",
+    )
+    for token in _pack_embedded_primitives:
+        entry = evidence_payload.get(token)
+        if not isinstance(entry, dict):
+            missing.append(token)
+            blockers.append(f"missing_execution_primitive: {token}")
+            continue
+        rel_path = str(entry.get("path", "")).strip()
+        if not rel_path:
+            missing.append(token)
+            blockers.append(f"missing_execution_primitive: {token}")
+            continue
+        resolved = output_root / rel_path
+        if not resolved.exists():
+            missing.append(token)
+            blockers.append(f"missing_execution_primitive: {token}")
+            continue
+        evidence_paths[token] = rel_path
 
     return {
         "status": "ok" if not blockers else "error",

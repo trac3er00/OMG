@@ -16,6 +16,9 @@ from runtime.runtime_contracts import write_run_state
 from runtime.session_health import compute_session_health
 from runtime.verification_controller import VerificationController
 from runtime.claim_judge import evaluate_claims_for_release
+from runtime.exec_kernel import get_exec_kernel
+from runtime.worker_watchdog import get_worker_watchdog
+from runtime.merge_writer import get_merge_writer
 
 
 class RunIdConflictError(ValueError):
@@ -57,12 +60,34 @@ class ReleaseRunCoordinator:
                 "verification_status": verification_state.get("status", "running"),
             },
         )
-        return {
+        get_exec_kernel(self.project_dir).register_run(
+            run_id,
+            source="release_run_coordinator.begin",
+            reason=f"{resolved.source}:{resolved.reason}",
+        )
+        try:
+            get_worker_watchdog(self.project_dir).record_heartbeat(
+                run_id, status="alive",
+                metadata={"phase": "begin", "source": resolved.source},
+            )
+        except Exception:
+            pass
+        merge_writer_token = None
+        try:
+            mw = get_merge_writer(self.project_dir)
+            token = mw.acquire(run_id, reason=f"release_run:{resolved.source}")
+            merge_writer_token = token.lock_path
+        except Exception:
+            pass
+        result: dict[str, object] = {
             "status": "running",
             "run_id": run_id,
             "resolution_source": resolved.source,
             "resolution_reason": resolved.reason,
         }
+        if merge_writer_token:
+            result["merge_writer_lock"] = merge_writer_token
+        return result
 
     def mutate(
         self,
@@ -107,6 +132,11 @@ class ReleaseRunCoordinator:
                 "health_action": str(health.get("recommended_action", "continue")),
             },
         )
+        get_exec_kernel(self.project_dir).register_run(
+            canonical_run_id,
+            source="release_run_coordinator.mutate",
+            reason=f"tool={tool}",
+        )
         return {
             "status": "running",
             "run_id": canonical_run_id,
@@ -133,6 +163,28 @@ class ReleaseRunCoordinator:
                 "health_action": str(health.get("recommended_action", "continue")),
             },
         )
+        get_exec_kernel(self.project_dir).register_run(
+            canonical_run_id,
+            source="release_run_coordinator.verify",
+            reason="verification_phase",
+        )
+        try:
+            watchdog = get_worker_watchdog(self.project_dir)
+            watchdog.record_heartbeat(
+                canonical_run_id, status="alive",
+                metadata={"phase": "verify"},
+            )
+            stall = watchdog.escalate_stall(canonical_run_id)
+            if stall:
+                from runtime.incident_replay import build_worker_lifecycle_pack
+                build_worker_lifecycle_pack(
+                    self.project_dir,
+                    run_id=canonical_run_id,
+                    event="stall_detected_during_verify",
+                    heartbeat=stall.get("heartbeat"),
+                )
+        except Exception:
+            pass
         return {
             "status": str(verification_state.get("status", "running")),
             "run_id": canonical_run_id,
@@ -235,6 +287,27 @@ class ReleaseRunCoordinator:
                 "evidence_links": list(evidence_links),
             },
         )
+        get_exec_kernel(self.project_dir).register_run(
+            canonical_run_id,
+            source="release_run_coordinator.finalize",
+            reason=f"status={resolved_status}",
+        )
+        try:
+            mw = get_merge_writer(self.project_dir)
+            if mw.check_authorization(canonical_run_id):
+                from runtime.merge_writer import MergeWriterToken
+                lock_data = mw._lock_path().read_text(encoding="utf-8")
+                import json as _json
+                lock_info = _json.loads(lock_data)
+                token = MergeWriterToken(
+                    run_id=canonical_run_id,
+                    acquired_at=str(lock_info.get("acquired_at", "")),
+                    lock_path=str(mw._lock_path().relative_to(mw.project_dir)).replace("\\", "/"),
+                    provenance_path=str(mw._provenance_path(canonical_run_id).relative_to(mw.project_dir)).replace("\\", "/"),
+                )
+                mw.release(token)
+        except Exception:
+            pass
         return {
             "status": str(verification_state.get("status", resolved_status)),
             "run_id": canonical_run_id,

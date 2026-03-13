@@ -254,6 +254,24 @@ def omg_get_session_health(run_id: str | None = None) -> dict[str, Any]:
     return payload
 
 
+@mcp.tool()
+def omg_tool_fabric_request(
+    lane_name: str,
+    tool_name: str,
+    run_id: str,
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    _status, payload = _service().tool_fabric_request(
+        {
+            "lane_name": lane_name,
+            "tool_name": tool_name,
+            "run_id": run_id,
+            "context": context or {},
+        }
+    )
+    return payload
+
+
 @mcp.prompt(name="omg_contract_summary", description="Summarize the OMG production contract and generated host outputs")
 def omg_contract_summary(channel: str = "public") -> str:
     return (

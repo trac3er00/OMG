@@ -105,6 +105,35 @@ def resolve_execution_boundary(*, isolation: str = "worktree") -> dict[str, Any]
     }
 
 
+def resolve_isolation_contract(*, isolation: str) -> dict[str, Any]:
+    normalized = isolation.strip().lower() if isolation else "none"
+    if normalized == "worktree":
+        return {
+            "requested": "worktree",
+            "effective": "worktree",
+            "status": "supported",
+            "read_only": False,
+            "boundary": resolve_execution_boundary(isolation="worktree"),
+        }
+    if normalized == "container":
+        return {
+            "requested": "container",
+            "effective": "none",
+            "status": "deferred",
+            "reason": "container isolation is deferred/unsupported",
+            "read_only": True,
+            "boundary": resolve_execution_boundary(isolation="container"),
+        }
+    return {
+        "requested": "none",
+        "effective": "none",
+        "status": "read-only",
+        "reason": "none isolation permits read-only execution",
+        "read_only": True,
+        "boundary": resolve_execution_boundary(isolation="none"),
+    }
+
+
 def _job_path(job_id: str) -> str:
     """Return the file path for a specific job."""
     return os.path.join(_jobs_dir(), f"{job_id}.json")
@@ -146,6 +175,9 @@ def submit_job(
     agent_name: str,
     task_text: str,
     isolation: str = "none",
+    run_id: str | None = None,
+    evidence_hooks: list[str] | None = None,
+    attach_log: str | None = None,
 ) -> str:
     """Submit a subagent job for concurrent execution.
 
@@ -169,14 +201,19 @@ def submit_job(
 
         job_id = uuid.uuid4().hex[:8]
         now = datetime.now(timezone.utc).isoformat()
+        isolation_contract = resolve_isolation_contract(isolation=isolation)
         record: dict[str, Any] = {
             "job_id": job_id,
+            "run_id": run_id,
             "agent_name": agent_name,
             "task_text": task_text,
             "isolation": isolation,
+            "isolation_contract": isolation_contract,
             "status": "queued",
             "created_at": now,
             "artifacts": [],
+            "evidence_hooks": list(evidence_hooks or []),
+            "attach_log": attach_log,
             "error": None,
         }
         _jobs[job_id] = record
@@ -342,6 +379,23 @@ def _cleanup_worktree(worktree_dir: str) -> None:
         pass
 
 
+def _enforce_merge_writer_gate(run_id: str, record: dict[str, Any], project_dir: str) -> None:
+    try:
+        from runtime.merge_writer import get_merge_writer, MergeWriterAuthorizationError
+    except ImportError:
+        return
+    try:
+        get_merge_writer(project_dir).require_authorization(
+            run_id,
+            mutation_type="worker_dispatch",
+            isolation=str(record.get("isolation", "none")),
+        )
+    except MergeWriterAuthorizationError:
+        raise
+    except Exception:
+        pass
+
+
 def _run_job(job_id: str) -> None:
     """Execute a subagent job in the thread pool.
 
@@ -355,12 +409,25 @@ def _run_job(job_id: str) -> None:
             return
         record["status"] = "running"
         record["started_at"] = datetime.now(timezone.utc).isoformat()
+        record["worker_pid"] = os.getpid()
 
     _persist_job(job_id, record)
+
+    run_id = record.get("run_id") or job_id
+    try:
+        from runtime.worker_watchdog import get_worker_watchdog
+        get_worker_watchdog(_get_project_dir()).record_heartbeat(
+            run_id, worker_pid=os.getpid(),
+        )
+    except Exception:
+        pass
 
     worktree_dir: str | None = None
     project_dir = _get_project_dir()
     try:
+        if record.get("isolation") == "worktree":
+            _enforce_merge_writer_gate(run_id, record, project_dir)
+
         # Setup isolation if requested
         if record.get("isolation") == "worktree":
             worktree_dir = _setup_worktree(job_id)
@@ -385,11 +452,15 @@ def _run_job(job_id: str) -> None:
         evidence_payload = {
             "schema": "OmgSubagentEvidence",
             "job_id": job_id,
+            "run_id": record.get("run_id"),
             "agent_name": record["agent_name"],
             "task_text": record["task_text"],
             "worker": dispatch_result.get("worker", "unknown"),
             "exit_code": dispatch_result.get("exit_code", 0),
             "output": dispatch_result.get("output", ""),
+            "isolation_contract": record.get("isolation_contract", {}),
+            "evidence_hooks": list(record.get("evidence_hooks", [])),
+            "attach_log": record.get("attach_log"),
             "worktree": worktree_dir,
             "project_dir": active_project_dir,
         }
@@ -442,7 +513,10 @@ def get_job_status(job_id: str) -> dict[str, Any]:
 
 
 def cancel_job(job_id: str) -> bool:
-    """Cancel a queued or running job.
+    """Cancel a queued or running job, terminating the subprocess if running.
+
+    Performs real subprocess termination (SIGTERM then SIGKILL after timeout),
+    records terminal evidence, and cleans up stale worktrees.
 
     Args:
         job_id: Job identifier to cancel.
@@ -456,8 +530,48 @@ def cancel_job(job_id: str) -> bool:
             return False
         if record["status"] in ("completed", "failed", "cancelled"):
             return False
+        was_running = record["status"] == "running"
         record["status"] = "cancelled"
         record["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    run_id = record.get("run_id") or job_id
+    worker_pid = record.get("worker_pid")
+    worktree = record.get("worktree")
+
+    try:
+        from runtime.worker_watchdog import get_worker_watchdog
+        watchdog = get_worker_watchdog(_get_project_dir())
+
+        termination = None
+        if worker_pid is not None and was_running:
+            termination = watchdog.terminate_worker(run_id, worker_pid)
+
+        cleanup = None
+        if worktree:
+            cleanup = watchdog.cleanup_stale_worktree(run_id)
+
+        watchdog.emit_replay_evidence(
+            run_id,
+            f"cancel_job:{job_id}",
+            termination=termination,
+            cleanup=cleanup,
+        )
+
+        project_dir = _get_project_dir()
+        cancel_evidence: dict[str, Any] = {
+            "schema": "OmgSubagentCancelEvidence",
+            "job_id": job_id,
+            "run_id": run_id,
+            "agent_name": record.get("agent_name", ""),
+            "cancelled_at": record["completed_at"],
+            "was_running": was_running,
+            "worker_pid": worker_pid,
+            "termination": termination,
+            "cleanup": cleanup,
+        }
+        _write_job_evidence(job_id, cancel_evidence, project_dir=project_dir)
+    except Exception:
+        pass
 
     _persist_job(job_id, record)
     return True

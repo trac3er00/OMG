@@ -42,6 +42,19 @@
       "trace_id": "trace-1"
     }
   ],
+  "intent_gate_state": {"path": ".omg/state/intent_gate/run-v2-sample.json", "run_id": "run-v2-sample"},
+  "profile_digest": {"path": ".omg/state/profile.yaml", "profile_version": "profile-v1"},
+  "session_health_state": {"path": ".omg/state/session_health/run-v2-sample.json", "run_id": "run-v2-sample"},
+  "council_verdicts": {"path": ".omg/state/council_verdicts/run-v2-sample.json", "run_id": "run-v2-sample"},
+  "forge_starter_proof": {"path": ".omg/evidence/forge-specialists-run-v2-sample.json", "run_id": "run-v2-sample"},
+  "exec_kernel_state": {"path": ".omg/state/exec-kernel/run-v2-sample.json", "run_id": "run-v2-sample"},
+  "worker_watchdog_replay": {"path": ".omg/evidence/subagents/run-v2-sample-replay.json", "run_id": "run-v2-sample"},
+  "merge_writer_provenance": {"path": ".omg/evidence/merge-writer-run-v2-sample.json", "run_id": "run-v2-sample"},
+  "tool_fabric_ledger": {"path": ".omg/state/ledger/tool-ledger.jsonl", "run_id": "run-v2-sample"},
+  "budget_envelope_state": {"path": ".omg/state/budget-envelopes/run-v2-sample.json", "run_id": "run-v2-sample"},
+  "issue_report": {"path": ".omg/evidence/issues/run-v2-sample.json", "run_id": "run-v2-sample"},
+  "host_parity_report": {"path": ".omg/evidence/host-parity-run-v2-sample.json", "run_id": "run-v2-sample"},
+  "music_omr_testbed_evidence": {"path": ".omg/evidence/music-omr-run-v2-sample.json", "run_id": "run-v2-sample"},
   "claims": [
     {
       "schema_version": 2,
