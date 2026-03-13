@@ -1,0 +1,61 @@
+id: terminal-lane
+kind: governance
+version: 2.1.9
+title: OMG Terminal Lane
+description: Highest-risk governed terminal execution lane with strict approval and attestation.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/tool_fabric.py
+    - runtime/compliance_governor.py
+invocation_policy:
+  user_invocable: true
+  model_invocable: true
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: high
+  allowed_tools:
+    claude:
+      - Bash
+    codex:
+      - Bash
+lifecycle_hooks:
+  native:
+    - PreToolUse
+    - PostToolUse
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - bash
+evidence_outputs:
+  artifacts:
+    - .omg/evidence/terminal-lane-{run_id}.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+tool_fabric:
+  lane: terminal-lane
+  enforcement_order:
+    - tool_selection
+    - approval_state
+    - evidence_requirements
+    - attestation_proof_validation
+    - execution
+  tools:
+    - Bash
+  requires_signed_approval: true
+  requires_attestation: true
+  required_evidence:
+    - .omg/evidence/terminal-lane-{run_id}.json
+channel_overrides:
+  public:
+    posture: restricted
+  enterprise:
+    posture: managed

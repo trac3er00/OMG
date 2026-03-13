@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-13T03:48:12.339069+00:00"
+      "timestamp": "2026-03-13T21:11:22.589313+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-13T03:48:12.339069+00:00",
+  "issued_at": "2026-03-13T21:11:22.589313+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "3320dd3e5ae38378",
-    "value": "untrusted comment: signature from omg local signing key\n0G9sF6Cdo4bhUvyHl68APSdsSq985zZXmYwseWwY9rKP9luBE4K4zil1S/oKcjac3MuquMv/216QL0GhJs52Dg==\ntrusted comment: type=omg-slsa-v1 keyid=3320dd3e5ae38378 issued_at=2026-03-13T03:48:12.339174+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=1f82a05b2fcad17c126e34541c995dedf3ed242fa499539ab693cc60a0d41c77\ngoI6jwiuNdz6bUxe0o/piQaRrfv/rSjuNfbyPOBLEjBJ6a23+kIqzf7aee+pZrr4DR6nKJTOuDTHwzM4SlmiBw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=3320dd3e5ae38378 issued_at=2026-03-13T03:48:12.339174+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=1f82a05b2fcad17c126e34541c995dedf3ed242fa499539ab693cc60a0d41c77"
+    "keyid": "a12c6375728c1e72",
+    "value": "untrusted comment: signature from omg local signing key\nWW/6pEH7cbeJmOLJjbrJ6OSFiIB9wcYcjCfCT/3mJom/kn9PBvDT3vMqFmP66GcMtZEWmdAHQxb64WLWp7+kAw==\ntrusted comment: type=omg-slsa-v1 keyid=a12c6375728c1e72 issued_at=2026-03-13T21:11:22.589421+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=1f82a05b2fcad17c126e34541c995dedf3ed242fa499539ab693cc60a0d41c77\nL1Xoq8Zv+td8vcA5Inf7nqU83KCESAFgGD0Zz7Qhf1eaL/ezw5nxqjnWanbtWnHLzEpybbY8oxWq6neXKrZ0CQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=a12c6375728c1e72 issued_at=2026-03-13T21:11:22.589421+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=1f82a05b2fcad17c126e34541c995dedf3ed242fa499539ab693cc60a0d41c77"
   }
 }

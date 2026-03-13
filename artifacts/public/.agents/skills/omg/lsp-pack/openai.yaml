@@ -9,3 +9,4 @@ mcp_servers:
   - omg-control
 allowed_tools:
   - "Read"
+  - "Edit"
