@@ -1062,7 +1062,7 @@ def get_active_credential(provider: str, session_id: str | None = None) -> str |
 
     try:
         store = cred_mod.load_store(passphrase)
-    except (ValueError, OSError):
+    except (ValueError, OSError, RuntimeError):
         return None
 
     providers = store.get("providers", {})
@@ -1093,7 +1093,7 @@ def get_active_credential(provider: str, session_id: str | None = None) -> str |
     # Persist updated stats (best-effort)
     try:
         cred_mod.save_store(store, passphrase)
-    except (ValueError, OSError):
+    except (ValueError, OSError, RuntimeError):
         pass
 
     return keys[idx].get("key")
@@ -1122,7 +1122,7 @@ def on_rate_limit(provider: str, session_id: str | None = None) -> str | None:
 
     try:
         store = cred_mod.load_store(passphrase)
-    except (ValueError, OSError):
+    except (ValueError, OSError, RuntimeError):
         return None
 
     providers = store.get("providers", {})
@@ -1145,7 +1145,7 @@ def on_rate_limit(provider: str, session_id: str | None = None) -> str | None:
     # Persist (best-effort)
     try:
         cred_mod.save_store(store, passphrase)
-    except (ValueError, OSError):
+    except (ValueError, OSError, RuntimeError):
         pass
 
     return keys[new_idx].get("key")

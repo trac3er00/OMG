@@ -115,7 +115,7 @@ def validate_derived(repo_root: Path, canonical: str) -> dict[str, Any]:
     return {"status": status, "blockers": blockers}
 
 
-_KNOWN_ATTESTATION_ALGORITHMS = {"ed25519-minisign", "hmac-sha256"}
+_KNOWN_ATTESTATION_ALGORITHMS = {"ed25519-minisign"}
 
 
 def _collect_attestations(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -133,7 +133,7 @@ def _collect_attestations(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
         if row.get("statement_path") is not None or row.get("signature_path") is not None:
             indexed[artifact_path] = row
             continue
-        # Legacy inline shape: statement dict + signer_pubkey string (HMAC bridge)
+        # Inline shape: statement dict + signer_pubkey string
         statement = row.get("statement")
         signer_pubkey = row.get("signer_pubkey")
         if isinstance(statement, dict) and isinstance(signer_pubkey, str):

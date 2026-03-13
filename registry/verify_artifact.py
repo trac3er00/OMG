@@ -4,9 +4,7 @@ from __future__ import annotations
 import base64
 from datetime import datetime, timezone
 import hashlib
-import hmac
 import json
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -51,10 +49,6 @@ def _canonical_json(payload: dict[str, Any]) -> bytes:
 
 def _key_id_from_public_key(public_key_raw: bytes) -> str:
     return hashlib.sha256(public_key_raw).hexdigest()[:16]
-
-
-def _legacy_key_id(signer_key: str) -> str:
-    return hashlib.sha256(signer_key.encode("utf-8")).hexdigest()[:16]
 
 
 def _subject_is_valid(subject: Any) -> bool:
@@ -158,25 +152,6 @@ def _parse_minisign_detached(value: str, trusted_comment_hint: str | None) -> tu
     except Exception as exc:
         raise ValueError("invalid_signature_encoding") from exc
     return signature, trusted_comment_hint, None
-
-
-def _resolve_legacy_hmac_secret(key_id: str, signer_pubkey: str | None) -> str | None:
-    if signer_pubkey:
-        expected = _legacy_key_id(signer_pubkey)
-        if expected == key_id:
-            return signer_pubkey
-    raw_map = os.getenv("OMG_LEGACY_HMAC_KEYS", "")
-    if raw_map:
-        try:
-            mapping = json.loads(raw_map)
-        except json.JSONDecodeError:
-            mapping = {}
-        if isinstance(mapping, dict):
-            secret = mapping.get(key_id)
-            if isinstance(secret, str) and secret:
-                return secret
-    specific = os.getenv(f"OMG_LEGACY_HMAC_KEY_{key_id.upper()}", "")
-    return specific or None
 
 
 def sign_artifact(
@@ -356,35 +331,8 @@ def _verify_ed25519_statement(statement: dict[str, Any]) -> tuple[bool, str]:
     return True, "verified"
 
 
-def _verify_hmac_bridge_statement(statement: dict[str, Any], signer_pubkey: str | None = None) -> tuple[bool, str]:
-    key_id = _statement_key_id(statement)
-    if not key_id:
-        return False, "missing signer key id"
-
-    secret = _resolve_legacy_hmac_secret(key_id=key_id, signer_pubkey=signer_pubkey)
-    if not secret:
-        return False, "missing legacy hmac bridge key"
-
-    signature = statement.get("signature")
-    if not isinstance(signature, dict):
-        return False, "missing signature object"
-    if str(signature.get("alg", "")) != "hmac-sha256":
-        return False, "signature algorithm mismatch"
-    try:
-        actual_sig = base64.b64decode(str(signature.get("value", "")), validate=True)
-    except Exception:
-        return False, "invalid signature encoding"
-    expected_sig = hmac.new(
-        secret.encode("utf-8"),
-        _canonical_json(_statement_signing_payload(statement)),
-        hashlib.sha256,
-    ).digest()
-    if not hmac.compare_digest(actual_sig, expected_sig):
-        return False, "invalid legacy hmac signature"
-    return True, "verified"
-
-
 def verify_artifact_statement(statement: dict[str, Any], signer_pubkey: str | None = None) -> bool:
+    _ = signer_pubkey
     if not isinstance(statement, dict):
         return False
     if str(statement.get("_type", "")) != _IN_TOTO_STATEMENT_TYPE:
@@ -397,9 +345,6 @@ def verify_artifact_statement(statement: dict[str, Any], signer_pubkey: str | No
     algorithm = _statement_algorithm(statement)
     if algorithm == "ed25519-minisign":
         ok, _reason = _verify_ed25519_statement(statement)
-        return ok
-    if algorithm == "hmac-sha256":
-        ok, _reason = _verify_hmac_bridge_statement(statement, signer_pubkey=signer_pubkey)
         return ok
     return False
 
@@ -421,9 +366,6 @@ def _verify_statement_with_bridge(statement: dict[str, Any]) -> tuple[str, str]:
     algorithm = _statement_algorithm(statement)
     if algorithm == "ed25519-minisign":
         ok, reason = _verify_ed25519_statement(statement)
-        return ("allow", "artifact verified") if ok else ("block", reason)
-    if algorithm == "hmac-sha256":
-        ok, reason = _verify_hmac_bridge_statement(statement)
         return ("allow", "artifact verified") if ok else ("block", reason)
     return "block", f"unsupported signing algorithm: {algorithm or 'missing'}"
 
