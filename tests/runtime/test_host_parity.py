@@ -61,6 +61,32 @@ def test_semantic_parity_report_is_required_for_canonical_hosts(tmp_path: Path) 
     assert result["blockers"] == ["host_semantic_parity: missing host parity report"]
 
 
+def test_semantic_parity_blocks_cross_run_report(tmp_path: Path) -> None:
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    (evidence_root / "host-parity-run-old.json").write_text(
+        json.dumps(
+            {
+                "schema": "HostParityReport",
+                "run_id": "run-old",
+                "canonical_hosts": ["claude", "codex", "gemini", "kimi"],
+                "overall_status": "ok",
+                "parity_results": {"passed": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = _check_host_semantic_parity(
+        tmp_path,
+        {"claude", "codex", "gemini", "kimi"},
+        release_run_id="run-new",
+    )
+
+    assert result["status"] == "error"
+    assert "host_parity_report:cross_run" in result["blockers"]
+
+
 def test_gemini_text_output_normalizes_to_structured_form() -> None:
     normalized = normalize_output(
         "gemini",

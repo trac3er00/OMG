@@ -1864,6 +1864,7 @@ def _check_provider_host_parity(output_root: Path, providers: dict[str, dict[str
 def _check_host_semantic_parity(
     output_root: Path,
     required_hosts: set[str],
+    release_run_id: str = "",
 ) -> dict[str, Any]:
     evidence_dir = output_root / ".omg" / "evidence"
     parity_files = sorted(evidence_dir.glob("host-parity-*.json")) if evidence_dir.exists() else []
@@ -1908,6 +1909,9 @@ def _check_host_semantic_parity(
     passed = bool(parity_results.get("passed")) if isinstance(parity_results, dict) else False
 
     blockers: list[str] = []
+    report_run_id = str(report.get("run_id", "")).strip()
+    if release_run_id and report_run_id and report_run_id != release_run_id:
+        blockers.append("host_parity_report:cross_run")
     if missing_hosts:
         blockers.append(f"host_semantic_parity: report missing canonical hosts {missing_hosts}")
     if overall_status and overall_status != "ok":
@@ -2137,7 +2141,11 @@ def build_release_readiness(
     checks["provider_host_parity"] = provider_parity
     blockers.extend(provider_parity.get("blockers", []))
 
-    host_semantic_parity = _check_host_semantic_parity(output, required_provider_hosts)
+    host_semantic_parity = _check_host_semantic_parity(
+        output,
+        required_provider_hosts,
+        release_run_id=str(evidence_check.get("run_id", "")).strip(),
+    )
     checks["host_semantic_parity"] = host_semantic_parity
     blockers.extend(host_semantic_parity.get("blockers", []))
 
