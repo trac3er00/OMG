@@ -2,6 +2,11 @@ name: OMG Compat Gate
 
 on:
   workflow_dispatch:
+    inputs:
+      FORBID_VERSION:
+        description: "Previous release version to block from residue checks"
+        required: true
+        type: string
   pull_request:
 
 jobs:
@@ -222,7 +227,7 @@ jobs:
         run: python3 -m pytest -q
 
       - name: Validate full release identity
-        run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${FORBID_VERSION:-}"
+        run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${{ inputs.FORBID_VERSION }}"
 
       - name: Pack compatibility artifacts
         run: tar -czf omg-compat-artifacts.tar.gz -C artifacts .

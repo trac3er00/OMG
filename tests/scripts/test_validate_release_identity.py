@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from registry.verify_artifact import sign_artifact_statement
+from runtime.release_surfaces import AuthoredSurface
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
@@ -98,6 +99,46 @@ class TestAuthoredDrift:
             result = validate_authored(_REPO_ROOT, _OLD_VERSION)
         assert result["status"] == "ok"
         assert result["blockers"] == []
+
+    def test_authored_blockers_on_stale_gemini_surface(self, tmp_path):
+        gemini_path = tmp_path / ".gemini" / "settings.json"
+        gemini_path.parent.mkdir(parents=True)
+        gemini_path.write_text(
+            json.dumps(
+                {
+                    "_omg": {
+                        "_version": "2.2.2",
+                        "generated": {"contract_version": "2.2.2"},
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        surfaces = [
+            AuthoredSurface(
+                ".gemini/settings.json",
+                "json_key_path",
+                ["_omg", "_version"],
+                "Gemini settings OMG version",
+                source_only=False,
+            ),
+            AuthoredSurface(
+                ".gemini/settings.json",
+                "json_key_path",
+                ["_omg", "generated", "contract_version"],
+                "Gemini settings contract version",
+                source_only=False,
+            ),
+        ]
+
+        with patch.object(_mod, "AUTHORED_SURFACES", surfaces):
+            result = validate_authored(tmp_path, "2.2.3")
+
+        assert result["status"] == "fail"
+        assert len(result["blockers"]) == 2
+        assert result["blockers"][0]["surface"] == ".gemini/settings.json _omg._version"
+        assert result["blockers"][1]["surface"] == ".gemini/settings.json _omg.generated.contract_version"
 
 
 class TestDerivedDrift:

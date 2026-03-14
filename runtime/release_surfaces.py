@@ -100,6 +100,26 @@ AUTHORED_SURFACES: list[AuthoredSurface] = [
         "OMG generated contract version",
     ),
     AuthoredSurface(
+        ".gemini/settings.json", "json_key_path", ["_omg", "_version"],
+        "Gemini settings OMG version",
+        source_only=False,
+    ),
+    AuthoredSurface(
+        ".gemini/settings.json", "json_key_path", ["_omg", "generated", "contract_version"],
+        "Gemini settings contract version",
+        source_only=False,
+    ),
+    AuthoredSurface(
+        ".kimi/mcp.json", "json_key_path", ["_omg", "_version"],
+        "Kimi MCP OMG version",
+        source_only=False,
+    ),
+    AuthoredSurface(
+        ".kimi/mcp.json", "json_key_path", ["_omg", "generated", "contract_version"],
+        "Kimi MCP contract version",
+        source_only=False,
+    ),
+    AuthoredSurface(
         ".claude-plugin/plugin.json", "json_key_path", ["version"],
         "Claude plugin version",
     ),
