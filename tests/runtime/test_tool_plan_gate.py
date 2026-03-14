@@ -156,6 +156,43 @@ def test_tool_plan_gate_blocks_mutation_without_done_when(tmp_path: Path) -> Non
     assert result["reason"] == "done_when_required_before_mutation"
 
 
+def test_tool_plan_gate_allows_read_only_bash_allowlisted_commands_without_lock(tmp_path: Path) -> None:
+    run_id = "run-readonly-bash-allowlist"
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-test.json").write_text("{}", encoding="utf-8")
+
+    python_result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": "python -V", "metadata": {}},
+    )
+    gh_result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": "gh pr view 42", "metadata": {}},
+    )
+    tee_result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": "printf done | tee /dev/null", "metadata": {}},
+    )
+    quoted_literal_result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": '"mkdir should-not-trigger"', "metadata": {}},
+    )
+
+    assert python_result["status"] == "allowed"
+    assert gh_result["status"] == "allowed"
+    assert tee_result["status"] == "allowed"
+    assert quoted_literal_result["status"] == "allowed"
+
+
 def test_tool_plan_gate_blocks_mutation_without_plan(tmp_path: Path) -> None:
     run_id = "run-missing-plan"
     lock_id = "lock-without-plan"

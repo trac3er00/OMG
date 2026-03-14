@@ -76,3 +76,18 @@ def test_conservative_fallback_threshold(monkeypatch):
     assert info["model_id"] == ""
     assert info["class_label"] == "128k-class"
     assert info["trigger_tokens"] == 80000
+
+
+def test_host_aware_threshold_prefers_event_model_over_stale_env(monkeypatch):
+    module = _load_precompact_module()
+    monkeypatch.setenv("CLAUDE_MODEL", "claude-opus-4-6")
+    monkeypatch.delenv("OMG_MODEL_ID", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+
+    switched = module._host_aware_compaction_threshold(
+        {"model": {"id": "gemini-3-flash"}}
+    )
+
+    assert switched["model_id"] == "gemini-3-flash"
+    assert switched["class_label"] == "200k-class"
+    assert switched["trigger_tokens"] == 120000
