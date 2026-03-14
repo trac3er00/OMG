@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import cast
 
 from runtime.context_engine import load_profile_digest
-from runtime.evidence_requirements import EVIDENCE_REQUIREMENTS_BY_PROFILE, requirements_for_profile
+from runtime.evidence_requirements import (
+    EVIDENCE_REQUIREMENTS_BY_PROFILE,
+    requirements_for_profile,
+    resolve_profile,
+)
 
 JsonPrimitive = str | int | float | bool | None
 JsonValue = JsonPrimitive | dict[str, "JsonValue"] | list["JsonValue"]
@@ -53,8 +57,15 @@ def _record_copy_with_context_metadata(root: Path, record: JsonObject) -> JsonOb
     existing_profile_version = _record_string(record, "profile_version")
     profile_version = existing_profile_version or str(profile_digest.get("profile_version", "")).strip()
     evidence_profile = _record_string(record, "evidence_profile").strip()
-    evidence_requirements = requirements_for_profile(evidence_profile)
-    profile_is_known = not evidence_profile or evidence_profile in EVIDENCE_REQUIREMENTS_BY_PROFILE
+    try:
+        resolved = resolve_profile(evidence_profile if evidence_profile else None)
+        evidence_requirements = requirements_for_profile(evidence_profile if evidence_profile else None)
+        profile_is_known = True
+        if resolved is not None:
+            evidence_profile = resolved  # use canonical name
+    except ValueError:
+        evidence_requirements = []
+        profile_is_known = False
 
     intent_gate_payload = _load_json(root / ".omg" / "state" / "intent_gate" / f"{run_id}.json") or {}
     existing_intent_gate_version = _record_string(record, "intent_gate_version")

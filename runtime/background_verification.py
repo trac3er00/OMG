@@ -73,7 +73,9 @@ def should_skip_validation(evidence_profile: str | None, stage: str) -> bool:
 
     Rules:
     - ``release`` and ``security-audit`` profiles NEVER skip any stage.
-    - ``None``, empty, or unknown profiles fall back to FULL_REQUIREMENTS (no skip).
+    - ``None`` or empty profiles use FULL_REQUIREMENTS (no skip).
+    - Unknown profiles fail closed (no skip) — the error is surfaced by
+      :func:`resolve_evidence_profile` instead.
     - For other profiles, a stage is skipped when it is NOT in that profile's
       requirement list.
     """
@@ -85,8 +87,48 @@ def should_skip_validation(evidence_profile: str | None, stage: str) -> bool:
     if profile in _NEVER_SKIP_PROFILES:
         return False
 
-    required = requirements_for_profile(profile if profile else None)
+    try:
+        required = requirements_for_profile(profile if profile else None)
+    except ValueError:
+        # Unknown profile: fail closed — don't skip any validation
+        return False
     return stage not in required
+
+
+def resolve_evidence_profile(evidence_profile: str | None) -> dict[str, Any]:
+    """Resolve an evidence profile with strict validation.
+
+    Returns a structured dict:
+    - Success: ``{"status": "ok", "profile": <canonical>, "requirements": [...]}``
+    - Failure: ``{"status": "error", "reason": "unknown_profile", "profile": <raw>}``
+    """
+    from runtime.evidence_requirements import (
+        FULL_REQUIREMENTS,
+        resolve_profile,
+        requirements_for_profile,
+    )
+
+    raw = (evidence_profile or "").strip()
+    if not raw:
+        return {
+            "status": "ok",
+            "profile": None,
+            "requirements": list(FULL_REQUIREMENTS),
+        }
+
+    try:
+        canonical = resolve_profile(raw)
+        return {
+            "status": "ok",
+            "profile": canonical,
+            "requirements": requirements_for_profile(raw),
+        }
+    except ValueError:
+        return {
+            "status": "error",
+            "reason": "unknown_profile",
+            "profile": raw,
+        }
 
 
 def skipped_stages_for_profile(evidence_profile: str | None) -> list[str]:
