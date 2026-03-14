@@ -98,3 +98,15 @@
 - `_check_host_semantic_parity` now accepts `release_run_id` and blocks cross-run report reuse with `host_parity_report:cross_run` when evidence run and report run differ.
 - `build_release_readiness` now passes run scope from `checks["evidence"]["run_id"]` into host semantic parity validation, preventing stale latest-file selection from satisfying release readiness.
 - Added regression test `test_semantic_parity_blocks_cross_run_report` to enforce run-scoped host parity acceptance.
+
+
+## [2026-03-13] Task F1: Active Coordinator Run Cross-Check
+-  now resolves  via  before selecting the latest evidence pack, breaking self-referential run scope selection.
+- Added explicit cross-run blocker path ( + ) when a selected evidence pack run_id differs from a non-empty active coordinator run_id.
+- Added regression test  that patches coordinator run resolution to  while evidence uses , and asserts the cross-run blocker is emitted.
+
+
+## [2026-03-13] Task F1: Active Coordinator Run Cross-Check
+- _check_execution_primitives now resolves active_run_id via get_active_coordinator_run_id(str(output_root)) before selecting the latest evidence pack, breaking self-referential run scope selection.
+- Added explicit cross-run blocker path (run_id_cross_run + execution_primitive:cross_run) when a selected evidence pack run_id differs from a non-empty active coordinator run_id.
+- Added regression test test_execution_primitives_blocks_cross_run_evidence_pack that patches coordinator run resolution to active-run-123 while evidence uses stale-run-456, and asserts the cross-run blocker is emitted.

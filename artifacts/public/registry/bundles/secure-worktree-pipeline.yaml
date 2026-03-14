@@ -8,7 +8,9 @@ hosts:
   - codex
 assets:
   references:
+    - runtime/exec_kernel.py
     - runtime/subagent_dispatcher.py
+    - runtime/merge_writer.py
     - hooks/branch_manager.py
 invocation_policy:
   user_invocable: false
@@ -39,10 +41,23 @@ mcp_contract:
 lsp_contract:
   languages:
     - python
+merge_writer_policy:
+  lock_path: .omg/state/merge-writer.lock
+  provenance_pattern: .omg/evidence/merge-writer-{run_id}.json
+  readers: concurrent
+  writers: exclusive
+  mutation_requires:
+    - worktree_isolation
+    - merge_writer_lock
 evidence_outputs:
   artifacts:
     - .omg/evidence/subagents/*.json
+    - .omg/evidence/merge-writer-*.json
+    - .omg/state/exec-kernel/*.json
+    - .omg/state/merge-writer.lock
 execution_contract:
+  flags:
+    - OMG_EXEC_KERNEL_ENABLED=false
   modes:
     - automation
     - ephemeral_worktree

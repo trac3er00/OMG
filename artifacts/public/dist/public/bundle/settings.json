@@ -482,6 +482,21 @@
             "requires_approval": true
           }
         ],
+        "tool_fabric_contract": {
+          "enforcement_order": [
+            "tool_selection",
+            "approval_state",
+            "evidence_requirements",
+            "attestation_proof_validation",
+            "execution"
+          ],
+          "lanes": [
+            "lsp-pack",
+            "hash-edit",
+            "ast-pack",
+            "terminal-lane"
+          ]
+        },
         "protected_paths": [
           {
             "path_pattern": ".omg/**",
@@ -657,6 +672,11 @@
           "claim_judge",
           "compliance_governor",
           "execution_primitives"
+        ],
+        "runtime_behavior_surfaces": [
+          "execution_primitives",
+          "provider_host_parity",
+          "host_semantic_parity"
         ]
       }
     },

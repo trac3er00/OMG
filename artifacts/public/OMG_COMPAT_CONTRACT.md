@@ -6,6 +6,8 @@ canonical_hosts:
   - codex
   - gemini
   - kimi
+compatibility_only_hosts:
+  - opencode
 status: active
 ---
 
@@ -15,14 +17,16 @@ status: active
 
 ## provider_tiers
 
-OMG defines four canonical hosts and their host-rule contracts.
+OMG defines four canonical behavior-parity hosts and their host-rule contracts.
 
 - `claude`: requires `compilation_targets`, `hooks`, `subagents`, and `skills`.
 - `codex`: requires `compilation_targets`, `skills`, `agents_fragments`, `rules`, and `automations`.
 - `gemini`: requires `compilation_targets`, `mcp`, `skills`, and `automations`.
 - `kimi`: requires `compilation_targets`, `mcp`, `skills`, and `automations`.
 
-Gemini and Kimi are canonical hosts for contract validation and policy declaration. Their contracts do not require Claude/Codex hook semantics.
+Gemini and Kimi are canonical behavior-parity hosts for contract validation and policy declaration. Their contracts do not require Claude/Codex hook semantics.
+
+OpenCode remains compatibility-only in v2.1.9. It is supported through compatibility MCP wiring and interop diagnostics, but it is not part of the canonical behavior-parity contract set.
 
 ## metadata
 

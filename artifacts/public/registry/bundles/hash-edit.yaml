@@ -1,0 +1,73 @@
+id: hash-edit
+kind: governance
+version: 2.1.9
+title: OMG Hash Edit Lane
+description: Governed hash-bound edit lane with signed approvals and evidence routing.
+hosts:
+  - claude
+  - codex
+assets:
+  references:
+    - runtime/tool_fabric.py
+    - registry/approval_artifact.py
+invocation_policy:
+  user_invocable: true
+  model_invocable: true
+  allow_implicit_invocation: false
+tool_policy:
+  side_effect_level: medium
+  allowed_tools:
+    claude:
+      - Edit
+    codex:
+      - Edit
+lifecycle_hooks:
+  native:
+    - PreToolUse
+    - PostToolUse
+  emulated:
+    - TaskCompleted
+mcp_contract:
+  servers:
+    - omg-control
+lsp_contract:
+  languages:
+    - python
+    - typescript
+evidence_outputs:
+  artifacts:
+    - .omg/evidence/hash-edit-{run_id}.json
+execution_contract:
+  modes:
+    - embedded
+    - local_supervisor
+tool_fabric:
+  lane: hash-edit
+  enforcement_order:
+    - tool_selection
+    - approval_state
+    - evidence_requirements
+    - attestation_proof_validation
+    - execution
+  tools:
+    - Edit
+  semantic_operations:
+    - name: single_file_hash_edit
+      tool: Edit
+      mutation_capable: true
+      requires_explicit_promotion: false
+  requires_signed_approval: true
+  requires_signed_approval_for_mutation: true
+  requires_attestation: false
+  requires_attestation_for_mutation: true
+  single_file_hash_bound: true
+  require_run_scoped_evidence: true
+  require_fresh_evidence: true
+  evidence_max_age_seconds: 3600
+  required_evidence:
+    - .omg/evidence/hash-edit-{run_id}.json
+channel_overrides:
+  public:
+    posture: advisory
+  enterprise:
+    posture: managed
