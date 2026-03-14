@@ -34,7 +34,7 @@ from runtime.adoption import (
     CANONICAL_REPO_URL,
     CANONICAL_VERSION,
 )
-from runtime.canonical_surface import CANONICAL_PARITY_HOSTS, get_canonical_hosts
+from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
 from registry.verify_artifact import sign_artifact_statement, verify_artifact_statement
 
 
@@ -43,6 +43,9 @@ SCHEMA_PATH = Path("registry") / "omg-capability.schema.json"
 BUNDLES_DIR = Path("registry") / "bundles"
 SUPPORTED_HOSTS = tuple(get_canonical_hosts())
 RELEASE_BLOCKING_HOSTS = tuple(get_canonical_hosts())
+# Compatibility-only hosts (for example, OpenCode) are intentionally excluded from
+# release-blocking parity and compile-readiness requirements.
+COMPATIBILITY_ONLY_HOSTS = tuple(get_compat_hosts())
 SUPPORTED_CHANNELS = ("public", "enterprise")
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
@@ -170,6 +173,13 @@ HOST_COMPILED_ARTIFACTS = {
     "kimi": (
         ".kimi/mcp.json",
     ),
+}
+
+_HOST_POLICY_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
+    "claude": ("compilation_targets", "hooks", "subagents", "skills"),
+    "codex": ("compilation_targets", "skills", "agents_fragments", "rules", "automations"),
+    "gemini": ("compilation_targets", "mcp", "skills", "automations"),
+    "kimi": ("compilation_targets", "mcp", "skills", "automations"),
 }
 
 _REQUIRED_EXECUTION_PRIMITIVES = (
@@ -406,29 +416,19 @@ def _validate_policy_model(
     )
     declared_hosts = {str(host).strip() for host in bundle_hosts if str(host).strip()}
 
-    _validate_host_rule(
-        bundle_id=bundle_id,
-        host_name="claude",
-        host_rule=host_rules.get("claude"),
-        required_fields=("compilation_targets", "hooks", "subagents", "skills"),
-        errors=errors,
-    )
-    _validate_host_rule(
-        bundle_id=bundle_id,
-        host_name="codex",
-        host_rule=host_rules.get("codex"),
-        required_fields=("compilation_targets", "skills", "agents_fragments", "rules", "automations"),
-        errors=errors,
-    )
-    for host_name in tuple(host for host in CANONICAL_PARITY_HOSTS if host not in {"claude", "codex"}):
-        if host_name in host_rules or host_name in declared_hosts:
-            _validate_host_rule(
-                bundle_id=bundle_id,
-                host_name=host_name,
-                host_rule=host_rules.get(host_name),
-                required_fields=("compilation_targets", "mcp", "skills", "automations"),
-                errors=errors,
-            )
+    for host_name in get_canonical_hosts():
+        if host_name not in host_rules and host_name not in declared_hosts:
+            continue
+        required_fields = _HOST_POLICY_REQUIRED_FIELDS.get(host_name)
+        if required_fields is None:
+            continue
+        _validate_host_rule(
+            bundle_id=bundle_id,
+            host_name=host_name,
+            host_rule=host_rules.get(host_name),
+            required_fields=required_fields,
+            errors=errors,
+        )
     return errors
 
 
@@ -1904,7 +1904,7 @@ def _check_host_semantic_parity(
         for host in report.get("canonical_hosts", [])
         if str(host).strip()
     }
-    missing_hosts = sorted(host for host in required_hosts if host not in canonical_hosts)
+    missing_hosts = sorted(host for host in canonical_required_hosts if host not in canonical_hosts)
     overall_status = str(report.get("overall_status", "")).strip().lower()
     parity_results = report.get("parity_results", {})
     passed = bool(parity_results.get("passed")) if isinstance(parity_results, dict) else False
@@ -1923,7 +1923,7 @@ def _check_host_semantic_parity(
     return {
         "status": "ok" if not blockers else "error",
         "report": str(report_path.relative_to(output_root)),
-        "required_hosts": sorted(required_hosts),
+        "required_hosts": sorted(canonical_required_hosts),
         "blockers": blockers,
     }
 
@@ -1988,7 +1988,11 @@ def build_release_readiness(
         for item in os.environ.get("OMG_RELEASE_READY_PROVIDERS", "").split(",")
         if item.strip()
     }
-    required_provider_hosts: set[str] = set(provider_override or RELEASE_BLOCKING_HOSTS)
+    required_provider_hosts: set[str] = (
+        {host for host in provider_override if host in RELEASE_BLOCKING_HOSTS}
+        if provider_override
+        else set(RELEASE_BLOCKING_HOSTS)
+    )
 
     validation = validate_contract_registry(root)
     checks["contract_validation"] = validation
@@ -2041,13 +2045,16 @@ def build_release_readiness(
         checks[f"dist_{required_channel}"] = manifest
 
     required_outputs = [
-        output / ".claude-plugin" / "plugin.json",
-        output / ".claude-plugin" / "marketplace.json",
-        output / ".mcp.json",
-        output / "settings.json",
-        output / ".agents" / "skills" / "omg" / "control-plane" / "SKILL.md",
-        output / ".agents" / "skills" / "omg" / "control-plane" / "openai.yaml",
+        output / host_artifact
+        for host_name in RELEASE_BLOCKING_HOSTS
+        for host_artifact in HOST_COMPILED_ARTIFACTS.get(host_name, ())
     ]
+    required_outputs.extend(
+        [
+            output / ".agents" / "skills" / "omg" / "control-plane" / "SKILL.md",
+            output / ".agents" / "skills" / "omg" / "control-plane" / "openai.yaml",
+        ]
+    )
     missing_outputs = [str(path.relative_to(output)) for path in required_outputs if not path.exists()]
     if missing_outputs:
         blockers.append(f"missing compiled outputs: {', '.join(missing_outputs)}")

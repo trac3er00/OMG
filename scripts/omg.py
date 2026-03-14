@@ -76,6 +76,9 @@ from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_
 from runtime.release_run_coordinator import resolve_current_run_id
 
 
+CANONICAL_HOST_CHOICES = tuple(get_canonical_hosts())
+
+
 def _parse_simple_idea_yaml(path: str) -> dict[str, Any]:
     """Minimal parser for `.omg/idea.yml` template shape."""
     idea: dict[str, Any] = {
@@ -985,7 +988,7 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
         "--host",
         dest="hosts",
         action="append",
-        choices=["claude", "codex", "gemini", "kimi"],
+        choices=list(CANONICAL_HOST_CHOICES),
         required=True,
         help="Host to compile (repeat for multiple hosts)",
     )
