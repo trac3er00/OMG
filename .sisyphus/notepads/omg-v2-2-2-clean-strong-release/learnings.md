@@ -23,3 +23,10 @@
 - Release-facing evidence profile labels should be derived from `runtime.evidence_requirements.EVIDENCE_REQUIREMENTS_BY_PROFILE` to eliminate parallel hardcoded profile maps.
 - `methodology-enforced` and `hash-edit` remain governed tool-fabric surfaces; release-readiness should explicitly reject them when surfaced as evidence profiles.
 - Query surfaces should fail explicitly for unknown evidence profiles by emitting machine-readable profile status/error metadata while still preserving fail-closed requirement fallback.
+
+## 2026-03-14 T10 music OMR testbed expansion
+- Replace per-fixture if/elif chains with a `_DETERMINISTIC_FIXTURES` dict so adding new score types is a single dict entry, not a code branch.
+- General-purpose semitone transposition (`_transpose_note`) is safer than hardcoded note lists; it keeps all key pairs deterministic without per-pair maintenance.
+- Evidence schema expansions (trace_metadata, freshness_threshold_secs, fixture_inventory_valid) should be additive fields — bump minor schema version, never remove existing fields that downstream consumers depend on.
+- Default fixture inventory should be a module-level constant (`_DEFAULT_FIXTURE_INVENTORY`) so both the testbed and tests can reference the canonical list without drift.
+- Workflow daily gate should validate fixture_inventory_valid and run_id linkage explicitly, not just freshness — stale evidence can pass freshness but still have incomplete coverage.

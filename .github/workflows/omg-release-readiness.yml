@@ -64,30 +64,50 @@ jobs:
               raise SystemExit("release evidence pack run_id missing")
 
           fixture_dir = Path("tests/runtime/fixtures")
-          score_fixture_path = fixture_dir / "music_omr" / "simple_c_major.json"
+          score_fixtures = {
+              "simple_c_major": fixture_dir / "music_omr" / "simple_c_major.json",
+              "simple_g_major": fixture_dir / "music_omr" / "simple_g_major.json",
+              "chromatic_fragment": fixture_dir / "music_omr" / "chromatic_fragment.json",
+              "waltz_three_four": fixture_dir / "music_omr" / "waltz_three_four.json",
+          }
           pressure_fixture = json.loads((fixture_dir / "chaos" / "transposition_pressure_fixture.json").read_text(encoding="utf-8"))
 
           testbed = MusicOMRTestbed(str(output_root))
-          omr = testbed.run_omr(score_fixture_path)
+          omr_results = {}
+          for name, path in score_fixtures.items():
+              omr_results[name] = testbed.run_omr(path)
+
           pressure = testbed.run_pressure_suite(
-              omr,
+              omr_results["simple_c_major"],
               str(pressure_fixture.get("target_key", "G")),
               iterations=int(pressure_fixture.get("iterations", 64)),
               runtime_ceiling_seconds=float(pressure_fixture.get("max_runtime_seconds", 0.5)),
           )
 
           trace_id = f"trace-music-omr-daily-gate-{run_id}"
+          all_results = {f"omr_{name}": result for name, result in omr_results.items()}
+          all_results["pressure"] = pressure
           evidence_path = testbed.emit_evidence(
               run_id,
-              {"omr": omr, "pressure": pressure},
+              all_results,
               trace_id=trace_id,
-              fixture_inventory=["simple_c_major.json", "transposition_pressure_fixture.json"],
+              fixture_inventory=[
+                  "simple_c_major.json",
+                  "simple_g_major.json",
+                  "chromatic_fragment.json",
+                  "waltz_three_four.json",
+                  "transposition_pressure_fixture.json",
+              ],
               freshness_max_age_seconds=86400,
           )
           evidence_payload = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
           freshness = evidence_payload.get("freshness", {})
           if not isinstance(freshness, dict) or freshness.get("is_fresh") is not True:
               raise SystemExit("music omr daily gate emitted stale evidence")
+          if evidence_payload.get("fixture_inventory_valid") is not True:
+              raise SystemExit("music omr daily gate fixture inventory incomplete")
+          if evidence_payload.get("run_id") != run_id:
+              raise SystemExit("music omr daily gate run_id linkage mismatch")
 
           release_pack["music_omr_testbed_evidence"] = {
               "path": str(Path(evidence_path).relative_to(output_root)).replace("\\", "/"),

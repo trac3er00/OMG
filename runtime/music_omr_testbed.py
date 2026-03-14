@@ -11,6 +11,49 @@ from typing import Any
 
 from runtime.release_run_coordinator import get_active_coordinator_run_id
 
+# --- deterministic transposition constants ---
+_CHROMATIC = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+_KEY_SEMITONES: dict[str, int] = {n: i for i, n in enumerate(_CHROMATIC)}
+
+# Deterministic fixture registry — keeps OMR output repeatable without network.
+_DETERMINISTIC_FIXTURES: dict[str, dict[str, Any]] = {
+    "simple_c_major": {
+        "notes": ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"],
+        "time_signatures": ["4/4"],
+        "key_signatures": ["C"],
+        "measures": 2,
+    },
+    "simple_g_major": {
+        "notes": ["G4", "A4", "B4", "C5", "D5", "E5", "F#5", "G5"],
+        "time_signatures": ["4/4"],
+        "key_signatures": ["G"],
+        "measures": 2,
+    },
+    "chromatic_fragment": {
+        "notes": ["C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4"],
+        "time_signatures": ["4/4"],
+        "key_signatures": ["C"],
+        "measures": 2,
+    },
+    "waltz_three_four": {
+        "notes": ["C4", "E4", "G4", "C5", "E5", "G5"],
+        "time_signatures": ["3/4"],
+        "key_signatures": ["C"],
+        "measures": 2,
+    },
+}
+
+# Default inventory emitted when no explicit list is supplied.
+_DEFAULT_FIXTURE_INVENTORY: list[str] = [
+    "simple_c_major.json",
+    "simple_g_major.json",
+    "chromatic_fragment.json",
+    "waltz_three_four.json",
+    "transposition_pressure_fixture.json",
+]
+
+_MINIMUM_FIXTURE_COUNT = 5
+
 
 @dataclass
 class OMRResult:
@@ -62,13 +105,14 @@ class MusicOMRTestbed:
                 raw_output="error: corrupted score data",
             )
 
-        # For the simple C major fixture, we return the expected output
-        if data.get("score_id") == "simple_c_major":
+        # Deterministic fixture lookup
+        fixture_data = _DETERMINISTIC_FIXTURES.get(data.get("score_id"))
+        if fixture_data is not None:
             return OMRResult(
-                notes=["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"],
-                time_signatures=["4/4"],
-                key_signatures=["C"],
-                measures=2,
+                notes=list(fixture_data["notes"]),
+                time_signatures=list(fixture_data["time_signatures"]),
+                key_signatures=list(fixture_data["key_signatures"]),
+                measures=fixture_data["measures"],
                 raw_output="raw_omr_data_here",
             )
 
@@ -81,8 +125,19 @@ class MusicOMRTestbed:
             raw_output="unknown fixture",
         )
 
+    @staticmethod
+    def _transpose_note(note: str, semitones: int) -> str:
+        """Transpose a single note by *semitones* (deterministic, no network)."""
+        if len(note) >= 3 and note[1] == "#":
+            name, octave = note[:2], int(note[2:])
+        else:
+            name, octave = note[:1], int(note[1:])
+        idx = _KEY_SEMITONES[name]
+        new_idx = idx + semitones
+        return f"{_CHROMATIC[new_idx % 12]}{octave + new_idx // 12}"
+
     def run_transposition(self, omr_result: OMRResult, target_key: str) -> TranspositionResult:
-        """Transposes extracted score."""
+        """Transposes extracted score using deterministic interval arithmetic."""
         if not omr_result.notes:
             return TranspositionResult(
                 original_key=omr_result.key_signatures[0] if omr_result.key_signatures else "C",
@@ -92,13 +147,10 @@ class MusicOMRTestbed:
             )
 
         original_key = omr_result.key_signatures[0] if omr_result.key_signatures else "C"
-        
-        # Simple deterministic transposition for the testbed
-        transposed_notes = []
-        if original_key == "C" and target_key == "G":
-            transposed_notes = ["G4", "A4", "B4", "C5", "D5", "E5", "F#5", "G5"]
-        else:
-            transposed_notes = list(omr_result.notes)
+
+        # General-purpose deterministic transposition via semitone interval
+        interval = (_KEY_SEMITONES.get(target_key, 0) - _KEY_SEMITONES.get(original_key, 0)) % 12
+        transposed_notes = [self._transpose_note(n, interval) for n in omr_result.notes]
 
         verification_hash = hashlib.sha256(json.dumps(transposed_notes).encode()).hexdigest()
 
@@ -235,14 +287,13 @@ class MusicOMRTestbed:
         generated_at = datetime.now(timezone.utc)
         expires_at = generated_at + timedelta(seconds=freshness_max_age_seconds)
         if fixture_inventory is None:
-            fixture_inventory = [
-                "simple_c_major.json",
-                "transposition_pressure_fixture.json",
-            ]
+            fixture_inventory = list(_DEFAULT_FIXTURE_INVENTORY)
+        deduped_inventory = list(dict.fromkeys(fixture_inventory))
+        inventory_valid = len(deduped_inventory) >= _MINIMUM_FIXTURE_COUNT
 
         payload: dict[str, Any] = {
             "schema": "MusicOMREvidence",
-            "schema_version": "2.0.0",
+            "schema_version": "2.1.0",
             "run_id": resolved_run_id,
             "trace_id": trace_id,
             "trace": {
@@ -250,13 +301,25 @@ class MusicOMRTestbed:
                 "gate": "music-omr-daily",
                 "run_scope": "release-run",
             },
-            "fixture_inventory": list(dict.fromkeys(fixture_inventory)),
+            "trace_metadata": {
+                "testbed": "MusicOMRTestbed",
+                "fixture_count": len(deduped_inventory),
+                "fixture_inventory_valid": inventory_valid,
+                "deterministic": True,
+                "gate": "music-omr-daily",
+                "run_id_linkage": resolved_run_id,
+            },
+            "fixture_inventory": deduped_inventory,
+            "fixture_count": len(deduped_inventory),
+            "fixture_inventory_valid": inventory_valid,
             "freshness": {
                 "generated_at": generated_at.isoformat(),
                 "expires_at": expires_at.isoformat(),
                 "max_age_seconds": freshness_max_age_seconds,
+                "freshness_threshold_secs": freshness_max_age_seconds,
                 "is_fresh": self._is_fresh(generated_at.isoformat(), freshness_max_age_seconds),
             },
+            "freshness_threshold_secs": freshness_max_age_seconds,
             "results": {},
         }
 

@@ -1,0 +1,51 @@
+Task 10: Music OMR testbed expansion and evidence hardening
+============================================================
+
+## Changes
+
+### runtime/music_omr_testbed.py
+- Added 3 new deterministic fixtures: simple_g_major, chromatic_fragment, waltz_three_four
+- Replaced hardcoded C→G transposition with general-purpose semitone interval arithmetic (_transpose_note)
+- Added _DETERMINISTIC_FIXTURES dict for scalable fixture registration
+- Added _DEFAULT_FIXTURE_INVENTORY (5 fixtures) and _MINIMUM_FIXTURE_COUNT = 5
+- Evidence emission now includes:
+  - trace_metadata: testbed, fixture_count, fixture_inventory_valid, deterministic, gate, run_id_linkage
+  - fixture_count and fixture_inventory_valid top-level fields
+  - freshness_threshold_secs (top-level and inside freshness block)
+  - Schema version bumped to 2.1.0
+
+### tests/runtime/test_music_omr_flow.py
+- Added 7 new tests for expanded fixtures:
+  - test_g_major_omr_flow
+  - test_chromatic_fragment_omr_flow
+  - test_waltz_three_four_omr_flow
+  - test_g_major_transposition_to_d
+  - test_chromatic_transposition_to_g
+  - test_waltz_transposition_to_g
+  - test_stale_evidence_detected (regression: stale/incomplete evidence rejection)
+  - test_incomplete_fixture_inventory_flagged (regression: sub-minimum inventory flagged)
+  - test_evidence_includes_expanded_metadata (validates all new evidence fields)
+
+### tests/runtime/fixtures/music_omr/
+- New fixture files: simple_g_major.json, simple_g_major_expected.json,
+  chromatic_fragment.json, chromatic_fragment_expected.json,
+  waltz_three_four.json, waltz_three_four_expected.json,
+  transposed_g_to_d_major.json, transposed_chromatic_to_g.json, transposed_waltz_to_g.json
+
+### .github/workflows/omg-release-readiness.yml
+- OMR daily gate now runs all 4 score fixtures (was only simple_c_major)
+- Fixture inventory expanded to 5 items
+- Added validation for fixture_inventory_valid and run_id linkage
+
+### docs/proof.md
+- Updated permanent music OMR daily gate contract with expanded fixture list and new evidence fields
+
+## Test Results
+23 passed in 6.69s
+- tests/runtime/test_music_omr_flow.py: 13 passed (4 original + 9 new)
+- tests/runtime/test_release_chaos.py: 10 passed (all unchanged, backward-compatible)
+
+## Verification
+- LSP diagnostics: 0 errors on both changed files
+- All fixtures are deterministic (synthetic input, deterministic output, no network)
+- General-purpose transposition produces identical output to previous hardcoded C→G mapping
