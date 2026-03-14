@@ -1,6 +1,6 @@
 id: preflight
 kind: routing
-version: 2.1.9
+version: 2.2.2
 title: OMG Preflight
 description: Repo-aware route selection based on diff, manifests, and classified risk.
 hosts:

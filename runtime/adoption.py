@@ -5,6 +5,7 @@ import json
 import importlib
 import shutil
 from pathlib import Path
+from typing import Callable, cast
 
 
 CANONICAL_BRAND = "OMG"
@@ -12,7 +13,7 @@ CANONICAL_REPO_URL = "https://github.com/trac3er00/OMG"
 CANONICAL_PACKAGE_NAME = "@trac3er/oh-my-god"
 CANONICAL_PLUGIN_ID = "omg"
 CANONICAL_MARKETPLACE_ID = "omg"
-CANONICAL_VERSION = "2.1.9"
+CANONICAL_VERSION = "2.2.2"
 
 VALID_ADOPTION_MODES = ("omg-only", "coexist")
 CANONICAL_MODE_NAMES = ("chill", "focused", "exploratory")
@@ -119,7 +120,7 @@ def get_preset_features(preset: str | None) -> dict[str, bool]:
 
 def get_mode_profile(mode: str) -> dict[str, object]:
     runtime_profile = importlib.import_module("runtime.runtime_profile")
-    loader = getattr(runtime_profile, "load_canonical_mode_profile")
+    loader = cast(Callable[[str], dict[str, object]], getattr(runtime_profile, "load_canonical_mode_profile"))
     return loader(mode)
 
 

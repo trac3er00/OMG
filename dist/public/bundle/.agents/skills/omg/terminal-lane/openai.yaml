@@ -1,0 +1,11 @@
+name: omg-terminal-lane
+description: "Highest-risk governed terminal execution lane with strict approval and attestation."
+allow_implicit_invocation: false
+metadata:
+  channel: public
+  bundle_id: terminal-lane
+  title: "OMG Terminal Lane"
+mcp_servers:
+  - omg-control
+allowed_tools:
+  - "Bash"

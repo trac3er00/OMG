@@ -9,10 +9,10 @@
     }
   },
   "_omg": {
-      "_version": "2.1.9",
+    "_version": "2.2.2",
     "generated": {
-        "contract_version": "2.1.9",
-      "channel": "public",
+      "contract_version": "2.2.2",
+      "channel": "enterprise",
       "required_bundles": [
         "control-plane",
         "plan-council",
@@ -60,6 +60,11 @@
           "claim_judge",
           "compliance_governor",
           "execution_primitives"
+        ],
+        "runtime_behavior_surfaces": [
+          "execution_primitives",
+          "provider_host_parity",
+          "host_semantic_parity"
         ]
       }
     }

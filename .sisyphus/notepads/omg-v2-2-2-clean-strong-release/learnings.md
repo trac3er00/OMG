@@ -35,3 +35,8 @@
 - Use `actions/setup-python@v5` with `cache: pip` plus `cache-dependency-path` (`pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*.txt`) in every Python job; this keeps cache key derivation stable across split jobs.
 - Split governed gates into `prepare -> compile/parity -> readiness` jobs and pass `artifacts/*` directories through upload/download artifacts so evidence-producing setup runs once and compile stages parallelize safely.
 - Keep release-readiness evidence assertions in the terminal readiness job and aggregate with `actions/download-artifact@v4` using `pattern` + `merge-multiple: true` so critical checks still run on one assembled artifact tree.
+
+## 2026-03-14 T12 canonical version 2.2.2 release bump
+- Follow the version-gate fix order exactly (`sync-release-identity` -> contract compile for both channels -> compile with `--output-root artifacts/release` -> `python3 -m build --wheel`) to keep authored, dist, release, and build surfaces aligned.
+- `OMG_COMPAT_CONTRACT.md` prose can still carry old semantic version text even when frontmatter/bundle versions are updated; this must be bumped too or `validate-release-identity --forbid-version` fails on compiled bundles.
+- `artifacts/release/.omg/evidence/doctor.json` can retain a stale version and must be refreshed from `python3 scripts/omg.py doctor --format json` before running the final forbid-version gate.

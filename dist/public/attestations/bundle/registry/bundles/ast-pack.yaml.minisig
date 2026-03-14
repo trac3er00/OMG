@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+bELDxET/dBuFe8MCu2h0L1ug/g6hjlUpC0n3WCT1LaJcVkc1l6OhCHu9X5Y3AwUe07Mlrurj0ZlnT2uVi9kvBg==
+trusted comment: type=omg-slsa-v1 keyid=d3e6ad0c210b6f5d issued_at=2026-03-14T04:21:32.329568+00:00 artifact=bundle/registry/bundles/ast-pack.yaml sha256=e3823f74ebfc6c941d3f99ad3b51d973b8668944fffb5f0710f71df1f3c9f45d
+7hbsUrCScbr6WTeGXoEb43Ck78P1lCEIBKd63SUOh3uVr6YTrsAQpm6997dGAV2e5qnogJ3LfSAURj/Ld/ZxDg==

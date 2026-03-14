@@ -8,4 +8,4 @@ description: "Optional LSP-backed diagnostics and navigation bundle for producti
 - Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
-- Evidence outputs: `.omg/evidence/lsp-diagnostics.json`
+- Evidence outputs: `.omg/evidence/lsp-pack-{run_id}.json`

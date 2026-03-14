@@ -1,0 +1,4 @@
+untrusted comment: signature from omg local signing key
+gfL0SqXXzyANuL1johO9ChS8hQYAp74qEGqBjxWlvqxk1gDtrHyTyj6naP6/LcsFIb6Of2Zv/2GZZy/mHAqpAA==
+trusted comment: type=omg-slsa-v1 keyid=01e4a1ac4cbddf80 issued_at=2026-03-14T04:21:34.597684+00:00 artifact=bundle/.agents/skills/omg/ast-pack/openai.yaml sha256=f5e644f1a337ef6fb2470ad4a7ccc732495c4513062362f4c605cf4f8a609541
+sYS5dqUdzVpQvPRUdO7yKBrrus8lOu7jZX+1NxKpCuRMLe7wJr+6GyJO/9Nn8/7F7OGeRsxymmbuhSlMRpA3Cw==

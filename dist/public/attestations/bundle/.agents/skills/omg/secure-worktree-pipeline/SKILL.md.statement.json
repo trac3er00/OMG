@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md",
       "digest": {
-        "sha256": "1eebd557d77cc084161c3ffe11ed3a9ea5d78caa65b1021a992ac8b835fc6a0d"
+        "sha256": "f4f1baa80560d0180bac384f141b0203671512eaa8c3facbdfbe48166e70f66b"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-13T03:39:12.040857+00:00"
+      "timestamp": "2026-03-14T04:21:32.309692+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-13T03:39:12.040857+00:00",
+  "issued_at": "2026-03-14T04:21:32.309692+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "13ed9830d049c7a3",
-    "value": "untrusted comment: signature from omg local signing key\nJ8rbMOzNsK7po1LqxqgJ0J0Krj+IKBWUXbJGffqBVMzECF7wf1Sg6yMAfnC851o76f2//08/SlrLa7M6stxeAA==\ntrusted comment: type=omg-slsa-v1 keyid=13ed9830d049c7a3 issued_at=2026-03-13T03:39:12.040965+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md sha256=1eebd557d77cc084161c3ffe11ed3a9ea5d78caa65b1021a992ac8b835fc6a0d\nUATvd9te2tO8Y8sgeal6mJYYpcKtzi+dVT17DkGATTQ3if1MJNyDpM9x63uvhrwrswJ7d1yE4XSyahTaUegxBw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=13ed9830d049c7a3 issued_at=2026-03-13T03:39:12.040965+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md sha256=1eebd557d77cc084161c3ffe11ed3a9ea5d78caa65b1021a992ac8b835fc6a0d"
+    "keyid": "771be255f9da60ab",
+    "value": "untrusted comment: signature from omg local signing key\n+y3T2GbirnqHSk96cT8qV8Tux4nzpjTChDInfFpa6SgQsO9/q5BFPffBh6MhIkJkH5Ngko/CNNO94GFtOxi0Dw==\ntrusted comment: type=omg-slsa-v1 keyid=771be255f9da60ab issued_at=2026-03-14T04:21:32.309798+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md sha256=f4f1baa80560d0180bac384f141b0203671512eaa8c3facbdfbe48166e70f66b\ndR9eHoTGulRGbdhg7EXQCY2QgtHZe+2VyTns6HT/+aaQOjOFx7AkFA5WIoRDwVKd7YLjkVS1Huvwd10MfldaDA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=771be255f9da60ab issued_at=2026-03-14T04:21:32.309798+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md sha256=f4f1baa80560d0180bac384f141b0203671512eaa8c3facbdfbe48166e70f66b"
   }
 }
