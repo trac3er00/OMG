@@ -5,6 +5,7 @@ import json
 import importlib
 import shutil
 from pathlib import Path
+from typing import Callable, cast
 
 
 CANONICAL_BRAND = "OMG"
@@ -119,7 +120,7 @@ def get_preset_features(preset: str | None) -> dict[str, bool]:
 
 def get_mode_profile(mode: str) -> dict[str, object]:
     runtime_profile = importlib.import_module("runtime.runtime_profile")
-    loader = getattr(runtime_profile, "load_canonical_mode_profile")
+    loader = cast(Callable[[str], dict[str, object]], getattr(runtime_profile, "load_canonical_mode_profile"))
     return loader(mode)
 
 
