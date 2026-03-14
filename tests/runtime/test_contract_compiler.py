@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import zipfile
 from unittest.mock import patch
 
 import pytest
@@ -23,6 +24,7 @@ from runtime.contract_compiler import (
     REQUIRED_CODEX_AGENTS_SECTIONS,
     REQUIRED_CODEX_OUTPUTS,
     _get_required_advanced_plugin_artifacts,
+    check_package_parity,
     build_release_readiness,
     compile_contract_outputs,
     validate_contract_registry,
@@ -82,6 +84,16 @@ def _patch_fast_release_checks(monkeypatch) -> None:
             "canonical_version": CANONICAL_VERSION,
             "blockers": [],
             "drift_details": {},
+        },
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "check_package_parity",
+        lambda _root: {
+            "status": "ok",
+            "required_surfaces": ["hash-edit", "ast-pack", "terminal-lane"],
+            "machine_blockers": [],
+            "blockers": [],
         },
     )
 
@@ -2066,6 +2078,75 @@ def test_removing_truth_council_bundle_from_constant_fails_parity(
             assert bundle_id in contract_compiler_module.DEFAULT_REQUIRED_BUNDLES, (
                 f"Truth/council bundle '{bundle_id}' missing from DEFAULT_REQUIRED_BUNDLES"
             )
+
+
+def _seed_package_parity_surface_fixture(root: Path) -> None:
+    required_surfaces = ("hash-edit", "ast-pack", "terminal-lane")
+    for surface in required_surfaces:
+        source_skill = root / ".agents" / "skills" / "omg" / surface / "SKILL.md"
+        source_skill.parent.mkdir(parents=True, exist_ok=True)
+        source_skill.write_text(f"# {surface}\n", encoding="utf-8")
+
+        dist_skill = root / "dist" / "public" / "bundle" / ".agents" / "skills" / "omg" / surface / "SKILL.md"
+        dist_skill.parent.mkdir(parents=True, exist_ok=True)
+        dist_skill.write_text(f"# {surface}\n", encoding="utf-8")
+
+        release_skill = (
+            root
+            / "artifacts"
+            / "release"
+            / "dist"
+            / "public"
+            / "bundle"
+            / ".agents"
+            / "skills"
+            / "omg"
+            / surface
+            / "SKILL.md"
+        )
+        release_skill.parent.mkdir(parents=True, exist_ok=True)
+        release_skill.write_text(f"# {surface}\n", encoding="utf-8")
+
+    wheel_path = root / "dist" / "fixture-0.0.0-py3-none-any.whl"
+    with zipfile.ZipFile(wheel_path, mode="w") as archive:
+        for surface in required_surfaces:
+            archive.writestr(f"pkg/.agents/skills/omg/{surface}/SKILL.md", f"# {surface}\n")
+
+
+def test_check_package_parity_accepts_all_required_surface_locations(tmp_path: Path) -> None:
+    _seed_package_parity_surface_fixture(tmp_path)
+
+    result = check_package_parity(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+    assert result["machine_blockers"] == []
+
+
+def test_check_package_parity_reports_machine_readable_blocker_for_missing_surface(tmp_path: Path) -> None:
+    _seed_package_parity_surface_fixture(tmp_path)
+    missing_dist_surface = (
+        tmp_path
+        / "dist"
+        / "public"
+        / "bundle"
+        / ".agents"
+        / "skills"
+        / "omg"
+        / "terminal-lane"
+        / "SKILL.md"
+    )
+    missing_dist_surface.unlink()
+
+    result = check_package_parity(tmp_path)
+
+    assert result["status"] == "error"
+    assert any("surface=terminal-lane" in blocker for blocker in result["blockers"])
+    assert any(
+        blocker.get("location") == "dist" and blocker.get("surface") == "terminal-lane"
+        for blocker in result["machine_blockers"]
+        if isinstance(blocker, dict)
+    )
 
 
 def _setup_drift_fixture(fixture_root: Path) -> None:

@@ -26,7 +26,7 @@ from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
 from runtime.release_run_coordinator import get_active_coordinator_run_id
-from runtime.release_surfaces import get_runtime_behavior_surfaces
+from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -2131,6 +2131,10 @@ def build_release_readiness(
     checks["package_smoke"] = package_check
     blockers.extend(package_check.get("blockers", []))
 
+    package_parity = check_package_parity(root)
+    checks["package_parity"] = package_parity
+    blockers.extend(package_parity.get("blockers", []))
+
     plugin_cmd_check = _check_plugin_command_paths(root)
     checks["plugin_command_paths"] = plugin_cmd_check
     blockers.extend(plugin_cmd_check.get("blockers", []))
@@ -3069,6 +3073,92 @@ def _check_bundle_promotion_parity(root: Path, output_root: Path) -> dict[str, A
         "missing_dist_public": missing_dist_public,
         "missing_dist_enterprise": missing_dist_enterprise,
         "missing_pyproject_data_files": missing_pyproject_data_files,
+    }
+
+
+def check_package_parity(root_path: str | Path) -> dict[str, Any]:
+    root = _resolve_root(root_path)
+    required_surfaces = tuple(get_package_parity_surfaces())
+    machine_blockers: list[dict[str, str]] = []
+    blockers: list[str] = []
+
+    def _add_blocker(*, location: str, surface: str, path: str, reason: str = "missing_surface") -> None:
+        blocker = {
+            "kind": "package_parity_missing",
+            "location": location,
+            "surface": surface,
+            "path": path,
+            "reason": reason,
+        }
+        machine_blockers.append(blocker)
+        blockers.append(
+            f"package_parity_missing: location={location} surface={surface} path={path} reason={reason}"
+        )
+
+    for surface in required_surfaces:
+        source_path = root / ".agents" / "skills" / "omg" / surface / "SKILL.md"
+        if not source_path.exists():
+            _add_blocker(location="source", surface=surface, path=str(source_path.relative_to(root)))
+
+    def _check_bundle_surface_roots(*, location: str, roots: list[Path]) -> None:
+        if not roots:
+            for surface in required_surfaces:
+                _add_blocker(
+                    location=location,
+                    surface=surface,
+                    path=f"{location}/bundle/.agents/skills/omg/{surface}/SKILL.md",
+                    reason="missing_output_location",
+                )
+            return
+        for surface in required_surfaces:
+            found = False
+            for bundle_root in roots:
+                candidate = bundle_root / ".agents" / "skills" / "omg" / surface / "SKILL.md"
+                if candidate.exists():
+                    found = True
+                    break
+            if not found:
+                _add_blocker(
+                    location=location,
+                    surface=surface,
+                    path=f"{location}/bundle/.agents/skills/omg/{surface}/SKILL.md",
+                )
+
+    dist_bundle_roots = [path for path in sorted((root / "dist").glob("*/bundle")) if path.is_dir()]
+    _check_bundle_surface_roots(location="dist", roots=dist_bundle_roots)
+
+    release_bundle_roots = [
+        path for path in sorted((root / "artifacts" / "release" / "dist").glob("*/bundle")) if path.is_dir()
+    ]
+    _check_bundle_surface_roots(location="release", roots=release_bundle_roots)
+
+    wheel_files = sorted((root / "dist").glob("*.whl"))
+    if not wheel_files:
+        for surface in required_surfaces:
+            _add_blocker(
+                location="wheel",
+                surface=surface,
+                path=f"dist/*.whl::.agents/skills/omg/{surface}/SKILL.md",
+                reason="missing_output_location",
+            )
+    else:
+        wheel_path = wheel_files[-1]
+        with zipfile.ZipFile(wheel_path) as archive:
+            names = set(archive.namelist())
+        for surface in required_surfaces:
+            suffix = f".agents/skills/omg/{surface}/SKILL.md"
+            if not any(name.endswith(suffix) for name in names):
+                _add_blocker(
+                    location="wheel",
+                    surface=surface,
+                    path=f"{wheel_path.relative_to(root)}::{suffix}",
+                )
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "required_surfaces": list(required_surfaces),
+        "machine_blockers": machine_blockers,
+        "blockers": blockers,
     }
 
 

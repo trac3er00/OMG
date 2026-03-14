@@ -83,6 +83,13 @@ _BUNDLE_NAMES: tuple[str, ...] = (
 )
 
 
+REQUIRED_PACKAGE_PARITY_SURFACES: tuple[str, ...] = (
+    "hash-edit",
+    "ast-pack",
+    "terminal-lane",
+)
+
+
 # ── Authored surfaces: explicit, no dynamic discovery ──────────────────────
 
 AUTHORED_SURFACES: list[AuthoredSurface] = [
@@ -293,6 +300,10 @@ def get_derived_dirs() -> list[str]:
 
 def get_runtime_behavior_surfaces() -> list[str]:
     return list(RUNTIME_BEHAVIOR_SURFACES)
+
+
+def get_package_parity_surfaces() -> list[str]:
+    return list(REQUIRED_PACKAGE_PARITY_SURFACES)
 
 
 def surface_applies_to_root(surface: AuthoredSurface, root_dir: Path) -> bool:

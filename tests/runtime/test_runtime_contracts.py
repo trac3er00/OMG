@@ -368,10 +368,13 @@ def test_tool_fabric_lanes_are_semantic_and_run_scoped() -> None:
         lsp_pack = cast(dict[str, object], yaml.safe_load(handle))
     with (bundles_dir / "ast-pack.yaml").open("r", encoding="utf-8") as handle:
         ast_pack = cast(dict[str, object], yaml.safe_load(handle))
+    with (bundles_dir / "terminal-lane.yaml").open("r", encoding="utf-8") as handle:
+        terminal_lane = cast(dict[str, object], yaml.safe_load(handle))
 
     hash_contract = cast(dict[str, object], hash_edit["tool_fabric"])
     lsp_contract = cast(dict[str, object], lsp_pack["tool_fabric"])
     ast_contract = cast(dict[str, object], ast_pack["tool_fabric"])
+    terminal_contract = cast(dict[str, object], terminal_lane["tool_fabric"])
 
     assert isinstance(hash_contract["semantic_operations"], list)
     assert hash_contract["single_file_hash_bound"] is True
@@ -391,3 +394,9 @@ def test_tool_fabric_lanes_are_semantic_and_run_scoped() -> None:
     assert ast_contract["requires_signed_approval_for_mutation"] is True
     assert ast_contract["requires_attestation_for_mutation"] is True
     assert ast_contract["require_run_scoped_evidence"] is True
+
+    assert terminal_contract["lane"] == "terminal-lane"
+    assert terminal_contract["requires_signed_approval"] is True
+    assert terminal_contract["requires_attestation"] is True
+    required_terminal_evidence = cast(list[str], terminal_contract["required_evidence"])
+    assert any("terminal-lane-{run_id}.json" in item for item in required_terminal_evidence)

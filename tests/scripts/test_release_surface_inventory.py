@@ -17,6 +17,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from runtime.release_surfaces import (
     AUTHORED_SURFACES,
     DERIVED_SURFACE_DIRS,
+    REQUIRED_PACKAGE_PARITY_SURFACES,
     SCOPED_RESIDUE_TARGETS,
     SURFACE_TYPES,
     AuthoredSurface,
@@ -85,11 +86,11 @@ class TestInventoryCompleteness:
         assert len(AUTHORED_SURFACES) > 0
 
     def test_total_surface_count(self) -> None:
-        # 10 JSON + 1 regex(pyproject) + 25 YAML + 1 CHANGELOG
+        # 14 JSON + 1 regex(pyproject) + 25 YAML + 1 CHANGELOG
         # + 1 frontmatter + 3 CLI-ADAPTER-MAP + 1 shell + 1 js + 1 banner + 1 json
         # + 1 JSON (validate.md) + 1 banner (settings.json)
-        # = 47
-        assert len(AUTHORED_SURFACES) == 47
+        # = 51
+        assert len(AUTHORED_SURFACES) == 51
 
     def test_all_json_surfaces_from_sync_script_covered(self) -> None:
         """Every JSON surface from sync-release-identity.py must appear."""
@@ -247,11 +248,11 @@ class TestHelpers:
 
     def test_get_authored_paths_count(self) -> None:
         paths = get_authored_paths()
-        # 41 unique files: 7 JSON files + pyproject.toml + 25 YAML + CHANGELOG
+        # 43 unique files: 9 JSON files + pyproject.toml + 25 YAML + CHANGELOG
         # + OMG_COMPAT_CONTRACT + CLI-ADAPTER-MAP + OMG-setup.sh + hud/omg-hud.mjs
         # + .claude-plugin/scripts/install.sh + runtime/omg_compat_contract_snapshot.json
         # + commands/OMG:validate.md
-        assert len(paths) == 41
+        assert len(paths) == 43
 
 
 class TestTypeSafety:
@@ -312,6 +313,13 @@ class TestNegativeCases:
 
 
 class TestPhaseOneBundleParity:
+    def test_required_package_parity_surfaces_declared(self) -> None:
+        assert set(REQUIRED_PACKAGE_PARITY_SURFACES) == {
+            "hash-edit",
+            "ast-pack",
+            "terminal-lane",
+        }
+
     def test_control_plane_declares_all_canonical_hosts(self) -> None:
         bundle_path = REPO_ROOT / "registry" / "bundles" / "control-plane.yaml"
         payload = yaml.safe_load(bundle_path.read_text(encoding="utf-8"))
