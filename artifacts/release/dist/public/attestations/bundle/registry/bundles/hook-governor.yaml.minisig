@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-siKTwR73sk9om92IPeDSoujo0NBhS1XzuEJHHX3N3ubI7QQ8bW2pjhocM9idv7eK9Ak0xIiTLLcn7HEsNIJrDQ==
-trusted comment: type=omg-slsa-v1 keyid=fb3424a3cdbf6fce issued_at=2026-03-14T04:21:33.875863+00:00 artifact=bundle/registry/bundles/hook-governor.yaml sha256=08c8267558eddb51524d5dd9d55a9e5ea4cced4303a81db97e9b92f6eebda09f
-DsAN4aLfOQYltUIUHCSOmraG7fpuy4KKAkVgEcIgYPoRc1do0UNxO5l3xX4bdgTQS4duF2Nxo1HymBteYZDAAQ==
+gvE6XOo4jmmbnAwJXuJFlDqm7lbVJ+ZfLvDAbQHmOnNGQ1eukG5xwkvvs8dRg2LThpvsE1MFNK2UYeF/AlneDw==
+trusted comment: type=omg-slsa-v1 keyid=64b1db5cf2332ca9 issued_at=2026-03-14T19:07:30.673721+00:00 artifact=bundle/registry/bundles/hook-governor.yaml sha256=2fda6536f9f07ce190306057fa1bad0dc7eff5cf335f53d832ca8a0d2a3f1ccb
+45PYi/TrJaQXOb9mB8d5lV/WIHxsTkJziFsO4Xcc4g3SDhdAJZkTHrC2p4ws742l2kSVWR9ZXrHMI+CC6uZcBg==

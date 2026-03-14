@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,13 @@ _TOOL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "omg-control": ("policy", "governance", "release", "proof", "control plane"),
 }
 _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
+_READ_ONLY_BASH_ALLOWLIST = (
+    re.compile(r"^python\d?(?:\s+-[vV]{1,2}|\s+--version)(?:\s|$)"),
+    re.compile(r"^git\s+status(?:\s|$)"),
+    re.compile(r"^gh\s+pr\s+view(?:\s|$)"),
+    re.compile(r"^(?:.+\|\s*)?tee\s+/dev/null(?:\s|$)"),
+)
+_FULLY_QUOTED_PATTERN = re.compile(r"^\s*([\"']).*\1\s*$")
 
 def build_tool_plan(
     goal: str,
@@ -396,8 +404,24 @@ def _clarification_status(context_packet: dict[str, object]) -> dict[str, object
 def _is_mutation_capable_tool(tool: str, tool_input: dict[str, object]) -> bool:
     token = str(tool or "").strip().lower()
     if token == "bash":
-        return classify_bash_command_mode(str(tool_input.get("command", ""))) == "mutation"
+        command = str(tool_input.get("command", "")).strip()
+        lowered = command.lower()
+        if _is_allowlisted_read_only_bash(lowered):
+            return False
+        return classify_bash_command_mode(command) == "mutation"
     return token in _MUTATION_TOOLS
+
+
+def _is_allowlisted_read_only_bash(command: str) -> bool:
+    stripped = command.strip()
+    if not stripped:
+        return True
+    if _FULLY_QUOTED_PATTERN.match(stripped):
+        return True
+    for pattern in _READ_ONLY_BASH_ALLOWLIST:
+        if pattern.search(stripped):
+            return True
+    return False
 
 
 def _extract_metadata(tool_input: dict[str, object]) -> dict[str, object]:

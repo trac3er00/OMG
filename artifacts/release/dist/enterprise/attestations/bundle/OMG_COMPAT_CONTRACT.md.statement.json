@@ -5,7 +5,7 @@
     {
       "name": "bundle/OMG_COMPAT_CONTRACT.md",
       "digest": {
-        "sha256": "b733d7c74eb94c1dff07388baf56b4168be48d4f91de0c9a9c40ad24e79c2a61"
+        "sha256": "e0e03b924f3c9224b38117317f9f425b34557a3a4da92e93cffb24d8099e6ecc"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-14T04:21:34.633102+00:00"
+      "timestamp": "2026-03-14T19:07:32.873864+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-14T04:21:34.633102+00:00",
+  "issued_at": "2026-03-14T19:07:32.873864+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "5aed758b7db1156c",
-    "value": "untrusted comment: signature from omg local signing key\nfRCQhrw+rgWQuLerBtnoIsc4BUS8E6E1ZIlU5hU9uI4pAfC+F2GK0qPHx51PUIEsXwBN0teDLCArMOomiZJPAA==\ntrusted comment: type=omg-slsa-v1 keyid=5aed758b7db1156c issued_at=2026-03-14T04:21:34.633210+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=b733d7c74eb94c1dff07388baf56b4168be48d4f91de0c9a9c40ad24e79c2a61\niyLTfey3dyNobqJrvDWOFaV+Ivdo3MlWKL5qIJQYuDvthe3WsONUmZ7MJClmGYRlV8hiM5KzMWgUGA2RCRr9BQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=5aed758b7db1156c issued_at=2026-03-14T04:21:34.633210+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=b733d7c74eb94c1dff07388baf56b4168be48d4f91de0c9a9c40ad24e79c2a61"
+    "keyid": "cb77f6d14d9049ef",
+    "value": "untrusted comment: signature from omg local signing key\nLyjCHFNH3nX7AfdQ13xk2sPcstD+EA7kreTPTvwSxXbtbOuJnihSbzEyfjZY92Sg105WsP2mRxptnWUNs1z6Bg==\ntrusted comment: type=omg-slsa-v1 keyid=cb77f6d14d9049ef issued_at=2026-03-14T19:07:32.873978+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=e0e03b924f3c9224b38117317f9f425b34557a3a4da92e93cffb24d8099e6ecc\nDnhMGJYxAyvOFXa/2RncPJpZwcq3m/qC0WsBxYpTyszEicJHxx4HiRf/L/aOSv4HyMHPebLzeUFvIvV+ZU0wCw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=cb77f6d14d9049ef issued_at=2026-03-14T19:07:32.873978+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=e0e03b924f3c9224b38117317f9f425b34557a3a4da92e93cffb24d8099e6ecc"
   }
 }

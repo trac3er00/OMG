@@ -83,6 +83,13 @@ _BUNDLE_NAMES: tuple[str, ...] = (
 )
 
 
+REQUIRED_PACKAGE_PARITY_SURFACES: tuple[str, ...] = (
+    "hash-edit",
+    "ast-pack",
+    "terminal-lane",
+)
+
+
 # ── Authored surfaces: explicit, no dynamic discovery ──────────────────────
 
 AUTHORED_SURFACES: list[AuthoredSurface] = [
@@ -98,6 +105,26 @@ AUTHORED_SURFACES: list[AuthoredSurface] = [
     AuthoredSurface(
         "settings.json", "json_key_path", ["_omg", "generated", "contract_version"],
         "OMG generated contract version",
+    ),
+    AuthoredSurface(
+        ".gemini/settings.json", "json_key_path", ["_omg", "_version"],
+        "Gemini settings OMG version",
+        source_only=False,
+    ),
+    AuthoredSurface(
+        ".gemini/settings.json", "json_key_path", ["_omg", "generated", "contract_version"],
+        "Gemini settings contract version",
+        source_only=False,
+    ),
+    AuthoredSurface(
+        ".kimi/mcp.json", "json_key_path", ["_omg", "_version"],
+        "Kimi MCP OMG version",
+        source_only=False,
+    ),
+    AuthoredSurface(
+        ".kimi/mcp.json", "json_key_path", ["_omg", "generated", "contract_version"],
+        "Kimi MCP contract version",
+        source_only=False,
     ),
     AuthoredSurface(
         ".claude-plugin/plugin.json", "json_key_path", ["version"],
@@ -273,6 +300,10 @@ def get_derived_dirs() -> list[str]:
 
 def get_runtime_behavior_surfaces() -> list[str]:
     return list(RUNTIME_BEHAVIOR_SURFACES)
+
+
+def get_package_parity_surfaces() -> list[str]:
+    return list(REQUIRED_PACKAGE_PARITY_SURFACES)
 
 
 def surface_applies_to_root(surface: AuthoredSurface, root_dir: Path) -> bool:

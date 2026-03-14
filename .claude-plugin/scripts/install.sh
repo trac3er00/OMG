@@ -19,7 +19,7 @@ error() { echo -e "${RED}✗${NC} $1"; }
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║                                                               ║${NC}"
-echo -e "${BLUE}║              OMG Plugin Installer v2.2.2                     ║${NC}"
+echo -e "${BLUE}║              OMG Plugin Installer v2.2.3                     ║${NC}"
 echo -e "${BLUE}║                                                               ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""

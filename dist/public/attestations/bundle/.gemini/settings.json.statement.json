@@ -5,7 +5,7 @@
     {
       "name": "bundle/.gemini/settings.json",
       "digest": {
-        "sha256": "b8b04073270a4f9996bb2b38891617478b88501861a153c1e00a09aaa5c49507"
+        "sha256": "36dac42b75dfe4a71b49f7b9e58d93b8b922ab2aadcbe79b537816f3c4c17947"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-14T04:21:32.319116+00:00"
+      "timestamp": "2026-03-14T19:07:26.004768+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-14T04:21:32.319116+00:00",
+  "issued_at": "2026-03-14T19:07:26.004768+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "65cd5cb129cbd991",
-    "value": "untrusted comment: signature from omg local signing key\n6AhIFsNWxXX082Nyq6W3Rn6cYN9aCTXCRGW0kl6cvYL/UAKXsmHX9zf1611hhSg/iGrIFzJL5L0vfo6n+BUjBw==\ntrusted comment: type=omg-slsa-v1 keyid=65cd5cb129cbd991 issued_at=2026-03-14T04:21:32.319227+00:00 artifact=bundle/.gemini/settings.json sha256=b8b04073270a4f9996bb2b38891617478b88501861a153c1e00a09aaa5c49507\nerYa9LFvF+NtIz/oTfjJk8OK2/MtRaukJT8CcTWp8fya8Yxl4L9UDv6d2SRwtbUOFOnVHK9AIpKLMee9/+HOCw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=65cd5cb129cbd991 issued_at=2026-03-14T04:21:32.319227+00:00 artifact=bundle/.gemini/settings.json sha256=b8b04073270a4f9996bb2b38891617478b88501861a153c1e00a09aaa5c49507"
+    "keyid": "62a68a4770928424",
+    "value": "untrusted comment: signature from omg local signing key\nx8Zx5PXrd9PLMESEF76PeaNVMlGrLmMtDmqzbcMLnsf5c5pmNldP+Y+4antmZ6IF2X/ELpMBPju2ZJ4rj9+9AQ==\ntrusted comment: type=omg-slsa-v1 keyid=62a68a4770928424 issued_at=2026-03-14T19:07:26.004881+00:00 artifact=bundle/.gemini/settings.json sha256=36dac42b75dfe4a71b49f7b9e58d93b8b922ab2aadcbe79b537816f3c4c17947\nnCdh5grJpQz3NEhakYq70J9BplO4IcyKSGBNnFeZrs/Q3ciHU0MXEIkikHwmsgt0FInt3o9tL8Mqv+OruATDBw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=62a68a4770928424 issued_at=2026-03-14T19:07:26.004881+00:00 artifact=bundle/.gemini/settings.json sha256=36dac42b75dfe4a71b49f7b9e58d93b8b922ab2aadcbe79b537816f3c4c17947"
   }
 }

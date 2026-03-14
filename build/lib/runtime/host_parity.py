@@ -28,6 +28,12 @@ _IGNORED_SEMANTIC_KEYS = {
 
 _TOKEN_RE = re.compile(r"[a-z0-9_\-]+")
 _KV_LINE_RE = re.compile(r"^\s*([A-Za-z0-9_\- ]+):\s*(.+?)\s*$")
+_REAL_PARITY_SOURCE_KINDS = {
+    "compiled_artifact",
+    "compiled_output",
+    "replayed_output",
+    "replayed_artifact",
+}
 
 
 @dataclass
@@ -53,6 +59,33 @@ def _now_iso() -> str:
 
 def _normalize_host(host: str) -> str:
     return str(host).strip().lower()
+
+
+def _source_metadata(payload: dict[str, Any]) -> tuple[str, str]:
+    raw_source = payload.get("source")
+    if not isinstance(raw_source, dict):
+        return "", ""
+
+    source: dict[str, Any] = raw_source
+    source_kind = str(source.get("kind", "")).strip().lower()
+    source_path = ""
+    for key in ("artifact_path", "replay_path", "compiled_path", "output_path", "path"):
+        value = str(source.get(key, "")).strip()
+        if value:
+            source_path = value
+            break
+    return source_kind, source_path
+
+
+def is_synthetic(payload: dict[str, Any]) -> bool:
+    source_kind, source_path = _source_metadata(payload)
+    if not source_kind:
+        return True
+    if source_kind not in _REAL_PARITY_SOURCE_KINDS:
+        return True
+    if not source_path:
+        return True
+    return False
 
 
 def _canonicalize(value: Any) -> Any:
@@ -177,6 +210,7 @@ class HostParityNormalizer:
         _ = context
         host_name = _normalize_host(host)
         payload = raw_output if isinstance(raw_output, dict) else {"output": raw_output}
+        source_kind, source_path = _source_metadata(payload)
 
         exit_code_raw = payload.get("exit_code", 0)
         try:
@@ -197,6 +231,9 @@ class HostParityNormalizer:
             "fallback": fallback,
             "error": error,
             "error_class": "none" if not error else "provider-error",
+            "source_kind": source_kind or "synthetic",
+            "source_path": source_path,
+            "source_class": "compiled_or_replayed" if not is_synthetic(payload) else "synthetic",
             "semantic": semantic_content,
         }
         return normalized
@@ -242,7 +279,19 @@ class HostParityNormalizer:
                 drift_details.append(f"missing host output: {host}")
                 continue
 
-            normalized = self.normalize_output(host, outputs_by_host[host], context)
+            raw_payload = outputs_by_host[host]
+            payload = raw_payload if isinstance(raw_payload, dict) else {"output": raw_payload}
+            normalized = self.normalize_output(host, payload, context)
+            if is_synthetic(payload):
+                host_results[host] = {
+                    "present": True,
+                    "passed": False,
+                    "reason": "synthetic payload rejected",
+                    "normalized": normalized,
+                }
+                drift_details.append(f"synthetic payload rejected: {host}")
+                continue
+
             host_results[host] = {
                 "present": True,
                 "passed": True,
@@ -257,6 +306,8 @@ class HostParityNormalizer:
             for host in self.canonical_hosts:
                 current = host_results.get(host, {})
                 if not current.get("present"):
+                    continue
+                if current.get("reason") == "synthetic payload rejected":
                     continue
                 normalized = current.get("normalized")
                 if not isinstance(normalized, dict):
@@ -315,6 +366,7 @@ __all__ = [
     "HostParityNormalizer",
     "ParityCheckResult",
     "HostParityReport",
+    "is_synthetic",
     "normalize_output",
     "check_parity",
     "emit_parity_report",

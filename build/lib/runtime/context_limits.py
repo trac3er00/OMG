@@ -320,15 +320,27 @@ def get_model_limits(model_id: str) -> ContextLimitEntry:
 
     # 1. Exact match
     if normalized in _REGISTRY:
-        return _REGISTRY[normalized]
+        return _clone_entry(_REGISTRY[normalized])
 
     # 2. Prefix match (longest prefix first via _PREFIX_TABLE ordering)
     for prefix, registry_key in _PREFIX_TABLE:
         if normalized.startswith(prefix.lower()):
-            return _REGISTRY[registry_key]
+            return _clone_entry(_REGISTRY[registry_key])
 
     # 3. Fallback
-    return _FALLBACK
+    return _clone_entry(_FALLBACK)
+
+
+def _clone_entry(entry: ContextLimitEntry) -> ContextLimitEntry:
+    return {
+        "context_tokens": int(entry["context_tokens"]),
+        "output_reserve_tokens": int(entry["output_reserve_tokens"]),
+        "class_label": str(entry["class_label"]),
+        "preflight_counting": bool(entry["preflight_counting"]),
+        "native_compaction": bool(entry["native_compaction"]),
+        "compaction_trigger_default": int(entry["compaction_trigger_default"]),
+        "notes": str(entry["notes"]),
+    }
 
 
 def is_1m_class(model_id: str) -> bool:

@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-yepyP8thpT6A8XqxJl2cXXea1S1RNhTJDf8us1OJScN1+hKZKJItCJwL4mIsYfEW7ek6kTD3o767IIeEQKBKDg==
-trusted comment: type=omg-slsa-v1 keyid=8095b6d7f4f39246 issued_at=2026-03-14T04:21:32.303436+00:00 artifact=bundle/.agents/skills/omg/mcp-fabric/openai.yaml sha256=18dc35b4d6fb598b572ec933153e80de5449be9e07ef07178e4f875e39a8915c
-zJibJy/TMw85k2mwQR6KzcdNDdaNFb/SMAUyXTIUbdR5khaTk/Lml0NrWeoWn2PbhibqfA7rzM/5y9P0+o2ZBw==
+Oulo+ULGk7HXH3edDVlpcdhxS+UMEyk69Zd9ME1gvcugRSwD6J6XIDzl/zf1VBJi5Fl4BoXAJ1e67kGaZTPuDw==
+trusted comment: type=omg-slsa-v1 keyid=3110892f6edad9f9 issued_at=2026-03-14T19:07:25.970546+00:00 artifact=bundle/.agents/skills/omg/mcp-fabric/openai.yaml sha256=18dc35b4d6fb598b572ec933153e80de5449be9e07ef07178e4f875e39a8915c
+8iRO432S5VBoyyhFsYxKES1l9ZZgXU1a9FbeYN2+7KyrRbGZtv/jUMAeoerpMoUWOb6mDpl0nbstW+eOXDrlDw==

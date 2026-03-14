@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-2NvydE/5Da4GAjX9qZUY3OJrJOSXfbtiu+SMpzYTyFchlAWiP0pUpj6QvTpmhZgh3KHcSrlxNvNglHXlj9zCCQ==
-trusted comment: type=omg-slsa-v1 keyid=b4917af055fc6604 issued_at=2026-03-14T04:21:33.868425+00:00 artifact=bundle/plugins/advanced/commands/OMG:sequential-thinking.md sha256=1830de63009cb07c80cbcecf143f6df7560e7f031ac5b1d509b726d184e441da
-wKfxCWOiAip5pOrGOz83Wjz4hEwPAE+B4fKuBinWx8n2vkgSG8eZOD2dFXP5alKQPf0XLfofxnyqnU4ZQ3ufBQ==
+JIn29ENRH9jvOdwp/Js9q4v8o5UWqKRR+3VXSGvK/skJsYbchfYbFfZf9206oQRVeDYD4n+jEn8Jkx1rYDSkDg==
+trusted comment: type=omg-slsa-v1 keyid=cc1e4fcf8574e64e issued_at=2026-03-14T19:07:30.657160+00:00 artifact=bundle/plugins/advanced/commands/OMG:sequential-thinking.md sha256=1830de63009cb07c80cbcecf143f6df7560e7f031ac5b1d509b726d184e441da
+Dva75WswrgWRdnyOsnt2ROdTSCeCErmBpvDYrUKugR4t3d9ie+lTXiGE/Pc03wWOHY1fhuJF+Eg5tDq9aSptAw==
