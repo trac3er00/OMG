@@ -78,6 +78,96 @@ def test_mutation_gate_allows_with_valid_lock_id(tmp_path) -> None:
     assert result["lock_id"] == lock_id
 
 
+def _setup_release_orchestration_fixture(tmp_path, run_id="run-release", lock_id="lock-release"):
+    """Seed shadow active-run, lock, and tool plan for a release orchestration scenario."""
+    shadow_dir = tmp_path / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True, exist_ok=True)
+    (shadow_dir / "active-run").write_text(f"{run_id}\n", encoding="utf-8")
+
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": run_id}}),
+        encoding="utf-8",
+    )
+
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-release.json").write_text("{}", encoding="utf-8")
+
+
+def test_release_orchestration_dual_signal_allows_without_done_when(tmp_path, monkeypatch) -> None:
+    """Both active run AND env flag set → done_when check is skipped."""
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    monkeypatch.setenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", "1")
+    run_id = "run-release"
+    lock_id = "lock-release"
+    _setup_release_orchestration_fixture(tmp_path, run_id=run_id, lock_id=lock_id)
+
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/main.py",
+        project_dir=str(tmp_path),
+        lock_id=lock_id,
+        run_id=run_id,
+        metadata={},
+    )
+    assert result["status"] == "allowed"
+    assert result["reason"] == "release_orchestration_active"
+    assert result["lock_id"] == lock_id
+
+
+def test_release_orchestration_env_only_blocks_done_when(tmp_path, monkeypatch) -> None:
+    """Env flag set but NO active run → gate still blocks with done_when_required."""
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    monkeypatch.setenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", "1")
+    run_id = "run-env-only"
+    lock_id = "lock-env-only"
+
+    # Set up lock + plan but NO shadow active-run file
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": run_id}}),
+        encoding="utf-8",
+    )
+
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-release.json").write_text("{}", encoding="utf-8")
+
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/main.py",
+        project_dir=str(tmp_path),
+        lock_id=lock_id,
+        run_id=run_id,
+        metadata={},
+    )
+    assert result["status"] == "blocked"
+    assert result["reason"] == "done_when_required"
+
+
+def test_release_orchestration_active_run_only_blocks_done_when(tmp_path, monkeypatch) -> None:
+    """Active run exists but env flag NOT set → gate still blocks with done_when_required."""
+    monkeypatch.delenv("OMG_TDD_GATE_STRICT", raising=False)
+    monkeypatch.delenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", raising=False)
+    run_id = "run-active-only"
+    lock_id = "lock-active-only"
+    _setup_release_orchestration_fixture(tmp_path, run_id=run_id, lock_id=lock_id)
+
+    result = check_mutation_allowed(
+        tool="Write",
+        file_path="src/main.py",
+        project_dir=str(tmp_path),
+        lock_id=lock_id,
+        run_id=run_id,
+        metadata={},
+    )
+    assert result["status"] == "blocked"
+    assert result["reason"] == "done_when_required"
+
+
 def test_mutation_gate_does_not_block_read_only_tools(tmp_path) -> None:
     result = check_mutation_allowed(
         tool="Read",

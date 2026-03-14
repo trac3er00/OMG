@@ -494,6 +494,14 @@ def resolve_current_run_id(project_dir: str | None = None, cli_run_id: str | Non
     return resolved.run_id or None
 
 
+def is_release_orchestration_active(project_dir: str | None = None) -> bool:
+    """Return True only when BOTH conditions hold: an active coordinator run exists AND the env flag is set."""
+    return (
+        bool(get_active_coordinator_run_id(project_dir=project_dir))
+        and os.environ.get("OMG_RELEASE_ORCHESTRATION_ACTIVE", "").strip() == "1"
+    )
+
+
 def get_active_coordinator_run_id(project_dir: str | None = None) -> str | None:
     root = _project_dir(project_dir)
     shadow = _read_shadow_run_id(str(root))
