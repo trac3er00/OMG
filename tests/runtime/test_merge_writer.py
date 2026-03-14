@@ -18,7 +18,10 @@ from runtime.merge_writer import (
     MergeWriter,
     MergeWriterAuthorizationError,
     MergeWriterToken,
+    WriteLease,
+    create_write_lease,
     get_merge_writer,
+    is_lease_valid,
 )
 
 
@@ -303,3 +306,103 @@ class TestFactory:
         monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
         mw = get_merge_writer()
         assert isinstance(mw, MergeWriter)
+
+
+# =============================================================================
+# Test: Write Lease — run-scoped, time-bounded authorization
+# =============================================================================
+
+
+class TestWriteLeaseCreation:
+    """Test WriteLease dataclass and create_write_lease factory."""
+
+    def test_create_write_lease_returns_dataclass(self) -> None:
+        lease = create_write_lease("run-1", 300.0, ".omg/evidence/merge-writer-run-1.json")
+        assert isinstance(lease, WriteLease)
+        assert lease.run_id == "run-1"
+        assert lease.duration_s == 300.0
+        assert lease.evidence_path == ".omg/evidence/merge-writer-run-1.json"
+        assert lease.is_active is True
+
+    def test_create_write_lease_records_monotonic_time(self) -> None:
+        before = time.monotonic()
+        lease = create_write_lease("run-2", 60.0, "evidence.json")
+        after = time.monotonic()
+        assert before <= lease.created_at <= after
+
+    def test_write_lease_is_frozen(self) -> None:
+        lease = create_write_lease("run-3", 60.0, "evidence.json")
+        with pytest.raises(AttributeError):
+            lease.run_id = "other"  # type: ignore[misc]
+
+
+class TestWriteLeaseValidation:
+    """Test is_lease_valid with valid, expired, and cross-run scenarios."""
+
+    def test_valid_lease_authorizes_active_run(self) -> None:
+        """A fresh lease for the correct run_id returns (True, 'valid')."""
+        lease = create_write_lease("run-active", 300.0, ".omg/evidence/e.json")
+        valid, reason = is_lease_valid(lease, "run-active")
+        assert valid is True
+        assert reason == "valid"
+
+    def test_expired_lease_fails_deterministically(self) -> None:
+        """A lease past its duration returns (False, 'write_lease_expired:...')."""
+        lease = create_write_lease("run-exp", 10.0, "evidence.json")
+        # Simulate time passing beyond duration
+        future_time = lease.created_at + 11.0
+        valid, reason = is_lease_valid(lease, "run-exp", current_time=future_time)
+        assert valid is False
+        assert reason.startswith("write_lease_expired:")
+        assert "elapsed=11.0s" in reason
+        assert "limit=10.0s" in reason
+
+    def test_cross_run_lease_fails_deterministically(self) -> None:
+        """A lease from a different run_id returns (False, 'write_lease_run_id_mismatch:...')."""
+        lease = create_write_lease("run-old", 300.0, "evidence.json")
+        valid, reason = is_lease_valid(lease, "run-new")
+        assert valid is False
+        assert reason.startswith("write_lease_run_id_mismatch:")
+        assert "run-old" in reason
+        assert "run-new" in reason
+
+    def test_inactive_lease_fails(self) -> None:
+        """An explicitly deactivated lease returns (False, 'write_lease_inactive')."""
+        lease = WriteLease(
+            run_id="run-x",
+            created_at=time.monotonic(),
+            duration_s=300.0,
+            evidence_path="evidence.json",
+            is_active=False,
+        )
+        valid, reason = is_lease_valid(lease, "run-x")
+        assert valid is False
+        assert reason == "write_lease_inactive"
+
+    def test_missing_evidence_path_fails(self) -> None:
+        """A lease with empty evidence_path returns (False, 'write_lease_missing_evidence_path')."""
+        lease = WriteLease(
+            run_id="run-y",
+            created_at=time.monotonic(),
+            duration_s=300.0,
+            evidence_path="",
+            is_active=True,
+        )
+        valid, reason = is_lease_valid(lease, "run-y")
+        assert valid is False
+        assert reason == "write_lease_missing_evidence_path"
+
+    def test_lease_at_exact_boundary_is_still_valid(self) -> None:
+        """A lease at exactly its duration boundary is still valid."""
+        lease = create_write_lease("run-edge", 60.0, "evidence.json")
+        boundary_time = lease.created_at + 60.0
+        valid, _reason = is_lease_valid(lease, "run-edge", current_time=boundary_time)
+        assert valid is True
+
+    def test_lease_just_past_boundary_is_expired(self) -> None:
+        """A lease 0.1s past its duration boundary is expired."""
+        lease = create_write_lease("run-edge", 60.0, "evidence.json")
+        past_time = lease.created_at + 60.1
+        valid, reason = is_lease_valid(lease, "run-edge", current_time=past_time)
+        assert valid is False
+        assert "write_lease_expired" in reason

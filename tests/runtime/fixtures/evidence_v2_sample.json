@@ -50,6 +50,7 @@
   "exec_kernel_state": {"path": ".omg/state/exec-kernel/run-v2-sample.json", "run_id": "run-v2-sample"},
   "worker_watchdog_replay": {"path": ".omg/evidence/subagents/run-v2-sample-replay.json", "run_id": "run-v2-sample"},
   "merge_writer_provenance": {"path": ".omg/evidence/merge-writer-run-v2-sample.json", "run_id": "run-v2-sample"},
+  "write_lease_provenance": {"path": ".omg/evidence/write-lease-run-v2-sample.json", "run_id": "run-v2-sample"},
   "tool_fabric_ledger": {"path": ".omg/state/ledger/tool-ledger.jsonl", "run_id": "run-v2-sample"},
   "budget_envelope_state": {"path": ".omg/state/budget-envelopes/run-v2-sample.json", "run_id": "run-v2-sample"},
   "issue_report": {"path": ".omg/evidence/issues/run-v2-sample.json", "run_id": "run-v2-sample"},

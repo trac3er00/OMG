@@ -178,6 +178,7 @@ def _write_evidence(
         "exec_kernel_state": {"path": ".omg/state/exec-kernel/run-1.json", "run_id": "run-1"},
         "worker_watchdog_replay": {"path": ".omg/evidence/subagents/run-1-replay.json", "run_id": "run-1"},
         "merge_writer_provenance": {"path": ".omg/evidence/merge-writer-run-1.json", "run_id": "run-1"},
+        "write_lease_provenance": {"path": ".omg/evidence/write-lease-run-1.json", "run_id": "run-1"},
         "tool_fabric_ledger": {"path": ".omg/state/ledger/tool-ledger.jsonl", "run_id": "run-1"},
         "budget_envelope_state": {"path": ".omg/state/budget-envelopes/run-1.json", "run_id": "run-1"},
         "issue_report": {"path": ".omg/evidence/issues/run-1.json", "run_id": "run-1"},
@@ -392,6 +393,17 @@ def _write_execution_primitives(output_root: Path, *, run_id: str = "run-1") -> 
             "run_id": run_id,
             "acquired_at": "2026-01-01T00:00:00Z",
             "released_at": "2026-01-01T00:00:01Z",
+        }),
+        encoding="utf-8",
+    )
+
+    (evidence_root / f"write-lease-{run_id}.json").write_text(
+        json.dumps({
+            "schema": "WriteLeaseProvenance",
+            "run_id": run_id,
+            "created_at": "2026-01-01T00:00:00Z",
+            "duration_s": 3600.0,
+            "evidence_path": f".omg/evidence/merge-writer-{run_id}.json",
         }),
         encoding="utf-8",
     )
