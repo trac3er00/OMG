@@ -1908,6 +1908,7 @@ def _check_host_semantic_parity(
     overall_status = str(report.get("overall_status", "")).strip().lower()
     parity_results = report.get("parity_results", {})
     passed = bool(parity_results.get("passed")) if isinstance(parity_results, dict) else False
+    host_results = parity_results.get("host_results", {}) if isinstance(parity_results, dict) else {}
 
     blockers: list[str] = []
     report_run_id = str(report.get("run_id", "")).strip()
@@ -1919,6 +1920,16 @@ def _check_host_semantic_parity(
         blockers.append(f"host_semantic_parity: report overall_status={overall_status}")
     if isinstance(parity_results, dict) and not passed:
         blockers.append("host_semantic_parity: parity check reported drift")
+    if not isinstance(host_results, dict):
+        blockers.append("host_semantic_parity: report missing host results")
+    else:
+        for host in sorted(canonical_required_hosts):
+            host_result = host_results.get(host)
+            normalized = host_result.get("normalized", {}) if isinstance(host_result, dict) else {}
+            source_class = str(normalized.get("source_class", "")).strip().lower() if isinstance(normalized, dict) else ""
+            source_path = str(normalized.get("source_path", "")).strip() if isinstance(normalized, dict) else ""
+            if source_class != "compiled_or_replayed" or not source_path:
+                blockers.append(f"host_semantic_parity: synthetic payload rejected for {host}")
 
     return {
         "status": "ok" if not blockers else "error",

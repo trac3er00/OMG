@@ -446,10 +446,46 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
                 "drift_detected": False,
                 "drift_details": [],
                 "host_results": {
-                    "claude": {"present": True, "passed": True, "reason": "baseline"},
-                    "codex": {"present": True, "passed": True, "reason": "structured-equivalent"},
-                    "gemini": {"present": True, "passed": True, "reason": "structured-equivalent"},
-                    "kimi": {"present": True, "passed": True, "reason": "structured-equivalent"},
+                    "claude": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "baseline",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": "settings.json",
+                        },
+                    },
+                    "codex": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".agents/skills/omg/AGENTS.fragment.md",
+                        },
+                    },
+                    "gemini": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".gemini/settings.json",
+                        },
+                    },
+                    "kimi": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".kimi/mcp.json",
+                        },
+                    },
                 }
             },
             "overall_status": "ok",

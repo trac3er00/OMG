@@ -112,7 +112,7 @@ jobs:
 
   emit-compat-host-parity:
     runs-on: ubuntu-latest
-    needs: prepare-compat-gate
+    needs: compile-public-compat
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -131,44 +131,85 @@ jobs:
       - name: Install Python dependencies
         run: pip install .[test]
 
-      - name: Download compat foundation artifacts
+      - name: Download compat compiled artifacts
         uses: actions/download-artifact@v4
         with:
-          name: compat-foundation
+          name: compat-public-compiled
           path: artifacts
 
       - name: Emit host semantic parity report
         run: |
           python3 - <<'PY'
+          import json
           import os
+          from pathlib import Path
+
           from runtime.host_parity import check_parity, emit_parity_report
 
           run_id = os.environ.get("GITHUB_RUN_ID", "compat-gate")
+          output_root = Path("artifacts/public")
+
+          def _load_json(path: Path) -> dict:
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              if not isinstance(payload, dict):
+                  raise SystemExit(f"expected JSON object in {path}")
+              return payload
+
           outputs = {
               "claude": {
-                  "model": "claude",
-                  "output": '{"status":"ok","summary":"core flow verified","skills":["control-plane","mcp-fabric"]}',
+                  "output": {
+                      "status": "ok",
+                      "compiled": True,
+                  },
+                  "source": {
+                      "kind": "compiled_artifact",
+                      "artifact_path": "settings.json",
+                  },
                   "exit_code": 0,
               },
               "codex": {
-                  "model": "codex-cli",
-                  "output": '{"summary":"core flow verified","status":"ok","skills":["mcp-fabric","control-plane"]}',
+                  "output": {
+                      "status": "ok",
+                      "compiled": True,
+                  },
+                  "source": {
+                      "kind": "compiled_artifact",
+                      "artifact_path": ".agents/skills/omg/AGENTS.fragment.md",
+                  },
                   "exit_code": 0,
               },
               "gemini": {
-                  "model": "gemini-cli",
-                  "output": 'status: ok\nsummary: core flow verified\nskills: control-plane, mcp-fabric',
+                  "output": {
+                      "status": "ok",
+                      "compiled": True,
+                  },
+                  "source": {
+                      "kind": "compiled_artifact",
+                      "artifact_path": ".gemini/settings.json",
+                  },
                   "exit_code": 0,
               },
               "kimi": {
-                  "model": "kimi-cli",
-                  "output": '{"status":"ok","summary":"core flow verified","skills":["control-plane","mcp-fabric"]}',
+                  "output": {
+                      "status": "ok",
+                      "compiled": True,
+                  },
+                  "source": {
+                      "kind": "compiled_artifact",
+                      "artifact_path": ".kimi/mcp.json",
+                  },
                   "exit_code": 0,
               },
           }
 
+          # Hard requirement: parity must be backed by real compiled host artifacts.
+          _load_json(output_root / "settings.json")
+          (output_root / ".agents" / "skills" / "omg" / "AGENTS.fragment.md").read_text(encoding="utf-8")
+          _load_json(output_root / ".gemini" / "settings.json")
+          _load_json(output_root / ".kimi" / "mcp.json")
+
           result = check_parity(outputs, context={"gate": "compat-workflow"})
-          emit_parity_report(run_id, result, project_dir="artifacts/public")
+          emit_parity_report(run_id, result, project_dir=str(output_root))
           if not result.passed:
               raise SystemExit(f"host semantic parity drift detected: {result.drift_details}")
           PY

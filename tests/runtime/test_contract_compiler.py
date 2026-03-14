@@ -423,7 +423,53 @@ def _write_execution_primitives(output_root: Path, *, run_id: str = "run-1") -> 
             "run_id": run_id,
             "timestamp": "2026-01-01T00:00:00Z",
             "canonical_hosts": list(CANONICAL_HOSTS),
-            "parity_results": {"passed": True, "drift_detected": False, "drift_details": [], "host_results": {}},
+            "parity_results": {
+                "passed": True,
+                "drift_detected": False,
+                "drift_details": [],
+                "host_results": {
+                    "claude": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "baseline",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": "settings.json",
+                        },
+                    },
+                    "codex": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".agents/skills/omg/AGENTS.fragment.md",
+                        },
+                    },
+                    "gemini": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".gemini/settings.json",
+                        },
+                    },
+                    "kimi": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".kimi/mcp.json",
+                        },
+                    },
+                },
+            },
             "overall_status": "ok",
         }),
         encoding="utf-8",
@@ -1738,6 +1784,41 @@ def test_release_readiness_blocks_stale_exec_kernel_evidence(tmp_path: Path, mon
 
     assert readiness["status"] == "error"
     assert any("stale_execution_primitive: exec_kernel_state" in blocker for blocker in readiness["blockers"])
+
+
+def test_release_readiness_blocks_synthetic_host_parity_report(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=list(CANONICAL_HOSTS),
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    host_parity_path = tmp_path / ".omg" / "evidence" / "host-parity-run-1.json"
+    host_parity = json.loads(host_parity_path.read_text(encoding="utf-8"))
+    host_parity["parity_results"]["host_results"]["codex"]["normalized"]["source_class"] = "synthetic"
+    host_parity["parity_results"]["host_results"]["codex"]["normalized"]["source_path"] = ""
+    host_parity_path.write_text(json.dumps(host_parity), encoding="utf-8")
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any(
+        "host_semantic_parity: synthetic payload rejected for codex" in blocker
+        for blocker in readiness["blockers"]
+    )
 
 
 def test_release_readiness_blocks_excluded_failures_without_signed_waiver(
