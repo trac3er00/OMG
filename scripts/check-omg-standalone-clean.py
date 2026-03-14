@@ -16,6 +16,7 @@ ALLOW_COMPAT_CLI = {
     ROOT / "tests" / "scripts" / "test_standalone_clean_check.py",
     ROOT / "scripts" / "check-omg-standalone-clean.py",
     ROOT / ".github" / "workflows" / "omg-compat-gate.yml",
+    ROOT / ".github" / "workflows" / "publish-npm.yml",
 }
 
 ALLOW_LEGACY_MIGRATOR = {
