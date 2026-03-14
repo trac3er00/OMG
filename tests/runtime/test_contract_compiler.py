@@ -12,6 +12,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 from runtime.adoption import CANONICAL_VERSION
+from runtime.canonical_surface import get_canonical_hosts
 from runtime.evidence_requirements import requirements_for_profile
 from runtime import contract_compiler as contract_compiler_module
 from runtime.release_surfaces import get_authored_paths
@@ -32,6 +33,7 @@ from runtime.contract_compiler import (
 
 # The four truth/council bundles that must always be present in canonical surfaces.
 TRUTH_COUNCIL_BUNDLES = ("plan-council", "claim-judge", "test-intent-lock", "proof-gate")
+CANONICAL_HOSTS = tuple(get_canonical_hosts())
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -420,7 +422,7 @@ def _write_execution_primitives(output_root: Path, *, run_id: str = "run-1") -> 
             "schema": "HostParityReport",
             "run_id": run_id,
             "timestamp": "2026-01-01T00:00:00Z",
-            "canonical_hosts": ["claude", "codex"],
+            "canonical_hosts": list(CANONICAL_HOSTS),
             "parity_results": {"passed": True, "drift_detected": False, "drift_details": [], "host_results": {}},
             "overall_status": "ok",
         }),
@@ -442,7 +444,7 @@ def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, mo
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="public",
     )
     assert compile_result["status"] == "ok"
@@ -566,7 +568,7 @@ def test_validate_contract_registry_accepts_gemini_kimi_host_rules(tmp_path: Pat
     control_plane_path = fixture_root / "registry" / "bundles" / "control-plane.yaml"
     control_plane = yaml.safe_load(control_plane_path.read_text(encoding="utf-8"))
     assert isinstance(control_plane, dict)
-    control_plane["hosts"] = ["claude", "codex", "gemini", "kimi"]
+    control_plane["hosts"] = list(CANONICAL_HOSTS)
     host_rules = control_plane["policy_model"]["host_rules"]
     host_rules["gemini"] = {
         "compilation_targets": [".gemini/settings.json"],
@@ -599,7 +601,7 @@ def test_validate_contract_registry_rejects_incomplete_gemini_host_rules(tmp_pat
     control_plane_path = fixture_root / "registry" / "bundles" / "control-plane.yaml"
     control_plane = yaml.safe_load(control_plane_path.read_text(encoding="utf-8"))
     assert isinstance(control_plane, dict)
-    control_plane["hosts"] = ["claude", "codex", "gemini"]
+    control_plane["hosts"] = [host for host in CANONICAL_HOSTS if host != "kimi"]
     host_rules = control_plane["policy_model"]["host_rules"]
     host_rules["gemini"] = {
         "skills": ["omg/control-plane"],
@@ -622,11 +624,11 @@ def test_validate_contract_registry_rejects_incomplete_gemini_host_rules(tmp_pat
     )
 
 
-def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_path: Path) -> None:
+def test_compile_contract_outputs_writes_canonical_hosts_and_dist_artifacts(tmp_path: Path) -> None:
     result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="enterprise",
     )
 
@@ -636,11 +638,15 @@ def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_pat
     plugin_path = tmp_path / ".claude-plugin" / "plugin.json"
     skill_path = tmp_path / ".agents" / "skills" / "omg" / "control-plane" / "SKILL.md"
     skill_meta_path = tmp_path / ".agents" / "skills" / "omg" / "control-plane" / "openai.yaml"
+    gemini_path = tmp_path / ".gemini" / "settings.json"
+    kimi_path = tmp_path / ".kimi" / "mcp.json"
     dist_manifest = tmp_path / "dist" / "enterprise" / "manifest.json"
 
     assert plugin_path.exists()
     assert skill_path.exists()
     assert skill_meta_path.exists()
+    assert gemini_path.exists()
+    assert kimi_path.exists()
     assert dist_manifest.exists()
 
     plugin = json.loads(plugin_path.read_text(encoding="utf-8"))
@@ -653,51 +659,49 @@ def test_compile_contract_outputs_writes_claude_codex_and_dist_artifacts(tmp_pat
     output_paths = {entry["path"] for entry in manifest["artifacts"]}
     assert "bundle/.claude-plugin/plugin.json" in output_paths
     assert "bundle/.agents/skills/omg/control-plane/SKILL.md" in output_paths
+    assert "bundle/.gemini/settings.json" in output_paths
+    assert "bundle/.kimi/mcp.json" in output_paths
     assert "bundle/.agents/skills/omg/plan-council/SKILL.md" in output_paths
     assert "bundle/.agents/skills/omg/security-check/SKILL.md" in output_paths
     assert "bundle/.agents/skills/omg/tracebank/SKILL.md" in output_paths
     assert "bundle/.agents/skills/omg/remote-supervisor/SKILL.md" in output_paths
 
 
-def test_compile_contract_outputs_writes_gemini_artifacts(tmp_path: Path) -> None:
+@pytest.mark.parametrize("host", CANONICAL_HOSTS)
+def test_compile_contract_outputs_writes_per_host_artifacts(tmp_path: Path, host: str) -> None:
     result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["gemini"],
+        hosts=[host],
         channel="public",
     )
 
     assert result["status"] == "ok"
-    gemini_path = tmp_path / ".gemini" / "settings.json"
-    assert gemini_path.exists()
+    required_artifacts = {
+        "claude": [tmp_path / "settings.json", tmp_path / ".claude-plugin" / "plugin.json"],
+        "codex": [tmp_path / ".agents" / "skills" / "omg" / "AGENTS.fragment.md"],
+        "gemini": [tmp_path / ".gemini" / "settings.json"],
+        "kimi": [tmp_path / ".kimi" / "mcp.json"],
+    }
+    for artifact_path in required_artifacts[host]:
+        assert artifact_path.exists(), f"missing required artifact for {host}: {artifact_path}"
 
-    gemini_payload = json.loads(gemini_path.read_text(encoding="utf-8"))
-    assert gemini_payload["mcpServers"]["omg-control"]["command"] == "python3"
-    assert gemini_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
+    if host == "gemini":
+        gemini_payload = json.loads((tmp_path / ".gemini" / "settings.json").read_text(encoding="utf-8"))
+        assert gemini_payload["mcpServers"]["omg-control"]["command"] == "python3"
+        assert gemini_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
 
-
-def test_compile_contract_outputs_writes_kimi_artifacts(tmp_path: Path) -> None:
-    result = compile_contract_outputs(
-        root_dir=ROOT,
-        output_root=tmp_path,
-        hosts=["kimi"],
-        channel="public",
-    )
-
-    assert result["status"] == "ok"
-    kimi_path = tmp_path / ".kimi" / "mcp.json"
-    assert kimi_path.exists()
-
-    kimi_payload = json.loads(kimi_path.read_text(encoding="utf-8"))
-    assert kimi_payload["mcpServers"]["omg-control"]["command"] == "python3"
-    assert kimi_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
+    if host == "kimi":
+        kimi_payload = json.loads((tmp_path / ".kimi" / "mcp.json").read_text(encoding="utf-8"))
+        assert kimi_payload["mcpServers"]["omg-control"]["command"] == "python3"
+        assert kimi_payload["mcpServers"]["omg-control"]["args"] == ["-m", "runtime.omg_mcp_server"]
 
 
 def test_compile_contract_outputs_embeds_phase1_release_audit_contract_for_all_hosts(tmp_path: Path) -> None:
     result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex", "gemini", "kimi"],
+        hosts=list(CANONICAL_HOSTS),
         channel="public",
     )
 
@@ -751,7 +755,7 @@ def test_release_readiness_blocks_missing_gemini_host_artifact(tmp_path: Path, m
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex", "gemini"],
+        hosts=[host for host in CANONICAL_HOSTS if host != "kimi"],
         channel="public",
     )
     assert compile_result["status"] == "ok"
@@ -778,7 +782,7 @@ def test_release_readiness_blocks_failed_claim_judge_or_compliance_gate(tmp_path
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="public",
     )
     assert compile_result["status"] == "ok"
@@ -831,13 +835,13 @@ def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatc
     public_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="public",
     )
     enterprise_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="enterprise",
     )
 
@@ -885,7 +889,7 @@ def test_release_readiness_rejects_cosmetic_evidence_and_eval_regressions(
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="public",
     )
     assert compile_result["status"] == "ok"
@@ -1585,7 +1589,7 @@ def test_release_readiness_plugin_command_security_review_not_required(
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="public",
     )
     assert compile_result["status"] == "ok"
@@ -1807,13 +1811,13 @@ def test_release_readiness_dual_bundle_promotion_parity_happy_path(
     public_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="public",
     )
     enterprise_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
-        hosts=["claude", "codex"],
+        hosts=list(CANONICAL_HOSTS),
         channel="enterprise",
     )
     assert public_result["status"] == "ok"

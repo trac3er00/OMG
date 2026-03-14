@@ -4,8 +4,13 @@ import json
 from pathlib import Path
 
 from runtime import equalizer
+from runtime.canonical_surface import get_canonical_hosts
 from runtime.contract_compiler import _check_host_semantic_parity
 from runtime.host_parity import check_parity, emit_parity_report, normalize_output
+
+
+CANONICAL_HOSTS = tuple(get_canonical_hosts())
+CANONICAL_HOST_SET = set(CANONICAL_HOSTS)
 
 
 def test_canonical_hosts_produce_equivalent_normalized_outcomes() -> None:
@@ -55,7 +60,7 @@ def test_regression_is_reported_as_drift() -> None:
 
 
 def test_semantic_parity_report_is_required_for_canonical_hosts(tmp_path: Path) -> None:
-    result = _check_host_semantic_parity(tmp_path, {"claude", "codex", "gemini", "kimi"})
+    result = _check_host_semantic_parity(tmp_path, CANONICAL_HOST_SET)
 
     assert result["status"] == "error"
     assert result["blockers"] == ["host_semantic_parity: missing host parity report"]
@@ -69,7 +74,7 @@ def test_semantic_parity_blocks_cross_run_report(tmp_path: Path) -> None:
             {
                 "schema": "HostParityReport",
                 "run_id": "run-old",
-                "canonical_hosts": ["claude", "codex", "gemini", "kimi"],
+                "canonical_hosts": list(CANONICAL_HOSTS),
                 "overall_status": "ok",
                 "parity_results": {"passed": True},
             }
@@ -79,7 +84,7 @@ def test_semantic_parity_blocks_cross_run_report(tmp_path: Path) -> None:
 
     result = _check_host_semantic_parity(
         tmp_path,
-        {"claude", "codex", "gemini", "kimi"},
+        CANONICAL_HOST_SET,
         release_run_id="run-new",
     )
 
@@ -134,3 +139,17 @@ def test_emit_parity_report_writes_expected_evidence_shape(tmp_path) -> None:
     assert payload["run_id"] == "run-test"
     assert payload["overall_status"] == "ok"
     assert payload["parity_results"]["passed"] is True
+
+
+def test_missing_host_output_is_reported_as_drift() -> None:
+    outputs = {
+        host: {"output": '{"status":"ok"}', "exit_code": 0}
+        for host in CANONICAL_HOSTS
+        if host != "kimi"
+    }
+
+    result = check_parity(outputs)
+
+    assert result.passed is False
+    assert result.drift_detected is True
+    assert "missing host output: kimi" in result.drift_details

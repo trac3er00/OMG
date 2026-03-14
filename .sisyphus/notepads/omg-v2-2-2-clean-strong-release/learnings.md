@@ -13,3 +13,8 @@
 - Keep ambiguity unresolved semantics tied to `requires_clarification OR missing_slots` so provenance-only packet behavior is preserved even when explicit clarification flag is false.
 - Strict ambiguity enforcement should block only mutation-capable and external execution bash modes while leaving local read/search inspection (`ls`, `cat`, `git status`, `rg`) open.
 - Expose strict mode via `OMG_STRICT_AMBIGUITY_MODE` (default on) to allow controlled bypass in tests and emergency flows without changing clarification prompt format.
+
+## 2026-03-13 T8 canonical host parity test coverage
+- Treat canonical host lists in tests as runtime-derived (`get_canonical_hosts()`) so compiler/parity fixtures do not silently drift when host rosters expand.
+- Readiness helpers that emit host-parity evidence must serialize full canonical hosts, not a legacy `claude/codex` subset, or readiness checks produce false missing-output blockers.
+- Keep single-host compiler checks parameterized across canonical hosts to prove per-host artifact generation once without duplicating near-identical test fixtures.
