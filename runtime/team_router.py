@@ -43,6 +43,7 @@ from runtime.runtime_contracts import write_run_state
 from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
 from runtime.exec_kernel import get_exec_kernel
 from runtime.context_engine import ContextEngine
+from runtime.context_engine import _extract_clarification
 from runtime.context_engine import render_profile_digest_text
 from runtime.defense_state import DefenseState
 from runtime.equalizer import select_provider
@@ -1021,31 +1022,12 @@ def _build_router_context_packet(
 
 
 def _extract_clarification_status(context_packet: dict[str, Any] | None) -> dict[str, Any]:
-    if not isinstance(context_packet, dict):
-        return {
-            "requires_clarification": False,
-            "intent_class": "",
-            "clarification_prompt": "",
-            "confidence": 0.0,
-        }
-    status = context_packet.get("clarification_status")
-    if not isinstance(status, dict):
-        return {
-            "requires_clarification": False,
-            "intent_class": "",
-            "clarification_prompt": "",
-            "confidence": 0.0,
-        }
-    prompt = str(status.get("clarification_prompt", "")).strip().replace("\n", " ")
-    try:
-        confidence = float(status.get("confidence", 0.0))
-    except (TypeError, ValueError):
-        confidence = 0.0
+    status = _extract_clarification(context_packet)
     return {
         "requires_clarification": bool(status.get("requires_clarification") is True),
         "intent_class": str(status.get("intent_class", "")).strip(),
-        "clarification_prompt": prompt,
-        "confidence": round(max(0.0, min(1.0, confidence)), 2),
+        "clarification_prompt": str(status.get("clarification_prompt", "")).strip(),
+        "confidence": round(float(status.get("confidence", 0.0)), 2),
     }
 
 

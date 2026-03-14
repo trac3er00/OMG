@@ -27,6 +27,7 @@ setup_crash_handler("firewall", fail_closed=True)
 try:
     from policy_engine import evaluate_bash_command, to_pretool_hook_output, scan_mutation_command, ask, deny  # pyright: ignore[reportImplicitRelativeImport]
     from runtime.compliance_governor import classify_bash_command_mode
+    from runtime.context_engine import _extract_clarification
     from runtime.defense_state import DefenseState
     from runtime.session_health import compute_session_health
     from runtime.mutation_gate import check_mutation_allowed
@@ -126,47 +127,17 @@ def _read_council_signal(project_dir: str, run_id: str) -> str:
 
 def _read_clarification_state(project_dir: str, run_id: str) -> dict[str, object]:
     if not run_id:
-        return {
-            "requires_clarification": False,
-            "intent_class": "",
-            "clarification_prompt": "",
-            "confidence": 0.0,
-        }
+        return _extract_clarification({})
     path = Path(project_dir) / ".omg" / "state" / "intent_gate" / f"{run_id}.json"
     if not path.exists():
-        return {
-            "requires_clarification": False,
-            "intent_class": "",
-            "clarification_prompt": "",
-            "confidence": 0.0,
-        }
+        return _extract_clarification({})
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {
-            "requires_clarification": False,
-            "intent_class": "",
-            "clarification_prompt": "",
-            "confidence": 0.0,
-        }
+        return _extract_clarification({})
     if not isinstance(payload, dict):
-        return {
-            "requires_clarification": False,
-            "intent_class": "",
-            "clarification_prompt": "",
-            "confidence": 0.0,
-        }
-    prompt = " ".join(str(payload.get("clarification_prompt", "")).split())
-    try:
-        confidence = float(payload.get("confidence", 0.0))
-    except (TypeError, ValueError):
-        confidence = 0.0
-    return {
-        "requires_clarification": bool(payload.get("requires_clarification") is True),
-        "intent_class": str(payload.get("intent_class", "")).strip(),
-        "clarification_prompt": prompt,
-        "confidence": round(max(0.0, min(1.0, confidence)), 2),
-    }
+        return _extract_clarification({})
+    return _extract_clarification(payload)
 
 
 def _clarification_reason(clarification_prompt: str) -> str:
@@ -174,6 +145,18 @@ def _clarification_reason(clarification_prompt: str) -> str:
     if prompt:
         return f"Clarification required before mutation: {prompt}"
     return "Clarification required before mutation: provide the missing intent details."
+
+
+def _clarification_external_reason(clarification_prompt: str) -> str:
+    prompt = " ".join(str(clarification_prompt or "").split())
+    if prompt:
+        return f"Clarification required before external execution: {prompt}"
+    return "Clarification required before external execution: provide the missing intent details."
+
+
+def _strict_ambiguity_mode_enabled() -> bool:
+    token = str(os.environ.get("OMG_STRICT_AMBIGUITY_MODE", "1")).strip().lower()
+    return token not in {"0", "false", "off", "no"}
 
 
 def _to_float(value: Any, default: float) -> float:
@@ -271,6 +254,7 @@ bash_mode = classify_bash_command_mode(cmd)
 is_mutation_capable = bash_mode == "mutation"
 is_external_execution = bash_mode == "external"
 clarification_state = _read_clarification_state(get_project_dir(), run_id)
+strict_ambiguity_mode = _strict_ambiguity_mode_enabled()
 if is_mutation_capable:
     defense_decision = _mutating_defense_decision(
         project_dir=get_project_dir(),
@@ -280,15 +264,10 @@ if is_mutation_capable:
     if defense_decision is not None:
         decision = defense_decision
 
-if clarification_state.get("requires_clarification") is True and (is_mutation_capable or is_external_execution):
+if strict_ambiguity_mode and clarification_state.get("requires_clarification") is True and (is_mutation_capable or is_external_execution):
     prompt = str(clarification_state.get("clarification_prompt", ""))
     if is_external_execution:
-        reason = (
-            f"Clarification required before external execution: {prompt}"
-            if prompt
-            else "Clarification required before external execution: provide the missing intent details."
-        )
-        deny_decision(reason)
+        deny_decision(_clarification_external_reason(prompt))
     else:
         deny_decision(_clarification_reason(prompt))
     sys.exit(0)

@@ -470,6 +470,31 @@ def test_context_engine_ambiguity_uses_provenance_only_packet(tmp_path: Path) ->
     assert str(Path(".omg") / "state" / "intent_gate" / f"{run_id}.json") in pkt["provenance_pointers"]
 
 
+def test_context_engine_provenance_only_when_missing_slots_unresolved(tmp_path: Path) -> None:
+    run_id = "run-ambiguous-missing-slots"
+    _write_json(
+        tmp_path / ".omg" / "state" / "intent_gate" / f"{run_id}.json",
+        {
+            "run_id": run_id,
+            "intent_class": "auth_setup",
+            "confidence": 0.8,
+            "requires_clarification": False,
+            "missing_slots": ["provider"],
+            "clarification_prompt": "Clarify provider.",
+            "updated_at": "2026-03-13T00:00:00+00:00",
+        },
+    )
+
+    engine = ContextEngine(str(tmp_path))
+    pkt = engine.build_packet(run_id=run_id)
+
+    assert pkt["provenance_only"] is True
+    assert pkt["ambiguity_state"]["unresolved"] is True
+    assert pkt["ambiguity_state"]["missing_slots"] == ["provider"]
+    assert pkt["clarification_status"]["requires_clarification"] is False
+    assert "derived_action_summary" not in pkt
+
+
 def test_context_engine_indexes_governed_packet_metadata_without_raw_content(tmp_path: Path) -> None:
     profile_path = tmp_path / ".omg" / "state" / "profile.yaml"
     profile_path.parent.mkdir(parents=True, exist_ok=True)

@@ -204,6 +204,49 @@ def _clean_single_line(value: object) -> str:
     return " ".join(str(value).strip().split())
 
 
+def _extract_clarification(data_or_state: object) -> dict[str, Any]:
+    source: dict[str, Any] = {}
+    if isinstance(data_or_state, dict):
+        clarification_obj = data_or_state.get("clarification_status")
+        intent_gate_obj = data_or_state.get("intent_gate")
+        if isinstance(clarification_obj, dict):
+            source = clarification_obj
+        elif isinstance(intent_gate_obj, dict):
+            source = intent_gate_obj
+        else:
+            source = data_or_state
+
+    prompt = _clean_single_line(source.get("clarification_prompt", ""))
+    try:
+        confidence = float(source.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        confidence = 0.0
+
+    slots_candidate = source.get("missing_slots")
+    missing_slots_raw = slots_candidate if isinstance(slots_candidate, list) else []
+    missing_slots: list[str] = []
+    for raw_slot in missing_slots_raw:
+        slot = _clean_single_line(raw_slot)[:32]
+        if not slot:
+            continue
+        missing_slots.append(slot)
+        if len(missing_slots) >= 6:
+            break
+
+    requires_clarification = bool(source.get("requires_clarification") is True)
+    unresolved = requires_clarification or bool(missing_slots)
+    return {
+        "requires_clarification": requires_clarification,
+        "intent_class": str(source.get("intent_class", "")).strip()[:48],
+        "clarification_prompt": prompt[:_MAX_CLARIFICATION_PROMPT_CHARS],
+        "confidence": round(max(0.0, min(1.0, confidence)), 2),
+        "missing_slots": missing_slots,
+        "updated_at": str(source.get("updated_at", "")).strip()[:48],
+        "status": "unresolved" if unresolved else "resolved",
+        "unresolved": unresolved,
+    }
+
+
 def _resolve_profile_confidence(
     profile: dict[str, Any],
     user_vector: dict[str, Any],
@@ -467,27 +510,13 @@ class ContextEngine:
         return merged
 
     def _compose_ambiguity_state(self, raw: dict[str, Any]) -> dict[str, Any]:
-        intent_gate_obj = raw.get("intent_gate")
-        intent_gate = intent_gate_obj if isinstance(intent_gate_obj, dict) else {}
-        missing_slots_obj = intent_gate.get("missing_slots")
-        missing_slots_raw = missing_slots_obj if isinstance(missing_slots_obj, list) else []
-        missing_slots: list[str] = []
-        for raw_slot in missing_slots_raw:
-            slot = _clean_single_line(raw_slot)[:32]
-            if not slot:
-                continue
-            missing_slots.append(slot)
-            if len(missing_slots) >= 6:
-                break
-
-        requires_clarification = bool(intent_gate.get("requires_clarification") is True)
-        unresolved = requires_clarification or bool(missing_slots)
+        clarification = _extract_clarification(raw)
         return {
-            "status": "unresolved" if unresolved else "resolved",
-            "unresolved": unresolved,
-            "requires_clarification": requires_clarification,
-            "missing_slots": missing_slots,
-            "updated_at": str(intent_gate.get("updated_at", "")).strip()[:48],
+            "status": str(clarification.get("status", "resolved")),
+            "unresolved": bool(clarification.get("unresolved") is True),
+            "requires_clarification": bool(clarification.get("requires_clarification") is True),
+            "missing_slots": list(clarification.get("missing_slots", [])),
+            "updated_at": str(clarification.get("updated_at", "")).strip()[:48],
         }
 
     def _provenance_only_summary(self, clarification_status: dict[str, Any]) -> str:
@@ -544,23 +573,12 @@ class ContextEngine:
             pass
 
     def _compose_clarification_status(self, raw: dict[str, Any]) -> dict[str, Any]:
-        intent_gate = raw.get("intent_gate", {})
-        if not isinstance(intent_gate, dict):
-            intent_gate = {}
-
-        prompt = str(intent_gate.get("clarification_prompt", "")).strip().replace("\n", " ")
-        confidence_raw = intent_gate.get("confidence", 0.0)
-        try:
-            confidence = float(confidence_raw)
-        except (TypeError, ValueError):
-            confidence = 0.0
-        confidence = max(0.0, min(1.0, confidence))
-
+        clarification = _extract_clarification(raw)
         return {
-            "requires_clarification": bool(intent_gate.get("requires_clarification") is True),
-            "intent_class": str(intent_gate.get("intent_class", "")).strip()[:48],
-            "clarification_prompt": prompt[:_MAX_CLARIFICATION_PROMPT_CHARS],
-            "confidence": round(confidence, 2),
+            "requires_clarification": bool(clarification.get("requires_clarification") is True),
+            "intent_class": str(clarification.get("intent_class", "")).strip()[:48],
+            "clarification_prompt": str(clarification.get("clarification_prompt", "")).strip()[:_MAX_CLARIFICATION_PROMPT_CHARS],
+            "confidence": round(float(clarification.get("confidence", 0.0)), 2),
         }
 
     def _compose_governance(self, raw: dict[str, Any]) -> dict[str, Any]:

@@ -266,7 +266,12 @@ def test_firewall_denies_mutation_when_clarification_required(tmp_path) -> None:
     out = run_hook_json(
         "hooks/firewall.py",
         make_bash_payload("mkdir blocked-by-clarification"),
-        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-clarify"},
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_RUN_ID": "run-clarify",
+            "OMG_STRICT_AMBIGUITY_MODE": "1",
+            "OMG_TDD_GATE_STRICT": "0",
+        },
     )
 
     assert get_decision(out) == "deny"
@@ -294,7 +299,11 @@ def test_firewall_allows_read_when_clarification_required(tmp_path) -> None:
     out = run_hook_json(
         "hooks/firewall.py",
         make_bash_payload("ls -la"),
-        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-clarify-read"},
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_RUN_ID": "run-clarify-read",
+            "OMG_STRICT_AMBIGUITY_MODE": "1",
+        },
     )
 
     assert get_decision(out) is None
@@ -320,12 +329,47 @@ def test_firewall_denies_external_bash_when_clarification_required(tmp_path) -> 
     out = run_hook_json(
         "hooks/firewall.py",
         make_bash_payload("curl https://example.com"),
-        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_RUN_ID": "run-clarify-external"},
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_RUN_ID": "run-clarify-external",
+            "OMG_STRICT_AMBIGUITY_MODE": "1",
+        },
     )
 
     assert get_decision(out) == "deny"
     reason = (out.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
     assert reason == "Clarification required before external execution: Clarify exact mutation scope."
+
+
+def test_firewall_skips_clarification_deny_when_strict_mode_disabled(tmp_path) -> None:
+    state_dir = tmp_path / ".omg" / "state"
+    intent_dir = state_dir / "intent_gate"
+    intent_dir.mkdir(parents=True, exist_ok=True)
+    (intent_dir / "run-clarify-nonstrict.json").write_text(
+        json.dumps(
+            {
+                "run_id": "run-clarify-nonstrict",
+                "intent_class": "ambiguous_config",
+                "requires_clarification": True,
+                "clarification_prompt": "Clarify exact mutation scope.",
+                "confidence": 0.9,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    out = run_hook_json(
+        "hooks/firewall.py",
+        make_bash_payload("mkdir allowed-when-strict-off"),
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_RUN_ID": "run-clarify-nonstrict",
+            "OMG_STRICT_AMBIGUITY_MODE": "0",
+            "OMG_TDD_GATE_STRICT": "0",
+        },
+    )
+
+    assert get_decision(out) is None
 
 
 def test_firewall_allows_read_only_redirect_when_session_health_is_blocked(tmp_path) -> None:
