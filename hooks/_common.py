@@ -107,7 +107,7 @@ def deny_decision(reason):
     }, sys.stdout)
 
 
-def block_decision(reason):
+def block_decision(reason, *, block_reason="unknown", project_dir=None):
     """Emit a Stop hook block decision to stdout.
 
     Also records the block for loop detection. Every stop hook that calls
@@ -117,7 +117,7 @@ def block_decision(reason):
     # Record block BEFORE emitting -- ensures tracker is updated even if
     # the process is killed after emitting the decision.
     try:
-        record_stop_block()
+        record_stop_block(project_dir=project_dir, reason=block_reason)
     except Exception:
         pass  # never let tracker failure prevent the block decision
     json.dump({"decision": "block", "reason": reason}, sys.stdout)
@@ -505,23 +505,40 @@ def should_skip_stop_hooks(data):
             if os.path.exists(_tracker_path):
                 with open(_tracker_path, "r", encoding="utf-8") as _f:
                     _state = json.load(_f)
-                _elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(_state["ts"])).total_seconds()
-                if _elapsed < _BLOCK_LOOP_WINDOW_SECS and _state.get("count", 0) >= 1:
-                    _reason = _state.get("reason", "unknown")
-                    if _reason in _LOOP_BLOCK_REASONS:
-                        print(
-                            "[OMG] Guard 5 triggered: context may be exhausted and stop hooks recently blocked. "
-                            "Skipping stop-hook blocks so compaction can run. "
-                            "Tip: /OMG:handoff then continue in a fresh session.",
-                            file=sys.stderr,
-                        )
-                        return True
+                # Session isolation: stale tracker from another session cannot suppress hooks
+                _tracker_session = _state.get("session_id", "")
+                _current_session = _get_session_id()
+                if (_tracker_session and _current_session != "unknown"
+                        and _tracker_session != _current_session):
+                    pass  # Different session — not a deadlock
+                else:
+                    _elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(_state["ts"])).total_seconds()
+                    if _elapsed < _BLOCK_LOOP_WINDOW_SECS and _state.get("count", 0) >= 1:
+                        _reason = _state.get("reason", "unknown")
+                        if _reason in _LOOP_BLOCK_REASONS:
+                            print(
+                                "[OMG] Guard 5 triggered: context may be exhausted and stop hooks recently blocked. "
+                                "Skipping stop-hook blocks so compaction can run. "
+                                "Tip: /OMG:handoff then continue in a fresh session.",
+                                file=sys.stderr,
+                            )
+                            return True
         except Exception:
             pass  # fail open
     return False
 
 
 # --- Stop-Block Loop Breaker (file-based safety net) ---
+
+
+def _get_session_id():
+    """Get current session ID from environment, falling back to 'unknown'."""
+    for key in ("CLAUDE_SESSION_ID", "SESSION_ID", "OMG_SESSION_ID"):
+        val = os.environ.get(key, "").strip()
+        if val:
+            return val
+    return "unknown"
+
 
 def record_stop_block(project_dir=None, reason: str = "unknown", session_id: str = ""):
     """Record that a stop hook block was issued. Called before block_decision().
@@ -532,6 +549,8 @@ def record_stop_block(project_dir=None, reason: str = "unknown", session_id: str
         session_id: Session identifier to prevent cross-session interference
     """
     try:
+        if not session_id:
+            session_id = _get_session_id()
         pdir = project_dir or get_project_dir()
         path = os.path.join(pdir, _STOP_BLOCK_TRACKER)
         state = {
@@ -573,6 +592,8 @@ def is_stop_block_loop(project_dir=None, session_id: str = ""):
                    returns False (cross-session, not a loop).
     """
     try:
+        if not session_id:
+            session_id = _get_session_id()
         pdir = project_dir or get_project_dir()
         path = os.path.join(pdir, _STOP_BLOCK_TRACKER)
         if not os.path.exists(path):

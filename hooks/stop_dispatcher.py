@@ -34,6 +34,7 @@ from hooks._common import (  # noqa: E402
     setup_crash_handler,
     should_skip_stop_hooks,
     STOP_CHECK_MAX_MS,
+    STOP_DISPATCHER_TOTAL_MAX_MS,
 )
 from hooks.state_migration import resolve_state_file  # noqa: E402
 
@@ -142,6 +143,14 @@ def _is_non_source_path(file_path: str) -> bool:
 def _is_internal_control_path(file_path: str) -> bool:
     fl = str(file_path).lower()
     return any(p.lower() in fl for p in INTERNAL_CONTROL_PATH_PATTERNS)
+
+
+_RALPH_DEFAULT_TIMEOUT_MINUTES = 10
+
+
+def _watchdog_check(start_time):
+    """Return True if the dispatcher has exceeded its wall-clock budget."""
+    return (time.time() - start_time) >= (STOP_DISPATCHER_TOTAL_MAX_MS / 1000)
 
 
 try:
@@ -853,7 +862,11 @@ def check_ralph_loop(project_dir, data):
         return [], []
     
     # Check if Ralph loop has expired
-    timeout_minutes = int(os.environ.get("OMG_RALPH_TIMEOUT_MINUTES", "30"))
+    _raw_timeout = os.environ.get("OMG_RALPH_TIMEOUT_MINUTES", "")
+    try:
+        timeout_minutes = int(_raw_timeout) if _raw_timeout.strip() else _RALPH_DEFAULT_TIMEOUT_MINUTES
+    except (ValueError, TypeError):
+        timeout_minutes = _RALPH_DEFAULT_TIMEOUT_MINUTES
     started_at_str = state.get("started_at")
     if started_at_str:
         try:
@@ -980,10 +993,17 @@ def check_todo_continuation(data: dict[str, object]) -> dict[str, str] | None:
 
 
 def main():
+    _watchdog_start = time.time()
+
     data = json_input()
 
     # Unified guard: stop-hook loop, context-limit, and re-entry detection
     if should_skip_stop_hooks(data):
+        sys.exit(0)
+
+    # Watchdog: bail out if we already burned too much wall-clock time
+    if _watchdog_check(_watchdog_start):
+        print("[OMG] stop_dispatcher: wall-clock watchdog expired", file=sys.stderr)
         sys.exit(0)
 
     project_dir = _resolve_project_dir()
@@ -995,17 +1015,25 @@ def main():
     if advisories:
         data["_stop_advisories"].extend(advisories)
     if block_reasons:
-        record_stop_block(project_dir, reason="ralph_loop")
-        block_decision(block_reasons[0])
+        block_decision(block_reasons[0], block_reason="ralph_loop", project_dir=project_dir)
+        return
+
+    if _watchdog_check(_watchdog_start):
+        print("[OMG] stop_dispatcher: wall-clock watchdog expired", file=sys.stderr)
+        sys.exit(0)
 
     # P2: Planning enforcement (implemented in Task 22)
     block_reasons, advisories = check_planning_gate(project_dir)
     if block_reasons:
-        record_stop_block(project_dir, reason="planning_gate")
-        block_decision(block_reasons[0])
+        block_decision(block_reasons[0], block_reason="planning_gate", project_dir=project_dir)
+        return
     advisories.extend(check_scope_drift(project_dir))
     if advisories:
         data["_stop_advisories"].extend(advisories)
+
+    if _watchdog_check(_watchdog_start):
+        print("[OMG] stop_dispatcher: wall-clock watchdog expired", file=sys.stderr)
+        sys.exit(0)
 
     # P3: Todo continuation enforcement (Task 1.6)
     _p3_start = time.monotonic()
@@ -1013,8 +1041,12 @@ def main():
     _p3_elapsed = (time.monotonic() - _p3_start) * 1000
     check_performance_budget("check_todo_continuation", _p3_elapsed, STOP_CHECK_MAX_MS)
     if todo_result and todo_result.get("decision") == "block":
-        record_stop_block(project_dir, reason="todo_continuation")
-        block_decision(todo_result["reason"])
+        block_decision(todo_result["reason"], block_reason="todo_continuation", project_dir=project_dir)
+        return
+
+    if _watchdog_check(_watchdog_start):
+        print("[OMG] stop_dispatcher: wall-clock watchdog expired", file=sys.stderr)
+        sys.exit(0)
 
     blocks = []
     for check_fn in [
@@ -1030,6 +1062,9 @@ def main():
         _test_validator_check,
         _quality_runner_check,
     ]:
+        if _watchdog_check(_watchdog_start):
+            print("[OMG] stop_dispatcher: wall-clock watchdog expired during quality checks", file=sys.stderr)
+            sys.exit(0)
         if check_fn is None:
             continue
         try:
@@ -1045,8 +1080,8 @@ def main():
         print("\n".join(advisories), file=sys.stderr)
 
     if blocks:
-        record_stop_block(project_dir, reason="quality_check")
-        block_decision("\n\n---\n\n".join(blocks))
+        block_decision("\n\n---\n\n".join(blocks), block_reason="quality_check", project_dir=project_dir)
+        return
 
     check_simplifier(data, project_dir)
     reset_stop_block_tracker(project_dir)
