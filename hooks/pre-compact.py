@@ -32,6 +32,12 @@ except ImportError:
     except Exception:
         collect_protected_context = None
 
+try:
+    from runtime.context_limits import get_model_limits, compaction_trigger
+except Exception:
+    get_model_limits = None
+    compaction_trigger = None
+
 
 MAX_SNAPSHOT_BYTES = int(os.environ.get("OMG_PRECOMPACT_MAX_SNAPSHOT_BYTES", "262144"))
 GIT_DIFF_TIMEOUT_SEC = int(os.environ.get("OMG_PRECOMPACT_GIT_DIFF_TIMEOUT_SEC", "1"))
@@ -225,6 +231,51 @@ def _load_context_budget_config(project_dir):
     return defaults
 
 
+def _detect_model_id(data):
+    for key in ("CLAUDE_MODEL", "OMG_MODEL_ID", "OPENAI_MODEL"):
+        value = os.environ.get(key, "").strip()
+        if value:
+            return value
+
+    if not isinstance(data, dict):
+        return ""
+
+    model = data.get("model")
+    if isinstance(model, dict):
+        for key in ("id", "display_name", "name"):
+            value = str(model.get(key, "") or "").strip()
+            if value:
+                return value
+    elif isinstance(model, str) and model.strip():
+        return model.strip()
+
+    context = data.get("context")
+    if isinstance(context, dict):
+        nested_model = context.get("model")
+        if isinstance(nested_model, dict):
+            for key in ("id", "display_name", "name"):
+                value = str(nested_model.get(key, "") or "").strip()
+                if value:
+                    return value
+
+    return ""
+
+
+def _host_aware_compaction_threshold(data):
+    model_id = _detect_model_id(data)
+    if get_model_limits is not None and compaction_trigger is not None:
+        limits = get_model_limits(model_id)
+        trigger = int(compaction_trigger(model_id))
+    else:
+        limits = {"class_label": "128k-class"}
+        trigger = 80_000
+    return {
+        "model_id": model_id,
+        "class_label": str(limits.get("class_label", "128k-class")),
+        "trigger_tokens": trigger,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Main hook execution (side-effects — only runs when invoked as script)
 # ---------------------------------------------------------------------------
@@ -236,6 +287,7 @@ def main():
         sys.exit(0)
 
     project_dir = _resolve_project_dir()
+    compaction_limits = _host_aware_compaction_threshold(data)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     state_dir = resolve_state_dir(project_dir, "state", "")
     snapshot_dir = os.path.join(state_dir, "snapshots", ts)
@@ -278,6 +330,12 @@ def main():
         f"# Handoff -- {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         "Auto-generated before context compaction.",
     ]
+    model_label = compaction_limits["model_id"] or "unknown"
+    parts.append(
+        "## Compaction Budget\n"
+        f"Model: {model_label} ({compaction_limits['class_label']})\n"
+        f"Trigger: {compaction_limits['trigger_tokens']} tokens"
+    )
     if profile:
         parts.append("<!-- section: working-state -->")
         parts.append("## Project\n" + profile)
@@ -378,23 +436,28 @@ def main():
             if turns:
                 config = _load_context_budget_config(project_dir)
                 result = _apply_hybrid_summarization(turns, config)
+                summaries = result.get("summaries", [])
+                discarded_raw = result.get("discarded_count", 0)
+                discarded_count = discarded_raw if isinstance(discarded_raw, int) else 0
+                full_turns = result.get("full_turns", [])
                 # Format as additionalContext supplement
                 summary_parts = []
-                if result["summaries"]:
+                if isinstance(summaries, list) and summaries:
                     summary_parts.append("## Conversation Context (Hybrid Summary)")
-                    for s in result["summaries"]:
-                        summary_parts.append(s)
-                    if result["discarded_count"] > 0:
+                    for s in summaries:
+                        if isinstance(s, str):
+                            summary_parts.append(s)
+                    if discarded_count > 0:
                         summary_parts.append(
-                            f"({result['discarded_count']} oldest turns discarded — see memory/handoff)"
+                            f"({discarded_count} oldest turns discarded — see memory/handoff)"
                         )
-                    summary_text = "\n".join(summary_parts)
+                    _summary_text = "\n".join(summary_parts)
                     # Output as JSON if no protected context was already output
                     print(
                         f"[OMG pre-compact] Hybrid summarization: "
-                        f"{len(result['full_turns'])} full, "
-                        f"{len(result['summaries'])} batches, "
-                        f"{result['discarded_count']} discarded",
+                        f"{len(full_turns) if isinstance(full_turns, list) else 0} full, "
+                        f"{len(summaries)} batches, "
+                        f"{discarded_count} discarded",
                         file=sys.stderr,
                     )
     except Exception:
