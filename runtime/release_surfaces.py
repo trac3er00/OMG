@@ -52,16 +52,18 @@ class AuthoredSurface:
     source_only: bool = False
 
 
-# ── Explicit YAML bundle names (22 files) ──────────────────────────────────
+# ── Explicit YAML bundle names (25 files) ──────────────────────────────────
 
 _BUNDLE_NAMES: tuple[str, ...] = (
     "algorithms",
     "api-twin",
+    "ast-pack",
     "claim-judge",
     "control-plane",
     "data-lineage",
     "delta-classifier",
     "eval-gate",
+    "hash-edit",
     "health",
     "hook-governor",
     "incident-replay",
@@ -74,6 +76,7 @@ _BUNDLE_NAMES: tuple[str, ...] = (
     "robotics",
     "secure-worktree-pipeline",
     "security-check",
+    "terminal-lane",
     "test-intent-lock",
     "tracebank",
     "vision",
@@ -131,7 +134,7 @@ AUTHORED_SURFACES: list[AuthoredSurface] = [
         "Python package version",
     ),
 
-    # ── YAML bundles (22 files) ──
+    # ── YAML bundles (25 files) ──
     *[
         AuthoredSurface(
             f"registry/bundles/{name}.yaml", "yaml_line", "version",
@@ -232,6 +235,9 @@ SCOPED_RESIDUE_TARGETS: list[str] = [
     "dist/enterprise/manifest.json",
     "dist/public/bundle/",
     "dist/enterprise/bundle/",
+    # Explicitly include accidental double-nesting outputs to prevent silent
+    # stale-version residue from surviving a misconfigured compile run.
+    "dist/dist/",
     "artifacts/release/",
     "build/lib/",
 ]

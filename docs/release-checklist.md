@@ -22,8 +22,8 @@ Use this checklist before making OMG public or cutting a release tag.
 - [ ] `python3 scripts/omg.py compat gate --max-bridge 0 --output artifacts/omg-compat-gap.json` passes
 - [ ] `python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release` returns `status=ok`
 - [ ] `python3 scripts/omg.py validate --format json` includes `plugin_compatibility` check
-- `python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root <tmp>` passes
-- `python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root <tmp>` passes
+- `python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public --output-root <tmp>` passes
+- `python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel enterprise --output-root <tmp>` passes
 - `python3 scripts/omg.py release readiness --channel dual --output-root <tmp>` passes
 
 ## Forge v0.3
