@@ -9,7 +9,7 @@ from registry.verify_artifact import verify_artifact_statement
 from runtime import artifact_parsers
 from runtime.context_engine import load_profile_digest
 from runtime.evidence_query import get_evidence_pack
-from runtime.evidence_requirements import FULL_REQUIREMENTS, requirements_for_profile
+from runtime.evidence_requirements import FULL_REQUIREMENTS, normalize_profile, resolve_profile, requirements_for_profile
 
 
 def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, Any]:
@@ -133,12 +133,15 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
     excluded_failures = _as_non_empty_list(normalized_claim.get("excluded_failures"))
     excluded_failures_waiver_path = str(normalized_claim.get("excluded_failures_waiver_path", "")).strip()
     evidence_profile = str(normalized_claim.get("evidence_profile", "")).strip()
-    evidence_requirements = requirements_for_profile(evidence_profile)
+    evidence_requirements, evidence_profile_error = _resolve_evidence_requirements(evidence_profile)
     requirement_set = {str(item).strip() for item in evidence_requirements if str(item).strip()}
     causal_chain = _as_dict(normalized_claim.get("causal_chain"))
 
     reasons: list[dict[str, Any]] = []
     advisories: list[str] = []
+
+    if evidence_profile_error:
+        reasons.append(evidence_profile_error)
 
     if "tests" in requirement_set and not artifacts:
         reasons.append(
@@ -300,8 +303,39 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
         "excluded_failures": excluded_failures,
         "excluded_failures_waiver_path": excluded_failures_waiver_path,
         "causal_chain": causal_chain,
-        "evidence_profile": str(claim.get("evidence_profile", evidence.get("evidence_profile", ""))).strip(),
+        "evidence_profile": normalize_profile(str(claim.get("evidence_profile", evidence.get("evidence_profile", ""))).strip()),
     }
+
+
+def _resolve_evidence_requirements(evidence_profile: str) -> tuple[list[str], dict[str, Any] | None]:
+    raw_profile = str(evidence_profile or "").strip()
+    normalized = normalize_profile(raw_profile) if raw_profile else ""
+
+    try:
+        canonical = resolve_profile(normalized or None)
+        return requirements_for_profile(canonical), None
+    except ValueError as exc:
+        payload = _parse_profile_error(exc)
+        reason = {
+            "code": "unknown_evidence_profile",
+            "message": str(payload.get("reason", "unknown_profile")),
+            "field": "evidence_profile",
+            "profile": str(payload.get("profile", raw_profile)).strip(),
+        }
+        return list(FULL_REQUIREMENTS), reason
+
+
+def _parse_profile_error(exc: ValueError) -> dict[str, Any]:
+    raw = str(exc).strip()
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    if isinstance(payload, dict):
+        return payload
+    return {}
 
 
 def _validate_excluded_failures_policy(

@@ -10,6 +10,7 @@ from runtime.evidence_requirements import FULL_REQUIREMENTS, requirements_for_pr
 
 
 _REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
+_PRODUCTION_REQUIRED_PRIMITIVES = ("claim_judge", "proof_gate", "test_intent_lock")
 
 _REQUIRED_ARTIFACT_TOKENS: dict[str, tuple[str, ...]] = {
     "junit": ("junit", "junit.xml", "surefire"),
@@ -17,6 +18,67 @@ _REQUIRED_ARTIFACT_TOKENS: dict[str, tuple[str, ...]] = {
     "sarif": ("sarif", ".sarif"),
     "browser_trace": ("trace.zip", "browser_trace", "playwright", "browser-evidence"),
 }
+
+
+def required_production_primitives() -> tuple[str, ...]:
+    return _PRODUCTION_REQUIRED_PRIMITIVES
+
+
+def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
+    payload = _as_dict(evidence)
+    blockers: list[str] = []
+
+    primitive_payload = _as_dict(payload.get("claim_judge"))
+    if not primitive_payload:
+        blockers.append("production_gate_missing_claim_judge")
+    else:
+        status = str(primitive_payload.get("status", "")).strip().lower()
+        verdict = str(primitive_payload.get("claim_judge_verdict", primitive_payload.get("verdict", ""))).strip().lower()
+        if status in {"blocked", "error", "fail", "insufficient"} or verdict in {"blocked", "error", "fail", "insufficient"}:
+            blockers.append("production_gate_claim_judge_blocked")
+
+    proof_result = _as_dict(payload.get("proof_gate"))
+    if not proof_result:
+        try:
+            proof_result = evaluate_proof_gate(payload)
+        except Exception:
+            proof_result = {"verdict": "fail", "blockers": ["proof_gate_internal_error"]}
+
+    if not proof_result:
+        blockers.append("production_gate_missing_proof_gate")
+    else:
+        proof_verdict = str(proof_result.get("verdict", "")).strip().lower()
+        if proof_verdict != "pass":
+            proof_blockers = proof_result.get("blockers")
+            if isinstance(proof_blockers, list) and proof_blockers:
+                blockers.extend(
+                    f"production_gate_proof_gate:{str(item).strip()}"
+                    for item in proof_blockers
+                    if str(item).strip()
+                )
+            else:
+                blockers.append("production_gate_proof_gate_failed")
+
+    lock_payload = _as_dict(payload.get("test_intent_lock"))
+    if not lock_payload:
+        blockers.append("production_gate_missing_test_intent_lock")
+    else:
+        lock_status = str(lock_payload.get("status", "")).strip().lower()
+        lock_id = str(lock_payload.get("lock_id", "")).strip()
+        if lock_status in {"blocked", "error", "fail", "insufficient"} or (lock_status not in {"ok", "allowed"} and not lock_id):
+            blockers.append("production_gate_test_intent_lock_unsatisfied")
+
+    unique_blockers = list(dict.fromkeys(item for item in blockers if str(item).strip()))
+    if unique_blockers:
+        return {
+            "status": "blocked",
+            "blockers": unique_blockers,
+            "required_primitives": list(_PRODUCTION_REQUIRED_PRIMITIVES),
+        }
+    return {
+        "status": "ok",
+        "required_primitives": list(_PRODUCTION_REQUIRED_PRIMITIVES),
+    }
 
 
 def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:

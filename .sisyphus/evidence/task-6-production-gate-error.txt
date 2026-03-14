@@ -1,0 +1,5 @@
+Task: 6 terms-guard deterministic rejection scenarios
+Command: python3 -c "from runtime.guide_assert import terms_guard; import json; print(json.dumps(terms_guard('DROP TABLE USERS', {'deny_patterns':[r'DROP\\s+TABLE'], 'pattern':r'^[A-Z ]+$'}), sort_keys=True)); print(json.dumps(terms_guard('safe-input', {'pattern': 3}), sort_keys=True))"
+Result:
+{"reason": "terms_guard_disallowed_pattern", "status": "rejected"}
+{"reason": "terms_guard_invalid_pattern", "status": "rejected"}
