@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import threading
 import uuid
+from pathlib import Path
 from typing import Any
 from typing import cast
 
@@ -273,15 +274,26 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
             ]
         )
 
-    routing_mode = _ROUTING_MODE_DEFAULT
+    # --- Native question: block the turn when clarification is required ---
     if clarification_required:
-        routing_mode = _ROUTING_MODE_CLARIFICATION
-        findings.append("Clarification unresolved; downgrading to read-only planning mode")
-        actions = [
-            "Collect missing details using read/search/review tools only",
-            "Draft a concrete execution plan without mutation-capable steps",
-            "Return a single clarification request before any edits or writes",
-        ]
+        prompt = str(clarification_status.get("clarification_prompt", "")).strip()
+        if prompt:
+            findings.append(f"Clarification required: {prompt}")
+        else:
+            findings.append("Clarification required before dispatch")
+        return TeamDispatchResult(
+            status="clarification_required",
+            findings=findings,
+            actions=["Resolve the clarification question before dispatch"],
+            evidence={
+                "target": target,
+                "staged_flow": list(_TEAM_STAGED_FLOW),
+                "command_aliases": dict(_TEAM_COMMAND_ALIASES),
+                "clarification_status": clarification_status,
+                "routing_mode": _ROUTING_MODE_CLARIFICATION,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
     evidence = {
         "target": target,
@@ -291,7 +303,7 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "context_length": len(req.context or ""),
         "file_count": len(req.files or []),
-        "routing_mode": routing_mode,
+        "routing_mode": _ROUTING_MODE_DEFAULT,
         "clarification_status": clarification_status,
         "cli_health": cli_health,
         "live_connection": all(h.get("live_connection") for h in cli_health.values()) if cli_health else True,
@@ -706,6 +718,7 @@ def execute_crazy_mode(
             run_id=run_id,
             clarification_status=clarification_status,
             problem=problem,
+            project_dir=project_dir,
         )
 
     worker_tasks = [
@@ -866,6 +879,7 @@ def execute_ccg_mode(
             run_id=run_id,
             clarification_status=clarification_status,
             problem=problem,
+            project_dir=project_dir,
         )
 
     worker_tasks = [
@@ -958,6 +972,34 @@ def execute_ccg_mode(
     }
 
 
+def _persist_question_state(
+    project_dir: str,
+    run_id: str,
+    question_text: str,
+    mode: str,
+    problem: str,
+) -> None:
+    """Write minimal question state to the run-state directory.
+
+    This is NOT a new schema — it is a flat file under .omg/state/ that
+    records which question is pending so the session can resume or reject.
+    """
+    state_dir = Path(project_dir) / ".omg" / "state" / "pending_question"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "question_pending": True,
+        "question_text": str(question_text).strip()[:500],
+        "mode": mode,
+        "problem": str(problem).strip()[:200],
+        "run_id": run_id,
+        "emitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    target = state_dir / f"{run_id}.json"
+    tmp = target.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    os.rename(tmp, target)
+
+
 def _build_clarification_blocked_result(
     *,
     mode: str,
@@ -965,7 +1007,15 @@ def _build_clarification_blocked_result(
     run_id: str | None,
     clarification_status: dict[str, Any],
     problem: str,
+    project_dir: str = "",
 ) -> dict[str, Any]:
+    """Build a blocked result when clarification is required.
+
+    The returned dict signals ``status='clarification_required'`` which
+    guarantees the turn ends — no worker dispatch or tool action follows.
+    Minimal question state is persisted via the run-state directory so the
+    session can resume or reject the question later.
+    """
     prompt = str(clarification_status.get("clarification_prompt", "")).strip()
     findings = [
         f"Staged flow halted at team-plan for {mode} routing",
@@ -973,6 +1023,11 @@ def _build_clarification_blocked_result(
     ]
     if prompt:
         findings.append(f"Clarification request: {prompt}")
+
+    # Persist minimal run-scoped question state for resume / reject
+    if run_id and project_dir:
+        _persist_question_state(project_dir, run_id, prompt, mode, problem)
+
     return {
         "status": "clarification_required",
         "stages": list(_TEAM_STAGED_FLOW),

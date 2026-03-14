@@ -371,6 +371,71 @@ def test_execute_crazy_mode_blocks_worker_dispatch_when_context_requires_clarifi
     assert result["current_stage"] == "team-plan"
 
 
+def test_dispatch_team_clarification_required(monkeypatch):
+    """dispatch_team blocks with clarification_required instead of continuing in read-only mode."""
+    monkeypatch.setattr(
+        team_router,
+        "_extract_clarification_status",
+        lambda _ctx: {
+            "requires_clarification": True,
+            "intent_class": "ambiguous_config",
+            "clarification_prompt": "Specify target service",
+            "confidence": 0.42,
+        },
+    )
+    result = dispatch_team(TeamDispatchRequest(
+        target="codex",
+        problem="setup auth",
+        context_packet={},
+    )).to_dict()
+    assert result["status"] == "clarification_required"
+    assert any("Specify target service" in f for f in result["findings"])
+    # Turn must end — no read-only continuation mode
+    assert result["actions"] == ["Resolve the clarification question before dispatch"]
+
+
+def test_question_blocks_iteration_in_ccg(monkeypatch, tmp_path):
+    """When clarification is required, question state is persisted and no workers dispatch."""
+    monkeypatch.setenv("OMG_RUN_ID", "run-question-block")
+
+    monkeypatch.setattr(
+        team_router,
+        "_build_router_context_packet",
+        lambda **_kwargs: {
+            "summary": "ctx",
+            "clarification_status": {
+                "requires_clarification": True,
+                "intent_class": "ambiguous",
+                "clarification_prompt": "Clarify the output format",
+                "confidence": 0.42,
+            },
+        },
+    )
+
+    def _unexpected_workers(*_args, **_kwargs):
+        raise AssertionError("workers should not be launched")
+
+    monkeypatch.setattr(team_router, "execute_agents_parallel", _unexpected_workers)
+
+    result = team_router.execute_ccg_mode(
+        problem="review code",
+        project_dir=str(tmp_path),
+        context="ctx",
+        files=["app.py"],
+    )
+
+    assert result["status"] == "clarification_required"
+    assert result["worker_count"] == 0
+
+    # Minimal question state should be persisted
+    question_file = tmp_path / ".omg" / "state" / "pending_question" / "run-question-block.json"
+    assert question_file.exists(), "question state file must be persisted"
+    import json
+    question_data = json.loads(question_file.read_text(encoding="utf-8"))
+    assert question_data["question_pending"] is True
+    assert "output format" in question_data["question_text"].lower()
+
+
 def test_execute_agents_parallel_preserves_all_results_when_orders_collide(monkeypatch):
     def _fake_dispatch(agent_name: str, user_prompt: str, _project_dir: str):
         return {

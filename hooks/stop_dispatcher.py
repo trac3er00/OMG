@@ -845,22 +845,57 @@ def format_ralph_block_reason(state, project_dir):
         f"If truly done, run: /OMG:ralph-stop"
     )
 
-def check_ralph_loop(project_dir, data):
-    del data
+def persist_ralph_question(project_dir, question_text):
+    """Persist a pending clarification question in the Ralph loop state.
 
-    if not get_feature_flag("ralph_loop"):
-        return [], []
+    Called when any hook or the context engine detects ambiguity during a
+    Ralph iteration.  The next stop-hook check will emit the question via
+    block_decision and end the turn — no tool action may proceed.
+    """
     ralph_path = os.path.join(project_dir, ".omg", "state", "ralph-loop.json")
     if not os.path.exists(ralph_path):
-        return [], []
+        return
     try:
         with open(ralph_path, "r", encoding="utf-8") as f:
             state = json.load(f)
     except (json.JSONDecodeError, OSError):
-        return [], []
+        return
+    state["question_pending"] = True
+    state["question_text"] = str(question_text).strip()[:500]
+    state["question_emitted_at"] = datetime.now(timezone.utc).isoformat()
+    atomic_json_write(ralph_path, state)
+
+
+def check_ralph_loop(project_dir, data):
+    """Check Ralph loop state and return (block_reasons, advisories, is_question).
+
+    When *is_question* is True the block is a clarification question and the
+    caller MUST use block_reason="clarification_required" so that the turn
+    ends without any further tool action.
+    """
+    del data
+
+    if not get_feature_flag("ralph_loop"):
+        return [], [], False
+    ralph_path = os.path.join(project_dir, ".omg", "state", "ralph-loop.json")
+    if not os.path.exists(ralph_path):
+        return [], [], False
+    try:
+        with open(ralph_path, "r", encoding="utf-8") as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return [], [], False
     if not state.get("active"):
-        return [], []
-    
+        return [], [], False
+
+    # --- Pending clarification question: block and end turn immediately ---
+    if state.get("question_pending"):
+        question_text = str(state.get("question_text", "")).strip()
+        if not question_text:
+            question_text = "Clarification required before continuing Ralph loop"
+        # Do NOT increment iteration — the loop is paused on the question
+        return [question_text], [], True
+
     # Check if Ralph loop has expired
     _raw_timeout = os.environ.get("OMG_RALPH_TIMEOUT_MINUTES", "")
     try:
@@ -876,7 +911,7 @@ def check_ralph_loop(project_dir, data):
             if elapsed.total_seconds() > timeout_minutes * 60:
                 state["active"] = False
                 atomic_json_write(ralph_path, state)
-                return [], [f"Ralph loop expired after {timeout_minutes} minutes. Stopping."]
+                return [], [f"Ralph loop expired after {timeout_minutes} minutes. Stopping."], False
         except (ValueError, TypeError):
             pass
     
@@ -885,11 +920,11 @@ def check_ralph_loop(project_dir, data):
     if iteration >= max_iter:
         state["active"] = False
         atomic_json_write(ralph_path, state)
-        return [], ["Ralph loop reached max iterations. Stopping."]
+        return [], ["Ralph loop reached max iterations. Stopping."], False
     state["iteration"] = iteration + 1
     atomic_json_write(ralph_path, state)
     reason = format_ralph_block_reason(state, project_dir)
-    return [reason], []
+    return [reason], [], False
 
 
 def check_planning_gate(project_dir):
@@ -1011,11 +1046,14 @@ def main():
     data["_stop_advisories"] = []
 
     # P1: Ralph loop check (implemented in Task 18)
-    block_reasons, advisories = check_ralph_loop(project_dir, data)
+    block_reasons, advisories, is_question = check_ralph_loop(project_dir, data)
     if advisories:
         data["_stop_advisories"].extend(advisories)
     if block_reasons:
-        block_decision(block_reasons[0], block_reason="ralph_loop", project_dir=project_dir)
+        # Clarification questions use a distinct block_reason so the turn
+        # ends cleanly — no tool action may follow a question emission.
+        br = "clarification_required" if is_question else "ralph_loop"
+        block_decision(block_reasons[0], block_reason=br, project_dir=project_dir)
         return
 
     if _watchdog_check(_watchdog_start):

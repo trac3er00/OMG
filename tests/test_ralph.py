@@ -326,3 +326,45 @@ def test_invalid_timeout_env(tmp_path: Path):
     # Within default 10-minute timeout (5 < 10) -> should still block
     output = json.loads(result.stdout)
     assert output["decision"] == "block", "Expected block with fallback default timeout"
+
+
+def test_ralph_clarification_required(tmp_path: Path):
+    """Ralph blocks with the question text when question_pending is set."""
+    _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 3,
+            "max_iterations": 50,
+            "original_prompt": "refactor auth",
+            "question_pending": True,
+            "question_text": "Which auth provider should be used?",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert output["decision"] == "block"
+    assert "Which auth provider" in output["reason"]
+
+
+def test_ralph_question_blocks_iteration(tmp_path: Path):
+    """When question_pending is set, Ralph does not increment iteration."""
+    path = _write_ralph_state(
+        tmp_path,
+        {
+            "active": True,
+            "iteration": 3,
+            "max_iterations": 50,
+            "original_prompt": "refactor auth",
+            "question_pending": True,
+            "question_text": "Which auth provider?",
+        },
+    )
+    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert output["decision"] == "block"
+    # Iteration must NOT be incremented while question is pending
+    state = json.loads(path.read_text(encoding="utf-8"))
+    assert state["iteration"] == 3
