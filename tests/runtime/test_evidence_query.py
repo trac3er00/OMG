@@ -353,3 +353,21 @@ def test_get_evidence_pack_missing_profile_fails_closed_to_full_requirements(tmp
     assert isinstance(requirements, list)
     assert "security_scan" in requirements
     assert "sbom" in requirements
+
+
+def test_unknown_profile_behavior(tmp_path: Path) -> None:
+    _write_json(
+        tmp_path / ".omg" / "evidence" / "run-unknown.json",
+        _evidence_pack("run-unknown", ["trace-unknown"], evidence_profile="not-a-real-profile"),
+    )
+
+    pack = get_evidence_pack(str(tmp_path), "run-unknown")
+
+    assert pack is not None
+    assert pack["evidence_profile"] == "not-a-real-profile"
+    assert pack["evidence_profile_known"] is False
+    assert pack["evidence_profile_error"] == "unknown_evidence_profile:not-a-real-profile"
+    requirements = pack["evidence_requirements"]
+    assert isinstance(requirements, list)
+    assert "security_scan" in requirements
+    assert "sbom" in requirements

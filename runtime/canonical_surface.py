@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Final
 
+from runtime.evidence_requirements import EVIDENCE_REQUIREMENTS_BY_PROFILE
+
 CANONICAL_PARITY_HOSTS: Final[list[str]] = ["claude", "codex", "gemini", "kimi"]
 COMPATIBILITY_ONLY_HOSTS: Final[list[str]] = ["opencode"]
 
@@ -10,13 +12,16 @@ DOMAIN_DEFAULTS: Final[dict[str, tuple[str, ...]]] = {
     "all_domain_packs": ("robotics", "vision", "algorithms", "health", "cybersecurity"),
 }
 
+def _release_evidence_profile_labels() -> dict[str, str]:
+    return {
+        profile.replace("-", "_"): profile
+        for profile in EVIDENCE_REQUIREMENTS_BY_PROFILE
+    }
+
+
 RELEASE_SURFACE_LABELS: Final[dict[str, dict[str, str]]] = {
     "evidence_profiles": {
-        "release": "release",
-        "forge_run": "forge-run",
-        "security_audit": "security-audit",
-        "docs_only": "docs-only",
-        "code_change": "code-change",
+        **_release_evidence_profile_labels(),
     },
     "routes": {
         "teams": "teams",

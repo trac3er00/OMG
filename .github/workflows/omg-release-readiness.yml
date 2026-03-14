@@ -158,6 +158,8 @@ jobs:
           from pathlib import Path
 
           payload = json.loads(Path("artifacts/release/.omg/evidence/release-readiness.json").read_text(encoding="utf-8"))
+          from runtime.evidence_requirements import EVIDENCE_REQUIREMENTS_BY_PROFILE
+
           checks = payload.get("checks", {}).get("execution_primitives", {})
           required = {
               "release_run_coordinator_state",
@@ -177,6 +179,11 @@ jobs:
           }
           evidence_paths = checks.get("evidence_paths", {})
           missing = sorted(item for item in required if not str(evidence_paths.get(item, "")).strip())
+          evidence_profile = str(payload.get("evidence_profile", "")).strip()
+          if evidence_profile and evidence_profile not in EVIDENCE_REQUIREMENTS_BY_PROFILE:
+              raise SystemExit(f"release readiness produced unknown evidence profile: {evidence_profile}")
+          if evidence_profile in {"methodology-enforced", "hash-edit"}:
+              raise SystemExit(f"release readiness used governed-tool-only profile: {evidence_profile}")
           if payload.get("status") != "ok":
               raise SystemExit("release readiness not ok")
           if missing:

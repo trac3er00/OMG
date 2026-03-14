@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import cast
 
 from runtime.context_engine import load_profile_digest
-from runtime.evidence_requirements import requirements_for_profile
+from runtime.evidence_requirements import EVIDENCE_REQUIREMENTS_BY_PROFILE, requirements_for_profile
 
 JsonPrimitive = str | int | float | bool | None
 JsonValue = JsonPrimitive | dict[str, "JsonValue"] | list["JsonValue"]
@@ -54,6 +54,7 @@ def _record_copy_with_context_metadata(root: Path, record: JsonObject) -> JsonOb
     profile_version = existing_profile_version or str(profile_digest.get("profile_version", "")).strip()
     evidence_profile = _record_string(record, "evidence_profile").strip()
     evidence_requirements = requirements_for_profile(evidence_profile)
+    profile_is_known = not evidence_profile or evidence_profile in EVIDENCE_REQUIREMENTS_BY_PROFILE
 
     intent_gate_payload = _load_json(root / ".omg" / "state" / "intent_gate" / f"{run_id}.json") or {}
     existing_intent_gate_version = _record_string(record, "intent_gate_version")
@@ -84,6 +85,9 @@ def _record_copy_with_context_metadata(root: Path, record: JsonObject) -> JsonOb
     enriched["intent_gate_version"] = intent_gate_version
     enriched["evidence_profile"] = evidence_profile
     enriched["evidence_requirements"] = cast(JsonValue, [str(item) for item in evidence_requirements])
+    enriched["evidence_profile_known"] = profile_is_known
+    if evidence_profile and not profile_is_known:
+        enriched["evidence_profile_error"] = f"unknown_evidence_profile:{evidence_profile}"
     return enriched
 
 

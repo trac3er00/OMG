@@ -18,3 +18,8 @@
 - Treat canonical host lists in tests as runtime-derived (`get_canonical_hosts()`) so compiler/parity fixtures do not silently drift when host rosters expand.
 - Readiness helpers that emit host-parity evidence must serialize full canonical hosts, not a legacy `claude/codex` subset, or readiness checks produce false missing-output blockers.
 - Keep single-host compiler checks parameterized across canonical hosts to prove per-host artifact generation once without duplicating near-identical test fixtures.
+
+## 2026-03-13 T9 evidence profile registry synchronization
+- Release-facing evidence profile labels should be derived from `runtime.evidence_requirements.EVIDENCE_REQUIREMENTS_BY_PROFILE` to eliminate parallel hardcoded profile maps.
+- `methodology-enforced` and `hash-edit` remain governed tool-fabric surfaces; release-readiness should explicitly reject them when surfaced as evidence profiles.
+- Query surfaces should fail explicitly for unknown evidence profiles by emitting machine-readable profile status/error metadata while still preserving fail-closed requirement fallback.

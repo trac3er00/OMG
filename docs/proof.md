@@ -17,6 +17,7 @@ OMG keeps verification visible instead of burying it in implementation details.
   - `test-intent-lock`: `.omg/evidence/test-intent-lock-*.json` (verifies test-to-intent alignment)
   - `proof-gate`: `.omg/evidence/proof-gate-*.json` (verifies final release readiness)
 - Release execution primitives required by `omg release readiness`:
+  - canonical evidence profile registry: `runtime.evidence_requirements.EVIDENCE_REQUIREMENTS_BY_PROFILE` (release-facing labels derive from this map)
   - run coordinator state: `.omg/state/release_run_coordinator/<run_id>.json`
   - TDD lock evidence: `.omg/state/test-intent-lock/*.json`
   - rollback manifest: `.omg/state/rollback_manifest/*.json`
