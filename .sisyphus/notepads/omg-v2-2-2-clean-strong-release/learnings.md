@@ -30,3 +30,8 @@
 - Evidence schema expansions (trace_metadata, freshness_threshold_secs, fixture_inventory_valid) should be additive fields — bump minor schema version, never remove existing fields that downstream consumers depend on.
 - Default fixture inventory should be a module-level constant (`_DEFAULT_FIXTURE_INVENTORY`) so both the testbed and tests can reference the canonical list without drift.
 - Workflow daily gate should validate fixture_inventory_valid and run_id linkage explicitly, not just freshness — stale evidence can pass freshness but still have incomplete coverage.
+
+## 2026-03-14 T11 workflow gate partitioning and caching
+- Use `actions/setup-python@v5` with `cache: pip` plus `cache-dependency-path` (`pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*.txt`) in every Python job; this keeps cache key derivation stable across split jobs.
+- Split governed gates into `prepare -> compile/parity -> readiness` jobs and pass `artifacts/*` directories through upload/download artifacts so evidence-producing setup runs once and compile stages parallelize safely.
+- Keep release-readiness evidence assertions in the terminal readiness job and aggregate with `actions/download-artifact@v4` using `pattern` + `merge-multiple: true` so critical checks still run on one assembled artifact tree.

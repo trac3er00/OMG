@@ -1,0 +1,28 @@
+{
+  "command": "python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release",
+  "exit_code": 0,
+  "status": "ok",
+  "blockers": [],
+  "tail_20": [
+    "      \"status\": \"ok\",",
+    "      \"report\": \".omg/evidence/host-parity-run-1.json\",",
+    "      \"required_hosts\": [",
+    "        \"claude\",",
+    "        \"codex\",",
+    "        \"gemini\",",
+    "        \"kimi\"",
+    "      ],",
+    "      \"blockers\": []",
+    "    },",
+    "    \"worktree\": {",
+    "      \"ready\": true",
+    "    },",
+    "    \"mcp_fabric\": {",
+    "      \"ready\": true,",
+    "      \"prompt_count\": 1,",
+    "      \"resource_count\": 2",
+    "    }",
+    "  }",
+    "}"
+  ]
+}
