@@ -87,7 +87,7 @@ function readOmgVersion() {
     // fall through to static fallback
   }
 
-  return "2.1.9";
+  return "2.2.2";
 }
 
 const OMG_VERSION = readOmgVersion();
@@ -493,6 +493,74 @@ function formatModelName(id, format) {
 function getModelShort(stdin, format = "short") {
   const id = stdin?.model?.id ?? stdin?.model?.display_name ?? "";
   return formatModelName(id, format);
+}
+
+function getModelId(stdin) {
+  const fromStdin = stdin?.model?.id ?? stdin?.model?.display_name ?? "";
+  const fromEnv = process.env.CLAUDE_MODEL || process.env.OMG_MODEL_ID || process.env.OPENAI_MODEL || "";
+  return String(fromStdin || fromEnv || "").trim();
+}
+
+function isKnownModelHost(modelId) {
+  const lower = String(modelId || "").toLowerCase();
+  if (!lower) return false;
+  return (
+    lower.startsWith("claude") ||
+    lower.startsWith("gpt") ||
+    lower.startsWith("o3") ||
+    lower.startsWith("o4") ||
+    lower.startsWith("gemini") ||
+    lower.startsWith("kimi") ||
+    lower.startsWith("moonshot")
+  );
+}
+
+function getHostAwareCompactionTrigger(cwd, modelId) {
+  const fallback = 200_000;
+  if (!isKnownModelHost(modelId)) {
+    return fallback;
+  }
+
+  const projectDir = cwd || process.cwd();
+  try {
+    const output = execFileSync(
+      "python3",
+      [
+        "-c",
+        "import os; from runtime.context_limits import compaction_trigger; m=(os.environ.get('OMG_MODEL_ID') or '').strip(); print(int(compaction_trigger(m)))",
+      ],
+      {
+        cwd: projectDir,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        env: {
+          ...process.env,
+          OMG_MODEL_ID: String(modelId || "").trim(),
+        },
+      },
+    ).trim();
+    const parsed = Number(output);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.round(parsed);
+    }
+  } catch {
+    // fallback below
+  }
+  return fallback;
+}
+
+function getCompactWarningThreshold(stdin, cfg, cwd) {
+  const configuredPercent = Number(
+    cfg.contextLimitWarning.threshold ?? cfg.thresholds.contextCompactSuggestion ?? 80,
+  );
+  const contextWindowSize = Number(stdin?.context_window?.context_window_size ?? 0);
+  const modelId = getModelId(stdin);
+  const triggerTokens = getHostAwareCompactionTrigger(cwd, modelId);
+  if (contextWindowSize > 0 && Number.isFinite(contextWindowSize)) {
+    const derivedPercent = Math.round((triggerTokens / contextWindowSize) * 100);
+    return Math.max(1, Math.min(100, derivedPercent));
+  }
+  return configuredPercent;
 }
 
 function sessionDuration(transcriptPath) {
@@ -1339,9 +1407,7 @@ async function main() {
 
     const warning = Number(cfg.thresholds.contextWarning ?? 60);
     const critical = Number(cfg.thresholds.contextCritical ?? 85);
-    const compactThreshold = Number(
-      cfg.contextLimitWarning.threshold ?? cfg.thresholds.contextCompactSuggestion ?? 80
-    );
+    const compactThreshold = getCompactWarningThreshold(stdin, cfg, cwd);
 
     const els = [];
 

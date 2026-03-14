@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-9Yuj97nlYfr6XkktVjMDV2J0QnBmDkPIBdWxJZZsW2DudZzABfve6yLfaaVcY1c3xRQPaLHF19VpwTqe97VyAw==
-trusted comment: type=omg-slsa-v1 keyid=c19faeaeb99e4daf issued_at=2026-03-13T03:39:16.456796+00:00 artifact=bundle/.agents/skills/omg/hook-governor/SKILL.md sha256=7c745315ed02595fe0f6c927118dae49ddcb7a412ddff0c06cb0973f1d7b77ca
-CHAC5PPD8Gv6mYfguNP5QSIDNZ8MO3IT8A7ZvdnEsw55E3xgsnRbJYXlT+J9r5jheVIqKqUnz7mr0YxplmNMCQ==
+vfx3BM8Kn5rJHdxjBrsg4EK2fBJUrMtvUUolfIqBHvmJAYYeaCQ3cX9SZ2gcdA2kxdUK9BdyknrYbBKT9xIRBA==
+trusted comment: type=omg-slsa-v1 keyid=975bcce46cbbcfdc issued_at=2026-03-14T04:21:33.083889+00:00 artifact=bundle/.agents/skills/omg/hook-governor/SKILL.md sha256=7c745315ed02595fe0f6c927118dae49ddcb7a412ddff0c06cb0973f1d7b77ca
+wUSSz+9V0YhGcxNxMV9B5y5AC+upUks6PkBhz99x+id4YoPs6hr8eJtBiYyIJgvpzntplLDyuPbEEGuxQ9J0Ag==

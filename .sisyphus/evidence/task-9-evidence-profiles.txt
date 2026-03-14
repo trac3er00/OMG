@@ -1,0 +1,26 @@
+Task: T9 Synchronize evidence profile registries and release-readiness metadata
+Date: 2026-03-13
+
+Changed files:
+- runtime/canonical_surface.py
+- runtime/evidence_query.py
+- tests/runtime/test_background_verification.py
+- tests/runtime/test_evidence_query.py
+- docs/proof.md
+- .github/workflows/omg-release-readiness.yml
+
+Verification:
+- Command: python3 -m pytest tests/runtime/test_background_verification.py tests/runtime/test_evidence_query.py tests/scripts/test_omg_cli.py -q
+- Result: 92 passed in 29.65s
+
+LSP diagnostics (severity=error) on changed Python/YAML files:
+- runtime/canonical_surface.py: clean
+- runtime/evidence_query.py: clean
+- tests/runtime/test_background_verification.py: clean
+- tests/runtime/test_evidence_query.py: clean
+- .github/workflows/omg-release-readiness.yml: clean
+
+Policy checks captured in code:
+- Release-facing evidence profile labels now derive from runtime.evidence_requirements.EVIDENCE_REQUIREMENTS_BY_PROFILE
+- Unknown evidence profiles are marked explicitly in evidence query output via evidence_profile_known=false and evidence_profile_error
+- Release workflow asserts readiness evidence_profile is registry-known and rejects governed-tool-only surfaces (methodology-enforced/hash-edit)

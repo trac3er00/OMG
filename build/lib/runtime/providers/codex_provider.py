@@ -1,0 +1,127 @@
+"""Codex CLI provider — implements CLIProvider for the ``codex`` binary."""
+
+from __future__ import annotations
+
+import logging
+import os
+import shlex
+import shutil
+import subprocess
+import uuid
+from typing import Any
+
+from runtime.cli_provider import CLIProvider, register_provider
+from runtime.host_parity import normalize_output
+from runtime.mcp_config_writers import write_codex_mcp_config
+from runtime.tmux_session_manager import TmuxSessionManager
+
+_logger = logging.getLogger(__name__)
+
+
+def _attach_normalized_output(payload: dict[str, Any], *, prompt: str, project_dir: str) -> dict[str, Any]:
+    normalized = normalize_output(
+        "codex",
+        payload,
+        context={"prompt": prompt, "project_dir": project_dir},
+    )
+    merged = dict(payload)
+    merged["normalized_output"] = normalized
+    return merged
+
+
+class CodexProvider(CLIProvider):
+    """CLIProvider implementation for the Codex CLI (``codex``)."""
+
+    # -- identity -----------------------------------------------------------
+
+    def get_name(self) -> str:  # noqa: D401
+        """Return the canonical provider name."""
+        return "codex"
+
+    # -- detection ----------------------------------------------------------
+
+    def detect(self) -> bool:
+        """Return ``True`` when the ``codex`` binary is available on PATH."""
+        return shutil.which("codex") is not None
+
+    # -- authentication -----------------------------------------------------
+
+    def check_auth(self) -> tuple[bool | None, str]:
+        """Check Codex authentication status via ``codex auth status``."""
+        try:
+            result = self.run_tool(["codex", "auth", "status"], timeout=30)
+            if result.returncode == 0:
+                return True, result.stdout.strip()
+            return False, result.stderr.strip() or result.stdout.strip()
+        except Exception as exc:
+            return None, f"codex auth check failed: {exc}"
+
+    # -- invocation ---------------------------------------------------------
+
+    def invoke(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+        """Invoke ``codex exec --json`` via subprocess."""
+        try:
+            result = self.run_tool(
+                ["codex", "exec", "--json", prompt],
+                timeout=timeout,
+                cwd=project_dir,
+                env={"CLAUDE_PROJECT_DIR": project_dir},
+            )
+            return _attach_normalized_output({
+                "model": "codex-cli",
+                "output": result.stdout,
+                "exit_code": result.returncode,
+            }, prompt=prompt, project_dir=project_dir)
+        except subprocess.TimeoutExpired:
+            return {"error": "codex-cli timeout", "fallback": "claude"}
+        except FileNotFoundError:
+            return {"error": "codex-cli not found", "fallback": "claude"}
+        except Exception as exc:
+            return {"error": str(exc), "fallback": "claude"}
+
+    def invoke_tmux(self, prompt: str, project_dir: str, timeout: int = 120) -> dict[str, Any]:  # pyright: ignore[reportExplicitAny]
+        """Invoke ``codex exec --json`` via a persistent tmux session.
+
+        Falls back to :meth:`invoke` on failure.
+        """
+        try:
+            mgr = TmuxSessionManager()
+            session_name = mgr.make_session_name("codex", unique_id=str(uuid.uuid4())[:8])
+            session = mgr.get_or_create_session(session_name, cwd=project_dir)
+            output = mgr.send_command(
+                session,
+                (
+                    f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+                    f"codex exec --json {shlex.quote(prompt)}"
+                ),
+                timeout=timeout,
+            )
+            mgr.kill_session(session)
+            return _attach_normalized_output(
+                {"model": "codex-cli", "output": output, "exit_code": 0},
+                prompt=prompt,
+                project_dir=project_dir,
+            )
+        except Exception as exc:
+            _logger.warning("tmux codex invocation failed, falling back to subprocess: %s", exc)
+            return self.invoke(prompt, project_dir, timeout=timeout)
+
+    # -- command helpers ----------------------------------------------------
+
+    def get_non_interactive_cmd(self, prompt: str) -> list[str]:
+        """Return the non-interactive command for codex."""
+        return ["codex", "exec", "--json", prompt]
+
+    # -- configuration ------------------------------------------------------
+
+    def get_config_path(self) -> str:
+        """Return the Codex configuration file path."""
+        return os.path.expanduser("~/.codex/config.toml")
+
+    def write_mcp_config(self, server_url: str, server_name: str = "memory-server") -> None:
+        """Write an MCP server entry to ``~/.codex/config.toml``."""
+        write_codex_mcp_config(server_url, server_name, config_path=self.get_config_path())
+
+
+# -- auto-register on import -----------------------------------------------
+register_provider(CodexProvider())

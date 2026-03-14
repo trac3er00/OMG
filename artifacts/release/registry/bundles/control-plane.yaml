@@ -1,6 +1,6 @@
 id: control-plane
 kind: skill
-version: 2.1.9
+version: 2.2.2
 title: OMG Control Plane
 description: Canonical production control plane bundle for Claude, Codex, Gemini, and Kimi.
 hosts:
@@ -42,6 +42,8 @@ mcp_contract:
     - omg-memory
   prompts:
     - omg_contract_summary
+  tools:
+    - omg_tool_fabric_request
   resources:
     - resource://omg/contract
     - resource://omg/release-checklist
@@ -52,6 +54,7 @@ lsp_contract:
 evidence_outputs:
   artifacts:
     - .omg/evidence/control-plane-compile.json
+    - .omg/evidence/tool-fabric.json
 execution_contract:
   modes:
     - embedded
@@ -97,6 +100,18 @@ policy_model:
     - tool_name: Bash(python3:*)
       allowed_tiers: [balanced, interop, labs]
       requires_approval: true
+  tool_fabric_contract:
+    enforcement_order:
+      - tool_selection
+      - approval_state
+      - evidence_requirements
+      - attestation_proof_validation
+      - execution
+    lanes:
+      - lsp-pack
+      - hash-edit
+      - ast-pack
+      - terminal-lane
   protected_paths:
     - path_pattern: .omg/**
       required_tier: balanced

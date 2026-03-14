@@ -16,9 +16,9 @@ mkdir -p .omg/evidence
 python3 scripts/omg.py doctor --format json > .omg/evidence/doctor.json
 python3 scripts/prepare-release-proof-fixtures.py --output-root .
 python3 scripts/omg.py contract validate
-python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root .
-python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root .
-OMG_RELEASE_READY_PROVIDERS=claude,codex python3 scripts/omg.py release readiness --channel dual --output-root .
+python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public --output-root .
+python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel enterprise --output-root .
+OMG_RELEASE_READY_PROVIDERS=claude,codex,gemini,kimi python3 scripts/omg.py release readiness --channel dual --output-root .
 python3 scripts/omg.py compat gate --max-bridge 0 --output .omg/evidence/omg-compat-gap.json
 python3 scripts/check-omg-public-ready.py
 

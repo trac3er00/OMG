@@ -1,0 +1,26 @@
+Task: T3 canonical host parity surface cleanup
+Date: 2026-03-13
+Worktree: /Users/cminseo/Documents/scripts/Shell/OMG/.worktrees/v2.2.2
+
+Canonical host source verification:
+- Command: python3 -c "from runtime.canonical_surface import get_canonical_hosts; print(get_canonical_hosts())"
+- Output: ['claude', 'codex', 'gemini', 'kimi']
+
+Changed files:
+- runtime/contract_compiler.py
+  - Replaced host-rule validation branching that depended on a two-host exclusion with canonical-host iteration via get_canonical_hosts().
+  - Added explicit required host-rule field map for claude/codex/gemini/kimi.
+  - Kept OpenCode compatibility-only by filtering release-readiness required hosts to RELEASE_BLOCKING_HOSTS.
+  - Ensured host semantic parity report checks only release-blocking canonical hosts.
+  - Expanded release-readiness compiled-output required artifact checks to all canonical parity hosts.
+  - Added explicit compatibility-only note near host constants.
+- scripts/omg.py
+  - Switched contract compile --host argparse choices to dynamic canonical host list via get_canonical_hosts().
+
+Verification:
+- Command: python3 -m pytest tests/runtime/test_host_parity.py tests/test_public_surface.py -q
+- Result: 20 passed
+
+LSP diagnostics (changed files):
+- runtime/contract_compiler.py: no errors
+- scripts/omg.py: no errors

@@ -1,7 +1,9 @@
 import json
 import importlib.util
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +41,83 @@ def test_stop_dispatcher_stop_hook_active_guard():
     )
     assert result.returncode == 0
     assert result.stdout == ""
+
+
+# ─── Regression Guard Tests (named for QA scenario -k filters) ───────────────
+
+
+def test_single_pass_blocking(tmp_path):
+    """Regression guard: dispatcher emits at most one block decision per invocation.
+
+    If Ralph loop blocks first, quality-check blocks must be suppressed.
+    This test uses a specific name so the QA scenario `-k single_pass_blocking` hits it.
+    """
+    from datetime import datetime, timezone
+
+    ralph_dir = tmp_path / ".omg" / "state"
+    ralph_dir.mkdir(parents=True, exist_ok=True)
+    (ralph_dir / "ralph-loop.json").write_text(json.dumps({
+        "active": True, "iteration": 0, "max_iterations": 50,
+        "original_prompt": "regression-guard",
+    }))
+    ledger_dir = tmp_path / ".omg" / "state" / "ledger"
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).isoformat()
+    (ledger_dir / "tool-ledger.jsonl").write_text(
+        json.dumps({"ts": now, "tool": "Write", "file": "src/x.py"}) + "\n"
+    )
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    env["OMG_RALPH_LOOP_ENABLED"] = "1"
+    env.setdefault("OMG_PLANNING_ENFORCEMENT_ENABLED", "0")
+
+    result = subprocess.run(
+        [sys.executable, "hooks/stop_dispatcher.py"],
+        input=json.dumps({"stop_hook_active": False}),
+        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False,
+    )
+    assert result.returncode == 0
+    assert result.stdout.count('"decision"') == 1, "Expected exactly one block decision"
+
+
+def test_dispatcher_watchdog_timeout():
+    """Regression guard: _watchdog_check returns True when 90-second budget is exceeded.
+
+    Named for QA scenario `-k dispatcher_watchdog_timeout`.
+    """
+    start_time = time.time() - 100  # 100 s ago — over the 90 s budget
+    assert stop_dispatcher._watchdog_check(start_time) is True
+
+
+def test_session_isolated_loop_tracker(tmp_path):
+    """Regression guard: stale tracker from another session cannot suppress hooks.
+
+    Named for QA scenario `-k session_isolated_loop_tracker`.
+    """
+    from datetime import datetime, timezone
+
+    tracker_dir = tmp_path / ".omg" / "state" / "ledger"
+    tracker_dir.mkdir(parents=True, exist_ok=True)
+    (tracker_dir / ".stop-block-tracker.json").write_text(json.dumps({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "count": 10,
+        "session_id": "old-session-xyz",
+        "reason": "quality_check",
+    }))
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    env["CLAUDE_SESSION_ID"] = "new-session-abc"
+    env.setdefault("OMG_PLANNING_ENFORCEMENT_ENABLED", "0")
+
+    result = subprocess.run(
+        [sys.executable, "hooks/stop_dispatcher.py"],
+        input=json.dumps({"stop_hook_active": False}),
+        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False,
+    )
+    assert result.returncode == 0
+    assert "Guard 4 triggered" not in result.stderr, (
+        "Cross-session stale tracker incorrectly suppressed hooks"
+    )
     assert result.stderr == ""
 
 
@@ -201,6 +280,87 @@ def test_check_tdd_proof_chain_blocks_weakened_assertions_without_waiver(monkeyp
     blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
 
     assert blocks == [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+
+
+def test_single_pass_ralph_blocks_prevent_quality_blocks(tmp_path):
+    """Only one block decision is emitted — ralph blocks first, quality checks skipped."""
+    from datetime import datetime, timezone
+
+    # Ralph state: active
+    ralph_dir = tmp_path / ".omg" / "state"
+    ralph_dir.mkdir(parents=True, exist_ok=True)
+    (ralph_dir / "ralph-loop.json").write_text(json.dumps({
+        "active": True, "iteration": 0, "max_iterations": 50,
+        "original_prompt": "test single-pass",
+    }))
+
+    # Ledger: source file write without any verification (would trigger quality check)
+    ledger_dir = tmp_path / ".omg" / "state" / "ledger"
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).isoformat()
+    (ledger_dir / "tool-ledger.jsonl").write_text(
+        json.dumps({"ts": now, "tool": "Write", "file": "src/app.py"}) + "\n"
+    )
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    env["OMG_RALPH_LOOP_ENABLED"] = "1"
+    env.setdefault("OMG_PLANNING_ENFORCEMENT_ENABLED", "0")
+
+    result = subprocess.run(
+        [sys.executable, "hooks/stop_dispatcher.py"],
+        input=json.dumps({"stop_hook_active": False}),
+        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False,
+    )
+
+    assert result.returncode == 0
+    output = json.loads(result.stdout)
+    assert output["decision"] == "block"
+    assert "test single-pass" in output["reason"]
+    # Single-pass guarantee: only one block decision emitted
+    assert result.stdout.count('"decision"') == 1
+
+
+def test_watchdog_check_detects_timeout():
+    """_watchdog_check returns True when wall-clock budget is exceeded."""
+    start_time = time.time() - 100  # 100 seconds ago (>90s budget)
+    assert stop_dispatcher._watchdog_check(start_time) is True
+
+
+def test_watchdog_check_allows_within_budget():
+    """_watchdog_check returns False within budget."""
+    start_time = time.time()  # just now
+    assert stop_dispatcher._watchdog_check(start_time) is False
+
+
+def test_session_isolated_tracker_does_not_suppress_hooks(tmp_path):
+    """Stale tracker from session A should not suppress hooks for session B."""
+    from datetime import datetime, timezone
+
+    # Write a tracker file with session A, high count (above threshold)
+    tracker_dir = tmp_path / ".omg" / "state" / "ledger"
+    tracker_dir.mkdir(parents=True, exist_ok=True)
+    (tracker_dir / ".stop-block-tracker.json").write_text(json.dumps({
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "count": 10,
+        "session_id": "session-A",
+        "reason": "quality_check",
+    }))
+
+    env = os.environ.copy()
+    env["CLAUDE_PROJECT_DIR"] = str(tmp_path)
+    env["CLAUDE_SESSION_ID"] = "session-B"
+    env.setdefault("OMG_PLANNING_ENFORCEMENT_ENABLED", "0")
+
+    result = subprocess.run(
+        [sys.executable, "hooks/stop_dispatcher.py"],
+        input=json.dumps({"stop_hook_active": False}),
+        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False,
+    )
+
+    assert result.returncode == 0
+    # Guard 4 should NOT trigger for a different session
+    assert "Guard 4 triggered" not in result.stderr
 
 
 def test_stop_gate_wrapper_executes_dispatcher_guard():

@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "name": "bundle/registry/bundles/terminal-lane.yaml",
+      "digest": {
+        "sha256": "93d27508762705601ef8b3d4fe9aa1fb8a5c9340c2479fae16378efe8e7d3e8f"
+      }
+    }
+  ],
+  "predicate": {
+    "buildType": "https://omg.security/offline-attestation/v1",
+    "metadata": {
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "timestamp": "2026-03-14T04:21:33.881740+00:00"
+    }
+  },
+  "signer": {
+    "keyid": "1f5fe64ec2f8c901",
+    "algorithm": "ed25519-minisign",
+    "mode": "local-offline"
+  },
+  "issued_at": "2026-03-14T04:21:33.881740+00:00",
+  "signature": {
+    "alg": "ed25519-minisign",
+    "keyid": "054d9f644141f72f",
+    "value": "untrusted comment: signature from omg local signing key\nqffKPOF/jiEtss82vQIPkx/BujlJgPOrwYzP2QIB/uhd5UrYvBZr+2mOX38vIvJzbb0ospAH9d1/6FzraWOXBw==\ntrusted comment: type=omg-slsa-v1 keyid=054d9f644141f72f issued_at=2026-03-14T04:21:33.881846+00:00 artifact=bundle/registry/bundles/terminal-lane.yaml sha256=93d27508762705601ef8b3d4fe9aa1fb8a5c9340c2479fae16378efe8e7d3e8f\ng/CEWVG9KcuPCqQxAUg8hTsNRyJV6UZl6xstBcZesuMdxwbKQBelnoXdESVmZx52GWv3VyGGo5KB8d51zGzgBg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=054d9f644141f72f issued_at=2026-03-14T04:21:33.881846+00:00 artifact=bundle/registry/bundles/terminal-lane.yaml sha256=93d27508762705601ef8b3d4fe9aa1fb8a5c9340c2479fae16378efe8e7d3e8f"
+  }
+}

@@ -331,3 +331,13 @@ def test_new_evidence_profiles_resolve_correctly() -> None:
     buffet_reqs = requirements_for_profile("buffet")
     from runtime.evidence_requirements import FULL_REQUIREMENTS
     assert set(buffet_reqs) == set(FULL_REQUIREMENTS)
+
+
+def test_evidence_profile_registry_sync() -> None:
+    from runtime.canonical_surface import RELEASE_SURFACE_LABELS
+    from runtime.evidence_requirements import EVIDENCE_REQUIREMENTS_BY_PROFILE
+
+    release_labels = RELEASE_SURFACE_LABELS["evidence_profiles"]
+    assert set(release_labels.values()) == set(EVIDENCE_REQUIREMENTS_BY_PROFILE)
+    assert "methodology-enforced" not in release_labels.values()
+    assert "hash-edit" not in release_labels.values()

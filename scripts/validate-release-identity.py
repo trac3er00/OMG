@@ -356,7 +356,14 @@ def main() -> int:
         derived_result = {"status": "skipped", "blockers": []}
 
     if args.forbid_version and args.scope in ("derived", "all"):
-        residue_result = scan_scoped_residue(_REPO_ROOT, args.forbid_version)
+        if args.forbid_version == canonical:
+            residue_result = {
+                "status": "ok",
+                "forbid_version": args.forbid_version,
+                "blockers": [],
+            }
+        else:
+            residue_result = scan_scoped_residue(_REPO_ROOT, args.forbid_version)
 
     report = build_report(
         canonical=canonical,

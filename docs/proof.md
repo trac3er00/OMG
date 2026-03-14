@@ -17,6 +17,7 @@ OMG keeps verification visible instead of burying it in implementation details.
   - `test-intent-lock`: `.omg/evidence/test-intent-lock-*.json` (verifies test-to-intent alignment)
   - `proof-gate`: `.omg/evidence/proof-gate-*.json` (verifies final release readiness)
 - Release execution primitives required by `omg release readiness`:
+  - canonical evidence profile registry: `runtime.evidence_requirements.EVIDENCE_REQUIREMENTS_BY_PROFILE` (release-facing labels derive from this map)
   - run coordinator state: `.omg/state/release_run_coordinator/<run_id>.json`
   - TDD lock evidence: `.omg/state/test-intent-lock/*.json`
   - rollback manifest: `.omg/state/rollback_manifest/*.json`
@@ -39,8 +40,10 @@ Music OMR is the permanent daily release gate artifact. Release readiness requir
 - Gate cadence: daily scheduled run via `.github/workflows/omg-release-readiness.yml`
 - Run scope: `run_id` must match the active release evidence pack run
 - Freshness metadata: `freshness.generated_at`, `freshness.max_age_seconds`, `freshness.expires_at`, `freshness.is_fresh`
-- Fixture inventory: `fixture_inventory` must include deterministic fixture ids (for this gate: `simple_c_major.json`, `transposition_pressure_fixture.json`)
-- Trace metadata: `trace.trace_id`, `trace.gate=music-omr-daily`, `trace.run_scope=release-run`
+- Fixture inventory: `fixture_inventory` must include deterministic fixture ids (for this gate: `simple_c_major.json`, `simple_g_major.json`, `chromatic_fragment.json`, `waltz_three_four.json`, `transposition_pressure_fixture.json`); minimum 5 fixtures required (`fixture_inventory_valid` must be `true`)
+- Trace metadata: `trace.trace_id`, `trace.gate=music-omr-daily`, `trace.run_scope=release-run`, `trace_metadata.testbed`, `trace_metadata.fixture_count`, `trace_metadata.run_id_linkage`
+- Freshness threshold: `freshness_threshold_secs`, `freshness.freshness_threshold_secs`
+- Run linkage: `run_id` must match the active release run, `trace_metadata.run_id_linkage` must equal `run_id`
 
 ## Forge v0.3 Evidence
 

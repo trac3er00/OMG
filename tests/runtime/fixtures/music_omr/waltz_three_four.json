@@ -1,0 +1,9 @@
+{
+  "score_id": "waltz_three_four",
+  "title": "Waltz in C (3/4 Time)",
+  "image_data": "base64_encoded_image_data_here",
+  "metadata": {
+    "composer": "Test Composer",
+    "tempo": 90
+  }
+}

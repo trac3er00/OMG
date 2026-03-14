@@ -14,8 +14,8 @@ Run as part of full suite:
 
 How to fix failures:
 1. Authored surfaces  → run  python3 scripts/sync-release-identity.py
-2. Manifest/dist      → run  python3 scripts/omg.py contract compile --host claude --host codex --channel public
-                       and   python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise
+2. Manifest/dist      → run  python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public
+                       and   python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel enterprise
 3. artifacts/release  → same as above with --output-root artifacts/release  (omit --output-root)
 4. build/ artifacts   → run  python3 -m build --wheel
 5. .gemini/.kimi      → update _omg._version and _omg.generated.contract_version manually
@@ -36,6 +36,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # Import canonical version from the single source of truth
 sys.path.insert(0, str(ROOT))
 from runtime.adoption import CANONICAL_VERSION  # noqa: E402
+from runtime.canonical_surface import get_canonical_hosts  # noqa: E402
 
 
 # ─────────────────────────────────────────────
@@ -57,6 +58,17 @@ def _version_label(path: str) -> str:
 def _require_generated_path(path: Path, rel: str, fix_hint: str) -> Path:
     assert path.exists(), f"{rel} missing.\nFix: {fix_hint}"
     return path
+
+
+def _compile_host_flags() -> str:
+    return " ".join(f"--host {host}" for host in get_canonical_hosts())
+
+
+def _compile_fix_hint(channel: str, output_root: str | None = None) -> str:
+    command = f"python3 scripts/omg.py contract compile {_compile_host_flags()} --channel {channel}"
+    if output_root:
+        command += f" --output-root {output_root}"
+    return command
 
 
 # ─────────────────────────────────────────────
@@ -173,16 +185,15 @@ def test_gate_cli_adapter_map():
 def test_gate_manifest_contract_version(manifest_path: str):
     """All compiled manifests must have contract_version == CANONICAL_VERSION.
 
-    Fix: run  python3 scripts/omg.py contract compile --host claude --host codex --channel <channel>
-              python3 scripts/omg.py contract compile --host claude --host codex --channel <channel> --output-root artifacts/release
+    Fix: run  python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel <channel>
+              python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel <channel> --output-root artifacts/release
     """
     p = _require_generated_path(
         ROOT / manifest_path,
         manifest_path,
-        (
-            "python3 scripts/omg.py contract compile --host claude --host codex "
-            f"--channel {'public' if 'public' in manifest_path else 'enterprise'}"
-            + (" --output-root artifacts/release" if manifest_path.startswith("artifacts/release/") else "")
+        _compile_fix_hint(
+            "public" if "public" in manifest_path else "enterprise",
+            "artifacts/release" if manifest_path.startswith("artifacts/release/") else None,
         ),
     )
     manifest = json.loads(p.read_text(encoding="utf-8"))
@@ -190,8 +201,7 @@ def test_gate_manifest_contract_version(manifest_path: str):
         (
             f"{manifest_path}: contract_version is {manifest['contract_version']!r}, "
             f"expected {CANONICAL_VERSION!r}.\n"
-            f"Fix: python3 scripts/omg.py contract compile --host claude --host codex "
-            f"--channel {'public' if 'public' in manifest_path else 'enterprise'}"
+            f"Fix: {_compile_fix_hint('public' if 'public' in manifest_path else 'enterprise')}"
         )
 
 
@@ -206,10 +216,9 @@ def test_gate_manifest_attestations_present(manifest_path: str):
     p = _require_generated_path(
         ROOT / manifest_path,
         manifest_path,
-        (
-            "python3 scripts/omg.py contract compile --host claude --host codex "
-            f"--channel {'public' if 'public' in manifest_path else 'enterprise'}"
-            + (" --output-root artifacts/release" if manifest_path.startswith("artifacts/release/") else "")
+        _compile_fix_hint(
+            "public" if "public" in manifest_path else "enterprise",
+            "artifacts/release" if manifest_path.startswith("artifacts/release/") else None,
         ),
     )
     manifest = json.loads(p.read_text(encoding="utf-8"))
@@ -239,10 +248,9 @@ def test_gate_dist_bundle_settings_version(bundle_root: str):
     p = _require_generated_path(
         ROOT / bundle_root / "settings.json",
         f"{bundle_root}/settings.json",
-        (
-            "python3 scripts/omg.py contract compile --host claude --host codex "
-            f"--channel {'public' if 'public' in bundle_root else 'enterprise'}"
-            + (" --output-root artifacts/release" if bundle_root.startswith("artifacts/release/") else "")
+        _compile_fix_hint(
+            "public" if "public" in bundle_root else "enterprise",
+            "artifacts/release" if bundle_root.startswith("artifacts/release/") else None,
         ),
     )
     s = json.loads(p.read_text(encoding="utf-8"))
@@ -255,10 +263,9 @@ def test_gate_dist_bundle_plugin_json_version(bundle_root: str):
     p = _require_generated_path(
         ROOT / bundle_root / ".claude-plugin" / "plugin.json",
         f"{bundle_root}/.claude-plugin/plugin.json",
-        (
-            "python3 scripts/omg.py contract compile --host claude --host codex "
-            f"--channel {'public' if 'public' in bundle_root else 'enterprise'}"
-            + (" --output-root artifacts/release" if bundle_root.startswith("artifacts/release/") else "")
+        _compile_fix_hint(
+            "public" if "public" in bundle_root else "enterprise",
+            "artifacts/release" if bundle_root.startswith("artifacts/release/") else None,
         ),
     )
     plugin = json.loads(p.read_text(encoding="utf-8"))
@@ -346,9 +353,9 @@ def test_gate_validate_release_identity_exits_zero():
             f"Stale surfaces:\n{details}\n\n"
             f"Quick fix sequence:\n"
             f"  1. python3 scripts/sync-release-identity.py\n"
-            f"  2. python3 scripts/omg.py contract compile --host claude --host codex --channel public\n"
-            f"  3. python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise\n"
-            f"  4. python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root artifacts/release\n"
-            f"  5. python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root artifacts/release\n"
+            f"  2. {_compile_fix_hint('public')}\n"
+            f"  3. {_compile_fix_hint('enterprise')}\n"
+            f"  4. {_compile_fix_hint('public', 'artifacts/release')}\n"
+            f"  5. {_compile_fix_hint('enterprise', 'artifacts/release')}\n"
             f"  6. python3 -m build --wheel\n"
         )

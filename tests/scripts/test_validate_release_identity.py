@@ -56,6 +56,29 @@ class TestHappyPath:
         assert "overall_status" in output
         assert output["scope"] == "all"
 
+    def test_forbid_version_equal_to_canonical_is_not_residue(self):
+        canonical = _mod.extract_canonical_version(_REPO_ROOT / "runtime" / "adoption.py")
+        assert canonical is not None
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_SCRIPT_PATH),
+                "--scope",
+                "all",
+                "--forbid-version",
+                canonical,
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(_REPO_ROOT),
+        )
+
+        output = json.loads(result.stdout)
+        assert output["scoped_residue"]["status"] == "ok"
+        assert output["scoped_residue"]["blockers"] == []
+        assert result.returncode == 0
+
 
 class TestAuthoredDrift:
     def test_authored_blockers_on_drift(self):
@@ -279,6 +302,15 @@ class TestScopedResidue:
         result = scan_scoped_residue(tmp_path, _OLD_VERSION)
         assert result["status"] == "fail"
         assert any("index.js" in b["file"] for b in result["blockers"])
+
+    def test_residue_detected_in_double_nested_dist_directory(self, tmp_path):
+        nested_dir = tmp_path / "dist" / "dist" / "public" / "bundle"
+        nested_dir.mkdir(parents=True)
+        (nested_dir / "index.js").write_text(f'const VERSION = "{_OLD_VERSION}";')
+
+        result = scan_scoped_residue(tmp_path, _OLD_VERSION)
+        assert result["status"] == "fail"
+        assert any("dist/dist/public/bundle/index.js" in b["file"] for b in result["blockers"])
 
     def test_residue_clean_when_no_forbidden(self, tmp_path):
         target = tmp_path / "dist" / "public" / "manifest.json"

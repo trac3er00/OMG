@@ -1,0 +1,35 @@
+Task: T6. Centralize clarification extraction and strict ambiguity enforcement
+Date: 2026-03-13
+Branch: omg/v2.2.2-clean-strong-release
+
+Implemented changes
+- Added canonical `runtime/context_engine._extract_clarification(data_or_state)` and wired context engine composition through it.
+- Consolidated router clarification extraction (`runtime/team_router.py`) to consume canonical extractor.
+- Consolidated firewall clarification state parsing (`hooks/firewall.py`) to consume canonical extractor.
+- Added strict ambiguity mode gate in firewall via `OMG_STRICT_AMBIGUITY_MODE` (default enabled):
+  - denies mutation-capable bash when clarification unresolved
+  - denies external execution bash when clarification unresolved
+  - keeps read-only bash operations allowed
+- Preserved unresolved clarification -> `provenance_only: true` packet semantics.
+
+Targeted test coverage updates
+- `tests/hooks/test_firewall_policy.py`
+  - strict mode explicit denial for mutation/external
+  - explicit read-only allowance under unresolved clarification
+  - strict mode disabled bypass test for clarification deny path
+- `tests/runtime/test_context_engine.py`
+  - added provenance-only regression for unresolved `missing_slots` with `requires_clarification: false`
+
+Verification
+- LSP diagnostics (severity=error) on changed files: clean
+  - runtime/context_engine.py
+  - runtime/team_router.py
+  - hooks/firewall.py
+  - tests/hooks/test_firewall_policy.py
+  - tests/runtime/test_context_engine.py
+
+- Pytest command:
+  python3 -m pytest tests/hooks/test_intentgate.py tests/hooks/test_firewall_policy.py tests/runtime/test_context_engine.py tests/runtime/test_team_router.py -q
+
+- Result:
+  136 passed in 37.62s

@@ -11,7 +11,7 @@ This document covers the release procedure and golden rules for publishing new v
    ```bash
    ./scripts/pre-release-check.sh <version> [repo]
    # Example:
-   ./scripts/pre-release-check.sh 2.1.8 trac3er00/OMG
+   ./scripts/pre-release-check.sh <version> trac3er00/OMG
    ```
 
 3. **If a tag is locked by an immutable release**, you have two options:
@@ -32,10 +32,10 @@ Edit the canonical version source and propagate to all surfaces:
 python3 scripts/sync-release-identity.py
 
 # 4. Compile derived manifests
-python3 scripts/omg.py contract compile --host claude --host codex --channel public
-python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise
-python3 scripts/omg.py contract compile --host claude --host codex --channel public --output-root artifacts/release
-python3 scripts/omg.py contract compile --host claude --host codex --channel enterprise --output-root artifacts/release
+python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public
+python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel enterprise
+python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public --output-root artifacts/release
+python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel enterprise --output-root artifacts/release
 
 # 5. Rebuild Python package
 python3 -m build --wheel

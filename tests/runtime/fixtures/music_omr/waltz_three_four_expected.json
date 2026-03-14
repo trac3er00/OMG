@@ -1,0 +1,7 @@
+{
+  "notes": ["C4", "E4", "G4", "C5", "E5", "G5"],
+  "time_signatures": ["3/4"],
+  "key_signatures": ["C"],
+  "measures": 2,
+  "raw_output": "raw_omr_data_here"
+}

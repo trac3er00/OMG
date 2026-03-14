@@ -43,11 +43,13 @@ _EXPECTED_JSON_SURFACES: list[tuple[str, list[str | int]]] = [
 _EXPECTED_YAML_BUNDLES: list[str] = [
     "registry/bundles/algorithms.yaml",
     "registry/bundles/api-twin.yaml",
+    "registry/bundles/ast-pack.yaml",
     "registry/bundles/claim-judge.yaml",
     "registry/bundles/control-plane.yaml",
     "registry/bundles/data-lineage.yaml",
     "registry/bundles/delta-classifier.yaml",
     "registry/bundles/eval-gate.yaml",
+    "registry/bundles/hash-edit.yaml",
     "registry/bundles/health.yaml",
     "registry/bundles/hook-governor.yaml",
     "registry/bundles/incident-replay.yaml",
@@ -60,6 +62,7 @@ _EXPECTED_YAML_BUNDLES: list[str] = [
     "registry/bundles/robotics.yaml",
     "registry/bundles/secure-worktree-pipeline.yaml",
     "registry/bundles/security-check.yaml",
+    "registry/bundles/terminal-lane.yaml",
     "registry/bundles/test-intent-lock.yaml",
     "registry/bundles/tracebank.yaml",
     "registry/bundles/vision.yaml",
@@ -82,11 +85,11 @@ class TestInventoryCompleteness:
         assert len(AUTHORED_SURFACES) > 0
 
     def test_total_surface_count(self) -> None:
-        # 10 JSON + 1 regex(pyproject) + 22 YAML + 1 CHANGELOG
+        # 10 JSON + 1 regex(pyproject) + 25 YAML + 1 CHANGELOG
         # + 1 frontmatter + 3 CLI-ADAPTER-MAP + 1 shell + 1 js + 1 banner + 1 json
         # + 1 JSON (validate.md) + 1 banner (settings.json)
-        # = 44
-        assert len(AUTHORED_SURFACES) == 44
+        # = 47
+        assert len(AUTHORED_SURFACES) == 47
 
     def test_all_json_surfaces_from_sync_script_covered(self) -> None:
         """Every JSON surface from sync-release-identity.py must appear."""
@@ -116,7 +119,7 @@ class TestInventoryCompleteness:
         assert len(changelog_entries) == 1
         assert changelog_entries[0].surface_type == "changelog_header"
 
-    def test_all_22_yaml_bundles_covered(self) -> None:
+    def test_all_25_yaml_bundles_covered(self) -> None:
         yaml_paths = {
             s.file_path
             for s in AUTHORED_SURFACES
@@ -124,7 +127,7 @@ class TestInventoryCompleteness:
         }
         for bundle_path in _EXPECTED_YAML_BUNDLES:
             assert bundle_path in yaml_paths, f"Missing YAML bundle: {bundle_path}"
-        assert len(yaml_paths) == 22
+        assert len(yaml_paths) == 25
 
     def test_six_missing_surfaces_now_present(self) -> None:
         inventory_paths = {s.file_path for s in AUTHORED_SURFACES}
@@ -226,6 +229,9 @@ class TestDerivedSurfaces:
     def test_scoped_residue_targets_nonempty(self) -> None:
         assert len(SCOPED_RESIDUE_TARGETS) > 0
 
+    def test_scoped_residue_explicitly_covers_double_nested_dist(self) -> None:
+        assert "dist/dist/" in SCOPED_RESIDUE_TARGETS
+
     def test_get_derived_dirs_returns_list(self) -> None:
         dirs = get_derived_dirs()
         assert isinstance(dirs, list)
@@ -241,11 +247,11 @@ class TestHelpers:
 
     def test_get_authored_paths_count(self) -> None:
         paths = get_authored_paths()
-        # 38 unique files: 7 JSON files + pyproject.toml + 22 YAML + CHANGELOG
+        # 41 unique files: 7 JSON files + pyproject.toml + 25 YAML + CHANGELOG
         # + OMG_COMPAT_CONTRACT + CLI-ADAPTER-MAP + OMG-setup.sh + hud/omg-hud.mjs
         # + .claude-plugin/scripts/install.sh + runtime/omg_compat_contract_snapshot.json
         # + commands/OMG:validate.md
-        assert len(paths) == 38
+        assert len(paths) == 41
 
 
 class TestTypeSafety:
