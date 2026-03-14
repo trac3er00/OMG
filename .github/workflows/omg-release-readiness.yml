@@ -11,6 +11,10 @@ on:
   schedule:
     - cron: "13 3 * * *"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   prepare-release-readiness:
     runs-on: ubuntu-latest
@@ -372,6 +376,20 @@ jobs:
 
       - name: Validate full release identity
         run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${{ inputs.FORBID_VERSION }}"
+
+      - name: Build reviewer bot release handoff artifact
+        run: |
+          python3 scripts/github_review_helpers.py build-release-handoff \
+            --event-path "$GITHUB_EVENT_PATH" \
+            --artifacts-root artifacts/release \
+            --output artifacts/release/.omg/evidence/reviewer-bot-release-input.json
+
+      - name: Upload reviewer bot release handoff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-bot-release-input
+          path: artifacts/release/.omg/evidence/reviewer-bot-release-input.json
+          if-no-files-found: error
 
       - name: Pack release artifacts
         run: tar -czf omg-release-artifacts.tar.gz -C artifacts release
