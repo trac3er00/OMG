@@ -16,7 +16,7 @@ from runtime.tool_plan_gate import has_tool_plan_for_run
 _MUTATING_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
 _EXEMPTIONS = frozenset({"docs", "config", "generated", "test"})
 _MUTATION_BASH_PATTERNS = (
-    r"\b(git\s+(add|commit|push|rebase|cherry-pick|merge|tag))\b",
+    r"\b(git\s+(add|commit|push|rebase|cherry-pick|merge|tag(?!\s+(-l|--list)\b)))\b",
     r"\b(rm|mv|cp|tee|touch|mkdir|rmdir|ln)\b",
     r"\b(sed\s+-i|perl\s+-pi)\b",
     r"\b(chmod|chown)\b",

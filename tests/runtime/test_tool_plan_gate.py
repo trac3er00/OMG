@@ -149,7 +149,7 @@ def test_tool_plan_gate_blocks_mutation_without_done_when(tmp_path: Path) -> Non
         str(tmp_path),
         run_id,
         "Write",
-        tool_input={"lock_id": lock_id, "metadata": {}},
+        tool_input={"lock_id": lock_id, "metadata": {"done_when": ""}},
     )
 
     assert result["status"] == "blocked"
@@ -662,7 +662,7 @@ def test_release_orchestration_env_only_blocks_done_when_in_tool_plan_gate(tmp_p
         str(tmp_path),
         run_id,
         "Write",
-        tool_input={"lock_id": lock_id, "metadata": {}},
+        tool_input={"lock_id": lock_id, "metadata": {"done_when": ""}},
     )
     assert result["status"] == "blocked"
     assert result["reason"] == "done_when_required_before_mutation"
@@ -679,7 +679,7 @@ def test_release_orchestration_active_run_only_blocks_done_when_in_tool_plan_gat
         str(tmp_path),
         run_id,
         "Write",
-        tool_input={"lock_id": lock_id, "metadata": {}},
+        tool_input={"lock_id": lock_id, "metadata": {"done_when": ""}},
     )
     assert result["status"] == "blocked"
     assert result["reason"] == "done_when_required_before_mutation"

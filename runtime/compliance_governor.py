@@ -36,7 +36,7 @@ _EXTERNAL_BASH_PATTERNS = (
     re.compile(r"\bgit\s+(clone|fetch|pull)\b"),
 )
 _MUTATION_BASH_PATTERNS = (
-    r"\b(git\s+(add|commit|push|rebase|cherry-pick|merge|tag))\b",
+    r"\b(git\s+(add|commit|push|rebase|cherry-pick|merge|tag(?!\s+(-l|--list)\b)))\b",
     r"\b(rm|mv|cp|tee|touch|mkdir|rmdir|ln)\b",
     r"\b(sed\s+-i|perl\s+-pi)\b",
     r"\b(chmod|chown)\b",
