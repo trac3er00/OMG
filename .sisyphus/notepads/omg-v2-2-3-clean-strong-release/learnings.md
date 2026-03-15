@@ -36,3 +36,31 @@
 - Added `scripts/github_review_helpers.py` to build PR/release reviewer handoff payloads from stored artifacts, enforce fast blockers, and post reviews via `GitHubReviewBot`.
 - Added workflow contract tests in `tests/scripts/test_github_workflows.py` for concurrency, fork-safety, trusted-lane checkout rules, artifact reuse, and helper behavior.
 - Captured evidence in `.sisyphus/evidence/task-3-github-gates.txt` and `.sisyphus/evidence/task-3-github-gates-error.txt`.
+
+## [2026-03-14] Host parity v2 synthetic rejection
+- `runtime/host_parity.py` now requires source metadata (`source.kind` + artifact/replay path) and deterministically rejects synthetic inline parity payloads.
+- `runtime/contract_compiler.py` host semantic parity checks now fail closed when host parity reports omit compiled/replayed provenance per canonical host.
+- Release/compat workflows removed inline synthetic parity stubs and now read compiled artifact files before emitting parity reports.
+- Release proof fixture parity payloads now include per-host normalized compiled provenance so readiness checks remain aligned with v2 rules.
+- Added tests proving synthetic parity rejection and real compiled/replayed payload acceptance paths.
+
+## [2026-03-14] Package parity enforcement across source/dist/release/wheel
+- Added `REQUIRED_PACKAGE_PARITY_SURFACES` in `runtime/release_surfaces.py` for `hash-edit`, `ast-pack`, and `terminal-lane` and exposed `get_package_parity_surfaces()`.
+- Added `check_package_parity(root_path)` in `runtime/contract_compiler.py` with machine-readable blocker payloads (`machine_blockers`) plus string blockers for release-readiness aggregation.
+- Integrated package parity into `build_release_readiness` via `checks["package_parity"]`.
+- Added new `tests/build/test_package_parity.py` and extended runtime/inventory tests to lock parity and lane expectations.
+- Captured evidence in `.sisyphus/evidence/task-9-package-parity.txt` and `.sisyphus/evidence/task-9-package-parity-error.txt`.
+- `tests/runtime/test_contract_compiler.py::_patch_fast_release_checks` now stubs `check_package_parity` to isolate unrelated readiness scenarios in fast-path tests.
+
+## [2026-03-14] Task 10 release proof notes
+- `CANONICAL_VERSION` moved to `2.2.3` and authored surfaces synced via `scripts/sync-release-identity.py`.
+- `scripts/validate-release-identity.py --scope all --forbid-version 2.2.2` now passes with `overall_status=ok`.
+- Fixed explicit stale textual residue in `OMG_COMPAT_CONTRACT.md` (`v2.2.2` -> `v2.2.3`) and recompiled dual-channel artifacts.
+- Public hygiene and targeted version tests pass (`check-omg-public-ready.py`, `tests/test_version_gate.py`, `tests/scripts/test_validate_release_identity.py`).
+- Standalone/readiness still fail on existing production-gate and package-parity blockers (`claim_judge_outcome` blocked, missing `write_lease_provenance`, wheel missing `hash-edit`/`ast-pack`/`terminal-lane` surfaces).
+- Music OMR evidence refreshed and linked (`artifacts/release/.omg/evidence/music-omr-run-1.json`, run_id `run-1`).
+
+## [2026-03-14] F1 audit re-verification
+- `artifacts/release/.omg/evidence/` contains both `music-omr-run-1.json` and `host-parity-run-1.json`; the earlier missing-file audit claim was incorrect.
+- The authoritative release-proof linkage for host parity and Music OMR is in `artifacts/release/.omg/evidence/run-1.json`, even though `release-readiness.json` still shows empty values in one `evidence_paths` subsection.
+- Re-verification commands passed: release-readiness `status: ok`, public-ready `status: ok`, and release identity `overall_status: ok`.
