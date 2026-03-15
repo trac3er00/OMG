@@ -1277,6 +1277,171 @@ def test_release_readiness_blocks_stale_music_omr_daily_gate(tmp_path: Path, mon
     )
 
 
+def test_release_readiness_blocks_music_omr_run_id_linkage_mismatch(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    music_evidence_path = tmp_path / ".omg" / "evidence" / "music-omr-run-1.json"
+    music_evidence = {
+        "schema": "MusicOMREvidence",
+        "schema_version": "2.1.0",
+        "run_id": "run-1",
+        "trace": {
+            "trace_id": "trace-linkage-mismatch",
+            "gate": "music-omr-daily",
+            "run_scope": "release-run",
+        },
+        "trace_metadata": {
+            "testbed": "MusicOMRTestbed",
+            "run_id_linkage": "run-2",
+        },
+        "fixture_inventory": ["simple_c_major.json", "transposition_pressure_fixture.json"],
+        "freshness": {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "max_age_seconds": 86400,
+        },
+        "results": {"pressure": {"deterministic": True}},
+    }
+    music_evidence_path.write_text(json.dumps(music_evidence, indent=2), encoding="utf-8")
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any(
+        "invalid_execution_primitive: music_omr_testbed_evidence: run_id_linkage_mismatch" in blocker
+        for blocker in readiness["blockers"]
+    )
+
+
+def test_release_readiness_blocks_music_omr_payload_freshness_stale(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    music_evidence_path = tmp_path / ".omg" / "evidence" / "music-omr-run-1.json"
+    music_evidence = {
+        "schema": "MusicOMREvidence",
+        "schema_version": "2.1.0",
+        "run_id": "run-1",
+        "trace": {
+            "trace_id": "trace-freshness-stale",
+            "gate": "music-omr-daily",
+            "run_scope": "release-run",
+        },
+        "trace_metadata": {
+            "testbed": "MusicOMRTestbed",
+            "run_id_linkage": "run-1",
+        },
+        "fixture_inventory": ["simple_c_major.json", "transposition_pressure_fixture.json"],
+        "freshness": {
+            "generated_at": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
+            "max_age_seconds": 86400,
+        },
+        "results": {"pressure": {"deterministic": True}},
+    }
+    music_evidence_path.write_text(json.dumps(music_evidence, indent=2), encoding="utf-8")
+    fresh_ts = datetime.now(timezone.utc).timestamp()
+    os.utime(music_evidence_path, (fresh_ts, fresh_ts))
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any(
+        "invalid_execution_primitive: music_omr_testbed_evidence: payload_freshness_stale" in blocker
+        for blocker in readiness["blockers"]
+    )
+
+
+def test_release_readiness_passes_music_omr_with_fresh_evidence_and_matching_linkage(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    music_evidence_path = tmp_path / ".omg" / "evidence" / "music-omr-run-1.json"
+    music_evidence = {
+        "schema": "MusicOMREvidence",
+        "schema_version": "2.1.0",
+        "run_id": "run-1",
+        "trace": {
+            "trace_id": "trace-fresh-linkage-ok",
+            "gate": "music-omr-daily",
+            "run_scope": "release-run",
+        },
+        "trace_metadata": {
+            "testbed": "MusicOMRTestbed",
+            "run_id_linkage": "run-1",
+        },
+        "fixture_inventory": ["simple_c_major.json", "transposition_pressure_fixture.json"],
+        "freshness": {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "max_age_seconds": 86400,
+        },
+        "results": {"pressure": {"deterministic": True}},
+    }
+    music_evidence_path.write_text(json.dumps(music_evidence, indent=2), encoding="utf-8")
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] in {"ok", "error"}
+    assert not any(
+        "music_omr_testbed_evidence" in blocker
+        and (
+            "run_id_linkage_mismatch" in blocker
+            or "payload_freshness_stale" in blocker
+        )
+        for blocker in readiness["blockers"]
+    )
+
+
 def test_release_readiness_blocks_prose_only_proof_claims(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     _patch_fast_release_checks(monkeypatch)

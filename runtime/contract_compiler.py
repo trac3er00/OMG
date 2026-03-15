@@ -7,7 +7,7 @@ import importlib
 import importlib.util
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 import shutil
@@ -2800,6 +2800,48 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         ):
             invalid.append(f"{token}:stale")
             blockers.append(f"stale_execution_primitive: {token}")
+
+    if "music_omr_testbed_evidence" in evidence_paths and evidence_paths["music_omr_testbed_evidence"]:
+        music_omr_path = _resolve_relative_path(
+            output_root=output_root,
+            rel_path=evidence_paths["music_omr_testbed_evidence"],
+        )
+        if music_omr_path is not None:
+            music_omr_payload = _load_json_or_none(music_omr_path)
+            if isinstance(music_omr_payload, dict):
+                run_id_linkage = str(
+                    music_omr_payload.get("trace_metadata", {}).get("run_id_linkage", "")
+                ).strip()
+                if run_id_linkage != run_id:
+                    invalid.append("music_omr_testbed_evidence:run_id_linkage_mismatch")
+                    blockers.append(
+                        "invalid_execution_primitive: music_omr_testbed_evidence: run_id_linkage_mismatch"
+                    )
+
+                freshness_payload = music_omr_payload.get("freshness")
+                freshness_generated_at = ""
+                if isinstance(freshness_payload, dict):
+                    freshness_generated_at = str(freshness_payload.get("generated_at", "")).strip()
+                generated_at = None
+                if freshness_generated_at:
+                    try:
+                        generated_at = datetime.fromisoformat(freshness_generated_at.replace("Z", "+00:00"))
+                    except ValueError:
+                        generated_at = None
+                if generated_at is None:
+                    invalid.append("music_omr_testbed_evidence:payload_freshness_stale")
+                    blockers.append(
+                        "invalid_execution_primitive: music_omr_testbed_evidence: payload_freshness_stale"
+                    )
+                else:
+                    if generated_at.tzinfo is None:
+                        generated_at = generated_at.replace(tzinfo=timezone.utc)
+                    max_age = timedelta(seconds=max(1, max_age_seconds))
+                    if datetime.now(timezone.utc) - generated_at > max_age:
+                        invalid.append("music_omr_testbed_evidence:payload_freshness_stale")
+                        blockers.append(
+                            "invalid_execution_primitive: music_omr_testbed_evidence: payload_freshness_stale"
+                        )
 
     return {
         "status": "ok" if not blockers else "error",
