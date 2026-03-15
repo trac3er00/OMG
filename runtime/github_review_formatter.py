@@ -43,6 +43,19 @@ def format_review_payload(evidence: dict[str, Any], *, inline_batch_limit: int =
         dropped_comments=dropped_comments,
     )
 
+    changed_files = _as_str_list(evidence.get("changed_files"))
+    categories = _as_str_list(evidence.get("categories"))
+    goal = str(evidence.get("goal", "")).strip()
+    pr_risk: dict[str, Any] = {}
+    if changed_files or categories:
+        from runtime.delta_classifier import compute_pr_risk_payload
+        pr_risk = compute_pr_risk_payload(
+            changed_files=changed_files,
+            categories=categories,
+            goal=goal,
+            evidence=evidence,
+        )
+
     return {
         "status": "ok",
         "review_status": review_status,
@@ -50,6 +63,7 @@ def format_review_payload(evidence: dict[str, Any], *, inline_batch_limit: int =
         "body": body,
         "inline_comments": selected_comments,
         "dropped_inline_comments": dropped_comments,
+        "pr_risk": pr_risk,
     }
 
 
