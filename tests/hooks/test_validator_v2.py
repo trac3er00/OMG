@@ -122,7 +122,7 @@ def test_everything_mocked(mock_d, mock_c, mock_b, mock_a):
 # --- 5. Parameterized Gap ---
 
 def test_parameterized_gap_detected():
-    """Same function tested 3x with literals flagged."""
+    """Same function called 6+ times with different literals flagged."""
     content = """\
 def test_calculate_one():
     assert calculate(1) == 1
@@ -135,6 +135,12 @@ def test_calculate_three():
 
 def test_calculate_four():
     assert calculate(4) == 16
+
+def test_calculate_five():
+    assert calculate(5) == 25
+
+def test_calculate_six():
+    assert calculate(6) == 36
 """
     issues = analyze_test_content(content, "test_example.py")
     assert any("PARAM" in i.upper() for i in issues), \
