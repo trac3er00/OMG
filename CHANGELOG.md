@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.3.0 - 2026-03-15
 
 ### Governed Execution Engine Milestone
 
