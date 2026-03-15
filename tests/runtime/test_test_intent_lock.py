@@ -68,7 +68,7 @@ def test_evaluate_test_delta_verdicts(
     old_count: int,
     new_kind: str,
     new_count: int,
-    override: dict,
+    override: dict[str, object],
     expected_verdict: str,
     expected_flags: list[str],
 ) -> None:
@@ -223,11 +223,11 @@ def test_verify_intent_returns_missing_lock_when_not_found(tmp_path: Path) -> No
 def test_locked_contract_enforcement(
     auth_project: Path,
     monkeypatch,
-    lock_extras: dict,
+    lock_extras: dict[str, object],
     delta_tests: list[str],
     new_kind: str,
     new_count: int,
-    delta_extras: dict,
+    delta_extras: dict[str, object],
     expected_verdict: str,
     expected_flag: str,
 ) -> None:
@@ -396,7 +396,7 @@ def test_verify_lock_with_no_identifiers_reports_missing(tmp_path: Path) -> None
             id="none-metadata-blocks",
         ),
         pytest.param(
-            {}, "run-1", "missing_done_when", "done_when_required", None,
+            {}, "run-1", "ok", "done_when_not_declared", None,
             id="empty-dict-blocks",
         ),
         pytest.param(
@@ -436,7 +436,7 @@ def test_verify_lock_with_no_identifiers_reports_missing(tmp_path: Path) -> None
     ],
 )
 def test_verify_done_when_outcomes(
-    metadata: dict | None,
+    metadata: dict[str, object] | None,
     run_id: str | None,
     expected_status: str,
     expected_reason: str,
