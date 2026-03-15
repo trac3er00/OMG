@@ -38,6 +38,13 @@ _BUILTIN_FUNCS = frozenset({
     "assert_equal", "assertEqual", "patch", "mock", "Mock", "MagicMock",
     "expect", "require", "import", "open", "super", "getattr", "setattr",
     "hasattr", "sorted", "enumerate", "zip", "map", "filter", "min", "max",
+    "get", "append", "extend", "insert", "pop", "remove", "update", "add",
+    "setdefault", "keys", "values", "items", "join", "split", "strip",
+    "replace", "format", "encode", "decode", "startswith", "endswith",
+    "write", "read", "write_text", "read_text", "mkdir", "exists",
+    "param", "parametrize", "mark", "fixture", "yield_fixture",
+    "setenv", "delenv", "monkeypatch", "chdir",
+    "dumps", "loads", "dump", "load",
 })
 _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
 _SKIP_DIR_SEGMENTS = frozenset({"build", "dist", "node_modules", ".git"})
@@ -221,11 +228,10 @@ def _detect_parameterized_gap(content, issues):
             call_groups.setdefault(func, set()).add(arg)
 
     for func, args in call_groups.items():
-        if len(args) >= 3:
+        if len(args) >= 6:
             issues.append(
                 f"PARAMETERIZED: '{func}' called with {len(args)} different "
-                f"literal values — consider @pytest.mark.parametrize or "
-                f"@pytest.mark.parametrize")
+                f"literal values — consider @pytest.mark.parametrize")
 
 
 def persist_metrics(project_dir, analysis):

@@ -428,6 +428,25 @@ def check_recent_failures(data, project_dir):
     return blocks
 
 
+_TEST_DIR_NAMES = frozenset({"tests", "test", "__tests__"})
+_SKIP_DIR_SEGMENTS = frozenset({"build", "dist", "node_modules", ".git"})
+
+
+def _is_test_file_path(rel_path):
+    parts = rel_path.replace("\\", "/").split("/")
+    if any(seg in _SKIP_DIR_SEGMENTS for seg in parts[:-1]):
+        return False
+    basename = parts[-1].lower() if parts else ""
+    if any(p in basename for p in (".test.", ".spec.", "_test.", ".tests.")):
+        return True
+    if "__tests__" in rel_path:
+        return True
+    if basename.startswith("test_"):
+        parent_dirs = {p.lower() for p in parts[:-1]}
+        return not parent_dirs or bool(parent_dirs & _TEST_DIR_NAMES)
+    return False
+
+
 def check_test_execution(data, project_dir):
     if not get_feature_flag("test_execution", True):
         return []
@@ -444,8 +463,7 @@ def check_test_execution(data, project_dir):
         test_files_modified = False
         try:
             for file_path in changed_files:
-                fl = file_path.lower()
-                if any(p in fl for p in ["test", "spec", "__tests__", ".test.", ".spec.", "_test."]):
+                if _is_test_file_path(file_path):
                     test_files_modified = True
                     break
         except Exception as e:  # security: test execution check
