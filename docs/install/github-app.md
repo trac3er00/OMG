@@ -58,7 +58,7 @@ env:
 ### Execution Safety
 - **Untrusted PRs**: Never expose `GITHUB_APP_PRIVATE_KEY` to `pull_request` event jobs that check out untrusted code. Secrets are unavailable to forks by default, but you must ensure your workflow does not manually bypass this.
 - **Workflow Triggers**: Avoid using `pull_request_target` with an explicit checkout of the PR head if you are using app secrets. This combination can allow malicious PRs to exfiltrate your secrets.
-- **Token Expiry**: The bot generates installation access tokens that expire automatically after 1 hour. Do not attempt to cache or reuse these tokens beyond their TTL.
+- **Token Expiry**: The bot caches installation access tokens in memory for the duration of their 1-hour TTL and regenerates automatically when they expire. Do not persist tokens to disk or share them across processes.
 
 ## Verify
 
