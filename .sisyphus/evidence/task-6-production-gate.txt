@@ -1,0 +1,7 @@
+Task: 6 production-gate + terms-guard
+Command: python3 -m pytest tests/runtime/test_compliance_governor.py tests/runtime/test_proof_gate.py tests/runtime/test_claim_judge.py -q
+Result: PASS
+Details:
+- 60 passed in 5.61s
+- production_gate coverage added in compliance and proof gate tests
+- claim_judge strict profile resolution tests updated

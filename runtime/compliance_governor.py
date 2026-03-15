@@ -7,6 +7,8 @@ from typing import Any
 from registry.approval_artifact import load_approval_artifact_from_path, verify_approval_artifact
 from registry.verify_artifact import verify_artifact, verify_tool_attestation
 from runtime.claim_judge import evaluate_claims_for_release
+from runtime.proof_gate import production_gate as evaluate_production_gate
+from runtime.proof_gate import required_production_primitives
 from runtime.runtime_contracts import read_run_state
 
 
@@ -153,12 +155,65 @@ def evaluate_release_compliance(
                 "reason": str(claim_decision.get("reason", "claim_judge_verdict=unknown")),
                 "claim_judge_verdict": str(claim_decision.get("claim_judge_verdict", "")),
             }
+    else:
+        claim_decision = release_evidence.get("claim_judge") if isinstance(release_evidence.get("claim_judge"), dict) else {
+            "status": "blocked",
+            "claim_judge_verdict": "missing",
+            "reason": "claim_judge_missing_claims",
+        }
+
+    release_gate = production_gate(
+        {
+            **release_evidence,
+            "claim_judge": claim_decision,
+        }
+    )
+    if release_gate.get("status") == "blocked":
+        blockers = release_gate.get("blockers")
+        blocker_list = blockers if isinstance(blockers, list) else []
+        return {
+            "status": "blocked",
+            "authority": "production_gate",
+            "reason": "production_gate_blocked",
+            "blockers": blocker_list,
+            "required_primitives": list(required_production_primitives()),
+            **artifact_audit,
+        }
 
     return {
         "status": "allowed",
         "authority": "release",
         "reason": "compliance checks passed",
         **artifact_audit,
+    }
+
+
+def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
+    payload = evidence if isinstance(evidence, dict) else {}
+    try:
+        gate_result = evaluate_production_gate(payload)
+    except Exception:
+        return {
+            "status": "blocked",
+            "blockers": ["production_gate_internal_error"],
+            "required_primitives": list(required_production_primitives()),
+        }
+
+    status = str(gate_result.get("status", "")).strip().lower()
+    blockers = gate_result.get("blockers")
+    blocker_list = blockers if isinstance(blockers, list) else []
+    if status != "ok":
+        if not blocker_list:
+            blocker_list = ["production_gate_unknown_blocker"]
+        return {
+            "status": "blocked",
+            "blockers": blocker_list,
+            "required_primitives": list(required_production_primitives()),
+        }
+
+    return {
+        "status": "ok",
+        "required_primitives": list(required_production_primitives()),
     }
 
 

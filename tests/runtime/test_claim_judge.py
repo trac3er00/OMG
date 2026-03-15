@@ -611,6 +611,39 @@ def test_claim_judge_missing_or_empty_evidence_profile_fails_closed() -> None:
         assert any(reason["code"] == "missing_artifacts" for reason in result["reasons"])
 
 
+def test_claim_judge_unknown_evidence_profile_blocks_with_machine_readable_reason() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "ready_to_ship",
+            "subject": "demo",
+            "artifacts": [".omg/evidence/run-1.json"],
+            "trace_ids": ["trace-1"],
+            "evidence_profile": "unknown-profile",
+        }
+    )
+
+    assert result["verdict"] == "block"
+    unknown_profile_reasons = [reason for reason in result["reasons"] if reason["code"] == "unknown_evidence_profile"]
+    assert len(unknown_profile_reasons) == 1
+    assert unknown_profile_reasons[0]["profile"] == "unknown-profile"
+
+
+def test_claim_judge_profile_resolution_normalizes_whitespace_and_case() -> None:
+    result = judge_claim(
+        {
+            "claim_type": "docs_update",
+            "subject": "proof docs",
+            "artifacts": [],
+            "trace_ids": ["trace-docs-1"],
+            "evidence_profile": "  DoCs-OnLy  ",
+        }
+    )
+
+    assert result["verdict"] == "pass"
+    assert result["reasons"] == []
+    assert result["evidence"]["evidence_profile"] == "docs-only"
+
+
 def test_evaluate_claims_for_release_blocks_when_claim_judge_verdict_is_insufficient(tmp_path: Path) -> None:
     run_id = "run-release-block"
     result = evaluate_claims_for_release(

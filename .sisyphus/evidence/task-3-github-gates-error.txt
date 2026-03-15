@@ -1,0 +1,15 @@
+Task 3 QA Evidence (edge/fork-safety static validation)
+Date: 2026-03-14
+
+Command:
+python3 -m pytest tests/scripts/test_github_workflows.py -q -k trusted_post_review_lane_never_checks_out_pr_head
+
+Result:
+- Exit code: 0
+- Summary: 1 passed in 4.96s
+- Assertion focus:
+  - post-review lane checks out trusted base SHA only (`github.event.pull_request.base.sha`)
+  - post-review lane does not reference `pull_request.head.sha`
+
+Interpretation:
+Trusted posting lane stays fork-safe and avoids untrusted PR-head checkout.

@@ -232,31 +232,31 @@ def _load_context_budget_config(project_dir):
 
 
 def _detect_model_id(data):
+    if isinstance(data, dict):
+        model = data.get("model")
+        if isinstance(model, dict):
+            for key in ("id", "display_name", "name"):
+                value = str(model.get(key, "") or "").strip()
+                if value:
+                    return value
+        elif isinstance(model, str) and model.strip():
+            return model.strip()
+
+        context = data.get("context")
+        if isinstance(context, dict):
+            nested_model = context.get("model")
+            if isinstance(nested_model, dict):
+                for key in ("id", "display_name", "name"):
+                    value = str(nested_model.get(key, "") or "").strip()
+                    if value:
+                        return value
+            elif isinstance(nested_model, str) and nested_model.strip():
+                return nested_model.strip()
+
     for key in ("CLAUDE_MODEL", "OMG_MODEL_ID", "OPENAI_MODEL"):
         value = os.environ.get(key, "").strip()
         if value:
             return value
-
-    if not isinstance(data, dict):
-        return ""
-
-    model = data.get("model")
-    if isinstance(model, dict):
-        for key in ("id", "display_name", "name"):
-            value = str(model.get(key, "") or "").strip()
-            if value:
-                return value
-    elif isinstance(model, str) and model.strip():
-        return model.strip()
-
-    context = data.get("context")
-    if isinstance(context, dict):
-        nested_model = context.get("model")
-        if isinstance(nested_model, dict):
-            for key in ("id", "display_name", "name"):
-                value = str(nested_model.get(key, "") or "").strip()
-                if value:
-                    return value
 
     return ""
 

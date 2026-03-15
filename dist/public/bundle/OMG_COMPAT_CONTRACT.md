@@ -1,6 +1,6 @@
 ---
 title: OMG Production Control Plane
-version: 2.2.2
+version: 2.2.3
 canonical_hosts:
   - claude
   - codex
@@ -26,7 +26,7 @@ OMG defines four canonical behavior-parity hosts and their host-rule contracts.
 
 Gemini and Kimi are canonical behavior-parity hosts for contract validation and policy declaration. Their contracts do not require Claude/Codex hook semantics.
 
-OpenCode remains compatibility-only in v2.2.2. It is supported through compatibility MCP wiring and interop diagnostics, but it is not part of the canonical behavior-parity contract set.
+OpenCode remains compatibility-only in v2.2.3. It is supported through compatibility MCP wiring and interop diagnostics, but it is not part of the canonical behavior-parity contract set.
 
 ## metadata
 

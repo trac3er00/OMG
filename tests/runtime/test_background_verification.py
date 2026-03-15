@@ -224,11 +224,13 @@ def test_should_skip_validation_forge_run_skips_non_required() -> None:
 
 
 def test_should_skip_validation_unknown_profile_skips_nothing() -> None:
-    """Unknown/missing profile falls back to full requirements — skips nothing."""
+    """Unknown/missing profile fails closed — skips nothing."""
     from runtime.background_verification import should_skip_validation
 
+    # None / empty → FULL_REQUIREMENTS → no skip
     assert should_skip_validation(None, "tests") is False
     assert should_skip_validation("", "build") is False
+    # Unknown profile → ValueError caught → fail closed (no skip)
     assert should_skip_validation("unknown-profile", "lsp_clean") is False
 
 
@@ -341,3 +343,86 @@ def test_evidence_profile_registry_sync() -> None:
     assert set(release_labels.values()) == set(EVIDENCE_REQUIREMENTS_BY_PROFILE)
     assert "methodology-enforced" not in release_labels.values()
     assert "hash-edit" not in release_labels.values()
+
+
+# --- Task 5: Strict evidence-profile resolution ---
+
+
+def test_normalize_profile_mixed_case_resolves() -> None:
+    """Mixed-case and whitespace variants normalize to canonical profile."""
+    from runtime.evidence_requirements import requirements_for_profile
+
+    # Mixed case
+    assert requirements_for_profile("Browser-Flow") == requirements_for_profile("browser-flow")
+    assert requirements_for_profile("BROWSER-FLOW") == requirements_for_profile("browser-flow")
+    # Leading/trailing whitespace
+    assert requirements_for_profile("  browser-flow  ") == requirements_for_profile("browser-flow")
+    # Mixed case + whitespace
+    assert requirements_for_profile(" DOCS-ONLY ") == requirements_for_profile("docs-only")
+    # Exact match still works
+    assert requirements_for_profile("forge-run") == requirements_for_profile("forge-run")
+
+
+def test_unknown_profile_raises_value_error() -> None:
+    """Unknown profile raises ValueError with machine-readable JSON."""
+    import json
+    from runtime.evidence_requirements import requirements_for_profile
+
+    with pytest.raises(ValueError) as exc_info:
+        requirements_for_profile("nonexistent-profile-xyz")
+
+    error = json.loads(str(exc_info.value))
+    assert error["status"] == "error"
+    assert error["reason"] == "unknown_profile"
+    assert error["profile"] == "nonexistent-profile-xyz"
+
+
+def test_unknown_profile_does_not_return_full_requirements() -> None:
+    """Unknown profile must NOT silently fall back to FULL_REQUIREMENTS."""
+    from runtime.evidence_requirements import requirements_for_profile, FULL_REQUIREMENTS
+
+    with pytest.raises(ValueError):
+        # This must raise, not return FULL_REQUIREMENTS
+        result = requirements_for_profile("nonexistent-profile-xyz")
+        # If we get here, the fallback bug is back
+        assert result != list(FULL_REQUIREMENTS), "Must not fall back to FULL_REQUIREMENTS"
+
+
+def test_resolve_evidence_profile_returns_structured_error() -> None:
+    """resolve_evidence_profile returns machine-readable dict for unknown profile."""
+    from runtime.background_verification import resolve_evidence_profile
+
+    result = resolve_evidence_profile("nonexistent-profile-xyz")
+    assert result["status"] == "error"
+    assert result["reason"] == "unknown_profile"
+    assert result["profile"] == "nonexistent-profile-xyz"
+
+
+def test_resolve_evidence_profile_success_for_known() -> None:
+    """resolve_evidence_profile returns ok for known profiles."""
+    from runtime.background_verification import resolve_evidence_profile
+
+    result = resolve_evidence_profile("browser-flow")
+    assert result["status"] == "ok"
+    assert result["profile"] == "browser-flow"
+    assert "trace_link" in result["requirements"]
+
+
+def test_resolve_evidence_profile_normalizes_mixed_case() -> None:
+    """resolve_evidence_profile normalizes mixed-case input to canonical."""
+    from runtime.background_verification import resolve_evidence_profile
+
+    result = resolve_evidence_profile("BROWSER-FLOW")
+    assert result["status"] == "ok"
+    assert result["profile"] == "browser-flow"
+
+
+def test_resolve_evidence_profile_none_returns_full() -> None:
+    """resolve_evidence_profile with None returns ok with full requirements."""
+    from runtime.background_verification import resolve_evidence_profile
+    from runtime.evidence_requirements import FULL_REQUIREMENTS
+
+    result = resolve_evidence_profile(None)
+    assert result["status"] == "ok"
+    assert result["profile"] is None
+    assert set(result["requirements"]) == set(FULL_REQUIREMENTS)

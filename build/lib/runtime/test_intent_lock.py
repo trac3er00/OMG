@@ -150,6 +150,8 @@ def verify_done_when(metadata: dict[str, Any] | None, run_id: str | None) -> dic
             "status": "missing_done_when",
             "reason": "done_when_required",
             "run_id": str(run_id or "").strip() or None,
+            "done_when_declared": False,
+            "done_when_completed": False,
         }
 
     done_when_run_id = _extract_done_when_run_id(metadata_obj.get("done_when"))
@@ -159,13 +161,21 @@ def verify_done_when(metadata: dict[str, Any] | None, run_id: str | None) -> dic
             "status": "done_when_contract_mismatch",
             "reason": "done_when_run_id_mismatch",
             "run_id": normalized_run_id,
+            "done_when_declared": True,
+            "done_when_completed": False,
         }
+
+    completion_state = _extract_done_when_completion_state(metadata_obj)
+    done_when_completed = completion_state == "completed"
 
     return {
         "status": "ok",
         "reason": "done_when_present",
         "run_id": normalized_run_id or done_when_run_id or None,
         "done_when": criteria,
+        "done_when_declared": True,
+        "done_when_completed": done_when_completed,
+        "done_when_state": completion_state,
     }
 
 
@@ -345,6 +355,21 @@ def _extract_done_when_run_id(value: Any) -> str:
     if isinstance(value, dict):
         return str(value.get("run_id", "")).strip()
     return ""
+
+
+def _extract_done_when_completion_state(metadata: dict[str, Any]) -> str:
+    metadata_state = str(metadata.get("done_when_state", "")).strip().lower()
+    if metadata_state in {"declared", "completed"}:
+        return metadata_state
+
+    done_when = metadata.get("done_when")
+    if isinstance(done_when, dict):
+        done_when_state = str(done_when.get("state", "")).strip().lower()
+        if done_when_state in {"declared", "completed"}:
+            return done_when_state
+        if done_when.get("completed") is True:
+            return "completed"
+    return "declared"
 
 
 def _selector_to_path(selector: str) -> str:

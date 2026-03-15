@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-9Bs3QTMm3icpl98kkxtioQLXY1wVaQiqMW55lOWlC53Ov+0l4MWlL45KcILoZ0iM2ARAEIjI9u/bO+1n6HPJBA==
-trusted comment: type=omg-slsa-v1 keyid=d1efafbf5fa434f4 issued_at=2026-03-14T04:21:33.867299+00:00 artifact=bundle/plugins/advanced/commands/OMG:ralph-stop.md sha256=b43acad180bd205ddd78d42f1c7ecf315e521a0c345bf9d42b24d8c4d3913ce3
-TzDr0RT331g2k0ypa8/cHjAaURVuyz3utEhtd7jQ/D+uM29si4bf+f+UIztTcwGV5ltEoD1hH3uvM7xwtJ02Bw==
+XA4yN4pvdNmkuZtN/NH+3Oks6CG5vlYZneh1dMiKxyQlcXAffXDYjCc+V8lh7YHrSZKl9yHZqT/9r4UdjgGRBA==
+trusted comment: type=omg-slsa-v1 keyid=d7381a4a5a38a4f4 issued_at=2026-03-14T19:07:30.655846+00:00 artifact=bundle/plugins/advanced/commands/OMG:ralph-stop.md sha256=b43acad180bd205ddd78d42f1c7ecf315e521a0c345bf9d42b24d8c4d3913ce3
+eGndos+kDoQ/x3/fHJ5zi1faiR4a9nXoBN/C6wjZUB0oAV9H4sEWZ8ZTkJX8EPV1W+RfXRnB8cLIXuSMoqf5BQ==

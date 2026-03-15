@@ -6,7 +6,7 @@ from typing import cast
 
 import pytest
 
-from runtime.release_run_coordinator import ReleaseRunCoordinator, RunIdConflictError
+from runtime.release_run_coordinator import ReleaseRunCoordinator, RunIdConflictError, build_release_env_prefix
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -97,3 +97,35 @@ def test_begin_in_permissive_mode_normalizes_fragmented_run_ids(tmp_path: Path, 
 
     assert state["run_id"] == "run-cli"
     assert state["resolution_reason"] == "fragmented_run_ids_normalized"
+
+
+# ---------------------------------------------------------------------------
+# build_release_env_prefix
+# ---------------------------------------------------------------------------
+
+class TestBuildReleaseEnvPrefix:
+    def test_both_omg_vars_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", "1")
+        monkeypatch.setenv("OMG_RUN_ID", "run-1")
+        result = build_release_env_prefix("/proj")
+        assert result == "env CLAUDE_PROJECT_DIR=/proj OMG_RELEASE_ORCHESTRATION_ACTIVE=1 OMG_RUN_ID=run-1 "
+
+    def test_only_run_id_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", raising=False)
+        monkeypatch.setenv("OMG_RUN_ID", "run-2")
+        result = build_release_env_prefix("/proj")
+        assert result == "env CLAUDE_PROJECT_DIR=/proj OMG_RUN_ID=run-2 "
+
+    def test_neither_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", raising=False)
+        monkeypatch.delenv("OMG_RUN_ID", raising=False)
+        result = build_release_env_prefix("/proj")
+        assert result == "env CLAUDE_PROJECT_DIR=/proj "
+
+    def test_special_chars_quoted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", "1")
+        monkeypatch.setenv("OMG_RUN_ID", "run;rm -rf /")
+        result = build_release_env_prefix("/my project")
+        assert "CLAUDE_PROJECT_DIR='/my project'" in result
+        assert "OMG_RUN_ID='run;rm -rf /'" in result
+        assert result.endswith(" ")

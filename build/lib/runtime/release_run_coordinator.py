@@ -18,7 +18,7 @@ from runtime.verification_controller import VerificationController
 from runtime.claim_judge import evaluate_claims_for_release
 from runtime.exec_kernel import get_exec_kernel
 from runtime.worker_watchdog import get_worker_watchdog
-from runtime.merge_writer import get_merge_writer
+from runtime.merge_writer import get_merge_writer, create_write_lease, is_lease_valid, WriteLease
 
 
 class RunIdConflictError(ValueError):
@@ -32,15 +32,20 @@ class ResolvedRunId:
     reason: str
 
 
+_DEFAULT_LEASE_DURATION_S = 3600.0  # 1 hour default lease
+
+
 class ReleaseRunCoordinator:
     project_dir: str
     _verification: VerificationController
     _journal: InteractionJournal
+    _active_lease: WriteLease | None
 
     def __init__(self, project_dir: str):
         self.project_dir = str(Path(project_dir).resolve())
         self._verification = VerificationController(self.project_dir)
         self._journal = InteractionJournal(self.project_dir)
+        self._active_lease = None
 
     def begin(self, cli_run_id: str | None = None, release_evidence: dict[str, object] | None = None) -> dict[str, object]:
         resolved = self.resolve_run_id(cli_run_id=cli_run_id, release_evidence=release_evidence)
@@ -79,6 +84,15 @@ class ReleaseRunCoordinator:
             merge_writer_token = token.lock_path
         except Exception:
             pass
+        # Create a run-scoped write lease bound to this release run
+        evidence_path = str(
+            Path(".omg") / "evidence" / f"merge-writer-{run_id}.json"
+        )
+        self._active_lease = create_write_lease(
+            run_id=run_id,
+            duration_s=_DEFAULT_LEASE_DURATION_S,
+            evidence_path=evidence_path,
+        )
         result: dict[str, object] = {
             "status": "running",
             "run_id": run_id,
@@ -87,6 +101,8 @@ class ReleaseRunCoordinator:
         }
         if merge_writer_token:
             result["merge_writer_lock"] = merge_writer_token
+        if self._active_lease:
+            result["write_lease_evidence"] = self._active_lease.evidence_path
         return result
 
     def mutate(
@@ -308,6 +324,8 @@ class ReleaseRunCoordinator:
                 mw.release(token)
         except Exception:
             pass
+        # Invalidate the write lease — leases do not survive across runs
+        self._active_lease = None
         return {
             "status": str(verification_state.get("status", resolved_status)),
             "run_id": canonical_run_id,
@@ -316,6 +334,20 @@ class ReleaseRunCoordinator:
             "council_path": council_path,
             "rollback_path": rollback_path,
         }
+
+    def check_write_lease(self, run_id: str) -> dict[str, object]:
+        """Check write-lease validity for *run_id*.
+
+        Returns a dict with ``valid`` (bool), ``reason`` (str), and
+        optionally ``evidence_path``.
+        """
+        if self._active_lease is None:
+            return {"valid": False, "reason": "no_active_write_lease"}
+        valid, reason = is_lease_valid(self._active_lease, run_id)
+        result: dict[str, object] = {"valid": valid, "reason": reason}
+        if valid:
+            result["evidence_path"] = self._active_lease.evidence_path
+        return result
 
     def resolve_run_id(
         self,

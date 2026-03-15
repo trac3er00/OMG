@@ -156,6 +156,43 @@ def test_tool_plan_gate_blocks_mutation_without_done_when(tmp_path: Path) -> Non
     assert result["reason"] == "done_when_required_before_mutation"
 
 
+def test_tool_plan_gate_allows_read_only_bash_allowlisted_commands_without_lock(tmp_path: Path) -> None:
+    run_id = "run-readonly-bash-allowlist"
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-test.json").write_text("{}", encoding="utf-8")
+
+    python_result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": "python -V", "metadata": {}},
+    )
+    gh_result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": "gh pr view 42", "metadata": {}},
+    )
+    tee_result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": "printf done | tee /dev/null", "metadata": {}},
+    )
+    quoted_literal_result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Bash",
+        tool_input={"command": '"mkdir should-not-trigger"', "metadata": {}},
+    )
+
+    assert python_result["status"] == "allowed"
+    assert gh_result["status"] == "allowed"
+    assert tee_result["status"] == "allowed"
+    assert quoted_literal_result["status"] == "allowed"
+
+
 def test_tool_plan_gate_blocks_mutation_without_plan(tmp_path: Path) -> None:
     run_id = "run-missing-plan"
     lock_id = "lock-without-plan"
@@ -567,3 +604,82 @@ class TestSharedComplexityContract:
         assert high_governance["read_first"] is (cast(int, high_payload["score"]) >= 3)
         assert high_governance["simplify_only"] is False
         assert high_governance["optimize_only"] is True
+
+
+def _setup_release_orchestration_tool_plan_fixture(tmp_path, run_id="run-release", lock_id="lock-release"):
+    """Seed shadow active-run, lock, and tool plan for a release orchestration scenario."""
+    shadow_dir = tmp_path / ".omg" / "shadow"
+    shadow_dir.mkdir(parents=True, exist_ok=True)
+    (shadow_dir / "active-run").write_text(f"{run_id}\n", encoding="utf-8")
+
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": run_id}}),
+        encoding="utf-8",
+    )
+
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-release.json").write_text("{}", encoding="utf-8")
+
+
+def test_release_orchestration_dual_signal_allows_done_when_skip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both active run AND env flag set → done_when check is skipped in tool_plan_gate."""
+    monkeypatch.setenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", "1")
+    run_id = "run-release-tpg"
+    lock_id = "lock-release-tpg"
+    _setup_release_orchestration_tool_plan_fixture(tmp_path, run_id=run_id, lock_id=lock_id)
+
+    result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Write",
+        tool_input={"lock_id": lock_id, "metadata": {}},
+    )
+    assert result["status"] != "blocked" or result.get("reason") != "done_when_required_before_mutation"
+
+
+def test_release_orchestration_env_only_blocks_done_when_in_tool_plan_gate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Env flag set but NO active run → gate still blocks with done_when_required."""
+    monkeypatch.setenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", "1")
+    run_id = "run-env-only-tpg"
+    lock_id = "lock-env-only-tpg"
+
+    # Set up lock + plan but NO shadow active-run file
+    lock_dir = tmp_path / ".omg" / "state" / "test-intent-lock"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    (lock_dir / f"{lock_id}.json").write_text(
+        json.dumps({"lock_id": lock_id, "intent": {"run_id": run_id}}),
+        encoding="utf-8",
+    )
+
+    plans_dir = tmp_path / ".omg" / "state" / "tool_plans"
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    (plans_dir / f"{run_id}-plan-release.json").write_text("{}", encoding="utf-8")
+
+    result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Write",
+        tool_input={"lock_id": lock_id, "metadata": {}},
+    )
+    assert result["status"] == "blocked"
+    assert result["reason"] == "done_when_required_before_mutation"
+
+
+def test_release_orchestration_active_run_only_blocks_done_when_in_tool_plan_gate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Active run exists but env flag NOT set → gate still blocks with done_when_required."""
+    monkeypatch.delenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", raising=False)
+    run_id = "run-active-only-tpg"
+    lock_id = "lock-active-only-tpg"
+    _setup_release_orchestration_tool_plan_fixture(tmp_path, run_id=run_id, lock_id=lock_id)
+
+    result = tool_plan_gate_check(
+        str(tmp_path),
+        run_id,
+        "Write",
+        tool_input={"lock_id": lock_id, "metadata": {}},
+    )
+    assert result["status"] == "blocked"
+    assert result["reason"] == "done_when_required_before_mutation"

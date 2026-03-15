@@ -29,6 +29,15 @@ _HARMLESS_REDIRECTION_PATTERNS = (
 _FILE_WRITE_REDIRECTION_PATTERN = re.compile(
     r"(?:^|[\s;&|()])\d*>>?(?!\s*(?:/dev/(?:null|stdout|stderr)\b|&\d+\b|&-\b))\s*\S+"
 )
+_SHELL_C_PATTERN = re.compile(r"\b(?:bash|sh|zsh)\s+-[^\s]*c\s+([\"'])(.+?)\1")
+_FULLY_QUOTED_PATTERN = re.compile(r"^\s*([\"']).*\1\s*$")
+_READ_ONLY_BASH_ALLOWLIST = (
+    re.compile(r"^python\d?(?:\s+-[vV]{1,2}|\s+--version)(?:\s|$)"),
+    re.compile(r"^git\s+status(?:\s|$)"),
+    re.compile(r"^gh\s+pr\s+view(?:\s|$)"),
+    re.compile(r"^(?:.+\|\s*)?tee\s+/dev/null(?:\s|$)"),
+)
+_QUOTED_SEGMENT_PATTERN = re.compile(r"(['\"]).*?\1")
 
 
 def check_mutation_allowed(
@@ -161,11 +170,20 @@ def _is_mutation_capable_bash(command: str) -> bool:
     normalized_command = str(command or "").strip()
     if not normalized_command:
         return False
+
+    shell_payload = _extract_shell_payload(normalized_command)
+    if shell_payload is not None:
+        return _is_mutation_capable_bash(shell_payload)
+
     lowered = _strip_harmless_redirections(normalized_command.lower())
+    if _is_allowlisted_read_only_command(lowered):
+        return False
+
+    dequoted = _strip_quoted_segments(lowered)
     for pattern in _MUTATION_BASH_PATTERNS:
-        if re.search(pattern, lowered):
+        if re.search(pattern, dequoted):
             return True
-    if _FILE_WRITE_REDIRECTION_PATTERN.search(lowered):
+    if _FILE_WRITE_REDIRECTION_PATTERN.search(dequoted):
         return True
     return False
 
@@ -175,6 +193,31 @@ def _strip_harmless_redirections(command: str) -> str:
     for pattern in _HARMLESS_REDIRECTION_PATTERNS:
         sanitized = pattern.sub(" ", sanitized)
     return re.sub(r"\s+", " ", sanitized).strip()
+
+
+def _extract_shell_payload(command: str) -> str | None:
+    match = _SHELL_C_PATTERN.search(command.strip())
+    if not match:
+        return None
+    return str(match.group(2)).strip()
+
+
+def _strip_quoted_segments(command: str) -> str:
+    if _FULLY_QUOTED_PATTERN.match(command):
+        return ""
+    return re.sub(r"\s+", " ", _QUOTED_SEGMENT_PATTERN.sub(" ", command)).strip()
+
+
+def _is_allowlisted_read_only_command(command: str) -> bool:
+    stripped = command.strip()
+    if not stripped:
+        return True
+    if _FULLY_QUOTED_PATTERN.match(stripped):
+        return True
+    for pattern in _READ_ONLY_BASH_ALLOWLIST:
+        if pattern.search(stripped):
+            return True
+    return False
 
 
 def _write_warning_artifact(project_dir: str, tool: str, file_path: str, reason: str) -> None:

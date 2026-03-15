@@ -1,0 +1,8 @@
+4
+GITHUB_APP_ID
+GITHUB_APP_PRIVATE_KEY
+GITHUB_APP_PRIVATE_KEY_INVALID
+GITHUB_INSTALLATION_ID
+- **Untrusted PRs**: Never expose `GITHUB_APP_PRIVATE_KEY` to `pull_request` event jobs that check out untrusted code. Secrets are unavailable to forks by default, but you must ensure your workflow does not manually bypass this.
+- **Token Expiry**: The bot generates installation access tokens that expire automatically after 1 hour.
+- **Permissions**: Grant the following minimum repository permissions:

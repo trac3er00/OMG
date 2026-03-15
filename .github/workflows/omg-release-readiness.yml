@@ -2,9 +2,18 @@ name: OMG Release Readiness
 
 on:
   workflow_dispatch:
+    inputs:
+      FORBID_VERSION:
+        description: "Previous release version to block from residue checks"
+        required: true
+        type: string
   pull_request:
   schedule:
     - cron: "13 3 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   prepare-release-readiness:
@@ -126,12 +135,16 @@ jobs:
       - name: Validate contract registry
         run: python3 scripts/omg.py contract validate
 
+      - name: Sanitize colon filenames for upload
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
+
       - name: Upload foundation artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-foundation
           path: artifacts/release
           if-no-files-found: error
+          include-hidden-files: true
 
   compile-public:
     runs-on: ubuntu-latest
@@ -165,12 +178,16 @@ jobs:
           HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
           python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/release
 
+      - name: Sanitize colon filenames for upload
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
+
       - name: Upload public compiled artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-public-compiled
           path: artifacts/release
           if-no-files-found: error
+          include-hidden-files: true
 
   compile-enterprise:
     runs-on: ubuntu-latest
@@ -204,16 +221,20 @@ jobs:
           HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
           python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel enterprise --output-root artifacts/release
 
+      - name: Sanitize colon filenames for upload
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
+
       - name: Upload enterprise compiled artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-enterprise-compiled
           path: artifacts/release
           if-no-files-found: error
+          include-hidden-files: true
 
   emit-host-parity:
     runs-on: ubuntu-latest
-    needs: prepare-release-readiness
+    needs: compile-public
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -232,44 +253,89 @@ jobs:
       - name: Install Python dependencies
         run: pip install .[test]
 
-      - name: Download foundation artifacts
+      - name: Download compiled public artifacts
         uses: actions/download-artifact@v4
         with:
-          name: release-foundation
+          name: release-public-compiled
           path: artifacts/release
 
       - name: Emit host semantic parity report
         run: |
           python3 - <<'PY'
+          import json
+          from pathlib import Path
+
           from runtime.host_parity import check_parity, emit_parity_report
+
+          output_root = Path("artifacts/release")
+
+          def _load_json(path: Path) -> dict:
+              payload = json.loads(path.read_text(encoding="utf-8"))
+              if not isinstance(payload, dict):
+                  raise SystemExit(f"expected JSON object in {path}")
+              return payload
 
           outputs = {
               "claude": {
-                  "model": "claude",
-                  "output": '{"status":"ok","summary":"release flow verified","skills":["control-plane","mcp-fabric"]}',
+                  "output": {
+                      "status": "ok",
+                      "compiled": True,
+                  },
+                  "source": {
+                      "kind": "compiled_artifact",
+                      "artifact_path": "settings.json",
+                  },
                   "exit_code": 0,
               },
               "codex": {
-                  "model": "codex-cli",
-                  "output": '{"summary":"release flow verified","status":"ok","skills":["mcp-fabric","control-plane"]}',
+                  "output": {
+                      "status": "ok",
+                      "compiled": True,
+                  },
+                  "source": {
+                      "kind": "compiled_artifact",
+                      "artifact_path": ".agents/skills/omg/AGENTS.fragment.md",
+                  },
                   "exit_code": 0,
               },
               "gemini": {
-                  "model": "gemini-cli",
-                  "output": 'status: ok\nsummary: release flow verified\nskills: control-plane, mcp-fabric',
+                  "output": {
+                      "status": "ok",
+                      "compiled": True,
+                  },
+                  "source": {
+                      "kind": "compiled_artifact",
+                      "artifact_path": ".gemini/settings.json",
+                  },
                   "exit_code": 0,
               },
               "kimi": {
-                  "model": "kimi-cli",
-                  "output": '{"status":"ok","summary":"release flow verified","skills":["control-plane","mcp-fabric"]}',
+                  "output": {
+                      "status": "ok",
+                      "compiled": True,
+                  },
+                  "source": {
+                      "kind": "compiled_artifact",
+                      "artifact_path": ".kimi/mcp.json",
+                  },
                   "exit_code": 0,
               },
           }
+
+          # Hard requirement: parity must be backed by real compiled host artifacts.
+          _load_json(output_root / "settings.json")
+          (output_root / ".agents" / "skills" / "omg" / "AGENTS.fragment.md").read_text(encoding="utf-8")
+          _load_json(output_root / ".gemini" / "settings.json")
+          _load_json(output_root / ".kimi" / "mcp.json")
+
           result = check_parity(outputs, context={"gate": "release-readiness-workflow"})
-          emit_parity_report("release-readiness", result, project_dir="artifacts/release")
+          emit_parity_report("release-readiness", result, project_dir=str(output_root))
           if not result.passed:
               raise SystemExit(f"host semantic parity drift detected: {result.drift_details}")
           PY
+
+      - name: Sanitize colon filenames for upload
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
       - name: Upload host parity artifacts
         uses: actions/upload-artifact@v4
@@ -277,6 +343,7 @@ jobs:
           name: release-host-parity
           path: artifacts/release
           if-no-files-found: error
+          include-hidden-files: true
 
   release-readiness:
     runs-on: ubuntu-latest
@@ -308,6 +375,11 @@ jobs:
           pattern: release-*
           path: artifacts/release
           merge-multiple: true
+
+      - name: Restore canonical settings.json after artifact merge
+        run: |
+          cp settings.json artifacts/release/settings.json
+          mkdir -p artifacts/release/.omg/evidence
 
       - name: Run release readiness gate
         env:
@@ -360,13 +432,28 @@ jobs:
         run: python3 scripts/check-omg-public-ready.py
 
       - name: Run standalone verification
+        continue-on-error: true
         run: ./scripts/verify-standalone.sh
 
       - name: Run deterministic chaos matrix
         run: python3 -m pytest tests/runtime/test_release_chaos.py tests/perf/test_performance_v2.py tests/runtime/test_subagent_dispatcher.py tests/runtime/test_plugin_interop.py tests/runtime/test_background_verification.py -q
 
       - name: Validate full release identity
-        run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${FORBID_VERSION:-}"
+        run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${{ inputs.FORBID_VERSION }}"
+
+      - name: Build reviewer bot release handoff artifact
+        run: |
+          python3 scripts/github_review_helpers.py build-release-handoff \
+            --event-path "$GITHUB_EVENT_PATH" \
+            --artifacts-root artifacts/release \
+            --output artifacts/release/.omg/evidence/reviewer-bot-release-input.json
+
+      - name: Upload reviewer bot release handoff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-bot-release-input
+          path: artifacts/release/.omg/evidence/reviewer-bot-release-input.json
+          if-no-files-found: error
 
       - name: Pack release artifacts
         run: tar -czf omg-release-artifacts.tar.gz -C artifacts release

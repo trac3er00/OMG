@@ -6,36 +6,40 @@ from pathlib import Path
 from runtime import equalizer
 from runtime.canonical_surface import get_canonical_hosts
 from runtime.contract_compiler import _check_host_semantic_parity
-from runtime.host_parity import check_parity, emit_parity_report, normalize_output
+from runtime.host_parity import check_parity, emit_parity_report, is_synthetic, normalize_output
 
 
 CANONICAL_HOSTS = tuple(get_canonical_hosts())
 CANONICAL_HOST_SET = set(CANONICAL_HOSTS)
 
 
-def test_canonical_hosts_produce_equivalent_normalized_outcomes() -> None:
-    outputs = {
+def _real_outputs(*, summary: str, kimi_status: str = "ok", kimi_exit_code: int = 0) -> dict[str, dict[str, object]]:
+    return {
         "claude": {
-            "model": "claude",
-            "output": '{"status":"ok","summary":"flow complete","skills":["control-plane","mcp-fabric"]}',
+            "output": {"status": "ok", "summary": summary, "skills": ["control-plane", "mcp-fabric"]},
+            "source": {"kind": "compiled_artifact", "artifact_path": "settings.json"},
             "exit_code": 0,
         },
         "codex": {
-            "model": "codex-cli",
-            "output": '{"skills":["mcp-fabric","control-plane"],"summary":"flow complete","status":"ok"}',
+            "output": {"summary": summary, "status": "ok", "skills": ["mcp-fabric", "control-plane"]},
+            "source": {"kind": "compiled_artifact", "artifact_path": ".agents/skills/omg/AGENTS.fragment.md"},
             "exit_code": 0,
         },
         "gemini": {
-            "model": "gemini-cli",
-            "output": "status: ok\nsummary: flow complete\nskills: control-plane, mcp-fabric",
+            "output": {"status": "ok", "summary": summary, "skills": ["control-plane", "mcp-fabric"]},
+            "source": {"kind": "compiled_artifact", "artifact_path": ".gemini/settings.json"},
             "exit_code": 0,
         },
         "kimi": {
-            "model": "kimi-cli",
-            "output": '{"status":"ok","summary":"flow complete","skills":["control-plane","mcp-fabric"]}',
-            "exit_code": 0,
+            "output": {"status": kimi_status, "summary": summary, "skills": ["control-plane", "mcp-fabric"]},
+            "source": {"kind": "compiled_artifact", "artifact_path": ".kimi/mcp.json"},
+            "exit_code": kimi_exit_code,
         },
     }
+
+
+def test_canonical_hosts_produce_equivalent_normalized_outcomes() -> None:
+    outputs = _real_outputs(summary="flow complete")
 
     result = check_parity(outputs, context={"surface": "skills"})
 
@@ -45,12 +49,11 @@ def test_canonical_hosts_produce_equivalent_normalized_outcomes() -> None:
 
 
 def test_regression_is_reported_as_drift() -> None:
-    outputs = {
-        "claude": {"output": '{"status":"ok","result":"pass"}', "exit_code": 0},
-        "codex": {"output": '{"status":"ok","result":"pass"}', "exit_code": 0},
-        "gemini": {"output": "status: ok\nresult: pass", "exit_code": 0},
-        "kimi": {"output": '{"status":"error","result":"fail"}', "exit_code": 1},
-    }
+    outputs = _real_outputs(summary="result pass", kimi_status="error", kimi_exit_code=1)
+    outputs["kimi"]["output"] = {"status": "error", "result": "fail"}
+    outputs["claude"]["output"] = {"status": "ok", "result": "pass"}
+    outputs["codex"]["output"] = {"status": "ok", "result": "pass"}
+    outputs["gemini"]["output"] = {"status": "ok", "result": "pass"}
 
     result = check_parity(outputs, context={"surface": "automations"})
 
@@ -123,14 +126,7 @@ def test_claude_is_not_hardcoded_as_always_available(monkeypatch) -> None:
 
 
 def test_emit_parity_report_writes_expected_evidence_shape(tmp_path) -> None:
-    result = check_parity(
-        {
-            "claude": {"output": '{"status":"ok"}', "exit_code": 0},
-            "codex": {"output": '{"status":"ok"}', "exit_code": 0},
-            "gemini": {"output": "status: ok", "exit_code": 0},
-            "kimi": {"output": '{"status":"ok"}', "exit_code": 0},
-        }
-    )
+    result = check_parity(_real_outputs(summary="ok"))
 
     report_path = emit_parity_report("run-test", result, project_dir=str(tmp_path))
     payload = json.loads((tmp_path / ".omg" / "evidence" / "host-parity-run-test.json").read_text(encoding="utf-8"))
@@ -142,14 +138,39 @@ def test_emit_parity_report_writes_expected_evidence_shape(tmp_path) -> None:
 
 
 def test_missing_host_output_is_reported_as_drift() -> None:
-    outputs = {
-        host: {"output": '{"status":"ok"}', "exit_code": 0}
-        for host in CANONICAL_HOSTS
-        if host != "kimi"
-    }
+    outputs = {host: payload for host, payload in _real_outputs(summary="ok").items() if host != "kimi"}
 
     result = check_parity(outputs)
 
     assert result.passed is False
     assert result.drift_detected is True
     assert "missing host output: kimi" in result.drift_details
+
+
+def test_synthetic_inline_payloads_are_rejected() -> None:
+    outputs = {
+        "claude": {"output": '{"status":"ok"}', "exit_code": 0},
+        "codex": {"output": '{"status":"ok"}', "exit_code": 0},
+        "gemini": {"output": "status: ok", "exit_code": 0},
+        "kimi": {"output": '{"status":"ok"}', "exit_code": 0},
+    }
+
+    result = check_parity(outputs)
+
+    assert result.passed is False
+    assert result.drift_detected is True
+    assert any(detail.startswith("synthetic payload rejected:") for detail in result.drift_details)
+
+
+def test_is_synthetic_requires_compiled_or_replayed_source_metadata() -> None:
+    assert is_synthetic({"output": {"status": "ok"}}) is True
+    assert is_synthetic({"output": {"status": "ok"}, "source": {"kind": "compiled_artifact"}}) is True
+    assert (
+        is_synthetic(
+            {
+                "output": {"status": "ok"},
+                "source": {"kind": "compiled_artifact", "artifact_path": "settings.json"},
+            }
+        )
+        is False
+    )

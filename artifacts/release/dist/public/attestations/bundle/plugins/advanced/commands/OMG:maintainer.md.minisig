@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-TBfjYMfsoBiF+vote90SYzbTwKwMuVr5Z61ZU0sVpKyQhG5bivNv/aSkmHA31mKK4HA9ojYdXwcGIctRRxfcCA==
-trusted comment: type=omg-slsa-v1 keyid=ac57debb52ca7c8f issued_at=2026-03-14T04:21:33.865995+00:00 artifact=bundle/plugins/advanced/commands/OMG:maintainer.md sha256=1a29d4cb6839dd6de8c11b88b93a72fb9a371cfb7784bfe409d5e5ef0a825508
-vxGALX7YKjCsx99XlPSfjNaY2/s0hRhBp0BJnF7nV7wPvlg2SqfK6EkVj3ycxG4iVfW6MCQZw5ppc3j54JaCCw==
+E0AA7GljSZlVlO9J90lloLkz8526lPWq+rCPccqQNImUT1MPLdy56DPlBJWg4XSNQVv3eWQCF9Y1txmomOQiBA==
+trusted comment: type=omg-slsa-v1 keyid=f78215ddf025eb8c issued_at=2026-03-14T19:07:30.654562+00:00 artifact=bundle/plugins/advanced/commands/OMG:maintainer.md sha256=1a29d4cb6839dd6de8c11b88b93a72fb9a371cfb7784bfe409d5e5ef0a825508
+YUuTm2ixF+hMNVZwUonQJX5upttaODai1VxKqllSZcRXxAtkemF7f/a8tQE/whrb7E9n30rfB6j/5W/TpakMBg==

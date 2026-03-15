@@ -10,7 +10,7 @@ from typing import cast
 import pytest
 
 from runtime.evidence_requirements import FULL_REQUIREMENTS
-from runtime.proof_gate import evaluate_proof_gate
+from runtime.proof_gate import evaluate_proof_gate, production_gate
 
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -547,3 +547,23 @@ def test_proof_gate_strict_release_chain_passes_with_lock_provenance_and_mutatio
     assert proof_result["evidence_summary"]["has_lock_evidence"] is True
     assert proof_result["evidence_summary"]["has_waiver_artifact"] is True
     assert proof_result["evidence_summary"]["required_artifacts"] == ["junit", "coverage", "sarif", "browser_trace"]
+
+
+def test_production_gate_fails_when_proof_primitives_missing() -> None:
+    result = production_gate({})
+
+    assert result["status"] == "blocked"
+    assert "production_gate_missing_claim_judge" in result["blockers"]
+    assert "production_gate_missing_test_intent_lock" in result["blockers"]
+
+
+def test_production_gate_passes_when_release_security_proof_complete() -> None:
+    result = production_gate(
+        {
+            "claim_judge": {"status": "allowed", "claim_judge_verdict": "pass"},
+            "proof_gate": {"verdict": "pass", "blockers": []},
+            "test_intent_lock": {"status": "ok", "lock_id": "lock-1"},
+        }
+    )
+
+    assert result["status"] == "ok"

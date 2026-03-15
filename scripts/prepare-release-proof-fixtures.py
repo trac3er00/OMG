@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from registry.verify_artifact import sign_artifact_statement
@@ -99,9 +100,20 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
     issue_report_path = output_root / ".omg" / "evidence" / "issues" / "run-1.json"
     host_parity_path = output_root / ".omg" / "evidence" / "host-parity-run-1.json"
     music_omr_path = output_root / ".omg" / "evidence" / "music-omr-run-1.json"
+    tracked_music_omr_path = output_root / "artifacts" / "release" / "evidence" / "music-omr-run-1.json"
 
     # Ensure directories exist
-    for p in [exec_kernel_path, watchdog_path, merge_writer_path, ledger_path, budget_path, issue_report_path, host_parity_path, music_omr_path]:
+    for p in [
+        exec_kernel_path,
+        watchdog_path,
+        merge_writer_path,
+        ledger_path,
+        budget_path,
+        issue_report_path,
+        host_parity_path,
+        music_omr_path,
+        tracked_music_omr_path,
+    ]:
         p.parent.mkdir(parents=True, exist_ok=True)
 
     _write_text(
@@ -266,6 +278,20 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
                 },
                 "music_omr_testbed_evidence": {
                     "path": ".omg/evidence/music-omr-run-1.json",
+                    "run_id": run_id,
+                },
+                "write_lease_provenance": {
+                    "path": ".omg/evidence/merge-writer-run-1.json",
+                    "run_id": run_id,
+                },
+                "proof_chain": {
+                    "status": "ok",
+                    "trace_id": trace_id,
+                    "blockers": [],
+                },
+                "test_intent_lock": {
+                    "status": "ok",
+                    "lock_id": lock_id,
                     "run_id": run_id,
                 },
             },
@@ -446,23 +472,70 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
                 "drift_detected": False,
                 "drift_details": [],
                 "host_results": {
-                    "claude": {"present": True, "passed": True, "reason": "baseline"},
-                    "codex": {"present": True, "passed": True, "reason": "structured-equivalent"},
-                    "gemini": {"present": True, "passed": True, "reason": "structured-equivalent"},
-                    "kimi": {"present": True, "passed": True, "reason": "structured-equivalent"},
+                    "claude": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "baseline",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": "settings.json",
+                        },
+                    },
+                    "codex": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".agents/skills/omg/AGENTS.fragment.md",
+                        },
+                    },
+                    "gemini": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".gemini/settings.json",
+                        },
+                    },
+                    "kimi": {
+                        "present": True,
+                        "passed": True,
+                        "reason": "structured-equivalent",
+                        "normalized": {
+                            "source_class": "compiled_or_replayed",
+                            "source_kind": "compiled_artifact",
+                            "source_path": ".kimi/mcp.json",
+                        },
+                    },
                 }
             },
             "overall_status": "ok",
         },
     )
-    _write_json(
-        music_omr_path,
-        {
-            "schema": "MusicOMREvidence",
-            "run_id": run_id,
-            "results": {},
+    _now = datetime.now(timezone.utc)
+    music_omr_payload = {
+        "schema": "MusicOMREvidence",
+        "schema_version": "2.1.0",
+        "run_id": run_id,
+        "trace_metadata": {
+            "run_id_linkage": run_id,
         },
-    )
+        "freshness": {
+            "generated_at": _now.isoformat(),
+            "expires_at": (_now + timedelta(seconds=86400)).isoformat(),
+            "max_age_seconds": 86400,
+            "freshness_threshold_secs": 86400,
+            "is_fresh": True,
+        },
+        "results": {},
+    }
+    _write_json(music_omr_path, music_omr_payload)
+    _write_json(tracked_music_omr_path, music_omr_payload)
     _write_text(
         profile_path,
         """profile_version: profile-v1

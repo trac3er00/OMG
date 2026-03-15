@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from runtime.compliance_governor import evaluate_release_compliance
+from runtime.compliance_governor import evaluate_release_compliance, production_gate
 
 
 _SUBJECT_SHA256 = "a" * 64
@@ -19,11 +19,19 @@ def _verified(action: str) -> dict[str, object]:
 
 
 def _evaluate(release_evidence: dict[str, object] | None) -> dict[str, object]:
+    evidence = release_evidence
+    if isinstance(evidence, dict):
+        evidence = {
+            "claim_judge": {"status": "allowed", "claim_judge_verdict": "pass"},
+            "proof_gate": {"verdict": "pass", "blockers": []},
+            "test_intent_lock": {"status": "ok", "lock_id": "lock-1"},
+            **evidence,
+        }
     with patch(
         "runtime.compliance_governor.evaluate_claims_for_release",
-        return_value={"status": "allowed", "reason": "ok"},
+        return_value={"status": "allowed", "reason": "ok", "claim_judge_verdict": "pass"},
     ):
-        return evaluate_release_compliance(project_dir=".", run_id="", release_evidence=release_evidence)
+        return evaluate_release_compliance(project_dir=".", run_id="", release_evidence=evidence)
 
 
 def test_missing_release_evidence_blocks() -> None:
@@ -127,3 +135,21 @@ def test_audit_fields_present_on_allow() -> None:
     assert result["artifact_key_id"] == "1f5fe64ec2f8c901"
     assert result["artifact_subject_sha256"] == _SUBJECT_SHA256
     assert result["artifact_verdict"] == "allow"
+
+
+def test_production_gate_blocks_when_required_primitives_missing() -> None:
+    result = production_gate({"proof_gate": {"verdict": "pass", "blockers": []}})
+    assert result["status"] == "blocked"
+    assert "production_gate_missing_claim_judge" in result["blockers"]
+    assert "production_gate_missing_test_intent_lock" in result["blockers"]
+
+
+def test_production_gate_passes_with_complete_primitives() -> None:
+    result = production_gate(
+        {
+            "claim_judge": {"status": "allowed", "claim_judge_verdict": "pass"},
+            "proof_gate": {"verdict": "pass", "blockers": []},
+            "test_intent_lock": {"status": "ok", "lock_id": "lock-1"},
+        }
+    )
+    assert result["status"] == "ok"

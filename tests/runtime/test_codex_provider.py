@@ -165,6 +165,23 @@ class TestInvokeTmux:
             timeout=90,
         )
 
+    @patch("runtime.providers.codex_provider.TmuxSessionManager")
+    def test_tmux_propagates_release_context(self, mock_mgr_cls: MagicMock, provider: CodexProvider, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_RELEASE_ORCHESTRATION_ACTIVE", "1")
+        monkeypatch.setenv("OMG_RUN_ID", "test-run-abc")
+        mgr = mock_mgr_cls.return_value
+        mgr.make_session_name.return_value = "omg-codex-abc"
+        mgr.get_or_create_session.return_value = "omg-codex-abc"
+        mgr.send_command.return_value = "ok"
+        mgr.kill_session.return_value = True
+
+        provider.invoke_tmux("task", "/project", timeout=60)
+
+        cmd = mgr.send_command.call_args[0][1]
+        assert "OMG_RELEASE_ORCHESTRATION_ACTIVE=1" in cmd
+        assert "OMG_RUN_ID=test-run-abc" in cmd
+        assert "CLAUDE_PROJECT_DIR=/project" in cmd
+
 
 # ---------------------------------------------------------------------------
 # get_non_interactive_cmd

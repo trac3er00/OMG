@@ -1,6 +1,7 @@
 """Single-source evidence profile requirements registry."""
 from __future__ import annotations
 
+import json
 from typing import Final
 
 FULL_REQUIREMENTS: Final[list[str]] = [
@@ -109,10 +110,48 @@ EVIDENCE_REQUIREMENTS_BY_PROFILE: Final[dict[str, list[str]]] = {
 }
 
 
+def normalize_profile(raw: str) -> str:
+    """Normalize a profile name: strip whitespace and lowercase."""
+    return raw.strip().lower()
+
+
+def resolve_profile(evidence_profile: str | None) -> str | None:
+    """Resolve a profile name to its canonical registry key.
+
+    Returns ``None`` for empty / ``None`` input (caller should use
+    ``FULL_REQUIREMENTS``).  Returns the canonical key for known profiles
+    (exact match first, then normalized).  Raises ``ValueError`` with a
+    machine-readable JSON message for unknown profiles.
+    """
+    if not evidence_profile or not evidence_profile.strip():
+        return None
+
+    # Exact match
+    if evidence_profile in EVIDENCE_REQUIREMENTS_BY_PROFILE:
+        return evidence_profile
+
+    # Normalized match (strip + lowercase)
+    normalized = normalize_profile(evidence_profile)
+    for key in EVIDENCE_REQUIREMENTS_BY_PROFILE:
+        if normalize_profile(key) == normalized:
+            return key
+
+    # Unknown — fail closed with machine-readable error
+    raise ValueError(
+        json.dumps(
+            {"status": "error", "reason": "unknown_profile", "profile": evidence_profile}
+        )
+    )
+
+
 def requirements_for_profile(evidence_profile: str | None) -> list[str]:
-    if not evidence_profile:
+    """Return the evidence requirement list for *evidence_profile*.
+
+    ``None`` / empty  → ``FULL_REQUIREMENTS``.
+    Known profile     → profile-specific list.
+    Unknown profile   → raises ``ValueError`` (machine-readable JSON).
+    """
+    canonical = resolve_profile(evidence_profile)
+    if canonical is None:
         return list(FULL_REQUIREMENTS)
-    requirements = EVIDENCE_REQUIREMENTS_BY_PROFILE.get(evidence_profile)
-    if not requirements:
-        return list(FULL_REQUIREMENTS)
-    return list(requirements)
+    return list(EVIDENCE_REQUIREMENTS_BY_PROFILE[canonical])

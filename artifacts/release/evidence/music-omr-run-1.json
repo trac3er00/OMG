@@ -1,0 +1,16 @@
+{
+  "schema": "MusicOMREvidence",
+  "schema_version": "2.1.0",
+  "run_id": "run-1",
+  "trace_metadata": {
+    "run_id_linkage": "run-1"
+  },
+  "freshness": {
+    "generated_at": "2026-03-15T03:42:53.890799+00:00",
+    "expires_at": "2026-03-16T03:42:53.890799+00:00",
+    "max_age_seconds": 86400,
+    "freshness_threshold_secs": 86400,
+    "is_fresh": true
+  },
+  "results": {}
+}

@@ -5,6 +5,10 @@ Enforces one-writer/many-readers semantics:
 - Mutation-capable workers MUST hold the merge-writer lock AND run
   inside a worktree before applying changes back to the main tree.
 
+Write leases extend the merge-writer lock with run-scoped, time-bounded
+authorization.  A write lease is NOT a second lock — it layers on top of
+the existing single-writer lock, adding temporal and evidence constraints.
+
 Lock file:     .omg/state/merge-writer.lock   (JSON)
 Provenance:    .omg/evidence/merge-writer-<run_id>.json
 """
@@ -12,7 +16,8 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+import time as _time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -309,6 +314,89 @@ class MergeWriter:
                 f"mutation_type={mutation_type} denied: lock held by "
                 f"run_id={owner}, not {run_id}",
             )
+
+
+# ---------------------------------------------------------------------------
+# Write Lease — run-scoped, time-bounded authorization over merge writer
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class WriteLease:
+    """Run-scoped, time-bounded authorization layered over the merge writer.
+
+    A write lease is NOT a second lock.  It constrains an already-held
+    merge-writer lock with temporal bounds and evidence linkage.
+    """
+
+    run_id: str
+    created_at: float  # monotonic seconds (time.monotonic())
+    duration_s: float
+    evidence_path: str
+    is_active: bool = True
+
+
+def create_write_lease(
+    run_id: str,
+    duration_s: float,
+    evidence_path: str,
+) -> WriteLease:
+    """Create a new write lease bound to *run_id*.
+
+    Args:
+        run_id:         The release-run identifier this lease is scoped to.
+        duration_s:     Maximum lifetime in seconds.
+        evidence_path:  Path to the evidence artifact backing this lease.
+
+    Returns:
+        A ``WriteLease`` instance.
+    """
+    return WriteLease(
+        run_id=run_id,
+        created_at=_time.monotonic(),
+        duration_s=float(duration_s),
+        evidence_path=str(evidence_path),
+        is_active=True,
+    )
+
+
+def is_lease_valid(
+    lease: WriteLease,
+    current_run_id: str,
+    current_time: float | None = None,
+) -> tuple[bool, str]:
+    """Check whether *lease* is still valid for *current_run_id*.
+
+    Args:
+        lease:           The lease to validate.
+        current_run_id:  The run_id of the currently active release run.
+        current_time:    Monotonic timestamp (defaults to ``time.monotonic()``).
+
+    Returns:
+        ``(True, "valid")`` when the lease authorizes the run, or
+        ``(False, reason)`` with a deterministic blocker reason.
+    """
+    if not lease.is_active:
+        return False, "write_lease_inactive"
+
+    if lease.run_id != current_run_id:
+        return (
+            False,
+            f"write_lease_run_id_mismatch:lease={lease.run_id},current={current_run_id}",
+        )
+
+    now = current_time if current_time is not None else _time.monotonic()
+    elapsed = now - lease.created_at
+    if elapsed > lease.duration_s:
+        return (
+            False,
+            f"write_lease_expired:elapsed={elapsed:.1f}s,limit={lease.duration_s:.1f}s",
+        )
+
+    if not lease.evidence_path:
+        return False, "write_lease_missing_evidence_path"
+
+    return True, "valid"
 
 
 # ---------------------------------------------------------------------------

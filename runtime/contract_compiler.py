@@ -7,7 +7,7 @@ import importlib
 import importlib.util
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 import shutil
@@ -25,8 +25,8 @@ from runtime.proof_chain import _normalize_evidence_pack
 from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
-from runtime.release_run_coordinator import get_active_coordinator_run_id
-from runtime.release_surfaces import get_runtime_behavior_surfaces
+from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active
+from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -196,6 +196,7 @@ _REQUIRED_EXECUTION_PRIMITIVES = (
     "exec_kernel_state",
     "worker_watchdog_replay",
     "merge_writer_provenance",
+    "write_lease_provenance",
     "tool_fabric_ledger",
     "budget_envelope_state",
     "issue_report",
@@ -1908,6 +1909,7 @@ def _check_host_semantic_parity(
     overall_status = str(report.get("overall_status", "")).strip().lower()
     parity_results = report.get("parity_results", {})
     passed = bool(parity_results.get("passed")) if isinstance(parity_results, dict) else False
+    host_results = parity_results.get("host_results", {}) if isinstance(parity_results, dict) else {}
 
     blockers: list[str] = []
     report_run_id = str(report.get("run_id", "")).strip()
@@ -1919,6 +1921,16 @@ def _check_host_semantic_parity(
         blockers.append(f"host_semantic_parity: report overall_status={overall_status}")
     if isinstance(parity_results, dict) and not passed:
         blockers.append("host_semantic_parity: parity check reported drift")
+    if not isinstance(host_results, dict):
+        blockers.append("host_semantic_parity: report missing host results")
+    else:
+        for host in sorted(canonical_required_hosts):
+            host_result = host_results.get(host)
+            normalized = host_result.get("normalized", {}) if isinstance(host_result, dict) else {}
+            source_class = str(normalized.get("source_class", "")).strip().lower() if isinstance(normalized, dict) else ""
+            source_path = str(normalized.get("source_path", "")).strip() if isinstance(normalized, dict) else ""
+            if source_class != "compiled_or_replayed" or not source_path:
+                blockers.append(f"host_semantic_parity: synthetic payload rejected for {host}")
 
     return {
         "status": "ok" if not blockers else "error",
@@ -2118,6 +2130,10 @@ def build_release_readiness(
     package_check = _check_packaged_install_smoke(root)
     checks["package_smoke"] = package_check
     blockers.extend(package_check.get("blockers", []))
+
+    package_parity = check_package_parity(root)
+    checks["package_parity"] = package_parity
+    blockers.extend(package_parity.get("blockers", []))
 
     plugin_cmd_check = _check_plugin_command_paths(root)
     checks["plugin_command_paths"] = plugin_cmd_check
@@ -2586,6 +2602,10 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         artifact = evidence_payload.get("artifact")
         if isinstance(artifact, dict):
             release_evidence["artifact"] = artifact
+        for _passthrough_key in ("test_delta", "test_intent_lock", "proof_chain"):
+            _passthrough_value = evidence_payload.get(_passthrough_key)
+            if isinstance(_passthrough_value, dict):
+                release_evidence[_passthrough_key] = _passthrough_value
         compliance = evaluate_release_compliance(
             project_dir=str(output_root),
             run_id=run_id,
@@ -2715,6 +2735,7 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         "exec_kernel_state",
         "worker_watchdog_replay",
         "merge_writer_provenance",
+        "write_lease_provenance",
         "tool_fabric_ledger",
         "budget_envelope_state",
         "issue_report",
@@ -2741,6 +2762,10 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
             invalid.append(f"{token}:invalid_path")
             blockers.append(f"invalid_execution_primitive: {token}: invalid_path")
             continue
+        if not resolved.exists() and token == "music_omr_testbed_evidence":
+            tracked_candidates = sorted((output_root / "artifacts" / "release" / "evidence").glob("music-omr-*.json"))
+            if tracked_candidates:
+                resolved = tracked_candidates[-1]
         if not resolved.exists():
             missing.append(token)
             blockers.append(f"missing_execution_primitive: {token}")
@@ -2783,6 +2808,59 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         ):
             invalid.append(f"{token}:stale")
             blockers.append(f"stale_execution_primitive: {token}")
+
+    if "music_omr_testbed_evidence" in evidence_paths and evidence_paths["music_omr_testbed_evidence"]:
+        music_omr_path = _resolve_relative_path(
+            output_root=output_root,
+            rel_path=evidence_paths["music_omr_testbed_evidence"],
+        )
+        if music_omr_path is not None:
+            music_omr_payload = _load_json_or_none(music_omr_path)
+            if isinstance(music_omr_payload, dict):
+                run_id_linkage = str(
+                    music_omr_payload.get("trace_metadata", {}).get("run_id_linkage", "")
+                ).strip()
+                if run_id_linkage != run_id:
+                    invalid.append("music_omr_testbed_evidence:run_id_linkage_mismatch")
+                    blockers.append(
+                        "invalid_execution_primitive: music_omr_testbed_evidence: run_id_linkage_mismatch"
+                    )
+
+                freshness_payload = music_omr_payload.get("freshness")
+                freshness_generated_at = ""
+                if isinstance(freshness_payload, dict):
+                    freshness_generated_at = str(freshness_payload.get("generated_at", "")).strip()
+                generated_at = None
+                if freshness_generated_at:
+                    try:
+                        generated_at = datetime.fromisoformat(freshness_generated_at.replace("Z", "+00:00"))
+                    except ValueError:
+                        generated_at = None
+                if generated_at is None:
+                    invalid.append("music_omr_testbed_evidence:payload_freshness_stale")
+                    blockers.append(
+                        "invalid_execution_primitive: music_omr_testbed_evidence: payload_freshness_stale"
+                    )
+                else:
+                    if generated_at.tzinfo is None:
+                        generated_at = generated_at.replace(tzinfo=timezone.utc)
+                    max_age = timedelta(seconds=max(1, max_age_seconds))
+                    if datetime.now(timezone.utc) - generated_at > max_age:
+                        invalid.append("music_omr_testbed_evidence:payload_freshness_stale")
+                        blockers.append(
+                            "invalid_execution_primitive: music_omr_testbed_evidence: payload_freshness_stale"
+                        )
+                if (
+                    is_release_orchestration_active(project_dir=str(output_root))
+                    and "coordinator_run_id" in music_omr_payload
+                ):
+                    coordinator_run_id = str(music_omr_payload.get("coordinator_run_id", "")).strip()
+                    active_coordinator_run_id = get_active_coordinator_run_id(str(output_root)) or ""
+                    if coordinator_run_id != active_coordinator_run_id:
+                        invalid.append("music_omr_testbed_evidence:coordinator_run_id_mismatch")
+                        blockers.append(
+                            "invalid_execution_primitive: music_omr_testbed_evidence: coordinator_run_id_mismatch"
+                        )
 
     return {
         "status": "ok" if not blockers else "error",
@@ -2911,6 +2989,10 @@ def _check_claim_judge_compliance(output_root: Path) -> dict[str, Any]:
     artifact = evidence_payload.get("artifact")
     if isinstance(artifact, dict):
         release_evidence["artifact"] = artifact
+    for _pt_key in ("test_delta", "test_intent_lock", "proof_chain"):
+        _pt_val = evidence_payload.get(_pt_key)
+        if isinstance(_pt_val, dict):
+            release_evidence[_pt_key] = _pt_val
     decision = evaluate_release_compliance(
         project_dir=str(output_root),
         run_id=run_id,
@@ -3056,6 +3138,92 @@ def _check_bundle_promotion_parity(root: Path, output_root: Path) -> dict[str, A
         "missing_dist_public": missing_dist_public,
         "missing_dist_enterprise": missing_dist_enterprise,
         "missing_pyproject_data_files": missing_pyproject_data_files,
+    }
+
+
+def check_package_parity(root_path: str | Path) -> dict[str, Any]:
+    root = _resolve_root(root_path)
+    required_surfaces = tuple(get_package_parity_surfaces())
+    machine_blockers: list[dict[str, str]] = []
+    blockers: list[str] = []
+
+    def _add_blocker(*, location: str, surface: str, path: str, reason: str = "missing_surface") -> None:
+        blocker = {
+            "kind": "package_parity_missing",
+            "location": location,
+            "surface": surface,
+            "path": path,
+            "reason": reason,
+        }
+        machine_blockers.append(blocker)
+        blockers.append(
+            f"package_parity_missing: location={location} surface={surface} path={path} reason={reason}"
+        )
+
+    for surface in required_surfaces:
+        source_path = root / ".agents" / "skills" / "omg" / surface / "SKILL.md"
+        if not source_path.exists():
+            _add_blocker(location="source", surface=surface, path=str(source_path.relative_to(root)))
+
+    def _check_bundle_surface_roots(*, location: str, roots: list[Path]) -> None:
+        if not roots:
+            for surface in required_surfaces:
+                _add_blocker(
+                    location=location,
+                    surface=surface,
+                    path=f"{location}/bundle/.agents/skills/omg/{surface}/SKILL.md",
+                    reason="missing_output_location",
+                )
+            return
+        for surface in required_surfaces:
+            found = False
+            for bundle_root in roots:
+                candidate = bundle_root / ".agents" / "skills" / "omg" / surface / "SKILL.md"
+                if candidate.exists():
+                    found = True
+                    break
+            if not found:
+                _add_blocker(
+                    location=location,
+                    surface=surface,
+                    path=f"{location}/bundle/.agents/skills/omg/{surface}/SKILL.md",
+                )
+
+    dist_bundle_roots = [path for path in sorted((root / "dist").glob("*/bundle")) if path.is_dir()]
+    _check_bundle_surface_roots(location="dist", roots=dist_bundle_roots)
+
+    release_bundle_roots = [
+        path for path in sorted((root / "artifacts" / "release" / "dist").glob("*/bundle")) if path.is_dir()
+    ]
+    _check_bundle_surface_roots(location="release", roots=release_bundle_roots)
+
+    wheel_files = sorted((root / "dist").glob("*.whl"))
+    if not wheel_files:
+        for surface in required_surfaces:
+            _add_blocker(
+                location="wheel",
+                surface=surface,
+                path=f"dist/*.whl::.agents/skills/omg/{surface}/SKILL.md",
+                reason="missing_output_location",
+            )
+    else:
+        wheel_path = wheel_files[-1]
+        with zipfile.ZipFile(wheel_path) as archive:
+            names = set(archive.namelist())
+        for surface in required_surfaces:
+            suffix = f".agents/skills/omg/{surface}/SKILL.md"
+            if not any(name.endswith(suffix) for name in names):
+                _add_blocker(
+                    location="wheel",
+                    surface=surface,
+                    path=f"{wheel_path.relative_to(root)}::{suffix}",
+                )
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "required_surfaces": list(required_surfaces),
+        "machine_blockers": machine_blockers,
+        "blockers": blockers,
     }
 
 

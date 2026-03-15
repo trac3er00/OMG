@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from runtime.evidence_requirements import EVIDENCE_REQUIREMENTS_BY_PROFILE
+from runtime.evidence_requirements import EVIDENCE_REQUIREMENTS_BY_PROFILE, normalize_profile
 
 CANONICAL_PARITY_HOSTS: Final[list[str]] = ["claude", "codex", "gemini", "kimi"]
 COMPATIBILITY_ONLY_HOSTS: Final[list[str]] = ["opencode"]
@@ -13,8 +13,9 @@ DOMAIN_DEFAULTS: Final[dict[str, tuple[str, ...]]] = {
 }
 
 def _release_evidence_profile_labels() -> dict[str, str]:
+    """Generate release labels synchronized with the normalized profile registry."""
     return {
-        profile.replace("-", "_"): profile
+        normalize_profile(profile).replace("-", "_"): profile
         for profile in EVIDENCE_REQUIREMENTS_BY_PROFILE
     }
 
