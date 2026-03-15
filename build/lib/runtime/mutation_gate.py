@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 
-from runtime.release_run_coordinator import get_active_coordinator_run_id, resolve_current_run_id
+from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active, resolve_current_run_id
 from runtime.test_intent_lock import verify_done_when, verify_lock
 from runtime.tool_plan_gate import has_tool_plan_for_run
 
@@ -132,6 +132,13 @@ def check_mutation_allowed(
         return {
             "status": "allowed",
             "reason": reason,
+            "lock_id": normalized_lock_id,
+        }
+
+    if is_release_orchestration_active(project_dir=project_dir):
+        return {
+            "status": "allowed",
+            "reason": "release_orchestration_active",
             "lock_id": normalized_lock_id,
         }
 

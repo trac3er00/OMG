@@ -14,6 +14,7 @@ from runtime.compliance_governor import classify_bash_command_mode, evaluate_too
 from runtime.complexity_scorer import score_complexity
 from runtime.release_run_coordinator import (
     get_active_coordinator_run_id,
+    is_release_orchestration_active,
     resolve_current_run_id as resolve_coordinator_run_id,
 )
 from runtime.runtime_contracts import read_run_state
@@ -159,6 +160,13 @@ def tool_plan_gate_check(
                 "status": "blocked",
                 "authority": "test_intent_lock",
                 "reason": "test_intent_lock_required_before_mutation",
+                "run_id": effective_run_id,
+                "tool": tool,
+            }
+
+        if is_release_orchestration_active(project_dir=project_dir):
+            return {
+                **decision,
                 "run_id": effective_run_id,
                 "tool": tool,
             }
