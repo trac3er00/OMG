@@ -973,6 +973,33 @@ def _add_ecosystem_subcommands(parent: argparse.ArgumentParser, *, dest: str) ->
     ecosystem_sync.set_defaults(func=cmd_ecosystem_sync)
 
 
+def cmd_context_compile(args: argparse.Namespace) -> int:
+    from runtime.context_compiler import compile_context_packets
+    hosts = args.hosts or []
+    result = compile_context_packets(
+        root_dir=ROOT_DIR,
+        output_root=args.output_root,
+        hosts=hosts,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
+def _add_context_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    context_sub = parent.add_subparsers(dest=dest, required=True)
+    context_compile = context_sub.add_parser("compile", help="Compile bounded context packets for canonical hosts")
+    context_compile.add_argument(
+        "--host",
+        dest="hosts",
+        action="append",
+        choices=list(CANONICAL_HOST_CHOICES),
+        required=True,
+        help="Host to compile context for (repeat for multiple hosts)",
+    )
+    context_compile.add_argument("--output-root", default="", help="Write outputs to this root instead of the repo root")
+    context_compile.set_defaults(func=cmd_context_compile)
+
+
 def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     contract_sub = parent.add_subparsers(dest=dest, required=True)
 
@@ -1450,6 +1477,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     contract = sub.add_parser("contract", help="Canonical OMG contract validation and compilation")
     _add_contract_subcommands(contract, dest="contract_command")
+
+    context_parser = sub.add_parser("context", help="Context packet compiler")
+    _add_context_subcommands(context_parser, dest="context_command")
 
     release = sub.add_parser("release", help="OMG release-readiness checks")
     _add_release_subcommands(release, dest="release_command")
