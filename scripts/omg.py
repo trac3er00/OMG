@@ -53,6 +53,7 @@ from runtime.security_check import run_security_check
 from runtime.contract_compiler import (
     build_release_readiness,
     compile_contract_outputs,
+    compile_method_artifacts,
     validate_contract_registry,
 )
 from runtime.tracebank import record_trace
@@ -898,12 +899,20 @@ def cmd_contract_validate(args: argparse.Namespace) -> int:
 
 def cmd_contract_compile(args: argparse.Namespace) -> int:
     hosts = args.hosts or []
-    result = compile_contract_outputs(
-        root_dir=ROOT_DIR,
-        output_root=args.output_root,
-        hosts=hosts,
-        channel=args.channel,
-    )
+    if getattr(args, "method", False):
+        result = compile_method_artifacts(
+            root_dir=ROOT_DIR,
+            output_root=args.output_root,
+            hosts=hosts,
+            channel=args.channel,
+        )
+    else:
+        result = compile_contract_outputs(
+            root_dir=ROOT_DIR,
+            output_root=args.output_root,
+            hosts=hosts,
+            channel=args.channel,
+        )
     print(json.dumps(result, indent=2))
     return 0 if result.get("status") == "ok" else 2
 
@@ -994,6 +1003,7 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
     )
     contract_compile.add_argument("--channel", default="public", choices=["public", "enterprise"])
     contract_compile.add_argument("--output-root", default="", help="Write outputs to this root instead of the repo root")
+    contract_compile.add_argument("--method", action="store_true", default=False, help="Emit signed seven-phase methodology artifacts instead of host artifacts")
     contract_compile.set_defaults(func=cmd_contract_compile)
 
 
