@@ -262,6 +262,12 @@ _MANAGED_PRESET_FLAGS = {
     "TEST_GENERATION",
     "DEP_HEALTH",
     "CODEBASE_VIZ",
+    "DATA_ENFORCEMENT",
+    "WEB_ENFORCEMENT",
+    "TERMS_ENFORCEMENT",
+    "COUNCIL_ROUTING",
+    "FORGE_ALL_DOMAINS",
+    "NOTEBOOKLM",
 }
 _PRESET_FEATURES = {
     "safe": {flag: False for flag in _MANAGED_PRESET_FLAGS},
@@ -303,7 +309,15 @@ _PRESET_FEATURES = {
         "TEST_GENERATION": True,
         "DEP_HEALTH": True,
         "CODEBASE_VIZ": True,
+        "DATA_ENFORCEMENT": False,
+        "WEB_ENFORCEMENT": False,
+        "TERMS_ENFORCEMENT": False,
+        "COUNCIL_ROUTING": False,
+        "FORGE_ALL_DOMAINS": False,
+        "NOTEBOOKLM": False,
     },
+    "buffet": {flag: True for flag in _MANAGED_PRESET_FLAGS},
+    "production": {flag: True for flag in _MANAGED_PRESET_FLAGS},
 }
 _FEATURE_ALIASES = {
     "SETUP": ("SETUP", "SETUP_WIZARD"),

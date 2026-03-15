@@ -223,7 +223,7 @@ def test_setup_script_exists_and_help_lists_subcommands():
     assert "--install-as-plugin" in out
     assert "--mode=omg-only|coexist" in out
     assert "--adopt=auto" in out
-    assert "--preset=safe|balanced|interop|labs|buffet" in out
+    assert "--preset=safe|balanced|interop|labs|buffet|production" in out
     assert "--clear-omc" not in out
     assert "--without-legacy-aliases" not in out
 
@@ -357,6 +357,18 @@ def test_setup_install_accepts_buffet_preset(tmp_path: Path):
     proc = _run_script(
         SETUP,
         ["install", "--non-interactive", "--merge-policy=skip", "--preset=buffet"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+
+def test_setup_install_accepts_production_preset(tmp_path: Path):
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip", "--preset=production"],
         env=env,
     )
     assert proc.returncode == 0
@@ -1268,6 +1280,9 @@ def test_preset_features_single_source_of_truth():
     assert "buffet" in VALID_PRESETS
     assert "buffet" in PRESET_FEATURES
     assert "buffet" in PRESET_LEVEL
+    assert "production" in VALID_PRESETS
+    assert "production" in PRESET_FEATURES
+    assert "production" in PRESET_LEVEL
 
     buffet = PRESET_FEATURES["buffet"]
     assert buffet["DATA_ENFORCEMENT"] is True
@@ -1283,6 +1298,24 @@ def test_preset_features_single_source_of_truth():
                       "COUNCIL_ROUTING", "FORGE_ALL_DOMAINS", "NOTEBOOKLM"):
             assert features[flag] is False, f"{p} must not enable {flag}"
 
+    production = PRESET_FEATURES["production"]
+    for flag in (
+        "SETUP",
+        "SETUP_WIZARD",
+        "MEMORY_AUTOSTART",
+        "SESSION_ANALYTICS",
+        "CONTEXT_MANAGER",
+        "COST_TRACKING",
+        "GIT_WORKFLOW",
+        "TEST_GENERATION",
+        "DEP_HEALTH",
+        "DATA_ENFORCEMENT",
+        "WEB_ENFORCEMENT",
+        "TERMS_ENFORCEMENT",
+        "COUNCIL_ROUTING",
+    ):
+        assert production[flag] is True, f"production must enable {flag}"
+
     for i, name in enumerate(PRESET_ORDER):
         assert PRESET_LEVEL[name] == i
 
@@ -1296,6 +1329,20 @@ def test_buffet_preset_get_preset_features():
     assert all(v is True for v in features.values()), (
         f"All buffet flags must be True, got: {features}"
     )
+
+
+def test_production_preset_get_preset_features():
+    from runtime.adoption import get_preset_features
+
+    features = get_preset_features("production")
+    for key in (
+        "TEST_GENERATION",
+        "CONTEXT_MANAGER",
+        "DATA_ENFORCEMENT",
+        "TERMS_ENFORCEMENT",
+        "COUNCIL_ROUTING",
+    ):
+        assert features[key] is True, (key, features)
 
 
 def test_setup_install_post_install_validation_failure_structured(tmp_path: Path):
