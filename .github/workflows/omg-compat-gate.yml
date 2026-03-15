@@ -65,7 +65,7 @@ jobs:
         run: python3 scripts/prepare-release-proof-fixtures.py --output-root artifacts/public
 
       - name: Sanitize colon filenames for upload
-        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
+        run: find artifacts -type f -name '*:*' -not -path '*/bundle/plugins/advanced/commands/*' -delete 2>/dev/null || true
 
       - name: Upload compat foundation artifacts
         uses: actions/upload-artifact@v4
@@ -108,7 +108,7 @@ jobs:
           python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/public
 
       - name: Sanitize colon filenames for upload
-        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
+        run: find artifacts -type f -name '*:*' -not -path '*/bundle/plugins/advanced/commands/*' -delete 2>/dev/null || true
 
       - name: Upload compat compiled artifacts
         uses: actions/upload-artifact@v4
@@ -223,7 +223,7 @@ jobs:
           PY
 
       - name: Sanitize colon filenames for upload
-        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
+        run: find artifacts -type f -name '*:*' -not -path '*/bundle/plugins/advanced/commands/*' -delete 2>/dev/null || true
 
       - name: Upload compat parity artifacts
         uses: actions/upload-artifact@v4
