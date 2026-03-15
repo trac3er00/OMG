@@ -77,3 +77,6 @@ plugins/core/skills/
 build/lib/
 build/bdist*/
 build/temp*/
+
+# Generated CI artifacts — never commit
+artifacts/release/
