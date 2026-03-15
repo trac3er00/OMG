@@ -13,6 +13,7 @@ from typing import Any
 from runtime.cli_provider import CLIProvider, register_provider
 from runtime.host_parity import normalize_output
 from runtime.mcp_config_writers import write_codex_mcp_config
+from runtime.release_run_coordinator import build_release_env_prefix
 from runtime.tmux_session_manager import TmuxSessionManager
 
 _logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ class CodexProvider(CLIProvider):
             output = mgr.send_command(
                 session,
                 (
-                    f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+                    f"{build_release_env_prefix(project_dir)}"
                     f"codex exec --json {shlex.quote(prompt)}"
                 ),
                 timeout=timeout,

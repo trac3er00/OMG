@@ -41,7 +41,7 @@ except ImportError:
 
 from runtime.runtime_profile import resolve_parallel_workers
 from runtime.runtime_contracts import write_run_state
-from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id
+from runtime.release_run_coordinator import resolve_current_run_id as resolve_coordinator_run_id, build_release_env_prefix
 from runtime.exec_kernel import get_exec_kernel
 from runtime.context_engine import ContextEngine
 from runtime.context_engine import _extract_clarification
@@ -489,7 +489,7 @@ def invoke_codex_tmux(prompt: str, project_dir: str, timeout: int = 120) -> dict
         session = mgr.get_or_create_session(session_name, cwd=project_dir)
         quoted_prompt = shlex.quote(prompt)
         cmd = (
-            f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+            f"{build_release_env_prefix(project_dir)}"
             f"codex exec --json {quoted_prompt}; "
             f"printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
         )
@@ -540,7 +540,7 @@ def invoke_gemini_tmux(prompt: str, project_dir: str, timeout: int = 120) -> dic
         session = mgr.get_or_create_session(session_name, cwd=project_dir)
         quoted_prompt = shlex.quote(prompt)
         cmd = (
-            f"env CLAUDE_PROJECT_DIR={shlex.quote(project_dir)} "
+            f"{build_release_env_prefix(project_dir)}"
             f"gemini -p {quoted_prompt}; "
             f"printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
         )
