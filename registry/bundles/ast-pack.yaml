@@ -1,6 +1,6 @@
 id: ast-pack
 kind: governance
-version: 2.3.0
+version: 2.2.4
 title: OMG AST Pack Lane
 description: Governed AST search and replace lane with canonical approvals and proofs.
 hosts:
