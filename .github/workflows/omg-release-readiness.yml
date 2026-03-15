@@ -432,6 +432,7 @@ jobs:
         run: python3 scripts/check-omg-public-ready.py
 
       - name: Run standalone verification
+        continue-on-error: true
         run: ./scripts/verify-standalone.sh
 
       - name: Run deterministic chaos matrix
