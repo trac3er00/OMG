@@ -7,7 +7,7 @@ import importlib
 import importlib.util
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 import shutil
@@ -25,7 +25,7 @@ from runtime.proof_chain import _normalize_evidence_pack
 from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
-from runtime.release_run_coordinator import get_active_coordinator_run_id
+from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active
 from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
@@ -2602,6 +2602,10 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         artifact = evidence_payload.get("artifact")
         if isinstance(artifact, dict):
             release_evidence["artifact"] = artifact
+        for _passthrough_key in ("test_delta", "test_intent_lock", "proof_chain"):
+            _passthrough_value = evidence_payload.get(_passthrough_key)
+            if isinstance(_passthrough_value, dict):
+                release_evidence[_passthrough_key] = _passthrough_value
         compliance = evaluate_release_compliance(
             project_dir=str(output_root),
             run_id=run_id,
@@ -2758,6 +2762,10 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
             invalid.append(f"{token}:invalid_path")
             blockers.append(f"invalid_execution_primitive: {token}: invalid_path")
             continue
+        if not resolved.exists() and token == "music_omr_testbed_evidence":
+            tracked_candidates = sorted((output_root / "artifacts" / "release" / "evidence").glob("music-omr-*.json"))
+            if tracked_candidates:
+                resolved = tracked_candidates[-1]
         if not resolved.exists():
             missing.append(token)
             blockers.append(f"missing_execution_primitive: {token}")
@@ -2800,6 +2808,59 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         ):
             invalid.append(f"{token}:stale")
             blockers.append(f"stale_execution_primitive: {token}")
+
+    if "music_omr_testbed_evidence" in evidence_paths and evidence_paths["music_omr_testbed_evidence"]:
+        music_omr_path = _resolve_relative_path(
+            output_root=output_root,
+            rel_path=evidence_paths["music_omr_testbed_evidence"],
+        )
+        if music_omr_path is not None:
+            music_omr_payload = _load_json_or_none(music_omr_path)
+            if isinstance(music_omr_payload, dict):
+                run_id_linkage = str(
+                    music_omr_payload.get("trace_metadata", {}).get("run_id_linkage", "")
+                ).strip()
+                if run_id_linkage != run_id:
+                    invalid.append("music_omr_testbed_evidence:run_id_linkage_mismatch")
+                    blockers.append(
+                        "invalid_execution_primitive: music_omr_testbed_evidence: run_id_linkage_mismatch"
+                    )
+
+                freshness_payload = music_omr_payload.get("freshness")
+                freshness_generated_at = ""
+                if isinstance(freshness_payload, dict):
+                    freshness_generated_at = str(freshness_payload.get("generated_at", "")).strip()
+                generated_at = None
+                if freshness_generated_at:
+                    try:
+                        generated_at = datetime.fromisoformat(freshness_generated_at.replace("Z", "+00:00"))
+                    except ValueError:
+                        generated_at = None
+                if generated_at is None:
+                    invalid.append("music_omr_testbed_evidence:payload_freshness_stale")
+                    blockers.append(
+                        "invalid_execution_primitive: music_omr_testbed_evidence: payload_freshness_stale"
+                    )
+                else:
+                    if generated_at.tzinfo is None:
+                        generated_at = generated_at.replace(tzinfo=timezone.utc)
+                    max_age = timedelta(seconds=max(1, max_age_seconds))
+                    if datetime.now(timezone.utc) - generated_at > max_age:
+                        invalid.append("music_omr_testbed_evidence:payload_freshness_stale")
+                        blockers.append(
+                            "invalid_execution_primitive: music_omr_testbed_evidence: payload_freshness_stale"
+                        )
+                if (
+                    is_release_orchestration_active(project_dir=str(output_root))
+                    and "coordinator_run_id" in music_omr_payload
+                ):
+                    coordinator_run_id = str(music_omr_payload.get("coordinator_run_id", "")).strip()
+                    active_coordinator_run_id = get_active_coordinator_run_id(str(output_root)) or ""
+                    if coordinator_run_id != active_coordinator_run_id:
+                        invalid.append("music_omr_testbed_evidence:coordinator_run_id_mismatch")
+                        blockers.append(
+                            "invalid_execution_primitive: music_omr_testbed_evidence: coordinator_run_id_mismatch"
+                        )
 
     return {
         "status": "ok" if not blockers else "error",
@@ -2928,6 +2989,10 @@ def _check_claim_judge_compliance(output_root: Path) -> dict[str, Any]:
     artifact = evidence_payload.get("artifact")
     if isinstance(artifact, dict):
         release_evidence["artifact"] = artifact
+    for _pt_key in ("test_delta", "test_intent_lock", "proof_chain"):
+        _pt_val = evidence_payload.get(_pt_key)
+        if isinstance(_pt_val, dict):
+            release_evidence[_pt_key] = _pt_val
     decision = evaluate_release_compliance(
         project_dir=str(output_root),
         run_id=run_id,

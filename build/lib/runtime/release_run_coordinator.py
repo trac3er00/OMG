@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 import os
+import shlex
 from pathlib import Path
 from types import ModuleType
 from typing import cast
@@ -492,6 +493,32 @@ def resolve_current_run_id(project_dir: str | None = None, cli_run_id: str | Non
     root = _project_dir(project_dir)
     resolved = resolve_canonical_run_id(str(root), cli_run_id=cli_run_id, generate_if_missing=False)
     return resolved.run_id or None
+
+
+def is_release_orchestration_active(project_dir: str | None = None) -> bool:
+    """Return True only when BOTH conditions hold: an active coordinator run exists AND the env flag is set."""
+    return (
+        bool(get_active_coordinator_run_id(project_dir=project_dir))
+        and os.environ.get("OMG_RELEASE_ORCHESTRATION_ACTIVE", "").strip() == "1"
+    )
+
+
+def build_release_env_prefix(project_dir: str) -> str:
+    """Build a tmux-safe ``env KEY=VALUE ...`` prefix string.
+
+    Always includes ``CLAUDE_PROJECT_DIR``.  Conditionally includes
+    ``OMG_RELEASE_ORCHESTRATION_ACTIVE`` and ``OMG_RUN_ID`` when those
+    variables are set in the parent process environment.
+
+    Returns the prefix string ending with a trailing space.
+    """
+    parts = [f"CLAUDE_PROJECT_DIR={shlex.quote(project_dir)}"]
+    if os.environ.get("OMG_RELEASE_ORCHESTRATION_ACTIVE", "").strip() == "1":
+        parts.append(f"OMG_RELEASE_ORCHESTRATION_ACTIVE={shlex.quote('1')}")
+    run_id = os.environ.get("OMG_RUN_ID", "").strip()
+    if run_id:
+        parts.append(f"OMG_RUN_ID={shlex.quote(run_id)}")
+    return f"env {' '.join(parts)} "
 
 
 def get_active_coordinator_run_id(project_dir: str | None = None) -> str | None:

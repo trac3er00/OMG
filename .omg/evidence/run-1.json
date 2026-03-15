@@ -1,6 +1,7 @@
 {
   "schema": "EvidencePack",
   "run_id": "run-1",
+  "evidence_profile": "release",
   "timestamp": "2026-03-07T00:00:00Z",
   "executor": {
     "user": "release-bot",
@@ -8,11 +9,66 @@
   },
   "environment": {
     "hostname": "localhost",
-    "platform": "darwin"
+    "platform": "linux"
+  },
+  "context_checksum": "4d2e5342ba67b363f07cffcf49ed70dff7a825898aa8efd43b073048929624f6",
+  "profile_version": "profile-v1",
+  "intent_gate_version": "1.0.0",
+  "seed": 5649154386500085045,
+  "temperature_lock": {
+    "critical_model_paths": 0.0,
+    "critical_tool_paths": 0.0
+  },
+  "determinism_version": "forge-determinism-v1",
+  "determinism_scope": "same-hardware",
+  "artifact": {
+    "id": "release-run-1",
+    "signer": "omg-local",
+    "checksum": "sha256:80b867989ebc18673bc9393d3b3460216a3e1e17138a86629e5511d6f627b259",
+    "attestation": {
+      "_type": "https://in-toto.io/Statement/v1",
+      "predicateType": "https://slsa.dev/provenance/v1",
+      "subject": [
+        {
+          "name": "dist/public/run-1-release-bundle.tgz",
+          "digest": {
+            "sha256": "80b867989ebc18673bc9393d3b3460216a3e1e17138a86629e5511d6f627b259"
+          }
+        }
+      ],
+      "predicate": {
+        "buildType": "https://omg.security/offline-attestation/v1",
+        "metadata": {
+          "signer": {
+            "keyid": "1f5fe64ec2f8c901",
+            "algorithm": "ed25519-minisign",
+            "mode": "local-offline"
+          },
+          "timestamp": "2026-03-15T03:40:31.335186+00:00"
+        }
+      },
+      "signer": {
+        "keyid": "1f5fe64ec2f8c901",
+        "algorithm": "ed25519-minisign",
+        "mode": "local-offline"
+      },
+      "issued_at": "2026-03-15T03:40:31.335186+00:00",
+      "signature": {
+        "alg": "ed25519-minisign",
+        "keyid": "1f5fe64ec2f8c901",
+        "value": "untrusted comment: signature from omg local signing key\n9ye4CFOHxaPCR9uClbVxXgQZUY+Jac+20gigYDAsrZQfrObqRCXFa2+It6L3nM2cmmaaJGtA9Pe4tcTf6PytCw==\ntrusted comment: type=omg-slsa-v1 keyid=1f5fe64ec2f8c901 issued_at=2026-03-15T03:40:31.353331+00:00 artifact=dist/public/run-1-release-bundle.tgz sha256=80b867989ebc18673bc9393d3b3460216a3e1e17138a86629e5511d6f627b259\ne79vnFq9CS7phxl34E5Rxu7Zca214i3jpZtnCuXN2P/vxWA2vO+IIDbTpnl67gBLYkemofMv5i0a2264u8jTCQ==",
+        "trusted_comment": "type=omg-slsa-v1 keyid=1f5fe64ec2f8c901 issued_at=2026-03-15T03:40:31.353331+00:00 artifact=dist/public/run-1-release-bundle.tgz sha256=80b867989ebc18673bc9393d3b3460216a3e1e17138a86629e5511d6f627b259"
+      }
+    },
+    "permissions": [
+      "read"
+    ],
+    "static_scan": [],
+    "risk_level": "low"
   },
   "tests": [
     {
-      "name": "worker_implementation",
+      "name": "release_readiness",
       "passed": true
     }
   ],
@@ -26,29 +82,30 @@
     "files": 1
   },
   "reproducibility": {
-    "cmd": "python3 -m pytest tests -q"
+    "cmd": "python3 scripts/omg.py release readiness --channel dual"
   },
   "unresolved_risks": [],
   "provenance": [
     {
-      "source": "security-check"
+      "source": "release-proof"
     }
   ],
   "trust_scores": {
     "overall": 1.0
   },
-  "api_twin": {},
   "claims": [
     {
-      "claim_type": "tests_passed",
+      "claim_type": "release_ready",
+      "run_id": "run-1",
+      "evidence_profile": "release",
+      "artifacts": [
+        ".omg/evidence/junit.xml",
+        ".omg/evidence/coverage.xml",
+        ".omg/evidence/results.sarif",
+        ".omg/evidence/browser_trace.json"
+      ],
       "trace_ids": [
         "trace-1"
-      ],
-      "artifacts": [
-        "junit.xml",
-        "coverage.xml",
-        "results.sarif",
-        "trace.zip"
       ]
     }
   ],
@@ -62,9 +119,77 @@
   "test_delta": {
     "override": {
       "approved_by": "release-bot"
+    },
+    "lock_id": "lock-1",
+    "waiver_artifact": {
+      "artifact_path": ".omg/evidence/waiver-tests-lock-1.json",
+      "reason": "approved release fixture"
     }
   },
-  "context_checksum": "fb67e4073e3a79ce8245fb91c36325d7c41d057e1395ed28b8e637751d084066",
-  "profile_version": "forge-run-v1",
-  "intent_gate_version": "1.0.0"
+  "intent_gate_state": {
+    "path": ".omg/state/intent_gate/run-1.json",
+    "run_id": "run-1"
+  },
+  "profile_digest": {
+    "path": ".omg/state/profile.yaml",
+    "profile_version": "profile-v1"
+  },
+  "session_health_state": {
+    "path": ".omg/state/session_health/run-1.json",
+    "run_id": "run-1"
+  },
+  "council_verdicts": {
+    "path": ".omg/state/council_verdicts/run-1.json",
+    "run_id": "run-1"
+  },
+  "forge_starter_proof": {
+    "path": ".omg/evidence/forge-specialists-run-1.json",
+    "run_id": "run-1"
+  },
+  "exec_kernel_state": {
+    "path": ".omg/state/exec-kernel/run-1.json",
+    "run_id": "run-1"
+  },
+  "worker_watchdog_replay": {
+    "path": ".omg/evidence/subagents/run-1-replay.json",
+    "run_id": "run-1"
+  },
+  "merge_writer_provenance": {
+    "path": ".omg/evidence/merge-writer-run-1.json",
+    "run_id": "run-1"
+  },
+  "tool_fabric_ledger": {
+    "path": ".omg/state/ledger/tool-ledger.jsonl",
+    "run_id": "run-1"
+  },
+  "budget_envelope_state": {
+    "path": ".omg/state/budget-envelopes/run-1.json",
+    "run_id": "run-1"
+  },
+  "issue_report": {
+    "path": ".omg/evidence/issues/run-1.json",
+    "run_id": "run-1"
+  },
+  "host_parity_report": {
+    "path": ".omg/evidence/host-parity-run-1.json",
+    "run_id": "run-1"
+  },
+  "music_omr_testbed_evidence": {
+    "path": ".omg/evidence/music-omr-run-1.json",
+    "run_id": "run-1"
+  },
+  "write_lease_provenance": {
+    "path": ".omg/evidence/merge-writer-run-1.json",
+    "run_id": "run-1"
+  },
+  "proof_chain": {
+    "status": "ok",
+    "trace_id": "trace-1",
+    "blockers": []
+  },
+  "test_intent_lock": {
+    "status": "ok",
+    "lock_id": "lock-1",
+    "run_id": "run-1"
+  }
 }
