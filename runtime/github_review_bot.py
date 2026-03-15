@@ -78,8 +78,8 @@ class GitHubReviewBot:
             review_status=str(formatted["review_status"]),
             body=str(formatted["body"]),
         )
-        if check_result.get("status") != "ok":
-            return check_result
+        # Check-run is supplementary — don't fail the whole flow if it errors
+        # (e.g., app may lack Checks permission while still having PR write)
 
         review_status = self._to_review_status(str(formatted["review_status"]))
         state = self.contract.record_review(

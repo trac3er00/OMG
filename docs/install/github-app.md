@@ -27,9 +27,9 @@ The bot requires three configuration variables.
 
 | Variable | Type | Description |
 | :--- | :--- | :--- |
-| `GITHUB_APP_ID` | Config Variable | The App ID from your GitHub App settings. |
-| `GITHUB_APP_PRIVATE_KEY` | Secret | The full content of the downloaded `.pem` file. |
-| `GITHUB_INSTALLATION_ID` | Config Variable | The ID from the installation URL. |
+| `OMG_APP_ID` | Config Variable | The App ID from your GitHub App settings. |
+| `OMG_APP_PRIVATE_KEY` | Secret | The full content of the downloaded `.pem` file. |
+| `OMG_APP_INSTALLATION_ID` | Config Variable | The ID from the installation URL. |
 
 #### Local Development
 Store the private key in a file and load it:
@@ -40,12 +40,13 @@ export GITHUB_APP_PRIVATE_KEY="$(cat path/to/your-app.private-key.pem)"
 ```
 
 #### GitHub Actions
-Add the App ID and Installation ID as **Variables** and the Private Key as a **Secret**:
+Add the App ID and Installation ID as **Variables** and the Private Key as a **Secret**.
+GitHub Actions forbids secret names starting with `GITHUB_`, so we use the `OMG_` prefix for stored values and map them to the `GITHUB_`-prefixed env vars the runtime expects:
 ```yaml
 env:
-  GITHUB_APP_ID: ${{ vars.GITHUB_APP_ID }}
-  GITHUB_INSTALLATION_ID: ${{ vars.GITHUB_INSTALLATION_ID }}
-  GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+  GITHUB_APP_ID: ${{ vars.OMG_APP_ID }}
+  GITHUB_INSTALLATION_ID: ${{ vars.OMG_APP_INSTALLATION_ID }}
+  GITHUB_APP_PRIVATE_KEY: ${{ secrets.OMG_APP_PRIVATE_KEY }}
 ```
 
 ## Security Hardening

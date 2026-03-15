@@ -328,9 +328,9 @@ jobs:
             --input artifacts/reviewer/review-input.json \
             --output artifacts/reviewer/review-result.json
         env:
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          GITHUB_INSTALLATION_ID: ${{ secrets.GITHUB_INSTALLATION_ID }}
+          GITHUB_APP_ID: ${{ secrets.OMG_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.OMG_APP_PRIVATE_KEY }}
+          GITHUB_INSTALLATION_ID: ${{ secrets.OMG_APP_INSTALLATION_ID }}
 
       - name: Upload reviewer bot result artifacts
         if: always()
