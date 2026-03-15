@@ -249,7 +249,7 @@ def atomic_json_write(path, data):
 
 # Feature flags cache — read settings.json once per hook invocation
 _FEATURE_CACHE = {}
-_SETTINGS_PRESET = None
+_settings_preset = None
 _MANAGED_PRESET_FLAGS = {
     "SETUP",
     "SETUP_WIZARD",
@@ -327,10 +327,10 @@ _FEATURE_ALIASES = {
 
 def _load_feature_settings():
     """Populate feature cache from settings.json and return the configured preset."""
-    global _SETTINGS_PRESET
+    global _settings_preset
 
     _FEATURE_CACHE.clear()
-    _SETTINGS_PRESET = None
+    _settings_preset = None
     try:
         settings_path = os.path.join(get_project_dir(), "settings.json")
         if os.path.exists(settings_path):
@@ -343,7 +343,7 @@ def _load_feature_settings():
                     _FEATURE_CACHE.update(features)
                 preset = omg.get("preset")
                 if isinstance(preset, str) and preset in _PRESET_FEATURES:
-                    _SETTINGS_PRESET = preset
+                    _settings_preset = preset
     except Exception:
         pass
 
@@ -381,10 +381,10 @@ def get_feature_flag(flag_name, default=True):
         if name in _FEATURE_CACHE:
             return _FEATURE_CACHE[name]
 
-    if _SETTINGS_PRESET in _PRESET_FEATURES:
+    if _settings_preset in _PRESET_FEATURES:
         for name in lookup_names:
             if name in _MANAGED_PRESET_FLAGS:
-                return _PRESET_FEATURES[_SETTINGS_PRESET].get(name, default)
+                return _PRESET_FEATURES[_settings_preset].get(name, default)
 
     return default
 

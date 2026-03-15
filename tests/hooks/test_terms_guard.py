@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from tests.hooks.helpers import get_decision, run_hook_json
 
 
@@ -14,6 +16,22 @@ def _file_payload(content: str, *, tool: str = "Write", file_path: str = "README
     }
 
 
+def _reason(output: dict[str, Any] | None) -> str:
+    if not isinstance(output, dict):
+        return ""
+    hook_output = output.get("hookSpecificOutput")
+    if not isinstance(hook_output, dict):
+        return ""
+    reason = hook_output.get("permissionDecisionReason")
+    return reason if isinstance(reason, str) else ""
+
+
+def _decision(output: dict[str, Any] | None) -> str | None:
+    if not isinstance(output, dict):
+        return None
+    return get_decision(output)
+
+
 def test_terms_guard_blocks_promotional_star_and_cross_model_sharing() -> None:
     out = run_hook_json(
         "hooks/terms-guard.py",
@@ -21,9 +39,8 @@ def test_terms_guard_blocks_promotional_star_and_cross_model_sharing() -> None:
         env_overrides={"OMG_TERMS_ENFORCEMENT_ENABLED": "1"},
     )
 
-    assert get_decision(out) == "deny"
-    reason = (out.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
-    assert "promotion_star_cross_model" in reason
+    assert _decision(out) == "deny"
+    assert "promotion_star_cross_model" in _reason(out)
 
 
 def test_terms_guard_blocks_hidden_model_identity_switching() -> None:
@@ -33,9 +50,8 @@ def test_terms_guard_blocks_hidden_model_identity_switching() -> None:
         env_overrides={"OMG_TERMS_ENFORCEMENT_ENABLED": "1"},
     )
 
-    assert get_decision(out) == "deny"
-    reason = (out.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
-    assert "hidden_model_identity_switch" in reason
+    assert _decision(out) == "deny"
+    assert "hidden_model_identity_switch" in _reason(out)
 
 
 def test_terms_guard_blocks_undisclosed_third_party_sharing() -> None:
@@ -45,9 +61,8 @@ def test_terms_guard_blocks_undisclosed_third_party_sharing() -> None:
         env_overrides={"OMG_TERMS_ENFORCEMENT_ENABLED": "1"},
     )
 
-    assert get_decision(out) == "deny"
-    reason = (out.get("hookSpecificOutput") or {}).get("permissionDecisionReason", "")
-    assert "undisclosed_third_party_sharing" in reason
+    assert _decision(out) == "deny"
+    assert "undisclosed_third_party_sharing" in _reason(out)
 
 
 def test_terms_guard_allows_normal_code_content() -> None:
@@ -57,7 +72,7 @@ def test_terms_guard_allows_normal_code_content() -> None:
         env_overrides={"OMG_TERMS_ENFORCEMENT_ENABLED": "1"},
     )
 
-    assert get_decision(out) is None
+    assert _decision(out) is None
 
 
 def test_terms_guard_allows_docs_git_and_test_output_text() -> None:
@@ -72,7 +87,7 @@ def test_terms_guard_allows_docs_git_and_test_output_text() -> None:
         env_overrides={"OMG_TERMS_ENFORCEMENT_ENABLED": "1"},
     )
 
-    assert get_decision(out) is None
+    assert _decision(out) is None
 
 
 def test_terms_guard_noops_when_terms_enforcement_disabled() -> None:
@@ -82,4 +97,4 @@ def test_terms_guard_noops_when_terms_enforcement_disabled() -> None:
         env_overrides={"OMG_TERMS_ENFORCEMENT_ENABLED": "0"},
     )
 
-    assert get_decision(out) is None
+    assert _decision(out) is None

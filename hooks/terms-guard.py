@@ -10,7 +10,7 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, get_feature_flag
+from hooks._common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, get_feature_flag
 
 bootstrap_runtime_paths(__file__)
 setup_crash_handler("terms-guard", fail_closed=True)
