@@ -96,6 +96,7 @@ Examples:
   ./OMG-setup.sh install --install-as-plugin
   ./OMG-setup.sh install --mode=coexist --preset=interop
   ./OMG-setup.sh update --non-interactive --merge-policy=apply
+  bunx @trac3er/oh-my-god
   ./OMG-setup.sh reinstall --dry-run
   ./OMG-setup.sh uninstall --dry-run
 EOF
@@ -239,12 +240,12 @@ parse_args() {
         FRESH_INSTALL=true
     fi
 
-    if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ]; then
+    if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ] || [ -n "${BUN_INSTALL:-}" ]; then
         NON_INTERACTIVE=true
     fi
 
-    # Auto-enable plugin mode for npm installs
-    if [ -n "${npm_execpath:-}" ] || [ -n "${npm_lifecycle_event:-}" ]; then
+    # Auto-enable plugin mode for npm/bunx installs
+    if [ -n "${npm_execpath:-}" ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${BUN_INSTALL:-}" ]; then
         INSTALL_AS_PLUGIN=true
     fi
 
