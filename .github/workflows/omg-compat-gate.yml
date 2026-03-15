@@ -64,6 +64,9 @@ jobs:
       - name: Seed release-readiness fixtures for compat gate
         run: python3 scripts/prepare-release-proof-fixtures.py --output-root artifacts/public
 
+      - name: Sanitize colon filenames for upload
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
+
       - name: Upload compat foundation artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -102,6 +105,9 @@ jobs:
         run: |
           HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
           python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/public
+
+      - name: Sanitize colon filenames for upload
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
       - name: Upload compat compiled artifacts
         uses: actions/upload-artifact@v4
@@ -213,6 +219,9 @@ jobs:
           if not result.passed:
               raise SystemExit(f"host semantic parity drift detected: {result.drift_details}")
           PY
+
+      - name: Sanitize colon filenames for upload
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
       - name: Upload compat parity artifacts
         uses: actions/upload-artifact@v4

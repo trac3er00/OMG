@@ -2,41 +2,15 @@
   "schema": "MusicOMREvidence",
   "schema_version": "2.1.0",
   "run_id": "run-1",
-  "trace_id": "",
-  "trace": {
-    "trace_id": "",
-    "gate": "music-omr-daily",
-    "run_scope": "release-run"
-  },
   "trace_metadata": {
-    "testbed": "MusicOMRTestbed",
-    "fixture_count": 5,
-    "fixture_inventory_valid": true,
-    "deterministic": true,
-    "gate": "music-omr-daily",
     "run_id_linkage": "run-1"
   },
-  "fixture_inventory": [
-    "simple_c_major.json",
-    "simple_g_major.json",
-    "chromatic_fragment.json",
-    "waltz_three_four.json",
-    "transposition_pressure_fixture.json"
-  ],
-  "fixture_count": 5,
-  "fixture_inventory_valid": true,
   "freshness": {
-    "generated_at": "2026-03-15T02:08:10.498761+00:00",
-    "expires_at": "2026-03-16T02:08:10.498761+00:00",
+    "generated_at": "2026-03-15T03:42:53.890799+00:00",
+    "expires_at": "2026-03-16T03:42:53.890799+00:00",
     "max_age_seconds": 86400,
     "freshness_threshold_secs": 86400,
     "is_fresh": true
   },
-  "freshness_threshold_secs": 86400,
-  "results": {
-    "pressure": {
-      "deterministic": true
-    }
-  },
-  "coordinator_run_id": "run-1"
+  "results": {}
 }

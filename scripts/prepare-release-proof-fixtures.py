@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from registry.verify_artifact import sign_artifact_statement
@@ -516,9 +517,21 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "overall_status": "ok",
         },
     )
+    _now = datetime.now(timezone.utc)
     music_omr_payload = {
         "schema": "MusicOMREvidence",
+        "schema_version": "2.1.0",
         "run_id": run_id,
+        "trace_metadata": {
+            "run_id_linkage": run_id,
+        },
+        "freshness": {
+            "generated_at": _now.isoformat(),
+            "expires_at": (_now + timedelta(seconds=86400)).isoformat(),
+            "max_age_seconds": 86400,
+            "freshness_threshold_secs": 86400,
+            "is_fresh": True,
+        },
         "results": {},
     }
     _write_json(music_omr_path, music_omr_payload)
