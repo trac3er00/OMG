@@ -376,6 +376,11 @@ jobs:
           path: artifacts/release
           merge-multiple: true
 
+      - name: Restore canonical settings.json after artifact merge
+        run: |
+          cp settings.json artifacts/release/settings.json
+          mkdir -p artifacts/release/.omg/evidence
+
       - name: Run release readiness gate
         env:
           OMG_REQUIRE_HOST_PARITY_REPORT: "1"
