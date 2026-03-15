@@ -2602,6 +2602,10 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         artifact = evidence_payload.get("artifact")
         if isinstance(artifact, dict):
             release_evidence["artifact"] = artifact
+        for _passthrough_key in ("test_delta", "test_intent_lock", "proof_chain"):
+            _passthrough_value = evidence_payload.get(_passthrough_key)
+            if isinstance(_passthrough_value, dict):
+                release_evidence[_passthrough_key] = _passthrough_value
         compliance = evaluate_release_compliance(
             project_dir=str(output_root),
             run_id=run_id,
@@ -2970,6 +2974,10 @@ def _check_claim_judge_compliance(output_root: Path) -> dict[str, Any]:
     artifact = evidence_payload.get("artifact")
     if isinstance(artifact, dict):
         release_evidence["artifact"] = artifact
+    for _pt_key in ("test_delta", "test_intent_lock", "proof_chain"):
+        _pt_val = evidence_payload.get(_pt_key)
+        if isinstance(_pt_val, dict):
+            release_evidence[_pt_key] = _pt_val
     decision = evaluate_release_compliance(
         project_dir=str(output_root),
         run_id=run_id,

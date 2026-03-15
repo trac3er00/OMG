@@ -268,6 +268,20 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
                     "path": ".omg/evidence/music-omr-run-1.json",
                     "run_id": run_id,
                 },
+                "write_lease_provenance": {
+                    "path": ".omg/evidence/merge-writer-run-1.json",
+                    "run_id": run_id,
+                },
+                "proof_chain": {
+                    "status": "ok",
+                    "trace_id": trace_id,
+                    "blockers": [],
+                },
+                "test_intent_lock": {
+                    "status": "ok",
+                    "lock_id": lock_id,
+                    "run_id": run_id,
+                },
             },
     )
     _write_json(
