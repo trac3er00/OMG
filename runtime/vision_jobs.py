@@ -7,7 +7,10 @@ import itertools
 from pathlib import Path
 from typing import Any
 
-from omg_natives.image import image
+try:
+    from omg_natives.image import image
+except ImportError:
+    image = None  # omg_natives is an optional dependency
 
 from runtime.vision_artifacts import write_vision_artifacts
 from runtime.vision_cache import build_cache_key, load_cached_result, store_cached_result
