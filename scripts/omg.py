@@ -973,6 +973,17 @@ def _add_ecosystem_subcommands(parent: argparse.ArgumentParser, *, dest: str) ->
     ecosystem_sync.set_defaults(func=cmd_ecosystem_sync)
 
 
+def cmd_provider_parity_eval(args: argparse.Namespace) -> int:
+    from runtime.provider_parity_eval import run_provider_parity_eval
+    result = run_provider_parity_eval(
+        task_path=args.task,
+        mode=args.mode,
+        output_root=args.output_root or None,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
 def cmd_context_compile(args: argparse.Namespace) -> int:
     from runtime.context_compiler import compile_context_packets
     hosts = args.hosts or []
@@ -1480,6 +1491,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     context_parser = sub.add_parser("context", help="Context packet compiler")
     _add_context_subcommands(context_parser, dest="context_command")
+
+    parity_eval = sub.add_parser("provider-parity-eval", help="Evaluate provider parity across canonical hosts")
+    parity_eval.add_argument("--task", required=True, help="Path to bounded task JSON file")
+    parity_eval.add_argument("--mode", default="recorded", choices=["recorded", "live"], help="Evaluation mode")
+    parity_eval.add_argument("--output-root", default="", help="Write outputs here instead of repo root")
+    parity_eval.set_defaults(func=cmd_provider_parity_eval)
 
     release = sub.add_parser("release", help="OMG release-readiness checks")
     _add_release_subcommands(release, dest="release_command")
