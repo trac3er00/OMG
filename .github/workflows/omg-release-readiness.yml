@@ -136,7 +136,7 @@ jobs:
         run: python3 scripts/omg.py contract validate
 
       - name: Sanitize colon filenames for upload
-        run: find artifacts -type f -name '*:*' -not -path '*/bundle/plugins/advanced/commands/*' -delete 2>/dev/null || true
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
       - name: Upload foundation artifacts
         uses: actions/upload-artifact@v4
@@ -179,7 +179,7 @@ jobs:
           python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/release
 
       - name: Sanitize colon filenames for upload
-        run: find artifacts -type f -name '*:*' -not -path '*/bundle/plugins/advanced/commands/*' -delete 2>/dev/null || true
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
       - name: Upload public compiled artifacts
         uses: actions/upload-artifact@v4
@@ -222,7 +222,7 @@ jobs:
           python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel enterprise --output-root artifacts/release
 
       - name: Sanitize colon filenames for upload
-        run: find artifacts -type f -name '*:*' -not -path '*/bundle/plugins/advanced/commands/*' -delete 2>/dev/null || true
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
       - name: Upload enterprise compiled artifacts
         uses: actions/upload-artifact@v4
@@ -335,7 +335,7 @@ jobs:
           PY
 
       - name: Sanitize colon filenames for upload
-        run: find artifacts -type f -name '*:*' -not -path '*/bundle/plugins/advanced/commands/*' -delete 2>/dev/null || true
+        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
       - name: Upload host parity artifacts
         uses: actions/upload-artifact@v4

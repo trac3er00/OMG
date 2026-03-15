@@ -96,7 +96,8 @@ def _get_required_advanced_plugin_artifacts(root: Path) -> tuple[str, ...]:
         command_path = command.get("path")
         if not isinstance(command_path, str) or not command_path:
             continue
-        bundled_path = f"bundle/plugins/advanced/{command_path}"
+        safe_command_path = command_path.replace(":", "-")
+        bundled_path = f"bundle/plugins/advanced/{safe_command_path}"
         if bundled_path in seen:
             continue
         required.append(bundled_path)
@@ -653,7 +654,8 @@ def _copy_contract_inputs(root: Path, output_root: Path) -> list[Path]:
 
     advanced_commands = resolve_assets(Path("plugins") / "advanced" / "commands", suffix=".md")
     for src in advanced_commands:
-        rel = Path("plugins") / "advanced" / "commands" / src.name
+        safe_name = src.name.replace(":", "-")
+        rel = Path("plugins") / "advanced" / "commands" / safe_name
         dst = output_root / rel
         _write_text(dst, src.read_text(encoding="utf-8"))
         copied.append(dst)
