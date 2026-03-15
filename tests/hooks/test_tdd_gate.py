@@ -142,7 +142,7 @@ def test_release_orchestration_env_only_blocks_done_when(tmp_path, monkeypatch) 
         project_dir=str(tmp_path),
         lock_id=lock_id,
         run_id=run_id,
-        metadata={},
+        metadata={"done_when": ""},
     )
     assert result["status"] == "blocked"
     assert result["reason"] == "done_when_required"
@@ -162,7 +162,7 @@ def test_release_orchestration_active_run_only_blocks_done_when(tmp_path, monkey
         project_dir=str(tmp_path),
         lock_id=lock_id,
         run_id=run_id,
-        metadata={},
+        metadata={"done_when": ""},
     )
     assert result["status"] == "blocked"
     assert result["reason"] == "done_when_required"
@@ -448,7 +448,7 @@ def test_mutation_gate_blocks_without_done_when(tmp_path, monkeypatch) -> None:
         project_dir=str(tmp_path),
         lock_id=lock_id,
         run_id=run_id,
-        metadata={},
+        metadata={"done_when": ""},
     )
 
     assert result["status"] == "blocked"

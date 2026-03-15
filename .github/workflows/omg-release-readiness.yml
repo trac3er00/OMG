@@ -387,7 +387,28 @@ jobs:
           OMG_REQUIRE_EXEC_KERNEL_EVIDENCE: "1"
           OMG_REQUIRE_GOVERNED_TOOL_EVIDENCE: "1"
           OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
-        run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release > artifacts/release/.omg/evidence/release-readiness.json
+        run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release | tee artifacts/release/.omg/evidence/release-readiness.json; test ${PIPESTATUS[0]} -eq 0
+
+      - name: Print release readiness blockers (debug)
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, sys
+          p = pathlib.Path('artifacts/release/.omg/evidence/release-readiness.json')
+          if not p.exists():
+              print('release-readiness.json not found')
+              sys.exit(0)
+          try:
+              d = json.loads(p.read_text())
+          except Exception as e:
+              print(f'Could not parse JSON: {e}')
+              sys.exit(0)
+          print('STATUS:', d.get('status'))
+          blockers = d.get('blockers', [])
+          print(f'BLOCKERS ({len(blockers)}):')
+          for b in blockers:
+              print(' -', b)
+          PY
 
       - name: Assert execution primitive evidence surfaced
         run: |

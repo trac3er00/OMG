@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Governed Execution Engine Milestone
+
+- **production preset**: new `production` preset enables all governed flags — use `--preset=production` with `OMG-setup.sh` or `bunx @trac3er/oh-my-god`
+- **bunx install path**: `bunx @trac3er/oh-my-god` works alongside `npm install`
+- **terms_guard**: real enforcement blocks promotional cross-model sharing, hidden identity switching, undisclosed third-party data sharing
+- **six governed agents**: `architect-planner`, `explorer-indexer`, `implementer`, `security-reviewer`, `verifier`, `causal-tracer` compiled into Claude host artifacts; no `bypassPermissions` on any
+- **method compiler**: `contract compile --method` emits signed seven-phase methodology artifacts
+- **context compiler**: `context compile` emits bounded provenance-only packets for Claude, Codex, Gemini, and Kimi
+- **provider parity eval**: `provider-parity-eval --task task.json --mode recorded` evaluates all canonical hosts and emits a structured report
+- **PR risk engine**: structured risk classification by changed area; required gates and bundles exposed in PR review output
+- **governance hotfixes**: `verify_done_when({})` returns `ok`, `git tag -l` not classified as mutation, test-validator false positives eliminated
+- canonical hosts: `claude`, `codex`, `gemini`, `kimi`; OpenCode remains compatibility-only
+
 ## 2.2.3 - 2026-03-11
 
 - fixed `/OMG:deep-plan` 404 by adding missing root compatibility stub routing to canonical plan-council bundle

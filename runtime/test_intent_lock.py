@@ -144,18 +144,40 @@ def verify_lock(project_dir: str, run_id: str | None, lock_id: str | None = None
 
 def verify_done_when(metadata: dict[str, Any] | None, run_id: str | None) -> dict[str, Any]:
     metadata_obj = metadata if isinstance(metadata, dict) else {}
+    normalized_run_id = str(run_id or "").strip() or None
+
+    if metadata is None:
+        # No metadata provided at all -- treat the same as metadata without
+        # a done_when key.  This is the common case for CLI / non-Claude
+        # invocations and should not block.
+        return {
+            "status": "ok",
+            "reason": "done_when_not_provided",
+            "run_id": normalized_run_id,
+            "done_when_declared": False,
+            "done_when_completed": False,
+        }
+
+    if "done_when" not in metadata_obj:
+        return {
+            "status": "ok",
+            "reason": "done_when_not_declared",
+            "run_id": normalized_run_id,
+            "done_when_declared": False,
+            "done_when_completed": False,
+        }
+
     criteria = _extract_done_when_criteria(metadata_obj.get("done_when"))
     if not criteria:
         return {
             "status": "missing_done_when",
             "reason": "done_when_required",
-            "run_id": str(run_id or "").strip() or None,
+            "run_id": normalized_run_id,
             "done_when_declared": False,
             "done_when_completed": False,
         }
 
     done_when_run_id = _extract_done_when_run_id(metadata_obj.get("done_when"))
-    normalized_run_id = str(run_id or "").strip()
     if done_when_run_id and normalized_run_id and done_when_run_id != normalized_run_id:
         return {
             "status": "done_when_contract_mismatch",

@@ -96,7 +96,8 @@ def _get_required_advanced_plugin_artifacts(root: Path) -> tuple[str, ...]:
         command_path = command.get("path")
         if not isinstance(command_path, str) or not command_path:
             continue
-        bundled_path = f"bundle/plugins/advanced/{command_path}"
+        safe_command_path = command_path.replace(":", "-")
+        bundled_path = f"bundle/plugins/advanced/{safe_command_path}"
         if bundled_path in seen:
             continue
         required.append(bundled_path)
@@ -140,7 +141,14 @@ REQUIRED_CLAUDE_HOOK_EVENTS = (
     "PostToolUseFailure",
     "InstructionsLoaded",
 )
-REQUIRED_CLAUDE_SUBAGENT_NAMES = ("security-reviewer", "release-manager")
+REQUIRED_CLAUDE_SUBAGENT_NAMES = (
+    "architect-planner",
+    "explorer-indexer",
+    "implementer",
+    "security-reviewer",
+    "verifier",
+    "causal-tracer",
+)
 REQUIRED_CODEX_AGENTS_SECTIONS = (
     "## Build & Test",
     "## Protected Paths",
@@ -646,7 +654,8 @@ def _copy_contract_inputs(root: Path, output_root: Path) -> list[Path]:
 
     advanced_commands = resolve_assets(Path("plugins") / "advanced" / "commands", suffix=".md")
     for src in advanced_commands:
-        rel = Path("plugins") / "advanced" / "commands" / src.name
+        safe_name = src.name.replace(":", "-")
+        rel = Path("plugins") / "advanced" / "commands" / safe_name
         dst = output_root / rel
         _write_text(dst, src.read_text(encoding="utf-8"))
         copied.append(dst)
@@ -848,36 +857,43 @@ def _default_claude_hook_registrations() -> dict[str, list[dict[str, Any]]]:
 
 
 def _build_claude_subagents(protected_paths: list[str]) -> list[dict[str, Any]]:
-    """Build narrow-tool Claude subagent definitions. No bypassPermissions allowed."""
     return [
         {
-            "name": "security-reviewer",
-            "description": "Read-only security review subagent with scoped tool access.",
-            "tools": [
-                "Read",
-                "Grep",
-                "Glob",
-                "Bash(grep *)",
-                "Bash(find *)",
-                "Bash(git log *)",
-                "Bash(git diff *)",
-            ],
+            "name": "architect-planner",
+            "description": "Read-only planning subagent. Analyses structure, proposes plans, produces evidence. No mutations.",
+            "tools": ["Read", "Grep", "Glob", "Bash(git log *)", "Bash(git diff *)", "Bash(python3 scripts/omg.py *)", "WebSearch"],
             "bypassPermissions": False,
         },
         {
-            "name": "release-manager",
-            "description": "Release management subagent with write access governed by protected-path policy.",
-            "tools": [
-                "Read",
-                "Write",
-                "Edit",
-                "Grep",
-                "Glob",
-                "Bash(git *)",
-                "Bash(python3 scripts/omg.py *)",
-            ],
+            "name": "explorer-indexer",
+            "description": "Read-only codebase exploration subagent. Searches, indexes, and answers structural questions.",
+            "tools": ["Read", "Grep", "Glob", "Bash(grep *)", "Bash(find *)", "Bash(git log *)", "Bash(git diff *)"],
+            "bypassPermissions": False,
+        },
+        {
+            "name": "implementer",
+            "description": "Write-capable implementation subagent governed by protected-path policy and mutation gate.",
+            "tools": ["Read", "Write", "Edit", "MultiEdit", "Grep", "Glob", "Bash(git *)", "Bash(python3 *)", "Bash(pytest *)"],
             "bypassPermissions": False,
             "protectedPaths": protected_paths,
+        },
+        {
+            "name": "security-reviewer",
+            "description": "Read-only security review subagent with scoped tool access.",
+            "tools": ["Read", "Grep", "Glob", "Bash(grep *)", "Bash(find *)", "Bash(git log *)", "Bash(git diff *)"],
+            "bypassPermissions": False,
+        },
+        {
+            "name": "verifier",
+            "description": "Read-only verification subagent. Runs tests, lints, and produces evidence without mutations.",
+            "tools": ["Read", "Grep", "Glob", "Bash(python3 -m pytest *)", "Bash(python3 scripts/omg.py *)", "Bash(git diff *)"],
+            "bypassPermissions": False,
+        },
+        {
+            "name": "causal-tracer",
+            "description": "Read-only causal analysis subagent. Traces errors, diffs, and logs to root causes.",
+            "tools": ["Read", "Grep", "Glob", "Bash(git log *)", "Bash(git diff *)", "Bash(git blame *)", "Bash(grep *)"],
+            "bypassPermissions": False,
         },
     ]
 
@@ -1530,6 +1546,85 @@ def compile_contract_outputs(
         "channel": channel,
         "hosts": selected_hosts,
         "artifacts": [str(path.relative_to(output)) for path in artifacts],
+        "manifest": str(manifest_path.relative_to(output)),
+    }
+
+
+_METHOD_PHASES = (
+    "deep-interview",
+    "approved-spec",
+    "done-when-contract",
+    "test-lock",
+    "implementation-plan",
+    "review",
+    "release",
+)
+
+
+def compile_method_artifacts(
+    *,
+    root_dir: str | Path | None = None,
+    output_root: str | Path | None = None,
+    hosts: list[str] | tuple[str, ...] | None = None,
+    channel: str = "public",
+) -> dict[str, Any]:
+    root = _resolve_root(root_dir)
+    output = _resolve_output_root(root, output_root)
+    selected_hosts = list(hosts or SUPPORTED_HOSTS)
+    method_dir = output / ".omg" / "evidence" / "method"
+    method_dir.mkdir(parents=True, exist_ok=True)
+    issued_at = datetime.now(timezone.utc).isoformat()
+
+    phase_artifacts: list[str] = []
+    for phase in _METHOD_PHASES:
+        phase_payload: dict[str, Any] = {
+            "schema": "OmgMethodPhase",
+            "phase": phase,
+            "contract_version": CANONICAL_VERSION,
+            "channel": channel,
+            "hosts": selected_hosts,
+            "issued_at": issued_at,
+        }
+        phase_path = method_dir / f"{phase}.json"
+        _write_json(phase_path, phase_payload)
+        raw = json.dumps(phase_payload, sort_keys=True, separators=(",", ":")).encode()
+        digest = hashlib.sha256(raw).hexdigest()
+        try:
+            from registry.verify_artifact import sign_artifact_statement
+            statement = sign_artifact_statement(
+                artifact_path=str(phase_path),
+                subject_digest=digest,
+                trusted_comment=f"omg-method:{phase}:{CANONICAL_VERSION}",
+            )
+        except Exception:
+            statement = {
+                "schema": "OmgMethodPhaseStatement",
+                "phase": phase,
+                "subject_digest": digest,
+                "issued_at": issued_at,
+                "signer": {"keyid": "offline", "algorithm": "sha256-only", "mode": "local-offline"},
+            }
+        stmt_path = method_dir / f"{phase}.statement.json"
+        _write_json(stmt_path, statement)
+        phase_artifacts.append(phase)
+
+    manifest: dict[str, Any] = {
+        "schema": "OmgMethodManifest",
+        "phases": list(_METHOD_PHASES),
+        "contract_version": CANONICAL_VERSION,
+        "channel": channel,
+        "hosts": selected_hosts,
+        "issued_at": issued_at,
+    }
+    manifest_path = method_dir / "manifest.json"
+    _write_json(manifest_path, manifest)
+
+    return {
+        "schema": "OmgMethodCompileResult",
+        "status": "ok",
+        "channel": channel,
+        "hosts": selected_hosts,
+        "phases": phase_artifacts,
         "manifest": str(manifest_path.relative_to(output)),
     }
 

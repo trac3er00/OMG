@@ -1,4 +1,0 @@
-untrusted comment: signature from omg local signing key
-amxZg81TAAn5XJtjXFPbzsOO6b4++7mIB7TrkQAjtyoAZqGkS00ZpAVJ99H7keXrp6rbMxaHCNZ7WOzOyUSjBA==
-trusted comment: type=omg-slsa-v1 keyid=69f27cb1035efc60 issued_at=2026-03-14T19:07:30.611255+00:00 artifact=bundle/.agents/skills/omg/delta-classifier/openai.yaml sha256=b06422d0afc62af4085b38ead53ab28096beec5ae943ed317207bd7edacfc59c
-G8/wNq/pUMJflMuRDRkC7BDubP8s5umGReJmeSIrEmNa7ArTsG9huuQNWQkuRdEpArEwLKTGr6QBSv1bIOlKBg==

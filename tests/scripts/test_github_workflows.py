@@ -54,9 +54,9 @@ def test_compat_workflow_has_split_pr_analyze_and_trusted_post_review_jobs() -> 
 
     assert "pull-requests: write" in post_review
     assert "checks: write" in post_review
-    assert _contains_secret_ref(post_review, "GITHUB_APP_ID")
-    assert _contains_secret_ref(post_review, "GITHUB_APP_PRIVATE_KEY")
-    assert _contains_secret_ref(post_review, "GITHUB_INSTALLATION_ID")
+    assert _contains_secret_ref(post_review, "OMG_APP_ID") or _contains_secret_ref(post_review, "GITHUB_APP_ID")
+    assert _contains_secret_ref(post_review, "OMG_APP_PRIVATE_KEY") or _contains_secret_ref(post_review, "GITHUB_APP_PRIVATE_KEY")
+    assert _contains_secret_ref(post_review, "OMG_APP_INSTALLATION_ID") or _contains_secret_ref(post_review, "GITHUB_INSTALLATION_ID")
 
 
 def test_trusted_post_review_lane_never_checks_out_pr_head() -> None:

@@ -101,6 +101,74 @@ def classify_project_changes(
     return result
 
 
+_RISK_LEVEL_BY_CATEGORY: dict[str, str] = {
+    "auth": "critical",
+    "payment": "critical",
+    "compliance": "critical",
+    "health": "critical",
+    "db": "high",
+    "infra": "high",
+    "api": "high",
+    "security": "high",
+    "data": "medium",
+    "robotics": "medium",
+    "vision": "medium",
+    "algorithms": "low",
+}
+_REQUIRED_GATES_BY_RISK: dict[str, tuple[str, ...]] = {
+    "critical": ("claim_judge", "security_check", "proof_gate", "test_intent_lock", "compliance_governor"),
+    "high": ("claim_judge", "proof_gate", "test_intent_lock"),
+    "medium": ("claim_judge", "proof_gate"),
+    "low": ("claim_judge",),
+}
+_REQUIRED_BUNDLES_BY_RISK: dict[str, tuple[str, ...]] = {
+    "critical": ("security-check", "hook-governor", "proof-gate", "test-intent-lock"),
+    "high": ("proof-gate", "test-intent-lock"),
+    "medium": ("proof-gate",),
+    "low": (),
+}
+
+
+def compute_pr_risk_payload(
+    *,
+    changed_files: list[str],
+    categories: list[str],
+    goal: str = "",
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    category_risks = [_RISK_LEVEL_BY_CATEGORY.get(c, "low") for c in categories]
+    risk_order = ("low", "medium", "high", "critical")
+    max_risk = max(category_risks, key=lambda r: risk_order.index(r)) if category_risks else "low"
+
+    required_gates = list(_REQUIRED_GATES_BY_RISK.get(max_risk, ()))
+    required_bundles = list(_REQUIRED_BUNDLES_BY_RISK.get(max_risk, ()))
+
+    blockers: list[str] = []
+    if evidence is not None:
+        for gate in required_gates:
+            if gate not in evidence or not evidence[gate]:
+                blockers.append(f"Missing required gate evidence: {gate}")
+
+    runtime_touches = [
+        f for f in changed_files
+        if any(seg in f.lower() for seg in ("runtime/", "hooks/", "scripts/", "registry/"))
+    ]
+    if runtime_touches and "test_intent_lock" not in required_gates:
+        required_gates.append("test_intent_lock")
+        blockers.append("Runtime/hook changes require test_intent_lock evidence")
+
+    return {
+        "schema": "PrRiskPayload",
+        "risk_level": max_risk,
+        "changed_areas": sorted(categories),
+        "runtime_touches": runtime_touches,
+        "required_gates": required_gates,
+        "required_bundles": required_bundles,
+        "blockers": blockers,
+        "goal": goal,
+    }
+
+
 def _classify_evidence_profile(*, goal: str, touched_files: list[str], categories: list[str]) -> str:
     lowered_goal = goal.lower()
     lowered_files = [path.lower() for path in touched_files]

@@ -91,10 +91,12 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 
 ## Quickstart
 
-Install with npm:
+Install with npm or bunx (Bun runtime):
 
 ```bash
 npm install @trac3er/oh-my-god
+# or
+bunx @trac3er/oh-my-god
 ```
 
 That fast path now does two things:
@@ -151,7 +153,7 @@ OMG uses native setup language instead of public migration commands.
 - `OMG-only`: recommended. OMG becomes the primary hooks, HUD, MCP, and orchestration layer.
 - `coexist`: advanced. OMG preserves non-conflicting third-party surfaces and records overlap instead of overwriting it.
 - Modes: `chill`, `focused`, `exploratory`. `focused` is the production default.
-- Presets: `safe`, `balanced`, `interop`, `labs`.
+- Presets: `safe`, `balanced`, `interop`, `labs`, `production` (all governed flags on).
 
 ## Security Notes
 

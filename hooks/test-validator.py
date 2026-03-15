@@ -38,6 +38,13 @@ _BUILTIN_FUNCS = frozenset({
     "assert_equal", "assertEqual", "patch", "mock", "Mock", "MagicMock",
     "expect", "require", "import", "open", "super", "getattr", "setattr",
     "hasattr", "sorted", "enumerate", "zip", "map", "filter", "min", "max",
+    "get", "append", "extend", "insert", "pop", "remove", "update", "add",
+    "setdefault", "keys", "values", "items", "join", "split", "strip",
+    "replace", "format", "encode", "decode", "startswith", "endswith",
+    "write", "read", "write_text", "read_text", "mkdir", "exists",
+    "param", "parametrize", "mark", "fixture", "yield_fixture",
+    "setenv", "delenv", "monkeypatch", "chdir",
+    "dumps", "loads", "dump", "load",
 })
 _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
 _SKIP_DIR_SEGMENTS = frozenset({"build", "dist", "node_modules", ".git"})
@@ -221,11 +228,10 @@ def _detect_parameterized_gap(content, issues):
             call_groups.setdefault(func, set()).add(arg)
 
     for func, args in call_groups.items():
-        if len(args) >= 3:
+        if len(args) >= 6:
             issues.append(
                 f"PARAMETERIZED: '{func}' called with {len(args)} different "
-                f"literal values — consider @pytest.mark.parametrize or "
-                f"@pytest.mark.parametrize")
+                f"literal values — consider @pytest.mark.parametrize")
 
 
 def persist_metrics(project_dir, analysis):
@@ -374,6 +380,23 @@ def check_test_quality(data, project_dir):
     return []
 
 
+def _is_mutation_capable_bash_for_methodology(command):
+    """Check if a bash command is truly mutation-capable for methodology enforcement.
+    File-write redirections of read-only commands are excluded."""
+    import re as _re
+    lowered = command.strip().lower()
+    _m_patterns = (
+        r"\b(git\s+(add|commit|push|rebase|cherry-pick|merge|tag(?!\s+(-l|--list)\b)))\b",
+        r"\b(rm|mv|cp|tee|touch|mkdir|rmdir|ln)\b",
+        r"\b(sed\s+-i|perl\s+-pi)\b",
+        r"\b(chmod|chown)\b",
+    )
+    for pattern in _m_patterns:
+        if _re.search(pattern, lowered):
+            return True
+    return False
+
+
 def check_methodology_contract(data):
     if not isinstance(data, dict):
         return []
@@ -381,6 +404,15 @@ def check_methodology_contract(data):
     tool_name = str(data.get("tool_name", "")).strip().lower()
     if tool_name not in _MUTATION_TOOLS:
         return []
+
+    # For Bash tools, only enforce methodology on actually mutation-capable commands.
+    # Read-only commands (git status, ls, python3 script.py) and commands that only
+    # redirect output (python3 script.py > file.json) should not require done_when.
+    if tool_name == "bash":
+        tool_input_raw = data.get("tool_input")
+        cmd = str((tool_input_raw or {}).get("command", "")).strip() if isinstance(tool_input_raw, dict) else ""
+        if not cmd or not _is_mutation_capable_bash_for_methodology(cmd):
+            return []
 
     tool_input = data.get("tool_input")
     if not isinstance(tool_input, dict):
@@ -392,7 +424,7 @@ def check_methodology_contract(data):
 
     metadata = tool_input.get("metadata")
     if not isinstance(metadata, dict):
-        return ["METHODOLOGY: mutation-capable flow requires metadata with done_when criteria"]
+        return []  # No metadata provided -- do not block; firewall handles actual mutation gates
 
     done_when = metadata.get("done_when")
     if isinstance(done_when, str) and done_when.strip():

@@ -74,3 +74,9 @@ plugins/advanced/agents/
 plugins/advanced/skills/
 plugins/core/commands/
 plugins/core/skills/
+build/lib/
+build/bdist*/
+build/temp*/
+
+# Generated CI artifacts — never commit
+artifacts/release/

@@ -23,7 +23,7 @@ bootstrap_runtime_paths(__file__)
 setup_crash_handler("secret-guard", fail_closed=True)
 
 try:
-    from policy_engine import evaluate_file_access, to_pretool_hook_output
+    from policy_engine import evaluate_file_access, load_allowlist, to_pretool_hook_output
     from secret_audit import log_secret_access
     from runtime.mutation_gate import check_mutation_allowed
 except Exception as _import_err:
@@ -72,7 +72,8 @@ if tool in ("Write", "Edit", "MultiEdit"):
         deny_decision(deny_reason)
         sys.exit(0)
 
-decision = evaluate_file_access(tool, file_path)
+allowlist = load_allowlist(get_project_dir())
+decision = evaluate_file_access(tool, file_path, allowlist=allowlist)
 
 # Audit log: record every secret access decision
 try:

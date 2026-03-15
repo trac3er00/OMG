@@ -18,7 +18,7 @@ CANONICAL_VERSION = "2.2.3"
 VALID_ADOPTION_MODES = ("omg-only", "coexist")
 CANONICAL_MODE_NAMES = ("chill", "focused", "exploratory")
 
-PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs", "buffet")
+PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs", "buffet", "production")
 VALID_PRESETS = PRESET_ORDER
 PRESET_LEVEL: dict[str, int] = {p: i for i, p in enumerate(PRESET_ORDER)}
 
@@ -96,6 +96,7 @@ PRESET_FEATURES: dict[str, dict[str, bool]] = {
         **{f: False for f in _BUFFET_ONLY_FLAGS},
     },
     "buffet": {flag: True for flag in MANAGED_PRESET_FLAGS},
+    "production": {flag: True for flag in MANAGED_PRESET_FLAGS},
 }
 
 _SUPERPOWERS_SENTINELS = (

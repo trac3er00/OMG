@@ -53,6 +53,7 @@ from runtime.security_check import run_security_check
 from runtime.contract_compiler import (
     build_release_readiness,
     compile_contract_outputs,
+    compile_method_artifacts,
     validate_contract_registry,
 )
 from runtime.tracebank import record_trace
@@ -898,12 +899,20 @@ def cmd_contract_validate(args: argparse.Namespace) -> int:
 
 def cmd_contract_compile(args: argparse.Namespace) -> int:
     hosts = args.hosts or []
-    result = compile_contract_outputs(
-        root_dir=ROOT_DIR,
-        output_root=args.output_root,
-        hosts=hosts,
-        channel=args.channel,
-    )
+    if getattr(args, "method", False):
+        result = compile_method_artifacts(
+            root_dir=ROOT_DIR,
+            output_root=args.output_root,
+            hosts=hosts,
+            channel=args.channel,
+        )
+    else:
+        result = compile_contract_outputs(
+            root_dir=ROOT_DIR,
+            output_root=args.output_root,
+            hosts=hosts,
+            channel=args.channel,
+        )
     print(json.dumps(result, indent=2))
     return 0 if result.get("status") == "ok" else 2
 
@@ -964,6 +973,44 @@ def _add_ecosystem_subcommands(parent: argparse.ArgumentParser, *, dest: str) ->
     ecosystem_sync.set_defaults(func=cmd_ecosystem_sync)
 
 
+def cmd_provider_parity_eval(args: argparse.Namespace) -> int:
+    from runtime.provider_parity_eval import run_provider_parity_eval
+    result = run_provider_parity_eval(
+        task_path=args.task,
+        mode=args.mode,
+        output_root=args.output_root or None,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
+def cmd_context_compile(args: argparse.Namespace) -> int:
+    from runtime.context_compiler import compile_context_packets
+    hosts = args.hosts or []
+    result = compile_context_packets(
+        root_dir=ROOT_DIR,
+        output_root=args.output_root,
+        hosts=hosts,
+    )
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("status") == "ok" else 2
+
+
+def _add_context_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    context_sub = parent.add_subparsers(dest=dest, required=True)
+    context_compile = context_sub.add_parser("compile", help="Compile bounded context packets for canonical hosts")
+    context_compile.add_argument(
+        "--host",
+        dest="hosts",
+        action="append",
+        choices=list(CANONICAL_HOST_CHOICES),
+        required=True,
+        help="Host to compile context for (repeat for multiple hosts)",
+    )
+    context_compile.add_argument("--output-root", default="", help="Write outputs to this root instead of the repo root")
+    context_compile.set_defaults(func=cmd_context_compile)
+
+
 def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     contract_sub = parent.add_subparsers(dest=dest, required=True)
 
@@ -994,6 +1041,7 @@ def _add_contract_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> 
     )
     contract_compile.add_argument("--channel", default="public", choices=["public", "enterprise"])
     contract_compile.add_argument("--output-root", default="", help="Write outputs to this root instead of the repo root")
+    contract_compile.add_argument("--method", action="store_true", default=False, help="Emit signed seven-phase methodology artifacts instead of host artifacts")
     contract_compile.set_defaults(func=cmd_contract_compile)
 
 
@@ -1440,6 +1488,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     contract = sub.add_parser("contract", help="Canonical OMG contract validation and compilation")
     _add_contract_subcommands(contract, dest="contract_command")
+
+    context_parser = sub.add_parser("context", help="Context packet compiler")
+    _add_context_subcommands(context_parser, dest="context_command")
+
+    parity_eval = sub.add_parser("provider-parity-eval", help="Evaluate provider parity across canonical hosts")
+    parity_eval.add_argument("--task", required=True, help="Path to bounded task JSON file")
+    parity_eval.add_argument("--mode", default="recorded", choices=["recorded", "live"], help="Evaluation mode")
+    parity_eval.add_argument("--output-root", default="", help="Write outputs here instead of repo root")
+    parity_eval.set_defaults(func=cmd_provider_parity_eval)
 
     release = sub.add_parser("release", help="OMG release-readiness checks")
     _add_release_subcommands(release, dest="release_command")

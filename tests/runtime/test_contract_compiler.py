@@ -1727,8 +1727,9 @@ def test_claude_compile_includes_required_hooks_and_subagents(tmp_path: Path) ->
 
     subagents = settings["_omg"]["generated"]["subagents"]
     names = {sa["name"] for sa in subagents}
-    assert "security-reviewer" in names
-    assert "release-manager" in names
+    expected_agents = {"architect-planner", "explorer-indexer", "implementer", "security-reviewer", "verifier", "causal-tracer"}
+    for expected in expected_agents:
+        assert expected in names, f"Missing governed agent: {expected}"
 
     for sa in subagents:
         assert sa.get("bypassPermissions") is not True, f"{sa['name']} has bypassPermissions"
@@ -1737,9 +1738,9 @@ def test_claude_compile_includes_required_hooks_and_subagents(tmp_path: Path) ->
     assert "Read" in reviewer["tools"]
     assert "Write" not in reviewer["tools"]
 
-    manager = next(sa for sa in subagents if sa["name"] == "release-manager")
-    assert "Write" in manager["tools"]
-    assert "protectedPaths" in manager
+    implementer = next(sa for sa in subagents if sa["name"] == "implementer")
+    assert "Write" in implementer["tools"]
+    assert "protectedPaths" in implementer
 
     skills = settings["_omg"]["generated"]["skills"]
     assert len(skills) >= 1
