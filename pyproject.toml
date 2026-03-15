@@ -50,7 +50,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agents*", "commands*", "control_plane*", "hooks*", "plugins*", "registry*", "runtime*"]
+include = ["agents*", "commands*", "control_plane*", "hooks*", "lab*", "plugins*", "registry*", "runtime*"]
 
 [tool.setuptools.package-data]
 agents = ["*.md"]

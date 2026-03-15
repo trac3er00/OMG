@@ -73,6 +73,7 @@ jobs:
           name: compat-foundation
           path: artifacts
           if-no-files-found: error
+          include-hidden-files: true
 
   compile-public-compat:
     runs-on: ubuntu-latest
@@ -115,6 +116,7 @@ jobs:
           name: compat-public-compiled
           path: artifacts
           if-no-files-found: error
+          include-hidden-files: true
 
   emit-compat-host-parity:
     runs-on: ubuntu-latest
@@ -229,6 +231,7 @@ jobs:
           name: compat-host-parity
           path: artifacts
           if-no-files-found: error
+          include-hidden-files: true
 
   pr-analyze:
     if: github.event_name == 'pull_request'
