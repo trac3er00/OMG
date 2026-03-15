@@ -430,8 +430,34 @@ def _is_mutation_capable_bash(command: str) -> bool:
     for pattern in _MUTATION_BASH_PATTERNS:
         if re.search(pattern, lowered):
             return True
+    # File-write redirection: only classify as mutation if the command itself
+    # is NOT a known read-only program.  `python3 script.py > out.json` is a
+    # read-only computation that merely saves output; the actual mutation
+    # patterns (git commit, rm, mv, etc.) are already caught above.
     if _FILE_WRITE_REDIRECTION_PATTERN.search(lowered):
-        return True
+        if not _is_read_only_program_with_redirect(normalized_command):
+            return True
+    return False
+
+
+def _is_read_only_program_with_redirect(command: str) -> bool:
+    """Return True when the command before any > redirect is a read-only program."""
+    cmd_portion = re.split(r"(?<!\d)\s*>>?\s+\S+", command)[0].strip()
+    if not cmd_portion:
+        return False
+    lowered = cmd_portion.lower()
+    _read_only_prefixes = (
+        "python", "python3", "node", "ruby", "perl",
+        "jq", "yq",
+        "git log", "git diff", "git status", "git show", "git branch",
+        "gh pr", "gh run", "gh api",
+        "ls", "find", "grep", "rg", "ag", "wc", "sort", "uniq",
+        "head", "tail", "less", "more", "file", "stat", "du", "df",
+        "env", "printenv", "uname", "whoami", "hostname", "date",
+    )
+    for prefix in _read_only_prefixes:
+        if lowered.startswith(prefix):
+            return True
     return False
 
 

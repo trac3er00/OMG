@@ -392,8 +392,8 @@ def test_verify_lock_with_no_identifiers_reports_missing(tmp_path: Path) -> None
     "metadata, run_id, expected_status, expected_reason, expected_criteria",
     [
         pytest.param(
-            None, "run-1", "missing_done_when", "done_when_required", None,
-            id="none-metadata-blocks",
+            None, "run-1", "ok", "done_when_not_provided", None,
+            id="none-metadata-allows",
         ),
         pytest.param(
             {}, "run-1", "ok", "done_when_not_declared", None,

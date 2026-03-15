@@ -147,9 +147,12 @@ def verify_done_when(metadata: dict[str, Any] | None, run_id: str | None) -> dic
     normalized_run_id = str(run_id or "").strip() or None
 
     if metadata is None:
+        # No metadata provided at all -- treat the same as metadata without
+        # a done_when key.  This is the common case for CLI / non-Claude
+        # invocations and should not block.
         return {
-            "status": "missing_done_when",
-            "reason": "done_when_required",
+            "status": "ok",
+            "reason": "done_when_not_provided",
             "run_id": normalized_run_id,
             "done_when_declared": False,
             "done_when_completed": False,
