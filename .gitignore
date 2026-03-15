@@ -75,3 +75,5 @@ plugins/advanced/skills/
 plugins/core/commands/
 plugins/core/skills/
 build/lib/
+build/bdist*/
+build/temp*/
