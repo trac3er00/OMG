@@ -25,7 +25,7 @@ from runtime.proof_chain import _normalize_evidence_pack
 from runtime.evidence_requirements import requirements_for_profile
 from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
-from runtime.release_run_coordinator import get_active_coordinator_run_id
+from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active
 from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
@@ -2762,6 +2762,10 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
             invalid.append(f"{token}:invalid_path")
             blockers.append(f"invalid_execution_primitive: {token}: invalid_path")
             continue
+        if not resolved.exists() and token == "music_omr_testbed_evidence":
+            tracked_candidates = sorted((output_root / "artifacts" / "release" / "evidence").glob("music-omr-*.json"))
+            if tracked_candidates:
+                resolved = tracked_candidates[-1]
         if not resolved.exists():
             missing.append(token)
             blockers.append(f"missing_execution_primitive: {token}")
@@ -2845,6 +2849,17 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
                         invalid.append("music_omr_testbed_evidence:payload_freshness_stale")
                         blockers.append(
                             "invalid_execution_primitive: music_omr_testbed_evidence: payload_freshness_stale"
+                        )
+                if (
+                    is_release_orchestration_active(project_dir=str(output_root))
+                    and "coordinator_run_id" in music_omr_payload
+                ):
+                    coordinator_run_id = str(music_omr_payload.get("coordinator_run_id", "")).strip()
+                    active_coordinator_run_id = get_active_coordinator_run_id(str(output_root)) or ""
+                    if coordinator_run_id != active_coordinator_run_id:
+                        invalid.append("music_omr_testbed_evidence:coordinator_run_id_mismatch")
+                        blockers.append(
+                            "invalid_execution_primitive: music_omr_testbed_evidence: coordinator_run_id_mismatch"
                         )
 
     return {

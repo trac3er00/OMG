@@ -350,3 +350,41 @@ def test_evidence_includes_expanded_metadata(tmp_path: Path) -> None:
 
     # schema version bump
     assert payload["schema_version"] == "2.1.0"
+
+
+def test_emit_evidence_includes_coordinator_run_id_when_active(tmp_path: Path, monkeypatch) -> None:
+    fixtures_dir = tmp_path / "fixtures" / "music_omr"
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    score_path = fixtures_dir / "simple_c_major.json"
+    score_path.write_text(json.dumps({"score_id": "simple_c_major"}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "runtime.music_omr_testbed.get_active_coordinator_run_id",
+        lambda _project_dir: "coordinator-run-123",
+    )
+
+    testbed = MusicOMRTestbed(str(tmp_path))
+    omr_result = testbed.run_omr(score_path)
+    evidence_path = testbed.emit_evidence("test-run-123", {"omr": omr_result})
+    payload = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
+
+    assert payload["coordinator_run_id"] == "coordinator-run-123"
+
+
+def test_emit_evidence_omits_coordinator_run_id_when_not_active(tmp_path: Path, monkeypatch) -> None:
+    fixtures_dir = tmp_path / "fixtures" / "music_omr"
+    fixtures_dir.mkdir(parents=True, exist_ok=True)
+    score_path = fixtures_dir / "simple_c_major.json"
+    score_path.write_text(json.dumps({"score_id": "simple_c_major"}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "runtime.music_omr_testbed.get_active_coordinator_run_id",
+        lambda _project_dir: "",
+    )
+
+    testbed = MusicOMRTestbed(str(tmp_path))
+    omr_result = testbed.run_omr(score_path)
+    evidence_path = testbed.emit_evidence("test-run-123", {"omr": omr_result})
+    payload = json.loads(Path(evidence_path).read_text(encoding="utf-8"))
+
+    assert "coordinator_run_id" not in payload

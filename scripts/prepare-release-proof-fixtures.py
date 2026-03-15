@@ -99,9 +99,20 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
     issue_report_path = output_root / ".omg" / "evidence" / "issues" / "run-1.json"
     host_parity_path = output_root / ".omg" / "evidence" / "host-parity-run-1.json"
     music_omr_path = output_root / ".omg" / "evidence" / "music-omr-run-1.json"
+    tracked_music_omr_path = output_root / "artifacts" / "release" / "evidence" / "music-omr-run-1.json"
 
     # Ensure directories exist
-    for p in [exec_kernel_path, watchdog_path, merge_writer_path, ledger_path, budget_path, issue_report_path, host_parity_path, music_omr_path]:
+    for p in [
+        exec_kernel_path,
+        watchdog_path,
+        merge_writer_path,
+        ledger_path,
+        budget_path,
+        issue_report_path,
+        host_parity_path,
+        music_omr_path,
+        tracked_music_omr_path,
+    ]:
         p.parent.mkdir(parents=True, exist_ok=True)
 
     _write_text(
@@ -505,14 +516,13 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
             "overall_status": "ok",
         },
     )
-    _write_json(
-        music_omr_path,
-        {
-            "schema": "MusicOMREvidence",
-            "run_id": run_id,
-            "results": {},
-        },
-    )
+    music_omr_payload = {
+        "schema": "MusicOMREvidence",
+        "run_id": run_id,
+        "results": {},
+    }
+    _write_json(music_omr_path, music_omr_payload)
+    _write_json(tracked_music_omr_path, music_omr_payload)
     _write_text(
         profile_path,
         """profile_version: profile-v1

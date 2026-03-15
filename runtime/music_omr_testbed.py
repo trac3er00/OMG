@@ -322,6 +322,9 @@ class MusicOMRTestbed:
             "freshness_threshold_secs": freshness_max_age_seconds,
             "results": {},
         }
+        active_run_id = get_active_coordinator_run_id(str(self.project_dir))
+        if active_run_id:
+            payload["coordinator_run_id"] = active_run_id
 
         for key, value in results.items():
             if hasattr(value, "__dataclass_fields__"):
