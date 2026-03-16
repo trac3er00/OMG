@@ -228,8 +228,19 @@ def main() -> None:
         output_per_mtok,
     )
 
-    used_cost_usd = float(summary.get("total_cost_usd", 0.0)) + estimated_current_cost
-    used_calls = int(summary.get("entry_count", 0)) + 1
+    session_id = os.environ.get("CLAUDE_SESSION_ID", "")
+    by_session = summary.get("by_session", {})
+
+    if session_id and session_id in by_session:
+        session_data = by_session[session_id]
+        used_cost_usd = float(session_data.get("cost_usd", 0.0)) + estimated_current_cost
+        used_calls = int(session_data.get("count", 0)) + 1
+        provenance = "session"
+    else:
+        used_cost_usd = float(summary.get("total_cost_usd", 0.0)) + estimated_current_cost
+        used_calls = int(summary.get("entry_count", 0)) + 1
+        provenance = "default"
+
     projected_calls = _project_total_calls(used_cost_usd, used_calls, session_limit_usd)
 
     context = _build_context(
@@ -240,7 +251,6 @@ def main() -> None:
     )
 
     used_pct = (used_cost_usd / session_limit_usd * 100) if session_limit_usd > 0 else 0.0
-    session_id = os.environ.get("CLAUDE_SESSION_ID", "")
     threshold_alerts = _check_thresholds(used_pct, project_dir, session_id)
     if threshold_alerts:
         context += "\n" + "\n".join(threshold_alerts)
@@ -249,7 +259,7 @@ def main() -> None:
     if envelope_context:
         context += "\n" + envelope_context
 
-    json.dump({"additionalContext": context}, sys.stdout)
+    json.dump({"additionalContext": context, "provenance": provenance}, sys.stdout)
     sys.exit(0)
 
 
