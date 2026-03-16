@@ -1156,9 +1156,7 @@ plan.pre_checks = []
 result = execute_plan(plan)
 
 configured = [action.host for action in plan.actions if action.host in {"codex", "gemini", "kimi"}]
-if result.get("errors"):
-    raise SystemExit("; ".join(result["errors"]))
-if configured:
+if not result.get("errors") and configured:
     print(",".join(configured))
 PY
 }
