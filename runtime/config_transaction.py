@@ -68,6 +68,7 @@ class _PlannedWrite:
     path: Path
     content: str
     content_hash: str
+    mode: int = 0o600
 
 
 class ConfigTransaction:
@@ -87,10 +88,10 @@ class ConfigTransaction:
         self._last_backup_index: dict[str, str | None] = {}
         self._last_planned_paths: list[str] = []
 
-    def plan(self, target_path: Path | str, content: str) -> None:
+    def plan(self, target_path: Path | str, content: str, *, mode: int = 0o600) -> None:
         path = Path(target_path).resolve()
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
-        self._planned.append(_PlannedWrite(path=path, content=content, content_hash=digest))
+        self._planned.append(_PlannedWrite(path=path, content=content, content_hash=digest, mode=mode))
 
     def execute(self) -> ConfigReceipt:
         return self._run(executed=True)
@@ -152,7 +153,7 @@ class ConfigTransaction:
             if executed:
                 for item in self._planned:
                     try:
-                        _ATOMIC_WRITE_TEXT_SAFE(item.path, item.content)
+                        _ATOMIC_WRITE_TEXT_SAFE(item.path, item.content, mode=item.mode)
                         receipt["executed_writes"].append(
                             {
                                 "path": str(item.path),
