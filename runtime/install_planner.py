@@ -464,6 +464,8 @@ def execute_plan(plan: InstallPlan, *, dry_run: bool = False) -> InstallResult:
 
     with transactional() as tx:
         for action in plan.actions:
+            if not dry_run:
+                Path(action.target_path).parent.mkdir(parents=True, exist_ok=True)
             tx.plan(Path(action.target_path), action.content, mode=action.mode)
             completed.append(action.target_path)
 

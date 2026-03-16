@@ -996,3 +996,119 @@ def test_diagnose_plugins_completes_under_3s():
     elapsed = time.monotonic() - started
     assert proc.returncode == 0
     assert elapsed < 3
+
+
+def test_install_plan_json_output():
+    proc = _run(["install", "--plan", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert "actions" in out
+    assert isinstance(out["actions"], list)
+    assert out.get("schema") == "InstallPlan"
+    assert "pre_checks" in out
+    assert "post_checks" in out
+    assert "integrity_errors" in out
+
+
+def test_install_plan_actions_have_required_keys():
+    proc = _run(["install", "--plan", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    for action in out["actions"]:
+        assert "host" in action
+        assert "target_path" in action
+        assert "description" in action
+        assert "kind" in action
+
+
+def test_install_dryrun_json_output():
+    proc = _run(["install", "--dry-run", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out["executed"] is False
+    assert "actions_completed" in out
+    assert "actions_skipped" in out
+    assert "actions" in out
+    assert isinstance(out["actions"], list)
+
+
+def test_install_dryrun_no_disk_mutations(tmp_path: Path):
+    sentinel = tmp_path / "sentinel.txt"
+    sentinel.write_text("before", encoding="utf-8")
+    proc = _run(["install", "--dry-run", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    assert sentinel.read_text(encoding="utf-8") == "before"
+    mcp_json = ROOT / ".mcp.json"
+    if mcp_json.exists():
+        before_content = mcp_json.read_text(encoding="utf-8")
+        proc2 = _run(["install", "--dry-run", "--format", "json"])
+        assert proc2.returncode == 0
+        assert mcp_json.read_text(encoding="utf-8") == before_content
+
+
+def test_install_plan_no_disk_mutations(tmp_path: Path):
+    sentinel = tmp_path / "sentinel.txt"
+    sentinel.write_text("before", encoding="utf-8")
+    proc = _run(["install", "--plan", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    assert sentinel.read_text(encoding="utf-8") == "before"
+
+
+def test_install_no_flag_returns_error():
+    proc = _run(["install", "--format", "json"])
+    assert proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert "error" in out
+
+
+# --- doctor --fix command tests ---
+
+
+def test_cli_doctor_fix_dry_run_json_returns_planned_fixes():
+    """doctor --fix --dry-run --format json returns structured output with no disk mutations."""
+    proc = _run(["doctor", "--fix", "--dry-run", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "DoctorFixResult"
+    assert out["mode"] == "dry_run"
+    assert "checks" in out
+    assert "fix_receipts" in out
+    assert isinstance(out["fix_receipts"], list)
+    for check in out["checks"]:
+        assert "fixable" in check
+        assert isinstance(check["fixable"], bool)
+    for receipt in out["fix_receipts"]:
+        assert receipt["executed"] is False
+
+
+def test_cli_doctor_fix_non_fixable_checks_have_suggestion():
+    """Non-fixable checks (python_version, fastmcp) must declare fixable=false with suggestion."""
+    proc = _run(["doctor", "--fix", "--dry-run", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    by_name = {c["name"]: c for c in out["checks"]}
+    assert by_name["python_version"]["fixable"] is False
+    assert "suggestion" in by_name["python_version"]
+    assert isinstance(by_name["python_version"]["suggestion"], str)
+    assert len(by_name["python_version"]["suggestion"]) > 0
+    assert by_name["fastmcp"]["fixable"] is False
+    assert "suggestion" in by_name["fastmcp"]
+    assert isinstance(by_name["fastmcp"]["suggestion"], str)
+    assert len(by_name["fastmcp"]["suggestion"]) > 0
+
+
+def test_cli_doctor_fix_json_receipt_has_required_fields():
+    """doctor --fix --format json receipt must have check, action, backup_path, verification, executed."""
+    proc = _run(["doctor", "--fix", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "DoctorFixResult"
+    assert out["mode"] == "fix"
+    assert "fix_receipts" in out
+    assert isinstance(out["fix_receipts"], list)
+    for receipt in out["fix_receipts"]:
+        assert "check" in receipt
+        assert "action" in receipt
+        assert "backup_path" in receipt
+        assert "verification" in receipt
+        assert "executed" in receipt
