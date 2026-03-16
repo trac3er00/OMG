@@ -760,7 +760,9 @@ def check_tdd_proof_chain(data, project_dir):
         return []
 
     context = data["_stop_ctx"]
-    if not context.get("has_source_writes", False):
+    has_current_turn_writes = context.get("current_turn_has_source_writes")
+    has_writes = has_current_turn_writes if has_current_turn_writes is not None else context.get("has_source_writes", False)
+    if not has_writes:
         return []
 
     run_id = resolve_current_run_id(project_dir=project_dir)
@@ -976,8 +978,11 @@ def check_ralph_loop(project_dir, data):
     return [reason], [], False
 
 
-def check_planning_gate(project_dir):
+def check_planning_gate(project_dir, data=None):
     if not get_feature_flag("planning_enforcement"):
+        return [], []
+    current_turn_has_writes = (data or {}).get("_stop_ctx", {}).get("current_turn_has_source_writes", True)
+    if not current_turn_has_writes:
         return [], []
     checklist = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
     if not os.path.exists(checklist):
@@ -1110,7 +1115,7 @@ def main():
         sys.exit(0)
 
     # P2: Planning enforcement (implemented in Task 22)
-    block_reasons, advisories = check_planning_gate(project_dir)
+    block_reasons, advisories = check_planning_gate(project_dir, data=data)
     if block_reasons:
         block_decision(block_reasons[0], block_reason="planning_gate", project_dir=project_dir)
         return
