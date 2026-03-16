@@ -618,6 +618,100 @@ if isinstance(status_line, dict) and "omg-hud.mjs" in str(status_line.get("comma
 PY
 }
 
+remove_omg_hooks_from_settings() {
+    local settings_path="$CLAUDE_DIR/settings.json"
+    local hooks_dir="$CLAUDE_DIR/hooks"
+    if [ ! -f "$settings_path" ]; then
+        return 0
+    fi
+    if ! command -v python3 &>/dev/null; then
+        return 0
+    fi
+    python3 - "$settings_path" "$hooks_dir" <<'PY'
+import json, sys
+from pathlib import Path
+settings_path = Path(sys.argv[1])
+hooks_dir = sys.argv[2]
+try:
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(0)
+if not isinstance(settings, dict):
+    raise SystemExit(0)
+hooks_section = settings.get("hooks")
+if not isinstance(hooks_section, dict):
+    raise SystemExit(0)
+def is_omg_cmd(cmd):
+    if not isinstance(cmd, str):
+        return False
+    return "omg-runtime" in cmd or (hooks_dir + "/") in cmd
+def entry_is_omg(entry):
+    if not isinstance(entry, dict):
+        return False
+    nested = entry.get("hooks")
+    if isinstance(nested, list) and nested:
+        return all(isinstance(h, dict) and is_omg_cmd(h.get("command", "")) for h in nested)
+    return is_omg_cmd(entry.get("command", ""))
+changed = False
+new_hooks = {}
+for event, entries in hooks_section.items():
+    if not isinstance(entries, list):
+        new_hooks[event] = entries
+        continue
+    filtered = [e for e in entries if not entry_is_omg(e)]
+    if len(filtered) < len(entries):
+        changed = True
+    if filtered:
+        new_hooks[event] = filtered
+if changed:
+    if new_hooks:
+        settings["hooks"] = new_hooks
+    else:
+        settings.pop("hooks", None)
+    settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+}
+
+emit_uninstall_receipt() {
+    local receipt_path="$CLAUDE_DIR/.omg-uninstall-receipt.json"
+    local removed_paths_json="${1:-[]}"
+    local preserved_paths_json="${2:-[]}"
+    local host_configs_json="${3:-[]}"
+    if ! command -v python3 &>/dev/null; then
+        return 0
+    fi
+    python3 - "$receipt_path" "$VERSION" "$removed_paths_json" "$preserved_paths_json" "$host_configs_json" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+from pathlib import Path
+receipt_path = Path(sys.argv[1])
+version = sys.argv[2]
+try:
+    removed_paths = json.loads(sys.argv[3])
+except Exception:
+    removed_paths = []
+try:
+    preserved_paths = json.loads(sys.argv[4])
+except Exception:
+    preserved_paths = []
+try:
+    host_configs_cleaned = json.loads(sys.argv[5])
+except Exception:
+    host_configs_cleaned = []
+receipt = {
+    "schema": "UninstallReceipt",
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+    "version": version,
+    "removed_paths": removed_paths,
+    "preserved_paths": preserved_paths,
+    "host_configs_cleaned": host_configs_cleaned,
+    "status": "ok",
+}
+receipt_path.parent.mkdir(parents=True, exist_ok=True)
+receipt_path.write_text(json.dumps(receipt, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+}
+
 ensure_backup() {
     if ! $DRY_RUN; then
         mkdir -p "$BACKUP_DIR"
@@ -1385,6 +1479,9 @@ remove_omg_files() {
         if [ -n "$removed_host_mcp" ]; then
             echo "  ✓ Removed OMG MCP config from detected hosts: $removed_host_mcp"
         fi
+
+        remove_omg_hooks_from_settings
+        echo "  ✓ Removed OMG hook entries from settings.json (if any)"
     fi
 }
 
@@ -1497,6 +1594,24 @@ run_uninstall() {
         echo "  (would remove OMG hooks/rules/agents/commands/templates)"
     else
         echo "  ✓ Removed OMG hooks/rules/agents/commands/templates"
+    fi
+
+    if ! $DRY_RUN; then
+        local _removed_json _preserved_json
+        _removed_json=$(python3 -c "
+import json, os, sys
+d = sys.argv[1]
+paths = [os.path.join(d, p) for p in ['hooks', 'rules', 'agents', 'commands', 'templates/omg', 'omg-runtime', 'hud/omg-hud.mjs', 'plugins/cache'] if not os.path.exists(os.path.join(d, p))]
+print(json.dumps(paths))
+" "$CLAUDE_DIR" 2>/dev/null || echo "[]")
+        _preserved_json=$(python3 -c "
+import json, os, sys
+d = sys.argv[1]
+paths = [os.path.join(d, p) for p in ['settings.json'] if os.path.exists(os.path.join(d, p))]
+print(json.dumps(paths))
+" "$CLAUDE_DIR" 2>/dev/null || echo "[]")
+        emit_uninstall_receipt "$_removed_json" "$_preserved_json" "[]"
+        echo "  ✓ Uninstall receipt written to $CLAUDE_DIR/.omg-uninstall-receipt.json"
     fi
 
     echo ""
