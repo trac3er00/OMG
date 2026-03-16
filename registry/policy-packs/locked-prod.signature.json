@@ -1,0 +1,10 @@
+{
+  "artifact_digest": "685ad062bda949705bd3c54ab3670957fbf7638811322f7851d28341a03f0625",
+  "action": "policy-pack-sign",
+  "scope": "policy-pack/locked-prod",
+  "reason": "Signing policy pack locked-prod",
+  "signer_key_id": "1f5fe64ec2f8c901",
+  "issued_at": "2026-03-16T23:33:34.545266+00:00",
+  "signature": "untrusted comment: signature from omg local signing key\nAxKvlkcbtyHUh4fjrWqTiQGJzMtJGly71L6gPZh83AVy89lELo/BKvThvqf8406qbU89YQPCmvnja8FYI2yyDQ==\ntrusted comment: type=omg-approval-artifact-v1 keyid=1f5fe64ec2f8c901 issued_at=2026-03-16T23:33:34.545266+00:00 digest=685ad062bda949705bd3c54ab3670957fbf7638811322f7851d28341a03f0625\noTCwxr7Kt2hI7g8g/uoCFm3NKOrW3K2FuaG/5NMnq4xpnQQBRVnQEnmmg+WNG2MpQoMIfYlbj8Yhviuhs6TWAA==",
+  "run_id": ""
+}
