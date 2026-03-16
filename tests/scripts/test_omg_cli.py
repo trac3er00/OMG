@@ -1159,36 +1159,82 @@ def test_cli_resolve_policy_returns_effective_policy() -> None:
     assert isinstance(out["provenance"], list)
 
 
-def test_cli_proof_summary_stub_contract() -> None:
-    proc = _run(["proof", "summary"])
-    assert proc.returncode != 0
+def test_cli_proof_summary_contract() -> None:
+    proc = _run(["proof", "summary", "--format", "json"])
+    assert proc.returncode == 0
     out = json.loads(proc.stdout)
-    assert out["schema"] == "OperatorContractStub"
-    assert out["status"] == "not_implemented"
-    assert out["error_code"] == "NOT_YET_IMPLEMENTED"
-    assert out["command"] == "proof summary"
+    assert out["schema"] == "ProofSummary"
+    assert out["status"] in ("no_evidence", "found", "ok")
+    assert isinstance(out["claims"], list)
+    assert isinstance(out["missing_artifacts"], list)
+    assert isinstance(out["next_actions"], list)
 
 
-def test_cli_explain_run_stub_contract() -> None:
+def test_cli_proof_summary_markdown() -> None:
+    proc = _run(["proof", "summary", "--format", "markdown"])
+    assert proc.returncode == 0
+    assert "# Proof Summary" in proc.stdout
+    assert "**Status:**" in proc.stdout
+
+
+def test_cli_explain_run_not_found() -> None:
     proc = _run(["explain", "run", "--run-id", "run-123"])
-    assert proc.returncode != 0
+    assert proc.returncode == 0
     out = json.loads(proc.stdout)
-    assert out["schema"] == "OperatorContractStub"
-    assert out["status"] == "not_implemented"
-    assert out["error_code"] == "NOT_YET_IMPLEMENTED"
-    assert out["command"] == "explain run"
+    assert out["schema"] == "RunExplanation"
+    assert out["status"] == "not_found"
     assert out["run_id"] == "run-123"
 
 
-def test_cli_budget_simulate_stub_contract() -> None:
+def test_cli_explain_run_format_flag() -> None:
+    proc = _run(["explain", "run", "--run-id", "nonexistent", "--format", "json"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "RunExplanation"
+    assert out["status"] == "not_found"
+
+
+def test_cli_budget_simulate_preview() -> None:
     proc = _run(["budget", "simulate", "--tier", "free", "--tokens-used", "100"])
-    assert proc.returncode != 0
+    assert proc.returncode == 0
     out = json.loads(proc.stdout)
     assert out["schema"] == "BudgetSimulateResult"
-    assert out["status"] == "not_implemented"
-    assert out["error_code"] == "NOT_YET_IMPLEMENTED"
-    assert out["command"] == "budget simulate"
+    assert out["status"] == "preview"
+    assert out["enforce"] is False
     assert "check" in out
+    assert "tier_limits" in out
+
+
+def test_cli_budget_simulate_with_flags() -> None:
+    proc = _run([
+        "budget", "simulate",
+        "--tier", "pro",
+        "--channel", "enterprise",
+        "--preset", "labs",
+        "--task", "test-task",
+        "--tokens-used", "50",
+    ])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "BudgetSimulateResult"
+    assert out["tier"] == "pro"
+    assert out["channel"] == "enterprise"
+    assert out["preset"] == "labs"
+    assert out["task"] == "test-task"
+
+
+def test_cli_budget_simulate_enforce_ok() -> None:
+    proc = _run([
+        "budget", "simulate",
+        "--tokens-used", "1",
+        "--token-limit", "1000",
+        "--enforce",
+    ])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "BudgetSimulateResult"
+    assert out["status"] == "ok"
+    assert out["enforce"] is True
 
 
 def test_cli_budget_simulate_enforce_blocks_over_limit() -> None:

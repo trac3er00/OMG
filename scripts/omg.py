@@ -516,20 +516,168 @@ def cmd_policy_pack_list(args: argparse.Namespace) -> int:
 
 
 def cmd_proof_summary(args: argparse.Namespace) -> int:
-    del args
-    return _emit_not_implemented_stub("proof summary")
+    fmt = getattr(args, "format", "json")
+    project_dir = _ensure_project_dir()
+
+    from runtime.evidence_query import list_evidence_packs
+    from runtime.evidence_narrator import narrate
+
+    packs = list_evidence_packs(project_dir)
+
+    if not packs:
+        result: dict[str, Any] = {
+            "schema": "ProofSummary",
+            "status": "no_evidence",
+            "claims": [],
+            "evidence_list": [],
+            "missing_artifacts": [],
+            "rollback_status": "n/a",
+            "next_actions": ["Run a task to generate evidence"],
+        }
+    else:
+        latest = packs[0]
+        narrative = narrate(cast(Any, latest))
+
+        claims: list[Any] = []
+        pack_claims = latest.get("claims")
+        if isinstance(pack_claims, list):
+            claims = pack_claims
+
+        evidence_list: list[dict[str, Any]] = []
+        artifacts = latest.get("artifacts")
+        if isinstance(artifacts, list):
+            for art in artifacts:
+                if isinstance(art, dict):
+                    evidence_list.append({
+                        "kind": art.get("kind", ""),
+                        "path": art.get("path", ""),
+                        "summary": art.get("summary", ""),
+                    })
+
+        missing: list[str] = []
+        requirements = latest.get("evidence_requirements")
+        if isinstance(requirements, list):
+            artifact_kinds = {str(a.get("kind", "")) for a in artifacts if isinstance(a, dict)} if isinstance(artifacts, list) else set()
+            for req in requirements:
+                if str(req) not in artifact_kinds:
+                    missing.append(str(req))
+
+        rollback_status = "n/a"
+        unresolved = latest.get("unresolved_risks")
+        if isinstance(unresolved, list) and unresolved:
+            rollback_status = "risks_present"
+
+        result = {
+            "schema": "ProofSummary",
+            "status": str(latest.get("status", "found")),
+            "run_id": str(latest.get("run_id", "")),
+            "claims": claims,
+            "evidence_list": evidence_list,
+            "missing_artifacts": missing,
+            "rollback_status": rollback_status,
+            "narrative": dict(narrative),
+            "next_actions": narrative.get("next_actions", []),
+        }
+
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        lines = ["# Proof Summary", ""]
+        lines.append(f"**Status:** {result['status']}")
+        if result.get("run_id"):
+            lines.append(f"**Run ID:** {result['run_id']}")
+        lines.append("")
+        if result.get("claims"):
+            lines.append("## Claims")
+            for claim in result["claims"]:
+                lines.append(f"- {claim}")
+            lines.append("")
+        if result.get("evidence_list"):
+            lines.append("## Evidence")
+            for ev in result["evidence_list"]:
+                lines.append(f"- **{ev.get('kind', 'unknown')}**: {ev.get('summary', ev.get('path', ''))}")
+            lines.append("")
+        if result.get("missing_artifacts"):
+            lines.append("## Missing Artifacts")
+            for m in result["missing_artifacts"]:
+                lines.append(f"- {m}")
+            lines.append("")
+        lines.append(f"**Rollback Status:** {result.get('rollback_status', 'n/a')}")
+        lines.append("")
+        if result.get("next_actions"):
+            lines.append("## Next Actions")
+            for action in result["next_actions"]:
+                lines.append(f"- {action}")
+        print("\n".join(lines))
+
+    return 0
 
 
 def cmd_explain_run(args: argparse.Namespace) -> int:
-    return _emit_not_implemented_stub("explain run", details={"run_id": str(args.run_id)})
+    fmt = getattr(args, "format", "json")
+    project_dir = _ensure_project_dir()
+    run_id = str(args.run_id).strip()
+
+    from runtime.evidence_query import get_evidence_pack, query_evidence
+
+    pack = get_evidence_pack(project_dir, run_id)
+
+    if pack is None:
+        records = query_evidence(project_dir, run_id=run_id)
+        if not records:
+            result: dict[str, Any] = {
+                "schema": "RunExplanation",
+                "run_id": run_id,
+                "status": "not_found",
+            }
+            print(json.dumps(result, indent=2))
+            return 0
+        evidence: list[dict[str, Any]] = list(records)
+    else:
+        evidence = [dict(pack)]
+
+    result = {
+        "schema": "RunExplanation",
+        "run_id": run_id,
+        "status": "found",
+        "evidence_count": len(evidence),
+        "evidence": evidence,
+    }
+
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        lines = [f"# Run Explanation: {run_id}", ""]
+        lines.append(f"**Status:** {result['status']}")
+        lines.append(f"**Evidence Count:** {result['evidence_count']}")
+        lines.append("")
+        for i, ev in enumerate(evidence, 1):
+            lines.append(f"## Evidence {i}")
+            lines.append(f"- Schema: {ev.get('schema', 'unknown')}")
+            lines.append(f"- Run ID: {ev.get('run_id', '')}")
+            ev_status = ev.get("status")
+            if ev_status:
+                lines.append(f"- Status: {ev_status}")
+            lines.append("")
+        print("\n".join(lines))
+
+    return 0
 
 
 def cmd_budget_simulate(args: argparse.Namespace) -> int:
+    import uuid as _uuid
+
+    project_dir = _ensure_project_dir()
+    fmt = getattr(args, "format", "json")
     tier_input = str(getattr(args, "tier", "") or "").strip().lower()
-    tier_detection = detect_tier(str(args.provider), project_dir=_ensure_project_dir())
+    channel = str(getattr(args, "channel", "") or "public").strip()
+    preset = str(getattr(args, "preset", "") or "balanced").strip()
+    task_desc = str(getattr(args, "task", "") or "").strip()
+
+    tier_detection = detect_tier(str(args.provider), project_dir=project_dir)
     tier = tier_input or str(tier_detection.get("tier", "free"))
 
-    tier_token_limits = {
+    tier_token_limits: dict[str, int] = {
         "free": 10_000,
         "pro": 100_000,
         "team": 500_000,
@@ -537,9 +685,49 @@ def cmd_budget_simulate(args: argparse.Namespace) -> int:
     }
     token_limit = int(args.token_limit) if int(args.token_limit) > 0 else int(tier_token_limits.get(tier, 10_000))
     tokens_used = max(0, int(args.tokens_used))
-    breached = tokens_used > token_limit
 
-    check = {
+    if bool(args.enforce):
+        from runtime.budget_envelopes import get_budget_envelope_manager
+
+        mgr = get_budget_envelope_manager(project_dir)
+        temp_id = f"simulate-{_uuid.uuid4().hex[:8]}"
+
+        mgr.create_envelope(temp_id, token_limit=token_limit)
+        mgr.record_usage(temp_id, tokens=tokens_used)
+        envelope_check = mgr.check_envelope(temp_id)
+
+        try:
+            mgr._envelope_path(temp_id).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        result: dict[str, Any] = {
+            "schema": "BudgetSimulateResult",
+            "status": "blocked" if envelope_check.governance_action == "block" else "ok",
+            "reason": envelope_check.reason,
+            "tier": tier,
+            "provider": str(args.provider),
+            "channel": channel,
+            "preset": preset,
+            "enforce": True,
+            "usage": {"tokens_used": tokens_used},
+            "limits": {"token_limit": token_limit},
+            "tier_limits": tier_token_limits,
+            "check": {
+                "status": envelope_check.status,
+                "breached_dimensions": list(envelope_check.breached_dimensions),
+                "governance_action": envelope_check.governance_action,
+                "reason": envelope_check.reason,
+            },
+        }
+        if task_desc:
+            result["task"] = task_desc
+
+        print(json.dumps(result, indent=2))
+        return 2 if envelope_check.governance_action == "block" else 0
+
+    breached = tokens_used > token_limit
+    check: dict[str, Any] = {
         "status": "breach" if breached else "ok",
         "breached_dimensions": ["tokens"] if breached else [],
         "governance_action": "block" if breached else "warn",
@@ -550,38 +738,25 @@ def cmd_budget_simulate(args: argparse.Namespace) -> int:
         ),
     }
 
-    if bool(args.enforce) and breached:
-        print(
-            json.dumps(
-                {
-                    "schema": "BudgetSimulateResult",
-                    "status": "blocked",
-                    "reason": check["reason"],
-                    "tier": tier,
-                    "provider": str(args.provider),
-                    "enforce": True,
-                    "usage": {"tokens_used": tokens_used},
-                    "limits": {"token_limit": token_limit},
-                    "check": check,
-                },
-                indent=2,
-            )
-        )
-        return 2
+    result = {
+        "schema": "BudgetSimulateResult",
+        "status": "preview",
+        "tier": tier,
+        "provider": str(args.provider),
+        "channel": channel,
+        "preset": preset,
+        "enforce": False,
+        "tier_detection": tier_detection,
+        "usage": {"tokens_used": tokens_used},
+        "limits": {"token_limit": token_limit},
+        "tier_limits": tier_token_limits,
+        "check": check,
+    }
+    if task_desc:
+        result["task"] = task_desc
 
-    return _emit_not_implemented_stub(
-        "budget simulate",
-        details={
-            "schema": "BudgetSimulateResult",
-            "provider": str(args.provider),
-            "tier": tier,
-            "tier_detection": tier_detection,
-            "enforce": bool(args.enforce),
-            "usage": {"tokens_used": tokens_used},
-            "limits": {"token_limit": token_limit},
-            "check": check,
-        },
-    )
+    print(json.dumps(result, indent=2))
+    return 0
 
 
 def cmd_domain_pack(args: argparse.Namespace) -> int:
@@ -1843,23 +2018,29 @@ def build_parser() -> argparse.ArgumentParser:
 
     proof = sub.add_parser("proof", help="Proof helpers")
     proof_sub = proof.add_subparsers(dest="proof_command", required=True)
-    proof_summary = proof_sub.add_parser("summary", help="Summarize proof status (stub)")
+    proof_summary = proof_sub.add_parser("summary", help="Summarize proof status")
+    proof_summary.add_argument("--format", default="json", choices=["json", "markdown"], dest="format")
     proof_summary.set_defaults(func=cmd_proof_summary)
 
     explain = sub.add_parser("explain", help="Explain run artifacts")
     explain_sub = explain.add_subparsers(dest="explain_command", required=True)
-    explain_run = explain_sub.add_parser("run", help="Explain run by id (stub)")
+    explain_run = explain_sub.add_parser("run", help="Explain run by id")
     explain_run.add_argument("--run-id", required=True)
+    explain_run.add_argument("--format", default="json", choices=["json", "markdown"], dest="format")
     explain_run.set_defaults(func=cmd_explain_run)
 
     budget = sub.add_parser("budget", help="Budget envelope operations")
     budget_sub = budget.add_subparsers(dest="budget_command", required=True)
-    budget_simulate = budget_sub.add_parser("simulate", help="Simulate budget envelope outcomes (stub)")
+    budget_simulate = budget_sub.add_parser("simulate", help="Simulate budget envelope outcomes")
     budget_simulate.add_argument("--provider", default="claude")
     budget_simulate.add_argument("--tier", default="")
+    budget_simulate.add_argument("--channel", default="public")
+    budget_simulate.add_argument("--preset", default="balanced")
+    budget_simulate.add_argument("--task", default="", dest="task")
     budget_simulate.add_argument("--tokens-used", type=int, default=0)
     budget_simulate.add_argument("--token-limit", type=int, default=0)
     budget_simulate.add_argument("--enforce", action="store_true")
+    budget_simulate.add_argument("--format", default="json", choices=["json", "text"], dest="format")
     budget_simulate.set_defaults(func=cmd_budget_simulate)
 
     domain_pack = sub.add_parser("domain-pack", help="Inspect optional domain pack contracts")
