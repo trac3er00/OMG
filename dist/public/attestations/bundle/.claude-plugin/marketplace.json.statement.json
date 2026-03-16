@@ -5,7 +5,7 @@
     {
       "name": "bundle/.claude-plugin/marketplace.json",
       "digest": {
-        "sha256": "22e01debafc730d69fa11d404e43cd257375e70855a4f710227d11a40f63b88e"
+        "sha256": "3a91bd8b1253c054958e2c2e3e48671967093832c05a0e724bc7b1a747eda1f3"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-14T19:07:26.002984+00:00"
+      "timestamp": "2026-03-16T02:23:59.724240+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-14T19:07:26.002984+00:00",
+  "issued_at": "2026-03-16T02:23:59.724240+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "e6bfe9ea735d5b7d",
-    "value": "untrusted comment: signature from omg local signing key\n9MJqCWyk4XyMGBXcdiH2MrWXS6OnnQF3HJc4zHQQqJr6hkFbGgrP7KRmAP4qugbb8h5om6RYyda7AnG33j5gCg==\ntrusted comment: type=omg-slsa-v1 keyid=e6bfe9ea735d5b7d issued_at=2026-03-14T19:07:26.003099+00:00 artifact=bundle/.claude-plugin/marketplace.json sha256=22e01debafc730d69fa11d404e43cd257375e70855a4f710227d11a40f63b88e\nwBEbbRVkRZbzy4V8635Xv29GHDKGwK4QIT+tyzZ2S9O2plavynicJ4om9LVEC9DoGmN7xmnFeaEIHp9vB9vwDA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=e6bfe9ea735d5b7d issued_at=2026-03-14T19:07:26.003099+00:00 artifact=bundle/.claude-plugin/marketplace.json sha256=22e01debafc730d69fa11d404e43cd257375e70855a4f710227d11a40f63b88e"
+    "keyid": "f0511f93207756e8",
+    "value": "untrusted comment: signature from omg local signing key\negBNbTB0oSZ5rBFFIAJMZztP3aHDcfWg7XpMEOZqHniQI5Myg4iJgOE0GZ39bt1YGdwh8JCsYoDVahQTabDVAA==\ntrusted comment: type=omg-slsa-v1 keyid=f0511f93207756e8 issued_at=2026-03-16T02:23:59.724348+00:00 artifact=bundle/.claude-plugin/marketplace.json sha256=3a91bd8b1253c054958e2c2e3e48671967093832c05a0e724bc7b1a747eda1f3\nRo8nvzHjtoGS1hx+2iRZE8sNyI/fkyvsNeQrLfJKiNehbbnUlk65ir56g6xP9phVaS6bVmpm0escK3sKouTeCg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=f0511f93207756e8 issued_at=2026-03-16T02:23:59.724348+00:00 artifact=bundle/.claude-plugin/marketplace.json sha256=3a91bd8b1253c054958e2c2e3e48671967093832c05a0e724bc7b1a747eda1f3"
   }
 }
