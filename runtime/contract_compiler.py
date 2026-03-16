@@ -38,7 +38,8 @@ from runtime.adoption import (
     CANONICAL_REPO_URL,
     CANONICAL_VERSION,
 )
-from runtime.canonical_taxonomy import CANONICAL_PRESETS, RELEASE_CHANNELS
+from runtime.canonical_taxonomy import CANONICAL_PRESETS, POLICY_PACK_IDS, RELEASE_CHANNELS
+from registry.approval_artifact import verify_approval_artifact
 from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
 from registry.verify_artifact import sign_artifact_statement, verify_artifact_statement
 
@@ -2222,6 +2223,45 @@ def _check_high_risk_security_waivers(payload: dict[str, Any]) -> list[str]:
     return blockers
 
 
+def _check_policy_pack_signatures(root: Path) -> dict[str, Any]:
+    enforcing = os.environ.get("OMG_REQUIRE_TRUSTED_POLICY_PACKS") == "1"
+    if not enforcing:
+        return {"status": "ok", "enforcing": False, "blockers": []}
+
+    packs_dir = root / "registry" / "policy-packs"
+    blockers: list[str] = []
+
+    for pack_id in POLICY_PACK_IDS:
+        lock_path = packs_dir / f"{pack_id}.lock.json"
+        sig_path = packs_dir / f"{pack_id}.signature.json"
+
+        if not lock_path.is_file() or not sig_path.is_file():
+            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            continue
+
+        try:
+            lock_data = json.loads(lock_path.read_text(encoding="utf-8"))
+            sig_data = json.loads(sig_path.read_text(encoding="utf-8"))
+        except Exception:
+            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            continue
+
+        expected_digest = str(lock_data.get("canonical_digest", "")).strip()
+        if not expected_digest:
+            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            continue
+
+        result = verify_approval_artifact(sig_data, expected_digest)
+        if not result.get("valid"):
+            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "enforcing": True,
+        "blockers": blockers,
+    }
+
+
 def build_release_readiness(
     *,
     root_dir: str | Path | None = None,
@@ -2409,6 +2449,10 @@ def build_release_readiness(
     surface_drift_check = _check_release_surface_drift(root, output)
     checks["release_surface_drift"] = surface_drift_check
     blockers.extend(surface_drift_check.get("blockers", []))
+
+    policy_sig_check = _check_policy_pack_signatures(root)
+    checks["policy_pack_signatures"] = policy_sig_check
+    blockers.extend(policy_sig_check.get("blockers", []))
 
     if channel == "dual":
         bundle_promotion_parity = _check_bundle_promotion_parity(root, output)

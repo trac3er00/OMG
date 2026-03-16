@@ -25,6 +25,7 @@ from runtime.contract_compiler import (
     REQUIRED_CODEX_OUTPUTS,
     _get_required_advanced_plugin_artifacts,
     _check_release_surface_drift,
+    _check_policy_pack_signatures,
     check_package_parity,
     build_release_readiness,
     compile_contract_outputs,
@@ -104,6 +105,15 @@ def _patch_fast_release_checks(monkeypatch) -> None:
             "status": "ok",
             "blockers": [],
             "checks": {},
+        },
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_policy_pack_signatures",
+        lambda _root: {
+            "status": "ok",
+            "enforcing": False,
+            "blockers": [],
         },
     )
 
@@ -3061,3 +3071,71 @@ def test_release_surface_drift_blocks_missing_manifest(tmp_path: Path) -> None:
 
     assert result["status"] == "error"
     assert any("release-surface.json" in b for b in result["blockers"])
+
+
+# ---------------------------------------------------------------------------
+# _check_policy_pack_signatures
+# ---------------------------------------------------------------------------
+
+
+def test_check_policy_pack_signatures_non_enforcing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", raising=False)
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["enforcing"] is False
+    assert result["blockers"] == []
+
+
+def test_check_policy_pack_signatures_enforcing_missing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", "1")
+    packs_dir = tmp_path / "registry" / "policy-packs"
+    packs_dir.mkdir(parents=True)
+    for pack_id in ("locked-prod", "fintech", "airgapped"):
+        (packs_dir / f"{pack_id}.yaml").write_text(f"id: {pack_id}\n")
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "error"
+    assert result["enforcing"] is True
+    assert len(result["blockers"]) == 3
+    assert all("policy_pack_signature:" in b for b in result["blockers"])
+    assert any("locked-prod" in b for b in result["blockers"])
+    assert any("fintech" in b for b in result["blockers"])
+    assert any("airgapped" in b for b in result["blockers"])
+
+
+def test_check_policy_pack_signatures_enforcing_valid(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", "1")
+    packs_dir = tmp_path / "registry" / "policy-packs"
+    packs_dir.mkdir(parents=True)
+
+    digest = "a" * 64
+    for pack_id in ("locked-prod", "fintech", "airgapped"):
+        (packs_dir / f"{pack_id}.lock.json").write_text(
+            json.dumps({"canonical_digest": digest})
+        )
+        (packs_dir / f"{pack_id}.signature.json").write_text(
+            json.dumps({
+                "artifact_digest": digest,
+                "action": "policy-pack-sign",
+                "scope": f"policy-pack/{pack_id}",
+                "reason": "test",
+                "signer_key_id": "test-key",
+                "issued_at": "2026-01-01T00:00:00Z",
+                "signature": "test-sig",
+            })
+        )
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "verify_approval_artifact",
+        lambda approval, expected: {"valid": True, "reason": "verified"},
+    )
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["enforcing"] is True
+    assert result["blockers"] == []
