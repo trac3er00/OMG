@@ -50,10 +50,15 @@ def _safe_float(value, default: float) -> float:
         return default
 
 
-def _read_budget_config(project_dir: str) -> tuple[float, float, float]:
+def _read_budget_config(project_dir: str) -> tuple[float, float, float, dict[str, Any]]:
     session_limit = DEFAULT_SESSION_LIMIT_USD
     input_per_mtok = DEFAULT_INPUT_PER_MTOK
     output_per_mtok = DEFAULT_OUTPUT_PER_MTOK
+    tier_info: dict[str, Any] = {
+        "tier": "free",
+        "tier_limit_usd": DEFAULT_SESSION_LIMIT_USD,
+        "tier_provenance": "default",
+    }
 
     try:
         parent = os.path.dirname(HOOKS_DIR)
@@ -67,6 +72,13 @@ def _read_budget_config(project_dir: str) -> tuple[float, float, float]:
             tier_result.get("budget_usd_per_session"),
             DEFAULT_SESSION_LIMIT_USD,
         )
+        tier_info = {
+            "tier": tier_result.get("tier", "free"),
+            "tier_limit_usd": float(
+                tier_result.get("budget_usd_per_session", DEFAULT_SESSION_LIMIT_USD)
+            ),
+            "tier_provenance": tier_result.get("provenance", "default"),
+        }
     except Exception:
         pass
 
@@ -82,7 +94,7 @@ def _read_budget_config(project_dir: str) -> tuple[float, float, float]:
     except Exception:
         pass
 
-    return session_limit, input_per_mtok, output_per_mtok
+    return session_limit, input_per_mtok, output_per_mtok, tier_info
 
 
 def _to_text(value) -> str:
@@ -233,7 +245,7 @@ def main() -> None:
         sys.exit(0)
 
     project_dir = get_project_dir()
-    session_limit_usd, input_per_mtok, output_per_mtok = _read_budget_config(project_dir)
+    session_limit_usd, input_per_mtok, output_per_mtok, tier_info = _read_budget_config(project_dir)
     summary = read_cost_summary(project_dir)
 
     estimated_current_cost = _estimate_call_cost(
@@ -274,7 +286,39 @@ def main() -> None:
     if envelope_context:
         context += "\n" + envelope_context
 
-    json.dump({"additionalContext": context, "provenance": provenance}, sys.stdout)
+    tier_limit_usd = tier_info["tier_limit_usd"]
+    near_limit = used_cost_usd > (0.80 * tier_limit_usd)
+    limit_reached = used_cost_usd >= tier_limit_usd
+
+    throttle_reason: str | None = None
+    if near_limit or limit_reached:
+        throttle_reason = (
+            f"tier={tier_info['tier']} limit={tier_limit_usd:.2f} "
+            f"used={used_cost_usd:.2f} provenance={tier_info['tier_provenance']}"
+        )
+
+    if limit_reached:
+        context += f"\n@tier-limit-reached: {throttle_reason}"
+    elif near_limit:
+        context += f"\n@tier-near-limit: {throttle_reason}"
+
+    output: dict[str, Any] = {
+        "additionalContext": context,
+        "provenance": provenance,
+        "tier": tier_info["tier"],
+        "tier_limit_usd": tier_limit_usd,
+        "near_limit": near_limit,
+        "limit_reached": limit_reached,
+        "throttle_reason": throttle_reason,
+    }
+
+    if tier_info["tier_provenance"] in ("cache", "default"):
+        output["tier_provenance_fallback"] = (
+            f"tier data from {tier_info['tier_provenance']} source "
+            "— may not reflect current subscription"
+        )
+
+    json.dump(output, sys.stdout)
     sys.exit(0)
 
 
