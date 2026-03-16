@@ -55,13 +55,28 @@ def _read_budget_config(project_dir: str) -> tuple[float, float, float]:
     input_per_mtok = DEFAULT_INPUT_PER_MTOK
     output_per_mtok = DEFAULT_OUTPUT_PER_MTOK
 
+    try:
+        parent = os.path.dirname(HOOKS_DIR)
+        if parent not in sys.path:
+            sys.path.insert(0, parent)
+        from runtime.subscription_tiers import detect_tier
+
+        provider = os.environ.get("OMG_PROVIDER", "claude")
+        tier_result = detect_tier(provider, project_dir=project_dir)
+        session_limit = _safe_float(
+            tier_result.get("budget_usd_per_session"),
+            DEFAULT_SESSION_LIMIT_USD,
+        )
+    except Exception:
+        pass
+
     settings_path = os.path.join(project_dir, "settings.json")
     try:
         with open(settings_path, "r", encoding="utf-8") as f:
             settings = json.load(f)
         budget_cfg = settings.get("_omg", {}).get("cost_budget", {})
         pricing = budget_cfg.get("pricing", {})
-        session_limit = _safe_float(budget_cfg.get("session_limit_usd"), DEFAULT_SESSION_LIMIT_USD)
+        session_limit = _safe_float(budget_cfg.get("session_limit_usd"), session_limit)
         input_per_mtok = _safe_float(pricing.get("input_per_mtok"), DEFAULT_INPUT_PER_MTOK)
         output_per_mtok = _safe_float(pricing.get("output_per_mtok"), DEFAULT_OUTPUT_PER_MTOK)
     except Exception:
