@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+'use strict';
+
+const { spawnSync } = require('child_process');
+const path = require('path');
+
+const platform = process.platform;
+if (platform !== 'linux' && platform !== 'darwin') {
+  process.stderr.write(`omg: unsupported platform ${platform}. Use macOS or Linux.\n`);
+  process.exitCode = 1;
+  return;
+}
+
+function findPython() {
+  for (const cmd of ['python3', 'python']) {
+    const r = spawnSync(cmd, ['--version'], { encoding: 'utf8', shell: false });
+    if (r.status === 0) return cmd;
+  }
+  return null;
+}
+
+if (process.argv.includes('--version')) {
+  const pkg = require(path.join(__dirname, '..', 'package.json'));
+  process.stdout.write(`omg ${pkg.version}\n`);
+  process.exitCode = 0;
+} else {
+  const pythonBin = findPython();
+  if (!pythonBin) {
+    process.stderr.write(
+      'omg requires Python 3.10 or higher. Install Python and re-run.\nSee: https://python.org\n'
+    );
+    process.exitCode = 1;
+  } else {
+    const omgPath = path.join(__dirname, '..', 'scripts', 'omg.py');
+    const result = spawnSync(pythonBin, [omgPath, ...process.argv.slice(2)], {
+      shell: false,
+      stdio: 'inherit',
+    });
+    process.exitCode = result.status ?? 1;
+  }
+}

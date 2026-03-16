@@ -3,6 +3,27 @@
   "version": "2.2.7",
   "description": "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts",
   "main": "OMG-setup.sh",
+  "bin": {
+    "omg": "bin/omg"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "runtime/",
+    "registry/",
+    "hooks/",
+    "commands/",
+    "agents/",
+    "lab/",
+    "plugins/",
+    "tools/",
+    "hud/",
+    "README.md",
+    "OMG-setup.sh",
+    "settings.json",
+    "pyproject.toml",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "postinstall": "python3 scripts/omg.py install --plan",
     "update": "./OMG-setup.sh update",
@@ -30,6 +51,6 @@
   },
   "homepage": "https://github.com/trac3er00/OMG#readme",
   "engines": {
-    "node": ">=14"
+    "node": ">=18.0.0"
   }
 }
