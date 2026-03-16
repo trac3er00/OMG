@@ -33,7 +33,11 @@ def _write_checklist(tmp_path: Path, content: str) -> Path:
 
 def test_incomplete_checklist_blocks(tmp_path: Path):
     _ = _write_checklist(tmp_path, "- [x] Done\n- [ ] Pending\n")
-    result = _run_dispatcher(tmp_path, {"stop_hook_active": False})
+    payload = {
+        "stop_hook_active": False,
+        "tool_use_results": [{"tool_name": "Write", "file": "src/app.py"}],
+    }
+    result = _run_dispatcher(tmp_path, payload)
     assert result.returncode == 0
     output = json.loads(result.stdout)
     assert output["decision"] == "block"
