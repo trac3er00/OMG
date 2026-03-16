@@ -78,6 +78,7 @@ from runtime.canonical_surface import get_canonical_hosts
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
 from runtime.release_run_coordinator import resolve_current_run_id
+from runtime.subscription_tiers import detect_tier
 
 
 CANONICAL_HOST_CHOICES = tuple(get_canonical_hosts())
@@ -367,6 +368,94 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     result = run_preflight(_ensure_project_dir(), goal=args.goal)
     print(json.dumps(result, indent=2))
     return 0
+
+
+def _emit_not_implemented_stub(command: str, *, details: dict[str, Any] | None = None) -> int:
+    payload: dict[str, Any] = {
+        "schema": "OperatorContractStub",
+        "status": "not_implemented",
+        "error_code": "NOT_YET_IMPLEMENTED",
+        "command": command,
+        "message": f"{command} is registered but not yet implemented",
+    }
+    if details:
+        payload.update(details)
+    print(json.dumps(payload, indent=2))
+    return 2
+
+
+def cmd_resolve_policy(args: argparse.Namespace) -> int:
+    del args
+    return _emit_not_implemented_stub("resolve-policy")
+
+
+def cmd_proof_summary(args: argparse.Namespace) -> int:
+    del args
+    return _emit_not_implemented_stub("proof summary")
+
+
+def cmd_explain_run(args: argparse.Namespace) -> int:
+    return _emit_not_implemented_stub("explain run", details={"run_id": str(args.run_id)})
+
+
+def cmd_budget_simulate(args: argparse.Namespace) -> int:
+    tier_input = str(getattr(args, "tier", "") or "").strip().lower()
+    tier_detection = detect_tier(str(args.provider), project_dir=_ensure_project_dir())
+    tier = tier_input or str(tier_detection.get("tier", "free"))
+
+    tier_token_limits = {
+        "free": 10_000,
+        "pro": 100_000,
+        "team": 500_000,
+        "enterprise_tier": 2_000_000,
+    }
+    token_limit = int(args.token_limit) if int(args.token_limit) > 0 else int(tier_token_limits.get(tier, 10_000))
+    tokens_used = max(0, int(args.tokens_used))
+    breached = tokens_used > token_limit
+
+    check = {
+        "status": "breach" if breached else "ok",
+        "breached_dimensions": ["tokens"] if breached else [],
+        "governance_action": "block" if breached else "warn",
+        "reason": (
+            f"simulated tokens exceeded tier limit ({tokens_used}>{token_limit})"
+            if breached
+            else "simulated usage within tier limits"
+        ),
+    }
+
+    if bool(args.enforce) and breached:
+        print(
+            json.dumps(
+                {
+                    "schema": "BudgetSimulateResult",
+                    "status": "blocked",
+                    "reason": check["reason"],
+                    "tier": tier,
+                    "provider": str(args.provider),
+                    "enforce": True,
+                    "usage": {"tokens_used": tokens_used},
+                    "limits": {"token_limit": token_limit},
+                    "check": check,
+                },
+                indent=2,
+            )
+        )
+        return 2
+
+    return _emit_not_implemented_stub(
+        "budget simulate",
+        details={
+            "schema": "BudgetSimulateResult",
+            "provider": str(args.provider),
+            "tier": tier,
+            "tier_detection": tier_detection,
+            "enforce": bool(args.enforce),
+            "usage": {"tokens_used": tokens_used},
+            "limits": {"token_limit": token_limit},
+            "check": check,
+        },
+    )
 
 
 def cmd_domain_pack(args: argparse.Namespace) -> int:
@@ -1537,6 +1626,30 @@ def build_parser() -> argparse.ArgumentParser:
     preflight = sub.add_parser("preflight", help="Structured OMG preflight routing")
     preflight.add_argument("--goal", required=True)
     preflight.set_defaults(func=cmd_preflight)
+
+    resolve_policy = sub.add_parser("resolve-policy", help="Resolve policy intent (stub)")
+    resolve_policy.set_defaults(func=cmd_resolve_policy)
+
+    proof = sub.add_parser("proof", help="Proof helpers")
+    proof_sub = proof.add_subparsers(dest="proof_command", required=True)
+    proof_summary = proof_sub.add_parser("summary", help="Summarize proof status (stub)")
+    proof_summary.set_defaults(func=cmd_proof_summary)
+
+    explain = sub.add_parser("explain", help="Explain run artifacts")
+    explain_sub = explain.add_subparsers(dest="explain_command", required=True)
+    explain_run = explain_sub.add_parser("run", help="Explain run by id (stub)")
+    explain_run.add_argument("--run-id", required=True)
+    explain_run.set_defaults(func=cmd_explain_run)
+
+    budget = sub.add_parser("budget", help="Budget envelope operations")
+    budget_sub = budget.add_subparsers(dest="budget_command", required=True)
+    budget_simulate = budget_sub.add_parser("simulate", help="Simulate budget envelope outcomes (stub)")
+    budget_simulate.add_argument("--provider", default="claude")
+    budget_simulate.add_argument("--tier", default="")
+    budget_simulate.add_argument("--tokens-used", type=int, default=0)
+    budget_simulate.add_argument("--token-limit", type=int, default=0)
+    budget_simulate.add_argument("--enforce", action="store_true")
+    budget_simulate.set_defaults(func=cmd_budget_simulate)
 
     domain_pack = sub.add_parser("domain-pack", help="Inspect optional domain pack contracts")
     domain_pack.add_argument("--name", required=True, choices=["robotics", "vision", "algorithms", "health"])
