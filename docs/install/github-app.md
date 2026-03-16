@@ -98,6 +98,23 @@ In the repository settings UI, select the entry showing the OMG App icon (not th
 
 See [Required Checks Reference](github-app-required-checks.md) for the full API shape and GraphQL merge-readiness queries.
 
+## Stable Check Name
+
+The required-check name used by OMG is **immutable**:
+
+```
+OMG PR Reviewer
+```
+
+This value is baked into `action.yml` and the reusable workflow. It must never be
+renamed — branch protection rules, merge queues, and downstream integrations
+depend on this exact string. If you need to change how the check behaves, modify
+the review logic, not the name.
+
+> **New**: The root `action.yml` is now the recommended consumable entrypoint for
+> GitHub Actions integration. See [GitHub Action Setup](github-action.md) for the
+> turnkey guide.
+
 ## Security Hardening
 
 ### Secret Management
