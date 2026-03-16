@@ -1,6 +1,6 @@
 id: plan-council
 kind: planning
-version: 2.2.5
+version: 2.2.6
 title: OMG Plan Council
 description: Canonical council-style planning bundle for explicit, evidence-backed deep plans.
 hosts:

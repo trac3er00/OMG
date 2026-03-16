@@ -5,7 +5,7 @@
     {
       "name": "bundle/OMG_COMPAT_CONTRACT.md",
       "digest": {
-        "sha256": "e979bd70024c1fc68a15853ebbdd901ede499474603baa0a589b03c6039a68f5"
+        "sha256": "691353a68c9d12b63afbb4311b81f98022d7320199647f48b4d5ba57df772f14"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T02:24:00.303751+00:00"
+      "timestamp": "2026-03-16T19:27:46.270909+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T02:24:00.303751+00:00",
+  "issued_at": "2026-03-16T19:27:46.270909+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "f4894a83d90db678",
-    "value": "untrusted comment: signature from omg local signing key\nD11kY7N0/qS21v6RY7wdzkGIOHEt04aAJeCSCp+Sx9M0WtSq+Mfs4hVIIkLZ35Ld1GxOwJWrdLeucE/JJO+oCw==\ntrusted comment: type=omg-slsa-v1 keyid=f4894a83d90db678 issued_at=2026-03-16T02:24:00.303869+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=e979bd70024c1fc68a15853ebbdd901ede499474603baa0a589b03c6039a68f5\nR7jAvrbYoJguIS8Lq4FvPz80XbGFhUuWjUivN5RMR+gh4VxRdmDESfjq2COk1d2ThgqxpmdMCePcaltbl/tGCg==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=f4894a83d90db678 issued_at=2026-03-16T02:24:00.303869+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=e979bd70024c1fc68a15853ebbdd901ede499474603baa0a589b03c6039a68f5"
+    "keyid": "c6d36fdebbc0c408",
+    "value": "untrusted comment: signature from omg local signing key\nugFEnPtVr5WupXaF8a3qucalRKJhObNL3IFkmenAtwVXdyrMMnMU7DEuNssnYiqFn7Bq8J9iMR8GBxUhSc8MBw==\ntrusted comment: type=omg-slsa-v1 keyid=c6d36fdebbc0c408 issued_at=2026-03-16T19:27:46.271022+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=691353a68c9d12b63afbb4311b81f98022d7320199647f48b4d5ba57df772f14\nMVS+OZN4akCcXTpv1GqIeEjXMqdlCS0mwWlBAsUK1tuuq45kNfkJGL45Fz8MEeEtwJ7uyVgvEhtdeqctwMj4Bw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=c6d36fdebbc0c408 issued_at=2026-03-16T19:27:46.271022+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=691353a68c9d12b63afbb4311b81f98022d7320199647f48b4d5ba57df772f14"
   }
 }
