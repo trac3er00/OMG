@@ -1,6 +1,6 @@
 id: incident-replay
 kind: debugging
-version: 2.2.5
+version: 2.2.6
 title: OMG Incident Replay
 description: Replayable bug packs built from logs, failing tests, traces, and diffs.
 hosts:

@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-HsDBGlOlulJv0LYRm3+rIbAZCiELHWNC+h8outr//anLTw5WzaJztee1sTv8hez+I2Mln2wKz+JQhbppt2xHAQ==
-trusted comment: type=omg-slsa-v1 keyid=8e83d19f276af628 issued_at=2026-03-16T02:24:00.288863+00:00 artifact=bundle/.agents/skills/omg/remote-supervisor/openai.yaml sha256=e7f8a7c1f099c76d0aafc95b535e10a1c07e591a5db09a67ecccedc0ebd68c26
-yFKAjBPI3kPQB0a0TTp8MbUYd86t9K0iR0rzBt7kD9AgBcbqQ7eXkMpyq0xztHdvvCWxZl274hQsCai5x2Y3Bg==
+m4/wok9o87L2JPPuyI+9HwjLyLlT10+SOisJEQ64sv+lplTyavT8Ml/DcGDX4h6cMihk7wYVHH2S4C1RVi7iDQ==
+trusted comment: type=omg-slsa-v1 keyid=06c8da858077aabb issued_at=2026-03-16T19:27:46.257626+00:00 artifact=bundle/.agents/skills/omg/remote-supervisor/openai.yaml sha256=e7f8a7c1f099c76d0aafc95b535e10a1c07e591a5db09a67ecccedc0ebd68c26
+jHuf3E5+SMH8CT2uBvKUH2KfKY1iiHgluH3veYooTHgGelQTPMC2tHiEq1vMkRHBUA2CKn/eI0G/pl9AqANcBg==

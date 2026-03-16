@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
       "digest": {
-        "sha256": "83a630c565516106ec88b183075ff539873fd83ba809068784aa55ac70ea72cc"
+        "sha256": "7c1f9446957b54084921416afc503c918b61e9433db09c73c7385e93d60071d0"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T02:24:00.328589+00:00"
+      "timestamp": "2026-03-16T19:27:46.290039+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T02:24:00.328589+00:00",
+  "issued_at": "2026-03-16T19:27:46.290039+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "f6de84c809449896",
-    "value": "untrusted comment: signature from omg local signing key\n8Cgy/F6xzYKoHNkxOwuSsTuDvgIIP9zHe3K/A/41ocxOhV9qCaim5iSRBYzCV9xvtxJguP+Ho0vtcyzgm/1JAQ==\ntrusted comment: type=omg-slsa-v1 keyid=f6de84c809449896 issued_at=2026-03-16T02:24:00.328714+00:00 artifact=bundle/registry/bundles/secure-worktree-pipeline.yaml sha256=83a630c565516106ec88b183075ff539873fd83ba809068784aa55ac70ea72cc\n5HO/oyhwjr59M2sG2fd+UaiZY1jOpwlEuxfNahgg5AhXEI18DclqDmriiTdxzLzs4CuCH1IlWVxbc8fdGkiCCA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=f6de84c809449896 issued_at=2026-03-16T02:24:00.328714+00:00 artifact=bundle/registry/bundles/secure-worktree-pipeline.yaml sha256=83a630c565516106ec88b183075ff539873fd83ba809068784aa55ac70ea72cc"
+    "keyid": "a592225e84601f36",
+    "value": "untrusted comment: signature from omg local signing key\nUjTSAnRq0MQk07xraKjz+l0FkwzdIAWW0xvFCAzMbz+PNWN6dkiJymgnNqycktOv/9j7ugh0Mh/ppvBH1c9ODg==\ntrusted comment: type=omg-slsa-v1 keyid=a592225e84601f36 issued_at=2026-03-16T19:27:46.290149+00:00 artifact=bundle/registry/bundles/secure-worktree-pipeline.yaml sha256=7c1f9446957b54084921416afc503c918b61e9433db09c73c7385e93d60071d0\nHtJ0xMv9MFfKPsG54a3k6eG0/+ZFb6wmO4xbPxAAuvGUNbVWVI+nIjPzHhf++3ZiajcKCm+SAvlT/YQwXmEjCA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=a592225e84601f36 issued_at=2026-03-16T19:27:46.290149+00:00 artifact=bundle/registry/bundles/secure-worktree-pipeline.yaml sha256=7c1f9446957b54084921416afc503c918b61e9433db09c73c7385e93d60071d0"
   }
 }

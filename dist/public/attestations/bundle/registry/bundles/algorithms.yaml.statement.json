@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/algorithms.yaml",
       "digest": {
-        "sha256": "3cbb6ce963349ad1dfeed38699e4b583fabb15a6cdc0d4c2e434be0533d2fe53"
+        "sha256": "c52ed8208e69a2a087ad6e0b07a3dc141478e7f75294fd829211b405695c7c44"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T02:23:59.734906+00:00"
+      "timestamp": "2026-03-16T19:27:39.074243+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T02:23:59.734906+00:00",
+  "issued_at": "2026-03-16T19:27:39.074243+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "972973e5c621c4b4",
-    "value": "untrusted comment: signature from omg local signing key\n5qrIVeLygtfVob4v6n8xWngLb1llD/gvADfY1px6w+B54juQmEXwVeLPdwMRMqpnheuBppoLaz1JUGJtQsAMAw==\ntrusted comment: type=omg-slsa-v1 keyid=972973e5c621c4b4 issued_at=2026-03-16T02:23:59.735068+00:00 artifact=bundle/registry/bundles/algorithms.yaml sha256=3cbb6ce963349ad1dfeed38699e4b583fabb15a6cdc0d4c2e434be0533d2fe53\nV2HOZQ63LoKxdsZjbxGND+Ntrrv1v2cmTgjm7FHlGThdrtq3ScCNXcgdBnQN/CwMk4ZXz29mKzrijqigeQ2QCA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=972973e5c621c4b4 issued_at=2026-03-16T02:23:59.735068+00:00 artifact=bundle/registry/bundles/algorithms.yaml sha256=3cbb6ce963349ad1dfeed38699e4b583fabb15a6cdc0d4c2e434be0533d2fe53"
+    "keyid": "e744cb55997df898",
+    "value": "untrusted comment: signature from omg local signing key\nmsTMn/C8Rxts4cKnsCx4cPq4lwddTHelbZsyhvDu8wGern6oeA1L7QXFQmsrQVZYLVfb4uSQFHaPb4GtNN5oBQ==\ntrusted comment: type=omg-slsa-v1 keyid=e744cb55997df898 issued_at=2026-03-16T19:27:39.074349+00:00 artifact=bundle/registry/bundles/algorithms.yaml sha256=c52ed8208e69a2a087ad6e0b07a3dc141478e7f75294fd829211b405695c7c44\nkgs8c5LZsyj2FLghBLff2qJjbtmhV0+NvXk+ZDORTmgbvxmz1mkI96NdUsJ4mdWXmXjslxWO83FJoURBLv0sBg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=e744cb55997df898 issued_at=2026-03-16T19:27:39.074349+00:00 artifact=bundle/registry/bundles/algorithms.yaml sha256=c52ed8208e69a2a087ad6e0b07a3dc141478e7f75294fd829211b405695c7c44"
   }
 }
