@@ -83,9 +83,9 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 - Normative spec: `OMG_COMPAT_CONTRACT.md`
 - Executable registry: `registry/omg-capability.schema.json` and `registry/bundles/*.yaml`
 - Generated Codex pack: `.agents/skills/omg/`
-- Validation: `python3 scripts/omg.py contract validate`
-- Compilation: `python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public`
-- Release gate: `python3 scripts/omg.py release readiness --channel dual`
+- Validation: `omg contract validate`
+- Compilation: `omg contract compile --host claude --host codex --host gemini --host kimi --channel public`
+- Release gate: `omg release readiness --channel dual`
 
 ![OMG HUD](docs/assets/omg-hud.svg)
 

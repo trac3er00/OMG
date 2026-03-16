@@ -63,3 +63,21 @@ def test_standalone_clean_check_detects_legacy_runtime_import_variant(tmp_path: 
     payload = json.loads(proc.stdout)
     assert payload["status"] == "error"
     assert any("legacy runtime import" in v for v in payload["violations"])
+
+
+def test_standalone_clean_check_passes_on_repo_after_launcher_update():
+    proc = _run([])
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "ok"
+
+
+def test_standalone_clean_check_detects_python_cli_in_public_doc(tmp_path: Path):
+    readme = tmp_path / "README.md"
+    readme.write_text("Run `python3 scripts/omg.py install` to install.\n", encoding="utf-8")
+
+    proc = _run(["--root", str(tmp_path)])
+    assert proc.returncode != 0
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "error"
+    assert any("python3 scripts/omg.py" in v and "public doc" in v for v in payload["violations"])
