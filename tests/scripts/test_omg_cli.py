@@ -1096,6 +1096,114 @@ def test_install_no_flag_returns_error():
     assert "error" in out
 
 
+def test_install_ci_flag_auto_applies():
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        proc = _run(["install", "--ci", "--format", "json"])
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert out.get("schema") == "InstallApplyResult"
+        assert "receipts" in out
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
+
+
+def test_install_omg_ci_env_auto_applies():
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        env = {**os.environ, "OMG_CI": "1"}
+        proc = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "omg.py"), "install", "--format", "json"],
+            capture_output=True, text=True, timeout=30, cwd=str(ROOT), env=env,
+        )
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert out.get("schema") == "InstallApplyResult"
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
+
+
+def test_install_non_interactive_auto_applies():
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        proc = _run(["install", "--non-interactive", "--format", "json"])
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert out.get("schema") == "InstallApplyResult"
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
+
+
+# --- policy-pack subcommand tests ---
+
+
+def test_policy_pack_diff_returns_overrides():
+    proc = _run(["policy-pack", "diff", "airgapped", "--format", "json"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "PolicyPackDiff"
+    assert out["status"] == "ok"
+    assert out["pack_id"] == "airgapped"
+
+
+def test_policy_pack_diff_unknown_pack_fails():
+    proc = _run(["policy-pack", "diff", "nonexistent-pack-xyz", "--format", "json"])
+    assert proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert out["status"] == "error"
+
+
+def test_policy_pack_scaffold_returns_template():
+    proc = _run(["policy-pack", "scaffold", "my-custom-pack", "--format", "json"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "PolicyPackScaffold"
+    assert out["pack_id"] == "my-custom-pack"
+    assert "template" in out
+    assert out["template"]["id"] == "my-custom-pack"
+    assert "output_path" in out
+
+
+def test_policy_pack_sign_returns_not_implemented():
+    proc = _run(["policy-pack", "sign", "airgapped", "--format", "json"])
+    assert proc.returncode == 2
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "OperatorContractStub"
+    assert out["status"] == "not_implemented"
+
+
+# --- doctor repair-pack tests ---
+
+
+def test_doctor_checks_include_repair_pack_field():
+    proc = _run(["doctor", "--format", "json"])
+    out = json.loads(proc.stdout)
+    for check in out["checks"]:
+        assert "repair_pack" in check, f"check {check['name']} missing repair_pack"
+        assert check["repair_pack"] in ("runtime", "governance", "host", "release", "general", "claude", "codex", "gemini", "kimi", "opencode")
+
+
+def test_doctor_repair_pack_filter():
+    proc = _run(["doctor", "--repair-pack", "runtime", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    for check in out["checks"]:
+        assert check["repair_pack"] == "runtime", f"filter leak: {check['name']} has pack {check['repair_pack']}"
+
+
+def test_doctor_fix_receipts_include_repair_pack():
+    proc = _run(["doctor", "--fix", "--dry-run", "--format", "json"])
+    out = json.loads(proc.stdout)
+    for receipt in out.get("fix_receipts", []):
+        assert "repair_pack" in receipt
+
+
 # --- doctor --fix command tests ---
 
 
