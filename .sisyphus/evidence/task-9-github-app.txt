@@ -1,0 +1,21 @@
+Task 9: Package reusable GitHub App evidence-gate bundle and update public install docs
+
+== Test Results ==
+python3 -m pytest tests/scripts/test_github_workflows.py tests/test_public_surface.py -q --no-header -p no:warnings
+
+30 passed in 5.29s
+
+== Files Created/Modified ==
+- .github/workflows/evidence-gate.yml (NEW) — reusable workflow with workflow_call trigger
+  - inputs: repo-full-name, pr-number, head-sha
+  - secrets: GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_INSTALLATION_ID
+  - jobs: post-review (trusted lane)
+- docs/install/github-app.md — added "Reusable Workflow" and "Pinning Required Checks by app_id" sections
+- docs/install/github-app-required-checks.md — added app_id importance note and spoofing warning
+- tests/scripts/test_github_workflows.py — added test_evidence_gate_reusable_workflow_exists_and_has_correct_structure
+
+== Verification ==
+- evidence-gate.yml uses workflow_call only (no non-reusable triggers)
+- post-review job is isolated as trusted lane
+- omg-compat-gate.yml preserved (not modified)
+- New test validates: workflow_call trigger, all 3 inputs, all 3 secrets, post-review job exists, no push/pull_request triggers

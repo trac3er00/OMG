@@ -49,6 +49,55 @@ env:
   GITHUB_APP_PRIVATE_KEY: ${{ secrets.OMG_APP_PRIVATE_KEY }}
 ```
 
+## Reusable Workflow
+
+OMG ships a reusable GitHub Actions workflow at `.github/workflows/evidence-gate.yml` that wraps the trusted PR review and check-run posting steps. Consumer repositories can call it from their own workflow instead of duplicating the posting logic:
+
+```yaml
+jobs:
+  evidence-gate:
+    uses: trac3er00/OMG/.github/workflows/evidence-gate.yml@main
+    with:
+      repo-full-name: ${{ github.repository }}
+      pr-number: ${{ github.event.pull_request.number }}
+      head-sha: ${{ github.event.pull_request.head.sha }}
+    secrets:
+      GITHUB_APP_ID: ${{ secrets.OMG_APP_ID }}
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.OMG_APP_PRIVATE_KEY }}
+      GITHUB_INSTALLATION_ID: ${{ secrets.OMG_APP_INSTALLATION_ID }}
+```
+
+The reusable workflow accepts three inputs (`repo-full-name`, `pr-number`, `head-sha`) and three secrets (`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_INSTALLATION_ID`). The caller is responsible for ensuring the checkout happens from the trusted base SHA — the reusable workflow itself only runs the posting step.
+
+> **Tip**: Pin the workflow reference to a specific commit SHA or tag rather than `@main` for production use: `uses: trac3er00/OMG/.github/workflows/evidence-gate.yml@<sha>`.
+
+## Pinning Required Checks by `app_id`
+
+GitHub allows any integration or workflow to create a check-run with any name. To prevent spoofing of the `OMG PR Reviewer` check, you **must** pin the required check to the OMG GitHub App's `app_id` in your branch protection settings.
+
+When using the REST API to configure branch protection, specify `app_id` in the `checks` array:
+
+```json
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": [],
+    "checks": [
+      {
+        "context": "OMG PR Reviewer",
+        "app_id": YOUR_OMG_APP_ID
+      }
+    ]
+  }
+}
+```
+
+When `app_id` is set, only check-runs created by that specific GitHub App are considered authoritative. A workflow or third-party App posting a check-run with the same name but a different `app_id` will **not** satisfy the requirement.
+
+In the repository settings UI, select the entry showing the OMG App icon (not the GitHub Actions icon) when adding the required check.
+
+See [Required Checks Reference](github-app-required-checks.md) for the full API shape and GraphQL merge-readiness queries.
+
 ## Security Hardening
 
 ### Secret Management

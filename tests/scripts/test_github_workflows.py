@@ -294,6 +294,37 @@ def test_publish_workflow_requires_readiness_gate() -> None:
     assert "release-readiness" in needs, "publish job must depend on release-readiness"
 
 
+def test_evidence_gate_reusable_workflow_exists_and_has_correct_structure() -> None:
+    workflow = _load_workflow("evidence-gate.yml")
+    on_triggers = _workflow_on(workflow)
+    assert isinstance(on_triggers, dict), "evidence-gate.yml must define triggers"
+    assert "workflow_call" in on_triggers, "evidence-gate.yml must use workflow_call trigger"
+
+    call_config = on_triggers["workflow_call"]
+    assert isinstance(call_config, dict), "workflow_call must have configuration"
+
+    inputs = call_config.get("inputs", {})
+    assert "repo-full-name" in inputs
+    assert "pr-number" in inputs
+    assert "head-sha" in inputs
+
+    secrets = call_config.get("secrets", {})
+    assert "GITHUB_APP_ID" in secrets
+    assert "GITHUB_APP_PRIVATE_KEY" in secrets
+    assert "GITHUB_INSTALLATION_ID" in secrets
+
+    jobs = workflow.get("jobs")
+    assert isinstance(jobs, dict), "evidence-gate.yml must define jobs"
+    assert "post-review" in jobs, "evidence-gate.yml must have a post-review job"
+
+    text = _read_workflow_text("evidence-gate.yml")
+    assert "pull_request" not in on_triggers, "evidence-gate.yml must not have non-reusable triggers"
+    assert "push" not in on_triggers, "evidence-gate.yml must not have non-reusable triggers"
+    assert "secrets.GITHUB_APP_ID" in text
+    assert "secrets.GITHUB_APP_PRIVATE_KEY" in text
+    assert "secrets.GITHUB_INSTALLATION_ID" in text
+
+
 def test_github_review_helpers_build_pr_handoff_and_assert_pass(tmp_path: Path) -> None:
     event = {
         "action": "opened",
