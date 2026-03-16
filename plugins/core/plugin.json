@@ -116,6 +116,11 @@
       "path": "commands/OMG:validate.md",
       "description": "Canonical validation — doctor + contract + profile + install checks",
       "category": "observability"
+    },
+    "ship": {
+      "path": "commands/OMG:ship.md",
+      "description": "Ship — Idea to Evidence to PR",
+      "category": "delivery"
     }
   },
   "categories": {

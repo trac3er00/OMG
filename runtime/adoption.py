@@ -232,7 +232,7 @@ def _build_follow_up(mode: str, preset: str, detected_ecosystems: list[str]) -> 
     if mode == "coexist":
         follow_up.append("Review overlaps before enabling additional OMG labs surfaces.")
     else:
-        follow_up.append("Run /OMG:crazy <goal> after setup to use the recommended front door.")
+        follow_up.append("Run /OMG:ship <goal> after install and doctor to use the recommended front door.")
     if detected_ecosystems:
         follow_up.append(
             "Review the adoption report before deleting any previous OMC, OMX, or Superpowers files."

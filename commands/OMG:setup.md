@@ -78,5 +78,5 @@ The command emits a final summary that includes:
 The public OMG journey is:
 
 1. install for your host
-2. run `/OMG:setup`
-3. run `/OMG:crazy <goal>`
+2. run `doctor --fix`
+3. run `/OMG:ship <goal>`

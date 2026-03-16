@@ -7,7 +7,7 @@ OMG exposes a small native front door and keeps the rest of the surface availabl
 | Command | Description |
 |---------|-------------|
 | `/OMG:setup` | Native setup and adoption flow for supported hosts |
-| `/OMG:crazy` | Default OMG orchestration flow |
+| `/OMG:ship` | Ship — Idea to Evidence to PR |
 | `/OMG:browser` | Canonical browser automation and verification surface |
 
 ## Core Commands
