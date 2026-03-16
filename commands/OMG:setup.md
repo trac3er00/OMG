@@ -1,7 +1,7 @@
 ---
 description: "Native OMG setup and adoption flow for supported hosts"
 allowed-tools: Read, Write, Edit, Bash(python*:*), Bash(ls:*), Bash(grep:*)
-argument-hint: "[optional: --non-interactive, --mode omg-only|coexist, --preset safe|balanced|interop|labs|buffet|plugins-first]"
+argument-hint: "[optional: --non-interactive, --mode omg-only|coexist, --preset safe|balanced|interop|labs|buffet|production]"
 ---
 
 # /OMG:setup
@@ -44,7 +44,7 @@ Step 4: Choose preset
   - interop
   - labs
   - buffet
-  - plugins-first (alias for interop)
+  - production
 
 Step 5: Configure MCP and persist preferences
   - writes .mcp.json
