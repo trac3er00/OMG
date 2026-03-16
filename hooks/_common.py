@@ -220,31 +220,54 @@ def log_hook_error(hook_name, error, context=None):
         pass
 
 
-def atomic_json_write(path, data):
-    """Atomically write JSON data to a file using temp + rename.
-    
-    Args:
-        path: Target file path
-        data: Data to write as JSON
-    
-    Creates parent directories if needed. Silently fails on error.
-    """
+_O_NOFOLLOW_HOOKS: int = getattr(os, "O_NOFOLLOW", 0)
+
+
+def _fsync_dir_hooks(dirpath):
+    fd = os.open(dirpath, os.O_RDONLY)
     try:
-        # Create parent dirs
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def atomic_json_write(path, data):
+    try:
         parent = os.path.dirname(path)
         if parent:
             os.makedirs(parent, exist_ok=True)
-        
-        # Write to temp file
+
+        if os.path.islink(path):
+            raise OSError(f"Symlink target rejected: {path}")
+
         tmp_path = path + ".tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, separators=(",", ":"))
-        
-        # Atomic rename
-        os.rename(tmp_path, path)
+        if os.path.islink(tmp_path):
+            raise OSError(f"Symlink tmp path rejected: {tmp_path}")
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+        content = json.dumps(data, separators=(",", ":")).encode("utf-8")
+        open_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | _O_NOFOLLOW_HOOKS
+        fd = os.open(tmp_path, open_flags, 0o600)
+        try:
+            written = 0
+            while written < len(content):
+                written += os.write(fd, content[written:])
+            os.fsync(fd)
+        except BaseException:
+            os.close(fd)
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+        else:
+            os.close(fd)
+
+        os.replace(tmp_path, path)
+        _fsync_dir_hooks(parent or ".")
     except Exception as e:
         print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
-        pass
 
 
 # Feature flags cache — read settings.json once per hook invocation

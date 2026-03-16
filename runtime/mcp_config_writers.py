@@ -11,12 +11,76 @@ from hooks.security_validators import (
     validate_server_url,
 )
 
+# O_NOFOLLOW is available on macOS/Linux but not on Windows.
+_O_NOFOLLOW: int = getattr(os, "O_NOFOLLOW", 0)
+
+
+def _fsync_dir(path: Path | str) -> None:
+    fd = os.open(str(path), os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _atomic_write_text_safe(
+    path: Path,
+    content: str,
+    *,
+    mode: int = 0o600,
+) -> None:
+    """Write *content* to *path* atomically with full durability guarantees.
+
+    Contract:
+    1. Writes to a temp file in the same directory as *path* (same-filesystem).
+    2. Uses ``os.open`` with ``O_CREAT | O_WRONLY | O_TRUNC`` and explicit *mode*.
+    3. Rejects symlink targets and symlink tmp paths (raises ``OSError``).
+    4. Calls ``os.fsync(fd)`` before ``os.replace`` (data durable).
+    5. Calls ``_fsync_dir`` after ``os.replace`` (directory entry durable).
+    6. Cleans up the temp file on any failure before rename.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if path.exists() or path.is_symlink():
+        st = os.lstat(path)
+        import stat as stat_mod
+        if stat_mod.S_ISLNK(st.st_mode):
+            raise OSError(f"Refusing to write through symlink target: {path}")
+
+    tmp_path = path.with_name(f"{path.name}.tmp")
+    if tmp_path.exists() or tmp_path.is_symlink():
+        st = os.lstat(tmp_path)
+        import stat as stat_mod
+        if stat_mod.S_ISLNK(st.st_mode):
+            raise OSError(f"Refusing to write through symlink tmp path: {tmp_path}")
+        # Not a symlink — remove stale tmp file
+        tmp_path.unlink()
+
+    open_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | _O_NOFOLLOW
+    fd = os.open(str(tmp_path), open_flags, mode)
+    try:
+        data = content.encode("utf-8")
+        written = 0
+        while written < len(data):
+            written += os.write(fd, data[written:])
+        os.fsync(fd)
+    except BaseException:
+        os.close(fd)
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+    else:
+        os.close(fd)
+
+    os.replace(str(tmp_path), str(path))
+    _fsync_dir(path.parent)
+
 
 def _atomic_write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(f"{path.name}.tmp")
-    _ = tmp_path.write_text(content)
-    _ = os.replace(tmp_path, path)
+    _atomic_write_text_safe(path, content)
 
 
 def _load_json(path: Path) -> dict[str, object]:

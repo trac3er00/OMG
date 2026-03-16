@@ -17,6 +17,10 @@ import os
 import re
 import shutil
 from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from runtime.mcp_config_writers import _atomic_write_text_safe
 
 def load_json(path):
     if not os.path.exists(path):
@@ -265,9 +269,7 @@ def main():
         shutil.copy2(existing_path, backup)
         print(f"📦 Backed up: {backup}")
 
-    with open(existing_path, "w") as f:
-        json.dump(merged, f, indent=2)
-        f.write("\n")
+    _atomic_write_text_safe(Path(existing_path), json.dumps(merged, indent=2) + "\n", mode=0o644)
 
     print(f"✅ Merged into: {existing_path}")
 
