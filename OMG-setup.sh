@@ -240,7 +240,7 @@ parse_args() {
         FRESH_INSTALL=true
     fi
 
-    if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ] || [ -n "${BUN_INSTALL:-}" ]; then
+    if [ ! -t 0 ]; then
         NON_INTERACTIVE=true
     fi
 
@@ -1128,36 +1128,36 @@ managed_launcher = sys.argv[3]
 
 sys.path.insert(0, str(root))
 
-from runtime.mcp_config_writers import (  # noqa: E402
-    write_codex_mcp_stdio_config,
-    write_gemini_mcp_stdio_config,
-    write_kimi_mcp_stdio_config,
+from runtime.install_planner import compute_install_plan, execute_plan  # noqa: E402
+
+detected_clis = {
+    host: {"detected": bool(shutil.which(host))}
+    for host in ("codex", "gemini", "kimi")
+}
+
+plan = compute_install_plan(
+    project_dir=str(root),
+    detected_clis=detected_clis,
+    preset="safe",
+    mode="focused",
+    selected_ids=["omg-control"],
+    control_command=managed_python,
+    control_args=[managed_launcher],
+    selected_servers={
+        "omg-control": {
+            "command": managed_python,
+            "args": [managed_launcher],
+        }
+    },
+    source_root=root,
+    include_claude_action=False,
 )
+plan.pre_checks = []
+result = execute_plan(plan)
 
-configured: list[str] = []
-for host in ("codex", "gemini", "kimi"):
-    if shutil.which(host) is None:
-        continue
-    if host == "codex":
-        write_codex_mcp_stdio_config(
-            command=managed_python,
-            args=[managed_launcher],
-            server_name="omg-control",
-        )
-    elif host == "gemini":
-        write_gemini_mcp_stdio_config(
-            command=managed_python,
-            args=[managed_launcher],
-            server_name="omg-control",
-        )
-    else:
-        write_kimi_mcp_stdio_config(
-            command=managed_python,
-            args=[managed_launcher],
-            server_name="omg-control",
-        )
-    configured.append(host)
-
+configured = [action.host for action in plan.actions if action.host in {"codex", "gemini", "kimi"}]
+if result.get("errors"):
+    raise SystemExit("; ".join(result["errors"]))
 if configured:
     print(",".join(configured))
 PY

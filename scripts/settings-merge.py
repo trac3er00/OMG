@@ -16,6 +16,7 @@ import sys
 import os
 import re
 import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -263,9 +264,15 @@ def main():
                 print(f"permissions.{cat} to add: {len(added)} rules", file=sys.stderr)
         return
 
-    tx = ConfigTransaction()
+    tx_lock_dir = Path(tempfile.mkdtemp(prefix="omg-merge-"))
+    tx = ConfigTransaction(lock_path=tx_lock_dir / "tx.lock")
     tx.plan(Path(existing_path), json.dumps(merged, indent=2) + "\n", mode=0o644)
     receipt = tx.execute()
+    try:
+        (tx_lock_dir / "tx.lock").unlink(missing_ok=True)
+        tx_lock_dir.rmdir()
+    except OSError:
+        pass
     print(f"📦 Backed up: {receipt['backup_path']}")
 
     print(f"✅ Merged into: {existing_path}")
