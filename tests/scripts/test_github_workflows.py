@@ -84,6 +84,28 @@ def test_release_readiness_workflow_uploads_reviewer_bot_handoff_artifact() -> N
     assert "reviewer-bot-release-input" in release_job
 
 
+def test_compat_gate_has_doc_drift_check_before_reviewer_handoff() -> None:
+    text = _read_workflow_text("omg-compat-gate.yml")
+    pr_analyze = _section(text, "  pr-analyze:\n", "  post-review:\n")
+    drift_pos = pr_analyze.find("Run generated-doc drift check")
+    handoff_pos = pr_analyze.find("Build reviewer bot handoff")
+    assert drift_pos >= 0, "Missing 'Run generated-doc drift check' step in compat-gate pr-analyze job"
+    assert handoff_pos >= 0, "Missing reviewer handoff step"
+    assert drift_pos < handoff_pos, "Doc drift check must appear before reviewer handoff"
+    assert "python3 scripts/omg.py docs generate --check" in pr_analyze
+
+
+def test_release_readiness_has_doc_drift_check_before_release_handoff() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    drift_pos = release_job.find("Run generated-doc drift check")
+    handoff_pos = release_job.find("Build reviewer bot release handoff artifact")
+    assert drift_pos >= 0, "Missing 'Run generated-doc drift check' step in release-readiness"
+    assert handoff_pos >= 0, "Missing release handoff step"
+    assert drift_pos < handoff_pos, "Doc drift check must appear before release handoff"
+    assert "python3 scripts/omg.py docs generate --check" in release_job
+
+
 def test_github_review_helpers_build_pr_handoff_and_assert_pass(tmp_path: Path) -> None:
     event = {
         "action": "opened",

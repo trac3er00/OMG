@@ -5,9 +5,67 @@ from typing import Any
 
 import requests
 
+from runtime.evidence_narrator import narrate
 from runtime.github_integration import get_github_token
 from runtime.github_review_contract import GitHubReviewContract, ReviewStatus
 from runtime.github_review_formatter import format_review_payload
+from runtime.verdict_schema import VerdictReceipt, VerdictStatus
+
+CHECK_RUN_NAME = "OMG PR Reviewer"
+
+_VERDICT_TO_CONCLUSION: dict[VerdictStatus, str] = {
+    "pass": "success",
+    "fail": "failure",
+    "action_required": "action_required",
+    "pending": "neutral",
+}
+
+
+def _annotations_from_blockers(blockers: list[str]) -> list[dict[str, Any]]:
+    return [
+        {
+            "path": ".omg/evidence",
+            "start_line": 1,
+            "end_line": 1,
+            "annotation_level": "failure",
+            "message": blocker,
+        }
+        for blocker in blockers
+        if blocker
+    ]
+
+
+def build_check_run_payload(
+    verdict_receipt: VerdictReceipt,
+    *,
+    annotations: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    status: VerdictStatus = verdict_receipt.get("status", "pending")
+    conclusion = _VERDICT_TO_CONCLUSION.get(status, "neutral")
+
+    narrative = narrate(verdict_receipt)
+    summary = narrative["verdict_summary"]
+    blockers = list(verdict_receipt.get("blockers", []))
+
+    resolved_annotations: list[dict[str, Any]]
+    if annotations is not None:
+        resolved_annotations = list(annotations)
+    elif blockers:
+        resolved_annotations = _annotations_from_blockers(blockers)
+    else:
+        resolved_annotations = []
+
+    return {
+        "name": CHECK_RUN_NAME,
+        "status": "completed",
+        "conclusion": conclusion,
+        "output": {
+            "title": f"{CHECK_RUN_NAME} verdict",
+            "summary": summary[:65000],
+            "annotations": resolved_annotations,
+        },
+        "actions": [],
+    }
 
 
 class GitHubReviewBot:
@@ -71,12 +129,16 @@ class GitHubReviewBot:
         if review_result.get("status") != "ok":
             return review_result
 
+        check_annotations = self._build_annotations_from_inline(
+            list(formatted.get("inline_comments", []))
+        )
         check_result = self._post_check_run(
             repo=repo,
             token=token,
             head_sha=head_sha,
             review_status=str(formatted["review_status"]),
             body=str(formatted["body"]),
+            annotations=check_annotations,
         )
         # Check-run is supplementary — don't fail the whole flow if it errors
         # (e.g., app may lack Checks permission while still having PR write)
@@ -160,6 +222,25 @@ class GitHubReviewBot:
         }
         return self._post(url=url, payload=payload, expected_field="id", error_code="GITHUB_REVIEW_POST_FAILED", headers=headers)
 
+    def _build_annotations_from_inline(
+        self, inline_comments: list[dict[str, object]]
+    ) -> list[dict[str, Any]]:
+        annotations: list[dict[str, Any]] = []
+        for comment in inline_comments:
+            path = str(comment.get("path", "")).strip()
+            body = str(comment.get("body", "")).strip()
+            line = comment.get("line")
+            if not path or not body or not isinstance(line, int):
+                continue
+            annotations.append({
+                "path": path,
+                "start_line": line,
+                "end_line": line,
+                "annotation_level": "warning",
+                "message": body,
+            })
+        return annotations
+
     def _post_check_run(
         self,
         *,
@@ -168,6 +249,7 @@ class GitHubReviewBot:
         head_sha: str,
         review_status: str,
         body: str,
+        annotations: list[dict[str, Any]] | None = None,
     ) -> dict[str, object]:
         url = f"{self.api_base}/repos/{repo}/check-runs"
         conclusion = {
@@ -175,14 +257,16 @@ class GitHubReviewBot:
             "rejected": "failure",
             "pending": "neutral",
         }.get(review_status, "neutral")
-        payload = {
-            "name": "OMG PR Reviewer",
+        resolved_annotations = list(annotations) if annotations else []
+        payload: dict[str, Any] = {
+            "name": CHECK_RUN_NAME,
             "head_sha": head_sha,
             "status": "completed",
             "conclusion": conclusion,
             "output": {
-                "title": "OMG PR Reviewer verdict",
+                "title": f"{CHECK_RUN_NAME} verdict",
                 "summary": body[:65000],
+                "annotations": resolved_annotations,
             },
         }
         headers = self._headers(token)
@@ -287,4 +371,4 @@ class GitHubReviewBot:
         }
 
 
-__all__ = ["GitHubReviewBot"]
+__all__ = ["GitHubReviewBot", "build_check_run_payload"]

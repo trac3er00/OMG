@@ -5,6 +5,7 @@ Feature-gated: requires OMG_SETUP_ENABLED=1 (default off).
 from __future__ import annotations
 
 import json
+import importlib
 import logging
 import os
 import re
@@ -27,16 +28,6 @@ from hooks._common import bootstrap_runtime_paths, get_feature_flag
 bootstrap_runtime_paths(__file__)
 
 from runtime.cli_provider import get_provider, list_available_providers  # noqa: E402
-from runtime.mcp_config_writers import (  # noqa: E402
-    write_claude_mcp_config,
-    write_claude_mcp_stdio_config,
-    write_codex_mcp_config,
-    write_codex_mcp_stdio_config,
-    write_gemini_mcp_config,
-    write_gemini_mcp_stdio_config,
-    write_kimi_mcp_config,
-    write_kimi_mcp_stdio_config,
-)
 
 # Trigger provider auto-registration on import
 import runtime.providers.codex_provider  # noqa: E402, F401
@@ -485,8 +476,6 @@ def check_auth() -> dict[str, Any]:
     return {"status": "pending", "results": {}}
 
 
-_HTTP_MEMORY_MIN_LEVEL: int = _PRESET_LEVEL["interop"]
-
 _PROFILE_ARCH_REQUEST_MAX = 8
 _PROFILE_TAG_MAX = 12
 _PROFILE_SUMMARY_MAX_CHARS = 240
@@ -541,100 +530,39 @@ def configure_mcp(
         - configured: List of CLI names that were successfully configured
         - errors: Dict of CLI name → error message for failures
     """
-    configured: list[str] = []
-    errors: dict[str, str] = {}
     resolved_control_args = list(control_args or OMG_CONTROL_ARGS)
-    http_memory_allowed = _PRESET_LEVEL.get(preset, 0) >= _HTTP_MEMORY_MIN_LEVEL
     selected_config = select_mcps(selected_ids=selected_ids, preset=preset)
     selected_servers = cast(
         dict[str, dict[str, Any]],
         selected_config.get("mcpServers", {}),
     )
+    install_planner = importlib.import_module("runtime.install_planner")
+    plan = install_planner.compute_install_plan(
+        project_dir=project_dir,
+        detected_clis=detected_clis,
+        preset=preset,
+        mode="focused",
+        selected_ids=selected_ids,
+        server_url=server_url,
+        server_name=server_name,
+        control_command=control_command,
+        control_args=resolved_control_args,
+        control_server_name=control_server_name,
+        selected_servers=selected_servers,
+        source_root=_PROJECT_ROOT,
+    )
+    install_result = cast(dict[str, Any], install_planner.execute_plan(plan))
 
-    try:
-        config_path = os.path.join(project_dir, ".mcp.json")
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                claude_config = json.load(f)
-            if not isinstance(claude_config, dict):
-                claude_config = {}
+    configured = [action.host for action in plan.actions if action.host != "claude"]
+    errors: dict[str, str] = {}
+    if install_result["errors"]:
+        joined = "; ".join(install_result["errors"])
+        if not configured:
+            errors["claude"] = joined
         else:
-            claude_config = {}
-
-        existing_servers = claude_config.get("mcpServers")
-        if not isinstance(existing_servers, dict):
-            existing_servers = {}
-
-        managed_server_ids = {cast(str, m["id"]) for m in MCP_CATALOG}
-        for managed_server_id in managed_server_ids:
-            existing_servers.pop(managed_server_id, None)
-        existing_servers.pop(server_name, None)
-        existing_servers.pop(control_server_name, None)
-
-        for selected_server_name, payload in selected_servers.items():
-            if selected_server_name == "omg-memory":
-                if not http_memory_allowed:
-                    continue
-                target_name = server_name
-                payload = {"type": "http", "url": server_url}
-            elif selected_server_name == OMG_CONTROL_SERVER_NAME:
-                target_name = control_server_name
-                payload = {
-                    "command": control_command,
-                    "args": resolved_control_args,
-                }
-            else:
-                target_name = selected_server_name
-            existing_servers[target_name] = payload
-
-        claude_config["mcpServers"] = existing_servers
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(claude_config, f, indent=2, ensure_ascii=True)
-            f.write("\n")
-    except Exception as exc:
-        _logger.warning("Failed to write Claude MCP config: %s", exc)
-        errors["claude"] = str(exc)
-
-    cli_writers = {
-        "codex": (write_codex_mcp_config, write_codex_mcp_stdio_config),
-        "gemini": (write_gemini_mcp_config, write_gemini_mcp_stdio_config),
-        "kimi": (write_kimi_mcp_config, write_kimi_mcp_stdio_config),
-    }
-
-    for cli_name, (http_writer, stdio_writer) in cli_writers.items():
-        cli_info = detected_clis.get(cli_name, {})
-        if not cli_info.get("detected", False):
-            continue
-
-        try:
-            for selected_server_name, payload in selected_servers.items():
-                if selected_server_name == "omg-memory":
-                    if not http_memory_allowed:
-                        continue
-                    http_writer(server_url, server_name)
-                    continue
-
-                if selected_server_name == OMG_CONTROL_SERVER_NAME:
-                    stdio_writer(
-                        command=control_command,
-                        args=resolved_control_args,
-                        server_name=control_server_name,
-                    )
-                    continue
-
-                if payload.get("type") == "http":
-                    http_writer(cast(str, payload["url"]), selected_server_name)
-                    continue
-
-                stdio_writer(
-                    command=cast(str, payload["command"]),
-                    args=[str(arg) for arg in cast(list[Any], payload.get("args", []))],
-                    server_name=selected_server_name,
-                )
-            configured.append(cli_name)
-        except Exception as exc:
-            _logger.warning("Failed to write %s MCP config: %s", cli_name, exc)
-            errors[cli_name] = str(exc)
+            for host in configured:
+                errors[host] = joined
+        configured = []
 
     return {
         "status": "ok",

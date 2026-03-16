@@ -6,12 +6,14 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
+from importlib import import_module
 import json
 import os
 from pathlib import Path
 import re
 import sys
-from typing import Any
+import tempfile
+from typing import Any, Callable, TypedDict
 
 from hooks.policy_engine import evaluate_bash_command
 from lab.pipeline import run_pipeline
@@ -53,6 +55,11 @@ WINDOWS_ABS_PATH_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _normalize_verdict_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    module = import_module("runtime.verdict_schema")
+    return dict(module.normalize_verdict(payload))
 
 
 def _project_dir(project_dir: str | None) -> str:
@@ -846,11 +853,202 @@ def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
     checks.append(plugin_check)
 
     has_blocker = any(c["status"] == "blocker" for c in checks)
+    verdict_receipt = _normalize_verdict_payload({
+        "status": "fail" if has_blocker else "pass",
+        "blockers": [
+            str(check.get("name", ""))
+            for check in checks
+            if check.get("status") == "blocker"
+        ],
+        "planned_actions": [
+            "Fix blocker checks before shipping.",
+        ],
+        "executed_actions": [
+            "run_doctor",
+        ],
+        "provenance": "runtime.compat.run_doctor",
+        "evidence_paths": {},
+        "next_steps": [
+            "Fix any blocker checks before shipping.",
+        ],
+        "executed": True,
+    })
     return {
         "schema": "DoctorResult",
         "status": "fail" if has_blocker else "pass",
+        "verdict": "fail" if has_blocker else "pass",
         "checks": checks,
         "plugin_compatibility": plugin_check,
+        "version": CANONICAL_VERSION,
+        "verdict_receipt": verdict_receipt,
+    }
+
+
+class DoctorFixSpec(TypedDict):
+    fixable: bool
+    fix_handler: Callable[[Path, dict[str, Any]], dict[str, Any]] | None
+    fixable_in_context: bool
+    suggestion: str
+
+
+def _fix_omg_control_reachable(root_dir: Path, _check: dict[str, Any]) -> dict[str, Any]:
+    from runtime.config_transaction import ConfigTransaction
+
+    mcp_json_path = root_dir / ".mcp.json"
+    mcp_data: dict[str, Any] = {}
+    if mcp_json_path.exists():
+        try:
+            with open(mcp_json_path, "r", encoding="utf-8") as f:
+                mcp_data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    servers = mcp_data.setdefault("mcpServers", {})
+    servers["omg-control"] = {
+        "command": "python3",
+        "args": ["-m", "runtime.omg_mcp_server"],
+    }
+    content = json.dumps(mcp_data, indent=2, ensure_ascii=True) + "\n"
+    return {"planned_path": str(mcp_json_path), "content": content, "mode": 0o644}
+
+
+def _fix_policy_files(root_dir: Path, _check: dict[str, Any]) -> dict[str, Any]:
+    policy_path = root_dir / ".omg" / "policy.yaml"
+    if policy_path.exists():
+        return {}
+    content = "mode: warn_and_run\ncritical_block: true\n"
+    return {"planned_path": str(policy_path), "content": content, "mode": 0o644}
+
+
+def _fix_metadata_drift(root_dir: Path, check: dict[str, Any]) -> dict[str, Any]:
+    from runtime.adoption import CANONICAL_VERSION
+    from runtime.contract_compiler import _check_version_identity_drift
+
+    drift_result = _check_version_identity_drift(root_dir)
+    drift_details = drift_result.get("drift_details", {})
+    if not drift_details:
+        return {}
+
+    first_label = next(iter(drift_details))
+    old_version = drift_details[first_label]
+    parts = first_label.split(":", 1)
+    rel_path = parts[0] if parts else first_label
+    target = root_dir / rel_path
+    if not target.exists():
+        return {}
+    original = target.read_text(encoding="utf-8")
+    patched = original.replace(old_version, CANONICAL_VERSION) if old_version != "<not found>" else original
+    if patched == original:
+        return {}
+    return {"planned_path": str(target), "content": patched, "mode": 0o644}
+
+
+DOCTOR_FIX_SPECS: dict[str, DoctorFixSpec] = {
+    "python_version": {
+        "fixable": False,
+        "fix_handler": None,
+        "fixable_in_context": False,
+        "suggestion": "Install Python >= 3.10 from python.org or via your package manager",
+    },
+    "fastmcp": {
+        "fixable": False,
+        "fix_handler": None,
+        "fixable_in_context": False,
+        "suggestion": "Run: pip install fastmcp",
+    },
+    "omg_control_reachable": {
+        "fixable": True,
+        "fix_handler": _fix_omg_control_reachable,
+        "fixable_in_context": True,
+        "suggestion": "",
+    },
+    "policy_files": {
+        "fixable": True,
+        "fix_handler": _fix_policy_files,
+        "fixable_in_context": True,
+        "suggestion": "",
+    },
+    "metadata_drift": {
+        "fixable": True,
+        "fix_handler": _fix_metadata_drift,
+        "fixable_in_context": True,
+        "suggestion": "",
+    },
+}
+
+_DEFAULT_FIX_SPEC: DoctorFixSpec = {
+    "fixable": False,
+    "fix_handler": None,
+    "fixable_in_context": False,
+    "suggestion": "Manual intervention required",
+}
+
+
+def run_doctor_fix(*, root_dir: Path | None = None, dry_run: bool = True) -> dict[str, Any]:
+    from runtime.config_transaction import ConfigTransaction, ConfigTransactionError
+
+    doctor_result = run_doctor(root_dir=root_dir)
+    repo_root = root_dir or Path(__file__).resolve().parent.parent
+
+    enriched_checks: list[dict[str, Any]] = []
+    fix_receipts: list[dict[str, Any]] = []
+
+    for check in doctor_result["checks"]:
+        spec = DOCTOR_FIX_SPECS.get(check["name"], _DEFAULT_FIX_SPEC)
+        enriched = dict(check)
+        enriched["fixable"] = spec["fixable"]
+        if not spec["fixable"]:
+            enriched["suggestion"] = spec["suggestion"]
+        enriched_checks.append(enriched)
+
+        if check["status"] == "ok" or not spec["fixable"] or spec["fix_handler"] is None:
+            continue
+
+        handler = spec["fix_handler"]
+        plan_data = handler(repo_root, check)
+        if not plan_data or "planned_path" not in plan_data:
+            continue
+
+        lock_dir = tempfile.mkdtemp(prefix="doctor-fix-")
+        tx = ConfigTransaction(
+            lock_path=Path(lock_dir) / "doctor-fix.lock",
+            backup_root=Path(lock_dir) / "backups",
+        )
+        tx.plan(
+            plan_data["planned_path"],
+            plan_data["content"],
+            mode=plan_data.get("mode", 0o644),
+        )
+
+        try:
+            receipt = tx.dry_run() if dry_run else tx.execute()
+        except ConfigTransactionError as exc:
+            receipt = exc.receipt or {
+                "planned_writes": [],
+                "executed_writes": [],
+                "backup_path": "",
+                "verification": {},
+                "executed": False,
+                "rollback": None,
+            }
+
+        fix_receipts.append({
+            "check": check["name"],
+            "action": plan_data.get("action", f"fix_{check['name']}"),
+            "backup_path": receipt.get("backup_path", ""),
+            "verification": receipt.get("verification", {}),
+            "executed": receipt.get("executed", False),
+            "rollback": receipt.get("rollback"),
+        })
+
+    has_blocker = any(c["status"] == "blocker" for c in enriched_checks)
+    unfixed_blockers = has_blocker and dry_run
+
+    return {
+        "schema": "DoctorFixResult",
+        "mode": "dry_run" if dry_run else "fix",
+        "status": "fail" if unfixed_blockers else doctor_result["status"],
+        "checks": enriched_checks,
+        "fix_receipts": fix_receipts,
         "version": CANONICAL_VERSION,
     }
 
@@ -1294,10 +1492,26 @@ def dispatch_compat_skill(
     if route == "health":
         if normalized == "omg-doctor":
             doctor_result = run_doctor(root_dir=Path(root))
+            verdict_receipt = _normalize_verdict_payload({
+                "status": doctor_result.get("status", "pending"),
+                "verdict": doctor_result.get("verdict", doctor_result.get("status", "pending")),
+                "blockers": doctor_result.get("verdict_receipt", {}).get("blockers", []),
+                "planned_actions": doctor_result.get("verdict_receipt", {}).get("planned_actions", []),
+                "executed_actions": doctor_result.get("verdict_receipt", {}).get("executed_actions", []),
+                "provenance": "runtime.compat.dispatch_compat_skill",
+                "evidence_paths": doctor_result.get("verdict_receipt", {}).get("evidence_paths", {}),
+                "next_steps": doctor_result.get("verdict_receipt", {}).get("next_steps", []),
+                "executed": True,
+                "metadata": {
+                    "checks": doctor_result.get("checks", []),
+                },
+            })
             snapshot = {
                 "project_dir": root,
                 "status": doctor_result["status"],
+                "verdict": doctor_result.get("verdict", doctor_result["status"]),
                 "checks": doctor_result["checks"],
+                "verdict_receipt": verdict_receipt,
             }
             return _res(
                 skill=normalized,

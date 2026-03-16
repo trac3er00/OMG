@@ -1926,14 +1926,14 @@ def test_advanced_artifact_manifest_derived_requirements() -> None:
     expected = {
         "bundle/plugins/advanced/plugin.json",
         *[
-            f"bundle/plugins/advanced/{cmd['path']}"
+            f"bundle/plugins/advanced/{cmd['path'].replace(':', '-')}"
             for cmd in manifest["commands"].values()
             if isinstance(cmd, dict) and isinstance(cmd.get("path"), str)
         ],
     }
 
     assert set(required) == expected
-    assert "bundle/plugins/advanced/commands/OMG:security-review.md" not in required
+    assert "bundle/plugins/advanced/commands/OMG-security-review.md" not in required
     assert len(required) == 10
 
 
@@ -1955,7 +1955,7 @@ def test_advanced_command_path_integrity(tmp_path: Path) -> None:
     assert len(commands) > 0
 
     for cmd_name, cmd_info in commands.items():
-        cmd_rel_path = cmd_info.get("path", "")
+        cmd_rel_path = cmd_info.get("path", "").replace(":", "-")
         cmd_full_path = plugin_json_path.parent / cmd_rel_path
         assert cmd_full_path.exists(), (
             f"Command '{cmd_name}' references '{cmd_rel_path}' which is missing from bundle"
@@ -2034,7 +2034,7 @@ def test_release_readiness_blocks_missing_manifest_declared_advanced_artifact(
 
     manifest_path = tmp_path / "dist" / "public" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    missing_path = "bundle/plugins/advanced/commands/OMG:learn.md"
+    missing_path = "bundle/plugins/advanced/commands/OMG-learn.md"
     manifest["artifacts"] = [a for a in manifest["artifacts"] if str(a.get("path", "")) != missing_path]
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
@@ -2923,3 +2923,25 @@ def test_plugin_command_paths_missing_source(tmp_path: Path) -> None:
     assert any("learn" in b for b in result["blockers"])
     assert result["details"]["advanced"]["status"] == "error"
     assert result["details"]["core"]["status"] == "ok"
+
+
+def test_contract_doc_does_not_contain_labs_as_channel() -> None:
+    from runtime.contract_compiler import load_contract_doc
+    doc = load_contract_doc(ROOT)
+    
+    # Find the release_channels section
+    if "## release_channels" in doc:
+        section = doc.split("## release_channels")[1].split("##")[0]
+        assert "labs" not in section.lower(), "labs found in release_channels section"
+    
+    # General check for 'labs' as a channel label
+    # We expect 'labs' to be mentioned as a preset, but not as a channel.
+    # The contract now explicitly says "labs is a preset, not a release channel."
+    # So we check if it's listed as a channel.
+    lines = doc.splitlines()
+    for line in lines:
+        if "channel" in line.lower() and "labs" in line.lower():
+            # It's okay if it says "labs is not a channel"
+            if "not a" in line.lower() or "not as a" in line.lower():
+                continue
+            pytest.fail(f"Potential 'labs' as channel reference found: {line}")

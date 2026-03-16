@@ -50,10 +50,37 @@ def _safe_float(value, default: float) -> float:
         return default
 
 
-def _read_budget_config(project_dir: str) -> tuple[float, float, float]:
+def _read_budget_config(project_dir: str) -> tuple[float, float, float, dict[str, Any]]:
     session_limit = DEFAULT_SESSION_LIMIT_USD
     input_per_mtok = DEFAULT_INPUT_PER_MTOK
     output_per_mtok = DEFAULT_OUTPUT_PER_MTOK
+    tier_info: dict[str, Any] = {
+        "tier": "free",
+        "tier_limit_usd": DEFAULT_SESSION_LIMIT_USD,
+        "tier_provenance": "default",
+    }
+
+    try:
+        parent = os.path.dirname(HOOKS_DIR)
+        if parent not in sys.path:
+            sys.path.insert(0, parent)
+        from runtime.subscription_tiers import detect_tier
+
+        provider = os.environ.get("OMG_PROVIDER", "claude")
+        tier_result = detect_tier(provider, project_dir=project_dir)
+        session_limit = _safe_float(
+            tier_result.get("budget_usd_per_session"),
+            DEFAULT_SESSION_LIMIT_USD,
+        )
+        tier_info = {
+            "tier": tier_result.get("tier", "free"),
+            "tier_limit_usd": float(
+                tier_result.get("budget_usd_per_session", DEFAULT_SESSION_LIMIT_USD)
+            ),
+            "tier_provenance": tier_result.get("provenance", "default"),
+        }
+    except Exception:
+        pass
 
     settings_path = os.path.join(project_dir, "settings.json")
     try:
@@ -61,13 +88,13 @@ def _read_budget_config(project_dir: str) -> tuple[float, float, float]:
             settings = json.load(f)
         budget_cfg = settings.get("_omg", {}).get("cost_budget", {})
         pricing = budget_cfg.get("pricing", {})
-        session_limit = _safe_float(budget_cfg.get("session_limit_usd"), DEFAULT_SESSION_LIMIT_USD)
+        session_limit = _safe_float(budget_cfg.get("session_limit_usd"), session_limit)
         input_per_mtok = _safe_float(pricing.get("input_per_mtok"), DEFAULT_INPUT_PER_MTOK)
         output_per_mtok = _safe_float(pricing.get("output_per_mtok"), DEFAULT_OUTPUT_PER_MTOK)
     except Exception:
         pass
 
-    return session_limit, input_per_mtok, output_per_mtok
+    return session_limit, input_per_mtok, output_per_mtok, tier_info
 
 
 def _to_text(value) -> str:
@@ -218,7 +245,7 @@ def main() -> None:
         sys.exit(0)
 
     project_dir = get_project_dir()
-    session_limit_usd, input_per_mtok, output_per_mtok = _read_budget_config(project_dir)
+    session_limit_usd, input_per_mtok, output_per_mtok, tier_info = _read_budget_config(project_dir)
     summary = read_cost_summary(project_dir)
 
     estimated_current_cost = _estimate_call_cost(
@@ -228,8 +255,19 @@ def main() -> None:
         output_per_mtok,
     )
 
-    used_cost_usd = float(summary.get("total_cost_usd", 0.0)) + estimated_current_cost
-    used_calls = int(summary.get("entry_count", 0)) + 1
+    session_id = os.environ.get("CLAUDE_SESSION_ID", "")
+    by_session = summary.get("by_session", {})
+
+    if session_id and session_id in by_session:
+        session_data = by_session[session_id]
+        used_cost_usd = float(session_data.get("cost_usd", 0.0)) + estimated_current_cost
+        used_calls = int(session_data.get("count", 0)) + 1
+        provenance = "session"
+    else:
+        used_cost_usd = float(summary.get("total_cost_usd", 0.0)) + estimated_current_cost
+        used_calls = int(summary.get("entry_count", 0)) + 1
+        provenance = "default"
+
     projected_calls = _project_total_calls(used_cost_usd, used_calls, session_limit_usd)
 
     context = _build_context(
@@ -240,7 +278,6 @@ def main() -> None:
     )
 
     used_pct = (used_cost_usd / session_limit_usd * 100) if session_limit_usd > 0 else 0.0
-    session_id = os.environ.get("CLAUDE_SESSION_ID", "")
     threshold_alerts = _check_thresholds(used_pct, project_dir, session_id)
     if threshold_alerts:
         context += "\n" + "\n".join(threshold_alerts)
@@ -249,7 +286,39 @@ def main() -> None:
     if envelope_context:
         context += "\n" + envelope_context
 
-    json.dump({"additionalContext": context}, sys.stdout)
+    tier_limit_usd = tier_info["tier_limit_usd"]
+    near_limit = used_cost_usd > (0.80 * tier_limit_usd)
+    limit_reached = used_cost_usd >= tier_limit_usd
+
+    throttle_reason: str | None = None
+    if near_limit or limit_reached:
+        throttle_reason = (
+            f"tier={tier_info['tier']} limit={tier_limit_usd:.2f} "
+            f"used={used_cost_usd:.2f} provenance={tier_info['tier_provenance']}"
+        )
+
+    if limit_reached:
+        context += f"\n@tier-limit-reached: {throttle_reason}"
+    elif near_limit:
+        context += f"\n@tier-near-limit: {throttle_reason}"
+
+    output: dict[str, Any] = {
+        "additionalContext": context,
+        "provenance": provenance,
+        "tier": tier_info["tier"],
+        "tier_limit_usd": tier_limit_usd,
+        "near_limit": near_limit,
+        "limit_reached": limit_reached,
+        "throttle_reason": throttle_reason,
+    }
+
+    if tier_info["tier_provenance"] in ("cache", "default"):
+        output["tier_provenance_fallback"] = (
+            f"tier data from {tier_info['tier_provenance']} source "
+            "— may not reflect current subscription"
+        )
+
+    json.dump(output, sys.stdout)
     sys.exit(0)
 
 

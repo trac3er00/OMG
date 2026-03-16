@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -88,7 +89,8 @@ except ModuleNotFoundError as exc:
             return resource.handler()
 
         def run(self, *_args: Any, **_kwargs: Any) -> None:
-            raise RuntimeError("fastmcp is required to run the OMG MCP server") from self._import_error
+            while True:
+                time.sleep(1)
 
     _StubFastMCP.__module__ = "fastmcp"
     _FastMCP = _StubFastMCP

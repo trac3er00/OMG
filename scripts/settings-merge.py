@@ -16,7 +16,13 @@ import sys
 import os
 import re
 import shutil
+import tempfile
 from datetime import datetime
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from runtime.config_transaction import ConfigTransaction
+from runtime.mcp_config_writers import _atomic_write_text_safe
 
 def load_json(path):
     if not os.path.exists(path):
@@ -258,16 +264,16 @@ def main():
                 print(f"permissions.{cat} to add: {len(added)} rules", file=sys.stderr)
         return
 
-    # Backup existing
-    if os.path.exists(existing_path):
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup = f"{existing_path}.bak.{ts}"
-        shutil.copy2(existing_path, backup)
-        print(f"📦 Backed up: {backup}")
-
-    with open(existing_path, "w") as f:
-        json.dump(merged, f, indent=2)
-        f.write("\n")
+    tx_lock_dir = Path(tempfile.mkdtemp(prefix="omg-merge-"))
+    tx = ConfigTransaction(lock_path=tx_lock_dir / "tx.lock")
+    tx.plan(Path(existing_path), json.dumps(merged, indent=2) + "\n", mode=0o644)
+    receipt = tx.execute()
+    try:
+        (tx_lock_dir / "tx.lock").unlink(missing_ok=True)
+        tx_lock_dir.rmdir()
+    except OSError:
+        pass
+    print(f"📦 Backed up: {receipt['backup_path']}")
 
     print(f"✅ Merged into: {existing_path}")
 

@@ -28,6 +28,24 @@ Gemini and Kimi are canonical behavior-parity hosts for contract validation and 
 
 OpenCode remains compatibility-only in v2.2.3. It is supported through compatibility MCP wiring and interop diagnostics, but it is not part of the canonical behavior-parity contract set.
 
+## release_channels
+
+OMG defines two normative release channels for capability delivery and governance enforcement. `runtime/canonical_taxonomy.py` is the single source of truth for channel, preset, tier, and policy pack namespaces.
+
+- `public`: Standard production channel. Guarantees behavior parity across canonical hosts and standard evidence-backed verification.
+- `enterprise`: Hardened production channel. Guarantees enhanced evidence (lineage, provenance), tier-gated policy enforcement, and compatibility with specialized policy packs (`fintech`, `airgapped`).
+
+## governance_precedence
+
+Governance and policy enforcement follow a strict precedence rule to resolve conflicts:
+
+**subscription tier → channel → policy pack → preset**
+
+1. **subscription tier**: Highest precedence. Defines the baseline capabilities and limits.
+2. **channel**: Delivery channel guarantees.
+3. **policy pack**: Domain-specific hardening (e.g., `fintech`).
+4. **preset**: User-selected adoption level (e.g., `safe`, `balanced`).
+
 ## metadata
 
 Every bundle must declare `id`, `kind`, `version`, `title`, `description`, `hosts`, and `assets`.

@@ -7,6 +7,8 @@ import shutil
 from pathlib import Path
 from typing import Callable, cast
 
+from runtime.canonical_taxonomy import CANONICAL_PRESETS, RELEASE_CHANNELS
+
 
 CANONICAL_BRAND = "OMG"
 CANONICAL_REPO_URL = "https://github.com/trac3er00/OMG"
@@ -18,8 +20,9 @@ CANONICAL_VERSION = "2.2.4"
 VALID_ADOPTION_MODES = ("omg-only", "coexist")
 CANONICAL_MODE_NAMES = ("chill", "focused", "exploratory")
 
-PRESET_ORDER: tuple[str, ...] = ("safe", "balanced", "interop", "labs", "buffet", "production")
-VALID_PRESETS = PRESET_ORDER
+PRESET_ORDER: tuple[str, ...] = CANONICAL_PRESETS
+VALID_PRESETS = CANONICAL_PRESETS
+VALID_RELEASE_CHANNELS = RELEASE_CHANNELS
 PRESET_LEVEL: dict[str, int] = {p: i for i, p in enumerate(PRESET_ORDER)}
 
 MANAGED_PRESET_FLAGS = (

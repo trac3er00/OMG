@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+from importlib import import_module
 from typing import Any
+
+from runtime.evidence_narrator import narrate
+
+
+def _normalize_verdict_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    module = import_module("runtime.verdict_schema")
+    return dict(module.normalize_verdict(payload))
 
 
 def format_review_payload(evidence: dict[str, Any], *, inline_batch_limit: int = 20) -> dict[str, Any]:
@@ -19,14 +27,13 @@ def format_review_payload(evidence: dict[str, Any], *, inline_batch_limit: int =
             "message": "Review evidence is missing required artifacts.",
         }
 
-    raw_verdict = str(evidence.get("verdict", evidence.get("status", "pending"))).strip().lower()
+    normalized_verdict = _normalize_verdict_payload(evidence)
+    narrative = narrate(normalized_verdict)
+    raw_verdict = normalized_verdict["status"]
     review_status = _normalize_review_status(raw_verdict)
     review_event = _review_event_for_status(review_status)
 
     checks = _normalize_checks(evidence.get("checks"))
-    evidence_gaps = _as_str_list(evidence.get("evidence_gaps"))
-    if not evidence_gaps:
-        evidence_gaps = _as_str_list(evidence.get("unresolved_risks"))
 
     raw_inline = evidence.get("inline_comments")
     inline_comments = _normalize_inline_comments(raw_inline)
@@ -39,7 +46,7 @@ def format_review_payload(evidence: dict[str, Any], *, inline_batch_limit: int =
         raw_verdict=raw_verdict,
         artifacts=artifacts,
         checks=checks,
-        evidence_gaps=evidence_gaps,
+        narrative=narrative,
         dropped_comments=dropped_comments,
     )
 
@@ -73,7 +80,7 @@ def _build_review_body(
     raw_verdict: str,
     artifacts: list[str],
     checks: list[dict[str, str]],
-    evidence_gaps: list[str],
+    narrative: dict[str, Any],
     dropped_comments: int,
 ) -> str:
     lines: list[str] = [
@@ -81,6 +88,9 @@ def _build_review_body(
         "",
         f"- CI verdict: **{raw_verdict or review_status}**",
         f"- Review state: **{review_status}**",
+        "",
+        f"### Summary",
+        narrative["verdict_summary"],
         "",
         "### Evidence Artifacts",
     ]
@@ -100,11 +110,19 @@ def _build_review_body(
 
     lines.append("")
     lines.append("### Evidence Gaps")
+    evidence_gaps = narrative["blockers_section"]
     if evidence_gaps:
         for gap in evidence_gaps:
             lines.append(f"- {gap}")
     else:
         lines.append("- None reported.")
+
+    next_actions = narrative["next_actions"]
+    if next_actions:
+        lines.append("")
+        lines.append("### Next Actions")
+        for action in next_actions:
+            lines.append(f"- {action}")
 
     if dropped_comments > 0:
         lines.append("")

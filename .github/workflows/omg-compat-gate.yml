@@ -267,6 +267,9 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Run generated-doc drift check
+        run: python3 scripts/omg.py docs generate --check
+
       - name: Build reviewer bot handoff from cached artifacts
         run: |
           python3 scripts/github_review_helpers.py build-pr-handoff \

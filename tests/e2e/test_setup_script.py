@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 from typing import cast
+import pytest
 
 from runtime.adoption import CANONICAL_VERSION
 
@@ -17,6 +18,8 @@ from runtime.adoption import CANONICAL_VERSION
 ROOT = Path(__file__).resolve().parents[2]
 SETUP = ROOT / "OMG-setup.sh"
 LEGACY = ROOT / "install.sh"
+
+pytestmark = pytest.mark.xdist_group("setup-script-e2e")
 
 
 def _run_script(path: Path, args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
