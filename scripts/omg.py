@@ -801,6 +801,17 @@ def cmd_proof_summary(args: argparse.Namespace) -> int:
 
     if fmt == "json":
         print(json.dumps(result, indent=2))
+    elif fmt == "text":
+        from runtime.explainer_formatter import format_terminal as _fmt_term_proof
+
+        narrative_dict = result.get("narrative", {
+            "verdict_summary": result.get("status", "unknown"),
+            "blockers_section": result.get("missing_artifacts", []),
+            "provenance_note": None,
+            "evidence_paths_section": [],
+            "next_actions": result.get("next_actions", []),
+        })
+        print(_fmt_term_proof(narrative_dict))
     else:
         lines = ["# Proof Summary", ""]
         lines.append(f"**Status:** {result['status']}")
@@ -866,20 +877,16 @@ def cmd_explain_run(args: argparse.Namespace) -> int:
 
     if fmt == "json":
         print(json.dumps(result, indent=2))
-    else:
-        lines = [f"# Run Explanation: {run_id}", ""]
-        lines.append(f"**Status:** {result['status']}")
-        lines.append(f"**Evidence Count:** {result['evidence_count']}")
-        lines.append("")
-        for i, ev in enumerate(evidence, 1):
-            lines.append(f"## Evidence {i}")
-            lines.append(f"- Schema: {ev.get('schema', 'unknown')}")
-            lines.append(f"- Run ID: {ev.get('run_id', '')}")
-            ev_status = ev.get("status")
-            if ev_status:
-                lines.append(f"- Status: {ev_status}")
-            lines.append("")
-        print("\n".join(lines))
+    elif fmt == "text" or fmt == "markdown":
+        from runtime.evidence_narrator import narrate as _narrate_run
+        from runtime.explainer_formatter import format_markdown as _fmt_md
+        from runtime.explainer_formatter import format_terminal as _fmt_term
+
+        narrative = _narrate_run(cast(Any, {"status": result["status"], "evidence_paths": {}, "blockers": [], "next_steps": []}))
+        if fmt == "text":
+            print(_fmt_term(dict(narrative)))
+        else:
+            print(_fmt_md(dict(narrative)))
 
     return 0
 
@@ -2307,14 +2314,14 @@ def build_parser() -> argparse.ArgumentParser:
     proof = sub.add_parser("proof", help="Proof helpers")
     proof_sub = proof.add_subparsers(dest="proof_command", required=True)
     proof_summary = proof_sub.add_parser("summary", help="Summarize proof status")
-    proof_summary.add_argument("--format", default="json", choices=["json", "markdown"], dest="format")
+    proof_summary.add_argument("--format", default="json", choices=["json", "markdown", "text"], dest="format")
     proof_summary.set_defaults(func=cmd_proof_summary)
 
     explain = sub.add_parser("explain", help="Explain run artifacts")
     explain_sub = explain.add_subparsers(dest="explain_command", required=True)
     explain_run = explain_sub.add_parser("run", help="Explain run by id")
     explain_run.add_argument("--run-id", required=True)
-    explain_run.add_argument("--format", default="json", choices=["json", "markdown"], dest="format")
+    explain_run.add_argument("--format", default="json", choices=["json", "markdown", "text"], dest="format")
     explain_run.set_defaults(func=cmd_explain_run)
 
     budget = sub.add_parser("budget", help="Budget envelope operations")
