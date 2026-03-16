@@ -180,7 +180,7 @@ try:
 except Exception:  # intentional: crash isolation for optional module
     pass
 
-def _build_context(project_dir: str) -> dict[str, object]:
+def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[str, object]:
     ledger_path = resolve_state_file(
         project_dir,
         "state/ledger/tool-ledger.jsonl",
@@ -232,6 +232,33 @@ def _build_context(project_dir: str) -> dict[str, object]:
         e for e in material_write_entries if not _is_non_source_path(str(e.get("file", "")))
     ]
 
+    # --- Current-turn provenance from stop-hook payload ---
+    # The stop payload (data from json_input()) may contain tool_use_results
+    # representing the CURRENT TURN's tool calls. We extract Write/Edit/MultiEdit
+    # entries from the payload to determine current-turn source writes independently
+    # of the 2-hour ledger window.
+    current_turn_source_write_entries: list[dict] = []
+    current_turn_run_id: str | None = None
+
+    try:
+        current_turn_run_id = resolve_current_run_id(project_dir)
+    except Exception as e:  # security: run_id resolution is best-effort
+        print(f"[OMG] stop_dispatcher: resolve_current_run_id: {type(e).__name__}: {e}", file=sys.stderr)
+
+    if stop_payload and isinstance(stop_payload, dict):
+        # Claude Code stop hooks use "tool_use_results" key
+        raw_tool_results = stop_payload.get("tool_use_results") or stop_payload.get("tool_results") or []
+        if isinstance(raw_tool_results, list):
+            for result in raw_tool_results:
+                if not isinstance(result, dict):
+                    continue
+                tool_name = result.get("tool_name") or result.get("tool") or ""
+                file_path = str(result.get("file") or result.get("path") or "")
+                if tool_name in ("Write", "Edit", "MultiEdit") and file_path:
+                    if (not _is_internal_control_path(file_path)
+                            and not _is_non_source_path(file_path)):
+                        current_turn_source_write_entries.append(result)
+
     return {
         "ledger_path": ledger_path,
         "ledger_entries": ledger_entries,
@@ -245,6 +272,10 @@ def _build_context(project_dir: str) -> dict[str, object]:
         "has_writes": bool(write_entries),
         "has_material_writes": bool(material_write_entries),
         "has_source_writes": bool(source_write_entries),
+        # Current-turn provenance (additive — does not replace ledger fields)
+        "current_turn_source_write_entries": current_turn_source_write_entries,
+        "current_turn_has_source_writes": bool(current_turn_source_write_entries),
+        "current_turn_run_id": current_turn_run_id,
     }
 
 
@@ -1060,7 +1091,7 @@ def main():
         sys.exit(0)
 
     project_dir = _resolve_project_dir()
-    data["_stop_ctx"] = _build_context(project_dir)
+    data["_stop_ctx"] = _build_context(project_dir, stop_payload=data)
     data["_stop_advisories"] = []
 
     # P1: Ralph loop check (implemented in Task 18)
