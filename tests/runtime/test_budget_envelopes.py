@@ -136,6 +136,16 @@ class TestEnvelopeBreach:
         assert "cpu" in result.breached_dimensions
         assert "tokens" in result.breached_dimensions
 
+    def test_budget_simulate_enforce_semantic_maps_to_breach_block(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-enforce", token_limit=5)
+        mgr.record_usage("run-enforce", tokens=6)
+
+        result = mgr.check_envelope("run-enforce")
+
+        assert result.status == "breach"
+        assert result.governance_action == "block"
+        assert "tokens" in result.breached_dimensions
+
     def test_memory_peak_tracking(self, mgr: BudgetEnvelopeManager) -> None:
         mgr.create_envelope("run-mem", memory_mb_limit=256.0)
         mgr.record_usage("run-mem", memory_mb=100.0)
@@ -193,6 +203,17 @@ class TestStatePersistence:
         assert state is not None
         assert len(state["checks"]) == 1
         assert state["checks"][0]["status"] == "ok"
+
+    def test_cross_run_state_is_not_reused(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-a", token_limit=1)
+        mgr.record_usage("run-a", tokens=2)
+        run_a = mgr.check_envelope("run-a")
+        run_b = mgr.check_envelope("run-b")
+
+        assert run_a.status == "breach"
+        assert run_a.governance_action == "block"
+        assert run_b.status == "ok"
+        assert run_b.reason == "no envelope found"
 
 
 # ═══════════════════════════════════════════════════════════

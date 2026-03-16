@@ -39,6 +39,14 @@ def _json_result(payload: dict[str, object], *, returncode: int = 0, stderr: str
     )
 
 
+def _snapshot_tree(root: Path) -> dict[str, str]:
+    snapshot: dict[str, str] = {}
+    for path in sorted(root.rglob("*")):
+        if path.is_file():
+            snapshot[str(path.relative_to(root))] = path.read_text(encoding="utf-8")
+    return snapshot
+
+
 def _install_contract_flow_stub(monkeypatch: pytest.MonkeyPatch, *, missing_session_health: bool = False) -> None:
     def _stubbed_run(args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
         if args[:2] == ["contract", "validate"]:
@@ -1049,9 +1057,36 @@ def test_install_dryrun_no_disk_mutations(tmp_path: Path):
 def test_install_plan_no_disk_mutations(tmp_path: Path):
     sentinel = tmp_path / "sentinel.txt"
     sentinel.write_text("before", encoding="utf-8")
-    proc = _run(["install", "--plan", "--format", "json"])
+    nested = tmp_path / "nested"
+    nested.mkdir(parents=True)
+    (nested / "config.json").write_text('{"stable": true}\n', encoding="utf-8")
+    before = _snapshot_tree(tmp_path)
+
+    proc = _run(["install", "--plan", "--format", "json"], env={"CLAUDE_PROJECT_DIR": str(tmp_path)})
     assert proc.returncode == 0, f"stderr: {proc.stderr}"
     assert sentinel.read_text(encoding="utf-8") == "before"
+    assert _snapshot_tree(tmp_path) == before
+
+
+def test_install_apply_receipt_contract_fields() -> None:
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        proc = _run(["install", "--apply", "--format", "json"])
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert "actions" in out
+        assert "receipts" in out
+        assert isinstance(out["receipts"], list)
+        for receipt in out["receipts"]:
+            assert "check" in receipt
+            assert "action" in receipt
+            assert "backup_path" in receipt
+            assert "executed" in receipt
+            assert "rollback_ref" in receipt
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
 
 
 def test_install_no_flag_returns_error():
@@ -1079,6 +1114,140 @@ def test_cli_doctor_fix_dry_run_json_returns_planned_fixes():
         assert isinstance(check["fixable"], bool)
     for receipt in out["fix_receipts"]:
         assert receipt["executed"] is False
+
+
+def test_cli_doctor_fix_dry_run_json_receipt_has_required_fields() -> None:
+    proc = _run(["doctor", "--fix", "--dry-run", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "DoctorFixResult"
+    assert "fix_receipts" in out
+    assert isinstance(out["fix_receipts"], list)
+    for receipt in out["fix_receipts"]:
+        assert "check" in receipt
+        assert "action" in receipt
+        assert "backup_path" in receipt
+        assert "verification" in receipt
+        assert "executed" in receipt
+
+
+def test_cli_doctor_fix_dry_run_does_not_mutate_repo_files() -> None:
+    mcp_json = ROOT / ".mcp.json"
+    policy_yaml = ROOT / ".omg" / "policy.yaml"
+    before_mcp = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    before_policy = policy_yaml.read_text(encoding="utf-8") if policy_yaml.exists() else None
+
+    proc = _run(["doctor", "--fix", "--dry-run", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+
+    after_mcp = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    after_policy = policy_yaml.read_text(encoding="utf-8") if policy_yaml.exists() else None
+    assert after_mcp == before_mcp
+    assert after_policy == before_policy
+
+
+def test_cli_resolve_policy_returns_effective_policy() -> None:
+    proc = _run(["resolve-policy", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "EffectivePolicy"
+    assert "tier" in out
+    assert "effective_policy" in out
+    assert "overrides" in out
+    assert "provenance" in out
+    assert isinstance(out["packs"], list)
+    assert isinstance(out["provenance"], list)
+
+
+def test_cli_proof_summary_contract() -> None:
+    proc = _run(["proof", "summary", "--format", "json"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "ProofSummary"
+    assert out["status"] in ("no_evidence", "found", "ok")
+    assert isinstance(out["claims"], list)
+    assert isinstance(out["missing_artifacts"], list)
+    assert isinstance(out["next_actions"], list)
+
+
+def test_cli_proof_summary_markdown() -> None:
+    proc = _run(["proof", "summary", "--format", "markdown"])
+    assert proc.returncode == 0
+    assert "# Proof Summary" in proc.stdout
+    assert "**Status:**" in proc.stdout
+
+
+def test_cli_explain_run_not_found() -> None:
+    proc = _run(["explain", "run", "--run-id", "run-123"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "RunExplanation"
+    assert out["status"] == "not_found"
+    assert out["run_id"] == "run-123"
+
+
+def test_cli_explain_run_format_flag() -> None:
+    proc = _run(["explain", "run", "--run-id", "nonexistent", "--format", "json"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "RunExplanation"
+    assert out["status"] == "not_found"
+
+
+def test_cli_budget_simulate_preview() -> None:
+    proc = _run(["budget", "simulate", "--tier", "free", "--tokens-used", "100"])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "BudgetSimulateResult"
+    assert out["status"] == "preview"
+    assert out["enforce"] is False
+    assert "check" in out
+    assert "tier_limits" in out
+
+
+def test_cli_budget_simulate_with_flags() -> None:
+    proc = _run([
+        "budget", "simulate",
+        "--tier", "pro",
+        "--channel", "enterprise",
+        "--preset", "labs",
+        "--task", "test-task",
+        "--tokens-used", "50",
+    ])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "BudgetSimulateResult"
+    assert out["tier"] == "pro"
+    assert out["channel"] == "enterprise"
+    assert out["preset"] == "labs"
+    assert out["task"] == "test-task"
+
+
+def test_cli_budget_simulate_enforce_ok() -> None:
+    proc = _run([
+        "budget", "simulate",
+        "--tokens-used", "1",
+        "--token-limit", "1000",
+        "--enforce",
+    ])
+    assert proc.returncode == 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "BudgetSimulateResult"
+    assert out["status"] == "ok"
+    assert out["enforce"] is True
+
+
+def test_cli_budget_simulate_enforce_blocks_over_limit() -> None:
+    proc = _run(
+        ["budget", "simulate", "--tier", "free", "--token-limit", "1", "--tokens-used", "2", "--enforce"]
+    )
+    assert proc.returncode != 0
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "BudgetSimulateResult"
+    assert out["status"] == "blocked"
+    assert "reason" in out
+    assert out["check"]["status"] == "breach"
+    assert out["check"]["governance_action"] == "block"
 
 
 def test_cli_doctor_fix_non_fixable_checks_have_suggestion():

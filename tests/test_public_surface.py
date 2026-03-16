@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import yaml
+
+from runtime.adoption import CANONICAL_VERSION
+from runtime.canonical_taxonomy import CANONICAL_PRESETS
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -156,3 +160,56 @@ def test_omg_deep_plan_root_stub_exists():
     assert "compatibility" in content.lower() or "alias" in content.lower(), \
         "Root stub must declare compatibility or alias relationship"
     assert "/OMG:deep-plan" in content, "Root stub must reference /OMG:deep-plan"
+
+
+def test_no_stale_presets_in_public_docs() -> None:
+    setup_doc = (ROOT / "commands" / "OMG:setup.md").read_text(encoding="utf-8")
+
+    mentioned_presets: set[str] = set()
+
+    hint_match = re.search(r"--preset\s+([^\]]+)", setup_doc)
+    if hint_match:
+        for token in hint_match.group(1).split("|"):
+            mentioned_presets.add(token.strip())
+
+    in_preset_step = False
+    for raw_line in setup_doc.splitlines():
+        line = raw_line.strip()
+        if line.lower() == "step 4: choose preset":
+            in_preset_step = True
+            continue
+        if in_preset_step and line.startswith("Step "):
+            break
+        if in_preset_step and line.startswith("- "):
+            mentioned_presets.add(line[2:].strip().split(" ", 1)[0])
+
+    stale = sorted(p for p in mentioned_presets if p and p not in CANONICAL_PRESETS)
+    assert stale == [], f"Stale presets in commands/OMG:setup.md: {stale}"
+
+
+def test_no_hardcoded_version_drift() -> None:
+    version_pattern = re.compile(r"\bv?\d+\.\d+\.\d+\b")
+    template_pattern = re.compile(r"VERSION", re.IGNORECASE)
+    omg_context_pattern = re.compile(r"\bomg\b|\bcanonical\b", re.IGNORECASE)
+
+    targets = [ROOT / "README.md"]
+    targets.extend(sorted((ROOT / "docs").rglob("*.md")))
+    targets.extend(sorted((ROOT / "commands").rglob("*.md")))
+
+    drift: list[str] = []
+    for path in targets:
+        for lineno, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if not version_pattern.search(raw_line):
+                continue
+            if template_pattern.search(raw_line):
+                continue
+            if not omg_context_pattern.search(raw_line):
+                continue
+
+            for match in version_pattern.finditer(raw_line):
+                candidate = match.group(0).lstrip("v")
+                if candidate != CANONICAL_VERSION:
+                    rel = path.relative_to(ROOT)
+                    drift.append(f"{rel}:{lineno}:{match.group(0)}")
+
+    assert drift == [], "Hard-coded OMG version drift found: " + ", ".join(drift)

@@ -1,0 +1,39 @@
+Task 5: Install governance, doctor v2 repair-pack, resolve-policy
+=================================================================
+
+## install --plan (no disk writes)
+$ python3 scripts/omg.py install --plan --format json
+→ schema=InstallPlan, status=ok, 4 actions listed, zero disk mutations
+
+## install --apply (executes via execute_plan with dry_run=False)
+$ python3 scripts/omg.py install --apply --format json
+→ schema=InstallApplyResult, executed=true, receipts with check/action/backup_path/executed/rollback_ref
+
+## install (no flag) returns error
+$ python3 scripts/omg.py install --format json
+→ {"error": "specify --plan, --dry-run, or --apply"}, exit code 1
+
+## npm postinstall defaults to --plan
+package.json: "postinstall": "python3 scripts/omg.py install --plan"
+
+## doctor --fix --format json preserves stable receipts + adds repair_pack
+$ python3 scripts/omg.py doctor --fix --format json
+→ schema=DoctorFixResult, fix_receipts each have: check, action, backup_path, verification, executed, repair_pack
+
+## policy-pack list --format json
+$ python3 scripts/omg.py policy-pack list --format json
+→ schema=PolicyPackList, count=3, packs=[airgapped, fintech, locked-prod]
+
+## resolve-policy --format json (replaces stub)
+$ python3 scripts/omg.py resolve-policy --format json
+→ schema=EffectivePolicy, tier={tier:free,provenance:default}, packs=3, overrides=16, provenance=4
+
+## Test results
+$ python3 -m pytest tests/scripts/test_omg_cli.py tests/test_public_surface.py -q
+→ 83 passed, 0 failed, 0 xfailed
+→ xfail test_install_apply_receipt_contract_fields now passes as regular test
+
+## Files changed
+- scripts/omg.py: install --apply, repair_pack, policy-pack list, resolve-policy
+- package.json: postinstall → python3 scripts/omg.py install --plan
+- tests/scripts/test_omg_cli.py: removed xfail, updated resolve-policy test

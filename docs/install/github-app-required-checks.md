@@ -34,6 +34,10 @@ PUT /repos/{owner}/{repo}/branches/{branch}/protection
 
 When `app_id` is set, only check-runs created by that specific GitHub App are considered authoritative. A workflow or third-party App posting a check-run with the same name but a different `app_id` will not satisfy the requirement.
 
+> **Important**: The `app_id` field **must** be specified in the branch protection API call. Omitting it leaves the check unpinned.
+
+> **Warning**: Never leave required checks unpinned — any actor can spoof an unpinned check name. Always specify `app_id` to bind the check to the OMG GitHub App.
+
 ### Repository Settings UI
 
 1. Go to **Settings > Branches > Branch protection rules**.

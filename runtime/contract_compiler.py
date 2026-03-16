@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import asyncio
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 import importlib
 import importlib.util
 import json
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
@@ -27,6 +29,7 @@ from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
 from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active
 from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
+from runtime.worker_watchdog import get_worker_watchdog
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
     CANONICAL_PACKAGE_NAME,
@@ -1562,6 +1565,48 @@ _METHOD_PHASES = (
     "release",
 )
 
+_RELEASE_READINESS_CACHE_TTL_SECONDS = 3600.0
+
+
+def _load_release_readiness_cache(root: Path, channel: str) -> dict[str, Any] | None:
+    cache_path = root / ".omg" / "cache" / "release-readiness-identity.json"
+    if not cache_path.exists():
+        return None
+
+    try:
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("channel") != channel:
+        return None
+    if payload.get("version") != CANONICAL_VERSION:
+        return None
+    if payload.get("blockers"):
+        return None
+
+    cached_at = payload.get("cached_at", 0)
+    if not isinstance(cached_at, (int, float)):
+        return None
+    if time.time() - float(cached_at) > _RELEASE_READINESS_CACHE_TTL_SECONDS:
+        return None
+    return payload
+
+
+def write_release_readiness_cache(result: dict[str, Any], root: Path) -> None:
+    blockers = result.get("blockers")
+    if blockers != []:
+        return
+
+    cache_path = root / ".omg" / "cache" / "release-readiness-identity.json"
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = dict(result)
+    payload["version"] = CANONICAL_VERSION
+    payload["cached_at"] = time.time()
+    payload["cache_hit"] = False
+    cache_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
 
 def compile_method_artifacts(
     *,
@@ -2090,6 +2135,32 @@ def build_release_readiness(
 ) -> dict[str, Any]:
     root = _resolve_root(root_dir)
     output = _resolve_output_root(root, output_root)
+    cache_enabled = root == output
+    if cache_enabled:
+        cached = _load_release_readiness_cache(root, channel)
+        if cached is not None:
+            cached_result = dict(cached)
+            cached_result["cache_hit"] = True
+            return cached_result
+
+    stalled_workers = get_worker_watchdog(str(root)).get_stalled_workers()
+    if stalled_workers:
+        stalled_run_ids = [str(item.get("run_id", "")).strip() for item in stalled_workers if str(item.get("run_id", "")).strip()]
+        blocker_suffix = ", ".join(stalled_run_ids) if stalled_run_ids else "unknown"
+        return {
+            "schema": "OmgReleaseReadinessResult",
+            "status": "error",
+            "channel": channel,
+            "blockers": [f"worker_watchdog_stalled: stalled worker detected ({blocker_suffix})"],
+            "checks": {
+                "worker_watchdog": {
+                    "status": "error",
+                    "stalled": stalled_workers,
+                }
+            },
+            "cache_hit": False,
+        }
+
     blockers: list[str] = []
     checks: dict[str, Any] = {}
     provider_override = {
@@ -2245,7 +2316,17 @@ def build_release_readiness(
         checks["bundle_promotion_parity"] = bundle_promotion_parity
         blockers.extend(bundle_promotion_parity.get("blockers", []))
 
-    providers = _provider_statuses()
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            provider_future = pool.submit(_provider_statuses)
+            providers = provider_future.result(timeout=15)
+    except FuturesTimeoutError:
+        providers = {provider_name: {"ready": False, "source": "timeout"} for provider_name in SUPPORTED_HOSTS}
+        blockers.append("provider_status_timeout: provider readiness checks exceeded 15 seconds")
+    except Exception as exc:
+        providers = {provider_name: {"ready": False, "source": "error", "detail": str(exc)} for provider_name in SUPPORTED_HOSTS}
+        blockers.append("provider_status_error: provider readiness checks failed")
+
     checks["providers"] = providers
     for provider_name, status in providers.items():
         if provider_name not in required_provider_hosts:
@@ -2280,13 +2361,18 @@ def build_release_readiness(
     if not mcp_status.get("ready"):
         blockers.append("mcp fabric incomplete")
 
-    return {
+    result = {
         "schema": "OmgReleaseReadinessResult",
         "status": "ok" if not blockers else "error",
         "channel": channel,
         "blockers": blockers,
         "checks": checks,
+        "cache_hit": False,
     }
+
+    if cache_enabled:
+        write_release_readiness_cache(result, root)
+    return result
 
 
 def _check_recent_evidence(output_root: Path) -> dict[str, Any]:

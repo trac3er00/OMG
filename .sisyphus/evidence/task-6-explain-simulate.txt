@@ -1,0 +1,97 @@
+=== Task 6: Explain + Simulate Evidence ===
+Date: 2026-03-16T04:51:44Z
+
+--- proof summary --format json ---
+{
+  "schema": "ProofSummary",
+  "status": "found",
+  "run_id": "run-1",
+  "claims": [
+    {
+      "claim_type": "release_ready",
+      "run_id": "run-1",
+      "evidence_profile": "release",
+      "artifacts": [
+        ".omg/evidence/junit.xml",
+        ".omg/evidence/coverage.xml",
+        ".omg/evidence/results.sarif",
+        ".omg/evidence/browser_trace.json"
+      ],
+      "trace_ids": [
+        "trace-1"
+      ]
+    }
+  ],
+
+--- proof summary --format markdown ---
+# Proof Summary
+
+**Status:** found
+**Run ID:** run-1
+
+## Claims
+- {'claim_type': 'release_ready', 'run_id': 'run-1', 'evidence_profile': 'release', 'artifacts': ['.omg/evidence/junit.xml', '.omg/evidence/coverage.xml', '.omg/evidence/results.sarif', '.omg/evidence/browser_trace.json'], 'trace_ids': ['trace-1']}
+
+## Missing Artifacts
+- tests
+- lsp_clean
+- build
+- provenance
+- trust_scores
+- security_scan
+
+--- explain run --run-id nonexistent ---
+{
+  "schema": "RunExplanation",
+  "run_id": "nonexistent",
+  "status": "not_found"
+}
+
+--- budget simulate preview ---
+{
+  "schema": "BudgetSimulateResult",
+  "status": "preview",
+  "tier": "pro",
+  "provider": "claude",
+  "channel": "public",
+  "preset": "balanced",
+  "enforce": false,
+  "tier_detection": {
+    "tier": "free",
+    "provenance": "cache",
+    "confidence": 0.65,
+    "budget_usd_per_session": 5.0,
+    "max_parallel_agents": 1
+  },
+
+--- budget simulate enforce ok ---
+{
+  "schema": "BudgetSimulateResult",
+  "status": "ok",
+  "reason": "all dimensions within limits",
+  "tier": "free",
+  "provider": "claude",
+  "channel": "public",
+  "preset": "balanced",
+  "enforce": true,
+  "usage": {
+
+--- budget simulate enforce blocked (exit 2) ---
+{
+  "schema": "BudgetSimulateResult",
+  "status": "blocked",
+  "reason": "envelope breached on: tokens",
+  "tier": "free",
+  "provider": "claude",
+  "channel": "public",
+  "preset": "balanced",
+  "enforce": true,
+  "usage": {
+exit_code=0
+
+--- pytest results ---
+bringing up nodes...
+
+........................................................................ [ 73%]
+..........................                                               [100%]
+98 passed in 9.65s

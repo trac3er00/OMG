@@ -4,7 +4,7 @@
   "description": "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts",
   "main": "OMG-setup.sh",
   "scripts": {
-    "postinstall": "./OMG-setup.sh install --non-interactive",
+    "postinstall": "python3 scripts/omg.py install --plan",
     "update": "./OMG-setup.sh update",
     "uninstall": "./OMG-setup.sh uninstall",
     "test": "python3 -m pytest tests/ -x -q"

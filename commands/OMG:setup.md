@@ -1,7 +1,7 @@
 ---
 description: "Native OMG setup and adoption flow for supported hosts"
 allowed-tools: Read, Write, Edit, Bash(python*:*), Bash(ls:*), Bash(grep:*)
-argument-hint: "[optional: --non-interactive, --mode omg-only|coexist, --preset safe|balanced|interop|labs|buffet|plugins-first]"
+argument-hint: "[optional: --non-interactive, --mode omg-only|coexist, --preset safe|balanced|interop|labs|buffet|production]"
 ---
 
 # /OMG:setup
@@ -44,7 +44,7 @@ Step 4: Choose preset
   - interop
   - labs
   - buffet
-  - plugins-first (alias for interop)
+  - production
 
 Step 5: Configure MCP and persist preferences
   - writes .mcp.json
@@ -78,5 +78,5 @@ The command emits a final summary that includes:
 The public OMG journey is:
 
 1. install for your host
-2. run `/OMG:setup`
-3. run `/OMG:crazy <goal>`
+2. run `doctor --fix`
+3. run `/OMG:ship <goal>`
