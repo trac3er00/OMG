@@ -1,0 +1,15 @@
+# Precedence: subscription tier -> channel -> policy pack -> preset
+id: fintech
+description: Governance overlay tuned for regulated fintech delivery.
+tool_restrictions:
+  - browser_automation
+network_posture: restricted
+approval_threshold: 2
+protected_paths:
+  - .omg/**
+  - .agents/**
+evidence_requirements:
+  - tests
+  - security_scan
+  - audit_trail
+data_sharing: restricted

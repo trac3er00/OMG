@@ -1,0 +1,16 @@
+# Precedence: subscription tier -> channel -> policy pack -> preset
+id: airgapped
+description: Governance overlay for fully disconnected execution environments.
+tool_restrictions:
+  - web_search
+  - browser_automation
+network_posture: airgapped
+approval_threshold: 2
+protected_paths:
+  - .omg/**
+  - .agents/**
+evidence_requirements:
+  - tests
+  - security_scan
+  - audit_trail
+data_sharing: restricted

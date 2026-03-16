@@ -1,0 +1,18 @@
+# Precedence: subscription tier -> channel -> policy pack -> preset
+id: locked-prod
+description: Strict production governance overlay with mandatory human review.
+tool_restrictions:
+  - web_search
+network_posture: restricted
+approval_threshold: 3
+protected_paths:
+  - .omg/**
+  - .agents/**
+  - .claude/**
+  - .codex/**
+evidence_requirements:
+  - tests
+  - security_scan
+  - audit_trail
+  - human_review
+data_sharing: prohibited
