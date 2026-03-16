@@ -515,6 +515,75 @@ def cmd_policy_pack_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_policy_pack_diff(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "json")
+    pack_id = getattr(args, "pack_id", "")
+    if not pack_id:
+        err = {"schema": "PolicyPackDiff", "status": "error", "reason": "pack_id is required"}
+        print(json.dumps(err, indent=2) if fmt == "json" else f"Error: {err['reason']}")
+        return 1
+    try:
+        pack = load_policy_pack(pack_id)
+    except Exception:
+        err = {"schema": "PolicyPackDiff", "status": "error", "reason": f"pack '{pack_id}' not found"}
+        print(json.dumps(err, indent=2) if fmt == "json" else f"Error: {err['reason']}")
+        return 1
+    pack_dict = dict(pack)
+    overrides = pack_dict.get("overrides", pack_dict.get("tool_restrictions", []))
+    output: dict[str, Any] = {
+        "schema": "PolicyPackDiff",
+        "status": "ok",
+        "pack_id": pack_id,
+        "description": pack_dict.get("description", ""),
+        "overrides": overrides,
+        "fields_affected": len(overrides) if isinstance(overrides, list) else 0,
+    }
+    if fmt == "json":
+        print(json.dumps(output, indent=2))
+    else:
+        print(f"Policy Pack Diff: {pack_id}")
+        print(f"  Description: {output['description']}")
+        print(f"  Overrides ({output['fields_affected']}):")
+        if isinstance(overrides, list):
+            for o in overrides:
+                print(f"    - {o}")
+    return 0
+
+
+def cmd_policy_pack_scaffold(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "json")
+    pack_id = getattr(args, "pack_id", "new-pack")
+    scaffold: dict[str, Any] = {
+        "schema": "PolicyPackScaffold",
+        "status": "ok",
+        "pack_id": pack_id,
+        "template": {
+            "id": pack_id,
+            "description": f"Custom policy pack: {pack_id}",
+            "overrides": {},
+            "tool_restrictions": [],
+            "required_evidence": [],
+        },
+        "output_path": f"registry/policy-packs/{pack_id}.yaml",
+    }
+    if fmt == "json":
+        print(json.dumps(scaffold, indent=2))
+    else:
+        import yaml as yaml_mod
+        print(f"Scaffold for policy pack '{pack_id}':")
+        print(f"  Output: {scaffold['output_path']}")
+        print("  Template:")
+        print(yaml_mod.dump(scaffold["template"], default_flow_style=False, indent=2))
+    return 0
+
+
+def cmd_policy_pack_sign(args: argparse.Namespace) -> int:
+    return _emit_not_implemented_stub("policy-pack sign", details={
+        "reason": "signing requires a private key and attestation infrastructure",
+        "prerequisite": "omg trust setup",
+    })
+
+
 def cmd_proof_summary(args: argparse.Namespace) -> int:
     fmt = getattr(args, "format", "json")
     project_dir = _ensure_project_dir()
@@ -1554,37 +1623,56 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     fmt = getattr(args, "format", "text")
     fix_mode = getattr(args, "fix", False)
     dry_run = getattr(args, "dry_run", False)
+    repair_pack_filter = getattr(args, "repair_pack", None)
 
     if fix_mode:
         result = run_doctor_fix(root_dir=ROOT_DIR, dry_run=dry_run)
         for receipt in result.get("fix_receipts", []):
             receipt["repair_pack"] = _infer_repair_pack(receipt.get("check", ""))
+        for check in result.get("checks", []):
+            check["repair_pack"] = _infer_repair_pack(check.get("name", ""))
+
+        if repair_pack_filter:
+            result["checks"] = [c for c in result["checks"] if c.get("repair_pack") == repair_pack_filter]
+            result["fix_receipts"] = [r for r in result.get("fix_receipts", []) if r.get("repair_pack") == repair_pack_filter]
+
         if fmt == "json":
             print(json.dumps(result, indent=2))
         else:
             mode_label = "DRY RUN" if dry_run else "FIX"
-            print(f"Doctor ({mode_label})")
+            pack_label = f" [pack: {repair_pack_filter}]" if repair_pack_filter else ""
+            print(f"Doctor ({mode_label}){pack_label}")
             for check in result["checks"]:
                 marker = "PASS" if check["status"] == "ok" else ("BLOCKER" if check["status"] == "blocker" else "WARN")
                 fix_tag = " [fixable]" if check.get("fixable") else ""
                 req_tag = "" if check["required"] else " (optional)"
-                print(f"  {marker:>7} {check['name']}: {check['message']}{req_tag}{fix_tag}")
+                pack_tag = f" [{check.get('repair_pack', 'general')}]"
+                print(f"  {marker:>7} {check['name']}: {check['message']}{req_tag}{fix_tag}{pack_tag}")
             for receipt in result.get("fix_receipts", []):
                 executed_tag = "applied" if receipt["executed"] else "planned"
-                print(f"  FIX [{executed_tag}] {receipt['check']}: {receipt['action']}")
+                print(f"  FIX [{executed_tag}] {receipt['check']}: {receipt['action']} [{receipt.get('repair_pack', 'general')}]")
             blockers = sum(1 for c in result["checks"] if c["status"] == "blocker")
             fixes = len(result.get("fix_receipts", []))
             print(f"\nBLOCKER [{blockers}] | FIXES [{fixes}]")
         return 0 if result["status"] == "pass" else 1
 
     result = run_doctor(root_dir=ROOT_DIR)
+    for check in result.get("checks", []):
+        check["repair_pack"] = _infer_repair_pack(check.get("name", ""))
+
+    if repair_pack_filter:
+        result["checks"] = [c for c in result["checks"] if c.get("repair_pack") == repair_pack_filter]
+
     if fmt == "json":
         print(json.dumps(result, indent=2))
     else:
+        pack_label = f" [pack: {repair_pack_filter}]" if repair_pack_filter else ""
+        print(f"Doctor{pack_label}")
         for check in result["checks"]:
             marker = "PASS" if check["status"] == "ok" else ("BLOCKER" if check["status"] == "blocker" else "WARN")
             req_tag = "" if check["required"] else " (optional)"
-            print(f"  {marker:>7} {check['name']}: {check['message']}{req_tag}")
+            pack_tag = f" [{check.get('repair_pack', 'general')}]"
+            print(f"  {marker:>7} {check['name']}: {check['message']}{req_tag}{pack_tag}")
         blockers = sum(1 for c in result["checks"] if c["status"] == "blocker")
         warnings = sum(1 for c in result["checks"] if c["status"] == "warning")
         passed = sum(1 for c in result["checks"] if c["status"] == "ok")
@@ -1660,15 +1748,39 @@ def _format_install_apply_text(result_data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+REPAIR_PACK_MAP: dict[str, str] = {
+    "python_version": "runtime",
+    "fastmcp": "runtime",
+    "omg_control_reachable": "runtime",
+    "managed_runtime": "runtime",
+    "memory_reachable": "runtime",
+    "policy_files": "governance",
+    "metadata_drift": "governance",
+    "compiled_bundles": "release",
+    "host_compatibility": "host",
+    "plugin_compatibility": "host",
+}
+
+HOST_KEYWORDS: list[tuple[str, str]] = [
+    ("claude", "claude"),
+    ("codex", "codex"),
+    ("gemini", "gemini"),
+    ("kimi", "kimi"),
+    ("opencode", "opencode"),
+]
+
+
 def _infer_repair_pack(check_name: str) -> str:
-    """Infer repair pack category from doctor check name."""
+    if check_name in REPAIR_PACK_MAP:
+        return REPAIR_PACK_MAP[check_name]
     name_lower = check_name.lower()
-    if "claude" in name_lower:
-        return "claude"
-    if "codex" in name_lower:
-        return "codex"
-    if "python" in name_lower or "runtime" in name_lower:
+    for keyword, pack in HOST_KEYWORDS:
+        if keyword in name_lower:
+            return pack
+    if "python" in name_lower or "runtime" in name_lower or "mcp" in name_lower:
         return "runtime"
+    if "policy" in name_lower or "metadata" in name_lower:
+        return "governance"
     return "general"
 
 
@@ -1680,12 +1792,19 @@ def cmd_install(args: argparse.Namespace) -> int:
     do_dry_run = getattr(args, "dry_run", False)
     do_apply = getattr(args, "apply", False)
 
+    # CI / non-interactive bypass: auto-promote to --apply
+    is_ci = getattr(args, "ci", False) or os.environ.get("OMG_CI") == "1"
+    is_non_interactive = getattr(args, "non_interactive", False)
     if not do_plan and not do_dry_run and not do_apply:
-        if fmt == "json":
-            print(json.dumps({"error": "specify --plan, --dry-run, or --apply"}, indent=2))
+        if is_ci or is_non_interactive:
+            do_apply = True
         else:
-            print("Error: specify --plan, --dry-run, or --apply")
-        return 1
+            if fmt == "json":
+                print(json.dumps({"error": "specify --plan, --dry-run, or --apply"}, indent=2))
+            else:
+                print("Error: specify --plan, --dry-run, or --apply")
+                print("Run `omg install --plan` to preview, or `omg install --apply` to execute.")
+            return 1
 
     detected_clis = _detect_clis()
     plan = compute_install_plan(
@@ -2015,6 +2134,18 @@ def build_parser() -> argparse.ArgumentParser:
     policy_pack_list_cmd = policy_pack_sub.add_parser("list", help="List available policy packs")
     policy_pack_list_cmd.add_argument("--format", default="json", choices=["json", "text"], dest="format")
     policy_pack_list_cmd.set_defaults(func=cmd_policy_pack_list)
+    policy_pack_diff_cmd = policy_pack_sub.add_parser("diff", help="Show overrides for a policy pack")
+    policy_pack_diff_cmd.add_argument("pack_id", help="Policy pack id to diff")
+    policy_pack_diff_cmd.add_argument("--format", default="json", choices=["json", "text"], dest="format")
+    policy_pack_diff_cmd.set_defaults(func=cmd_policy_pack_diff)
+    policy_pack_scaffold_cmd = policy_pack_sub.add_parser("scaffold", help="Generate a new policy pack template")
+    policy_pack_scaffold_cmd.add_argument("pack_id", nargs="?", default="new-pack", help="Pack id for the scaffold")
+    policy_pack_scaffold_cmd.add_argument("--format", default="json", choices=["json", "text"], dest="format")
+    policy_pack_scaffold_cmd.set_defaults(func=cmd_policy_pack_scaffold)
+    policy_pack_sign_cmd = policy_pack_sub.add_parser("sign", help="Sign a policy pack for attestation")
+    policy_pack_sign_cmd.add_argument("pack_id", help="Policy pack id to sign")
+    policy_pack_sign_cmd.add_argument("--format", default="json", choices=["json", "text"], dest="format")
+    policy_pack_sign_cmd.set_defaults(func=cmd_policy_pack_sign)
 
     proof = sub.add_parser("proof", help="Proof helpers")
     proof_sub = proof.add_subparsers(dest="proof_command", required=True)
@@ -2227,6 +2358,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--format", default="text", choices=["text", "json"], dest="format")
     doctor.add_argument("--fix", action="store_true", default=False, help="Attempt to fix failing checks")
     doctor.add_argument("--dry-run", action="store_true", default=False, dest="dry_run", help="Plan fixes without applying (requires --fix)")
+    doctor.add_argument("--repair-pack", default=None, dest="repair_pack", help="Filter checks by repair pack (runtime, governance, host, release, claude, codex, gemini, kimi)")
     doctor.set_defaults(func=cmd_doctor)
 
     validate = sub.add_parser("validate", help="Canonical validation — doctor + contract + profile + install")
