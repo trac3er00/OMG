@@ -15,7 +15,9 @@ Implements practical command-line flows for:
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 from datetime import datetime, timezone
+import hashlib
 import importlib.util
 import json
 import os
@@ -578,10 +580,159 @@ def cmd_policy_pack_scaffold(args: argparse.Namespace) -> int:
 
 
 def cmd_policy_pack_sign(args: argparse.Namespace) -> int:
-    return _emit_not_implemented_stub("policy-pack sign", details={
-        "reason": "signing requires a private key and attestation infrastructure",
-        "prerequisite": "omg trust setup",
-    })
+    fmt = getattr(args, "format", "json")
+    pack_id = getattr(args, "pack_id", "")
+    key_id = getattr(args, "key_id", None)
+    key_path = getattr(args, "key_path", None)
+
+    from registry.approval_artifact import create_approval_artifact
+    from registry.verify_artifact import _canonical_json, _DEFAULT_DEV_SIGNER_KEY_ID, _load_trusted_signers
+
+    if not key_id:
+        signers = _load_trusted_signers()
+        key_id = next(iter(signers), _DEFAULT_DEV_SIGNER_KEY_ID) if signers else _DEFAULT_DEV_SIGNER_KEY_ID
+
+    private_key = os.environ.get("OMG_SIGNING_KEY", "")
+    if not private_key and key_path:
+        try:
+            private_key = Path(key_path).read_text(encoding="utf-8").strip()
+        except Exception as exc:
+            print(json.dumps({"schema": "PolicyPackSign", "status": "error", "error": str(exc)}))
+            return 1
+    if not private_key:
+        print(json.dumps({"schema": "PolicyPackSign", "status": "error",
+                          "error": "no signing key: set OMG_SIGNING_KEY or --key-path"}))
+        return 1
+
+    try:
+        pack = load_policy_pack(pack_id)
+    except (FileNotFoundError, ValueError) as exc:
+        print(json.dumps({"schema": "PolicyPackSign", "status": "error", "error": str(exc)}))
+        return 1
+
+    canonical = _canonical_json(dict(pack))
+    digest = hashlib.sha256(canonical).hexdigest()
+
+    try:
+        approval = create_approval_artifact(
+            artifact_digest=digest,
+            action="policy-pack-sign",
+            scope=f"policy-pack/{pack_id}",
+            reason=f"Signing policy pack {pack_id}",
+            signer_key_id=key_id,
+            signer_private_key=private_key,
+        )
+    except Exception as exc:
+        print(json.dumps({"schema": "PolicyPackSign", "status": "error", "error": str(exc)}))
+        return 1
+
+    packs_dir = ROOT_DIR / "registry" / "policy-packs"
+    sig_path = packs_dir / f"{pack_id}.signature.json"
+    lock_path = packs_dir / f"{pack_id}.lock.json"
+
+    signature_artifact = asdict(approval)
+    sig_path.write_text(json.dumps(signature_artifact, indent=2) + "\n", encoding="utf-8")
+
+    lockfile = {
+        "pack_id": pack_id,
+        "pack_path": f"registry/policy-packs/{pack_id}.yaml",
+        "canonical_digest": digest,
+        "signer_key_id": key_id,
+        "algorithm": "ed25519",
+        "signature_path": f"registry/policy-packs/{pack_id}.signature.json",
+        "created_at": approval.issued_at,
+    }
+    lock_path.write_text(json.dumps(lockfile, indent=2) + "\n", encoding="utf-8")
+
+    output: dict[str, Any] = {
+        "schema": "PolicyPackSign",
+        "status": "signed",
+        "pack_id": pack_id,
+        "canonical_digest": digest,
+        "signer_key_id": key_id,
+        "signature_path": str(sig_path.relative_to(ROOT_DIR)),
+        "lock_path": str(lock_path.relative_to(ROOT_DIR)),
+    }
+    if fmt == "json":
+        print(json.dumps(output, indent=2))
+    else:
+        print(f"Signed: {pack_id}")
+        print(f"  Digest: {digest}")
+        print(f"  Signer: {key_id}")
+        print(f"  Signature: {sig_path.relative_to(ROOT_DIR)}")
+        print(f"  Lock: {lock_path.relative_to(ROOT_DIR)}")
+    return 0
+
+
+def cmd_policy_pack_verify(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "json")
+    pack_id = getattr(args, "pack_id", "")
+
+    from registry.approval_artifact import verify_approval_artifact
+    from registry.verify_artifact import _canonical_json
+
+    packs_dir = ROOT_DIR / "registry" / "policy-packs"
+    lock_path = packs_dir / f"{pack_id}.lock.json"
+
+    if not lock_path.exists():
+        print(json.dumps({"schema": "PolicyPackVerify", "status": "error",
+                          "error": f"lockfile not found: {lock_path.relative_to(ROOT_DIR)}"}))
+        return 1
+
+    try:
+        lockfile = json.loads(lock_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(json.dumps({"schema": "PolicyPackVerify", "status": "error", "error": str(exc)}))
+        return 1
+
+    sig_path = ROOT_DIR / lockfile.get("signature_path", "")
+    if not sig_path.exists():
+        print(json.dumps({"schema": "PolicyPackVerify", "status": "error",
+                          "error": f"signature not found: {lockfile.get('signature_path', '')}"}))
+        return 1
+
+    try:
+        sig_artifact = json.loads(sig_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(json.dumps({"schema": "PolicyPackVerify", "status": "error", "error": str(exc)}))
+        return 1
+
+    try:
+        pack = load_policy_pack(pack_id)
+    except (FileNotFoundError, ValueError) as exc:
+        print(json.dumps({"schema": "PolicyPackVerify", "status": "error", "error": str(exc)}))
+        return 1
+
+    canonical = _canonical_json(dict(pack))
+    digest = hashlib.sha256(canonical).hexdigest()
+
+    if digest != lockfile.get("canonical_digest", ""):
+        print(json.dumps({"schema": "PolicyPackVerify", "status": "tampered",
+                          "error": "pack content changed since signing",
+                          "expected_digest": lockfile.get("canonical_digest", ""),
+                          "actual_digest": digest}))
+        return 1
+
+    result = verify_approval_artifact(sig_artifact, expected_artifact_digest=digest)
+    if not result.get("valid"):
+        print(json.dumps({"schema": "PolicyPackVerify", "status": "failed",
+                          "error": result.get("reason", "verification failed")}))
+        return 1
+
+    output: dict[str, Any] = {
+        "schema": "PolicyPackVerify",
+        "status": "verified",
+        "pack_id": pack_id,
+        "canonical_digest": digest,
+        "signer_key_id": lockfile.get("signer_key_id", ""),
+    }
+    if fmt == "json":
+        print(json.dumps(output, indent=2))
+    else:
+        print(f"Verified: {pack_id}")
+        print(f"  Digest: {digest}")
+        print(f"  Signer: {lockfile.get('signer_key_id', '')}")
+    return 0
 
 
 def cmd_proof_summary(args: argparse.Namespace) -> int:
@@ -2144,8 +2295,14 @@ def build_parser() -> argparse.ArgumentParser:
     policy_pack_scaffold_cmd.set_defaults(func=cmd_policy_pack_scaffold)
     policy_pack_sign_cmd = policy_pack_sub.add_parser("sign", help="Sign a policy pack for attestation")
     policy_pack_sign_cmd.add_argument("pack_id", help="Policy pack id to sign")
+    policy_pack_sign_cmd.add_argument("--key-id", default=None, dest="key_id", help="Signer key id")
+    policy_pack_sign_cmd.add_argument("--key-path", default=None, dest="key_path", help="Path to private key file")
     policy_pack_sign_cmd.add_argument("--format", default="json", choices=["json", "text"], dest="format")
     policy_pack_sign_cmd.set_defaults(func=cmd_policy_pack_sign)
+    policy_pack_verify_cmd = policy_pack_sub.add_parser("verify", help="Verify a signed policy pack")
+    policy_pack_verify_cmd.add_argument("pack_id", help="Policy pack id to verify")
+    policy_pack_verify_cmd.add_argument("--format", default="json", choices=["json", "text"], dest="format")
+    policy_pack_verify_cmd.set_defaults(func=cmd_policy_pack_verify)
 
     proof = sub.add_parser("proof", help="Proof helpers")
     proof_sub = proof.add_subparsers(dest="proof_command", required=True)
