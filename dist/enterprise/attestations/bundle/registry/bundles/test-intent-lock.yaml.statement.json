@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/test-intent-lock.yaml",
       "digest": {
-        "sha256": "e81027dd340b8a11fa70887c76e8308b17dc9b3f6c9bf1fe1513f3cbaa750532"
+        "sha256": "fb70ba431fd23a7b570298114cff3526f0714d23d23ef1f86fcbb3705faa39ab"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T19:27:46.291781+00:00"
+      "timestamp": "2026-03-16T21:33:13.854417+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T19:27:46.291781+00:00",
+  "issued_at": "2026-03-16T21:33:13.854417+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "e3ae903b358702f3",
-    "value": "untrusted comment: signature from omg local signing key\nZs8nSyiLID4SgGc3DFHmpuBD4HfwmDBtVtGi6qYv87LANwelZBRaAcqDOAU+yYtt9ZB19F2CKIdXgQLnTshnDw==\ntrusted comment: type=omg-slsa-v1 keyid=e3ae903b358702f3 issued_at=2026-03-16T19:27:46.291892+00:00 artifact=bundle/registry/bundles/test-intent-lock.yaml sha256=e81027dd340b8a11fa70887c76e8308b17dc9b3f6c9bf1fe1513f3cbaa750532\nlTw/P3HxGSEQAfTzV6fWIEJwdFYYFo40igpZap66hr3D/xy16bPT3djocHJq1RyoiaM0FHRxVv4vkNTw0EafBw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=e3ae903b358702f3 issued_at=2026-03-16T19:27:46.291892+00:00 artifact=bundle/registry/bundles/test-intent-lock.yaml sha256=e81027dd340b8a11fa70887c76e8308b17dc9b3f6c9bf1fe1513f3cbaa750532"
+    "keyid": "cd9b7768128d149b",
+    "value": "untrusted comment: signature from omg local signing key\ngl3OAioLhQWai/UTlgyZ+OqYKnhA1O2prr/xHETCtaxZm8ThxkTCB4m3i28/UAA9DEJiaxJ+UAyYgyu1zhHWDg==\ntrusted comment: type=omg-slsa-v1 keyid=cd9b7768128d149b issued_at=2026-03-16T21:33:13.854591+00:00 artifact=bundle/registry/bundles/test-intent-lock.yaml sha256=fb70ba431fd23a7b570298114cff3526f0714d23d23ef1f86fcbb3705faa39ab\n7fwk07jm7slBRM2tcZdzxbogsYilcjuUaRiRYFr98DeUnWWgk1Qvb9RqV5zbu/wuXtBC8ORF9CcvR9DwLTVLAA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=cd9b7768128d149b issued_at=2026-03-16T21:33:13.854591+00:00 artifact=bundle/registry/bundles/test-intent-lock.yaml sha256=fb70ba431fd23a7b570298114cff3526f0714d23d23ef1f86fcbb3705faa39ab"
   }
 }

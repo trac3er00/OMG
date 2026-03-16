@@ -5,7 +5,7 @@ description: "Ephemeral worktree execution and supervisor-safe worker dispatch f
 
 # OMG Secure Worktree Pipeline
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `automation, ephemeral_worktree, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/subagents/*.json, .omg/evidence/merge-writer-*.json, .omg/state/exec-kernel/*.json, .omg/state/merge-writer.lock`
