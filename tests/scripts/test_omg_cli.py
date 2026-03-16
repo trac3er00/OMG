@@ -1068,20 +1068,25 @@ def test_install_plan_no_disk_mutations(tmp_path: Path):
     assert _snapshot_tree(tmp_path) == before
 
 
-@pytest.mark.xfail(reason="--apply not yet exposed in CLI; enabled by Task 5")
 def test_install_apply_receipt_contract_fields() -> None:
-    proc = _run(["install", "--apply", "--format", "json"])
-    assert proc.returncode == 0, f"stderr: {proc.stderr}"
-    out = json.loads(proc.stdout)
-    assert "actions" in out
-    assert "receipts" in out
-    assert isinstance(out["receipts"], list)
-    for receipt in out["receipts"]:
-        assert "check" in receipt
-        assert "action" in receipt
-        assert "backup_path" in receipt
-        assert "executed" in receipt
-        assert "rollback_ref" in receipt
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        proc = _run(["install", "--apply", "--format", "json"])
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert "actions" in out
+        assert "receipts" in out
+        assert isinstance(out["receipts"], list)
+        for receipt in out["receipts"]:
+            assert "check" in receipt
+            assert "action" in receipt
+            assert "backup_path" in receipt
+            assert "executed" in receipt
+            assert "rollback_ref" in receipt
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
 
 
 def test_install_no_flag_returns_error():
@@ -1141,14 +1146,17 @@ def test_cli_doctor_fix_dry_run_does_not_mutate_repo_files() -> None:
     assert after_policy == before_policy
 
 
-def test_cli_resolve_policy_stub_contract() -> None:
-    proc = _run(["resolve-policy"])
-    assert proc.returncode != 0
+def test_cli_resolve_policy_returns_effective_policy() -> None:
+    proc = _run(["resolve-policy", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
     out = json.loads(proc.stdout)
-    assert out["schema"] == "OperatorContractStub"
-    assert out["status"] == "not_implemented"
-    assert out["error_code"] == "NOT_YET_IMPLEMENTED"
-    assert out["command"] == "resolve-policy"
+    assert out["schema"] == "EffectivePolicy"
+    assert "tier" in out
+    assert "effective_policy" in out
+    assert "overrides" in out
+    assert "provenance" in out
+    assert isinstance(out["packs"], list)
+    assert isinstance(out["provenance"], list)
 
 
 def test_cli_proof_summary_stub_contract() -> None:

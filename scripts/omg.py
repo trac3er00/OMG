@@ -79,6 +79,7 @@ from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosy
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
 from runtime.release_run_coordinator import resolve_current_run_id
 from runtime.subscription_tiers import detect_tier
+from runtime.policy_pack_loader import list_policy_packs, load_policy_pack
 
 
 CANONICAL_HOST_CHOICES = tuple(get_canonical_hosts())
@@ -385,8 +386,133 @@ def _emit_not_implemented_stub(command: str, *, details: dict[str, Any] | None =
 
 
 def cmd_resolve_policy(args: argparse.Namespace) -> int:
-    del args
-    return _emit_not_implemented_stub("resolve-policy")
+    fmt = getattr(args, "format", "json")
+    provider = getattr(args, "provider", "claude")
+
+    tier_result = detect_tier(provider, project_dir=_ensure_project_dir())
+
+    pack_ids = list_policy_packs()
+    packs: list[dict[str, Any]] = []
+    for pack_id in pack_ids:
+        try:
+            pack = load_policy_pack(pack_id)
+            packs.append(dict(pack))
+        except Exception:
+            packs.append({"id": pack_id, "error": "failed_to_load"})
+
+    effective_policy: dict[str, Any] = {
+        "tool_restrictions": [],
+        "network_posture": "open",
+        "approval_threshold": 1,
+        "protected_paths": [],
+        "evidence_requirements": [],
+        "data_sharing": "allowed",
+    }
+
+    overrides: list[dict[str, Any]] = []
+    for pack in packs:
+        if "error" in pack:
+            continue
+        for list_field in ("tool_restrictions", "protected_paths", "evidence_requirements"):
+            pack_values = pack.get(list_field, [])
+            if not isinstance(pack_values, list):
+                continue
+            existing = effective_policy.get(list_field, [])
+            for v in pack_values:
+                if v not in existing:
+                    existing.append(v)
+                    overrides.append({"field": list_field, "value": v, "source": pack.get("id", "unknown")})
+            effective_policy[list_field] = existing
+
+        for scalar_field in ("network_posture", "data_sharing"):
+            pack_value = pack.get(scalar_field)
+            if pack_value and pack_value != effective_policy.get(scalar_field):
+                overrides.append({
+                    "field": scalar_field,
+                    "old_value": effective_policy[scalar_field],
+                    "new_value": pack_value,
+                    "source": pack.get("id", "unknown"),
+                })
+                effective_policy[scalar_field] = pack_value
+
+        pack_threshold = pack.get("approval_threshold", 1)
+        if isinstance(pack_threshold, int) and pack_threshold > effective_policy["approval_threshold"]:
+            overrides.append({
+                "field": "approval_threshold",
+                "old_value": effective_policy["approval_threshold"],
+                "new_value": pack_threshold,
+                "source": pack.get("id", "unknown"),
+            })
+            effective_policy["approval_threshold"] = pack_threshold
+
+    provenance: list[dict[str, Any]] = [
+        {
+            "source": "tier_detection",
+            "provider": provider,
+            "tier": tier_result["tier"],
+            "confidence": tier_result["confidence"],
+            "provenance": tier_result["provenance"],
+        },
+    ]
+    for pack in packs:
+        provenance.append({
+            "source": "policy_pack",
+            "pack_id": pack.get("id", ""),
+            "description": pack.get("description", ""),
+        })
+
+    output: dict[str, Any] = {
+        "schema": "EffectivePolicy",
+        "tier": dict(tier_result),
+        "channel": "public",
+        "preset": "balanced",
+        "packs": [{"id": p.get("id", ""), "description": p.get("description", "")} for p in packs],
+        "effective_policy": effective_policy,
+        "overrides": overrides,
+        "provenance": provenance,
+    }
+
+    if fmt == "json":
+        print(json.dumps(output, indent=2))
+    else:
+        print("=== Effective Policy ===")
+        print(f"Tier: {tier_result['tier']} (confidence: {tier_result['confidence']:.2f})")
+        print("Channel: public")
+        print("Preset: balanced")
+        if packs:
+            print(f"\nActive packs ({len(packs)}):")
+            for p in packs:
+                print(f"  - {p.get('id', '')}: {p.get('description', '')}")
+        if overrides:
+            print(f"\nOverrides ({len(overrides)}):")
+            for o in overrides:
+                print(f"  {o['field']}: {o.get('value', o.get('new_value', ''))} (from {o['source']})")
+    return 0
+
+
+def cmd_policy_pack_list(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "json")
+    pack_ids = list_policy_packs()
+    packs: list[dict[str, Any]] = []
+    for pack_id in pack_ids:
+        try:
+            pack = load_policy_pack(pack_id)
+            packs.append(dict(pack))
+        except Exception:
+            packs.append({"id": pack_id, "error": "failed_to_load"})
+
+    output: dict[str, Any] = {
+        "schema": "PolicyPackList",
+        "packs": packs,
+        "count": len(packs),
+    }
+    if fmt == "json":
+        print(json.dumps(output, indent=2))
+    else:
+        print(f"Policy Packs ({len(packs)}):")
+        for p in packs:
+            print(f"  - {p.get('id', 'unknown')}: {p.get('description', 'N/A')}")
+    return 0
 
 
 def cmd_proof_summary(args: argparse.Namespace) -> int:
@@ -1256,6 +1382,8 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
     if fix_mode:
         result = run_doctor_fix(root_dir=ROOT_DIR, dry_run=dry_run)
+        for receipt in result.get("fix_receipts", []):
+            receipt["repair_pack"] = _infer_repair_pack(receipt.get("check", ""))
         if fmt == "json":
             print(json.dumps(result, indent=2))
         else:
@@ -1342,18 +1470,46 @@ def _format_install_dryrun_text(result_data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _format_install_apply_text(result_data: dict[str, Any]) -> str:
+    lines: list[str] = ["Install Apply Result"]
+    lines.append(f"  Executed: {result_data.get('executed', False)}")
+    errors = result_data.get("errors", [])
+    if errors:
+        lines.append(f"  Errors ({len(errors)}):")
+        for e in errors:
+            lines.append(f"    - {e}")
+    for receipt in result_data.get("receipts", []):
+        executed_tag = "applied" if receipt["executed"] else "planned"
+        lines.append(f"  [{executed_tag}] {receipt['check']}: {receipt['action']}")
+        lines.append(f"    backup: {receipt['backup_path']}")
+    return "\n".join(lines)
+
+
+def _infer_repair_pack(check_name: str) -> str:
+    """Infer repair pack category from doctor check name."""
+    name_lower = check_name.lower()
+    if "claude" in name_lower:
+        return "claude"
+    if "codex" in name_lower:
+        return "codex"
+    if "python" in name_lower or "runtime" in name_lower:
+        return "runtime"
+    return "general"
+
+
 def cmd_install(args: argparse.Namespace) -> int:
     fmt = getattr(args, "format", "text")
     preset = getattr(args, "preset", "balanced")
     mode = getattr(args, "mode", "omg-only")
     do_plan = getattr(args, "plan", False)
     do_dry_run = getattr(args, "dry_run", False)
+    do_apply = getattr(args, "apply", False)
 
-    if not do_plan and not do_dry_run:
+    if not do_plan and not do_dry_run and not do_apply:
         if fmt == "json":
-            print(json.dumps({"error": "specify --plan or --dry-run"}, indent=2))
+            print(json.dumps({"error": "specify --plan, --dry-run, or --apply"}, indent=2))
         else:
-            print("Error: specify --plan or --dry-run")
+            print("Error: specify --plan, --dry-run, or --apply")
         return 1
 
     detected_clis = _detect_clis()
@@ -1390,6 +1546,53 @@ def cmd_install(args: argparse.Namespace) -> int:
         else:
             print(_format_install_plan_text(plan_data))
         return 0
+
+    if do_apply:
+        if integrity_errors:
+            err_data: dict[str, Any] = {
+                "schema": "InstallApplyResult",
+                "executed": False,
+                "actions": [_install_action_to_dict(a) for a in plan.actions],
+                "receipts": [],
+                "errors": integrity_errors,
+            }
+            if fmt == "json":
+                print(json.dumps(err_data, indent=2))
+            else:
+                print(_format_install_apply_text(err_data))
+            return 1
+
+        result = execute_plan(plan, dry_run=False)
+        config_receipt = result.get("receipt") or {}
+        backup_path = ""
+        if isinstance(config_receipt, dict):
+            backup_path = str(config_receipt.get("backup_path", ""))
+
+        receipts: list[dict[str, Any]] = []
+        for action in plan.actions:
+            receipts.append({
+                "check": f"install_{action.host}",
+                "action": action.description,
+                "backup_path": backup_path,
+                "executed": result["executed"],
+                "rollback_ref": backup_path,
+            })
+
+        apply_data: dict[str, Any] = {
+            "schema": "InstallApplyResult",
+            "executed": result["executed"],
+            "actions": [_install_action_to_dict(a) for a in plan.actions],
+            "receipts": receipts,
+            "actions_completed": result["actions_completed"],
+            "actions_skipped": result["actions_skipped"],
+            "errors": result["errors"],
+        }
+        has_errors = bool(result["errors"])
+        if fmt == "json":
+            print(json.dumps(apply_data, indent=2, default=str))
+        else:
+            print(_format_install_apply_text(apply_data))
+        return 1 if has_errors else 0
 
     result = execute_plan(plan, dry_run=True)
     result_data: dict[str, Any] = {
@@ -1627,8 +1830,16 @@ def build_parser() -> argparse.ArgumentParser:
     preflight.add_argument("--goal", required=True)
     preflight.set_defaults(func=cmd_preflight)
 
-    resolve_policy = sub.add_parser("resolve-policy", help="Resolve policy intent (stub)")
+    resolve_policy = sub.add_parser("resolve-policy", help="Resolve effective policy from tier, presets, and packs")
+    resolve_policy.add_argument("--format", default="json", choices=["json", "text"], dest="format")
+    resolve_policy.add_argument("--provider", default="claude")
     resolve_policy.set_defaults(func=cmd_resolve_policy)
+
+    policy_pack = sub.add_parser("policy-pack", help="Policy pack management")
+    policy_pack_sub = policy_pack.add_subparsers(dest="policy_pack_command", required=True)
+    policy_pack_list_cmd = policy_pack_sub.add_parser("list", help="List available policy packs")
+    policy_pack_list_cmd.add_argument("--format", default="json", choices=["json", "text"], dest="format")
+    policy_pack_list_cmd.set_defaults(func=cmd_policy_pack_list)
 
     proof = sub.add_parser("proof", help="Proof helpers")
     proof_sub = proof.add_subparsers(dest="proof_command", required=True)
@@ -1861,9 +2072,12 @@ def build_parser() -> argparse.ArgumentParser:
     docs = sub.add_parser("docs", help="OMG documentation generator")
     _add_docs_subcommands(docs, dest="docs_command")
 
-    install = sub.add_parser("install", help="Compute or dry-run an install plan via install_planner")
+    install = sub.add_parser("install", help="Compute, dry-run, or apply an install plan")
     install.add_argument("--plan", action="store_true", help="Emit structured action plan without mutations")
     install.add_argument("--dry-run", action="store_true", help="Compute actions and emit receipts without mutations")
+    install.add_argument("--apply", action="store_true", help="Execute the install plan with real disk writes")
+    install.add_argument("--ci", action="store_true", help="CI mode flag")
+    install.add_argument("--non-interactive", action="store_true", dest="non_interactive", help="Non-interactive mode")
     install.add_argument("--format", default="text", choices=["text", "json"], dest="format")
     install.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS))
     install.add_argument("--mode", default="omg-only", choices=["omg-only", "coexist"])
