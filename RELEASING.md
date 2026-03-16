@@ -20,58 +20,29 @@ This document covers the release procedure and golden rules for publishing new v
 
 ## Release Procedure
 
-### 1. Bump version surfaces
+### 1. Prepare and merge release changes
 
-Edit the canonical version source and propagate to all surfaces:
+Open a PR that updates release-facing surfaces (for example `runtime/adoption.py`, `package.json`, and generated artifacts), then merge to `main` after CI is green.
 
-```bash
-# 1. Edit runtime/adoption.py — update CANONICAL_VERSION
-# 2. Edit package.json — update "version"
-
-# 3. Sync all authored surfaces
-python3 scripts/sync-release-identity.py
-
-# 4. Compile derived manifests
-python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public
-python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel enterprise
-python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public --output-root artifacts/release
-python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel enterprise --output-root artifacts/release
-
-# 5. Rebuild Python package
-python3 -m build --wheel
-
-# 6. Manually update .gemini/settings.json and .kimi/mcp.json
-#    Set _omg._version and _omg.generated.contract_version to the new version
-```
-
-> **WARNING:** Do NOT pass `--output-root dist` to the compile command — it creates `dist/dist/` double-nesting. Only use `--output-root artifacts/release` for release artifact outputs.
-
-### 2. Validate
+### 2. Push main to trigger the authoritative release workflow
 
 ```bash
-python3 scripts/validate-release-identity.py --scope all
-pytest tests/test_version_gate.py -v
-```
-
-Both must exit 0 before proceeding.
-
-### 3. Pre-release safety check
-
-```bash
-./scripts/pre-release-check.sh <version>
-```
-
-### 4. Commit and push
-
-```bash
-git add -A
-git commit -m "chore(release): bump to v<version> and sync all surfaces"
 git push origin main
 ```
 
-### 5. Publish
+`release.yml` is now the single authoritative publish path and runs semantic-release on merges to `main`. It uses full git history (`fetch-depth: 0`) and performs release-readiness checks before publishing.
 
-Trigger the `Publish to npm` workflow via GitHub Actions workflow dispatch, or push a `v*.*.*` tag. The workflow includes an automatic pre-release tag safety check that will fail fast if the tag is locked.
+### 3. What semantic-release automates
+
+- determines next version from conventional commits
+- updates changelog + versioned files
+- runs `python3 scripts/sync-release-identity.py` in prepare phase
+- publishes npm package
+- publishes GitHub release and writes back `chore(release): <version> [skip ci]`
+
+### 4. Legacy manual publish workflow
+
+`publish-npm.yml` is retired for normal releases. Use the semantic-release path via `release.yml`.
 
 ## Troubleshooting
 

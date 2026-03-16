@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    env:
+      GITHUB_APP_ID: ${{ vars.GITHUB_APP_ID }}
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+      GITHUB_INSTALLATION_ID: ${{ vars.GITHUB_INSTALLATION_ID }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Validate required release credentials
+        run: |
+          test -n "${GITHUB_APP_ID}" || (echo "Missing GITHUB_APP_ID" && exit 1)
+          test -n "${GITHUB_APP_PRIVATE_KEY}" || (echo "Missing GITHUB_APP_PRIVATE_KEY" && exit 1)
+          test -n "${GITHUB_INSTALLATION_ID}" || (echo "Missing GITHUB_INSTALLATION_ID" && exit 1)
+          test -n "${NPM_TOKEN}" || (echo "Missing NPM_TOKEN" && exit 1)
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ env.GITHUB_APP_ID }}
+          private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
+          installation-id: ${{ env.GITHUB_INSTALLATION_ID }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install Python dependencies
+        run: pip install .[test]
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run release readiness checks
+        env:
+          OMG_REQUIRE_HOST_PARITY_REPORT: "1"
+          OMG_REQUIRE_EXEC_KERNEL_EVIDENCE: "1"
+          OMG_REQUIRE_GOVERNED_TOOL_EVIDENCE: "1"
+          OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
+        run: |
+          python3 scripts/sync-release-identity.py --check
+          python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
+        run: npx semantic-release
