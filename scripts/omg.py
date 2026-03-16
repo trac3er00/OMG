@@ -891,6 +891,75 @@ def cmd_explain_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_blocked_last(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "text")
+    project_dir = _ensure_project_dir()
+    state_file = Path(project_dir) / ".omg" / "state" / "last-block-explanation.json"
+
+    if not state_file.exists():
+        print("No block explanation found — try running a tool to trigger governance.")
+        return 0
+
+    try:
+        block = json.loads(state_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        print("No block explanation found — state file unreadable.")
+        return 0
+
+    narrative: dict[str, Any] = {
+        "verdict_summary": block.get("explanation", ""),
+        "blockers_section": [block.get("reason_code", "unknown")],
+        "next_actions": ["Review the blocked tool call and address the governance concern"],
+        "evidence_paths_section": [],
+        "provenance_note": f"Tool: {block.get('tool', '?')} | {block.get('timestamp', '')}",
+    }
+
+    if fmt == "markdown":
+        from runtime.explainer_formatter import format_markdown as _fmt_md
+        print(_fmt_md(narrative))
+    else:
+        from runtime.explainer_formatter import format_terminal as _fmt_term
+        print(_fmt_term(narrative))
+
+    return 0
+
+
+def cmd_proof_open(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "markdown")
+    project_dir = _ensure_project_dir()
+    run_id_arg = getattr(args, "run_id", None)
+
+    from runtime.evidence_query import list_evidence_packs
+    from runtime.evidence_narrator import narrate as _narrate
+    from runtime.explainer_formatter import format_markdown as _fmt_md
+    from runtime.explainer_formatter import format_terminal as _fmt_term
+
+    packs = list_evidence_packs(project_dir)
+
+    if not packs:
+        print("No evidence packs found. Run a governed task to generate evidence,")
+        print("then re-run: omg proof open")
+        return 0
+
+    pack = packs[0]
+    run_id = str(run_id_arg) if run_id_arg else str(pack.get("run_id", "unknown"))
+
+    narrative = _narrate(cast(Any, pack))
+    md = _fmt_md(dict(narrative))
+
+    out = Path(project_dir) / ".omg" / "evidence" / f"proof-open-{run_id}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(md, encoding="utf-8")
+
+    print(f"proof-open: {run_id}")
+    if fmt == "text":
+        print(_fmt_term(dict(narrative)))
+    else:
+        print(md)
+
+    return 0
+
+
 def cmd_budget_simulate(args: argparse.Namespace) -> int:
     import uuid as _uuid
 
@@ -2316,6 +2385,15 @@ def build_parser() -> argparse.ArgumentParser:
     proof_summary = proof_sub.add_parser("summary", help="Summarize proof status")
     proof_summary.add_argument("--format", default="json", choices=["json", "markdown", "text"], dest="format")
     proof_summary.set_defaults(func=cmd_proof_summary)
+    proof_open = proof_sub.add_parser("open", help="Open latest evidence pack as narrated proof")
+    proof_open.add_argument("--run-id", default=None, dest="run_id")
+    proof_open.add_argument("--format", default="markdown", choices=["markdown", "text"], dest="format")
+    proof_open.set_defaults(func=cmd_proof_open)
+
+    blocked = sub.add_parser("blocked", help="Inspect governance block explanations")
+    blocked.add_argument("--last", action="store_true", required=True, help="Show the last block explanation")
+    blocked.add_argument("--format", default="text", choices=["text", "markdown"], dest="format")
+    blocked.set_defaults(func=cmd_blocked_last)
 
     explain = sub.add_parser("explain", help="Explain run artifacts")
     explain_sub = explain.add_subparsers(dest="explain_command", required=True)
