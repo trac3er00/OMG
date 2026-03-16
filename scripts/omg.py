@@ -47,6 +47,7 @@ from runtime.data_lineage import build_lineage_manifest
 from runtime.eval_gate import evaluate_trace
 from runtime.incident_replay import build_incident_pack
 from runtime.domain_packs import get_domain_pack_contract
+from runtime.doc_generator import generate_docs
 from runtime.preflight import run_preflight
 from runtime.remote_supervisor import issue_local_supervisor_session, verify_local_supervisor_token
 from runtime.security_check import run_security_check
@@ -1237,6 +1238,26 @@ def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> N
     release_readiness.set_defaults(func=cmd_release_readiness)
 
 
+def cmd_docs_generate(args: argparse.Namespace) -> int:
+    output_root = Path(args.output_root) if args.output_root else ROOT_DIR / ".sisyphus" / "tmp" / "generated-docs"
+    result = generate_docs(output_root)
+    if result["status"] == "ok":
+        print(f"Successfully generated docs at: {result["output_root"]}")
+        for artifact in result["artifacts"]:
+            print(f"  - {artifact}")
+        return 0
+    print(f"Failed to generate docs: {result.get("error", "Unknown error")}")
+    return 1
+
+
+def _add_docs_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    sub = parent.add_subparsers(dest=dest)
+
+    generate = sub.add_parser("generate", help="Generate machine-readable and human-readable docs")
+    generate.add_argument("--output-root", default="", help="Output directory for generated docs")
+    generate.set_defaults(func=cmd_docs_generate)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="omg", description=f"OMG {CANONICAL_VERSION} CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1525,6 +1546,9 @@ def build_parser() -> argparse.ArgumentParser:
     profile_review = sub.add_parser("profile-review", help="Review governed profile state")
     profile_review.add_argument("--format", default="json", choices=["json", "text"], dest="format")
     profile_review.set_defaults(func=cmd_profile_review)
+
+    docs = sub.add_parser("docs", help="OMG documentation generator")
+    _add_docs_subcommands(docs, dest="docs_command")
 
     return parser
 
