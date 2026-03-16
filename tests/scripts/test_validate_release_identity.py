@@ -435,3 +435,65 @@ class TestScopeDerived:
         assert output["scope"] == "derived"
         assert output.get("authored") is None or output["authored"]["status"] == "skipped"
         assert "derived" in output
+
+
+class TestReleaseSurfaceDriftGate:
+    def test_drift_gate_blocks_when_package_json_has_no_bin(self):
+        from runtime.contract_compiler import _check_release_surface_drift
+        from runtime.release_surface_registry import get_public_surfaces
+
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "root"
+            output = Path(td) / "output"
+            root.mkdir()
+            output.mkdir()
+
+            pkg = {"name": "@trac3er/oh-my-god", "version": "2.2.7"}
+            (root / "package.json").write_text(json.dumps(pkg))
+            (root / "action.yml").write_text("name: OMG\n")
+
+            manifest_dir = output / "dist" / "public"
+            manifest_dir.mkdir(parents=True)
+            manifest = {
+                "generated_by": "omg release compile-surfaces",
+                "version": "2.2.7",
+                "generated_at": "2025-01-01T00:00:00+00:00",
+                "surfaces": get_public_surfaces(),
+            }
+            (manifest_dir / "release-surface.json").write_text(json.dumps(manifest))
+
+            result = _check_release_surface_drift(root, output)
+
+        assert result["status"] == "error"
+        assert any("package.json missing npm bin.omg" in b for b in result["blockers"])
+
+    def test_drift_gate_ok_when_all_surfaces_agree(self):
+        from runtime.contract_compiler import _check_release_surface_drift
+        from runtime.release_surface_registry import get_public_surfaces
+
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "root"
+            output = Path(td) / "output"
+            root.mkdir()
+            output.mkdir()
+
+            pkg = {"name": "@trac3er/oh-my-god", "version": "2.2.7", "bin": {"omg": "./OMG-setup.sh"}}
+            (root / "package.json").write_text(json.dumps(pkg))
+            (root / "action.yml").write_text("name: OMG\n")
+
+            manifest_dir = output / "dist" / "public"
+            manifest_dir.mkdir(parents=True)
+            manifest = {
+                "generated_by": "omg release compile-surfaces",
+                "version": "2.2.7",
+                "generated_at": "2025-01-01T00:00:00+00:00",
+                "surfaces": get_public_surfaces(),
+            }
+            (manifest_dir / "release-surface.json").write_text(json.dumps(manifest))
+
+            result = _check_release_surface_drift(root, output)
+
+        assert result["status"] == "ok"
+        assert result["blockers"] == []
