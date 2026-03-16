@@ -101,6 +101,32 @@ def check_mutation_allowed(
             "lock_id": normalized_lock_id,
         }
 
+    # Governance context check: if there is NO active run context AND no explicit
+    # lock_id, there is no governance context at all.  Returning
+    # `no_active_test_intent_lock` here would be a false positive — that reason
+    # code is reserved for when a run context IS present but the lock lookup
+    # fails.  Use `mutation_context_required` instead so callers can distinguish
+    # "no governance context" from "context present but lock missing".
+    if not resolved_run_id and normalized_lock_id is None:
+        if strict_mode:
+            _write_block_artifact(project_dir, normalized_tool, normalized_file_path, "mutation_context_required")
+            return {
+                "status": "blocked",
+                "reason": "mutation_context_required",
+                "lock_id": None,
+            }
+        _write_warning_artifact(project_dir, normalized_tool, normalized_file_path, "mutation_context_required")
+        warnings.warn(
+            f"mutation_gate_permissive_allow:{normalized_tool}:mutation_context_required",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return {
+            "status": "allowed",
+            "reason": "mutation_context_required",
+            "lock_id": None,
+        }
+
     verification = verify_lock(project_dir, run_id=resolved_run_id, lock_id=normalized_lock_id)
     if verification.get("status") != "ok":
         reason = str(verification.get("reason", "no_active_test_intent_lock"))
