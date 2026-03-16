@@ -1170,12 +1170,15 @@ def test_policy_pack_scaffold_returns_template():
     assert "output_path" in out
 
 
-def test_policy_pack_sign_returns_not_implemented():
+def test_policy_pack_sign_requires_signing_key():
+    """policy-pack sign now requires a signing key (no longer a stub)."""
     proc = _run(["policy-pack", "sign", "airgapped", "--format", "json"])
-    assert proc.returncode == 2
+    # Without OMG_SIGNING_KEY or --key-path, exits 1 with a clear error
+    assert proc.returncode == 1
     out = json.loads(proc.stdout)
-    assert out["schema"] == "OperatorContractStub"
-    assert out["status"] == "not_implemented"
+    assert out["schema"] == "PolicyPackSign"
+    assert out["status"] == "error"
+    assert "signing key" in out.get("error", "").lower()
 
 
 # --- doctor repair-pack tests ---
