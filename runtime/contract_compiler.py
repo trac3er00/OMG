@@ -34,6 +34,7 @@ from runtime.adoption import (
     CANONICAL_REPO_URL,
     CANONICAL_VERSION,
 )
+from runtime.canonical_taxonomy import CANONICAL_PRESETS, RELEASE_CHANNELS
 from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
 from registry.verify_artifact import sign_artifact_statement, verify_artifact_statement
 
@@ -46,7 +47,8 @@ RELEASE_BLOCKING_HOSTS = tuple(get_canonical_hosts())
 # Compatibility-only hosts (for example, OpenCode) are intentionally excluded from
 # release-blocking parity and compile-readiness requirements.
 COMPATIBILITY_ONLY_HOSTS = tuple(get_compat_hosts())
-SUPPORTED_CHANNELS = ("public", "enterprise")
+SUPPORTED_PRESETS = CANONICAL_PRESETS
+SUPPORTED_CHANNELS = RELEASE_CHANNELS
 DEFAULT_REQUIRED_BUNDLES = (
     "control-plane",
     "plan-council",
