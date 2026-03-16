@@ -47,4 +47,3 @@
 ## 📂 Cache Paths
 
 - `.omg/cache`
-- `.sisyphus/tmp`

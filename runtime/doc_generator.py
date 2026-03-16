@@ -66,7 +66,6 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         ],
         "cache_paths": [
             ".omg/cache",
-            ".sisyphus/tmp",
         ]
     }
     _write_json(output_root / "install-verification.json", install_verification)
@@ -237,6 +236,20 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
     
     _write_text(output_root / "QUICK-REFERENCE.md", "\n".join(quick_md) + "\n")
     
+    # 9. channel-guarantees.json
+    channel_guarantees = {
+        "generated_by": "omg docs generate",
+        "version": CANONICAL_VERSION,
+        "generated_at": timestamp,
+        "channels": {
+            "public": "Standard production channel. Guarantees behavior parity across canonical hosts and standard evidence-backed verification.",
+            "enterprise": "Hardened production channel. Guarantees enhanced evidence (lineage, provenance), tier-gated policy enforcement, and compatibility with specialized policy packs (fintech, airgapped).",
+        },
+        "precedence_rule": "subscription tier → channel → policy pack → preset",
+        "policy_pack_ids": list(POLICY_PACK_IDS),
+    }
+    _write_json(output_root / "channel-guarantees.json", channel_guarantees)
+    
     return {
         "status": "ok",
         "output_root": str(output_root),
@@ -249,6 +262,7 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
             "PRESET-REFERENCE.md",
             "INSTALL-VERIFICATION-INDEX.md",
             "QUICK-REFERENCE.md",
+            "channel-guarantees.json",
         ]
     }
 

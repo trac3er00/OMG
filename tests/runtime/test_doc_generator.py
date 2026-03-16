@@ -19,6 +19,7 @@ def test_generate_docs_emits_all_files(tmp_path):
         "PRESET-REFERENCE.md",
         "INSTALL-VERIFICATION-INDEX.md",
         "QUICK-REFERENCE.md",
+        "channel-guarantees.json",
     ]
     
     for filename in expected_files:
@@ -109,3 +110,31 @@ def test_root_docs_content(tmp_path):
     hosts = list(get_canonical_hosts())
     for host in hosts:
         assert host.capitalize() in install_index
+
+def test_channel_guarantees_content(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    
+    with open(output_root / "channel-guarantees.json", "r") as f:
+        data = json.load(f)
+    
+    assert data["generated_by"] == "omg docs generate"
+    assert "public" in data["channels"]
+    assert "enterprise" in data["channels"]
+    assert "labs" not in data["channels"]
+    assert "precedence_rule" in data
+    assert "subscription tier" in data["precedence_rule"]
+
+def test_no_labs_as_channel_in_artifacts(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    
+    # Check all JSON artifacts
+    for p in output_root.glob("*.json"):
+        data = json.load(p.open())
+        if "channels" in data:
+            channels = data["channels"]
+            if isinstance(channels, list):
+                assert "labs" not in channels
+            elif isinstance(channels, dict):
+                assert "labs" not in channels
