@@ -1827,7 +1827,11 @@ run_install_like() {
             ln -s "$SCRIPT_DIR/registry" "$CLAUDE_DIR/omg-runtime/registry"
             ln -s "$SCRIPT_DIR/tools" "$CLAUDE_DIR/omg-runtime/tools"
             ln -s "$SCRIPT_DIR/control_plane" "$CLAUDE_DIR/omg-runtime/control_plane"
-            ln -s "$SCRIPT_DIR/omg_natives" "$CLAUDE_DIR/omg-runtime/omg_natives"
+            if [ -d "$SCRIPT_DIR/omg_natives" ]; then
+                ln -s "$SCRIPT_DIR/omg_natives" "$CLAUDE_DIR/omg-runtime/omg_natives"
+            else
+                echo "  ~ omg_natives not found in package — skipping (optional)" >&2
+            fi
             ln -s "$SCRIPT_DIR/yaml.py" "$CLAUDE_DIR/omg-runtime/yaml.py"
             
             [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
@@ -1846,7 +1850,11 @@ run_install_like() {
             cp -R "$SCRIPT_DIR/registry" "$CLAUDE_DIR/omg-runtime/"
             cp -R "$SCRIPT_DIR/tools" "$CLAUDE_DIR/omg-runtime/"
             cp -R "$SCRIPT_DIR/control_plane" "$CLAUDE_DIR/omg-runtime/"
-            cp -R "$SCRIPT_DIR/omg_natives" "$CLAUDE_DIR/omg-runtime/"
+            if [ -d "$SCRIPT_DIR/omg_natives" ]; then
+                cp -R "$SCRIPT_DIR/omg_natives" "$CLAUDE_DIR/omg-runtime/"
+            else
+                echo "  ~ omg_natives not found in package — skipping (optional)" >&2
+            fi
             cp "$SCRIPT_DIR/yaml.py" "$CLAUDE_DIR/omg-runtime/yaml.py"
             [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
             find "$CLAUDE_DIR/omg-runtime" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
