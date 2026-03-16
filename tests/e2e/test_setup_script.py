@@ -1372,3 +1372,276 @@ def test_setup_install_post_install_validation_failure_structured(tmp_path: Path
     finally:
         if plugin_json_bak.exists():
             plugin_json_bak.rename(plugin_json)
+
+
+def test_setup_uninstall_next_session_claude_config_clean(tmp_path: Path):
+    """Verify no omg-runtime references remain in Claude config after uninstall."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    # Install OMG
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    # Uninstall OMG
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    # Verify settings.json has no omg-runtime references in hook commands
+    settings_path = claude_dir / "settings.json"
+    if settings_path.exists():
+        settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+        hooks = cast(dict[str, object], settings.get("hooks") or {})
+        
+        for hook_type, entries in hooks.items():
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                nested_hooks = entry.get("hooks") or []
+                if not isinstance(nested_hooks, list):
+                    continue
+                for hook in nested_hooks:
+                    if not isinstance(hook, dict):
+                        continue
+                    command = hook.get("command", "")
+                    assert "omg-runtime" not in command, (
+                        f"Hook command still references omg-runtime: {command}"
+                    )
+
+    # Verify .mcp.json has no omg-control after uninstall
+    mcp_path = claude_dir / ".mcp.json"
+    if mcp_path.exists():
+        mcp_servers = _read_mcp_servers(mcp_path)
+        assert "omg-control" not in mcp_servers, (
+            "omg-control should not be in mcpServers after uninstall"
+        )
+
+    # Run doctor to verify next-session state is clean
+    doctor_proc = subprocess.run(
+        ["python3", "scripts/omg.py", "doctor", "--format=json"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "CLAUDE_CONFIG_DIR": str(claude_dir)},
+    )
+    assert doctor_proc.returncode == 0
+    doctor_output = json.loads(doctor_proc.stdout)
+    
+    # Verify no orphaned_runtime blocker in doctor output
+    checks = cast(dict[str, object], doctor_output.get("checks") or {})
+    if "orphaned_runtime" in checks:
+        orphan_check = cast(dict[str, object], checks["orphaned_runtime"])
+        status = orphan_check.get("status")
+        assert status != "blocker", (
+            f"orphaned_runtime check should not be blocker after clean uninstall, got: {status}"
+        )
+
+
+def test_setup_uninstall_detected_hosts_clean(tmp_path: Path):
+    """Verify omg-control is absent from detected host configs after uninstall."""
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+
+    # Create fake binaries for detected hosts
+    for binary in ("codex", "gemini", "kimi"):
+        script = fake_bin / binary
+        _ = script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+
+    # Install OMG with detected hosts on PATH
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    # Verify omg-control was registered in detected hosts
+    codex_config_before = (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.omg-control]" in codex_config_before, (
+        "omg-control should be registered in Codex after install"
+    )
+
+    # Uninstall OMG
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    # Verify omg-control is removed from Codex config
+    codex_config_after = (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
+    assert "[mcp_servers.omg-control]" not in codex_config_after, (
+        "omg-control should be removed from Codex after uninstall"
+    )
+
+    # Verify omg-control is removed from Gemini config
+    gemini_config_path = home_dir / ".gemini" / "settings.json"
+    if gemini_config_path.exists():
+        gemini_config = cast(
+            dict[str, object],
+            json.loads(gemini_config_path.read_text(encoding="utf-8")),
+        )
+        gemini_servers = cast(dict[str, object], gemini_config.get("mcpServers") or {})
+        assert "omg-control" not in gemini_servers, (
+            "omg-control should be removed from Gemini after uninstall"
+        )
+
+    # Verify omg-control is removed from Kimi config
+    kimi_config_path = home_dir / ".kimi" / "mcp.json"
+    if kimi_config_path.exists():
+        kimi_config = cast(
+            dict[str, object],
+            json.loads(kimi_config_path.read_text(encoding="utf-8")),
+        )
+        kimi_servers = cast(dict[str, object], kimi_config.get("mcpServers") or {})
+        assert "omg-control" not in kimi_servers, (
+            "omg-control should be removed from Kimi after uninstall"
+        )
+
+
+def test_setup_uninstall_removes_hook_settings_entries(tmp_path: Path):
+    """Install → write settings.json with omg-runtime hook → uninstall → verify no omg-runtime hooks remain."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    # Inject an omg-runtime hook entry into settings.json
+    settings_path = claude_dir / "settings.json"
+    settings: dict[str, object] = {}
+    if settings_path.exists():
+        try:
+            settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+        except Exception:
+            settings = {}
+    settings["hooks"] = {
+        "PreToolUse": [
+            {"command": str(claude_dir / "omg-runtime" / "bin" / "omg-hook.py"), "type": "command"},
+            {"command": "/usr/local/bin/my-custom-hook", "type": "command"},
+        ]
+    }
+    settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    # Verify no omg-runtime hook entries remain
+    assert settings_path.exists(), "settings.json should still exist after uninstall"
+    settings_after = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+    hooks_after = cast(dict[str, object], settings_after.get("hooks") or {})
+    for _event, entries in hooks_after.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            cmd = entry.get("command", "")
+            assert "omg-runtime" not in str(cmd), (
+                f"omg-runtime hook entry should have been removed from settings.json, found: {cmd}"
+            )
+
+    # Non-OMG hook should still be present
+    pre_tool_entries = cast(list[object], hooks_after.get("PreToolUse") or [])
+    custom_cmds = [
+        e.get("command", "") for e in pre_tool_entries if isinstance(e, dict)
+    ]
+    assert any("/my-custom-hook" in str(c) for c in custom_cmds), (
+        "Non-OMG hook should be preserved after uninstall"
+    )
+
+
+def test_setup_uninstall_emits_receipt(tmp_path: Path):
+    """Install → uninstall → verify .omg-uninstall-receipt.json exists with status == 'ok'."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    receipt_path = claude_dir / ".omg-uninstall-receipt.json"
+    assert receipt_path.exists(), (
+        f".omg-uninstall-receipt.json should exist after uninstall at {receipt_path}"
+    )
+
+    receipt = cast(dict[str, object], json.loads(receipt_path.read_text(encoding="utf-8")))
+    assert receipt.get("schema") == "UninstallReceipt", "Receipt schema field must be 'UninstallReceipt'"
+    assert receipt.get("status") == "ok", f"Receipt status must be 'ok', got: {receipt.get('status')}"
+    assert "timestamp" in receipt, "Receipt must have a timestamp field"
+    assert "version" in receipt, "Receipt must have a version field"
+    assert isinstance(receipt.get("removed_paths"), list), "Receipt removed_paths must be a list"
+    assert isinstance(receipt.get("preserved_paths"), list), "Receipt preserved_paths must be a list"
+    assert isinstance(receipt.get("host_configs_cleaned"), list), "Receipt host_configs_cleaned must be a list"
+
+
+def test_setup_uninstall_preserves_non_omg_settings(tmp_path: Path):
+    """Verify non-OMG settings.json keys survive uninstall."""
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    # Pre-populate settings.json with non-OMG keys
+    settings_path = claude_dir / "settings.json"
+    pre_settings: dict[str, object] = {
+        "theme": "dark",
+        "fontSize": 14,
+        "customKey": {"nested": True},
+        "hooks": {
+            "PreToolUse": [
+                {"command": "/usr/local/bin/my-linter", "type": "command"},
+            ]
+        },
+    }
+    settings_path.write_text(json.dumps(pre_settings, indent=2) + "\n", encoding="utf-8")
+
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    assert settings_path.exists(), "settings.json should still exist after uninstall"
+    settings_after = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+
+    # Non-OMG top-level keys must be preserved
+    assert settings_after.get("theme") == "dark", "theme key should be preserved"
+    assert settings_after.get("fontSize") == 14, "fontSize key should be preserved"
+    assert settings_after.get("customKey") == {"nested": True}, "customKey should be preserved"
+
+    # Non-OMG hook entry must be preserved
+    hooks_after = cast(dict[str, object], settings_after.get("hooks") or {})
+    pre_tool_entries = cast(list[object], hooks_after.get("PreToolUse") or [])
+    custom_cmds = [
+        e.get("command", "") for e in pre_tool_entries if isinstance(e, dict)
+    ]
+    assert any("/my-linter" in str(c) for c in custom_cmds), (
+        "Non-OMG hook /my-linter should be preserved after uninstall"
+    )

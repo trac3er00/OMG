@@ -180,7 +180,7 @@ try:
 except Exception:  # intentional: crash isolation for optional module
     pass
 
-def _build_context(project_dir: str) -> dict[str, object]:
+def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[str, object]:
     ledger_path = resolve_state_file(
         project_dir,
         "state/ledger/tool-ledger.jsonl",
@@ -232,6 +232,33 @@ def _build_context(project_dir: str) -> dict[str, object]:
         e for e in material_write_entries if not _is_non_source_path(str(e.get("file", "")))
     ]
 
+    # --- Current-turn provenance from stop-hook payload ---
+    # The stop payload (data from json_input()) may contain tool_use_results
+    # representing the CURRENT TURN's tool calls. We extract Write/Edit/MultiEdit
+    # entries from the payload to determine current-turn source writes independently
+    # of the 2-hour ledger window.
+    current_turn_source_write_entries: list[dict] = []
+    current_turn_run_id: str | None = None
+
+    try:
+        current_turn_run_id = resolve_current_run_id(project_dir)
+    except Exception as e:  # security: run_id resolution is best-effort
+        print(f"[OMG] stop_dispatcher: resolve_current_run_id: {type(e).__name__}: {e}", file=sys.stderr)
+
+    if stop_payload and isinstance(stop_payload, dict):
+        # Claude Code stop hooks use "tool_use_results" key
+        raw_tool_results = stop_payload.get("tool_use_results") or stop_payload.get("tool_results") or []
+        if isinstance(raw_tool_results, list):
+            for result in raw_tool_results:
+                if not isinstance(result, dict):
+                    continue
+                tool_name = result.get("tool_name") or result.get("tool") or ""
+                file_path = str(result.get("file") or result.get("path") or "")
+                if tool_name in ("Write", "Edit", "MultiEdit") and file_path:
+                    if (not _is_internal_control_path(file_path)
+                            and not _is_non_source_path(file_path)):
+                        current_turn_source_write_entries.append(result)
+
     return {
         "ledger_path": ledger_path,
         "ledger_entries": ledger_entries,
@@ -245,6 +272,10 @@ def _build_context(project_dir: str) -> dict[str, object]:
         "has_writes": bool(write_entries),
         "has_material_writes": bool(material_write_entries),
         "has_source_writes": bool(source_write_entries),
+        # Current-turn provenance (additive — does not replace ledger fields)
+        "current_turn_source_write_entries": current_turn_source_write_entries,
+        "current_turn_has_source_writes": bool(current_turn_source_write_entries),
+        "current_turn_run_id": current_turn_run_id,
     }
 
 
@@ -729,7 +760,9 @@ def check_tdd_proof_chain(data, project_dir):
         return []
 
     context = data["_stop_ctx"]
-    if not context.get("has_source_writes", False):
+    has_current_turn_writes = context.get("current_turn_has_source_writes")
+    has_writes = has_current_turn_writes if has_current_turn_writes is not None else context.get("has_source_writes", False)
+    if not has_writes:
         return []
 
     run_id = resolve_current_run_id(project_dir=project_dir)
@@ -745,7 +778,28 @@ def check_tdd_proof_chain(data, project_dir):
 
     strict_mode = _proof_chain_strict_enabled()
     if strict_mode:
-        return [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+        _tdd_reason_code = "tdd_proof_chain_incomplete"
+        try:
+            from runtime.evidence_narrator import format_block_explanation
+            _tdd_explanation = format_block_explanation(_tdd_reason_code, {"tool": "stop_dispatcher"})
+            _tdd_enhanced_reason = f"{_tdd_reason_code}: {_tdd_explanation}"
+        except Exception:
+            _tdd_enhanced_reason = _tdd_reason_code
+        try:
+            import os as _tdd_os
+            from datetime import datetime as _tdd_dt, timezone as _tdd_tz
+            _tdd_artifact_dir = _tdd_os.path.join(project_dir, ".omg", "state")
+            _tdd_os.makedirs(_tdd_artifact_dir, exist_ok=True)
+            with open(_tdd_os.path.join(_tdd_artifact_dir, "last-block-explanation.json"), "w", encoding="utf-8") as _tdd_f:
+                json.dump({
+                    "reason_code": _tdd_reason_code,
+                    "explanation": _tdd_enhanced_reason,
+                    "tool": "stop_dispatcher",
+                    "timestamp": _tdd_dt.now(_tdd_tz.utc).isoformat(),
+                }, _tdd_f, indent=2)
+        except Exception:
+            pass
+        return [json.dumps({"status": "blocked", "reason": _tdd_enhanced_reason}, sort_keys=True)]
 
     warnings.warn(
         "tdd_proof_chain_incomplete_permissive",
@@ -945,8 +999,11 @@ def check_ralph_loop(project_dir, data):
     return [reason], [], False
 
 
-def check_planning_gate(project_dir):
+def check_planning_gate(project_dir, data=None):
     if not get_feature_flag("planning_enforcement"):
+        return [], []
+    current_turn_has_writes = (data or {}).get("_stop_ctx", {}).get("current_turn_has_source_writes", True)
+    if not current_turn_has_writes:
         return [], []
     checklist = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
     if not os.path.exists(checklist):
@@ -1060,7 +1117,7 @@ def main():
         sys.exit(0)
 
     project_dir = _resolve_project_dir()
-    data["_stop_ctx"] = _build_context(project_dir)
+    data["_stop_ctx"] = _build_context(project_dir, stop_payload=data)
     data["_stop_advisories"] = []
 
     # P1: Ralph loop check (implemented in Task 18)
@@ -1079,7 +1136,7 @@ def main():
         sys.exit(0)
 
     # P2: Planning enforcement (implemented in Task 22)
-    block_reasons, advisories = check_planning_gate(project_dir)
+    block_reasons, advisories = check_planning_gate(project_dir, data=data)
     if block_reasons:
         block_decision(block_reasons[0], block_reason="planning_gate", project_dir=project_dir)
         return

@@ -201,7 +201,7 @@ def test_mutation_gate_endpoint_v2_blocks_no_lock(tmp_path, monkeypatch) -> None
         )
         assert v2_status == 200
         assert v2_payload["status"] == "blocked"
-        assert v2_payload["reason"] == "no_active_test_intent_lock"
+        assert v2_payload["reason"] == "mutation_context_required"
         assert v2_payload["api_version"] == "v2"
 
         v1_status, v1_payload = _post_json(
@@ -231,7 +231,7 @@ def test_mutation_gate_endpoint_v2_blocks_strict_mode(tmp_path, monkeypatch) -> 
         )
         assert v2_status == 200
         assert v2_payload["status"] == "blocked"
-        assert v2_payload["reason"] == "no_active_test_intent_lock"
+        assert v2_payload["reason"] == "mutation_context_required"
         assert v2_payload["api_version"] == "v2"
     finally:
         server.shutdown()

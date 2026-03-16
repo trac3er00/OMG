@@ -743,6 +743,102 @@ def _check_plugin_compat(root_dir: Path) -> dict[str, Any]:
     )
 
 
+_ORPHANED_RUNTIME_MARKER = "omg-runtime"
+
+
+def _collect_orphaned_runtime_refs(claude_dir: str, *, home_dir: str | None = None) -> list[str]:
+    refs: list[str] = []
+    managed_runtime_dir = os.path.join(claude_dir, "omg-runtime")
+    runtime_absent = not os.path.isdir(managed_runtime_dir)
+    _home = home_dir if home_dir is not None else os.environ.get("OMG_TEST_HOME_DIR", os.path.expanduser("~"))
+
+    settings_path = os.path.join(claude_dir, "settings.json")
+    if os.path.isfile(settings_path):
+        try:
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings_data = json.load(f)
+            hooks = settings_data.get("hooks", {})
+            for _event, hook_list in hooks.items():
+                if not isinstance(hook_list, list):
+                    continue
+                for hook_entry in hook_list:
+                    cmd = ""
+                    if isinstance(hook_entry, dict):
+                        cmd = hook_entry.get("command", "")
+                        for sub in hook_entry.get("hooks", []):
+                            if isinstance(sub, dict) and _ORPHANED_RUNTIME_MARKER in sub.get("command", ""):
+                                if runtime_absent or not os.path.isfile(
+                                    os.path.join(managed_runtime_dir, ".venv", "bin", "python")
+                                ):
+                                    refs.append(f"settings.json:hooks:{sub.get('command', '')}")
+                    if _ORPHANED_RUNTIME_MARKER in cmd and (
+                        runtime_absent
+                        or not os.path.isfile(os.path.join(managed_runtime_dir, ".venv", "bin", "python"))
+                    ):
+                        refs.append(f"settings.json:hooks:{cmd}")
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    mcp_json_path = os.path.join(claude_dir, ".mcp.json")
+    if os.path.isfile(mcp_json_path):
+        try:
+            with open(mcp_json_path, "r", encoding="utf-8") as f:
+                mcp_data = json.load(f)
+            ctrl = mcp_data.get("mcpServers", {}).get("omg-control", {})
+            cmd = ctrl.get("command", "")
+            if _ORPHANED_RUNTIME_MARKER in cmd and (
+                runtime_absent
+                or not os.path.isfile(os.path.join(managed_runtime_dir, ".venv", "bin", "python"))
+            ):
+                refs.append(f".mcp.json:mcpServers.omg-control:{cmd}")
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    for cfg_path, key_path in [
+        (os.path.join(_home, ".codex", "config.toml"), "mcp_servers.omg-control"),
+        (os.path.join(_home, ".gemini", "settings.json"), "mcpServers.omg-control"),
+        (os.path.join(_home, ".kimi", "mcp.json"), "mcpServers.omg-control"),
+    ]:
+        if not os.path.isfile(cfg_path):
+            continue
+        try:
+            if cfg_path.endswith(".toml"):
+                content = open(cfg_path, "r", encoding="utf-8").read()
+                if _ORPHANED_RUNTIME_MARKER in content and runtime_absent:
+                    refs.append(f"{cfg_path}:{key_path}")
+            else:
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                ctrl = data.get("mcpServers", {}).get("omg-control", {})
+                cmd = ctrl.get("command", "")
+                if _ORPHANED_RUNTIME_MARKER in cmd and (
+                    runtime_absent
+                    or not os.path.isfile(os.path.join(managed_runtime_dir, ".venv", "bin", "python"))
+                ):
+                    refs.append(f"{cfg_path}:{key_path}:{cmd}")
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    return refs
+
+
+def _check_orphaned_runtime(claude_dir: str, *, home_dir: str | None = None) -> dict[str, Any]:
+    refs = _collect_orphaned_runtime_refs(claude_dir, home_dir=home_dir)
+    if refs:
+        return _doctor_check(
+            "orphaned_runtime",
+            ok=False,
+            message=f"orphaned omg-runtime references found ({len(refs)}): {'; '.join(refs[:3])}",
+            required=False,
+        )
+    return _doctor_check(
+        "orphaned_runtime",
+        ok=True,
+        message="no orphaned omg-runtime references detected",
+        required=False,
+    )
+
+
 def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
     """Canonical install/runtime verification engine.
 
@@ -849,6 +945,10 @@ def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
     venv_msg = f"managed venv at {managed_venv_path}" if venv_ok else f"managed venv not found at {managed_venv_path} (install via OMG-setup.sh)"
     checks.append(_doctor_check("managed_runtime", ok=venv_ok, message=venv_msg, required=False))
 
+    # 10. Orphaned runtime references (optional)
+    orphan_check = _check_orphaned_runtime(claude_dir)
+    checks.append(orphan_check)
+
     plugin_check = _check_plugin_compat(repo_root)
     checks.append(plugin_check)
 
@@ -942,6 +1042,100 @@ def _fix_metadata_drift(root_dir: Path, check: dict[str, Any]) -> dict[str, Any]
     return {"planned_path": str(target), "content": patched, "mode": 0o644}
 
 
+def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, Any]:
+    claude_dir = os.environ.get("CLAUDE_DIR", os.path.expanduser("~/.claude"))
+    _home = os.environ.get("OMG_TEST_HOME_DIR", os.path.expanduser("~"))
+    dry_run = bool(_check.get("_dry_run", True))
+    refs = _collect_orphaned_runtime_refs(claude_dir, home_dir=_home)
+    removed_paths: list[str] = []
+
+    settings_path = os.path.join(claude_dir, "settings.json")
+    if not dry_run and os.path.isfile(settings_path) and any("settings.json" in r for r in refs):
+        try:
+            with open(settings_path, "r", encoding="utf-8") as f:
+                settings_data = json.load(f)
+            hooks = settings_data.get("hooks", {})
+            changed = False
+            for event in list(hooks.keys()):
+                hook_list = hooks[event]
+                if not isinstance(hook_list, list):
+                    continue
+                filtered = []
+                for entry in hook_list:
+                    if isinstance(entry, dict):
+                        cmd = entry.get("command", "")
+                        sub_hooks = entry.get("hooks", [])
+                        sub_filtered = [
+                            s for s in sub_hooks
+                            if not (isinstance(s, dict) and _ORPHANED_RUNTIME_MARKER in s.get("command", ""))
+                        ]
+                        if len(sub_filtered) != len(sub_hooks):
+                            entry = dict(entry)
+                            entry["hooks"] = sub_filtered
+                            changed = True
+                        if _ORPHANED_RUNTIME_MARKER not in cmd:
+                            filtered.append(entry)
+                        else:
+                            changed = True
+                            removed_paths.append(f"settings.json:hooks:{event}:{cmd}")
+                    else:
+                        filtered.append(entry)
+                hooks[event] = filtered
+            if changed:
+                settings_data["hooks"] = hooks
+                content = json.dumps(settings_data, indent=2, ensure_ascii=True) + "\n"
+                with open(settings_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    mcp_json_path = os.path.join(claude_dir, ".mcp.json")
+    if not dry_run and os.path.isfile(mcp_json_path) and any(".mcp.json" in r for r in refs):
+        try:
+            with open(mcp_json_path, "r", encoding="utf-8") as f:
+                mcp_data = json.load(f)
+            ctrl = mcp_data.get("mcpServers", {}).get("omg-control", {})
+            if _ORPHANED_RUNTIME_MARKER in ctrl.get("command", ""):
+                del mcp_data["mcpServers"]["omg-control"]
+                content = json.dumps(mcp_data, indent=2, ensure_ascii=True) + "\n"
+                with open(mcp_json_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+                removed_paths.append(f"{mcp_json_path}:mcpServers.omg-control")
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    if not dry_run:
+        for cfg_path, key_path in [
+            (os.path.join(_home, ".gemini", "settings.json"), "mcpServers.omg-control"),
+            (os.path.join(_home, ".kimi", "mcp.json"), "mcpServers.omg-control"),
+        ]:
+            if not os.path.isfile(cfg_path) or not any(cfg_path in r for r in refs):
+                continue
+            try:
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                ctrl = data.get("mcpServers", {}).get("omg-control", {})
+                if _ORPHANED_RUNTIME_MARKER in ctrl.get("command", ""):
+                    del data["mcpServers"]["omg-control"]
+                    content = json.dumps(data, indent=2, ensure_ascii=True) + "\n"
+                    with open(cfg_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+                    removed_paths.append(f"{cfg_path}:{key_path}")
+            except (json.JSONDecodeError, OSError):
+                pass
+
+    return {
+        "planned_path": settings_path,
+        "content": None,
+        "action": "remove_orphaned_runtime",
+        "removed_paths": removed_paths if not dry_run else [r for r in refs],
+        "backup_path": "",
+        "executed": not dry_run,
+        "rollback": None,
+        "_direct_receipt": True,
+    }
+
+
 DOCTOR_FIX_SPECS: dict[str, DoctorFixSpec] = {
     "python_version": {
         "fixable": False,
@@ -970,6 +1164,12 @@ DOCTOR_FIX_SPECS: dict[str, DoctorFixSpec] = {
     "metadata_drift": {
         "fixable": True,
         "fix_handler": _fix_metadata_drift,
+        "fixable_in_context": True,
+        "suggestion": "",
+    },
+    "orphaned_runtime": {
+        "fixable": True,
+        "fix_handler": _fix_orphaned_runtime,
         "fixable_in_context": True,
         "suggestion": "",
     },
@@ -1004,8 +1204,21 @@ def run_doctor_fix(*, root_dir: Path | None = None, dry_run: bool = True) -> dic
             continue
 
         handler = spec["fix_handler"]
-        plan_data = handler(repo_root, check)
+        check_with_mode = dict(check)
+        check_with_mode["_dry_run"] = dry_run
+        plan_data = handler(repo_root, check_with_mode)
         if not plan_data or "planned_path" not in plan_data:
+            continue
+
+        if plan_data.get("_direct_receipt"):
+            fix_receipts.append({
+                "check": check["name"],
+                "action": plan_data.get("action", f"fix_{check['name']}"),
+                "backup_path": plan_data.get("backup_path", ""),
+                "verification": {"removed_paths": plan_data.get("removed_paths", [])},
+                "executed": bool(plan_data.get("executed", False)),
+                "rollback": plan_data.get("rollback"),
+            })
             continue
 
         lock_dir = tempfile.mkdtemp(prefix="doctor-fix-")

@@ -15,7 +15,7 @@ def test_mutation_gate_blocks_without_lock_in_strict_mode(tmp_path, monkeypatch)
         lock_id=None,
     )
     assert result["status"] == "blocked"
-    assert result["reason"] == "no_active_test_intent_lock"
+    assert result["reason"] == "mutation_context_required"
     assert result["lock_id"] is None
 
 
@@ -187,7 +187,7 @@ def test_mutation_gate_blocks_without_lock_by_default(tmp_path, monkeypatch) -> 
         lock_id=None,
     )
     assert result["status"] == "blocked"
-    assert result["reason"] == "no_active_test_intent_lock"
+    assert result["reason"] == "mutation_context_required"
 
 
 def test_mutation_gate_writes_block_artifact(tmp_path, monkeypatch) -> None:

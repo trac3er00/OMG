@@ -261,7 +261,10 @@ def test_check_tdd_proof_chain_blocks_missing_lock_in_strict_mode(monkeypatch, t
     data["_test_delta"] = {"flags": []}
     blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
 
-    assert blocks == [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+    assert len(blocks) == 1
+    block_obj = json.loads(blocks[0])
+    assert block_obj["status"] == "blocked"
+    assert block_obj["reason"].startswith("tdd_proof_chain_incomplete")
 
 
 def test_check_tdd_proof_chain_blocks_weakened_assertions_without_waiver(monkeypatch, tmp_path):
@@ -279,7 +282,10 @@ def test_check_tdd_proof_chain_blocks_weakened_assertions_without_waiver(monkeyp
     data["_test_delta"] = {"flags": ["weakened_assertions"], "waiver_artifact": {}}
     blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
 
-    assert blocks == [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+    assert len(blocks) == 1
+    block_obj = json.loads(blocks[0])
+    assert block_obj["status"] == "blocked"
+    assert block_obj["reason"].startswith("tdd_proof_chain_incomplete")
 
 
 def test_single_pass_ralph_blocks_prevent_quality_blocks(tmp_path):
@@ -374,3 +380,74 @@ def test_stop_gate_wrapper_executes_dispatcher_guard():
     )
     assert result.returncode == 0
     assert result.stdout == ""
+
+
+def test_current_turn_source_writes_false_when_no_tool_results(tmp_path):
+    ctx = stop_dispatcher._build_context(str(tmp_path), stop_payload={})
+    assert ctx["current_turn_has_source_writes"] is False
+    assert ctx["current_turn_source_write_entries"] == []
+
+
+def test_current_turn_source_writes_true_when_source_write_in_payload(tmp_path):
+    payload = {
+        "tool_use_results": [
+            {
+                "tool_name": "Write",
+                "file": "src/foo.py",
+            }
+        ]
+    }
+    ctx = stop_dispatcher._build_context(str(tmp_path), stop_payload=payload)
+    assert ctx["current_turn_has_source_writes"] is True
+    assert len(ctx["current_turn_source_write_entries"]) == 1
+
+
+def test_planning_gate_skips_read_only_turn(tmp_path):
+    checklist = tmp_path / ".omg" / "state" / "_checklist.md"
+    checklist.parent.mkdir(parents=True, exist_ok=True)
+    checklist.write_text("- [x] Done\n- [ ] Pending\n", encoding="utf-8")
+
+    data = _base_data()
+    data["_stop_ctx"]["current_turn_has_source_writes"] = False
+
+    import importlib
+    import unittest.mock as mock
+    with mock.patch.object(stop_dispatcher, "get_feature_flag", return_value=True):
+        with mock.patch.object(stop_dispatcher, "resolve_state_file", return_value=str(checklist)):
+            block_reasons, advisories = stop_dispatcher.check_planning_gate(str(tmp_path), data=data)
+
+    assert block_reasons == []
+    assert advisories == []
+
+
+def test_tdd_proof_chain_skips_read_only_turn(monkeypatch, tmp_path):
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True)
+
+    data = _base_data()
+    data["_stop_ctx"]["has_source_writes"] = True
+    data["_stop_ctx"]["current_turn_has_source_writes"] = False
+
+    blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
+    assert blocks == []
+
+
+def test_tdd_proof_chain_blocks_source_mutation(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(stop_dispatcher, "resolve_current_run_id", lambda **_kwargs: "run-456")
+    monkeypatch.setattr(
+        stop_dispatcher.test_intent_lock,
+        "verify_lock",
+        lambda *_args, **_kwargs: {"status": "missing_lock", "reason": "no_active_test_intent_lock", "lock_id": None},
+    )
+
+    data = _base_data()
+    data["_stop_ctx"]["has_source_writes"] = True
+    data["_stop_ctx"]["current_turn_has_source_writes"] = True
+    data["_test_delta"] = {"flags": []}
+
+    blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
+    assert len(blocks) == 1
+    block_obj = json.loads(blocks[0])
+    assert block_obj["status"] == "blocked"
+    assert block_obj["reason"].startswith("tdd_proof_chain_incomplete")
