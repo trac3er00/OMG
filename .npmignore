@@ -22,9 +22,8 @@ pytest.ini
 *.bak
 *.bak.*
 
-# Rust crates (optional native extensions, not needed for npm)
+# Rust crates build sources (not needed for npm package)
 crates/
-omg_natives/
 
 # Runtime config (not distributable)
 settings.json.bak.*
