@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from importlib import import_module
 from typing import Any
+
+
+def _normalize_verdict_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    module = import_module("runtime.verdict_schema")
+    return dict(module.normalize_verdict(payload))
 
 
 def format_review_payload(evidence: dict[str, Any], *, inline_batch_limit: int = 20) -> dict[str, Any]:
@@ -19,12 +25,15 @@ def format_review_payload(evidence: dict[str, Any], *, inline_batch_limit: int =
             "message": "Review evidence is missing required artifacts.",
         }
 
-    raw_verdict = str(evidence.get("verdict", evidence.get("status", "pending"))).strip().lower()
+    normalized_verdict = _normalize_verdict_payload(evidence)
+    raw_verdict = normalized_verdict["status"]
     review_status = _normalize_review_status(raw_verdict)
     review_event = _review_event_for_status(review_status)
 
     checks = _normalize_checks(evidence.get("checks"))
-    evidence_gaps = _as_str_list(evidence.get("evidence_gaps"))
+    evidence_gaps = list(normalized_verdict.get("blockers", []))
+    if not evidence_gaps:
+        evidence_gaps = _as_str_list(evidence.get("evidence_gaps"))
     if not evidence_gaps:
         evidence_gaps = _as_str_list(evidence.get("unresolved_risks"))
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
+from importlib import import_module
 import json
 import os
 from pathlib import Path
@@ -54,6 +55,11 @@ WINDOWS_ABS_PATH_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _normalize_verdict_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    module = import_module("runtime.verdict_schema")
+    return dict(module.normalize_verdict(payload))
 
 
 def _project_dir(project_dir: str | None) -> str:
@@ -847,12 +853,34 @@ def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
     checks.append(plugin_check)
 
     has_blocker = any(c["status"] == "blocker" for c in checks)
+    verdict_receipt = _normalize_verdict_payload({
+        "status": "fail" if has_blocker else "pass",
+        "blockers": [
+            str(check.get("name", ""))
+            for check in checks
+            if check.get("status") == "blocker"
+        ],
+        "planned_actions": [
+            "Fix blocker checks before shipping.",
+        ],
+        "executed_actions": [
+            "run_doctor",
+        ],
+        "provenance": "runtime.compat.run_doctor",
+        "evidence_paths": {},
+        "next_steps": [
+            "Fix any blocker checks before shipping.",
+        ],
+        "executed": True,
+    })
     return {
         "schema": "DoctorResult",
         "status": "fail" if has_blocker else "pass",
+        "verdict": "fail" if has_blocker else "pass",
         "checks": checks,
         "plugin_compatibility": plugin_check,
         "version": CANONICAL_VERSION,
+        "verdict_receipt": verdict_receipt,
     }
 
 
@@ -1464,10 +1492,26 @@ def dispatch_compat_skill(
     if route == "health":
         if normalized == "omg-doctor":
             doctor_result = run_doctor(root_dir=Path(root))
+            verdict_receipt = _normalize_verdict_payload({
+                "status": doctor_result.get("status", "pending"),
+                "verdict": doctor_result.get("verdict", doctor_result.get("status", "pending")),
+                "blockers": doctor_result.get("verdict_receipt", {}).get("blockers", []),
+                "planned_actions": doctor_result.get("verdict_receipt", {}).get("planned_actions", []),
+                "executed_actions": doctor_result.get("verdict_receipt", {}).get("executed_actions", []),
+                "provenance": "runtime.compat.dispatch_compat_skill",
+                "evidence_paths": doctor_result.get("verdict_receipt", {}).get("evidence_paths", {}),
+                "next_steps": doctor_result.get("verdict_receipt", {}).get("next_steps", []),
+                "executed": True,
+                "metadata": {
+                    "checks": doctor_result.get("checks", []),
+                },
+            })
             snapshot = {
                 "project_dir": root,
                 "status": doctor_result["status"],
+                "verdict": doctor_result.get("verdict", doctor_result["status"]),
                 "checks": doctor_result["checks"],
+                "verdict_receipt": verdict_receipt,
             }
             return _res(
                 skill=normalized,
