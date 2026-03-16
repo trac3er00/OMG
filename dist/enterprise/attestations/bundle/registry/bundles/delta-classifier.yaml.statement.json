@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/delta-classifier.yaml",
       "digest": {
-        "sha256": "fd32123aba842abbcb58cbb009b9a2129eb30a31c561870b44366c984cd4a05a"
+        "sha256": "3d6e733c2ce1e5d66ae9bbd4811ac38b4efa8a7eda4fc23cbd74dcae8fe46d4b"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-14T19:07:28.832443+00:00"
+      "timestamp": "2026-03-16T02:24:00.318668+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-14T19:07:28.832443+00:00",
+  "issued_at": "2026-03-16T02:24:00.318668+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "8ea70ff6a1220288",
-    "value": "untrusted comment: signature from omg local signing key\nF0zcnYipaANxmycvocD1OUmbffnuz8ibs+WsL25YiO6T6OBlsr+4vMJfNOQ3S+m7YbV13m9eiAkIYiUx31fmDg==\ntrusted comment: type=omg-slsa-v1 keyid=8ea70ff6a1220288 issued_at=2026-03-14T19:07:28.832632+00:00 artifact=bundle/registry/bundles/delta-classifier.yaml sha256=fd32123aba842abbcb58cbb009b9a2129eb30a31c561870b44366c984cd4a05a\n/swLwkhlRQtw5eewVBKKiCXToUdSNxrAe1G5JTE8C9ZCuI3xELFja28jdfdDnQgxMg7Q5ObgsYRYkska4CQgBw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=8ea70ff6a1220288 issued_at=2026-03-14T19:07:28.832632+00:00 artifact=bundle/registry/bundles/delta-classifier.yaml sha256=fd32123aba842abbcb58cbb009b9a2129eb30a31c561870b44366c984cd4a05a"
+    "keyid": "1b5c6f78f9f1a704",
+    "value": "untrusted comment: signature from omg local signing key\nriQJ9B9gQOtdpKsJ8+XPstyyANNk+Br9KHqiXFDE0H04LfcDloOnFPawZcaS6UrwSyo1PgjlMSipgqRhEFNuBQ==\ntrusted comment: type=omg-slsa-v1 keyid=1b5c6f78f9f1a704 issued_at=2026-03-16T02:24:00.318780+00:00 artifact=bundle/registry/bundles/delta-classifier.yaml sha256=3d6e733c2ce1e5d66ae9bbd4811ac38b4efa8a7eda4fc23cbd74dcae8fe46d4b\nuYyMywezGoMp8zJmM4U6T8Mna6CjfRKl25fF0DNjU02q2LaXaGaKUJUW1TJ8tq9mrevn43fSPEHSnNipsv5UBw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=1b5c6f78f9f1a704 issued_at=2026-03-16T02:24:00.318780+00:00 artifact=bundle/registry/bundles/delta-classifier.yaml sha256=3d6e733c2ce1e5d66ae9bbd4811ac38b4efa8a7eda4fc23cbd74dcae8fe46d4b"
   }
 }

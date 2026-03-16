@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/ast-pack.yaml",
       "digest": {
-        "sha256": "dbd738082cdf6d2c31101bdc336463c841389352eacfabcd49f6f2fce40053b3"
+        "sha256": "a7fb7795a9a6432f4d65f7f29fca53b3bc9508633c534ed7dab331774c1de459"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-14T19:07:28.816878+00:00"
+      "timestamp": "2026-03-16T02:24:00.316044+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-14T19:07:28.816878+00:00",
+  "issued_at": "2026-03-16T02:24:00.316044+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "68dd35f1ee83bb77",
-    "value": "untrusted comment: signature from omg local signing key\nT4LLFUT+BaIwhapS8pS9q/XZ2Xz1TnT/+p+XtGKRAFYIjqh1LcRCiwaBZnMG6XlxipFcYXwof+qpVdxwvtjGCQ==\ntrusted comment: type=omg-slsa-v1 keyid=68dd35f1ee83bb77 issued_at=2026-03-14T19:07:28.817059+00:00 artifact=bundle/registry/bundles/ast-pack.yaml sha256=dbd738082cdf6d2c31101bdc336463c841389352eacfabcd49f6f2fce40053b3\neI+rN6n/Sq/xEa/cPWO03BW5bBeElRvntFRH0gRkxcqfCkym94YCQLwyiS3JNpT5xFmUHlwQ3jveJDYW5l7tBg==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=68dd35f1ee83bb77 issued_at=2026-03-14T19:07:28.817059+00:00 artifact=bundle/registry/bundles/ast-pack.yaml sha256=dbd738082cdf6d2c31101bdc336463c841389352eacfabcd49f6f2fce40053b3"
+    "keyid": "b1ddf10d42802e9c",
+    "value": "untrusted comment: signature from omg local signing key\nwQ9R2dLQWa+3ldCQAZlReWBrSMQ9QgQI6dehGOu2P3TVNo9/bNCtRvKYcDcGMJ6mviV7J0/K1cgGYbXftmpeCA==\ntrusted comment: type=omg-slsa-v1 keyid=b1ddf10d42802e9c issued_at=2026-03-16T02:24:00.316169+00:00 artifact=bundle/registry/bundles/ast-pack.yaml sha256=a7fb7795a9a6432f4d65f7f29fca53b3bc9508633c534ed7dab331774c1de459\n2PwYdIZnCIDYncsfBnjiywAbbz57fTYE9+pWjs33XRiFM/z+9/lMptTJ3VSpCQEDuSMDzZm/TxNHntXex02wAQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=b1ddf10d42802e9c issued_at=2026-03-16T02:24:00.316169+00:00 artifact=bundle/registry/bundles/ast-pack.yaml sha256=a7fb7795a9a6432f4d65f7f29fca53b3bc9508633c534ed7dab331774c1de459"
   }
 }
