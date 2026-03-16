@@ -261,7 +261,10 @@ def test_check_tdd_proof_chain_blocks_missing_lock_in_strict_mode(monkeypatch, t
     data["_test_delta"] = {"flags": []}
     blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
 
-    assert blocks == [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+    assert len(blocks) == 1
+    block_obj = json.loads(blocks[0])
+    assert block_obj["status"] == "blocked"
+    assert block_obj["reason"].startswith("tdd_proof_chain_incomplete")
 
 
 def test_check_tdd_proof_chain_blocks_weakened_assertions_without_waiver(monkeypatch, tmp_path):
@@ -279,7 +282,10 @@ def test_check_tdd_proof_chain_blocks_weakened_assertions_without_waiver(monkeyp
     data["_test_delta"] = {"flags": ["weakened_assertions"], "waiver_artifact": {}}
     blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
 
-    assert blocks == [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+    assert len(blocks) == 1
+    block_obj = json.loads(blocks[0])
+    assert block_obj["status"] == "blocked"
+    assert block_obj["reason"].startswith("tdd_proof_chain_incomplete")
 
 
 def test_single_pass_ralph_blocks_prevent_quality_blocks(tmp_path):
@@ -441,4 +447,7 @@ def test_tdd_proof_chain_blocks_source_mutation(monkeypatch, tmp_path):
     data["_test_delta"] = {"flags": []}
 
     blocks = stop_dispatcher.check_tdd_proof_chain(data, str(tmp_path))
-    assert blocks == [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+    assert len(blocks) == 1
+    block_obj = json.loads(blocks[0])
+    assert block_obj["status"] == "blocked"
+    assert block_obj["reason"].startswith("tdd_proof_chain_incomplete")

@@ -59,6 +59,26 @@ if tool in ("Write", "Edit", "MultiEdit"):
     if gate_result.get("status") == "blocked":
         deny_reason = str(gate_result.get("reason", "mutation denied by test intent lock gate"))
         try:
+            from runtime.evidence_narrator import format_block_explanation
+            _sg_explanation = format_block_explanation(deny_reason, {"tool": tool})
+            deny_reason = f"{deny_reason}: {_sg_explanation}"
+        except Exception:
+            pass  # Crash isolation: always falls back
+        try:
+            import json as _sg_json
+            from datetime import datetime as _sg_dt, timezone as _sg_tz
+            _sg_artifact_dir = os.path.join(get_project_dir(), ".omg", "state")
+            os.makedirs(_sg_artifact_dir, exist_ok=True)
+            with open(os.path.join(_sg_artifact_dir, "last-block-explanation.json"), "w", encoding="utf-8") as _sg_f:
+                _sg_json.dump({
+                    "reason_code": str(gate_result.get("reason", "mutation denied by test intent lock gate")),
+                    "explanation": deny_reason,
+                    "tool": tool,
+                    "timestamp": _sg_dt.now(_sg_tz.utc).isoformat(),
+                }, _sg_f, indent=2)
+        except Exception:
+            pass  # Best-effort only
+        try:
             log_secret_access(
                 project_dir=get_project_dir(),
                 tool=tool,

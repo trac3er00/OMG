@@ -778,7 +778,28 @@ def check_tdd_proof_chain(data, project_dir):
 
     strict_mode = _proof_chain_strict_enabled()
     if strict_mode:
-        return [json.dumps({"status": "blocked", "reason": "tdd_proof_chain_incomplete"}, sort_keys=True)]
+        _tdd_reason_code = "tdd_proof_chain_incomplete"
+        try:
+            from runtime.evidence_narrator import format_block_explanation
+            _tdd_explanation = format_block_explanation(_tdd_reason_code, {"tool": "stop_dispatcher"})
+            _tdd_enhanced_reason = f"{_tdd_reason_code}: {_tdd_explanation}"
+        except Exception:
+            _tdd_enhanced_reason = _tdd_reason_code
+        try:
+            import os as _tdd_os
+            from datetime import datetime as _tdd_dt, timezone as _tdd_tz
+            _tdd_artifact_dir = _tdd_os.path.join(project_dir, ".omg", "state")
+            _tdd_os.makedirs(_tdd_artifact_dir, exist_ok=True)
+            with open(_tdd_os.path.join(_tdd_artifact_dir, "last-block-explanation.json"), "w", encoding="utf-8") as _tdd_f:
+                json.dump({
+                    "reason_code": _tdd_reason_code,
+                    "explanation": _tdd_enhanced_reason,
+                    "tool": "stop_dispatcher",
+                    "timestamp": _tdd_dt.now(_tdd_tz.utc).isoformat(),
+                }, _tdd_f, indent=2)
+        except Exception:
+            pass
+        return [json.dumps({"status": "blocked", "reason": _tdd_enhanced_reason}, sort_keys=True)]
 
     warnings.warn(
         "tdd_proof_chain_incomplete_permissive",

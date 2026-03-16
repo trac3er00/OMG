@@ -273,7 +273,28 @@ if strict_ambiguity_mode and clarification_state.get("requires_clarification") i
     sys.exit(0)
 
 if is_mutation_capable and gate_result.get("status") == "blocked":
-    deny_decision(str(gate_result.get("reason", "mutation denied by test intent lock gate")))
+    _fw_reason_code = str(gate_result.get("reason", "mutation denied by test intent lock gate"))
+    try:
+        from runtime.evidence_narrator import format_block_explanation
+        _fw_explanation = format_block_explanation(_fw_reason_code, {"tool": tool})
+        _fw_enhanced_reason = f"{_fw_reason_code}: {_fw_explanation}"
+    except Exception:
+        _fw_enhanced_reason = _fw_reason_code  # Crash isolation: always falls back
+    try:
+        import json as _fw_json
+        from datetime import datetime as _fw_dt, timezone as _fw_tz
+        _fw_artifact_dir = os.path.join(get_project_dir(), ".omg", "state")
+        os.makedirs(_fw_artifact_dir, exist_ok=True)
+        with open(os.path.join(_fw_artifact_dir, "last-block-explanation.json"), "w", encoding="utf-8") as _fw_f:
+            _fw_json.dump({
+                "reason_code": _fw_reason_code,
+                "explanation": _fw_enhanced_reason,
+                "tool": tool,
+                "timestamp": _fw_dt.now(_fw_tz.utc).isoformat(),
+            }, _fw_f, indent=2)
+    except Exception:
+        pass  # Best-effort only
+    deny_decision(_fw_enhanced_reason)
     sys.exit(0)
 
 decision = _enrich_risk_context(decision, data)
