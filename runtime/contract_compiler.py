@@ -29,6 +29,7 @@ from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
 from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active
 from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
+from runtime.release_surface_registry import get_public_surfaces, validate_registry
 from runtime.worker_watchdog import get_worker_watchdog
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
