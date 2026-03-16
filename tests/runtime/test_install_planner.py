@@ -127,3 +127,25 @@ def test_compute_install_plan_has_separate_actions_for_detected_hosts(
     assert "codex" in hosts
     assert "gemini" in hosts
     assert "kimi" in hosts
+
+
+get_owned_install_paths = install_planner.get_owned_install_paths
+
+
+def test_get_owned_install_paths_returns_known_config_paths(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+
+    paths = get_owned_install_paths(str(project_dir))
+
+    assert isinstance(paths, list)
+    assert len(paths) > 0
+    joined = " ".join(paths)
+    assert ".codex" in joined
+    assert ".gemini" in joined
+    assert ".kimi" in joined
+    assert ".mcp.json" in joined
+    assert ".claude" in joined

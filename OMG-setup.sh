@@ -25,6 +25,7 @@ FRESH_INSTALL=false
 INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
 ENABLE_BROWSER=false
+VERIFY_CLEAN=false
 ADOPTION_MODE="omg-only"
 ADOPT_MODE="auto"
 OMG_PRESET="safe"
@@ -88,6 +89,7 @@ Options:
   --preset=safe|balanced|interop|labs|buffet|production
                      User-facing preset for managed OMG features
   --enable-browser   Enable optional OMG browser capability metadata and guidance
+  --verify-clean     After uninstall, verify no OMG-managed residue remains
   -h, --help         Show this help
 
 Examples:
@@ -219,6 +221,7 @@ parse_args() {
             --fresh) FRESH_INSTALL=true ;;
             --install-as-plugin) INSTALL_AS_PLUGIN=true ;;
             --enable-browser) ENABLE_BROWSER=true ;;
+            --verify-clean) VERIFY_CLEAN=true ;;
             --merge-policy=*) MERGE_POLICY="${arg#*=}" ;;
             --mode=*) ADOPTION_MODE="${arg#*=}" ;;
             --adopt=*) ADOPT_MODE="${arg#*=}" ;;
@@ -1597,7 +1600,7 @@ run_uninstall() {
     fi
 
     if ! $DRY_RUN; then
-        local _removed_json _preserved_json
+        local _removed_json _preserved_json _host_configs_json
         _removed_json=$(python3 -c "
 import json, os, sys
 d = sys.argv[1]
@@ -1610,8 +1613,113 @@ d = sys.argv[1]
 paths = [os.path.join(d, p) for p in ['settings.json'] if os.path.exists(os.path.join(d, p))]
 print(json.dumps(paths))
 " "$CLAUDE_DIR" 2>/dev/null || echo "[]")
-        emit_uninstall_receipt "$_removed_json" "$_preserved_json" "[]"
+        _host_configs_json=$(python3 -c "
+import json, os
+home = os.path.expanduser('~')
+configs = {
+    'codex': os.path.join(home, '.codex', 'config.toml'),
+    'gemini': os.path.join(home, '.gemini', 'settings.json'),
+    'kimi': os.path.join(home, '.kimi', 'mcp.json'),
+}
+cleaned = []
+for host, path in configs.items():
+    if os.path.exists(path):
+        try:
+            content = open(path, encoding='utf-8').read()
+            if 'omg-control' not in content:
+                cleaned.append(path)
+        except Exception:
+            pass
+    else:
+        cleaned.append(path)
+print(json.dumps(cleaned))
+" 2>/dev/null || echo "[]")
+        emit_uninstall_receipt "$_removed_json" "$_preserved_json" "$_host_configs_json"
         echo "  ✓ Uninstall receipt written to $CLAUDE_DIR/.omg-uninstall-receipt.json"
+    fi
+
+    if $VERIFY_CLEAN; then
+        local _residue=()
+        local _verify_paths=(
+            "$CLAUDE_DIR/hooks/.omg-version"
+            "$CLAUDE_DIR/hooks/.omg-coexist"
+            "$CLAUDE_DIR/omg-runtime"
+            "$CLAUDE_DIR/templates/omg"
+            "$CLAUDE_DIR/hud/omg-hud.mjs"
+            "$CLAUDE_DIR/.omg-manifest"
+        )
+        for _vpath in "${_verify_paths[@]}"; do
+            if [ -f "$_vpath" ] || [ -d "$_vpath" ]; then
+                _residue+=("$_vpath")
+            fi
+        done
+        for _rule in "$CLAUDE_DIR"/rules/omg-*.md "$CLAUDE_DIR"/rules/0[0-4]-*.md; do
+            if [ -f "$_rule" ]; then
+                _residue+=("$_rule")
+            fi
+        done
+        for _agent in "$CLAUDE_DIR"/agents/omg-*.md; do
+            if [ -f "$_agent" ]; then
+                _residue+=("$_agent")
+            fi
+        done
+
+        local _verify_status="clean"
+        local _blockers_json="[]"
+        if [ ${#_residue[@]} -gt 0 ]; then
+            _verify_status="residue_found"
+            _blockers_json=$(printf '%s\n' "${_residue[@]}" | python3 -c "import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))" 2>/dev/null || echo "[]")
+        fi
+
+        local _vc_host_configs_json
+        _vc_host_configs_json=$(python3 -c "
+import json, os
+home = os.path.expanduser('~')
+configs = {
+    'codex': os.path.join(home, '.codex', 'config.toml'),
+    'gemini': os.path.join(home, '.gemini', 'settings.json'),
+    'kimi': os.path.join(home, '.kimi', 'mcp.json'),
+}
+cleaned = []
+for host, path in configs.items():
+    if os.path.exists(path):
+        try:
+            content = open(path, encoding='utf-8').read()
+            if 'omg-control' not in content:
+                cleaned.append(path)
+        except Exception:
+            pass
+    else:
+        cleaned.append(path)
+print(json.dumps(cleaned))
+" 2>/dev/null || echo "[]")
+
+        local _verify_receipt
+        _verify_receipt=$(python3 -c "
+import json, sys
+print(json.dumps({
+    'verification_status': sys.argv[1],
+    'residue_blockers': json.loads(sys.argv[2]),
+    'host_configs_cleaned': json.loads(sys.argv[3]),
+}, indent=2, ensure_ascii=True))
+" "$_verify_status" "$_blockers_json" "$_vc_host_configs_json" 2>/dev/null || echo "{\"verification_status\": \"$_verify_status\", \"residue_blockers\": $_blockers_json, \"host_configs_cleaned\": $_vc_host_configs_json}")
+
+        if ! $DRY_RUN; then
+            echo "$_verify_receipt" | python3 -c "
+import json, sys
+from pathlib import Path
+data = json.load(sys.stdin)
+path = Path(sys.argv[1]) / '.omg-verify-clean-receipt.json'
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + '\n', encoding='utf-8')
+" "$CLAUDE_DIR" 2>/dev/null || true
+        fi
+        echo "  $_verify_receipt"
+        if [ "$_verify_status" = "clean" ]; then
+            echo "  ✓ Verify-clean: no OMG-owned residue found."
+        else
+            echo "  ✗ Verify-clean: residue found in ${#_residue[@]} path(s)"
+        fi
     fi
 
     echo ""
