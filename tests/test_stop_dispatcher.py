@@ -374,3 +374,23 @@ def test_stop_gate_wrapper_executes_dispatcher_guard():
     )
     assert result.returncode == 0
     assert result.stdout == ""
+
+
+def test_current_turn_source_writes_false_when_no_tool_results(tmp_path):
+    ctx = stop_dispatcher._build_context(str(tmp_path), stop_payload={})
+    assert ctx["current_turn_has_source_writes"] is False
+    assert ctx["current_turn_source_write_entries"] == []
+
+
+def test_current_turn_source_writes_true_when_source_write_in_payload(tmp_path):
+    payload = {
+        "tool_use_results": [
+            {
+                "tool_name": "Write",
+                "file": "src/foo.py",
+            }
+        ]
+    }
+    ctx = stop_dispatcher._build_context(str(tmp_path), stop_payload=payload)
+    assert ctx["current_turn_has_source_writes"] is True
+    assert len(ctx["current_turn_source_write_entries"]) == 1
