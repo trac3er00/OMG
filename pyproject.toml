@@ -27,6 +27,7 @@ dependencies = [
     "cryptography>=44.0",
     "fastmcp>=2.0",
     "requests>=2.28",
+    "tomlkit>=0.13",
 ]
 
 [project.optional-dependencies]

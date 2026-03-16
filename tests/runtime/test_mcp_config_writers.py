@@ -276,6 +276,147 @@ def test_managed_python_path_in_claude_stdio_config(tmp_path: Path) -> None:
     assert "omg-runtime/.venv/bin/python" in managed_python
 
 
+# -- Codex TOML structural editing (tomlkit round-trip) ---------------
+
+
+def test_codex_toml_http_roundtrip_preserves_surrounding_comments(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config_path = tmp_path / ".codex" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    original = (
+        "# Top-level user comment\n"
+        "model = \"o3\"\n"
+        "\n"
+        "[mcp_servers.existing-server]\n"
+        'type = "http"\n'
+        'url = "http://localhost:7777"\n'
+        "\n"
+        "# Trailing comment that must survive\n"
+        "[other_section]\n"
+        "key = \"value\"\n"
+    )
+    _ = config_path.write_text(original)
+
+    write_codex_mcp_config("http://localhost:8765", config_path=config_path)
+    result = config_path.read_text()
+
+    assert "# Top-level user comment" in result
+    assert 'model = "o3"' in result
+    assert "[mcp_servers.existing-server]" in result
+    assert "# Trailing comment that must survive" in result
+    assert "[other_section]" in result
+    assert 'key = "value"' in result
+    assert 'url = "http://localhost:8765"' in result
+
+
+def test_codex_toml_stdio_roundtrip_preserves_surrounding_comments(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config_path = tmp_path / ".codex" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    original = (
+        "# User preferences\n"
+        "model = \"o3\"\n"
+        "\n"
+        "[mcp_servers.other]\n"
+        'type = "http"\n'
+        'url = "http://example.com"\n'
+        "\n"
+        "# Footer comment\n"
+    )
+    _ = config_path.write_text(original)
+
+    write_codex_mcp_stdio_config(
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+        server_name="omg-control",
+        config_path=config_path,
+    )
+    result = config_path.read_text()
+
+    assert "# User preferences" in result
+    assert 'model = "o3"' in result
+    assert "[mcp_servers.other]" in result
+    assert "# Footer comment" in result
+    assert 'command = "python3"' in result
+
+
+def test_codex_toml_http_malformed_raises_valueerror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config_path = tmp_path / ".codex" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    _ = config_path.write_text("[broken\nthis is not valid toml ===")
+
+    with pytest.raises(ValueError, match="Malformed TOML"):
+        write_codex_mcp_config("http://localhost:8765", config_path=config_path)
+
+
+def test_codex_toml_stdio_malformed_raises_valueerror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config_path = tmp_path / ".codex" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    _ = config_path.write_text("[broken\nthis is not valid toml ===")
+
+    with pytest.raises(ValueError, match="Malformed TOML"):
+        write_codex_mcp_stdio_config(
+            command="python3",
+            args=["-m", "runtime.omg_mcp_server"],
+            server_name="omg-control",
+            config_path=config_path,
+        )
+
+
+def test_codex_toml_http_idempotent_same_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config_path = tmp_path / ".codex" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    write_codex_mcp_config("http://localhost:8765", config_path=config_path)
+    first = config_path.read_text()
+
+    write_codex_mcp_config("http://localhost:8765", config_path=config_path)
+    second = config_path.read_text()
+
+    assert first == second
+    assert second.count("memory-server") == 1
+
+
+def test_codex_toml_stdio_idempotent_same_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config_path = tmp_path / ".codex" / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    write_codex_mcp_stdio_config(
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+        server_name="omg-control",
+        config_path=config_path,
+    )
+    first = config_path.read_text()
+
+    write_codex_mcp_stdio_config(
+        command="python3",
+        args=["-m", "runtime.omg_mcp_server"],
+        server_name="omg-control",
+        config_path=config_path,
+    )
+    second = config_path.read_text()
+
+    assert first == second
+    assert second.count("omg-control") == 1
+
+
 # -- Preset surface narrowing ----------------------------------------
 
 from hooks.setup_wizard import get_default_mcps_for_preset, select_mcps, configure_mcp
