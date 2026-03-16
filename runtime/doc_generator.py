@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from runtime.adoption import CANONICAL_VERSION, PRESET_FEATURES
 from runtime.canonical_taxonomy import (
@@ -119,6 +119,124 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
     
     _write_text(output_root / "PRESET-REFERENCE.md", "\n".join(preset_md) + "\n")
     
+    # 7. INSTALL-VERIFICATION-INDEX.md
+    install_md = [
+        "<!-- GENERATED: DO NOT EDIT MANUALLY -->",
+        "# OMG Install Process Verification Index",
+        "",
+        "**Purpose:** Track all CLI adapter integration points, installation flows, and critical assumptions for end-to-end verification.",
+        "",
+        f"**Version:** OMG {CANONICAL_VERSION}",
+        "",
+        "---",
+        "",
+        "## 📖 Documentation Map",
+        "",
+        "### Primary References",
+        "- **`CLI-ADAPTER-MAP.md`**",
+        "- **`QUICK-REFERENCE.md`**",
+        "",
+        "### Source Files Referenced",
+        "- `runtime/mcp_config_writers.py`",
+        "- `runtime/adoption.py`",
+        "- `OMG-setup.sh`",
+        "",
+        "---",
+        "",
+        "## 🎯 Installation Targets & Methods",
+        "",
+        "### Canonical Targets",
+    ]
+    
+    target_configs = {
+        "claude": ".mcp.json",
+        "codex": "~/.codex/config.toml",
+        "gemini": "~/.gemini/settings.json",
+        "kimi": "~/.kimi/mcp.json",
+    }
+    
+    for i, host in enumerate(canonical_hosts, 1):
+        config_path = target_configs.get(host, "Unknown")
+        install_md.extend([
+            f"{i}. **{host.capitalize()}**",
+            f"   - **Config:** `{config_path}`",
+            "",
+        ])
+    
+    install_md.extend([
+        "---",
+        "",
+        "## 🔧 Verification Commands",
+        "",
+        "| Name | Command |",
+        "| :--- | :--- |",
+    ])
+    verification_cmds = cast(list[dict[str, str]], install_verification["verification_commands"])
+    for cmd in verification_cmds:
+        name = cmd.get("name", "")
+        command = cmd.get("command", "")
+        install_md.append(f"| {name} | `{command}` |")
+        
+    install_md.extend([
+        "",
+        "## 📂 Cache Paths",
+        "",
+    ])
+    for path in install_verification["cache_paths"]:
+        install_md.append(f"- `{path}`")
+        
+    _write_text(output_root / "INSTALL-VERIFICATION-INDEX.md", "\n".join(install_md) + "\n")
+    
+    # 8. QUICK-REFERENCE.md
+    quick_md = [
+        "<!-- GENERATED: DO NOT EDIT MANUALLY -->",
+        "# OMG CLI Adapter Quick Reference",
+        "",
+        "## 🎯 Core Integration Points",
+        "",
+        "### Canonical Hosts",
+        "",
+        "| Host | Config File |",
+        "| :--- | :--- |",
+    ]
+    for host in canonical_hosts:
+        config_path = target_configs.get(host, "Unknown")
+        quick_md.append(f"| {host} | `{config_path}` |")
+        
+    quick_md.extend([
+        "",
+        "### Release Channels",
+        "",
+    ])
+    for channel in RELEASE_CHANNELS:
+        quick_md.append(f"- `{channel}`")
+        
+    quick_md.extend([
+        "",
+        "### Preset Quick Reference",
+        "",
+        "| Preset | Key Features |",
+        "| :--- | :--- |",
+    ])
+    for preset in CANONICAL_PRESETS:
+        features = [f for f, enabled in PRESET_FEATURES[preset].items() if enabled]
+        feature_summary = ", ".join(features[:5]) + ("..." if len(features) > 5 else "")
+        quick_md.append(f"| {preset} | {feature_summary or 'None'} |")
+        
+    quick_md.extend([
+        "",
+        "### Quick Commands",
+        "",
+        "| Task | Command |",
+        "| :--- | :--- |",
+        "| Setup | `/OMG:setup` |",
+        "| Browser | `/OMG:browser <goal>` |",
+        "| Crazy Mode | `/OMG:crazy <goal>` |",
+        "| Deep Plan | `/OMG:deep-plan <goal>` |",
+    ])
+    
+    _write_text(output_root / "QUICK-REFERENCE.md", "\n".join(quick_md) + "\n")
+    
     return {
         "status": "ok",
         "output_root": str(output_root),
@@ -129,6 +247,8 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
             "install-verification.json",
             "SUPPORT-MATRIX.md",
             "PRESET-REFERENCE.md",
+            "INSTALL-VERIFICATION-INDEX.md",
+            "QUICK-REFERENCE.md",
         ]
     }
 

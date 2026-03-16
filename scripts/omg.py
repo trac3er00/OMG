@@ -68,10 +68,12 @@ from runtime.compat import (
     list_compat_skill_contracts,
     list_compat_skills,
     run_doctor,
+    run_doctor_fix,
 )
 from runtime.validate import run_validate, format_text as validate_format_text
 from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
 from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
+from runtime.install_planner import compute_install_plan, execute_plan, InstallAction
 from runtime.canonical_surface import get_canonical_hosts
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
 from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_mode, execute_crazy_mode
@@ -1160,6 +1162,29 @@ def cmd_profile_review(args: argparse.Namespace) -> int:
 
 def cmd_doctor(args: argparse.Namespace) -> int:
     fmt = getattr(args, "format", "text")
+    fix_mode = getattr(args, "fix", False)
+    dry_run = getattr(args, "dry_run", False)
+
+    if fix_mode:
+        result = run_doctor_fix(root_dir=ROOT_DIR, dry_run=dry_run)
+        if fmt == "json":
+            print(json.dumps(result, indent=2))
+        else:
+            mode_label = "DRY RUN" if dry_run else "FIX"
+            print(f"Doctor ({mode_label})")
+            for check in result["checks"]:
+                marker = "PASS" if check["status"] == "ok" else ("BLOCKER" if check["status"] == "blocker" else "WARN")
+                fix_tag = " [fixable]" if check.get("fixable") else ""
+                req_tag = "" if check["required"] else " (optional)"
+                print(f"  {marker:>7} {check['name']}: {check['message']}{req_tag}{fix_tag}")
+            for receipt in result.get("fix_receipts", []):
+                executed_tag = "applied" if receipt["executed"] else "planned"
+                print(f"  FIX [{executed_tag}] {receipt['check']}: {receipt['action']}")
+            blockers = sum(1 for c in result["checks"] if c["status"] == "blocker")
+            fixes = len(result.get("fix_receipts", []))
+            print(f"\nBLOCKER [{blockers}] | FIXES [{fixes}]")
+        return 0 if result["status"] == "pass" else 1
+
     result = run_doctor(root_dir=ROOT_DIR)
     if fmt == "json":
         print(json.dumps(result, indent=2))
@@ -1174,6 +1199,126 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(f"\nPASS [{passed}] | WARN [{warnings}] | BLOCKER [{blockers}]")
     return 0 if result["status"] == "pass" else 1
 
+
+def _detect_clis() -> dict[str, Any]:
+    """Detect which host CLIs are available on PATH."""
+    import shutil
+
+    hosts = {"codex": "codex", "gemini": "gemini", "kimi": "kimi"}
+    result: dict[str, Any] = {}
+    for host, binary in hosts.items():
+        result[host] = {"detected": shutil.which(binary) is not None}
+    return result
+
+
+def _install_action_to_dict(action: InstallAction) -> dict[str, Any]:
+    return {
+        "host": action.host,
+        "target_path": action.target_path,
+        "description": action.description,
+        "kind": action.kind,
+    }
+
+
+def _format_install_plan_text(plan_data: dict[str, Any]) -> str:
+    lines: list[str] = ["Install Plan"]
+    blockers = plan_data.get("integrity_errors", [])
+    if blockers:
+        lines.append(f"  BLOCKERS ({len(blockers)}):")
+        for b in blockers:
+            lines.append(f"    - {b}")
+    actions = plan_data.get("actions", [])
+    lines.append(f"  Actions ({len(actions)}):")
+    for a in actions:
+        lines.append(f"    [{a['host']}] {a['description']} -> {a['target_path']}")
+    lines.append(f"  Pre-checks: {', '.join(plan_data.get('pre_checks', []))}")
+    lines.append(f"  Post-checks: {', '.join(plan_data.get('post_checks', []))}")
+    return "\n".join(lines)
+
+
+def _format_install_dryrun_text(result_data: dict[str, Any]) -> str:
+    lines: list[str] = ["Install Dry-Run Result"]
+    lines.append(f"  Executed: {result_data.get('executed', False)}")
+    errors = result_data.get("errors", [])
+    if errors:
+        lines.append(f"  Errors ({len(errors)}):")
+        for e in errors:
+            lines.append(f"    - {e}")
+    completed = result_data.get("actions_completed", [])
+    skipped = result_data.get("actions_skipped", [])
+    lines.append(f"  Actions completed: {len(completed)}")
+    lines.append(f"  Actions skipped: {len(skipped)}")
+    for s in skipped:
+        lines.append(f"    skipped: {s}")
+    return "\n".join(lines)
+
+
+def cmd_install(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "text")
+    preset = getattr(args, "preset", "balanced")
+    mode = getattr(args, "mode", "omg-only")
+    do_plan = getattr(args, "plan", False)
+    do_dry_run = getattr(args, "dry_run", False)
+
+    if not do_plan and not do_dry_run:
+        if fmt == "json":
+            print(json.dumps({"error": "specify --plan or --dry-run"}, indent=2))
+        else:
+            print("Error: specify --plan or --dry-run")
+        return 1
+
+    detected_clis = _detect_clis()
+    plan = compute_install_plan(
+        project_dir=str(ROOT_DIR),
+        detected_clis=detected_clis,
+        preset=preset,
+        mode=mode,
+        selected_ids=None,
+    )
+
+    from runtime.install_planner import _verify_install_integrity
+    integrity_errors = _verify_install_integrity(Path(plan.source_root))
+
+    if do_plan:
+        plan_data: dict[str, Any] = {
+            "schema": "InstallPlan",
+            "actions": [_install_action_to_dict(a) for a in plan.actions],
+            "pre_checks": plan.pre_checks,
+            "post_checks": plan.post_checks,
+            "source_root": plan.source_root,
+            "integrity_errors": integrity_errors,
+        }
+        if integrity_errors:
+            plan_data["status"] = "blocked"
+            if fmt == "json":
+                print(json.dumps(plan_data, indent=2))
+            else:
+                print(_format_install_plan_text(plan_data))
+            return 1
+        plan_data["status"] = "ok"
+        if fmt == "json":
+            print(json.dumps(plan_data, indent=2))
+        else:
+            print(_format_install_plan_text(plan_data))
+        return 0
+
+    result = execute_plan(plan, dry_run=True)
+    result_data: dict[str, Any] = {
+        "schema": "InstallResult",
+        "executed": result["executed"],
+        "actions_completed": result["actions_completed"],
+        "actions_skipped": result["actions_skipped"],
+        "receipt": result["receipt"],
+        "errors": result["errors"],
+        "integrity_errors": integrity_errors,
+        "actions": [_install_action_to_dict(a) for a in plan.actions],
+    }
+    has_errors = bool(result["errors"]) or bool(integrity_errors)
+    if fmt == "json":
+        print(json.dumps(result_data, indent=2, default=str))
+    else:
+        print(_format_install_dryrun_text(result_data))
+    return 1 if has_errors else 0
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -1240,13 +1385,63 @@ def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> N
 
 def cmd_docs_generate(args: argparse.Namespace) -> int:
     output_root = Path(args.output_root) if args.output_root else ROOT_DIR / ".sisyphus" / "tmp" / "generated-docs"
+    
+    if args.check:
+        import tempfile
+        import shutil
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            result = generate_docs(tmp_path)
+            if result["status"] != "ok":
+                print(f"Failed to generate docs for check: {result.get('error', 'Unknown error')}")
+                return 1
+            
+            drift = []
+            # We check artifacts that are supposed to be at the repo root if output_root was not specified
+            # The task says: "regenerates INSTALL-VERIFICATION-INDEX.md and QUICK-REFERENCE.md at the repo root"
+            # But generate_docs writes to output_root.
+            # If output_root is specified, we should probably check against that.
+            # If not, we check against ROOT_DIR for the root docs.
+            
+            check_targets = [
+                ("INSTALL-VERIFICATION-INDEX.md", ROOT_DIR / "INSTALL-VERIFICATION-INDEX.md"),
+                ("QUICK-REFERENCE.md", ROOT_DIR / "QUICK-REFERENCE.md"),
+            ]
+            
+            for name, on_disk_path in check_targets:
+                generated_content = (tmp_path / name).read_text(encoding="utf-8")
+                if not on_disk_path.exists():
+                    drift.append(f"Missing on disk: {name}")
+                    continue
+                on_disk_content = on_disk_path.read_text(encoding="utf-8")
+                if generated_content != on_disk_content:
+                    drift.append(f"Content drift: {name}")
+            
+            if drift:
+                print("Doc check FAILED. Drift detected:")
+                for d in drift:
+                    print(f"  - {d}")
+                print("\nRun 'python3 scripts/omg.py docs generate' to fix.")
+                return 1
+            
+            print("Doc check PASSED. No drift detected.")
+            return 0
+
     result = generate_docs(output_root)
     if result["status"] == "ok":
-        print(f"Successfully generated docs at: {result["output_root"]}")
+        # If output_root was default, we also copy the root docs to ROOT_DIR
+        if not args.output_root:
+            for name in ["INSTALL-VERIFICATION-INDEX.md", "QUICK-REFERENCE.md"]:
+                src = output_root / name
+                dst = ROOT_DIR / name
+                dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+                print(f"Updated root doc: {name}")
+
+        print(f"Successfully generated docs at: {result['output_root']}")
         for artifact in result["artifacts"]:
             print(f"  - {artifact}")
         return 0
-    print(f"Failed to generate docs: {result.get("error", "Unknown error")}")
+    print(f"Failed to generate docs: {result.get('error', 'Unknown error')}")
     return 1
 
 
@@ -1255,6 +1450,7 @@ def _add_docs_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None
 
     generate = sub.add_parser("generate", help="Generate machine-readable and human-readable docs")
     generate.add_argument("--output-root", default="", help="Output directory for generated docs")
+    generate.add_argument("--check", action="store_true", help="Exit non-zero if generated docs differ from disk")
     generate.set_defaults(func=cmd_docs_generate)
 
 
@@ -1524,6 +1720,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor = sub.add_parser("doctor", help="Canonical install and runtime verification")
     doctor.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    doctor.add_argument("--fix", action="store_true", default=False, help="Attempt to fix failing checks")
+    doctor.add_argument("--dry-run", action="store_true", default=False, dest="dry_run", help="Plan fixes without applying (requires --fix)")
     doctor.set_defaults(func=cmd_doctor)
 
     validate = sub.add_parser("validate", help="Canonical validation — doctor + contract + profile + install")
@@ -1549,6 +1747,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     docs = sub.add_parser("docs", help="OMG documentation generator")
     _add_docs_subcommands(docs, dest="docs_command")
+
+    install = sub.add_parser("install", help="Compute or dry-run an install plan via install_planner")
+    install.add_argument("--plan", action="store_true", help="Emit structured action plan without mutations")
+    install.add_argument("--dry-run", action="store_true", help="Compute actions and emit receipts without mutations")
+    install.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    install.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS))
+    install.add_argument("--mode", default="omg-only", choices=["omg-only", "coexist"])
+    install.set_defaults(func=cmd_install)
 
     return parser
 

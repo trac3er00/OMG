@@ -17,6 +17,8 @@ def test_generate_docs_emits_all_files(tmp_path):
         "install-verification.json",
         "SUPPORT-MATRIX.md",
         "PRESET-REFERENCE.md",
+        "INSTALL-VERIFICATION-INDEX.md",
+        "QUICK-REFERENCE.md",
     ]
     
     for filename in expected_files:
@@ -88,6 +90,22 @@ def test_markdown_headers(tmp_path):
     output_root = tmp_path / "docs"
     generate_docs(output_root)
     
-    for filename in ["SUPPORT-MATRIX.md", "PRESET-REFERENCE.md"]:
+    for filename in ["SUPPORT-MATRIX.md", "PRESET-REFERENCE.md", "INSTALL-VERIFICATION-INDEX.md", "QUICK-REFERENCE.md"]:
         content = (output_root / filename).read_text()
         assert content.startswith("<!-- GENERATED: DO NOT EDIT MANUALLY -->")
+
+def test_root_docs_content(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    
+    quick_ref = (output_root / "QUICK-REFERENCE.md").read_text()
+    # Asserts QUICK-REFERENCE.md contains all 6 preset names
+    presets = ["safe", "balanced", "interop", "labs", "buffet", "production"]
+    for preset in presets:
+        assert preset in quick_ref
+        
+    install_index = (output_root / "INSTALL-VERIFICATION-INDEX.md").read_text()
+    # Asserts INSTALL-VERIFICATION-INDEX.md contains all canonical host names
+    hosts = list(get_canonical_hosts())
+    for host in hosts:
+        assert host.capitalize() in install_index
