@@ -8,6 +8,7 @@ import contextlib
 import json
 import os
 import sys
+from typing import Any
 
 HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
@@ -18,15 +19,15 @@ from _common import setup_crash_handler, json_input, _resolve_project_dir
 try:
     from _common import is_bypass_mode
 except ImportError:  # pragma: no cover - compatibility with older runtimes
-    def is_bypass_mode(_payload):
+    def is_bypass_mode(_payload: object) -> bool:
         return False
 
 
-try:
-    from _common import is_bypass_all
-except ImportError:  # pragma: no cover - compatibility with older runtimes
-    def is_bypass_all(_payload):
+def _is_bypass_all_mode(payload: Any) -> bool:
+    if not isinstance(payload, dict):
         return False
+    mode = str(payload.get("permission_mode", "")).strip().lower()
+    return mode == "bypassall"
 
 # Compatibility marker for existing tests and policy docs.
 DANGEROUS_IN_ALLOW = [
@@ -169,20 +170,12 @@ elif os.path.exists(snapshot_path):
         print(f"[OMG] config-guard: snapshot read failed: {type(e).__name__}: {e}", file=sys.stderr)
         old_config = {}
 
-# Prefer explicit new config when the payload provides it.
-payload_new = _extract_config_object(
-    data,
-    ("new_config", "new_settings", "new_content", "after", "new_value"),
-)
-if isinstance(payload_new, dict):
-    new_config = payload_new
-
 # Exemption: skip trust_review for .mcp.json changes during setup wizard
 if _is_setup_in_progress() and _is_mcp_config_file(config_path):
     sys.exit(0)
 
 # In bypass mode, skip trust_review asks (but not denials for critical issues)
-if is_bypass_mode(data) or is_bypass_all(data):
+if is_bypass_mode(data) or _is_bypass_all_mode(data):
     sys.exit(0)
 
 review = review_config_change(config_path, old_config, new_config)
@@ -212,5 +205,7 @@ elif verdict == "ask":
     msg += "\n\nRe-apply after human approval."
     if risk_level == "high":
         json.dump({"decision": "block", "reason": msg}, sys.stdout)
+    else:
+        json.dump({"decision": "pass", "reason": msg}, sys.stdout)
 
 sys.exit(0)

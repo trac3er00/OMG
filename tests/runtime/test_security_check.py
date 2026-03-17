@@ -99,3 +99,47 @@ def test_run_security_check_callable_for_forge_integration(tmp_path):
     assert "sbom_path" in result["evidence"]
     assert "unresolved_risks" in result
     assert isinstance(result["findings"], list)
+
+
+def test_excluded_directories_stay_out_of_scan(tmp_path):
+    """Verify that excluded directories are not scanned."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "danger.py").write_text("import subprocess\nsubprocess.run('cmd', shell=True)")
+    
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "danger.py").write_text("import subprocess\nsubprocess.run('cmd', shell=True)")
+    
+    (tmp_path / ".sisyphus").mkdir()
+    (tmp_path / ".sisyphus" / "evidence.txt").write_text("subprocess.run('cmd', shell=True)")
+    
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "pkg").mkdir()
+    (tmp_path / "node_modules" / "pkg" / "index.js").write_text("exec('cmd')")
+    
+    (tmp_path / "dist").mkdir()
+    (tmp_path / "dist" / "extracted").mkdir()
+    (tmp_path / "dist" / "extracted" / "danger.py").write_text("import subprocess\nsubprocess.run('cmd', shell=True)")
+    
+    result = run_security_check(project_dir=str(tmp_path), scope=".")
+    
+    finding_paths = [f.get("path", "") for f in result["findings"]]
+    for path in finding_paths:
+        assert "tests" not in path.split("/"), f"tests/ should be excluded but found: {path}"
+        assert ".sisyphus" not in path.split("/"), f".sisyphus/ should be excluded but found: {path}"
+        assert "node_modules" not in path.split("/"), f"node_modules/ should be excluded but found: {path}"
+        assert "dist" not in path.split("/"), f"dist/ should be excluded but found: {path}"
+
+
+def test_included_source_paths_still_fail_closed(tmp_path):
+    """Verify that included source paths are still scanned and fail closed."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "danger.py").write_text("import subprocess\nsubprocess.run('cmd', shell=True)")
+    
+    result = run_security_check(project_dir=str(tmp_path), scope=".")
+    
+    assert result["status"] == "error", "Should fail closed when dangerous code is found"
+    assert result["release_blocked"] == True, "Release should be blocked"
+    
+    b602_findings = [f for f in result["findings"] if f.get("id") == "B602"]
+    assert len(b602_findings) > 0, "Should find B602 subprocess-shell-true violation"
+    assert any("src" in f.get("evidence", {}).get("path", "").split("/") for f in b602_findings), "Should find violation in src/"

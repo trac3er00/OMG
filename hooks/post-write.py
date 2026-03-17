@@ -22,7 +22,7 @@ def _load_local_attr(module_name, filename, attr_name):
 
 _resolve_project_dir = _load_local_attr("omg_hooks_common", "_common.py", "_resolve_project_dir")
 resolve_state_file = _load_local_attr("omg_hooks_state_migration", "state_migration.py", "resolve_state_file")
-detect_high_entropy_strings = _load_local_attr("omg_hooks_post_write", "post_write.py", "detect_high_entropy_strings")
+detect_high_entropy_strings = _load_local_attr("omg_hooks_post_write", "_post_write.py", "detect_high_entropy_strings")
 
 try:
     data = json.load(sys.stdin)
