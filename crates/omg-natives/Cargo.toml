@@ -10,7 +10,7 @@ name = "omg_natives"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pyo3 = { version = "0.21", features = ["extension-module"] }
+pyo3 = { version = "0.24.1", features = ["extension-module"] }
 
 [profile.release]
 opt-level = 3
