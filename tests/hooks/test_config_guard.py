@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 
 
-def run_config_guard(payload: dict, project_dir: str):
+def run_config_guard(payload: dict[str, object], project_dir: str):
     proc = subprocess.run(
         ["python3", "hooks/config-guard.py"],
         input=json.dumps(payload),
@@ -104,3 +104,69 @@ def test_config_guard_reviews_high_risk_mcp_config_changes():
         assert out["decision"] == "block"
         assert "Trust Review" in out["reason"]
         assert (Path(tmpdir) / ".omg" / "trust" / "manifest.lock.json").exists()
+
+
+def test_config_guard_ask_med_returns_explicit_pass_payload():
+    old = {
+        "hooks": {
+            "PreToolUse": [
+                {"hooks": [{"type": "command", "command": "python3 old.py"}]}
+            ]
+        }
+    }
+    new = {
+        "hooks": {
+            "PreToolUse": [
+                {"hooks": [{"type": "command", "command": "python3 new.py"}]}
+            ]
+        }
+    }
+    with tempfile.TemporaryDirectory() as tmpdir:
+        settings = Path(tmpdir) / "settings.json"
+        settings.write_text(json.dumps(new), encoding="utf-8")
+        (Path(tmpdir) / ".omg" / "trust").mkdir(parents=True, exist_ok=True)
+        (Path(tmpdir) / ".omg" / "trust" / "last-settings.json").write_text(
+            json.dumps(old),
+            encoding="utf-8",
+        )
+
+        out = run_config_guard(
+            {
+                "source": "user",
+                "file_path": str(settings),
+                "old_config": old,
+            },
+            tmpdir,
+        )
+
+        assert out is not None
+        assert out["decision"] == "pass"
+        assert "Trust Review" in out["reason"]
+
+
+def test_config_guard_scores_live_config_not_payload_override():
+    live = {"permissions": {"allow": ["Read", "Bash(sudo:*)"]}}
+    payload_new = {"permissions": {"allow": ["Read"]}}
+    old = {"permissions": {"allow": ["Read"]}}
+    with tempfile.TemporaryDirectory() as tmpdir:
+        settings = Path(tmpdir) / "settings.json"
+        settings.write_text(json.dumps(live), encoding="utf-8")
+        (Path(tmpdir) / ".omg" / "trust").mkdir(parents=True, exist_ok=True)
+        (Path(tmpdir) / ".omg" / "trust" / "last-settings.json").write_text(
+            json.dumps(old),
+            encoding="utf-8",
+        )
+
+        out = run_config_guard(
+            {
+                "source": "user",
+                "file_path": str(settings),
+                "old_config": old,
+                "new_config": payload_new,
+            },
+            tmpdir,
+        )
+
+        assert out is not None
+        assert out["decision"] == "block"
+        assert "Bash(sudo:*)" in out["reason"]

@@ -9,12 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Ensure tools/ is on sys.path so config_discovery can be imported for patching
-_tools_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "tools"))
-if _tools_dir not in sys.path:
-    sys.path.insert(0, _tools_dir)
-
-import config_discovery  # noqa: E402
+from tools import config_discovery
 
 from hooks.trust_review import (
     _validate_config_security,
@@ -136,7 +131,7 @@ class TestValidateConfigSecurity:
 class TestLogConfigImport:
     """Tests for config import logging."""
 
-    @patch("_common.atomic_json_write")
+    @patch("hooks._common.atomic_json_write")
     def test_log_creates_entry(self, mock_write, tmp_path: Path):
         """Logging creates a properly formatted entry."""
         config = tmp_path / "CLAUDE.md"
@@ -154,7 +149,7 @@ class TestLogConfigImport:
         assert "sha256_hash" in entry
         assert entry["config_path"] == str(config)
 
-    @patch("_common.atomic_json_write")
+    @patch("hooks._common.atomic_json_write")
     def test_log_rejected_entry(self, mock_write, tmp_path: Path):
         """Logging a rejected config records approved=False."""
         config = tmp_path / "bad.md"
@@ -165,7 +160,7 @@ class TestLogConfigImport:
         _, data = mock_write.call_args[0]
         assert data[0]["approved"] is False
 
-    @patch("_common.atomic_json_write")
+    @patch("hooks._common.atomic_json_write")
     def test_log_appends_to_existing(self, mock_write, tmp_path: Path):
         """New entries append to existing log file."""
         log_dir = tmp_path / ".omg" / "trust"
@@ -184,7 +179,7 @@ class TestLogConfigImport:
         assert data[0]["tool"] == "cursor"
         assert data[1]["tool"] == "windsurf"
 
-    @patch("_common.atomic_json_write")
+    @patch("hooks._common.atomic_json_write")
     def test_log_sha256_hash_computed(self, mock_write, tmp_path: Path):
         """SHA-256 hash is computed correctly."""
         config = tmp_path / "test.md"
