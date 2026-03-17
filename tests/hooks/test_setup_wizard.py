@@ -244,13 +244,35 @@ class TestDetectClis:
 
         mock_p = self._mock_provider("codex", detected=True, auth_ok=True, auth_msg="authenticated")
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"codex": mock_p}, clear=True):
-            result = setup_wizard.detect_clis()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(os.environ, {"HOME": tmpdir}), \
+                 patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {"codex": mock_p}, clear=True):
+                result = setup_wizard.detect_clis()
 
         assert result["codex"]["detected"] is True
+        assert result["codex"]["configured"] is False
         assert result["codex"]["auth_ok"] is True
         assert result["codex"]["message"] == "authenticated"
+
+    def test_not_detected_can_still_report_configured(self):
+        from hooks import setup_wizard
+        import runtime.cli_provider
+
+        mock_p = self._mock_provider("gemini", detected=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            home = Path(tmpdir)
+            gemini_settings = home / ".gemini" / "settings.json"
+            gemini_settings.parent.mkdir(parents=True)
+            gemini_settings.write_text("{}\n", encoding="utf-8")
+
+            with patch.dict(os.environ, {"HOME": str(home)}), \
+                 patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {"gemini": mock_p}, clear=True):
+                result = setup_wizard.detect_clis()
+
+        assert result["gemini"]["detected"] is False
+        assert result["gemini"]["configured"] is True
+        assert "config detected" in result["gemini"]["message"]
 
     def test_detected_not_authenticated(self):
         """Detected but not authenticated reports auth_ok=False."""
@@ -473,6 +495,30 @@ class TestSetPreferences:
                 data = yaml.safe_load(f)
             assert "cli_configs" in data
             assert isinstance(data["cli_configs"], dict)
+
+    def test_set_preferences_persists_detected_clis_with_installed_and_configured(self):
+        from hooks import setup_wizard
+        import yaml
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            setup_wizard.set_preferences(
+                tmpdir,
+                {
+                    "detected_clis": {
+                        "codex": {"detected": True, "configured": False},
+                        "gemini": {"detected": False, "configured": True},
+                    }
+                },
+            )
+
+            config_path = os.path.join(tmpdir, ".omg", "state", "cli-config.yaml")
+            with open(config_path) as f:
+                data = yaml.safe_load(f)
+
+        assert data["detected_clis"]["codex"]["installed"] is True
+        assert data["detected_clis"]["codex"]["configured"] is False
+        assert data["detected_clis"]["gemini"]["installed"] is False
+        assert data["detected_clis"]["gemini"]["configured"] is True
 
     def test_set_preferences_default_config_has_all_clis(self):
         """Default config should have entries for codex, gemini, and kimi only."""

@@ -390,11 +390,19 @@ def detect_clis() -> dict[str, Any]:
         }
     """
     results: dict[str, Any] = {}
+    host_config_paths = {
+        "codex": Path.home() / ".codex" / "config.toml",
+        "gemini": Path.home() / ".gemini" / "settings.json",
+        "kimi": Path.home() / ".kimi" / "mcp.json",
+    }
 
     for name in list_available_providers():
         provider = get_provider(name)
         if provider is None:
             continue
+
+        config_path = host_config_paths.get(name)
+        configured = bool(config_path and config_path.exists())
 
         try:
             detected = provider.detect()
@@ -415,9 +423,12 @@ def detect_clis() -> dict[str, Any]:
         else:
             hint = _INSTALL_HINTS.get(name, f"Install the '{name}' CLI")
             message = f"Not found. Install: {hint}"
+            if configured and config_path is not None:
+                message = f"{message} (config detected at {config_path})"
 
         results[name] = {
             "detected": detected,
+            "configured": configured,
             "auth_ok": auth_ok,
             "message": message,
         }
@@ -604,6 +615,7 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         "preset": preset,
         "resolved_features": get_preset_features(preset),
         "cli_configs": default_cli_configs,
+        "detected_clis": {},
         "selected_mcps": get_default_mcps_for_preset(preset),
         "browser_capability": {"enabled": False},
     }
@@ -623,6 +635,23 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
             default_config["browser_capability"] = {
                 "enabled": bool(browser_capability.get("enabled", False))
             }
+        install_planner = importlib.import_module("runtime.install_planner")
+        normalize_detected = cast(
+            Any,
+            getattr(install_planner, "normalize_detected_clis", None),
+        )
+        if callable(normalize_detected):
+            raw_detected_clis = preferences.get("detected_clis")
+            normalized_detected_clis = cast(dict[str, Any], normalize_detected(raw_detected_clis))
+            persisted_detected: dict[str, Any] = {}
+            for host, host_state in normalized_detected_clis.items():
+                if not isinstance(host_state, dict):
+                    continue
+                persisted_detected[host] = {
+                    "installed": bool(host_state.get("detected", False)),
+                    "configured": bool(host_state.get("configured", False)),
+                }
+            default_config["detected_clis"] = persisted_detected
 
     _write_project_settings_preset(project_dir, preset)
 
@@ -992,6 +1021,7 @@ def run_setup_wizard(
             "preset": selected_preset,
             "selected_mcps": selected_mcps,
             "browser_capability": {"enabled": browser_enabled},
+            "detected_clis": clis,
         },
     )
     report_path = write_adoption_report(project_dir, adoption)
