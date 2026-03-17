@@ -42,6 +42,12 @@ _MCP_MIN_PRESET: dict[str, str] = {
     "chrome-devtools": "labs",
 }
 
+_HOST_CONFIG_PATHS: dict[str, tuple[str, ...]] = {
+    "codex": (".codex", "config.toml"),
+    "gemini": (".gemini", "settings.json"),
+    "kimi": (".kimi", "mcp.json"),
+}
+
 
 @dataclass
 class InstallAction:
@@ -108,6 +114,41 @@ def _resolve_selected_servers(
         for server_id in normalized_ids
         if server_id in _DEFAULT_MCP_SPECS
     }
+
+
+def normalize_detected_clis(
+    detected_clis: dict[str, Any] | None,
+    *,
+    home_path: Path | None = None,
+) -> dict[str, dict[str, Any]]:
+    normalized: dict[str, dict[str, Any]] = {}
+    home = home_path or Path.home()
+    payload = detected_clis if isinstance(detected_clis, dict) else {}
+
+    for host, raw_state in payload.items():
+        state = dict(raw_state) if isinstance(raw_state, dict) else {}
+        detected = bool(state.get("detected", False))
+        configured_raw = state.get("configured")
+        configured: bool
+        if isinstance(configured_raw, bool):
+            configured = configured_raw
+        elif host in _HOST_CONFIG_PATHS:
+            configured = (home / Path(*_HOST_CONFIG_PATHS[host])).exists()
+        else:
+            configured = False
+        state["detected"] = detected
+        state["configured"] = configured
+        normalized[host] = state
+
+    for host, rel_parts in _HOST_CONFIG_PATHS.items():
+        if host in normalized:
+            continue
+        normalized[host] = {
+            "detected": False,
+            "configured": (home / Path(*rel_parts)).exists(),
+        }
+
+    return normalized
 
 
 def _load_json_path(path: Path) -> dict[str, Any]:
@@ -328,6 +369,7 @@ def compute_install_plan(
     del mode
 
     project_path = Path(project_dir)
+    normalized_clis = normalize_detected_clis(detected_clis)
     resolved_control_args = list(control_args or ["-m", "runtime.omg_mcp_server"])
     selected = _resolve_selected_servers(
         selected_ids=selected_ids,
@@ -371,7 +413,7 @@ def compute_install_plan(
     }
 
     for host, target_path in host_targets.items():
-        cli_info = detected_clis.get(host)
+        cli_info = normalized_clis.get(host)
         if not isinstance(cli_info, dict) or not bool(cli_info.get("detected", False)):
             continue
 

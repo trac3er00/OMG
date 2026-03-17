@@ -293,6 +293,23 @@ def test_host_discovery_missing_configs_degrade_gracefully(tmp_path: Path, monke
     assert payload is not None
 
 
+def test_host_discovery_reports_installed_and_configured_separately(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    gemini_path = tmp_path / ".gemini" / "settings.json"
+    gemini_path.parent.mkdir(parents=True)
+    gemini_path.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
+
+    with patch("runtime.plugin_interop.shutil.which") as mock_which:
+        mock_which.return_value = None
+        payload = discover_host_plugin_state(str(tmp_path))
+
+    assert payload.host_state["gemini"]["installed"] is False
+    assert payload.host_state["gemini"]["configured"] is True
+
+
 def test_collision_mcp_name_same_host() -> None:
     records = [
         PluginInteropRecord(

@@ -7,6 +7,7 @@ from pathlib import Path
 install_planner = importlib.import_module("runtime.install_planner")
 compute_install_plan = install_planner.compute_install_plan
 execute_plan = install_planner.execute_plan
+normalize_detected_clis = install_planner.normalize_detected_clis
 
 
 def _selected_servers() -> dict[str, dict[str, object]]:
@@ -127,3 +128,24 @@ def test_compute_install_plan_has_separate_actions_for_detected_hosts(
     assert "codex" in hosts
     assert "gemini" in hosts
     assert "kimi" in hosts
+
+
+def test_normalize_detected_clis_derives_configured_state_from_host_configs(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    gemini_config = home / ".gemini" / "settings.json"
+    gemini_config.parent.mkdir(parents=True)
+    gemini_config.write_text("{}\n", encoding="utf-8")
+
+    normalized = normalize_detected_clis(
+        {
+            "gemini": {"detected": False},
+            "codex": {"detected": True},
+        },
+        home_path=home,
+    )
+
+    assert normalized["gemini"]["detected"] is False
+    assert normalized["gemini"]["configured"] is True
+    assert normalized["codex"]["detected"] is True
+    assert normalized["codex"]["configured"] is False
+    assert normalized["kimi"]["detected"] is False
