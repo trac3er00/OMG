@@ -140,7 +140,7 @@ Confirm your setup with this checklist:
 | Error Code | Cause | Resolution |
 | :--- | :--- | :--- |
 | `GITHUB_CREDENTIALS_MISSING` | One or more env vars are empty. | Check that `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, and `GITHUB_INSTALLATION_ID` are set. |
-| `GITHUB_APP_PRIVATE_KEY_INVALID` | The PEM key is malformed or not RSA. | Ensure the secret contains the full `-----BEGIN RSA PRIVATE KEY-----` block and no extra whitespace. |
+| `GITHUB_APP_PRIVATE_KEY_INVALID` | The PEM key is malformed or not RSA. | Ensure the secret contains the full `<RSA PRIVATE KEY PEM HEADER>` block and no extra whitespace. |
 | `GITHUB_JWT_SIGNING_FAILED` | Cryptography error during signing. | Verify your environment has the required dependencies installed. |
 | `GITHUB_TOKEN_REQUEST_FAILED` | Network error or GitHub API downtime. | Check your internet connection and GitHub Status. |
 | `GITHUB_TOKEN_REQUEST_REJECTED` | 403/404 error from GitHub. | Verify the `GITHUB_INSTALLATION_ID` is correct and the app is installed on the repo. |
