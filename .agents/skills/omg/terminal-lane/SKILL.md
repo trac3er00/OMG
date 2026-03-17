@@ -5,7 +5,7 @@ description: "Highest-risk governed terminal execution lane with strict approval
 
 # OMG Terminal Lane
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/terminal-lane-{run_id}.json`

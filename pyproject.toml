@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oh-my-god"
-version = "2.2.6"
+version = "2.2.7"
 description = "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,6 +27,7 @@ dependencies = [
     "cryptography>=44.0",
     "fastmcp>=2.0",
     "requests>=2.28",
+    "tomlkit>=0.13",
 ]
 
 [project.optional-dependencies]

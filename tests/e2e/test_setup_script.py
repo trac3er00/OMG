@@ -1645,3 +1645,74 @@ def test_setup_uninstall_preserves_non_omg_settings(tmp_path: Path):
     assert any("/my-linter" in str(c) for c in custom_cmds), (
         "Non-OMG hook /my-linter should be preserved after uninstall"
     )
+
+
+def test_setup_uninstall_verify_clean_dry_run(tmp_path: Path):
+    """--verify-clean --dry-run --non-interactive exits 0 and stdout contains host_configs_cleaned."""
+    claude_dir = tmp_path / ".claude"
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+    # Install first so there's something to uninstall
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    proc = _run_script(
+        SETUP,
+        ["uninstall", "--verify-clean", "--non-interactive", "--dry-run"],
+        env=env,
+    )
+    assert proc.returncode == 0, f"exit {proc.returncode}\nstdout: {proc.stdout}\nstderr: {proc.stderr}"
+    combined = proc.stdout + proc.stderr
+    assert "verification_status" in combined, (
+        f"verify-clean output must contain verification_status, got:\n{combined}"
+    )
+
+
+def test_setup_uninstall_host_configs_cleaned_non_empty(tmp_path: Path):
+    """After install with detected hosts, uninstall receipt has real paths in host_configs_cleaned."""
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+
+    # Create fake binaries for detected hosts
+    for binary in ("codex", "gemini", "kimi"):
+        script = fake_bin / binary
+        _ = script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        script.chmod(0o755)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
+    }
+
+    # Install OMG with detected hosts on PATH
+    install_proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert install_proc.returncode == 0
+
+    # Uninstall OMG
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    receipt_path = claude_dir / ".omg-uninstall-receipt.json"
+    assert receipt_path.exists(), "Uninstall receipt should exist"
+
+    receipt = cast(dict[str, object], json.loads(receipt_path.read_text(encoding="utf-8")))
+    host_configs = receipt.get("host_configs_cleaned")
+    assert isinstance(host_configs, list), "host_configs_cleaned must be a list"
+    assert len(host_configs) > 0, (
+        f"host_configs_cleaned must not be empty when hosts were detected, got: {host_configs}"
+    )
+    # Must contain real paths, not literal "[]"
+    assert all(isinstance(p, str) and len(p) > 2 for p in host_configs), (
+        f"host_configs_cleaned must contain real paths, got: {host_configs}"
+    )

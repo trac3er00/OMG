@@ -5,7 +5,7 @@
     {
       "name": "bundle/plugins/advanced/plugin.json",
       "digest": {
-        "sha256": "d6221406efd2928a554954a711a31218dd4c487030b7090c4aa0e30aa1f889c3"
+        "sha256": "d691786f6c0bf22c26cc56625a6cf8ba3d988ce69d71624326f16681042be054"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T19:27:46.277433+00:00"
+      "timestamp": "2026-03-16T21:33:13.840054+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T19:27:46.277433+00:00",
+  "issued_at": "2026-03-16T21:33:13.840054+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "e299e02cda8493fd",
-    "value": "untrusted comment: signature from omg local signing key\n4F8yjTtiZO03pWQ7zEz6kFbglQIfalsIZ/vWhooj1f7+bEZ+NvpGZVj31D0KvqWEODVoW0zjL+suZZVioyVyCw==\ntrusted comment: type=omg-slsa-v1 keyid=e299e02cda8493fd issued_at=2026-03-16T19:27:46.277544+00:00 artifact=bundle/plugins/advanced/plugin.json sha256=d6221406efd2928a554954a711a31218dd4c487030b7090c4aa0e30aa1f889c3\n7UslChlwctdYSWtZmcEsLIA8cP5b+CApUDjYtjJpmx0Ck4fnAcmeIlW2afVIOWZiM8qRQzOt1BSeaFwBE4m3Ag==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=e299e02cda8493fd issued_at=2026-03-16T19:27:46.277544+00:00 artifact=bundle/plugins/advanced/plugin.json sha256=d6221406efd2928a554954a711a31218dd4c487030b7090c4aa0e30aa1f889c3"
+    "keyid": "13e8bf75c8d30f99",
+    "value": "untrusted comment: signature from omg local signing key\nGF4z6Kr9yEPqeBHVAqKjUAoolfGYB6uuO2PpdLSzpaepu0HpGBiPNzfmCBCTTOAqbnNFzs0cUfc1/q5bRuyVAg==\ntrusted comment: type=omg-slsa-v1 keyid=13e8bf75c8d30f99 issued_at=2026-03-16T21:33:13.840158+00:00 artifact=bundle/plugins/advanced/plugin.json sha256=d691786f6c0bf22c26cc56625a6cf8ba3d988ce69d71624326f16681042be054\nosE4YmIiBpS+vDJvE+fqXeOZiCBtUsFFhH4f1I/gnYtPDY8C9IZy69+Egek8Y9l8d3o96swnAUp9HahL+QnxDA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=13e8bf75c8d30f99 issued_at=2026-03-16T21:33:13.840158+00:00 artifact=bundle/plugins/advanced/plugin.json sha256=d691786f6c0bf22c26cc56625a6cf8ba3d988ce69d71624326f16681042be054"
   }
 }

@@ -9,6 +9,9 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, cast
 
+import tomlkit
+import tomlkit.exceptions
+
 from hooks.security_validators import (
     toml_quote_string,
     validate_server_name,
@@ -240,75 +243,38 @@ def write_claude_mcp_stdio_config(
 
 def _compute_codex_toml_http(target_path: Path, server_url: str, server_name: str) -> str:
     existing = _get_current_content(target_path)
-    lines = existing.splitlines(keepends=True)
+    try:
+        doc = tomlkit.parse(existing) if existing else tomlkit.document()
+    except tomlkit.exceptions.ParseError as exc:
+        raise ValueError(f"Malformed TOML in {target_path}: {exc}") from exc
 
-    header_unquoted = f"[mcp_servers.{server_name}]"
-    header_quoted = f"[mcp_servers.\"{server_name}\"]"
-    headers = {header_unquoted, header_quoted}
+    if "mcp_servers" not in doc:
+        doc.add("mcp_servers", tomlkit.table(is_super_table=True))
 
-    start_idx: int | None = None
-    for idx, line in enumerate(lines):
-        if line.strip() in headers:
-            start_idx = idx
-            break
+    entry = tomlkit.table()
+    entry.add("type", "http")
+    entry.add("url", toml_quote_string(server_url))
+    doc["mcp_servers"][server_name] = entry
 
-    block = [
-        f"{header_unquoted}\n",
-        'type = "http"\n',
-        f'url = "{toml_quote_string(server_url)}"\n',
-        "\n",
-    ]
-
-    if start_idx is None:
-        if existing and not existing.endswith("\n"):
-            existing += "\n"
-        return existing + "".join(block)
-
-    end_idx = len(lines)
-    for idx in range(start_idx + 1, len(lines)):
-        stripped = lines[idx].strip()
-        if stripped.startswith("[") and stripped.endswith("]"):
-            end_idx = idx
-            break
-
-    return "".join(lines[:start_idx] + block + lines[end_idx:])
+    return tomlkit.dumps(doc)
 
 
 def _compute_codex_toml_stdio(target_path: Path, command: str, args: list[str], server_name: str) -> str:
     existing = _get_current_content(target_path)
-    lines = existing.splitlines(keepends=True)
+    try:
+        doc = tomlkit.parse(existing) if existing else tomlkit.document()
+    except tomlkit.exceptions.ParseError as exc:
+        raise ValueError(f"Malformed TOML in {target_path}: {exc}") from exc
 
-    header_unquoted = f"[mcp_servers.{server_name}]"
-    header_quoted = f"[mcp_servers.\"{server_name}\"]"
-    headers = {header_unquoted, header_quoted}
+    if "mcp_servers" not in doc:
+        doc.add("mcp_servers", tomlkit.table(is_super_table=True))
 
-    start_idx: int | None = None
-    for idx, line in enumerate(lines):
-        if line.strip() in headers:
-            start_idx = idx
-            break
+    entry = tomlkit.table()
+    entry.add("command", toml_quote_string(command))
+    entry.add("args", [toml_quote_string(a) for a in args])
+    doc["mcp_servers"][server_name] = entry
 
-    args_text = ", ".join(f'"{toml_quote_string(arg)}"' for arg in args)
-    block = [
-        f"{header_unquoted}\n",
-        f'command = "{toml_quote_string(command)}"\n',
-        f"args = [{args_text}]\n",
-        "\n",
-    ]
-
-    if start_idx is None:
-        if existing and not existing.endswith("\n"):
-            existing += "\n"
-        return existing + "".join(block)
-
-    end_idx = len(lines)
-    for idx in range(start_idx + 1, len(lines)):
-        stripped = lines[idx].strip()
-        if stripped.startswith("[") and stripped.endswith("]"):
-            end_idx = idx
-            break
-
-    return "".join(lines[:start_idx] + block + lines[end_idx:])
+    return tomlkit.dumps(doc)
 
 
 def write_codex_mcp_config(

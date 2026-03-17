@@ -1,0 +1,9 @@
+{
+  "pack_id": "fintech",
+  "pack_path": "registry/policy-packs/fintech.yaml",
+  "canonical_digest": "80be3bbba85fcaefc5b050d42266498cee194696e1977a17b6b8997aaefbefe5",
+  "signer_key_id": "1f5fe64ec2f8c901",
+  "algorithm": "ed25519",
+  "signature_path": "registry/policy-packs/fintech.signature.json",
+  "created_at": "2026-03-17T02:45:29.335689+00:00"
+}

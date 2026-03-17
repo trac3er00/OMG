@@ -83,9 +83,9 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 - Normative spec: `OMG_COMPAT_CONTRACT.md`
 - Executable registry: `registry/omg-capability.schema.json` and `registry/bundles/*.yaml`
 - Generated Codex pack: `.agents/skills/omg/`
-- Validation: `python3 scripts/omg.py contract validate`
-- Compilation: `python3 scripts/omg.py contract compile --host claude --host codex --host gemini --host kimi --channel public`
-- Release gate: `python3 scripts/omg.py release readiness --channel dual`
+- Validation: `omg contract validate`
+- Compilation: `omg contract compile --host claude --host codex --host gemini --host kimi --channel public`
+- Release gate: `omg release readiness --channel dual`
 
 ![OMG HUD](docs/assets/omg-hud.svg)
 
@@ -211,3 +211,39 @@ Public contributions are welcome.
 ## Positioning
 
 OMG is a plugin and orchestration layer for supported CLIs. It is not a base-model training project. The goal is to make frontier agent hosts tighter, safer, more interoperable, and more verifiable than the default experience.
+
+<!-- OMG:GENERATED:quickstart -->
+Install with npm or bunx:
+
+```bash
+npm install @trac3er/oh-my-god
+# or
+bunx @trac3er/oh-my-god
+```
+
+Then run:
+
+```text
+/OMG:setup
+/OMG:browser <goal>
+/OMG:crazy <goal>
+```
+<!-- /OMG:GENERATED:quickstart -->
+
+<!-- OMG:GENERATED:command-surface -->
+- `omg ship`
+- `omg fix`
+- `omg issue`
+- `omg undo`
+- `omg secure`
+- `omg security`
+- `omg waive-tests`
+- `omg api-twin`
+- `omg preflight`
+- `omg resolve-policy`
+- `omg policy-pack`
+- `omg proof`
+- `omg blocked`
+- `omg explain`
+- `omg budget`
+<!-- /OMG:GENERATED:command-surface -->

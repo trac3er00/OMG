@@ -43,4 +43,8 @@ jobs:
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
           GITHUB_INSTALLATION_ID: ${{ secrets.GITHUB_INSTALLATION_ID }}
           OMG_REVIEWER_HANDOFF_PATH: artifacts/reviewer-bot-pr-input.json
-        run: python3 scripts/github_review_helpers.py post-review
+        run: |
+          python3 scripts/github_review_helpers.py post-review \
+            --event-path artifacts/reviewer-bot-pr-event.json \
+            --input artifacts/reviewer-bot-pr-input.json \
+            --output artifacts/reviewer-bot-pr-output.json

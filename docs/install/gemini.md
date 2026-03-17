@@ -33,3 +33,15 @@ Optional browser capability:
 
 - Gemini uses native MCP registration; it does not consume Claude `/OMG:*` slash commands
 - OMG support on Gemini is the shared runtime plus MCP control plane
+
+<!-- OMG:GENERATED:install-fast-path -->
+## Fast Path
+
+```bash
+npm install @trac3er/oh-my-god
+# or
+bunx @trac3er/oh-my-god
+```
+
+This registers the OMG control plane for your host automatically.
+<!-- /OMG:GENERATED:install-fast-path -->

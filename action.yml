@@ -1,0 +1,46 @@
+name: 'OMG PR Reviewer'
+description: 'Run OMG governance checks and post a PR review with evidence-backed verdict'
+author: 'OMG'
+branding:
+  icon: 'shield'
+  color: 'purple'
+inputs:
+  repo-full-name:
+    description: 'Repository full name (owner/repo)'
+    required: true
+  pr-number:
+    description: 'Pull request number'
+    required: true
+  head-sha:
+    description: 'PR head SHA'
+    required: true
+  github-app-id:
+    description: 'GitHub App ID for posting the review'
+    required: true
+  github-app-installation-id:
+    description: 'GitHub App installation ID'
+    required: true
+  github-app-private-key:
+    description: 'GitHub App private key (PEM)'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: pip
+    - name: Install OMG
+      shell: bash
+      run: pip install -e . --quiet
+    - name: Post PR review
+      shell: bash
+      env:
+        GITHUB_APP_ID: ${{ inputs.github-app-id }}
+        GITHUB_APP_PRIVATE_KEY: ${{ inputs.github-app-private-key }}
+        GITHUB_INSTALLATION_ID: ${{ inputs.github-app-installation-id }}
+      run: |
+        python3 scripts/github_review_helpers.py post-review \
+          --event-path artifacts/reviewer-bot-pr-event.json \
+          --input artifacts/reviewer-bot-pr-input.json \
+          --output artifacts/reviewer-bot-pr-output.json

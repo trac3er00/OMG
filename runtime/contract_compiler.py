@@ -29,6 +29,7 @@ from runtime.runtime_contracts import schema_versions
 from runtime.compliance_governor import evaluate_release_compliance
 from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active
 from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
+from runtime.release_surface_registry import get_public_surfaces, validate_registry
 from runtime.worker_watchdog import get_worker_watchdog
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
@@ -37,7 +38,8 @@ from runtime.adoption import (
     CANONICAL_REPO_URL,
     CANONICAL_VERSION,
 )
-from runtime.canonical_taxonomy import CANONICAL_PRESETS, RELEASE_CHANNELS
+from runtime.canonical_taxonomy import CANONICAL_PRESETS, POLICY_PACK_IDS, RELEASE_CHANNELS
+from registry.approval_artifact import verify_approval_artifact
 from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
 from registry.verify_artifact import sign_artifact_statement, verify_artifact_statement
 
@@ -1837,6 +1839,100 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
     }
 
 
+def _check_release_surface_drift(root: Path, output_root: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    checks: dict[str, Any] = {}
+
+    registry_errors = validate_registry()
+    if registry_errors:
+        return {
+            "status": "error",
+            "blockers": [f"release_surface_drift: registry invalid: {e}" for e in registry_errors],
+            "checks": {"registry_valid": False},
+        }
+    checks["registry_valid"] = True
+
+    manifest_path = output_root / "dist" / "public" / "release-surface.json"
+    if not manifest_path.exists():
+        blockers.append("release_surface_drift: dist/public/release-surface.json not found")
+        return {"status": "error", "blockers": blockers, "checks": checks}
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        blockers.append(f"release_surface_drift: release-surface.json unreadable: {exc}")
+        return {"status": "error", "blockers": blockers, "checks": checks}
+
+    surfaces = get_public_surfaces()
+    manifest_surfaces = manifest.get("surfaces", [])
+    manifest_ids = {s.get("id") for s in manifest_surfaces if isinstance(s, dict)}
+    registry_ids = {s["id"] for s in surfaces}
+
+    public_launchers = [
+        s for s in surfaces
+        if s.get("category") == "launcher" and s.get("scope") == "public"
+    ]
+    launcher_names = {s.get("launcher_name") for s in public_launchers}
+    launcher_in_manifest = any(
+        s.get("launcher_name") == "omg" and s.get("scope") == "public"
+        for s in manifest_surfaces
+        if isinstance(s, dict) and s.get("category") == "launcher"
+    )
+    checks["launcher_omg_in_manifest"] = launcher_in_manifest
+    if "omg" in launcher_names and not launcher_in_manifest:
+        blockers.append("release_surface_drift: launcher 'omg' missing from compiled manifest")
+
+    pkg_path = root / "package.json"
+    if pkg_path.exists():
+        try:
+            pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pkg = {}
+    else:
+        pkg = {}
+
+    expected_bin_key = next(
+        (s.get("bin_key") for s in surfaces if s.get("id") == "npm_bin_key"),
+        "omg",
+    )
+    bin_field = pkg.get("bin", {})
+    has_bin_key = isinstance(bin_field, dict) and expected_bin_key in bin_field
+    checks["npm_bin_key"] = has_bin_key
+    if not has_bin_key:
+        blockers.append(f"release_surface_drift: package.json missing npm bin.{expected_bin_key}")
+
+    expected_check_name = next(
+        (s.get("check_name") for s in surfaces if s.get("id") == "github_check_run_name"),
+        "OMG PR Reviewer",
+    )
+    manifest_check_names = [
+        s.get("check_name")
+        for s in manifest_surfaces
+        if isinstance(s, dict) and s.get("category") == "check_name"
+    ]
+    check_name_match = expected_check_name in manifest_check_names
+    checks["github_check_name"] = check_name_match
+    if not check_name_match:
+        blockers.append(
+            f"release_surface_drift: GitHub check name '{expected_check_name}' not in compiled manifest"
+        )
+
+    action_path_entry: str = next(
+        (s["path"] for s in surfaces if s.get("id") == "action_yaml" and "path" in s),
+        "action.yml",
+    )
+    action_exists = (root / action_path_entry).exists()
+    checks["action_yml_exists"] = action_exists
+    if not action_exists:
+        blockers.append(f"release_surface_drift: {action_path_entry} not found")
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "blockers": blockers,
+        "checks": checks,
+    }
+
+
 def _check_doctor_output(output_root: Path) -> dict[str, Any]:
     evidence_dir = output_root / ".omg" / "evidence"
     doctor_path = evidence_dir / "doctor.json"
@@ -2127,6 +2223,45 @@ def _check_high_risk_security_waivers(payload: dict[str, Any]) -> list[str]:
     return blockers
 
 
+def _check_policy_pack_signatures(root: Path) -> dict[str, Any]:
+    enforcing = os.environ.get("OMG_REQUIRE_TRUSTED_POLICY_PACKS") == "1"
+    if not enforcing:
+        return {"status": "ok", "enforcing": False, "blockers": []}
+
+    packs_dir = root / "registry" / "policy-packs"
+    blockers: list[str] = []
+
+    for pack_id in POLICY_PACK_IDS:
+        lock_path = packs_dir / f"{pack_id}.lock.json"
+        sig_path = packs_dir / f"{pack_id}.signature.json"
+
+        if not lock_path.is_file() or not sig_path.is_file():
+            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            continue
+
+        try:
+            lock_data = json.loads(lock_path.read_text(encoding="utf-8"))
+            sig_data = json.loads(sig_path.read_text(encoding="utf-8"))
+        except Exception:
+            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            continue
+
+        expected_digest = str(lock_data.get("canonical_digest", "")).strip()
+        if not expected_digest:
+            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            continue
+
+        result = verify_approval_artifact(sig_data, expected_digest)
+        if not result.get("valid"):
+            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "enforcing": True,
+        "blockers": blockers,
+    }
+
+
 def build_release_readiness(
     *,
     root_dir: str | Path | None = None,
@@ -2310,6 +2445,14 @@ def build_release_readiness(
     version_drift_check = _check_version_identity_drift(root)
     checks["version_identity_drift"] = version_drift_check
     blockers.extend(version_drift_check.get("blockers", []))
+
+    surface_drift_check = _check_release_surface_drift(root, output)
+    checks["release_surface_drift"] = surface_drift_check
+    blockers.extend(surface_drift_check.get("blockers", []))
+
+    policy_sig_check = _check_policy_pack_signatures(root)
+    checks["policy_pack_signatures"] = policy_sig_check
+    blockers.extend(policy_sig_check.get("blockers", []))
 
     if channel == "dual":
         bundle_promotion_parity = _check_bundle_promotion_parity(root, output)

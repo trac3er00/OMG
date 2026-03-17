@@ -376,6 +376,17 @@ jobs:
           path: artifacts/release
           merge-multiple: true
 
+      - name: Compile release surfaces into output root
+        run: |
+          python3 -c "
+          from pathlib import Path
+          from runtime.release_surface_compiler import compile_release_surfaces
+          result = compile_release_surfaces(Path('artifacts/release'))
+          print('Release surface compilation:', result['status'])
+          for a in result.get('artifacts', []):
+              print('  -', a)
+          "
+
       - name: Restore canonical settings.json after artifact merge
         run: |
           cp settings.json artifacts/release/settings.json
@@ -386,6 +397,7 @@ jobs:
           OMG_REQUIRE_HOST_PARITY_REPORT: "1"
           OMG_REQUIRE_EXEC_KERNEL_EVIDENCE: "1"
           OMG_REQUIRE_GOVERNED_TOOL_EVIDENCE: "1"
+          OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"
           OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
         run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release | tee artifacts/release/.omg/evidence/release-readiness.json; test ${PIPESTATUS[0]} -eq 0
 

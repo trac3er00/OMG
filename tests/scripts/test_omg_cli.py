@@ -1170,12 +1170,15 @@ def test_policy_pack_scaffold_returns_template():
     assert "output_path" in out
 
 
-def test_policy_pack_sign_returns_not_implemented():
+def test_policy_pack_sign_requires_signing_key():
+    """policy-pack sign now requires a signing key (no longer a stub)."""
     proc = _run(["policy-pack", "sign", "airgapped", "--format", "json"])
-    assert proc.returncode == 2
+    # Without OMG_SIGNING_KEY or --key-path, exits 1 with a clear error
+    assert proc.returncode == 1
     out = json.loads(proc.stdout)
-    assert out["schema"] == "OperatorContractStub"
-    assert out["status"] == "not_implemented"
+    assert out["schema"] == "PolicyPackSign"
+    assert out["status"] == "error"
+    assert "signing key" in out.get("error", "").lower()
 
 
 # --- doctor repair-pack tests ---
@@ -1372,6 +1375,71 @@ def test_cli_doctor_fix_non_fixable_checks_have_suggestion():
     assert "suggestion" in by_name["fastmcp"]
     assert isinstance(by_name["fastmcp"]["suggestion"], str)
     assert len(by_name["fastmcp"]["suggestion"]) > 0
+
+
+# --- blocked --last tests ---
+
+
+def test_cli_blocked_last_no_state(tmp_path: Path):
+    """omg blocked --last exits 0 with 'no block explanation' when state file absent."""
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+    proc = _run(["blocked", "--last"], env=env)
+    assert proc.returncode == 0
+    assert "no block explanation" in proc.stdout.lower()
+
+
+def test_cli_blocked_last_text_format(tmp_path: Path):
+    """omg blocked --last --format text returns structured output when state file exists."""
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    block = {
+        "reason_code": "no_active_test_intent_lock",
+        "explanation": "Blocked due to missing test-intent lock",
+        "tool": "Bash",
+        "timestamp": "2026-03-16T00:00:00Z",
+    }
+    (state_dir / "last-block-explanation.json").write_text(json.dumps(block), encoding="utf-8")
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+    proc = _run(["blocked", "--last", "--format", "text"], env=env)
+    assert proc.returncode == 0
+    assert "Blocked due to missing test-intent lock" in proc.stdout
+    assert "no_active_test_intent_lock" in proc.stdout
+
+
+# --- proof open tests ---
+
+
+def test_cli_proof_open_no_evidence(tmp_path: Path):
+    """omg proof open exits 0 with guidance when no evidence pack exists."""
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+    proc = _run(["proof", "open"], env=env)
+    assert proc.returncode == 0
+    assert "no evidence" in proc.stdout.lower()
+
+
+def test_cli_proof_open_writes_file(tmp_path: Path):
+    """omg proof open exits 0 and writes proof-open markdown file when evidence pack exists."""
+    evidence_dir = tmp_path / ".omg" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    pack = {
+        "schema": "EvidencePack",
+        "run_id": "test-run-42",
+        "status": "pass",
+        "blockers": [],
+        "next_steps": [],
+        "evidence_paths": {},
+        "claims": [],
+        "artifacts": [],
+    }
+    (evidence_dir / "pack-test-run-42.json").write_text(json.dumps(pack), encoding="utf-8")
+    env = {"CLAUDE_PROJECT_DIR": str(tmp_path)}
+    proc = _run(["proof", "open", "--format", "markdown"], env=env)
+    assert proc.returncode == 0
+    assert "test-run-42" in proc.stdout
+    out_file = evidence_dir / "proof-open-test-run-42.md"
+    assert out_file.exists()
+    content = out_file.read_text(encoding="utf-8")
+    assert "OMG Verdict" in content
 
 
 def test_cli_doctor_fix_json_receipt_has_required_fields():

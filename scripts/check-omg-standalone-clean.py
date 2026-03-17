@@ -36,6 +36,24 @@ ALLOW_LEGACY_RUNTIME_IMPORT = {
     ROOT / "scripts" / "check-omg-standalone-clean.py",
 }
 
+ALLOW_INTERNAL_PYTHON_CLI_PREFIXES: list[str] = [
+    "package.json",
+    ".github/workflows/",
+    "tests/",
+    "scripts/",
+    "runtime/",
+    "hooks/",
+    "docs/migration/",
+    "docs/release-checklist.md",
+    ".sisyphus/",
+]
+
+PUBLIC_SURFACE_GLOBS = [
+    "README.md",
+    "docs/install/*.md",
+    "docs/command-surface.md",
+]
+
 SCAN_GLOBS = [
     "README.md",
     "OMG-setup.sh",
@@ -91,6 +109,17 @@ def main() -> int:
         if _contains(path, "runtime.legacy_compat"):
             if path not in ALLOW_LEGACY_RUNTIME_IMPORT:
                 violations.append(f"{rel}: legacy runtime import outside allowlist")
+
+    for pattern in PUBLIC_SURFACE_GLOBS:
+        for path in sorted(root.glob(pattern)):
+            if not path.is_file():
+                continue
+            rel = path.relative_to(root)
+            rel_str = str(rel)
+            if any(rel_str.startswith(pfx) or rel_str == pfx for pfx in ALLOW_INTERNAL_PYTHON_CLI_PREFIXES):
+                continue
+            if _contains(path, "python3 scripts/omg.py"):
+                violations.append(f"{rel}: public doc uses python3 scripts/omg.py instead of omg launcher")
 
     if violations:
         print(json.dumps({"status": "error", "violations": violations}, indent=2))

@@ -24,6 +24,8 @@ from runtime.contract_compiler import (
     REQUIRED_CODEX_AGENTS_SECTIONS,
     REQUIRED_CODEX_OUTPUTS,
     _get_required_advanced_plugin_artifacts,
+    _check_release_surface_drift,
+    _check_policy_pack_signatures,
     check_package_parity,
     build_release_readiness,
     compile_contract_outputs,
@@ -93,6 +95,24 @@ def _patch_fast_release_checks(monkeypatch) -> None:
             "status": "ok",
             "required_surfaces": ["hash-edit", "ast-pack", "terminal-lane"],
             "machine_blockers": [],
+            "blockers": [],
+        },
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_release_surface_drift",
+        lambda _root, _output: {
+            "status": "ok",
+            "blockers": [],
+            "checks": {},
+        },
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_policy_pack_signatures",
+        lambda _root: {
+            "status": "ok",
+            "enforcing": False,
             "blockers": [],
         },
     )
@@ -1654,6 +1674,11 @@ def test_release_readiness_blocks_prose_only_proof_claims(tmp_path: Path, monkey
         "_check_version_identity_drift",
         lambda _root: {"status": "ok", "blockers": []},
     )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_release_surface_drift",
+        lambda _root, _output: {"status": "ok", "blockers": [], "checks": {}},
+    )
 
     readiness = build_release_readiness(root_dir=proof_root, output_root=tmp_path, channel="public")
 
@@ -2945,3 +2970,172 @@ def test_contract_doc_does_not_contain_labs_as_channel() -> None:
             if "not a" in line.lower() or "not as a" in line.lower():
                 continue
             pytest.fail(f"Potential 'labs' as channel reference found: {line}")
+
+
+# ── Release surface drift gate ──────────────────────────────────────────────
+
+
+def _build_surface_drift_fixture(
+    root: Path,
+    output: Path,
+    *,
+    bin_key: str | None = None,
+    action_yml: bool = True,
+) -> None:
+    from runtime.release_surface_registry import get_public_surfaces
+
+    surfaces = get_public_surfaces()
+    manifest = {
+        "generated_by": "omg release compile-surfaces",
+        "version": "2.2.7",
+        "generated_at": "2025-01-01T00:00:00+00:00",
+        "surfaces": surfaces,
+    }
+    manifest_dir = output / "dist" / "public"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    (manifest_dir / "release-surface.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8",
+    )
+
+    pkg: dict[str, object] = {"name": "@trac3er/oh-my-god", "version": "2.2.7"}
+    if bin_key is not None:
+        pkg["bin"] = {bin_key: "./OMG-setup.sh"}
+    (root / "package.json").write_text(json.dumps(pkg, indent=2), encoding="utf-8")
+
+    if action_yml:
+        (root / "action.yml").write_text("name: OMG\n", encoding="utf-8")
+
+
+def test_release_surface_drift_no_blockers_when_agreement(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    _build_surface_drift_fixture(root, output, bin_key="omg", action_yml=True)
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+    assert "checks" in result
+
+
+def test_release_surface_drift_blocks_missing_npm_bin(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    _build_surface_drift_fixture(root, output, bin_key=None, action_yml=True)
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "error"
+    assert any("package.json missing npm bin.omg" in b for b in result["blockers"])
+
+
+def test_release_surface_drift_blocks_missing_action_yml(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    _build_surface_drift_fixture(root, output, bin_key="omg", action_yml=False)
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "error"
+    assert any("action.yml not found" in b for b in result["blockers"])
+
+
+def test_release_surface_drift_blocks_wrong_npm_bin_key(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    _build_surface_drift_fixture(root, output, bin_key="wrong-name", action_yml=True)
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "error"
+    assert any("package.json missing npm bin.omg" in b for b in result["blockers"])
+
+
+def test_release_surface_drift_blocks_missing_manifest(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    (root / "package.json").write_text('{"name":"test","version":"1.0.0","bin":{"omg":"./x"}}')
+    (root / "action.yml").write_text("name: OMG\n")
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "error"
+    assert any("release-surface.json" in b for b in result["blockers"])
+
+
+# ---------------------------------------------------------------------------
+# _check_policy_pack_signatures
+# ---------------------------------------------------------------------------
+
+
+def test_check_policy_pack_signatures_non_enforcing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", raising=False)
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["enforcing"] is False
+    assert result["blockers"] == []
+
+
+def test_check_policy_pack_signatures_enforcing_missing(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", "1")
+    packs_dir = tmp_path / "registry" / "policy-packs"
+    packs_dir.mkdir(parents=True)
+    for pack_id in ("locked-prod", "fintech", "airgapped"):
+        (packs_dir / f"{pack_id}.yaml").write_text(f"id: {pack_id}\n")
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "error"
+    assert result["enforcing"] is True
+    assert len(result["blockers"]) == 3
+    assert all("policy_pack_signature:" in b for b in result["blockers"])
+    assert any("locked-prod" in b for b in result["blockers"])
+    assert any("fintech" in b for b in result["blockers"])
+    assert any("airgapped" in b for b in result["blockers"])
+
+
+def test_check_policy_pack_signatures_enforcing_valid(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", "1")
+    packs_dir = tmp_path / "registry" / "policy-packs"
+    packs_dir.mkdir(parents=True)
+
+    digest = "a" * 64
+    for pack_id in ("locked-prod", "fintech", "airgapped"):
+        (packs_dir / f"{pack_id}.lock.json").write_text(
+            json.dumps({"canonical_digest": digest})
+        )
+        (packs_dir / f"{pack_id}.signature.json").write_text(
+            json.dumps({
+                "artifact_digest": digest,
+                "action": "policy-pack-sign",
+                "scope": f"policy-pack/{pack_id}",
+                "reason": "test",
+                "signer_key_id": "test-key",
+                "issued_at": "2026-01-01T00:00:00Z",
+                "signature": "test-sig",
+            })
+        )
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "verify_approval_artifact",
+        lambda approval, expected: {"valid": True, "reason": "verified"},
+    )
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["enforcing"] is True
+    assert result["blockers"] == []

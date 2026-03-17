@@ -68,6 +68,8 @@ MARKDOWN_LINK_RE = re.compile(r"!\[[^\]]*\]\(([^)]+)\)|\[[^\]]+\]\(([^)]+)\)")
 HTTP_URL_RE = re.compile(r"https?://[^\s)\]>'\"]+")
 ALLOW_PATTERN_REFERENCES = {
     ROOT / "scripts" / "check-omg-public-ready.py",
+    ROOT / "scripts" / "check-omg-standalone-clean.py",
+    ROOT / "scripts" / "omg.py",
 }
 ALLOW_DEPRECATED_MARKETPLACE = {
     ROOT / "OMG-setup.sh",

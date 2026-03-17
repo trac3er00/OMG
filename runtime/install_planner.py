@@ -495,3 +495,19 @@ def execute_plan(plan: InstallPlan, *, dry_run: bool = False) -> InstallResult:
         "receipt": receipt,
         "errors": errors,
     }
+
+
+def get_owned_install_paths(project_dir: str) -> list[str]:
+    home = Path.home()
+    project = Path(project_dir)
+    return [
+        str(home / ".codex" / "config.toml"),
+        str(home / ".gemini" / "settings.json"),
+        str(home / ".kimi" / "mcp.json"),
+        str(project / ".mcp.json"),
+        str(project / ".claude" / "settings.json"),
+        str(project / ".claude" / "hooks"),
+        str(project / ".claude" / "rules"),
+        str(project / ".claude" / "agents"),
+        str(project / ".claude" / "commands"),
+    ]

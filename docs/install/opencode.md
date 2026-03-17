@@ -28,3 +28,15 @@ cd OMG
 
 - OpenCode consumes OMG through compatibility-host MCP registration
 - canonical v2.2.5 behavior-parity hosts are Claude Code, Codex, Gemini CLI, and Kimi CLI
+
+<!-- OMG:GENERATED:install-fast-path -->
+## Fast Path
+
+```bash
+npm install @trac3er/oh-my-god
+# or
+bunx @trac3er/oh-my-god
+```
+
+This registers the OMG control plane for your host automatically.
+<!-- /OMG:GENERATED:install-fast-path -->

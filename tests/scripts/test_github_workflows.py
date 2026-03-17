@@ -325,6 +325,20 @@ def test_evidence_gate_reusable_workflow_exists_and_has_correct_structure() -> N
     assert "secrets.GITHUB_INSTALLATION_ID" in text
 
 
+def test_evidence_gate_post_review_passes_event_path_arg() -> None:
+    text = _read_workflow_text("evidence-gate.yml")
+    assert "--event-path artifacts/reviewer-bot-pr-event.json" in text, (
+        "evidence-gate.yml post-review step must pass --event-path artifacts/reviewer-bot-pr-event.json"
+    )
+
+
+def test_evidence_gate_post_review_passes_input_arg() -> None:
+    text = _read_workflow_text("evidence-gate.yml")
+    assert "--input artifacts/reviewer-bot-pr-input.json" in text, (
+        "evidence-gate.yml post-review step must pass --input artifacts/reviewer-bot-pr-input.json"
+    )
+
+
 def test_github_review_helpers_build_pr_handoff_and_assert_pass(tmp_path: Path) -> None:
     event = {
         "action": "opened",
