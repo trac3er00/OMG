@@ -286,6 +286,58 @@ def is_untrusted_content_mode_active(project_dir: str) -> bool:
     return bool(get_untrusted_content_state(project_dir).get("active", False))
 
 
+def check_staleness(
+    project_dir: str,
+    max_age_seconds: float = 3600.0,
+) -> dict[str, Any]:
+    """Check whether the untrusted-content state is stale.
+
+    This is a **read-only** diagnostic.  It never clears or mutates
+    the state file — ``clear_untrusted_content()`` remains the only
+    legitimate way to deactivate the ``active`` flag.
+
+    Returns a dict with ``stale`` (bool), ``age_seconds`` (float),
+    and ``recommendation`` (str).
+    """
+    state = get_untrusted_content_state(project_dir)
+    if not state.get("active", False):
+        return {
+            "stale": False,
+            "age_seconds": 0.0,
+            "recommendation": "no active untrusted content",
+        }
+
+    updated_at_raw = state.get("updated_at")
+    if not updated_at_raw:
+        return {
+            "stale": False,
+            "age_seconds": 0.0,
+            "recommendation": "no timestamp, assume fresh",
+        }
+
+    try:
+        updated_at = datetime.fromisoformat(updated_at_raw)
+    except (TypeError, ValueError):
+        return {
+            "stale": False,
+            "age_seconds": 0.0,
+            "recommendation": "no timestamp, assume fresh",
+        }
+
+    age_seconds = (datetime.now(timezone.utc) - updated_at).total_seconds()
+    if age_seconds > max_age_seconds:
+        return {
+            "stale": True,
+            "age_seconds": age_seconds,
+            "recommendation": "review or clear with clear_untrusted_content()",
+        }
+    return {
+        "stale": False,
+        "age_seconds": age_seconds,
+        "recommendation": "state is fresh",
+    }
+
+
 def quarantine_instruction_like_text(content: str) -> tuple[str, list[str]]:
     sanitized_lines: list[str] = []
     quarantined: list[str] = []
@@ -304,4 +356,5 @@ def _state_path(project_dir: str) -> Path:
 
 def _write_state(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")

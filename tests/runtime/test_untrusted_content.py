@@ -3,8 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from datetime import datetime, timedelta, timezone
+
 from runtime.untrusted_content import (
     TrustTier,
+    check_staleness,
+    clear_untrusted_content,
     mark_untrusted_content,
     quarantine_instruction_like_text,
     tag_content,
@@ -86,3 +90,85 @@ def test_quarantine_instruction_like_text_detects_extended_injection_patterns() 
     sanitized, quarantined = quarantine_instruction_like_text(payload)
     assert sanitized == ""
     assert len(quarantined) == 8
+
+
+def test_mark_untrusted_content_writes_updated_at(tmp_path: Path) -> None:
+    state = mark_untrusted_content(
+        str(tmp_path),
+        source_type="web",
+        content="safe text",
+    )
+    assert "updated_at" in state
+    parsed = datetime.fromisoformat(state["updated_at"])
+    assert parsed.tzinfo is not None
+
+
+def test_check_staleness_no_state_file(tmp_path: Path) -> None:
+    result = check_staleness(str(tmp_path))
+    assert result == {
+        "stale": False,
+        "age_seconds": 0.0,
+        "recommendation": "no active untrusted content",
+    }
+
+
+def test_check_staleness_fresh_state(tmp_path: Path) -> None:
+    mark_untrusted_content(str(tmp_path), source_type="web", content="payload")
+    result = check_staleness(str(tmp_path))
+    assert result["stale"] is False
+    assert result["age_seconds"] >= 0.0
+    assert result["recommendation"] == "state is fresh"
+
+
+def test_check_staleness_stale_state(tmp_path: Path) -> None:
+    mark_untrusted_content(str(tmp_path), source_type="web", content="payload")
+
+    state_path = tmp_path / ".omg" / "state" / "untrusted-content.json"
+    import json
+
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    old_ts = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    data["updated_at"] = old_ts
+    state_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    result = check_staleness(str(tmp_path))
+    assert result["stale"] is True
+    assert result["age_seconds"] >= 7200.0
+    assert "clear_untrusted_content" in result["recommendation"]
+
+
+def test_check_staleness_does_not_clear_active(tmp_path: Path) -> None:
+    mark_untrusted_content(str(tmp_path), source_type="web", content="payload")
+
+    state_path = tmp_path / ".omg" / "state" / "untrusted-content.json"
+    import json
+
+    data = json.loads(state_path.read_text(encoding="utf-8"))
+    old_ts = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    data["updated_at"] = old_ts
+    state_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    check_staleness(str(tmp_path))
+
+    after = json.loads(state_path.read_text(encoding="utf-8"))
+    assert after["active"] is True
+    assert after["updated_at"] == old_ts
+
+
+def test_check_staleness_inactive_state(tmp_path: Path) -> None:
+    mark_untrusted_content(str(tmp_path), source_type="web", content="payload")
+    clear_untrusted_content(str(tmp_path), reason="test")
+    result = check_staleness(str(tmp_path))
+    assert result["stale"] is False
+    assert result["recommendation"] == "no active untrusted content"
+
+
+def test_check_staleness_missing_timestamp(tmp_path: Path) -> None:
+    state_path = tmp_path / ".omg" / "state" / "untrusted-content.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    import json
+
+    state_path.write_text(json.dumps({"active": True}, indent=2) + "\n", encoding="utf-8")
+    result = check_staleness(str(tmp_path))
+    assert result["stale"] is False
+    assert result["recommendation"] == "no timestamp, assume fresh"
