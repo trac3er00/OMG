@@ -1,0 +1,10 @@
+{
+  "artifact_digest": "80be3bbba85fcaefc5b050d42266498cee194696e1977a17b6b8997aaefbefe5",
+  "action": "policy-pack-sign",
+  "scope": "policy-pack/fintech",
+  "reason": "Signing policy pack fintech",
+  "signer_key_id": "1f5fe64ec2f8c901",
+  "issued_at": "2026-03-17T02:45:29.335689+00:00",
+  "signature": "untrusted comment: signature from omg local signing key\npMMb9To4vIEvtx6ZS1aKybC0OKPOg9FgfSX8IOD7JARbmgFV+BoG7ow3l+o4J5sRrv4QWJDfVqSXuepCPMzoBQ==\ntrusted comment: type=omg-approval-artifact-v1 keyid=1f5fe64ec2f8c901 issued_at=2026-03-17T02:45:29.335689+00:00 digest=80be3bbba85fcaefc5b050d42266498cee194696e1977a17b6b8997aaefbefe5\nklbmJ/q0i1J+8T9pKCOTNq00WVeV8OUCCgrHmAO7nYnYGLZk/6b04q02hcNQzAejwKQmNqUzKs2HoH85JPewBA==",
+  "run_id": ""
+}

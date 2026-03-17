@@ -145,3 +145,15 @@ Confirm your setup with this checklist:
 | `GITHUB_TOKEN_REQUEST_FAILED` | Network error or GitHub API downtime. | Check your internet connection and GitHub Status. |
 | `GITHUB_TOKEN_REQUEST_REJECTED` | 403/404 error from GitHub. | Verify the `GITHUB_INSTALLATION_ID` is correct and the app is installed on the repo. |
 | `GITHUB_TOKEN_RESPONSE_INVALID` | Unexpected response from GitHub. | Check if GitHub API versions have changed or if there is a proxy interference. |
+
+<!-- OMG:GENERATED:install-fast-path -->
+## Fast Path
+
+```bash
+npm install @trac3er/oh-my-god
+# or
+bunx @trac3er/oh-my-god
+```
+
+This registers the OMG control plane for your host automatically.
+<!-- /OMG:GENERATED:install-fast-path -->

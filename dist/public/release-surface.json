@@ -1,0 +1,158 @@
+{
+  "generated_by": "omg release compile-surfaces",
+  "version": "2.2.7",
+  "generated_at": "2026-03-17T02:43:33.085104+00:00",
+  "surfaces": [
+    {
+      "id": "release_notes_artifact",
+      "category": "docs",
+      "path": "artifacts/release/release-notes-v2.2.7.md",
+      "description": "release notes artifact for v2.2.7"
+    },
+    {
+      "id": "changelog_current_block",
+      "category": "docs",
+      "path": "CHANGELOG.md",
+      "marker": "<!-- OMG:GENERATED:changelog-v2.2.7 -->",
+      "description": "current release block in changelog"
+    },
+    {
+      "id": "readme_quickstart",
+      "category": "docs",
+      "path": "README.md",
+      "marker": "<!-- OMG:GENERATED:quickstart -->",
+      "description": "quickstart section in README"
+    },
+    {
+      "id": "readme_command_surface",
+      "category": "docs",
+      "path": "README.md",
+      "marker": "<!-- OMG:GENERATED:command-surface -->",
+      "description": "command surface section in README"
+    },
+    {
+      "id": "install_claude_code",
+      "category": "docs",
+      "path": "docs/install/claude-code.md",
+      "marker": "<!-- OMG:GENERATED:install-fast-path -->",
+      "description": "install fast-path section in docs/install/claude-code.md"
+    },
+    {
+      "id": "install_codex",
+      "category": "docs",
+      "path": "docs/install/codex.md",
+      "marker": "<!-- OMG:GENERATED:install-fast-path -->",
+      "description": "install fast-path section in docs/install/codex.md"
+    },
+    {
+      "id": "install_gemini",
+      "category": "docs",
+      "path": "docs/install/gemini.md",
+      "marker": "<!-- OMG:GENERATED:install-fast-path -->",
+      "description": "install fast-path section in docs/install/gemini.md"
+    },
+    {
+      "id": "install_kimi",
+      "category": "docs",
+      "path": "docs/install/kimi.md",
+      "marker": "<!-- OMG:GENERATED:install-fast-path -->",
+      "description": "install fast-path section in docs/install/kimi.md"
+    },
+    {
+      "id": "install_opencode",
+      "category": "docs",
+      "path": "docs/install/opencode.md",
+      "marker": "<!-- OMG:GENERATED:install-fast-path -->",
+      "description": "install fast-path section in docs/install/opencode.md"
+    },
+    {
+      "id": "install_github_app",
+      "category": "docs",
+      "path": "docs/install/github-app.md",
+      "marker": "<!-- OMG:GENERATED:install-fast-path -->",
+      "description": "install fast-path section in docs/install/github-app.md"
+    },
+    {
+      "id": "command_surface_doc",
+      "category": "docs",
+      "path": "docs/command-surface.md",
+      "marker": "<!-- OMG:GENERATED:command-surface -->",
+      "description": "command surface reference doc"
+    },
+    {
+      "id": "launcher_python",
+      "category": "launcher",
+      "launcher_name": "python3 scripts/omg.py",
+      "scope": "internal",
+      "description": "Python launcher"
+    },
+    {
+      "id": "launcher_shell",
+      "category": "launcher",
+      "launcher_name": "./OMG-setup.sh",
+      "scope": "internal",
+      "description": "Shell setup launcher"
+    },
+    {
+      "id": "launcher_npm_bin",
+      "category": "launcher",
+      "launcher_name": "omg",
+      "scope": "public",
+      "description": "npm bin launcher"
+    },
+    {
+      "id": "npm_bin_key",
+      "category": "npm",
+      "bin_key": "omg",
+      "description": "npm package.json bin key"
+    },
+    {
+      "id": "github_check_run_name",
+      "category": "check_name",
+      "check_name": "OMG PR Reviewer",
+      "description": "immutable GitHub check-run name"
+    },
+    {
+      "id": "workflow_release",
+      "category": "workflow",
+      "path": ".github/workflows/release.yml",
+      "description": "release workflow entrypoint"
+    },
+    {
+      "id": "workflow_evidence_gate",
+      "category": "workflow",
+      "path": ".github/workflows/evidence-gate.yml",
+      "description": "evidence gate workflow"
+    },
+    {
+      "id": "workflow_compat_gate",
+      "category": "workflow",
+      "path": ".github/workflows/omg-compat-gate.yml",
+      "description": "compat gate workflow"
+    },
+    {
+      "id": "action_yaml",
+      "category": "action",
+      "path": "action.yml",
+      "description": "GitHub Action entrypoint"
+    },
+    {
+      "id": "sign_locked_prod",
+      "category": "sign_artifact",
+      "path": "registry/policy-packs/locked-prod.signature.json",
+      "description": "locked-prod policy pack signature"
+    },
+    {
+      "id": "sign_fintech",
+      "category": "sign_artifact",
+      "path": "registry/policy-packs/fintech.signature.json",
+      "description": "fintech policy pack signature"
+    },
+    {
+      "id": "sign_airgapped",
+      "category": "sign_artifact",
+      "path": "registry/policy-packs/airgapped.signature.json",
+      "description": "airgapped policy pack signature"
+    }
+  ]
+}

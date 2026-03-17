@@ -1,5 +1,13 @@
 # Changelog
 
+<!-- OMG:GENERATED:changelog-v2.2.7 -->
+### Governed Release Surface (v2.2.7)
+
+- Canonical release surface compilation
+- Dual-channel manifests (public + enterprise)
+- Idempotent generated-section markers in docs
+<!-- /OMG:GENERATED:changelog-v2.2.7 -->
+
 ## 2.2.7 - 2026-03-15
 
 ### Governed Execution Engine Milestone

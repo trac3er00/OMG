@@ -48,3 +48,15 @@ That enables OMG's browser capability metadata for `/OMG:browser` and records th
 - `~/.claude/.mcp.json` should not duplicate the plugin-managed `omg-control` server
 - `~/.claude/omg-runtime/.venv/bin/python` should exist
 - if browser capability is enabled, `~/.claude/omg-runtime/browser/capability.json` should exist
+
+<!-- OMG:GENERATED:install-fast-path -->
+## Fast Path
+
+```bash
+npm install @trac3er/oh-my-god
+# or
+bunx @trac3er/oh-my-god
+```
+
+This registers the OMG control plane for your host automatically.
+<!-- /OMG:GENERATED:install-fast-path -->
