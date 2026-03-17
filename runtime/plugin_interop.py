@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 from collections.abc import Mapping
@@ -527,6 +528,7 @@ class PluginInteropPayload:
     records: list[PluginInteropRecord]
     elapsed_ms: float
     root: str
+    host_state: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
 INTEROP_RECORD_SCHEMA: dict[str, object] = {
@@ -620,11 +622,29 @@ def discover_omg_plugin_state(root: str | None = None) -> PluginInteropPayload:
     return PluginInteropPayload(records=records, elapsed_ms=elapsed_ms, root=str(root_path))
 
 
+def _discover_host_state(home_path: Path) -> dict[str, dict[str, object]]:
+    host_config_paths: dict[str, Path] = {
+        "codex": home_path / ".codex" / "config.toml",
+        "gemini": home_path / ".gemini" / "settings.json",
+        "kimi": home_path / ".kimi" / "mcp.json",
+        "opencode": home_path / ".config" / "opencode" / "opencode.json",
+    }
+    discovered: dict[str, dict[str, object]] = {}
+    for host, config_path in host_config_paths.items():
+        discovered[host] = {
+            "installed": bool(shutil.which(host)),
+            "configured": config_path.exists(),
+            "config_path": str(config_path),
+        }
+    return discovered
+
+
 def discover_host_plugin_state(root: str | None = None) -> PluginInteropPayload:
     started = time.monotonic()
     root_path = Path(root or ".").resolve()
     home_path = Path.home()
     records: list[PluginInteropRecord] = []
+    host_state = _discover_host_state(home_path)
 
     records.extend(_records_from_codex_config(home_path / ".codex" / "config.toml"))
     records.extend(_records_from_host_json_config(home_path / ".gemini" / "settings.json", host="gemini", mcp_key="mcpServers"))
@@ -640,7 +660,12 @@ def discover_host_plugin_state(root: str | None = None) -> PluginInteropPayload:
     records.extend(_records_from_opencode_plugin_dir(root_path / ".opencode" / "plugins"))
 
     elapsed_ms = (time.monotonic() - started) * 1000.0
-    return PluginInteropPayload(records=records, elapsed_ms=elapsed_ms, root=str(root_path))
+    return PluginInteropPayload(
+        records=records,
+        elapsed_ms=elapsed_ms,
+        root=str(root_path),
+        host_state=host_state,
+    )
 
 
 def _append_plugin_manifest_record(

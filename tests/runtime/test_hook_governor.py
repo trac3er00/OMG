@@ -113,6 +113,7 @@ def test_hook_inventory_fully_classified():
         "_cost_ledger.py",  # Internal cost tracking
         "_learnings.py",  # Internal learnings support
         "_memory.py",  # Internal memory utilities
+        "_post_write.py",  # Internal entropy detection helper
         "_protected_context.py",  # Internal context protection
         "_token_counter.py",  # Internal token counting
         # Dormant/unregistered hook modules (legitimate but not in settings.json)
@@ -130,7 +131,6 @@ def test_hook_inventory_fully_classified():
         "magic-keyword-router.py",
         "policy_engine.py",
         "post-write.py",
-        "post_write.py",
         "pre-compact.py",
         "prompt-enhancer.py",
         "quality-runner.py",
@@ -143,6 +143,7 @@ def test_hook_inventory_fully_classified():
         "stop-gate.py",
         "tdd-gate.py",
         "test-validator.py",
+        "terms-guard.py",
         "todo-state-tracker.py",
         "trust_review.py",
     }

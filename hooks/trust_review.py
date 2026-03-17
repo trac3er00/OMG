@@ -8,6 +8,7 @@ validate and approve discovered AI tool configurations.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 from datetime import datetime, timezone
@@ -27,6 +28,8 @@ DANGEROUS_ALLOW_COMMANDS = (
 )
 
 _LATEST_TAG_PATTERN = re.compile(r"@latest(?:$|[/:])", re.IGNORECASE)
+_SETTINGS_FILE = "settings.json"
+_MCP_FILE = ".mcp.json"
 
 
 def _is_dangerous_allow_entry(entry: Any) -> bool:
@@ -340,6 +343,61 @@ def write_trust_manifest(project_dir: str, review: dict[str, Any]) -> str:
     return manifest_path
 
 
+def _is_mcp_config_path(path: str) -> bool:
+    normalized = str(path or "").replace("\\", "/").rstrip("/")
+    return normalized == _MCP_FILE or normalized.endswith(f"/{_MCP_FILE}")
+
+
+def _canonical_config_path(file_path: str) -> str:
+    if _is_mcp_config_path(file_path):
+        return _MCP_FILE
+
+    normalized = str(file_path or "").replace("\\", "/").rstrip("/")
+    if normalized == _SETTINGS_FILE or normalized.endswith(f"/{_SETTINGS_FILE}"):
+        return _SETTINGS_FILE
+
+    return normalized or _SETTINGS_FILE
+
+
+def _trust_snapshot_path(project_dir: str, config_path: str) -> str:
+    trust_dir = os.path.join(project_dir, ".omg", "trust")
+    os.makedirs(trust_dir, exist_ok=True)
+    filename = "last-mcp.json" if _is_mcp_config_path(config_path) else "last-settings.json"
+    return os.path.join(trust_dir, filename)
+
+
+def _resolve_live_config(project_dir: str, config_path: str) -> dict[str, Any]:
+    rel_path = _canonical_config_path(config_path)
+    abs_path = rel_path if os.path.isabs(rel_path) else os.path.join(project_dir, rel_path)
+    return _load_json_file(abs_path)
+
+
+def regenerate_trust_manifest(
+    project_dir: str,
+    file_path: str,
+    old_config: dict[str, Any] | None = None,
+    new_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    canonical_path = _canonical_config_path(file_path)
+    snapshot_path = _trust_snapshot_path(project_dir, canonical_path)
+
+    previous_cfg = old_config if isinstance(old_config, dict) else _load_json_file(snapshot_path)
+    current_cfg = new_config if isinstance(new_config, dict) else _resolve_live_config(project_dir, canonical_path)
+
+    review = review_config_change(canonical_path, previous_cfg, current_cfg)
+    manifest_path = write_trust_manifest(project_dir, review)
+
+    with open(snapshot_path, "w", encoding="utf-8") as f:
+        json.dump(current_cfg, f, indent=2, ensure_ascii=True)
+
+    return {
+        "review": review,
+        "manifest_path": manifest_path,
+        "snapshot_path": snapshot_path,
+        "canonical_path": canonical_path,
+    }
+
+
 def _load_json_file(path: str) -> dict[str, Any]:
     if not path or not os.path.exists(path):
         return {}
@@ -419,8 +477,15 @@ def _log_config_import(config_path: str, tool: str, approved: bool, project_dir:
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
-        from _common import atomic_json_write  # type: ignore[import-untyped]
+        common_module = importlib.import_module("hooks._common")
     except ImportError:
+        try:
+            common_module = importlib.import_module("_common")
+        except ImportError:
+            return  # silently fail if _common unavailable
+    try:
+        atomic_json_write = common_module.atomic_json_write
+    except AttributeError:
         return  # silently fail if _common unavailable
 
     # Compute SHA-256 hash of the config file
@@ -478,29 +543,41 @@ def review_discovered_configs(project_dir: str = ".") -> Dict[str, Any]:
     if hooks_dir not in sys.path:
         sys.path.insert(0, hooks_dir)
     try:
-        from _common import get_feature_flag  # type: ignore[import-untyped]
-        enabled = get_feature_flag("CONFIG_DISCOVERY", default=False)
+        common_module = importlib.import_module("hooks._common")
     except ImportError:
+        try:
+            common_module = importlib.import_module("_common")
+        except ImportError:
+            common_module = None
+    try:
+        get_feature_flag = common_module.get_feature_flag if common_module is not None else None
+        if get_feature_flag is None:
+            raise AttributeError("get_feature_flag unavailable")
+        enabled = get_feature_flag("CONFIG_DISCOVERY", default=False)
+    except Exception:
         enabled = os.getenv("OMG_CONFIG_DISCOVERY_ENABLED", "false").lower() in ("1", "true", "yes")
 
     if not enabled:
         return {"skipped": True, "reason": "feature disabled"}
 
     # Lazy import config discovery from tools/
-    tools_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools")
-    tools_dir = os.path.normpath(tools_dir)
-    if tools_dir not in sys.path:
-        sys.path.insert(0, tools_dir)
     try:
-        from config_discovery import discover_configs  # type: ignore[import-untyped]
+        from tools import config_discovery as config_discovery_module
     except ImportError:
-        return {
-            "skipped": True,
-            "reason": "config_discovery module not available",
-        }
+        tools_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools")
+        tools_dir = os.path.normpath(tools_dir)
+        if tools_dir not in sys.path:
+            sys.path.insert(0, tools_dir)
+        try:
+            config_discovery_module = importlib.import_module("config_discovery")
+        except ImportError:
+            return {
+                "skipped": True,
+                "reason": "config_discovery module not available",
+            }
 
     # Run discovery
-    discovery_result = discover_configs(project_dir)
+    discovery_result = config_discovery_module.discover_configs(project_dir)
     discovered = discovery_result.get("discovered", [])
 
     approved: List[Dict[str, Any]] = []

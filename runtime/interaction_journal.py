@@ -5,6 +5,7 @@ import importlib
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import uuid
@@ -22,6 +23,46 @@ from runtime.rollback_manifest import (
 
 
 _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit"})
+
+_REJECTED_SHELL_WRAPPERS: frozenset[str] = frozenset(
+    {"sh", "bash", "zsh", "fish", "cmd", "cmd.exe", "powershell"}
+)
+_REJECTED_SHELL_TOKENS: frozenset[str] = frozenset(
+    {";", "&&", "||", "|", ">", ">>", "<", "2>", "&"}
+)
+
+
+def _normalize_command_argv(command_or_argv: str | list[str]) -> list[str] | None:
+    """Normalize a command string or argv list to a validated argv list.
+
+    Returns the validated argv on success, or ``None`` when the input is
+    empty, unparseable, or contains rejected shell execution patterns
+    (shell wrapper executables, chaining operators).
+    """
+    if isinstance(command_or_argv, list):
+        argv = [str(a) for a in command_or_argv]
+    elif isinstance(command_or_argv, str):
+        try:
+            argv = shlex.split(command_or_argv)
+        except ValueError:
+            return None
+    else:
+        return None
+
+    if not argv:
+        return None
+
+    # Reject shell wrapper executables as the program name.
+    executable = os.path.basename(argv[0])
+    if executable in _REJECTED_SHELL_WRAPPERS:
+        return None
+
+    # Reject standalone shell-control tokens in any position.
+    for token in argv:
+        if token in _REJECTED_SHELL_TOKENS:
+            return None
+
+    return argv
 
 
 class InteractionJournal:
@@ -133,12 +174,14 @@ class InteractionJournal:
 
         action_results = self._execute_compensating_actions(compensating_actions)
         for action_result in action_results:
+            _ar_argv = action_result.get("argv")
             record_compensating_action(
                 rollback_manifest,
                 str(action_result.get("effect_type", "external")),
                 str(action_result.get("action", "")),
                 str(action_result.get("command", "")),
                 status=str(action_result.get("status", "failed")),
+                argv=list(_ar_argv) if isinstance(_ar_argv, list) else None,
             )
 
         failed_actions = [row for row in action_results if str(row.get("status", "")) == "failed"]
@@ -352,8 +395,8 @@ class InteractionJournal:
         tool: str,
         metadata: dict[str, object],
         side_effect: dict[str, object],
-    ) -> list[dict[str, str]]:
-        action_rows: list[dict[str, str]] = []
+    ) -> list[dict[str, object]]:
+        action_rows: list[dict[str, object]] = []
 
         declared = metadata.get("compensating_action")
         if isinstance(declared, dict):
@@ -425,26 +468,45 @@ class InteractionJournal:
             return {"status": "restored", "reason": "snapshot restore applied", "snapshot_id": snapshot_id}
         return {"status": "failed", "reason": "snapshot not found", "snapshot_id": snapshot_id}
 
-    def _execute_compensating_actions(self, actions: list[dict[str, str]]) -> list[dict[str, object]]:
+    def _execute_compensating_actions(self, actions: list[dict[str, object]]) -> list[dict[str, object]]:
         results: list[dict[str, object]] = []
         for action in actions:
-            command = str(action.get("command", "")).strip()
-            if not command:
+            raw_argv = action.get("argv")
+            raw_command = str(action.get("command", "")).strip()
+            if isinstance(raw_argv, list) and raw_argv:
+                command_input: str | list[str] = raw_argv
+                command_display = raw_command or " ".join(str(a) for a in raw_argv)
+            elif raw_command:
+                command_input = raw_command
+                command_display = raw_command
+            else:
                 results.append(
                     {
                         "effect_type": str(action.get("effect_type", "external")),
                         "action": str(action.get("action", "")),
-                        "command": command,
+                        "command": raw_command,
                         "status": "failed",
                         "reason": "missing command",
                     }
                 )
                 continue
+            argv = _normalize_command_argv(command_input)
+            if argv is None:
+                results.append(
+                    {
+                        "effect_type": str(action.get("effect_type", "external")),
+                        "action": str(action.get("action", "")),
+                        "command": command_display,
+                        "status": "failed",
+                        "reason": "rejected: shell execution pattern detected" if command_display else "rejected: empty or invalid command",
+                    }
+                )
+                continue
             try:
                 completed = subprocess.run(
-                    command,
+                    argv,
                     cwd=str(self.project_dir),
-                    shell=True,
+                    shell=False,
                     check=False,
                     capture_output=True,
                     text=True,
@@ -454,7 +516,7 @@ class InteractionJournal:
                     {
                         "effect_type": str(action.get("effect_type", "external")),
                         "action": str(action.get("action", "")),
-                        "command": command,
+                        "command": command_display,
                         "status": "failed",
                         "reason": f"execution error: {exc}",
                     }
@@ -466,7 +528,8 @@ class InteractionJournal:
                     {
                         "effect_type": str(action.get("effect_type", "external")),
                         "action": str(action.get("action", "")),
-                        "command": command,
+                        "command": command_display,
+                        "argv": argv,
                         "status": "succeeded",
                     }
                 )
@@ -476,7 +539,7 @@ class InteractionJournal:
                 {
                     "effect_type": str(action.get("effect_type", "external")),
                     "action": str(action.get("action", "")),
-                    "command": command,
+                    "command": command_display,
                     "status": "failed",
                     "reason": (completed.stderr or completed.stdout or "command failed").strip() or "command failed",
                     "exit_code": completed.returncode,

@@ -23,6 +23,16 @@ from runtime.delta_classifier import classify_project_changes
 from runtime.tracebank import record_trace
 
 
+_SCAN_EXCLUDED_DIRS: frozenset[str] = frozenset({'.git', '.omg', '.sisyphus', 'build', 'dist', 'node_modules', 'tests'})
+
+_SANCTIONED_CALLSITES: dict[tuple[str, str], str] = {
+    ("tools/python_repl.py", "B307"): "Intentional eval() in REPL backend (contract: tools/python_repl.py, tests: tests/tools/test_python_repl.py)",
+    ("tools/python_repl.py", "B102"): "Intentional exec() in REPL backend (contract: tools/python_repl.py, tests: tests/tools/test_python_repl.py)",
+    ("tools/python_sandbox.py", "B307"): "Intentional eval() in sandboxed executor (contract: tools/python_sandbox.py, tests: tests/tools/test_python_sandbox.py)",
+    ("tools/python_sandbox.py", "B102"): "Intentional exec() in sandboxed executor (contract: tools/python_sandbox.py, tests: tests/tools/test_python_sandbox.py)",
+    ("omg_natives/shell.py", "B602"): "Intentional shell execution in native shell helper (contract: omg_natives/shell.py)",
+}
+
 SEVERITY_ORDER = {
     "critical": 0,
     "high": 1,
@@ -96,7 +106,7 @@ def run_security_check(
     findings.extend(_scan_secret_patterns(scope_path))
     findings.extend(_scan_config_and_iac(scope_path))
     findings.extend(_scan_dependency_health(scope_path, include_live_enrichment))
-    findings = _finalize_findings(findings, waiver_map)
+    findings = _finalize_findings(findings, waiver_map, project_dir=project_dir)
     findings.sort(key=lambda finding: (SEVERITY_ORDER.get(finding["severity"], 99), finding["id"]))
 
     severity_counts = Counter(finding["severity"] for finding in findings)
@@ -442,7 +452,7 @@ def _iter_text_candidates(scope_path: Path) -> list[Path]:
             continue
         if size > 1_000_000:
             continue
-        if ".git" in path.parts or ".omg" in path.parts or "build" in path.parts:
+        if any(part in _SCAN_EXCLUDED_DIRS for part in path.parts):
             continue
         candidates.append(path)
     return candidates
@@ -453,7 +463,14 @@ def _iter_python_files(scope_path: Path) -> list[Path]:
         return [scope_path] if scope_path.suffix == ".py" else []
     if not scope_path.exists():
         return []
-    return sorted(path for path in scope_path.rglob("*.py") if path.is_file())
+    result = []
+    for path in sorted(scope_path.rglob("*.py")):
+        if not path.is_file():
+            continue
+        if any(part in _SCAN_EXCLUDED_DIRS for part in path.parts):
+            continue
+        result.append(path)
+    return result
 
 
 def _scan_python_file(path: Path, source: str) -> list[dict[str, Any]]:
@@ -757,8 +774,9 @@ def _finding_instance_id(finding: dict[str, Any]) -> str:
     return f"{finding.get('id', 'SEC')}-{digest[:12]}"
 
 
-def _finalize_findings(findings: list[dict[str, Any]], waiver_map: dict[str, str]) -> list[dict[str, Any]]:
+def _finalize_findings(findings: list[dict[str, Any]], waiver_map: dict[str, str], *, project_dir: str = "") -> list[dict[str, Any]]:
     finalized: list[dict[str, Any]] = []
+    project_root = Path(project_dir).resolve() if project_dir else None
     for finding in findings:
         item = dict(finding)
         item["severity"] = _normalize_severity(str(item.get("severity", "medium")))
@@ -767,7 +785,19 @@ def _finalize_findings(findings: list[dict[str, Any]], waiver_map: dict[str, str
         item["exploitability"] = _normalize_exploitability(str(item.get("exploitability", "unknown")), item)
         item["reachability"] = _normalize_reachability(str(item.get("reachability", "unknown")))
         item["finding_id"] = _finding_instance_id(item)
-        justification = waiver_map.get(item["finding_id"]) or waiver_map.get(str(item.get("id", "")))
+        sanctioned_justification: str | None = None
+        evidence_path = str(item.get("evidence", {}).get("path", ""))
+        rule_id = str(item.get("id", ""))
+        if evidence_path and rule_id:
+            rel_path = evidence_path.replace("\\", "/")
+            if project_root is not None:
+                try:
+                    rel_path = str(Path(evidence_path).resolve().relative_to(project_root))
+                except ValueError:
+                    pass
+            rel_path = rel_path.replace("\\", "/")
+            sanctioned_justification = _SANCTIONED_CALLSITES.get((rel_path, rule_id))
+        justification = sanctioned_justification or waiver_map.get(item["finding_id"]) or waiver_map.get(str(item.get("id", "")))
         if justification:
             item["waived"] = True
             item["waiver_justification"] = justification

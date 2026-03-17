@@ -4,29 +4,32 @@
 Monitors Claude settings changes and writes Trust Review artifacts to
 .omg/trust/manifest.lock.json.
 """
-import contextlib
 import json
 import os
 import sys
+from importlib import import_module
+from typing import Any
 
 HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, _resolve_project_dir
-
 try:
-    from _common import is_bypass_mode
-except ImportError:  # pragma: no cover - compatibility with older runtimes
-    def is_bypass_mode(_payload):
-        return False
+    _common = import_module("hooks._common")
+except ImportError:
+    _common = import_module("_common")
+
+setup_crash_handler = _common.setup_crash_handler
+json_input = _common.json_input
+_resolve_project_dir = _common._resolve_project_dir
+is_bypass_mode = _common.is_bypass_mode
 
 
-try:
-    from _common import is_bypass_all
-except ImportError:  # pragma: no cover - compatibility with older runtimes
-    def is_bypass_all(_payload):
+def _is_bypass_all_mode(payload: Any) -> bool:
+    if not isinstance(payload, dict):
         return False
+    mode = str(payload.get("permission_mode", "")).strip().lower()
+    return mode == "bypassall"
 
 # Compatibility marker for existing tests and policy docs.
 DANGEROUS_IN_ALLOW = [
@@ -37,10 +40,13 @@ DANGEROUS_IN_ALLOW = [
 setup_crash_handler("config-guard", fail_closed=False)
 
 try:
-    from trust_review import review_config_change, write_trust_manifest, format_review_summary
+    trust_review = import_module("hooks.trust_review")
 except Exception as e:
     print(f"[OMG] config-guard: trust_review import failed: {type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(0)
+
+format_review_summary = trust_review.format_review_summary
+regenerate_trust_manifest = trust_review.regenerate_trust_manifest
 
 data = json_input()
 
@@ -120,13 +126,6 @@ def _is_watched_config_path(path):
     return _is_watched_settings_path(path) or _is_mcp_config_file(path)
 
 
-def _snapshot_path_for(project_dir, config_path):
-    snapshot_dir = os.path.join(project_dir, ".omg", "trust")
-    os.makedirs(snapshot_dir, exist_ok=True)
-    filename = "last-mcp.json" if _is_mcp_config_file(config_path) else "last-settings.json"
-    return os.path.join(snapshot_dir, filename)
-
-
 config_path = _extract_config_path(data)
 if not config_path:
     sys.exit(0)
@@ -148,50 +147,26 @@ except Exception as e:
     print(f"[OMG] config-guard: config read failed: {type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(0)
 
-# Load previous config snapshot for diff-based trust review.
-snapshot_path = _snapshot_path_for(project_dir, config_path)
-
-old_config = {}
-# Prefer explicit old config in payload if present.
 payload_old = _extract_config_object(
     data,
     ("old_config", "old_settings", "old_content", "before", "old_value"),
 )
-if isinstance(payload_old, dict):
-    old_config = payload_old
-elif os.path.exists(snapshot_path):
-    try:
-        with open(snapshot_path, "r", encoding="utf-8") as f:
-            old_config = json.load(f)
-            if not isinstance(old_config, dict):
-                old_config = {}
-    except Exception as e:
-        print(f"[OMG] config-guard: snapshot read failed: {type(e).__name__}: {e}", file=sys.stderr)
-        old_config = {}
-
-# Prefer explicit new config when the payload provides it.
-payload_new = _extract_config_object(
-    data,
-    ("new_config", "new_settings", "new_content", "after", "new_value"),
-)
-if isinstance(payload_new, dict):
-    new_config = payload_new
 
 # Exemption: skip trust_review for .mcp.json changes during setup wizard
 if _is_setup_in_progress() and _is_mcp_config_file(config_path):
     sys.exit(0)
 
 # In bypass mode, skip trust_review asks (but not denials for critical issues)
-if is_bypass_mode(data) or is_bypass_all(data):
+if is_bypass_mode(data) or _is_bypass_all_mode(data):
     sys.exit(0)
 
-review = review_config_change(config_path, old_config, new_config)
-write_trust_manifest(project_dir, review)
-
-# Keep a rolling snapshot for next review.
-with contextlib.suppress(OSError):  # intentional: cleanup
-    with open(snapshot_path, "w", encoding="utf-8") as f:
-        json.dump(new_config, f, indent=2, ensure_ascii=True)
+review_out = regenerate_trust_manifest(
+    project_dir,
+    config_path,
+    old_config=payload_old if isinstance(payload_old, dict) else None,
+    new_config=None,
+)
+review = review_out["review"]
 
 # Backward-compatibility variable expected by tests.
 hooks = new_config.get("hooks", {})
@@ -212,5 +187,7 @@ elif verdict == "ask":
     msg += "\n\nRe-apply after human approval."
     if risk_level == "high":
         json.dump({"decision": "block", "reason": msg}, sys.stdout)
+    else:
+        json.dump({"decision": "pass", "reason": msg}, sys.stdout)
 
 sys.exit(0)

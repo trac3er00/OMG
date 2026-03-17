@@ -227,6 +227,34 @@ def test_sources_report_availability(tmp_path: Path) -> None:
     assert out["sources"]["journal"] is False
 
 
+def test_stalled_worker_count_ignores_disconnected_ownership_records(tmp_path: Path) -> None:
+    stale = {
+        "schema": "WorkerHeartbeat",
+        "run_id": "worker-old",
+        "status": "alive",
+        "heartbeat_count": 1,
+        "last_heartbeat_at": "2026-03-01T00:00:00+00:00",
+        "first_heartbeat_at": "2026-03-01T00:00:00+00:00",
+        "metadata": {},
+        "ownership": {
+            "run_id": "worker-old",
+            "active_run_id": "run-old",
+            "merge_writer": {
+                "authorized": False,
+                "reason": "merge_writer_lock_missing",
+            },
+        },
+    }
+    _write_json(tmp_path / ".omg" / "state" / "worker-heartbeats" / "worker-old.json", stale)
+    active_run_path = tmp_path / ".omg" / "shadow" / "active-run"
+    active_run_path.parent.mkdir(parents=True, exist_ok=True)
+    active_run_path.write_text("run-current\n", encoding="utf-8")
+
+    out = compute_session_health(str(tmp_path), run_id="run-current")
+    assert out["worker_stall"]["stalled_count"] == 0
+    assert out["sources"]["worker_heartbeats"] is False
+
+
 # ── Production caller integration ──────────────────────────────────────────
 
 def test_session_health_includes_status_field(tmp_path: Path) -> None:
