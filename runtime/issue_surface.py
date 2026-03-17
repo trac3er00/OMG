@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
-from typing import cast
+import shutil
+import time
+from typing import Callable, cast
 
 from runtime.forge_agents import collect_forge_evidence_issues
 from runtime.incident_replay import collect_incident_signals
@@ -75,21 +77,22 @@ class IssueSurface:
     def scan(self, run_id: str, surfaces: list[str] | tuple[str, ...] | None = None) -> IssueReport:
         selected_surfaces = self._normalize_surfaces(surfaces)
         issues: list[Issue] = []
-        scan_map = {
-            "live_session": self._scan_live_session,
-            "forge_runs": self._scan_forge_runs,
-            "hooks": self._scan_hooks,
-            "skills": self._scan_skills,
-            "mcps": self._scan_mcps,
-            "plugin_interop": self._scan_plugin_interop,
-            "governed_tools": self._scan_governed_tools,
-            "domain_pipelines": self._scan_domain_pipelines,
+        scan_map: dict[str, tuple[Callable[[str], list[Issue]], ...]] = {
+            "live_session": (self._scan_live_session,),
+            "forge_runs": (self._scan_forge_runs,),
+            "hooks": (self._scan_hooks,),
+            "skills": (self._scan_skills,),
+            "mcps": (self._scan_mcps,),
+            "plugin_interop": (self._scan_plugin_interop,),
+            "governed_tools": (self._scan_governed_tools, self._scan_evidence_retention),
+            "domain_pipelines": (self._scan_domain_pipelines,),
         }
 
         for surface in selected_surfaces:
-            scanner = scan_map.get(surface)
-            if scanner is not None:
-                issues.extend(scanner(run_id))
+            scanners = scan_map.get(surface)
+            if scanners is not None:
+                for scanner in scanners:
+                    issues.extend(scanner(run_id))
 
         ranked_issues = sorted(
             issues,
@@ -350,6 +353,67 @@ class IssueSurface:
             for idx, payload in enumerate(typed_payloads, start=1)
         ]
 
+    def _scan_evidence_retention(self, run_id: str) -> list[Issue]:
+        evidence_dir = Path(self.project_dir) / ".omg" / "evidence"
+        heartbeat_dir = Path(self.project_dir) / ".omg" / "state" / "worker-heartbeats"
+        evidence_count = self._count_files(evidence_dir)
+        heartbeat_count = self._count_files(heartbeat_dir)
+
+        issues: list[Issue] = []
+        if evidence_count > 100:
+            issues.append(
+                self._issue_from_payload(
+                    run_id,
+                    len(issues) + 1,
+                    {
+                        "severity": "medium",
+                        "surface": "governed_tools",
+                        "title": "Operational evidence retention exceeded",
+                        "description": f"Evidence directory contains {evidence_count} files, above threshold 100.",
+                        "fix_guidance": (
+                            "Invoke prune_operational_evidence(project_dir, max_age_days=7) "
+                            "to prune stale operational artifacts while preserving trust/approval/security records."
+                        ),
+                        "evidence_links": [".omg/evidence/"],
+                        "approval_required": False,
+                        "approval_reason": "",
+                    },
+                )
+            )
+        if heartbeat_count > 20:
+            issues.append(
+                self._issue_from_payload(
+                    run_id,
+                    len(issues) + 1,
+                    {
+                        "severity": "medium",
+                        "surface": "governed_tools",
+                        "title": "Worker heartbeat residue exceeded",
+                        "description": (
+                            "Worker heartbeat directory contains "
+                            f"{heartbeat_count} files, above threshold 20."
+                        ),
+                        "fix_guidance": (
+                            "Prune stale worker heartbeat residue via explicit housekeeping workflow "
+                            "to keep diagnostics bounded."
+                        ),
+                        "evidence_links": [".omg/state/worker-heartbeats/"],
+                        "approval_required": False,
+                        "approval_reason": "",
+                    },
+                )
+            )
+        return issues
+
+    def _count_files(self, path: Path) -> int:
+        if not path.exists():
+            return 0
+        count = 0
+        for candidate in path.rglob("*"):
+            if candidate.is_file():
+                count += 1
+        return count
+
     def _scan_domain_pipelines(self, run_id: str) -> list[Issue]:
         payloads = collect_forge_evidence_issues(self.project_dir, run_id, domain_pipeline_only=True)
         return [self._issue_from_payload(run_id, idx, payload) for idx, payload in enumerate(payloads, start=1)]
@@ -359,4 +423,50 @@ __all__ = [
     "Issue",
     "IssueReport",
     "IssueSurface",
+    "prune_operational_evidence",
 ]
+
+
+def prune_operational_evidence(project_dir: str, max_age_days: int = 7, dry_run: bool = False) -> dict[str, object]:
+    root = Path(project_dir) / ".omg" / "evidence"
+    cutoff = time.time() - (max_age_days * 86400)
+    preserved = 0
+    pruned = 0
+
+    if not root.exists():
+        return {"pruned": 0, "preserved": 0, "dry_run": dry_run}
+
+    exempt_prefixes = (
+        "trust-",
+        "approval-",
+        "security-",
+        "sbom-",
+        "license-",
+    )
+
+    for entry in root.iterdir():
+        name = entry.name
+        if name == "issues" or name.startswith(exempt_prefixes):
+            preserved += 1
+            continue
+        try:
+            is_stale = entry.stat().st_mtime < cutoff
+        except OSError:
+            preserved += 1
+            continue
+        if not is_stale:
+            preserved += 1
+            continue
+        pruned += 1
+        if dry_run:
+            continue
+        try:
+            if entry.is_dir():
+                shutil.rmtree(entry)
+            else:
+                entry.unlink()
+        except OSError:
+            preserved += 1
+            pruned -= 1
+
+    return {"pruned": pruned, "preserved": preserved, "dry_run": dry_run}
