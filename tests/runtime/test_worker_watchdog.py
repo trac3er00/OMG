@@ -239,6 +239,44 @@ class TestWorktreeCleanup:
         assert not wt_dir.exists()
 
 
+class TestHeartbeatCleanup:
+    def test_cleanup_terminal_heartbeats_removes_only_stale_terminal_records(self, tmp_path: Path) -> None:
+        wd = WorkerWatchdog(str(tmp_path))
+        stale_time = (datetime.now(timezone.utc) - timedelta(seconds=120)).isoformat()
+
+        wd.record_heartbeat("old-terminated", worker_pid=1, status="terminated")
+        wd.record_heartbeat("old-completed", worker_pid=2, status="completed")
+        wd.record_heartbeat("old-failed", worker_pid=3, status="failed")
+        wd.record_heartbeat("old-alive", worker_pid=4, status="alive")
+        wd.record_heartbeat("old-stalled", worker_pid=5, status="stalled")
+
+        for run_id in ("old-terminated", "old-completed", "old-failed", "old-alive", "old-stalled"):
+            hb_path = tmp_path / ".omg" / "state" / "worker-heartbeats" / f"{run_id}.json"
+            data = json.loads(hb_path.read_text(encoding="utf-8"))
+            data["last_heartbeat_at"] = stale_time
+            hb_path.write_text(json.dumps(data), encoding="utf-8")
+
+        cleaned = wd.cleanup_terminal_heartbeats(60)
+
+        assert set(cleaned) == {"old-terminated", "old-completed", "old-failed"}
+        assert not (tmp_path / ".omg" / "state" / "worker-heartbeats" / "old-terminated.json").exists()
+        assert not (tmp_path / ".omg" / "state" / "worker-heartbeats" / "old-completed.json").exists()
+        assert not (tmp_path / ".omg" / "state" / "worker-heartbeats" / "old-failed.json").exists()
+        assert (tmp_path / ".omg" / "state" / "worker-heartbeats" / "old-alive.json").exists()
+        assert (tmp_path / ".omg" / "state" / "worker-heartbeats" / "old-stalled.json").exists()
+
+    def test_cleanup_terminal_heartbeats_preserves_recent_terminal_records(self, tmp_path: Path) -> None:
+        wd = WorkerWatchdog(str(tmp_path))
+        wd.record_heartbeat("fresh-terminated", worker_pid=11, status="terminated")
+        wd.record_heartbeat("fresh-completed", worker_pid=12, status="completed")
+
+        cleaned = wd.cleanup_terminal_heartbeats(3600)
+
+        assert cleaned == []
+        assert (tmp_path / ".omg" / "state" / "worker-heartbeats" / "fresh-terminated.json").exists()
+        assert (tmp_path / ".omg" / "state" / "worker-heartbeats" / "fresh-completed.json").exists()
+
+
 # =============================================================================
 # Replay evidence
 # =============================================================================
@@ -298,6 +336,20 @@ class TestMergeAuthorizationBinding:
 
         with pytest.raises(MergeWriterAuthorizationError, match="active coordinator run_id"):
             merge_writer.require_authorization("run-owner", isolation="worktree")
+
+    def test_active_run_can_recover_lock_when_missing(self, tmp_path: Path) -> None:
+        active_run_path = tmp_path / ".omg" / "shadow" / "active-run"
+        active_run_path.parent.mkdir(parents=True, exist_ok=True)
+        active_run_path.write_text("run-active\n", encoding="utf-8")
+
+        merge_writer = MergeWriter(str(tmp_path))
+        details = merge_writer.check_authorization_details("run-active")
+
+        assert details["authorized"] is True
+        assert details["reason"] == "authorized_active_run_lock_recoverable"
+
+        merge_writer.require_authorization("run-active", mutation_type="worker_dispatch", isolation="worktree")
+        assert merge_writer.get_current_owner() == "run-active"
 
 
 # =============================================================================
