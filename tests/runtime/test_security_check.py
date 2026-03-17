@@ -143,3 +143,42 @@ def test_included_source_paths_still_fail_closed(tmp_path):
     b602_findings = [f for f in result["findings"] if f.get("id") == "B602"]
     assert len(b602_findings) > 0, "Should find B602 subprocess-shell-true violation"
     assert any("src" in f.get("evidence", {}).get("path", "").split("/") for f in b602_findings), "Should find violation in src/"
+
+
+def test_docs_pem_placeholder_does_not_trigger_sec002(tmp_path):
+    from runtime.security_check import run_security_check
+    docs_file = tmp_path / "github-app.md"
+    docs_file.write_text("The key must be in `<RSA PRIVATE KEY PEM HEADER>` format.\n")
+    result = run_security_check(project_dir=str(tmp_path), scope=".")
+    sec002_findings = [f for f in result.get("findings", []) if f.get("id") == "SEC002" and not f.get("waived", False)]
+    assert sec002_findings == []
+
+
+def test_real_pem_header_still_triggers_sec002(tmp_path):
+    from runtime.security_check import run_security_check
+    pem_file = tmp_path / "secret.md"
+    pem_file.write_text("-----BEGIN RSA PRIVATE KEY-----\nMIIE...\n-----END RSA PRIVATE KEY-----\n")
+    result = run_security_check(project_dir=str(tmp_path), scope=".")
+    sec002 = [f for f in result.get("findings", []) if f.get("id") == "SEC002" and not f.get("waived", False)]
+    assert len(sec002) >= 1 and sec002[0].get("severity") == "critical"
+
+
+def test_sanctioned_callsites_are_auto_waived(tmp_path):
+    from runtime.security_check import run_security_check
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "omg_natives").mkdir()
+    (tmp_path / "tools" / "python_repl.py").write_text("eval('1+1')\nexec('x=1')\n")
+    (tmp_path / "tools" / "python_sandbox.py").write_text("eval('1+1')\nexec('x=1')\n")
+    (tmp_path / "omg_natives" / "shell.py").write_text("import subprocess\nsubprocess.run('echo hi', shell=True)\n")
+    result = run_security_check(project_dir=str(tmp_path), scope=".")
+    sanctioned = [f for f in result.get("findings", []) if f.get("waived") and f.get("waiver_justification")]
+    assert len(sanctioned) >= 5
+
+
+def test_non_sanctioned_callsites_remain_blocked(tmp_path):
+    from runtime.security_check import run_security_check
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "danger.py").write_text("eval('1+1')\nimport subprocess\nsubprocess.run('echo hi', shell=True)\n")
+    result = run_security_check(project_dir=str(tmp_path), scope=".")
+    unwaived = [f for f in result.get("findings", []) if not f.get("waived") and f.get("id") in {"B307", "B602"}]
+    assert len(unwaived) >= 1 and result.get("release_blocked") is True
