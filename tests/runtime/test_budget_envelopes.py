@@ -391,3 +391,126 @@ class TestDataclasses:
         result = EnvelopeCheckResult(status="ok")
         assert result.breached_dimensions == []
         assert result.governance_action == "warn"
+
+    def test_envelope_state_has_status_field(self) -> None:
+        state = BudgetEnvelopeState(run_id="test")
+        assert state.status == "active"
+
+
+# ═══════════════════════════════════════════════════════════
+# Test 9: Envelope lifecycle — close_envelope
+# ═══════════════════════════════════════════════════════════
+
+
+class TestEnvelopeLifecycle:
+
+    def test_close_envelope_sets_closed_status(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-close", token_limit=1000)
+        mgr.close_envelope("run-close", "task complete")
+
+        state = mgr.get_envelope_state("run-close")
+        assert state is not None
+        assert state["status"] == "closed"
+        assert state["close_reason"] == "task complete"
+        assert "closed_at" in state
+
+    def test_close_envelope_preserves_file(self, mgr: BudgetEnvelopeManager, tmp_path: Path) -> None:
+        mgr.create_envelope("run-keep", token_limit=500)
+        mgr.close_envelope("run-keep", "done")
+
+        json_path = tmp_path / ".omg" / "state" / "budget-envelopes" / "run-keep.json"
+        assert json_path.exists()
+
+    def test_close_missing_envelope_no_error(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.close_envelope("nonexistent", "no-op")
+
+    def test_closed_envelope_check_returns_ok(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-chk-closed", cpu_seconds_limit=10.0)
+        mgr.record_usage("run-chk-closed", cpu_seconds=20.0)
+        mgr.close_envelope("run-chk-closed", "force close")
+
+        result = mgr.check_envelope("run-chk-closed")
+        assert result.status == "ok"
+        assert "closed" in result.reason
+
+    def test_pressure_empty_for_closed_envelope(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-press-closed", cpu_seconds_limit=100.0)
+        mgr.record_usage("run-press-closed", cpu_seconds=50.0)
+        assert mgr.get_envelope_pressure("run-press-closed") != {}
+
+        mgr.close_envelope("run-press-closed", "done")
+        assert mgr.get_envelope_pressure("run-press-closed") == {}
+
+    def test_create_envelope_has_active_status(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-active", token_limit=100)
+        state = mgr.get_envelope_state("run-active")
+        assert state is not None
+        assert state["status"] == "active"
+
+
+# ═══════════════════════════════════════════════════════════
+# Test 10: list_envelopes
+# ═══════════════════════════════════════════════════════════
+
+
+class TestListEnvelopes:
+
+    def test_list_empty_returns_empty(self, mgr: BudgetEnvelopeManager) -> None:
+        assert mgr.list_envelopes() == []
+
+    def test_list_returns_all_envelopes(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-a", token_limit=100)
+        mgr.create_envelope("run-b", token_limit=200)
+        mgr.close_envelope("run-b", "done")
+
+        envelopes = mgr.list_envelopes()
+        assert len(envelopes) == 2
+        by_id = {e["run_id"]: e for e in envelopes}
+        assert by_id["run-a"]["status"] == "active"
+        assert by_id["run-b"]["status"] == "closed"
+
+    def test_list_includes_checks_count(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-cnt", cpu_seconds_limit=100.0)
+        mgr.record_usage("run-cnt", cpu_seconds=10.0)
+        mgr.check_envelope("run-cnt")
+        mgr.check_envelope("run-cnt")
+
+        envelopes = mgr.list_envelopes()
+        assert len(envelopes) == 1
+        assert envelopes[0]["checks_count"] == 2
+
+
+# ═══════════════════════════════════════════════════════════
+# Test 11: Check history pruning
+# ═══════════════════════════════════════════════════════════
+
+
+class TestCheckHistoryPruning:
+
+    def test_check_history_pruned_inline(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-prune", cpu_seconds_limit=10000.0)
+        for _ in range(60):
+            mgr.record_usage("run-prune", cpu_seconds=0.01)
+            mgr.check_envelope("run-prune")
+
+        state = mgr.get_envelope_state("run-prune")
+        assert state is not None
+        assert len(state["checks"]) <= 50
+
+    def test_prune_check_history_explicit(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.create_envelope("run-prune2", cpu_seconds_limit=10000.0)
+        for _ in range(30):
+            mgr.record_usage("run-prune2", cpu_seconds=0.01)
+            mgr.check_envelope("run-prune2")
+
+        state = mgr.get_envelope_state("run-prune2")
+        assert state is not None
+        assert len(state["checks"]) == 30
+
+        mgr.prune_check_history("run-prune2", max_entries=10)
+        state = mgr.get_envelope_state("run-prune2")
+        assert state is not None
+        assert len(state["checks"]) == 10
+
+    def test_prune_check_history_missing_envelope_no_error(self, mgr: BudgetEnvelopeManager) -> None:
+        mgr.prune_check_history("nonexistent")
