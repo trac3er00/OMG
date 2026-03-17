@@ -5,6 +5,7 @@ import importlib
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import uuid
@@ -22,6 +23,46 @@ from runtime.rollback_manifest import (
 
 
 _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit"})
+
+_REJECTED_SHELL_WRAPPERS: frozenset[str] = frozenset(
+    {"sh", "bash", "zsh", "fish", "cmd", "cmd.exe", "powershell"}
+)
+_REJECTED_SHELL_TOKENS: frozenset[str] = frozenset(
+    {";", "&&", "||", "|", ">", ">>", "<", "2>", "&"}
+)
+
+
+def _normalize_command_argv(command_or_argv: str | list[str]) -> list[str] | None:
+    """Normalize a command string or argv list to a validated argv list.
+
+    Returns the validated argv on success, or ``None`` when the input is
+    empty, unparseable, or contains rejected shell execution patterns
+    (shell wrapper executables, chaining operators).
+    """
+    if isinstance(command_or_argv, list):
+        argv = [str(a) for a in command_or_argv]
+    elif isinstance(command_or_argv, str):
+        try:
+            argv = shlex.split(command_or_argv)
+        except ValueError:
+            return None
+    else:
+        return None
+
+    if not argv:
+        return None
+
+    # Reject shell wrapper executables as the program name.
+    executable = os.path.basename(argv[0])
+    if executable in _REJECTED_SHELL_WRAPPERS:
+        return None
+
+    # Reject standalone shell-control tokens in any position.
+    for token in argv:
+        if token in _REJECTED_SHELL_TOKENS:
+            return None
+
+    return argv
 
 
 class InteractionJournal:

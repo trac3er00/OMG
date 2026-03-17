@@ -13,10 +13,10 @@ from tests.hooks.helpers import ROOT
 
 
 def _detect_high_entropy_strings(text: str) -> list[str]:
-    module_path = ROOT / "hooks" / "post_write.py"
+    module_path = ROOT / "hooks" / "_post_write.py"
     spec = importlib.util.spec_from_file_location("omg_post_write", module_path)
     if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load hooks/post_write.py")
+        raise RuntimeError("Unable to load hooks/_post_write.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     detect = cast(Callable[[str], list[str]], module.detect_high_entropy_strings)
