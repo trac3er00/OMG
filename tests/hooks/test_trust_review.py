@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from hooks.trust_review import review_config_change, write_trust_manifest
+from hooks.trust_review import regenerate_trust_manifest, review_config_change, write_trust_manifest
 
 
 def test_trust_review_detects_dangerous_permission_change():
@@ -109,3 +109,40 @@ def test_trust_review_marks_modified_hooks_for_manual_review():
     review = review_config_change("settings.json", old, new)
     assert "hook-diff-review" in review["controls"]
     assert any("Hook definitions modified" in reason for reason in review["reasons"])
+
+
+def test_regenerate_trust_manifest_uses_snapshot_and_live_settings(tmp_path: Path):
+    trust_dir = tmp_path / ".omg" / "trust"
+    trust_dir.mkdir(parents=True)
+    (trust_dir / "last-settings.json").write_text(
+        json.dumps({"permissions": {"allow": ["Read"]}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"permissions": {"allow": ["Read", "Bash(sudo:*)"]}}),
+        encoding="utf-8",
+    )
+
+    out = regenerate_trust_manifest(str(tmp_path), "settings.json")
+
+    assert Path(out["manifest_path"]).exists()
+    assert out["review"]["verdict"] == "deny"
+    assert out["review"]["risk_level"] == "critical"
+    saved_snapshot = json.loads((trust_dir / "last-settings.json").read_text(encoding="utf-8"))
+    assert saved_snapshot["permissions"]["allow"][-1] == "Bash(sudo:*)"
+
+
+def test_regenerate_trust_manifest_preserves_space_syntax_deny(tmp_path: Path):
+    trust_dir = tmp_path / ".omg" / "trust"
+    trust_dir.mkdir(parents=True)
+    (trust_dir / "last-settings.json").write_text(
+        json.dumps({"permissions": {"allow": ["Read"]}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"permissions": {"allow": ["Read", "Bash(sudo *)"]}}),
+        encoding="utf-8",
+    )
+
+    out = regenerate_trust_manifest(str(tmp_path), "settings.json")
+    assert out["review"]["verdict"] == "deny"
