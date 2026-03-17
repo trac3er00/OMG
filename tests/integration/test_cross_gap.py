@@ -18,7 +18,7 @@ import hooks._common as _common
 import hooks._cost_ledger as _cost_ledger
 import hooks._token_counter as _token_counter
 import hooks.branch_manager as branch_manager
-import hooks.post_write as post_write
+import hooks._post_write as post_write
 import hooks.query as query
 import hooks.secret_audit as secret_audit
 import plugins.dephealth.cve_scanner as cve_scanner

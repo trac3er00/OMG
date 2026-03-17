@@ -23,6 +23,8 @@ from runtime.delta_classifier import classify_project_changes
 from runtime.tracebank import record_trace
 
 
+_SCAN_EXCLUDED_DIRS: frozenset[str] = frozenset({'.git', '.omg', '.sisyphus', 'build', 'dist', 'node_modules', 'tests'})
+
 SEVERITY_ORDER = {
     "critical": 0,
     "high": 1,
@@ -442,7 +444,7 @@ def _iter_text_candidates(scope_path: Path) -> list[Path]:
             continue
         if size > 1_000_000:
             continue
-        if ".git" in path.parts or ".omg" in path.parts or "build" in path.parts:
+        if any(part in _SCAN_EXCLUDED_DIRS for part in path.parts):
             continue
         candidates.append(path)
     return candidates
@@ -453,7 +455,14 @@ def _iter_python_files(scope_path: Path) -> list[Path]:
         return [scope_path] if scope_path.suffix == ".py" else []
     if not scope_path.exists():
         return []
-    return sorted(path for path in scope_path.rglob("*.py") if path.is_file())
+    result = []
+    for path in sorted(scope_path.rglob("*.py")):
+        if not path.is_file():
+            continue
+        if any(part in _SCAN_EXCLUDED_DIRS for part in path.parts):
+            continue
+        result.append(path)
+    return result
 
 
 def _scan_python_file(path: Path, source: str) -> list[dict[str, Any]]:
