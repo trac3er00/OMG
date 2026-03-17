@@ -143,6 +143,7 @@ def test_hook_inventory_fully_classified():
         "stop-gate.py",
         "tdd-gate.py",
         "test-validator.py",
+        "terms-guard.py",
         "todo-state-tracker.py",
         "trust_review.py",
     }
