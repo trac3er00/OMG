@@ -241,10 +241,13 @@ class MergeWriter:
         active_run_id = self._active_coordinator_run_id()
         owner_matches = bool(owner_run_id) and owner_run_id == run_id
         active_matches = (not active_run_id) or active_run_id == run_id
-        authorized = owner_matches and active_matches
+        lock_missing_but_active = (not owner_run_id) and bool(active_run_id) and active_run_id == run_id
+        authorized = (owner_matches and active_matches) or lock_missing_but_active
 
         reason = "authorized"
-        if not owner_run_id:
+        if lock_missing_but_active:
+            reason = "authorized_active_run_lock_recoverable"
+        elif not owner_run_id:
             reason = "merge_writer_lock_missing"
         elif owner_run_id != run_id:
             reason = f"merge_writer_owner_mismatch:{owner_run_id}"
@@ -293,6 +296,10 @@ class MergeWriter:
             return
 
         if not self.is_locked():
+            active_run_id = self._active_coordinator_run_id()
+            if active_run_id and active_run_id == run_id:
+                self.acquire(run_id, reason=f"auto-acquire:{mutation_type}")
+                return
             raise MergeWriterAuthorizationError(
                 run_id,
                 f"mutation_type={mutation_type} requires merge-writer lock "

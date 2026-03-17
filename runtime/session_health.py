@@ -219,6 +219,7 @@ def _read_worker_stall_state(root: Path, run_id: str) -> dict[str, Any]:
 
     stalled: list[dict[str, Any]] = []
     now = datetime.now(timezone.utc)
+    active_run_id = _active_coordinator_run_id(root, fallback=run_id)
     try:
         for path in hb_dir.glob("*.json"):
             if path.name.endswith(".tmp"):
@@ -226,6 +227,14 @@ def _read_worker_stall_state(root: Path, run_id: str) -> dict[str, Any]:
             record = _read_json(path)
             if not record:
                 continue
+
+            ownership = record.get("ownership")
+            ownership_active_run = ""
+            if isinstance(ownership, dict):
+                ownership_active_run = str(ownership.get("active_run_id", "")).strip()
+            if ownership_active_run and active_run_id and ownership_active_run != active_run_id:
+                continue
+
             status = str(record.get("status", ""))
             if status in ("terminated", "completed", "failed"):
                 continue
@@ -249,7 +258,20 @@ def _read_worker_stall_state(root: Path, run_id: str) -> dict[str, Any]:
     return {"stalled_count": len(stalled), "stalled_workers": stalled}
 
 
+def _active_coordinator_run_id(root: Path, *, fallback: str = "") -> str:
+    shadow_path = root / ".omg" / "shadow" / "active-run"
+    if shadow_path.exists():
+        try:
+            shadow = shadow_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            shadow = ""
+        if shadow:
+            return shadow
+    return fallback
+
+
 def _read_envelope_pressure(project_dir: str, run_id: str) -> dict[str, float]:
+    """Return per-dimension budget pressure. Closed/missing envelopes yield ``{}``."""
     try:
         from runtime.budget_envelopes import get_budget_envelope_manager
         mgr = get_budget_envelope_manager(project_dir)

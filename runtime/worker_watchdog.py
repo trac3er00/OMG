@@ -172,6 +172,48 @@ class WorkerWatchdog:
             pass
         return results
 
+    def cleanup_terminal_heartbeats(self, max_age_seconds: float) -> list[str]:
+        cutoff = datetime.now(timezone.utc).timestamp() - float(max_age_seconds)
+        removable_statuses = {"terminated", "completed", "failed"}
+        cleaned_run_ids: list[str] = []
+        hb_dir = self._heartbeat_dir()
+        if not hb_dir.exists():
+            return cleaned_run_ids
+
+        for path in sorted(hb_dir.glob("*.json")):
+            if path.name.endswith(".tmp"):
+                continue
+            record = _read_json(path)
+            if not record:
+                continue
+
+            status = str(record.get("status", "")).strip().lower()
+            if status not in removable_statuses:
+                continue
+
+            timestamp = str(record.get("last_heartbeat_at") or record.get("first_heartbeat_at") or "")
+            if not timestamp:
+                continue
+
+            try:
+                parsed = datetime.fromisoformat(timestamp)
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                continue
+
+            if parsed.timestamp() > cutoff:
+                continue
+
+            run_id = str(record.get("run_id") or path.stem)
+            try:
+                path.unlink(missing_ok=True)
+                cleaned_run_ids.append(run_id)
+            except OSError:
+                continue
+
+        return cleaned_run_ids
+
     # --- Stall Detection ---
 
     def check_stall(
