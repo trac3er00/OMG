@@ -376,6 +376,17 @@ jobs:
           path: artifacts/release
           merge-multiple: true
 
+      - name: Compile release surfaces into output root
+        run: |
+          python3 -c "
+          from pathlib import Path
+          from runtime.release_surface_compiler import compile_release_surfaces
+          result = compile_release_surfaces(Path('artifacts/release'))
+          print('Release surface compilation:', result['status'])
+          for a in result.get('artifacts', []):
+              print('  -', a)
+          "
+
       - name: Restore canonical settings.json after artifact merge
         run: |
           cp settings.json artifacts/release/settings.json
