@@ -112,3 +112,115 @@ def test_post_write_skips_test_files():
             file_content='const mockKey = "AKIAIOSFODNN7EXAMPLE";\n',
         )
         assert proc.returncode == 0, "Should skip secret detection in test files"
+
+
+# ── Secret resolution ──
+
+def test_secret_detected_signal_can_be_resolved():
+    """Should resolve a secret-detected signal with audit trail."""
+    import importlib.util
+    
+    with tempfile.TemporaryDirectory() as tmp:
+        state_dir = os.path.join(tmp, ".omg", "state")
+        os.makedirs(state_dir, exist_ok=True)
+        
+        signal_path = os.path.join(state_dir, "secret-detected.json")
+        initial_signal = {
+            "timestamp": "2026-03-05T03:52:09.818871+00:00",
+            "file": "/path/to/file.py",
+            "patterns_matched": ["High-entropy potential secret"],
+            "action": "blocked",
+        }
+        with open(signal_path, "w") as f:
+            json.dump(initial_signal, f)
+        
+        spec = importlib.util.spec_from_file_location(
+            "post_write_module",
+            ROOT / "hooks" / "post-write.py"
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Unable to load post-write.py")
+        module = importlib.util.module_from_spec(spec)
+        
+        try:
+            spec.loader.exec_module(module)
+        except SystemExit:
+            pass
+        
+        resolved_state = module.resolve_secret_detected(tmp, "false_positive")
+        
+        assert resolved_state["resolved"] is True
+        assert "resolved_at" in resolved_state
+        assert resolved_state["resolve_reason"] == "false_positive"
+        assert resolved_state["timestamp"] == initial_signal["timestamp"]
+        assert resolved_state["file"] == initial_signal["file"]
+        
+        with open(signal_path, "r") as f:
+            persisted = json.load(f)
+        assert persisted["resolved"] is True
+        assert persisted["resolve_reason"] == "false_positive"
+
+
+def test_secret_detected_resolution_is_idempotent():
+    """Should handle resolving an already-resolved signal without error."""
+    import importlib.util
+    
+    with tempfile.TemporaryDirectory() as tmp:
+        state_dir = os.path.join(tmp, ".omg", "state")
+        os.makedirs(state_dir, exist_ok=True)
+        
+        signal_path = os.path.join(state_dir, "secret-detected.json")
+        initial_signal = {
+            "timestamp": "2026-03-05T03:52:09.818871+00:00",
+            "file": "/path/to/file.py",
+            "patterns_matched": ["High-entropy potential secret"],
+            "action": "blocked",
+            "resolved": True,
+            "resolved_at": "2026-03-10T10:00:00+00:00",
+            "resolve_reason": "secret_rotated",
+        }
+        with open(signal_path, "w") as f:
+            json.dump(initial_signal, f)
+        
+        spec = importlib.util.spec_from_file_location(
+            "post_write_module",
+            ROOT / "hooks" / "post-write.py"
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Unable to load post-write.py")
+        module = importlib.util.module_from_spec(spec)
+        
+        try:
+            spec.loader.exec_module(module)
+        except SystemExit:
+            pass
+        
+        resolved_state = module.resolve_secret_detected(tmp, "verified_safe")
+        
+        assert resolved_state["resolved"] is True
+        assert resolved_state["resolve_reason"] == "verified_safe"
+        assert resolved_state["timestamp"] == initial_signal["timestamp"]
+
+
+def test_secret_detection_still_blocks_unresolved_secrets():
+    """Should still detect and warn about new secrets even after resolution."""
+    with tempfile.TemporaryDirectory() as tmp:
+        # First, write a file with a secret
+        target = os.path.join(tmp, "src", "config.py")
+        proc = _run_post_write(
+            target,
+            tmp,
+            'API_KEY = "sk-proj-xK9mN2pQ8rT5vW3yZ1aB4cD7eF0gH6iJ"\n',
+        )
+        
+        # Should warn about the secret
+        assert proc.returncode == 0
+        assert "SECRET DETECTED" in proc.stderr
+        
+        # Verify signal was written
+        signal_path = os.path.join(tmp, ".omg", "state", "secret-detected.json")
+        assert os.path.exists(signal_path)
+        with open(signal_path, "r") as f:
+            signal = json.load(f)
+        assert signal.get("action") == "blocked"
+        assert "resolved" not in signal or signal.get("resolved") is False
