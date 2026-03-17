@@ -4,7 +4,11 @@ from pathlib import Path
 from unittest.mock import patch
 import json
 
-from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
+from runtime.plugin_diagnostics import (
+    approve_plugin,
+    check_allowlist_completeness,
+    run_plugin_diagnostics,
+)
 
 
 def test_run_plugin_diagnostics_returns_schema() -> None:
@@ -84,3 +88,113 @@ def test_run_plugin_diagnostics_live_true_has_probe_results(tmp_path: Path) -> N
     probe_results = result["live_probe_results"]
     assert isinstance(probe_results, list)
     assert any(p["server"] == "test-mcp" for p in probe_results)
+
+
+def _write_mcp_json(path: Path, servers: dict[str, object]) -> None:
+    path.write_text(json.dumps({"mcpServers": servers}), encoding="utf-8")
+
+
+def _write_allowlist(tmp_path: Path, entries: list[dict[str, str]]) -> None:
+    import yaml
+
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    dumped = yaml.safe_dump(entries, sort_keys=False)
+    assert isinstance(dumped, str)
+    (state_dir / "plugins-allowlist.yaml").write_text(dumped, encoding="utf-8")
+
+
+def test_check_allowlist_completeness_empty_allowlist(tmp_path: Path) -> None:
+    _write_mcp_json(
+        tmp_path / ".mcp.json",
+        {"filesystem": {"command": "npx"}, "omg-control": {"command": "python3"}},
+    )
+
+    result = check_allowlist_completeness(str(tmp_path))
+
+    assert result["complete"] is False
+    assert result["allowlisted_count"] == 0
+    assert result["checked_count"] == 2
+    missing = result["missing_approvals"]
+    assert isinstance(missing, list)
+    assert "mcp:filesystem@claude" in missing
+    assert "mcp:omg-control@claude" in missing
+
+
+def test_check_allowlist_completeness_complete(tmp_path: Path) -> None:
+    _write_mcp_json(
+        tmp_path / ".mcp.json",
+        {"filesystem": {"command": "npx"}, "omg-control": {"command": "python3"}},
+    )
+    _write_allowlist(tmp_path, [
+        {"source": "mcp:filesystem", "host": "claude", "resource_type": "mcp_server", "reason": "trusted"},
+        {"source": "mcp:omg-control", "host": "claude", "resource_type": "mcp_server", "reason": "trusted"},
+    ])
+
+    result = check_allowlist_completeness(str(tmp_path))
+
+    assert result["complete"] is True
+    assert result["missing_approvals"] == []
+    assert result["allowlisted_count"] == 2
+    assert result["checked_count"] == 2
+
+
+def test_check_allowlist_completeness_partial(tmp_path: Path) -> None:
+    _write_mcp_json(
+        tmp_path / ".mcp.json",
+        {"filesystem": {"command": "npx"}, "omg-control": {"command": "python3"}},
+    )
+    _write_allowlist(tmp_path, [
+        {"source": "mcp:filesystem", "host": "claude", "resource_type": "mcp_server", "reason": "trusted"},
+    ])
+
+    result = check_allowlist_completeness(str(tmp_path))
+
+    assert result["complete"] is False
+    assert result["missing_approvals"] == ["mcp:omg-control@claude"]
+    assert result["allowlisted_count"] == 1
+    assert result["checked_count"] == 2
+
+
+def test_check_allowlist_completeness_no_mcp_config(tmp_path: Path) -> None:
+    result = check_allowlist_completeness(str(tmp_path))
+
+    assert result["complete"] is True
+    assert result["missing_approvals"] == []
+    assert result["checked_count"] == 0
+
+
+def test_check_allowlist_completeness_deduplicates_across_configs(tmp_path: Path) -> None:
+    _write_mcp_json(tmp_path / ".mcp.json", {"omg-control": {"command": "python3"}})
+    plugin_dir = tmp_path / ".claude-plugin"
+    plugin_dir.mkdir()
+    _write_mcp_json(plugin_dir / "mcp.json", {"omg-control": {"command": "python3"}})
+
+    result = check_allowlist_completeness(str(tmp_path))
+
+    assert result["checked_count"] == 1
+    assert result["missing_approvals"] == ["mcp:omg-control@claude"]
+
+
+def test_approve_plugin_then_allowlist_complete(tmp_path: Path) -> None:
+    _write_mcp_json(tmp_path / ".mcp.json", {"omg-control": {"command": "python3"}})
+
+    before = check_allowlist_completeness(str(tmp_path))
+    assert before["complete"] is False
+
+    approval = approve_plugin("mcp:omg-control", "claude", "OMG managed", str(tmp_path))
+    assert approval["status"] == "ok"
+
+    after = check_allowlist_completeness(str(tmp_path))
+    assert after["complete"] is True
+    assert after["missing_approvals"] == []
+
+
+def test_run_plugin_diagnostics_includes_allowlist_completeness(tmp_path: Path) -> None:
+    result = run_plugin_diagnostics(root=str(tmp_path), live=False)
+
+    assert "allowlist_completeness" in result
+    completeness = result["allowlist_completeness"]
+    assert isinstance(completeness, dict)
+    assert "complete" in completeness
+    assert "missing_approvals" in completeness
