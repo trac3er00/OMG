@@ -100,6 +100,64 @@ def _record_sort_key(record: plugin_interop.PluginInteropRecord) -> tuple[str, s
     return (record.host, record.plugin_id, record.layer, record.source)
 
 
+def _load_mcp_servers_from_configs(root_path: Path) -> list[tuple[str, str]]:
+    """Return deduplicated ``(mcp:<name>, host)`` pairs from project MCP configs.
+
+    Reads ``.mcp.json`` and ``.claude-plugin/mcp.json`` — both are
+    project-scoped and implicitly target the ``claude`` host.
+    """
+    checked: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for mcp_path in (
+        root_path / ".mcp.json",
+        root_path / ".claude-plugin" / "mcp.json",
+    ):
+        try:
+            raw = mcp_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        try:
+            payload = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        servers = payload.get("mcpServers", {})
+        if not isinstance(servers, dict):
+            continue
+        for name in servers:
+            pair = (f"mcp:{name}", "claude")
+            if pair not in seen:
+                seen.add(pair)
+                checked.append(pair)
+    return checked
+
+
+def check_allowlist_completeness(root: str | None = None) -> dict[str, object]:
+    """Compare configured OMG MCP sources against approved allowlist entries.
+
+    Only OMG-managed MCP sources (declared in project-level configs) are
+    checked.  Discoverable-only resources that were never previously approved
+    are not flagged as errors.
+    """
+    approvals = _load_allowlist(root)
+    approved_set: set[tuple[str, str]] = {(e.source, e.host) for e in approvals}
+    root_path = Path(root or ".").resolve()
+    checked_sources = _load_mcp_servers_from_configs(root_path)
+
+    missing: list[str] = []
+    for source, host in checked_sources:
+        if (source, host) not in approved_set:
+            missing.append(f"{source}@{host}")
+
+    return {
+        "complete": len(missing) == 0,
+        "missing_approvals": missing,
+        "allowlisted_count": len(approvals),
+        "checked_count": len(checked_sources),
+    }
+
+
 def run_plugin_diagnostics(root: str | None = None, live: bool = False) -> dict[str, object]:
     started = time.monotonic()
 
@@ -157,6 +215,8 @@ def run_plugin_diagnostics(root: str | None = None, live: bool = False) -> dict[
         "next_actions": next_actions,
         "elapsed_ms": (time.monotonic() - started) * 1000.0,
     }
+
+    result["allowlist_completeness"] = check_allowlist_completeness(root)
 
     if live:
         result["live_probe_results"] = _probe_mcp_servers_live(ordered_records, root)
