@@ -96,17 +96,19 @@ def record_compensating_action(
     action: str,
     command: str,
     status: str = "declared",
+    argv: list[str] | None = None,
 ) -> None:
     actions = manifest.setdefault("compensating_actions", [])
-    actions.append(
-        {
-            "effect_type": effect_type,
-            "action": action,
-            "command": command,
-            "status": status,
-            "recorded_at": _utc_now(),
-        }
-    )
+    entry: dict[str, Any] = {
+        "effect_type": effect_type,
+        "action": action,
+        "command": command,
+        "status": status,
+        "recorded_at": _utc_now(),
+    }
+    if argv:
+        entry["argv"] = argv
+    actions.append(entry)
     manifest["updated_at"] = _utc_now()
 
 
@@ -131,6 +133,9 @@ def write_rollback_manifest(project_dir: str, manifest: dict[str, Any]) -> str:
 def _has_compensating_action(payload: Any) -> bool:
     if not isinstance(payload, dict):
         return False
+    argv = payload.get("argv")
+    if isinstance(argv, list) and argv:
+        return True
     action = str(payload.get("action", "")).strip()
     command = str(payload.get("command", "")).strip()
     return bool(action and command)
