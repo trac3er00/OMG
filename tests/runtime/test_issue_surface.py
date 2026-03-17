@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+import time
 from typing import cast
 
-from runtime.issue_surface import Issue, IssueReport, IssueSurface
+from runtime.issue_surface import Issue, IssueReport, IssueSurface, prune_operational_evidence
 import scripts.omg as omg_cli
 
 
@@ -168,3 +170,69 @@ def test_fix_and_issue_commands_share_backend_without_role_collision(
     assert issue_output["schema"] == "IssueCommandResult"
     assert "issue_surface" not in issue_output
     assert len(scan_calls) == 2
+
+
+def test_issue_surface_reports_evidence_retention_thresholds(tmp_path: Path) -> None:
+    evidence_dir = tmp_path / ".omg" / "evidence"
+    heartbeat_dir = tmp_path / ".omg" / "state" / "worker-heartbeats"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    heartbeat_dir.mkdir(parents=True, exist_ok=True)
+
+    for idx in range(101):
+        _ = (evidence_dir / f"forge-{idx}.json").write_text("{}\n", encoding="utf-8")
+    for idx in range(21):
+        _ = (heartbeat_dir / f"heartbeat-{idx}.json").write_text("{}\n", encoding="utf-8")
+
+    report = IssueSurface(project_dir=str(tmp_path)).scan("retention-run", surfaces=["governed_tools"])
+
+    retention_issues = [
+        issue
+        for issue in report.issues
+        if issue.title in {"Operational evidence retention exceeded", "Worker heartbeat residue exceeded"}
+    ]
+    assert len(retention_issues) == 2
+    assert all(issue.severity == "medium" for issue in retention_issues)
+
+
+def test_prune_operational_evidence_respects_exemptions_and_age(tmp_path: Path) -> None:
+    evidence_dir = tmp_path / ".omg" / "evidence"
+    issues_dir = evidence_dir / "issues"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    issues_dir.mkdir(parents=True, exist_ok=True)
+
+    old_paths = [
+        evidence_dir / "forge-old.json",
+        evidence_dir / "worker-replay-old.json",
+        evidence_dir / "trust-old.json",
+        evidence_dir / "approval-old.json",
+        evidence_dir / "security-old.json",
+        evidence_dir / "sbom-old.json",
+        evidence_dir / "license-old.json",
+    ]
+    fresh_path = evidence_dir / "forge-fresh.json"
+
+    for path in old_paths:
+        _ = path.write_text("{}\n", encoding="utf-8")
+    _ = fresh_path.write_text("{}\n", encoding="utf-8")
+    _ = (issues_dir / "kept.json").write_text("{}\n", encoding="utf-8")
+
+    stale_time = time.time() - (10 * 86400)
+    for path in old_paths:
+        os.utime(path, (stale_time, stale_time))
+
+    dry_run_result = prune_operational_evidence(str(tmp_path), max_age_days=7, dry_run=True)
+    assert dry_run_result == {"pruned": 2, "preserved": 7, "dry_run": True}
+    assert (evidence_dir / "forge-old.json").exists()
+    assert (evidence_dir / "worker-replay-old.json").exists()
+
+    result = prune_operational_evidence(str(tmp_path), max_age_days=7, dry_run=False)
+    assert result == {"pruned": 2, "preserved": 7, "dry_run": False}
+    assert not (evidence_dir / "forge-old.json").exists()
+    assert not (evidence_dir / "worker-replay-old.json").exists()
+    assert (evidence_dir / "trust-old.json").exists()
+    assert (evidence_dir / "approval-old.json").exists()
+    assert (evidence_dir / "security-old.json").exists()
+    assert (evidence_dir / "sbom-old.json").exists()
+    assert (evidence_dir / "license-old.json").exists()
+    assert (evidence_dir / "forge-fresh.json").exists()
+    assert (evidence_dir / "issues").is_dir()
