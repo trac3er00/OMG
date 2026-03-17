@@ -50,6 +50,7 @@ class BudgetEnvelopeState:
     network_bytes_used: int = 0
     started_at: str = ""
     updated_at: str = ""
+    status: str = "active"  # "active" or "closed"
 
 
 @dataclass
@@ -133,6 +134,7 @@ class BudgetEnvelopeManager:
         payload: dict[str, Any] = {
             "schema": "BudgetEnvelopeState",
             "schema_version": "1.0.0",
+            "status": "active",
             "envelope": asdict(envelope),
             "usage": asdict(state),
             "checks": [],
@@ -192,6 +194,8 @@ class BudgetEnvelopeManager:
         payload = self._read_state(run_id)
         if not payload:
             return EnvelopeCheckResult(status="ok", reason="no envelope found")
+        if payload.get("status", "active") == "closed":
+            return EnvelopeCheckResult(status="ok", reason="envelope closed")
 
         envelope = payload.get("envelope", {})
         usage = payload.get("usage", {})
@@ -261,26 +265,60 @@ class BudgetEnvelopeManager:
             "reason": result.reason,
         }
         checks_history.append(check_record)
+        if len(checks_history) > 50:
+            checks_history = checks_history[-50:]
         payload["checks"] = checks_history
         _write_atomic_json(self._envelope_path(run_id), payload)
 
         return result
 
-    def get_envelope_state(self, run_id: str) -> dict[str, Any] | None:
-        """Read current envelope state from disk.
+    def close_envelope(self, run_id: str, reason: str) -> None:
+        payload = self._read_state(run_id)
+        if not payload:
+            return
+        payload["status"] = "closed"
+        payload["closed_at"] = _now_iso()
+        payload["close_reason"] = reason
+        _write_atomic_json(self._envelope_path(run_id), payload)
 
-        Returns the full state dict or None if no envelope exists.
-        """
+    def list_envelopes(self) -> list[dict[str, Any]]:
+        env_dir = self._envelope_dir()
+        if not env_dir.exists():
+            return []
+        result: list[dict[str, Any]] = []
+        for path in sorted(env_dir.glob("*.json")):
+            if path.name.endswith(".tmp"):
+                continue
+            payload = _read_json(path)
+            if not payload:
+                continue
+            result.append({
+                "run_id": payload.get("usage", {}).get("run_id", path.stem),
+                "status": payload.get("status", "active"),
+                "envelope": payload.get("envelope", {}),
+                "usage": payload.get("usage", {}),
+                "checks_count": len(payload.get("checks", [])),
+            })
+        return result
+
+    def prune_check_history(self, run_id: str, max_entries: int = 50) -> None:
+        payload = self._read_state(run_id)
+        if not payload:
+            return
+        checks = payload.get("checks", [])
+        if len(checks) > max_entries:
+            payload["checks"] = checks[-max_entries:]
+            _write_atomic_json(self._envelope_path(run_id), payload)
+
+    def get_envelope_state(self, run_id: str) -> dict[str, Any] | None:
         payload = self._read_state(run_id)
         return payload if payload else None
 
     def get_envelope_pressure(self, run_id: str) -> dict[str, float]:
-        """Return per-dimension usage ratios (0.0–1.0+) for health integration.
-
-        Returns empty dict if no envelope exists.
-        """
         payload = self._read_state(run_id)
         if not payload:
+            return {}
+        if payload.get("status", "active") == "closed":
             return {}
 
         envelope = payload.get("envelope", {})
