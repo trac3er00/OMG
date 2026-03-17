@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, cast
@@ -106,7 +107,7 @@ def transactional() -> Generator[ConfigTransaction, None, None]:
     if _active_transaction is not None:
         raise RuntimeError("nested transactions not supported")
     tx_lock_dir = Path(tempfile.mkdtemp(prefix="omg-tx-"))
-    tx = _CT(lock_path=tx_lock_dir / "tx.lock")
+    tx = _CT(lock_path=tx_lock_dir / "tx.lock", backup_root=tx_lock_dir / "backups")
     _active_transaction = tx
     _planned_content.clear()
     try:
@@ -115,8 +116,7 @@ def transactional() -> Generator[ConfigTransaction, None, None]:
         _active_transaction = None
         _planned_content.clear()
         try:
-            (tx_lock_dir / "tx.lock").unlink(missing_ok=True)
-            tx_lock_dir.rmdir()
+            shutil.rmtree(tx_lock_dir, ignore_errors=True)
         except OSError:
             pass
 
