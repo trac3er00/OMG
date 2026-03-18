@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_packaged_wheel_includes_control_plane_registry_plugins_and_generated_artifacts(tmp_path: Path) -> None:
+    shutil.rmtree(ROOT / "build", ignore_errors=True)
     proc = subprocess.run(
         [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "-w", str(tmp_path)],
         cwd=str(ROOT),

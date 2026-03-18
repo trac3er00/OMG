@@ -608,6 +608,22 @@ def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, mo
     assert primitives["evidence_paths"]["profile_digest"] == ".omg/state/profile.yaml"
 
 
+def test_compile_contract_outputs_emits_release_surface_manifest_for_output_root(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=["claude", "codex"],
+        channel="public",
+    )
+
+    assert result["status"] == "ok"
+    manifest_path = tmp_path / "dist" / "public" / "release-surface.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["generated_by"] == "omg release compile-surfaces"
+    assert manifest["version"] == CANONICAL_VERSION
+
+
 def test_validate_contract_registry_reports_expected_bundles() -> None:
     result = validate_contract_registry(ROOT)
 
