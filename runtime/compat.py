@@ -1146,10 +1146,56 @@ def _check_writable_config_dir(host: str, *, home_dir: str | None = None) -> dic
 def run_env_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
     repo_root = root_dir or Path(__file__).resolve().parent.parent
     home_dir = os.environ.get("OMG_TEST_HOME_DIR", os.path.expanduser("~"))
+    claude_dir = (
+        os.environ.get("CLAUDE_CONFIG_DIR")
+        or os.environ.get("CLAUDE_DIR")
+        or os.path.join(home_dir, ".claude")
+    )
     checks: list[dict[str, Any]] = []
 
     checks.append(_check_node_version())
+
+    py_ok = sys.version_info >= (3, 10)
+    checks.append(_env_check(
+        "python_version",
+        ok=py_ok,
+        message=(
+            f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            + ("" if py_ok else " (requires >=3.10)")
+        ),
+    ))
     checks.append(_check_python3_available())
+
+    mcp_json_path = repo_root / ".mcp.json"
+    omg_control_ok = False
+    omg_control_msg = ".mcp.json not found"
+    if mcp_json_path.exists():
+        try:
+            with open(mcp_json_path, "r", encoding="utf-8") as f:
+                mcp_data = json.load(f)
+            servers = mcp_data.get("mcpServers", {})
+            ctrl = servers.get("omg-control", {})
+            command = ctrl.get("command", "")
+            if command:
+                omg_control_ok = True
+                omg_control_msg = f"omg-control configured (stdio: {command})"
+            elif ctrl:
+                omg_control_ok = True
+                omg_control_msg = "omg-control configured (non-stdio)"
+            else:
+                omg_control_msg = "omg-control not found in .mcp.json mcpServers"
+        except (json.JSONDecodeError, OSError, KeyError) as exc:
+            omg_control_msg = f".mcp.json parse error: {exc}"
+    checks.append(_env_check("omg_control_reachable", ok=omg_control_ok, message=omg_control_msg))
+
+    managed_venv_path = Path(claude_dir) / "omg-runtime" / ".venv"
+    managed_runtime_ok = managed_venv_path.exists()
+    managed_runtime_msg = (
+        f"managed venv at {managed_venv_path}"
+        if managed_runtime_ok
+        else f"managed venv not found at {managed_venv_path} (install via OMG-setup.sh)"
+    )
+    checks.append(_env_check("managed_runtime", ok=managed_runtime_ok, message=managed_runtime_msg))
 
     for cli_name in _ENV_HOST_CLIS:
         checks.append(_check_cli_path(cli_name))

@@ -164,7 +164,7 @@ OpenCode remains a compatibility-only adapter surface and is intentionally exclu
   - `~/.claude/settings.json` → `enabledPlugins[plugin_ref] = true`
   - `~/.claude/plugins/installed_plugins.json` → Plugin metadata with installed path, version, timestamp
 - **Plugin Ref Format:** `omg@omg` (name@marketplace_id)
-- **Version:** `2.2.8` (from package.json)
+- **Version:** `2.2.10` (from package.json)
 
 #### C. Plugin Unregistration (Lines 631-669)
 - **Function:** `unregister_plugin_from_registry(plugin_ref)`
@@ -208,7 +208,7 @@ OpenCode remains a compatibility-only adapter surface and is intentionally exclu
 ```json
 {
   "name": "@trac3er/oh-my-god",
-  "version": "2.2.8",
+  "version": "2.2.10",
   "scripts": {
     "postinstall": "python3 scripts/omg.py install --plan",
     "update": "./OMG-setup.sh update",
@@ -241,7 +241,7 @@ CANONICAL_REPO_URL = "https://github.com/trac3er00/OMG"
 CANONICAL_PACKAGE_NAME = "@trac3er/oh-my-god"
 CANONICAL_PLUGIN_ID = "omg"
 CANONICAL_MARKETPLACE_ID = "omg"
-CANONICAL_VERSION = "2.2.8"
+CANONICAL_VERSION = "2.2.10"
 ```
 
 ---
@@ -252,8 +252,8 @@ CANONICAL_VERSION = "2.2.8"
 
 | Target | Fast Path | Manual Path | Preset | Mode |
 |--------|-----------|-------------|--------|------|
-| **Claude Code** | `npm install @trac3er/oh-my-god` | `git clone + ./OMG-setup.sh install --mode=omg-only --preset=balanced` | `balanced` | `omg-only` |
-| **Codex** | `npm install @trac3er/oh-my-god` | `git clone + ./OMG-setup.sh install --mode=omg-only --preset=interop` | `interop` | `omg-only` |
+| **Claude Code** | `npx omg env doctor -> npx omg install --plan -> npx omg install --apply` | `git clone + ./OMG-setup.sh install --mode=omg-only --preset=balanced` | `balanced` | `omg-only` |
+| **Codex** | `npx omg env doctor -> npx omg install --plan -> npx omg install --apply` | `git clone + ./OMG-setup.sh install --mode=omg-only --preset=interop` | `interop` | `omg-only` |
 | **Gemini** | Not documented | Via provider registry detect + setup | N/A | Via adoption |
 | **Kimi** | Not documented | Via provider registry detect + setup | N/A | Via adoption |
 

@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/mcp-fabric.yaml",
       "digest": {
-        "sha256": "24b1cfa0c760f3e04cfa861252b8417cc48808ff3cde6d328b53df56bd1973b8"
+        "sha256": "a27651cb019f67c4662876c86cbba22c8e7be224c5c670e1916342cc7b4bb3ec"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T06:00:03.999568+00:00"
+      "timestamp": "2026-03-18T21:01:41.908319+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T06:00:03.999568+00:00",
+  "issued_at": "2026-03-18T21:01:41.908319+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "57346a56d092427e",
-    "value": "untrusted comment: signature from omg local signing key\n0V2lDIoxybom+FirftuEjtRzl529YVMBNyY2RW9Wwi+Z/k8LoGxlyQIROPqRuoX704LdMz/HYTEp5Woi56xtDQ==\ntrusted comment: type=omg-slsa-v1 keyid=57346a56d092427e issued_at=2026-03-18T06:00:03.999685+00:00 artifact=bundle/registry/bundles/mcp-fabric.yaml sha256=24b1cfa0c760f3e04cfa861252b8417cc48808ff3cde6d328b53df56bd1973b8\nykCscc/p1C8uFxtCtnuHbSVBnsSF9gZKV1pm5HEBgk4JkA4aVY1wTqrAOoVJ4Z6tIeNeDN/o9IkS1yLf8FZDDg==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=57346a56d092427e issued_at=2026-03-18T06:00:03.999685+00:00 artifact=bundle/registry/bundles/mcp-fabric.yaml sha256=24b1cfa0c760f3e04cfa861252b8417cc48808ff3cde6d328b53df56bd1973b8"
+    "keyid": "4b113f2df64cf23f",
+    "value": "untrusted comment: signature from omg local signing key\n6ZxFIt1AoA1AN2m+yqHtf5roUUVHqQl0Sg/aDXXLjka8UDn2sVXbYqtnmj0L0mfwUTHlbKaog0YYQs2ED52PCA==\ntrusted comment: type=omg-slsa-v1 keyid=4b113f2df64cf23f issued_at=2026-03-18T21:01:41.908423+00:00 artifact=bundle/registry/bundles/mcp-fabric.yaml sha256=a27651cb019f67c4662876c86cbba22c8e7be224c5c670e1916342cc7b4bb3ec\nmhED8Jfgm2Wfv2g67T5gMJ8sh7Cc6H0abSgJe4FfwA+RdUY2u+hVm2/zRaTUnGUWWWf5TeuTlVnDCAAoZx2VAQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=4b113f2df64cf23f issued_at=2026-03-18T21:01:41.908423+00:00 artifact=bundle/registry/bundles/mcp-fabric.yaml sha256=a27651cb019f67c4662876c86cbba22c8e7be224c5c670e1916342cc7b4bb3ec"
   }
 }

@@ -13,6 +13,10 @@ from runtime.canonical_taxonomy import (
     POLICY_PACK_IDS,
 )
 from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
+from runtime.release_surface_compiler import (
+    _quick_reference_hosts_content,
+    _verification_index_targets_content,
+)
 
 GENERATED_ARTIFACTS: tuple[str, ...] = (
     "support-matrix.json",
@@ -158,9 +162,9 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "",
         "---",
         "",
-        "## 🎯 Installation Targets & Methods",
-        "",
-        "### Canonical Targets",
+        "<!-- OMG:GENERATED:verification-index-targets -->",
+        _verification_index_targets_content(),
+        "<!-- /OMG:GENERATED:verification-index-targets -->",
     ]
     
     target_configs = {
@@ -169,14 +173,6 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "gemini": "~/.gemini/settings.json",
         "kimi": "~/.kimi/mcp.json",
     }
-    
-    for i, host in enumerate(canonical_hosts, 1):
-        config_path = target_configs.get(host, "Unknown")
-        install_md.extend([
-            f"{i}. **{host.capitalize()}**",
-            f"   - **Config:** `{config_path}`",
-            "",
-        ])
     
     install_md.extend([
         "---",
@@ -210,6 +206,10 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "## 🎯 Core Integration Points",
         "",
         "### Canonical Hosts",
+        "",
+        "<!-- OMG:GENERATED:quick-reference-hosts -->",
+        _quick_reference_hosts_content(),
+        "<!-- /OMG:GENERATED:quick-reference-hosts -->",
         "",
         "| Host | Config File |",
         "| :--- | :--- |",
@@ -250,7 +250,7 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "| Environment check | `npx omg env doctor` |",
         "| Ship | `npx omg ship` |",
         "| Proof dashboard | `npx omg proof open --html` |",
-        "| Explain run | `npx omg explain run <id>` |",
+        "| Explain run | `npx omg explain run --run-id <id>` |",
         "| Blocked inspection | `npx omg blocked --last` |",
         "| Validate | `npx omg validate` |",
         "| Contract validate | `npx omg contract validate` |",

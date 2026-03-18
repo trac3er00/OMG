@@ -26,6 +26,10 @@ validate_authored = _mod.validate_authored
 validate_derived = _mod.validate_derived
 scan_scoped_residue = _mod.scan_scoped_residue
 build_report = _mod.build_report
+validate_release_surface = getattr(_mod, "validate_release_surface", None)
+find_explain_command_blockers = getattr(_mod, "_find_explain_command_blockers", None)
+find_install_launcher_blockers = getattr(_mod, "_find_install_launcher_blockers", None)
+find_npx_front_door_blockers = getattr(_mod, "_find_npx_front_door_blockers", None)
 
 _OLD_VERSION = "0.0.1-test"
 
@@ -41,6 +45,8 @@ class TestHappyPath:
         output = json.loads(result.stdout)
         assert output["overall_status"] == "ok"
         assert result.returncode == 0
+        assert "release_surface" in output
+        assert output["release_surface"]["status"] == "ok"
 
     def test_json_output_structure(self):
         result = subprocess.run(
@@ -139,6 +145,76 @@ class TestAuthoredDrift:
         assert len(result["blockers"]) == 2
         assert result["blockers"][0]["surface"] == ".gemini/settings.json _omg._version"
         assert result["blockers"][1]["surface"] == ".gemini/settings.json _omg.generated.contract_version"
+
+
+class TestReleaseSurfaceValidation:
+    def test_validate_release_surface_available(self):
+        assert callable(validate_release_surface), "validate_release_surface must exist"
+
+    def test_explain_command_blocker_helper_available(self):
+        assert callable(find_explain_command_blockers), "_find_explain_command_blockers must exist"
+
+    def test_install_launcher_blocker_helper_available(self):
+        assert callable(find_install_launcher_blockers), "_find_install_launcher_blockers must exist"
+
+    def test_npx_front_door_blocker_helper_available(self):
+        assert callable(find_npx_front_door_blockers), "_find_npx_front_door_blockers must exist"
+
+    def test_build_report_includes_release_surface_section(self):
+        report = build_report(
+            canonical="2.2.10",
+            scope="all",
+            forbid_version=None,
+            authored={"status": "ok", "blockers": []},
+            derived={"status": "ok", "blockers": []},
+            scoped_residue=None,
+            release_surface={"status": "ok", "blockers": [], "checks": {}},
+        )
+        assert "release_surface" in report
+        assert report["release_surface"]["status"] == "ok"
+
+    def test_release_surface_failure_flips_overall_status(self):
+        report = build_report(
+            canonical="2.2.10",
+            scope="all",
+            forbid_version=None,
+            authored={"status": "ok", "blockers": []},
+            derived={"status": "ok", "blockers": []},
+            scoped_residue=None,
+            release_surface={"status": "fail", "blockers": ["front_door"], "checks": {}},
+        )
+        assert report["overall_status"] == "fail"
+
+    def test_explain_command_blocker_flags_positional_readme_syntax(self, tmp_path):
+        readme = tmp_path / "README.md"
+        readme.write_text("```bash\nomg explain run <id>\n```\n", encoding="utf-8")
+
+        blockers = find_explain_command_blockers(tmp_path)
+
+        assert any("README.md" in blocker for blocker in blockers)
+
+    def test_install_launcher_blocker_flags_plain_local_npm_install(self, tmp_path):
+        guide = tmp_path / "docs" / "install" / "codex.md"
+        guide.parent.mkdir(parents=True, exist_ok=True)
+        guide.write_text(
+            "```bash\nnpm install @trac3er/oh-my-god\n```\n\n```bash\nomg env doctor\n```\n",
+            encoding="utf-8",
+        )
+
+        blockers = find_install_launcher_blockers(tmp_path)
+
+        assert any("docs/install/codex.md" in blocker for blocker in blockers)
+
+    def test_npx_front_door_blocker_flags_bare_omg_flow(self, tmp_path):
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "```bash\nomg env doctor\nomg install --plan\nomg install --apply\nomg ship\n```\n",
+            encoding="utf-8",
+        )
+
+        blockers = find_npx_front_door_blockers(tmp_path)
+
+        assert any("README.md" in blocker for blocker in blockers)
 
 
 class TestDerivedDrift:

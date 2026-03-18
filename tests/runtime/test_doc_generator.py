@@ -211,6 +211,14 @@ def test_quick_reference_uses_omg_launcher(tmp_path):
     assert "omg ship" in content
 
 
+def test_quick_reference_uses_real_explain_run_syntax(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    content = (output_root / "QUICK-REFERENCE.md").read_text()
+    assert "npx omg explain run --run-id <id>" in content
+    assert "npx omg explain run <id>" not in content
+
+
 def test_install_verification_index_uses_omg_commands(tmp_path):
     output_root = tmp_path / "docs"
     generate_docs(output_root)

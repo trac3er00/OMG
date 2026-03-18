@@ -56,14 +56,37 @@ def compile_release_surfaces(
     readme = root / "README.md"
     if readme.exists():
         content = readme.read_text(encoding="utf-8")
+        install_intro_key = _marker_key(markers.get("install_intro", "")) or "install-intro"
+        content, updated = _upsert_section(
+            content,
+            install_intro_key,
+            _install_intro_content(),
+            insert_after="## Quickstart",
+        )
+        if updated:
+            sections_updated.append("install_intro")
         quickstart_key = _marker_key(markers.get("readme_quickstart", "")) or "quickstart"
-        content, updated = _upsert_section(content, quickstart_key, _quickstart_content())
+        content, updated = _upsert_section(
+            content,
+            quickstart_key,
+            _quickstart_content(),
+            insert_after="## Quickstart",
+        )
         if updated:
             sections_updated.append("readme_quickstart")
         cmd_key = _marker_key(markers.get("readme_command_surface", "")) or "command-surface"
         content, updated = _upsert_section(content, cmd_key, _command_surface_snippet(root))
         if updated:
             sections_updated.append("readme_command_surface")
+        why_omg_key = _marker_key(markers.get("why_omg", "")) or "why-omg"
+        content, updated = _upsert_section(
+            content,
+            why_omg_key,
+            _why_omg_content(),
+            insert_after="## Why OMG",
+        )
+        if updated:
+            sections_updated.append("why_omg")
         proof_key = _marker_key(markers.get("proof_generated_section", "")) or "proof"
         content, updated = _upsert_section(content, proof_key, _proof_content())
         if updated:
@@ -98,6 +121,51 @@ def compile_release_surfaces(
             if updated:
                 sections_updated.append(f"install_fast_path:{surface['id']}")
             guide_path.write_text(content, encoding="utf-8")
+
+    proof_path = root / "docs" / "proof.md"
+    if proof_path.exists():
+        content = proof_path.read_text(encoding="utf-8")
+        proof_quickstart_key = _marker_key(markers.get("proof_quickstart", "")) or "proof-quickstart"
+        content, updated = _upsert_section(
+            content,
+            proof_quickstart_key,
+            _proof_quickstart_content(),
+            insert_after="## How to Read Your Proof",
+        )
+        if updated:
+            sections_updated.append("proof_quickstart")
+        proof_path.write_text(content, encoding="utf-8")
+
+    quick_reference_path = root / "QUICK-REFERENCE.md"
+    if quick_reference_path.exists():
+        content = quick_reference_path.read_text(encoding="utf-8")
+        quick_reference_key = _marker_key(markers.get("quick_reference_hosts", "")) or "quick-reference-hosts"
+        content, updated = _upsert_section(
+            content,
+            quick_reference_key,
+            _quick_reference_hosts_content(),
+            insert_after="### Canonical Hosts",
+        )
+        if updated:
+            sections_updated.append("quick_reference_hosts")
+        quick_reference_path.write_text(content, encoding="utf-8")
+
+    verification_index_path = root / "INSTALL-VERIFICATION-INDEX.md"
+    if verification_index_path.exists():
+        content = verification_index_path.read_text(encoding="utf-8")
+        verification_key = (
+            _marker_key(markers.get("verification_index_targets", ""))
+            or "verification-index-targets"
+        )
+        content, updated = _upsert_section(
+            content,
+            verification_key,
+            _verification_index_targets_content(),
+            insert_after="### Source Files Referenced",
+        )
+        if updated:
+            sections_updated.append("verification_index_targets")
+        verification_index_path.write_text(content, encoding="utf-8")
 
     cmd_surface_path = root / "docs" / "command-surface.md"
     cmd_surface_path.parent.mkdir(parents=True, exist_ok=True)
@@ -206,22 +274,25 @@ def _upsert_section(
 
 def _quickstart_content() -> str:
     return (
-        "Preview what OMG will configure, then apply:\n"
+        "Install OMG, verify the environment, then preview and apply the managed changes:\n"
+        "\n"
+        "Supported platforms: macOS and Linux.\n"
         "\n"
         "```bash\n"
-        "omg install --plan\n"
-        "omg install --apply\n"
+        "npx omg env doctor\n"
+        "npx omg install --plan\n"
+        "npx omg install --apply\n"
         "```\n"
         "\n"
         "Then start working:\n"
         "\n"
         "```bash\n"
-        "omg ship\n"
-        "omg proof open --html\n"
-        "omg blocked --last\n"
+        "npx omg ship\n"
+        "npx omg proof open --html\n"
+        "npx omg blocked --last\n"
         "```\n"
         "\n"
-        "> Compatibility: `/OMG:crazy <goal>` is still accepted as an alias."
+        "> Legacy compatibility: `/OMG:crazy <goal>` is still accepted as an alias."
     )
 
 
@@ -229,14 +300,91 @@ def _install_fast_path_content() -> str:
     return (
         "## Fast Path\n"
         "\n"
-        "> **Prerequisites**: Node >=18, Python >=3.10\n"
+        "> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10\n"
         "\n"
         "```bash\n"
-        "omg install --plan    # preview changes\n"
-        "omg install --apply   # apply configuration\n"
+        "npx omg env doctor\n"
+        "npx omg install --plan    # preview only, no mutations\n"
+        "npx omg install --apply   # apply configuration\n"
         "```\n"
         "\n"
-        "This registers the OMG control plane for your host automatically."
+        "The preview step is advisory only and makes no mutations until you run apply."
+    )
+
+
+def _install_intro_content() -> str:
+    return (
+        "Run the published launcher directly and keep mutations explicit:\n"
+        "\n"
+        "Supported platforms: macOS and Linux.\n"
+        "\n"
+        "```bash\n"
+        "npx omg env doctor\n"
+        "npx omg install --plan\n"
+        "npx omg install --apply\n"
+        "```\n"
+        "\n"
+        "If you choose `npm install`, it performs dependency resolution and bin linking only.\n"
+        "\n"
+        "The package postinstall runs `omg install --plan` as a preview, so it makes "
+        "no mutations until you explicitly run `npx omg install --apply`."
+    )
+
+
+def _why_omg_content() -> str:
+    return (
+        "OMG keeps the host you already use, then adds governed install, proof, and "
+        "release surfaces on top.\n"
+        "\n"
+        "- Canonical host parity targets are Claude, Codex, Gemini, and Kimi.\n"
+        "- OpenCode remains a supported compatibility host for teams that need it.\n"
+        "- Install and verification stay explicit: doctor first, preview second, apply last.\n"
+        "\n"
+        "> Legacy Claude compatibility commands such as `/OMG:setup` and "
+        "`/OMG:crazy <goal>` remain documented as footnotes only."
+    )
+
+
+def _proof_quickstart_content() -> str:
+    return (
+        "## Proof Quickstart\n"
+        "\n"
+        "```bash\n"
+        "omg proof open --html\n"
+        "omg blocked --last\n"
+        "omg explain run --run-id <id>\n"
+        "```\n"
+        "\n"
+        "Use the HTML view first, then inspect blockers or explain a specific run."
+    )
+
+
+def _quick_reference_hosts_content() -> str:
+    return (
+        "### Host Targets\n"
+        "\n"
+        "| host | role | config |\n"
+        "| :--- | :--- | :--- |\n"
+        "| claude | canonical | `.mcp.json` |\n"
+        "| codex | canonical | `~/.codex/config.toml` |\n"
+        "| gemini | canonical | `~/.gemini/settings.json` |\n"
+        "| kimi | canonical | `~/.kimi/mcp.json` |\n"
+        "| opencode | compatibility | `~/.config/opencode/opencode.json` |\n"
+    )
+
+
+def _verification_index_targets_content() -> str:
+    return (
+        "## Installation Targets & Methods\n"
+        "\n"
+        "### Canonical Targets\n"
+        "1. **Claude** — Config: `.mcp.json`\n"
+        "2. **Codex** — Config: `~/.codex/config.toml`\n"
+        "3. **Gemini** — Config: `~/.gemini/settings.json`\n"
+        "4. **Kimi** — Config: `~/.kimi/mcp.json`\n"
+        "\n"
+        "### Compatibility Targets\n"
+        "5. **OpenCode** — Config: `~/.config/opencode/opencode.json`\n"
     )
 
 
@@ -247,7 +395,7 @@ def _proof_content() -> str:
         "```bash\n"
         "omg proof open --html\n"
         "omg blocked --last\n"
-        "omg explain run <id>\n"
+        "omg explain run --run-id <id>\n"
         "omg budget simulate --enforce\n"
         "```\n"
         "\n"
@@ -415,8 +563,18 @@ def _check_release_surfaces(root: Path) -> dict[str, Any]:
     )
     _check_marker_drift(
         root, "README.md",
+        markers.get("install_intro", ""),
+        _install_intro_content(), "install_intro", drift,
+    )
+    _check_marker_drift(
+        root, "README.md",
         markers.get("readme_command_surface", ""),
         _command_surface_snippet(root), "readme_command_surface", drift,
+    )
+    _check_marker_drift(
+        root, "README.md",
+        markers.get("why_omg", ""),
+        _why_omg_content(), "why_omg", drift,
     )
     _check_marker_drift(
         root, "README.md",
@@ -439,6 +597,21 @@ def _check_release_surfaces(root: Path) -> dict[str, Any]:
             str(surface["id"]),
             drift,
         )
+    _check_marker_drift(
+        root, "docs/proof.md",
+        markers.get("proof_quickstart", ""),
+        _proof_quickstart_content(), "proof_quickstart", drift,
+    )
+    _check_marker_drift(
+        root, "QUICK-REFERENCE.md",
+        markers.get("quick_reference_hosts", ""),
+        _quick_reference_hosts_content(), "quick_reference_hosts", drift,
+    )
+    _check_marker_drift(
+        root, "INSTALL-VERIFICATION-INDEX.md",
+        markers.get("verification_index_targets", ""),
+        _verification_index_targets_content(), "verification_index_targets", drift,
+    )
 
     _check_artifact_drift(
         root, f"artifacts/release/release-notes-v{CANONICAL_VERSION}.md",

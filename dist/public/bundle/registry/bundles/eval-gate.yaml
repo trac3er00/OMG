@@ -1,6 +1,6 @@
 id: eval-gate
 kind: evaluation
-version: 2.2.8
+version: 2.2.10
 title: OMG Eval Gate
 description: Reproducible evaluation gate that blocks regressions before release.
 hosts:

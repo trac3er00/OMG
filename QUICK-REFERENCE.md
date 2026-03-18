@@ -5,6 +5,19 @@
 
 ### Canonical Hosts
 
+<!-- OMG:GENERATED:quick-reference-hosts -->
+### Host Targets
+
+| host | role | config |
+| :--- | :--- | :--- |
+| claude | canonical | `.mcp.json` |
+| codex | canonical | `~/.codex/config.toml` |
+| gemini | canonical | `~/.gemini/settings.json` |
+| kimi | canonical | `~/.kimi/mcp.json` |
+| opencode | compatibility | `~/.config/opencode/opencode.json` |
+
+<!-- /OMG:GENERATED:quick-reference-hosts -->
+
 | Host | Config File |
 | :--- | :--- |
 | claude | `.mcp.json` |
@@ -38,7 +51,7 @@
 | Environment check | `npx omg env doctor` |
 | Ship | `npx omg ship` |
 | Proof dashboard | `npx omg proof open --html` |
-| Explain run | `npx omg explain run <id>` |
+| Explain run | `npx omg explain run --run-id <id>` |
 | Blocked inspection | `npx omg blocked --last` |
 | Validate | `npx omg validate` |
 | Contract validate | `npx omg contract validate` |

@@ -3,10 +3,12 @@
 ## Fast Path
 
 ```bash
-npm install @trac3er/oh-my-god
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
 ```
 
-If `kimi` is already on `PATH`, OMG writes an `omg-control` stdio server entry to `~/.kimi/mcp.json` during install.
+This launcher-first path keeps mutations explicit. If you choose `npm install`, it only links the bin and still requires explicit `npx omg install --apply` for mutations.
 
 ## Manual Path
 
@@ -37,12 +39,13 @@ Optional browser capability:
 <!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
-> **Prerequisites**: Node >=18, Python >=3.10
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
-omg install --plan    # preview changes
-omg install --apply   # apply configuration
+npx omg env doctor
+npx omg install --plan    # preview only, no mutations
+npx omg install --apply   # apply configuration
 ```
 
-This registers the OMG control plane for your host automatically.
+The preview step is advisory only and makes no mutations until you run apply.
 <!-- /OMG:GENERATED:install-fast-path -->

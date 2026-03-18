@@ -3,7 +3,7 @@
 
 **Purpose:** Track all CLI adapter integration points, installation flows, and critical assumptions for end-to-end verification.
 
-**Version:** OMG 2.2.8
+**Version:** OMG 2.2.10
 
 ---
 
@@ -31,8 +31,8 @@
 
 ### Compatibility Targets
 5. **OpenCode** — Config: `~/.config/opencode/opencode.json`
-<!-- /OMG:GENERATED:verification-index-targets -->
 
+<!-- /OMG:GENERATED:verification-index-targets -->
 ---
 
 ## 🔧 Verification Commands

@@ -3,10 +3,12 @@
 ## Fast Path
 
 ```bash
-npm install @trac3er/oh-my-god
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
 ```
 
-The npm postinstall now registers the local `omg` marketplace, enables `omg@omg`, and installs the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
+This launcher-first path keeps mutations explicit. If you choose `npm install`, it only links the bin and still requires explicit `npx omg install --apply` for mutations.
 
 ## Official Claude Plugin Flow
 
@@ -17,7 +19,7 @@ claude plugin marketplace add /path/to/OMG --scope user
 claude plugin install omg@omg --scope user
 ```
 
-`npm install` is equivalent for OMG because the setup script now writes the marketplace registration that Claude expects.
+Run `npx omg install --apply` after reviewing the preview if you want OMG to write Claude-facing configuration.
 
 Claude-specific note:
 
@@ -34,10 +36,13 @@ That enables OMG's browser capability metadata for `/OMG:browser` and records th
 
 ## Run
 
-```text
-/OMG:setup
-/OMG:crazy <goal>
+```bash
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
 ```
+
+> Legacy compatibility only: Claude slash commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain available for older environments.
 
 ## Verify
 
@@ -52,12 +57,13 @@ That enables OMG's browser capability metadata for `/OMG:browser` and records th
 <!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
-> **Prerequisites**: Node >=18, Python >=3.10
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
-omg install --plan    # preview changes
-omg install --apply   # apply configuration
+npx omg env doctor
+npx omg install --plan    # preview only, no mutations
+npx omg install --apply   # apply configuration
 ```
 
-This registers the OMG control plane for your host automatically.
+The preview step is advisory only and makes no mutations until you run apply.
 <!-- /OMG:GENERATED:install-fast-path -->

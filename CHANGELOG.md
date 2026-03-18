@@ -1,12 +1,33 @@
 # Changelog
 
-<!-- OMG:GENERATED:changelog-v2.2.8 -->
-### Governed Release Surface (v2.2.8)
+<!-- OMG:GENERATED:changelog-v2.2.10 -->
+### Governed Release Surface (v2.2.10)
 
 - Canonical release surface compilation
 - Dual-channel artifact output (public + enterprise)
 - Idempotent generated-section markers in docs
-<!-- /OMG:GENERATED:changelog-v2.2.8 -->
+<!-- /OMG:GENERATED:changelog-v2.2.10 -->
+
+## 2.2.10 - 2026-03-18
+
+### Release Truth and Launcher-First Install Path
+
+- **version alignment**: bump package, contract, registry, plugin, and generated bundle surfaces to match the v2.2.10 tag
+- **launcher-first install path**: canonical quickstart/install now leads with `npx omg env doctor` -> `npx omg install --plan` -> `npx omg install --apply` -> `npx omg ship`
+- **postinstall truthfulness**: document that `npm install` only resolves dependencies and links the bin while mutations remain explicit behind `npx omg install --apply`
+- **release-surface hardening**: block stale explain-run syntax, non-runnable local-install guidance, and front-door drift in `validate-release-identity`
+- **docs alignment**: regenerate README, host guides, proof surfaces, quick reference, verification index, and release artifacts against the authoritative v2.2.10 flow
+
+## 2.2.9 - 2026-03-18
+
+### Version Alignment and Documentation Accuracy
+
+- **version alignment**: bump all surfaces to match v2.2.9 tag
+- **documentation accuracy**: replace false postinstall claims; npm postinstall runs `omg install --plan` as a preview and makes no mutations
+- **install flow rewrite**: canonical front door is now `npx omg env doctor` -> `npx omg install --plan` -> `npx omg install --apply` -> `npx omg ship`
+- **legacy demotion**: `/OMG:setup` -> `/OMG:crazy` moved to legacy footnotes; `OMG-setup.sh` demoted to compatibility path
+- **docs compiler expansion**: add generators for install intro, why OMG, proof quickstart, quick-reference hosts, and verification index targets
+- **kill banned copy**: remove the stale install-language phrase from tracked markdown surfaces
 
 ## 2.2.8 - 2026-03-18
 
