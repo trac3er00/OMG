@@ -27,6 +27,8 @@ validate_derived = _mod.validate_derived
 scan_scoped_residue = _mod.scan_scoped_residue
 build_report = _mod.build_report
 validate_release_surface = getattr(_mod, "validate_release_surface", None)
+find_explain_command_blockers = getattr(_mod, "_find_explain_command_blockers", None)
+find_install_launcher_blockers = getattr(_mod, "_find_install_launcher_blockers", None)
 
 _OLD_VERSION = "0.0.1-test"
 
@@ -148,6 +150,12 @@ class TestReleaseSurfaceValidation:
     def test_validate_release_surface_available(self):
         assert callable(validate_release_surface), "validate_release_surface must exist"
 
+    def test_explain_command_blocker_helper_available(self):
+        assert callable(find_explain_command_blockers), "_find_explain_command_blockers must exist"
+
+    def test_install_launcher_blocker_helper_available(self):
+        assert callable(find_install_launcher_blockers), "_find_install_launcher_blockers must exist"
+
     def test_build_report_includes_release_surface_section(self):
         report = build_report(
             canonical="2.2.9",
@@ -172,6 +180,26 @@ class TestReleaseSurfaceValidation:
             release_surface={"status": "fail", "blockers": ["front_door"], "checks": {}},
         )
         assert report["overall_status"] == "fail"
+
+    def test_explain_command_blocker_flags_positional_readme_syntax(self, tmp_path):
+        readme = tmp_path / "README.md"
+        readme.write_text("```bash\nomg explain run <id>\n```\n", encoding="utf-8")
+
+        blockers = find_explain_command_blockers(tmp_path)
+
+        assert any("README.md" in blocker for blocker in blockers)
+
+    def test_install_launcher_blocker_flags_plain_local_npm_install(self, tmp_path):
+        guide = tmp_path / "docs" / "install" / "codex.md"
+        guide.parent.mkdir(parents=True, exist_ok=True)
+        guide.write_text(
+            "```bash\nnpm install @trac3er/oh-my-god\n```\n\n```bash\nomg env doctor\n```\n",
+            encoding="utf-8",
+        )
+
+        blockers = find_install_launcher_blockers(tmp_path)
+
+        assert any("docs/install/codex.md" in blocker for blocker in blockers)
 
 
 class TestDerivedDrift:

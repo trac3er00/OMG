@@ -3,10 +3,10 @@
 ## Fast Path
 
 ```bash
-npm install @trac3er/oh-my-god
+npm install -g @trac3er/oh-my-god
 ```
 
-`npm install` resolves dependencies and links the `omg` binary only. The package postinstall runs `omg install --plan` as a preview, so it makes no mutations and does not write `~/.kimi/mcp.json` until you later run `omg install --apply`.
+`npm install -g` resolves dependencies and links the `omg` binary on your PATH. The package postinstall runs `omg install --plan` as a preview, so it makes no mutations and does not write `~/.kimi/mcp.json` until you later run `omg install --apply`.
 
 ## Manual Path
 

@@ -67,6 +67,24 @@ _REQUIRED_GENERATED_MARKERS: dict[str, tuple[str, ...]] = {
     "INSTALL-VERIFICATION-INDEX.md": ("verification-index-targets",),
 }
 
+_EXPECTED_EXPLAIN_COMMANDS: dict[str, str] = {
+    "README.md": "omg explain run --run-id <id>",
+    "docs/proof.md": "omg explain run --run-id <id>",
+    "QUICK-REFERENCE.md": "npx omg explain run --run-id <id>",
+}
+
+_POSITIONAL_EXPLAIN_COMMAND = "omg explain run <id>"
+
+_INSTALL_GUIDES = (
+    "docs/install/claude-code.md",
+    "docs/install/codex.md",
+    "docs/install/gemini.md",
+    "docs/install/kimi.md",
+    "docs/install/opencode.md",
+)
+
+_BAD_LOCAL_INSTALL = "npm install @trac3er/oh-my-god"
+
 
 def validate_authored(repo_root: Path, canonical: str) -> dict[str, Any]:
     blockers: list[dict[str, str]] = []
@@ -320,6 +338,32 @@ def _latest_changelog_version(repo_root: Path) -> str:
     return ""
 
 
+def _find_explain_command_blockers(repo_root: Path) -> list[str]:
+    blockers: list[str] = []
+    for rel_path, expected in _EXPECTED_EXPLAIN_COMMANDS.items():
+        path = repo_root / rel_path
+        if not path.exists():
+            continue
+        content = path.read_text(encoding="utf-8")
+        if _POSITIONAL_EXPLAIN_COMMAND in content:
+            blockers.append(f"explain_command:{rel_path}:uses positional explain syntax")
+        if expected not in content:
+            blockers.append(f"explain_command:{rel_path}:missing expected syntax")
+    return blockers
+
+
+def _find_install_launcher_blockers(repo_root: Path) -> list[str]:
+    blockers: list[str] = []
+    for rel_path in _INSTALL_GUIDES:
+        path = repo_root / rel_path
+        if not path.exists():
+            continue
+        content = path.read_text(encoding="utf-8")
+        if _BAD_LOCAL_INSTALL in content:
+            blockers.append(f"install_launcher:{rel_path}:uses local npm install")
+    return blockers
+
+
 def validate_release_surface(repo_root: Path, canonical: str) -> dict[str, Any]:
     blockers: list[str] = []
     checks: dict[str, Any] = {}
@@ -338,6 +382,14 @@ def validate_release_surface(repo_root: Path, canonical: str) -> dict[str, Any]:
     checks["docs_drift"] = docs_result
     for item in docs_result.get("drift", []):
         blockers.append(f"docs_drift:{item}")
+
+    explain_blockers = _find_explain_command_blockers(repo_root)
+    checks["explain_commands"] = explain_blockers
+    blockers.extend(explain_blockers)
+
+    install_launcher_blockers = _find_install_launcher_blockers(repo_root)
+    checks["install_launchers"] = install_launcher_blockers
+    blockers.extend(install_launcher_blockers)
 
     latest_version = _latest_changelog_version(repo_root)
     checks["latest_changelog_version"] = latest_version
