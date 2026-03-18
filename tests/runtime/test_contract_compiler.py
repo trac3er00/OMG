@@ -3091,6 +3091,22 @@ def test_release_surface_drift_blocks_missing_manifest(tmp_path: Path, monkeypat
     assert any("release-surface.json" in b for b in result["blockers"])
 
 
+def test_release_surface_drift_uses_repo_manifest_when_output_manifest_missing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    _build_surface_drift_fixture(root, root, bin_key="omg", action_yml=True)
+    _stub_release_text_and_docs_clean(monkeypatch)
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+
+
 # ---------------------------------------------------------------------------
 # _check_policy_pack_signatures
 # ---------------------------------------------------------------------------
