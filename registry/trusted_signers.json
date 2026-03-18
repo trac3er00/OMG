@@ -9,11 +9,10 @@
       "status": "active",
       "usage": [
         "dev",
-        "test",
-        "offline-attestation"
+        "test"
       ],
       "owner": "omg-local",
-      "notes": "Pinned local trust root for repository verification tests"
+      "notes": "TEST-ONLY trust root — private key is committed in repo. Do NOT use for production attestation. Production signing requires OMG_SIGNING_KEY env var with a key not committed to the repository."
     },
     {
       "key_id": "24280fe9f927c712",

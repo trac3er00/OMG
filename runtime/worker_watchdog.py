@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from hooks.security_validators import sanitize_run_id
+
 
 _DEFAULT_STALL_THRESHOLD_SECONDS = 60
 _SIGKILL_GRACE_SECONDS = 5
@@ -86,13 +88,13 @@ class WorkerWatchdog:
         return self.project_dir / ".omg" / "state" / "worker-heartbeats"
 
     def _heartbeat_path(self, run_id: str) -> Path:
-        return self._heartbeat_dir() / f"{run_id}.json"
+        return self._heartbeat_dir() / f"{sanitize_run_id(run_id)}.json"
 
     def _replay_evidence_path(self, run_id: str) -> Path:
-        return self.project_dir / ".omg" / "evidence" / "subagents" / f"{run_id}-replay.json"
+        return self.project_dir / ".omg" / "evidence" / "subagents" / f"{sanitize_run_id(run_id)}-replay.json"
 
     def _worktree_dir(self, run_id: str) -> Path:
-        return self.project_dir / ".omg" / "worktrees" / run_id
+        return self.project_dir / ".omg" / "worktrees" / sanitize_run_id(run_id)
 
     def _ownership_metadata(self, run_id: str) -> dict[str, Any]:
         from runtime.merge_writer import get_merge_writer

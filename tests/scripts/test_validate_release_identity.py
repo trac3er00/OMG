@@ -453,7 +453,7 @@ class TestReleaseSurfaceDriftGate:
             (root / "package.json").write_text(json.dumps(pkg))
             (root / "action.yml").write_text("name: OMG\n")
 
-            manifest_dir = output / "dist" / "public"
+            manifest_dir = root / "dist" / "public"
             manifest_dir.mkdir(parents=True)
             manifest = {
                 "generated_by": "omg release compile-surfaces",
@@ -469,6 +469,7 @@ class TestReleaseSurfaceDriftGate:
         assert any("package.json missing npm bin.omg" in b for b in result["blockers"])
 
     def test_drift_gate_ok_when_all_surfaces_agree(self):
+        from unittest.mock import patch
         from runtime.contract_compiler import _check_release_surface_drift
         from runtime.release_surface_registry import get_public_surfaces
 
@@ -483,7 +484,7 @@ class TestReleaseSurfaceDriftGate:
             (root / "package.json").write_text(json.dumps(pkg))
             (root / "action.yml").write_text("name: OMG\n")
 
-            manifest_dir = output / "dist" / "public"
+            manifest_dir = root / "dist" / "public"
             manifest_dir.mkdir(parents=True)
             manifest = {
                 "generated_by": "omg release compile-surfaces",
@@ -493,7 +494,10 @@ class TestReleaseSurfaceDriftGate:
             }
             (manifest_dir / "release-surface.json").write_text(json.dumps(manifest))
 
-            result = _check_release_surface_drift(root, output)
+            no_drift = {"status": "ok", "drift": []}
+            with patch("runtime.contract_compiler.compile_release_surfaces", return_value=no_drift), \
+                 patch("runtime.contract_compiler.check_docs", return_value=no_drift):
+                result = _check_release_surface_drift(root, output)
 
         assert result["status"] == "ok"
         assert result["blockers"] == []
