@@ -18,6 +18,7 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
         sys.path.insert(0, path)
 
 from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir  # pyright: ignore[reportImplicitRelativeImport]
+from security_validators import sanitize_run_id  # pyright: ignore[reportImplicitRelativeImport]
 
 bootstrap_runtime_paths(__file__)
 
@@ -63,16 +64,16 @@ def _resolve_run_id(payload: dict[str, object]) -> str:
     if isinstance(payload, dict):
         run_id = payload.get("run_id")
         if isinstance(run_id, str) and run_id.strip():
-            return run_id.strip()
+            return sanitize_run_id(run_id)
         tool_input = payload.get("tool_input")
         if isinstance(tool_input, dict):
             metadata = tool_input.get("metadata")
             if isinstance(metadata, dict):
                 metadata_run_id = metadata.get("run_id")
                 if isinstance(metadata_run_id, str) and metadata_run_id.strip():
-                    return metadata_run_id.strip()
+                    return sanitize_run_id(metadata_run_id)
     env_run_id = os.environ.get("OMG_RUN_ID", "")
-    return env_run_id.strip()
+    return sanitize_run_id(env_run_id) if env_run_id.strip() else ""
 
 
 def _resolve_active_run_id(project_dir: str) -> str:

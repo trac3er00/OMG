@@ -4,14 +4,34 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from registry.verify_artifact import sign_artifact_statement
 
 
-_DEV_PRIVATE_KEY = "Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8="
 _DEV_KEY_ID = "1f5fe64ec2f8c901"
+
+
+def _get_signing_key() -> str:
+    """Read signing key from OMG_SIGNING_KEY env var.
+
+    Falls back to the well-known dev fixture key when the env var is unset,
+    but emits a warning — the fallback key is committed in the repo and MUST
+    NOT be treated as a production trust root.
+    """
+    env_key = os.environ.get("OMG_SIGNING_KEY", "").strip()
+    if env_key:
+        return env_key
+    import sys
+
+    print(
+        "WARNING: OMG_SIGNING_KEY not set — using hardcoded dev fixture key. "
+        "Do NOT rely on this key for production attestation trust.",
+        file=sys.stderr,
+    )
+    return "Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8="
 _DETERMINISM_VERSION = "forge-determinism-v1"
 _DETERMINISM_SCOPE = "same-hardware"
 _TEMPERATURE_LOCK = {
@@ -67,7 +87,7 @@ def prepare_release_proof_fixtures(output_root: Path) -> None:
         "attestation": sign_artifact_statement(
             artifact_path=artifact_path,
             subject_digest=artifact_digest,
-            signer_key=_DEV_PRIVATE_KEY,
+            signer_key=_get_signing_key(),
             signer_key_id=_DEV_KEY_ID,
         ),
         "permissions": ["read"],

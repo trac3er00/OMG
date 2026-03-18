@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from hooks.security_validators import sanitize_run_id
+
 
 # ═══════════════════════════════════════════════════════════
 # Dataclasses
@@ -99,7 +101,7 @@ class BudgetEnvelopeManager:
         return self.project_dir / _ENVELOPE_STATE_REL
 
     def _envelope_path(self, run_id: str) -> Path:
-        return self._envelope_dir() / f"{run_id}.json"
+        return self._envelope_dir() / f"{sanitize_run_id(run_id)}.json"
 
     # --- CRUD ---
 

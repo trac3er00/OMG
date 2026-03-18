@@ -1869,7 +1869,7 @@ def _check_release_surface_drift(root: Path, output_root: Path) -> dict[str, Any
         }
     checks["registry_valid"] = True
 
-    manifest_path = output_root / "dist" / "public" / "release-surface.json"
+    manifest_path = root / "dist" / "public" / "release-surface.json"
     if not manifest_path.exists():
         blockers.append("release_surface_drift: dist/public/release-surface.json not found")
         return {"status": "error", "blockers": blockers, "checks": checks}

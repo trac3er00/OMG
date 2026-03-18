@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Any
 from typing import cast
 
+from hooks.security_validators import sanitize_run_id
+
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -106,7 +108,7 @@ class MergeWriter:
         return self.project_dir / ".omg" / "state" / "merge-writer.lock"
 
     def _provenance_path(self, run_id: str) -> Path:
-        return self.project_dir / ".omg" / "evidence" / f"merge-writer-{run_id}.json"
+        return self.project_dir / ".omg" / "evidence" / f"merge-writer-{sanitize_run_id(run_id)}.json"
 
     def _active_coordinator_run_id(self) -> str:
         shadow_path = self.project_dir / ".omg" / "shadow" / "active-run"
@@ -149,15 +151,7 @@ class MergeWriter:
                 a different run_id.
         """
         lock_path = self._lock_path()
-        existing = _read_json(lock_path)
-
-        if existing:
-            existing_run_id = existing.get("run_id", "")
-            if existing_run_id and existing_run_id != run_id:
-                raise MergeWriterAuthorizationError(
-                    run_id,
-                    f"lock already held by run_id={existing_run_id}",
-                )
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
 
         now = _now_iso()
         lock_payload: dict[str, Any] = {
@@ -166,7 +160,43 @@ class MergeWriter:
             "reason": reason,
             "pid": os.getpid(),
         }
-        _write_atomic_json(lock_path, lock_payload)
+        payload_bytes = (
+            json.dumps(lock_payload, indent=2, ensure_ascii=True) + "\n"
+        ).encode("utf-8")
+
+        try:
+            # Atomic lock creation via write-to-temp + hard-link.
+            # We write the full payload to a temp file first, then
+            # os.link() it to the lock path.  os.link() is atomic and
+            # fails with FileExistsError if the target exists — but
+            # unlike O_CREAT|O_EXCL the source is fully written before
+            # the link, so concurrent readers never see a 0-byte file.
+            tmp_path = str(lock_path) + f".{os.getpid()}.tmp"
+            fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+            try:
+                written = 0
+                while written < len(payload_bytes):
+                    written += os.write(fd, payload_bytes[written:])
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            try:
+                os.link(tmp_path, str(lock_path))
+            finally:
+                os.unlink(tmp_path)
+        except FileExistsError:
+            # Lock file already exists — allow re-entrant acquisition by the
+            # same run_id; reject all others.  If the file is unreadable
+            # (e.g. concurrent write), treat it as held by unknown.
+            existing = _read_json(lock_path)
+            existing_run_id = existing.get("run_id", "")
+            if not existing_run_id or existing_run_id != run_id:
+                raise MergeWriterAuthorizationError(
+                    run_id,
+                    f"lock already held by run_id={existing_run_id or 'unknown'}",
+                )
+            # Re-entrant: same run_id already holds the lock — update it.
+            _write_atomic_json(lock_path, lock_payload)
 
         provenance_path = self._provenance_path(run_id)
         rel_lock = str(lock_path.relative_to(self.project_dir)).replace("\\", "/")

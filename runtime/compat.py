@@ -1246,6 +1246,15 @@ def _fix_metadata_drift(root_dir: Path, check: dict[str, Any]) -> dict[str, Any]
     return {"planned_path": str(target), "content": patched, "mode": 0o644}
 
 
+def _atomic_write_json_str(path: str, content: str) -> None:
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(content)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
 def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, Any]:
     claude_dir = os.environ.get("CLAUDE_DIR", os.path.expanduser("~/.claude"))
     _home = os.environ.get("OMG_TEST_HOME_DIR", os.path.expanduser("~"))
@@ -1288,8 +1297,7 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
             if changed:
                 settings_data["hooks"] = hooks
                 content = json.dumps(settings_data, indent=2, ensure_ascii=True) + "\n"
-                with open(settings_path, "w", encoding="utf-8") as f:
-                    f.write(content)
+                _atomic_write_json_str(settings_path, content)
         except (json.JSONDecodeError, OSError):
             pass
 
@@ -1302,8 +1310,7 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
             if _ORPHANED_RUNTIME_MARKER in ctrl.get("command", ""):
                 del mcp_data["mcpServers"]["omg-control"]
                 content = json.dumps(mcp_data, indent=2, ensure_ascii=True) + "\n"
-                with open(mcp_json_path, "w", encoding="utf-8") as f:
-                    f.write(content)
+                _atomic_write_json_str(mcp_json_path, content)
                 removed_paths.append(f"{mcp_json_path}:mcpServers.omg-control")
         except (json.JSONDecodeError, OSError):
             pass
@@ -1341,8 +1348,7 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
                 if _ORPHANED_RUNTIME_MARKER in ctrl.get("command", ""):
                     del data[mcp_top_key]["omg-control"]
                     content = json.dumps(data, indent=2, ensure_ascii=True) + "\n"
-                    with open(cfg_path, "w", encoding="utf-8") as f:
-                        f.write(content)
+                    _atomic_write_json_str(cfg_path, content)
                     removed_paths.append(f"{cfg_path}:{key_path}")
             except (json.JSONDecodeError, OSError):
                 pass

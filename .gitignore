@@ -30,7 +30,7 @@ logs/
 
 # Test artifacts
 .pytest_cache/
-.coverage
+.coverage*
 htmlcov/
 *.egg-info/
 

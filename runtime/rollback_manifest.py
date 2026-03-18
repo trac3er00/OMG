@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from hooks.security_validators import sanitize_run_id
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -119,8 +121,8 @@ def record_side_effect(manifest: dict[str, Any], classification: dict[str, Any])
 
 
 def write_rollback_manifest(project_dir: str, manifest: dict[str, Any]) -> str:
-    run_id = str(manifest.get("run_id", "unknown")).strip() or "unknown"
-    step_id = str(manifest.get("step_id", "unknown")).strip() or "unknown"
+    run_id = sanitize_run_id(str(manifest.get("run_id", "unknown")))
+    step_id = sanitize_run_id(str(manifest.get("step_id", "unknown")))
     out_dir = Path(project_dir) / ".omg" / "state" / "rollback_manifest"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{run_id}-{step_id}.json"
