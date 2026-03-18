@@ -454,3 +454,10 @@ def test_release_workflow_stages_release_surface_manifest_before_gate() -> None:
     compile_job = _section(text, "  compile-public-and-parity:\n", "  compile-enterprise:\n")
     assert "release-surface.json" in compile_job
     assert "compile_release_surfaces" in compile_job
+
+
+def test_release_readiness_normalizes_release_surface_manifest_after_download() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    assert "Normalize release-surface manifests after artifact download" in release_job
+    assert "release-surface.json" in release_job

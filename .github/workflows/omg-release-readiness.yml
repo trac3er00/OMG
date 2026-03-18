@@ -271,6 +271,36 @@ jobs:
           path: artifacts/release
           merge-multiple: true
 
+      - name: Normalize release-surface manifests after artifact download
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          root = Path("artifacts/release")
+          canonical = {
+              "public": root / "dist" / "public" / "release-surface.json",
+              "enterprise": root / "dist" / "enterprise" / "release-surface.json",
+          }
+          fallbacks = {
+              "public": [root / "artifacts" / "release" / "dist" / "public" / "release-surface.json"],
+              "enterprise": [root / "artifacts" / "release" / "dist" / "enterprise" / "release-surface.json"],
+          }
+
+          for channel, target in canonical.items():
+              if target.exists():
+                  continue
+              for candidate in fallbacks[channel]:
+                  if candidate.exists():
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copy2(candidate, target)
+                      break
+
+          missing = [channel for channel, target in canonical.items() if not target.exists()]
+          if missing:
+              raise SystemExit(f"release-surface manifests missing after artifact download: {missing}")
+          PY
+
       - name: Check release and docs drift (repo root)
         run: |
           python3 -c "
