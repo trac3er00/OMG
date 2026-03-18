@@ -13,12 +13,6 @@
         "-m",
         "runtime.omg_mcp_server"
       ]
-    },
-    "context7": {
-      "command": "npx",
-      "args": [
-        "@upstash/context7-mcp@2.1.3"
-      ]
     }
   }
 }

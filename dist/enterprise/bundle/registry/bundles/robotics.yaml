@@ -1,6 +1,6 @@
 id: robotics
 kind: domain-pack
-version: 2.2.7
+version: 2.2.8
 title: OMG Robotics Pack
 description: Robotics safety policy, replay, and evaluation attachments.
 hosts:

@@ -13,11 +13,6 @@ from runtime.canonical_taxonomy import (
     POLICY_PACK_IDS,
 )
 from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
-from runtime.release_surface_compiler import (
-    _quick_reference_hosts_content,
-    _verification_index_targets_content,
-)
-from runtime.release_surface_registry import GENERATED_SECTION_MARKERS
 
 GENERATED_ARTIFACTS: tuple[str, ...] = (
     "support-matrix.json",
@@ -80,7 +75,10 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "generated_at": timestamp,
         "verification_commands": [
             {"name": "doctor", "command": "omg doctor"},
+            {"name": "env doctor", "command": "omg env doctor"},
             {"name": "validate", "command": "omg validate"},
+            {"name": "contract validate", "command": "omg contract validate"},
+            {"name": "install plan", "command": "omg install --plan"},
         ],
         "cache_paths": [
             ".omg/cache",
@@ -160,6 +158,9 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "",
         "---",
         "",
+        "## 🎯 Installation Targets & Methods",
+        "",
+        "### Canonical Targets",
     ]
     
     target_configs = {
@@ -169,12 +170,13 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "kimi": "~/.kimi/mcp.json",
     }
     
-    install_md.extend([
-        GENERATED_SECTION_MARKERS["verification_index_targets"],
-        *_verification_index_targets_content().splitlines(),
-        GENERATED_SECTION_MARKERS["verification_index_targets"].replace("<!-- ", "<!-- /"),
-        "",
-    ])
+    for i, host in enumerate(canonical_hosts, 1):
+        config_path = target_configs.get(host, "Unknown")
+        install_md.extend([
+            f"{i}. **{host.capitalize()}**",
+            f"   - **Config:** `{config_path}`",
+            "",
+        ])
     
     install_md.extend([
         "---",
@@ -207,14 +209,15 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "",
         "## 🎯 Core Integration Points",
         "",
+        "### Canonical Hosts",
+        "",
+        "| Host | Config File |",
+        "| :--- | :--- |",
     ]
-
-    quick_md.extend([
-        GENERATED_SECTION_MARKERS["quick_reference_hosts"],
-        *_quick_reference_hosts_content().splitlines(),
-        GENERATED_SECTION_MARKERS["quick_reference_hosts"].replace("<!-- ", "<!-- /"),
-    ])
-
+    for host in canonical_hosts:
+        config_path = target_configs.get(host, "Unknown")
+        quick_md.append(f"| {host} | `{config_path}` |")
+        
     quick_md.extend([
         "",
         "### Release Channels",
@@ -241,12 +244,16 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "",
         "| Task | Command |",
         "| :--- | :--- |",
-        "| Install | `omg install --plan` |",
-        "| Diagnostics | `omg doctor` |",
-        "| Ship | `omg ship` |",
-        "| Sign policy pack | `omg policy-pack sign <pack_id> --key-path <key>` |",
-        "| Verify policy packs | `omg policy-pack verify --all` |",
-        "| Generate signing key | `omg policy-pack keygen --output <path>` |",
+        "| Install (preview) | `npx omg install --plan` |",
+        "| Install (apply) | `npx omg install --apply` |",
+        "| Diagnostics | `npx omg doctor` |",
+        "| Environment check | `npx omg env doctor` |",
+        "| Ship | `npx omg ship` |",
+        "| Proof dashboard | `npx omg proof open --html` |",
+        "| Explain run | `npx omg explain run <id>` |",
+        "| Blocked inspection | `npx omg blocked --last` |",
+        "| Validate | `npx omg validate` |",
+        "| Contract validate | `npx omg contract validate` |",
     ])
     
     _write_text(output_root / "QUICK-REFERENCE.md", "\n".join(quick_md) + "\n")

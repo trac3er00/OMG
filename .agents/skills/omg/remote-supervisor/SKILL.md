@@ -5,7 +5,7 @@ description: "Local-only authenticated supervisor sessions for worker orchestrat
 
 # OMG Remote Supervisor
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/supervisor/sessions/*.json`

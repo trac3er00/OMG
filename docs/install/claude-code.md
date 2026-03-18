@@ -1,12 +1,19 @@
 # Install OMG for Claude Code
 
+<!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
+> **Prerequisites:** Node >= 18, Python 3.10+, macOS or Linux.
+
 ```bash
-npm install @trac3er/oh-my-god
+npx omg install --plan    # preview changes
+npx omg install --apply   # apply configuration
 ```
 
-The npm postinstall previews what OMG will configure. Run `omg install --apply` to register the local `omg` marketplace, enable `omg@omg`, and install the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
+This configures the OMG control plane for your host.
+<!-- /OMG:GENERATED:install-fast-path -->
+
+The npm postinstall runs `omg install --plan` to preview configuration changes. Run `npx omg install --apply` to register the marketplace, enable `omg@omg`, and install the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
 
 ## Official Claude Plugin Flow
 
@@ -17,7 +24,7 @@ claude plugin marketplace add /path/to/OMG --scope user
 claude plugin install omg@omg --scope user
 ```
 
-`npm install` only previews the planned Claude changes. Run `omg install --apply` to write the marketplace registration and plugin install state that Claude expects.
+`npm install` previews what OMG will configure. Run `npx omg install --apply` to write the marketplace registration that Claude expects.
 
 Claude-specific note:
 
@@ -34,12 +41,10 @@ That enables OMG's browser capability metadata for `/OMG:browser` and records th
 
 ## Run
 
-```bash
-omg ship
-omg proof open --html
+```text
+/OMG:setup
+/OMG:crazy <goal>
 ```
-
-> Claude Code users can also use `/OMG:setup` and `/OMG:crazy <goal>` as compatibility aliases.
 
 ## Verify
 
@@ -50,16 +55,3 @@ omg proof open --html
 - `~/.claude/.mcp.json` should not duplicate the plugin-managed `omg-control` server
 - `~/.claude/omg-runtime/.venv/bin/python` should exist
 - if browser capability is enabled, `~/.claude/omg-runtime/browser/capability.json` should exist
-
-<!-- OMG:GENERATED:install-fast-path -->
-## Fast Path
-
-> **Prerequisites**: Node >=18, Python >=3.10 (macOS or Linux)
-
-```bash
-omg install --plan    # preview changes
-omg install --apply   # apply configuration
-```
-
-This previews what OMG will configure. Run `omg install --apply` to apply.
-<!-- /OMG:GENERATED:install-fast-path -->

@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/terminal-lane.yaml",
       "digest": {
-        "sha256": "548773f746199ab16762a5ec35c3250c82ac4007519979345a87207dfede049e"
+        "sha256": "8a5adb6b668a4bb25ff769c2974132cbce700792de1b76f66e9377cc365718ef"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T21:33:20.223838+00:00"
+      "timestamp": "2026-03-18T06:00:04.003948+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T21:33:20.223838+00:00",
+  "issued_at": "2026-03-18T06:00:04.003948+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "bd4daa61c3c360ff",
-    "value": "untrusted comment: signature from omg local signing key\nziNLt9oHmvYxRLHNccc78FyhRaAmsAtxAuB2AXHysdKFUVCF9fET83JxLoO37/W19xwqzjrBteRu2xaGN+deAg==\ntrusted comment: type=omg-slsa-v1 keyid=bd4daa61c3c360ff issued_at=2026-03-16T21:33:20.223942+00:00 artifact=bundle/registry/bundles/terminal-lane.yaml sha256=548773f746199ab16762a5ec35c3250c82ac4007519979345a87207dfede049e\nba4KKakOE++hu67kqNoWWK6BUxbjcYbdklF0wlFwR/5KhKc7PBIJqYPGMI/c3TgiDZgQ1XhaPHSD1OpEtpWtCw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=bd4daa61c3c360ff issued_at=2026-03-16T21:33:20.223942+00:00 artifact=bundle/registry/bundles/terminal-lane.yaml sha256=548773f746199ab16762a5ec35c3250c82ac4007519979345a87207dfede049e"
+    "keyid": "d91e3f5cbeefa45f",
+    "value": "untrusted comment: signature from omg local signing key\n94VprKoBxl5qrQ8OK3NzcmegIfsQS/kumrQc0p6wV9uDw3hixNQp5V1sL8iydRtGrOEQNBbFszPSZcV4mWuZAg==\ntrusted comment: type=omg-slsa-v1 keyid=d91e3f5cbeefa45f issued_at=2026-03-18T06:00:04.004057+00:00 artifact=bundle/registry/bundles/terminal-lane.yaml sha256=8a5adb6b668a4bb25ff769c2974132cbce700792de1b76f66e9377cc365718ef\nG1ncSHkBK0RrbRzGU24N0eQLhkih4dkrtHGe8YZIT6yYVm4Cff6pAUTNPQqhRAAWXku0z9K1stjauwEZ+sgEAA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=d91e3f5cbeefa45f issued_at=2026-03-18T06:00:04.004057+00:00 artifact=bundle/registry/bundles/terminal-lane.yaml sha256=8a5adb6b668a4bb25ff769c2974132cbce700792de1b76f66e9377cc365718ef"
   }
 }

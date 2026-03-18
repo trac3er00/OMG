@@ -5,7 +5,7 @@
     {
       "name": "bundle/OMG_COMPAT_CONTRACT.md",
       "digest": {
-        "sha256": "a54cde82ffebc6236437ca6d6f2e96b8c3873e3487c5d96c604dd47bb860ed83"
+        "sha256": "78c68e924fbb92ea12bc1816c3e36dc3df62614b5cb30d8a57476b6abeccb2e3"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T21:33:13.833876+00:00"
+      "timestamp": "2026-03-18T06:00:04.113384+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T21:33:13.833876+00:00",
+  "issued_at": "2026-03-18T06:00:04.113384+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "bca1448631209406",
-    "value": "untrusted comment: signature from omg local signing key\nwi9Gw6YsIypPcdI1eUneEAyQIMEzNc4FWlRxi+q069GDzaf1JEhQ5uVe1ak/3IE5am2jD8VCd6n9F3qyH+JHAA==\ntrusted comment: type=omg-slsa-v1 keyid=bca1448631209406 issued_at=2026-03-16T21:33:13.833996+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=a54cde82ffebc6236437ca6d6f2e96b8c3873e3487c5d96c604dd47bb860ed83\nZBiHunGby4imjZrRtXg6HVe8C9qwGryhBNLTKLjGBTp7HKLpKgmEqsTkvk7+jTmA50YRNZDxmxPYXe/2DZhwDg==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=bca1448631209406 issued_at=2026-03-16T21:33:13.833996+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=a54cde82ffebc6236437ca6d6f2e96b8c3873e3487c5d96c604dd47bb860ed83"
+    "keyid": "b2618a4870c1054e",
+    "value": "untrusted comment: signature from omg local signing key\nG886XeeAaUvnGqXLbk1ElxSDhBS2hqy0NuUOl+IEG8AeNzaEHgTctwPS5AgJ/6SkbgP4O2e0PRdbq59Lazt8BQ==\ntrusted comment: type=omg-slsa-v1 keyid=b2618a4870c1054e issued_at=2026-03-18T06:00:04.113493+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=78c68e924fbb92ea12bc1816c3e36dc3df62614b5cb30d8a57476b6abeccb2e3\n4kjkjpDIQa6UHWeQ5zULbCF0ZjWXs7fuJPkWQOvCfE+16JhR2kQluXBf/MvVFAFLv4uj22p5pdTGFnjV4oz6Dg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=b2618a4870c1054e issued_at=2026-03-18T06:00:04.113493+00:00 artifact=bundle/OMG_COMPAT_CONTRACT.md sha256=78c68e924fbb92ea12bc1816c3e36dc3df62614b5cb30d8a57476b6abeccb2e3"
   }
 }

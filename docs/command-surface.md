@@ -1,7 +1,7 @@
 <!-- GENERATED: DO NOT EDIT MANUALLY -->
 # OMG Command Surface
 
-Generated for OMG v2.2.7.
+Generated for OMG v2.2.8.
 
 ## Commands
 

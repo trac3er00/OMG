@@ -51,7 +51,7 @@ def project(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     (tmp_path / "CHANGELOG.md").write_text(
-        "# Changelog\n\n## 2.2.7 - 2026-03-15\n\n- initial\n",
+        "# Changelog\n\n## 2.2.8 - 2026-03-15\n\n- initial\n",
         encoding="utf-8",
     )
     install_dir = tmp_path / "docs" / "install"
@@ -160,8 +160,8 @@ def test_changelog_marker_inserted(project: Path) -> None:
     compile_release_surfaces(project)
 
     content = (project / "CHANGELOG.md").read_text()
-    assert "<!-- OMG:GENERATED:changelog-v2.2.7 -->" in content
-    assert "<!-- /OMG:GENERATED:changelog-v2.2.7 -->" in content
+    assert "<!-- OMG:GENERATED:changelog-v2.2.8 -->" in content
+    assert "<!-- /OMG:GENERATED:changelog-v2.2.8 -->" in content
 
 
 def test_changelog_marker_near_top(project: Path) -> None:
@@ -169,18 +169,18 @@ def test_changelog_marker_near_top(project: Path) -> None:
 
     content = (project / "CHANGELOG.md").read_text()
     heading_pos = content.find("# Changelog")
-    marker_pos = content.find("<!-- OMG:GENERATED:changelog-v2.2.7 -->")
+    marker_pos = content.find("<!-- OMG:GENERATED:changelog-v2.2.8 -->")
     assert 0 <= heading_pos < marker_pos
 
 
 def test_release_notes_artifact_created(project: Path) -> None:
     result = compile_release_surfaces(project)
 
-    notes = project / "artifacts" / "release" / "release-notes-v2.2.7.md"
+    notes = project / "artifacts" / "release" / "release-notes-v2.2.8.md"
     assert notes.exists()
     content = notes.read_text()
-    assert "2.2.7" in content
-    assert "artifacts/release/release-notes-v2.2.7.md" in result["artifacts"]
+    assert "2.2.8" in content
+    assert "artifacts/release/release-notes-v2.2.8.md" in result["artifacts"]
 
 
 def test_return_structure(project: Path) -> None:

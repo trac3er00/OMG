@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/lsp-pack.yaml",
       "digest": {
-        "sha256": "3ea6ed7ad2b61aca8388c55f76981dc0321ea1e039a6a642fe530797569c577a"
+        "sha256": "25c201da256649fba15e72dda13516191778f1f573b97b050d55e4dca2aa1202"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T21:33:20.219409+00:00"
+      "timestamp": "2026-03-18T06:00:03.998784+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T21:33:20.219409+00:00",
+  "issued_at": "2026-03-18T06:00:03.998784+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "5a5c482efb5f4733",
-    "value": "untrusted comment: signature from omg local signing key\n2YZlnhgHIlczbW8huzor00uRAXFidCG05oml0N8MYFjtB2r1fmzUy+zH1NSknIH03BNwzgJN1S3uR53AKlHRCg==\ntrusted comment: type=omg-slsa-v1 keyid=5a5c482efb5f4733 issued_at=2026-03-16T21:33:20.219512+00:00 artifact=bundle/registry/bundles/lsp-pack.yaml sha256=3ea6ed7ad2b61aca8388c55f76981dc0321ea1e039a6a642fe530797569c577a\nHrvnx6LF7AiVdZEAVHRkP+xB+BBipeCu8hU0fSxsCg+ZE0tIar4E86A/SVMy32wqct3oKJNOStRLg8GL0GcADA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=5a5c482efb5f4733 issued_at=2026-03-16T21:33:20.219512+00:00 artifact=bundle/registry/bundles/lsp-pack.yaml sha256=3ea6ed7ad2b61aca8388c55f76981dc0321ea1e039a6a642fe530797569c577a"
+    "keyid": "197355737eb38060",
+    "value": "untrusted comment: signature from omg local signing key\nGPqvMc3l8zjMLAfO+kv5ot/NsBvTW0hM61nDfl9IwQmke5fKpC5EZtVQT5qllxAn9yBCZXEa042KKqEj6X3+CA==\ntrusted comment: type=omg-slsa-v1 keyid=197355737eb38060 issued_at=2026-03-18T06:00:03.998942+00:00 artifact=bundle/registry/bundles/lsp-pack.yaml sha256=25c201da256649fba15e72dda13516191778f1f573b97b050d55e4dca2aa1202\nQQSmv4py3cp0UrKqsRTjzIRGHSu49h1AfzAn1yW2dt0lHn1FrPUkBviT0zUb1uqXUhrxgH9EnFu0jOkPoXxnBA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=197355737eb38060 issued_at=2026-03-18T06:00:03.998942+00:00 artifact=bundle/registry/bundles/lsp-pack.yaml sha256=25c201da256649fba15e72dda13516191778f1f573b97b050d55e4dca2aa1202"
   }
 }

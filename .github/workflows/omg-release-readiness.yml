@@ -135,6 +135,24 @@ jobs:
       - name: Validate contract registry
         run: python3 scripts/omg.py contract validate
 
+      - name: Emit release surface text artifacts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          from runtime.release_surface_compiler import compile_release_surfaces
+
+          result = compile_release_surfaces(Path('.'))
+          if result.get("status") != "ok":
+              raise SystemExit(f"compile_release_surfaces failed: {result}")
+          PY
+
+      - name: Seed release surface manifests into output root
+        run: |
+          mkdir -p artifacts/release/dist/public artifacts/release/dist/enterprise
+          cp dist/public/release-surface.json artifacts/release/dist/public/release-surface.json
+          cp dist/enterprise/release-surface.json artifacts/release/dist/enterprise/release-surface.json
+
       - name: Sanitize colon filenames for upload
         run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 

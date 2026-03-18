@@ -1,12 +1,22 @@
 # Changelog
 
-<!-- OMG:GENERATED:changelog-v2.2.7 -->
-### Governed Release Surface (v2.2.7)
+<!-- OMG:GENERATED:changelog-v2.2.8 -->
+### Governed Release Surface (v2.2.8)
 
 - Canonical release surface compilation
 - Dual-channel artifact output (public + enterprise)
 - Idempotent generated-section markers in docs
-<!-- /OMG:GENERATED:changelog-v2.2.7 -->
+<!-- /OMG:GENERATED:changelog-v2.2.8 -->
+
+## 2.2.8 - 2026-03-18
+
+### Version Alignment and Documentation Accuracy
+
+- **version bump**: align package.json, all authored surfaces, and release artifacts with the v2.2.8 tag
+- **doc accuracy**: replace false postinstall claims (plan-only, not register/wire), fix bare `omg` examples to use `npx omg`
+- **prerequisite banner**: document Node >=18, Python 3.10+, macOS/Linux requirement prominently
+- **install guide cleanup**: remove duplicate Fast Path sections, expand QUICK-REFERENCE command surface
+- **stale version refs**: update opencode.md from v2.2.5, INSTALL-VERIFICATION-INDEX from 2.2.7
 
 ## 2.2.7 - 2026-03-15
 

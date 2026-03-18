@@ -1,12 +1,19 @@
 # Install OMG for Codex
 
+<!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
+> **Prerequisites:** Node >= 18, Python 3.10+, macOS or Linux.
+
 ```bash
-npm install @trac3er/oh-my-god
+npx omg install --plan    # preview changes
+npx omg install --apply   # apply configuration
 ```
 
-If `codex` is already on `PATH`, OMG now wires `omg-control` into `~/.codex/config.toml` during install using the managed OMG Python runtime.
+This configures the OMG control plane for your host.
+<!-- /OMG:GENERATED:install-fast-path -->
+
+If `codex` is on `PATH`, `npx omg install --apply` wires `omg-control` into `~/.codex/config.toml` using the managed OMG Python runtime.
 
 ## Manual Path
 
@@ -35,16 +42,3 @@ Optional browser capability:
 - Codex consumes OMG through native MCP plus the generated Codex pack under `.agents/skills/omg/`
 - Codex keeps its own built-in slash commands and instruction files. OMG should stay compatible with Codex's native `AGENTS.md` hierarchy and skill loading rather than trying to mirror built-in `/personality`, `/approvals`, `/agent`, or related host commands.
 - Generated OMG Codex artifacts are expected to compose with the repo's `AGENTS.md` / `AGENTS.override.md` flow and the host's progressive-disclosure skill loading.
-
-<!-- OMG:GENERATED:install-fast-path -->
-## Fast Path
-
-> **Prerequisites**: Node >=18, Python >=3.10 (macOS or Linux)
-
-```bash
-omg install --plan    # preview changes
-omg install --apply   # apply configuration
-```
-
-This previews what OMG will configure. Run `omg install --apply` to apply.
-<!-- /OMG:GENERATED:install-fast-path -->

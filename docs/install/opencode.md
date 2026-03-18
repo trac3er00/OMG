@@ -1,12 +1,19 @@
 # Install OMG for OpenCode
 
+<!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
+> **Prerequisites:** Node >= 18, Python 3.10+, macOS or Linux.
+
 ```bash
-npm install @trac3er/oh-my-god
+npx omg install --plan    # preview changes
+npx omg install --apply   # apply configuration
 ```
 
-If `opencode` is already on `PATH`, OMG wires `omg-control` into OpenCode's MCP config during install using the managed OMG Python runtime.
+This configures the OMG control plane for your host.
+<!-- /OMG:GENERATED:install-fast-path -->
+
+If `opencode` is on `PATH`, `npx omg install --apply` wires `omg-control` into OpenCode's MCP config using the managed OMG Python runtime.
 
 ## Manual Path
 
@@ -27,17 +34,4 @@ cd OMG
 ## Notes
 
 - OpenCode consumes OMG through compatibility-host MCP registration
-- canonical v2.2.5 behavior-parity hosts are Claude Code, Codex, Gemini CLI, and Kimi CLI
-
-<!-- OMG:GENERATED:install-fast-path -->
-## Fast Path
-
-> **Prerequisites**: Node >=18, Python >=3.10 (macOS or Linux)
-
-```bash
-omg install --plan    # preview changes
-omg install --apply   # apply configuration
-```
-
-This previews what OMG will configure. Run `omg install --apply` to apply.
-<!-- /OMG:GENERATED:install-fast-path -->
+- canonical v2.2.8 behavior-parity hosts are Claude Code, Codex, Gemini CLI, and Kimi CLI
