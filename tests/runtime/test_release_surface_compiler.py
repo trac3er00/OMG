@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from runtime.release_surface_compiler import compile_release_surfaces
+from runtime.adoption import CANONICAL_VERSION
+from runtime.release_surface_compiler import compile_release_surfaces, _compile_release_text
 
 
 _MINIMAL_OMG_PY = '''\
@@ -190,3 +191,106 @@ def test_promoted_commands_available_to_compiler() -> None:
     assert len(PROMOTED_PUBLIC_COMMANDS) > 0
     for cmd in PROMOTED_PUBLIC_COMMANDS:
         assert "crazy" not in cmd.lower()
+
+
+def test_compile_release_text_produces_canonical_content() -> None:
+    text = _compile_release_text(CANONICAL_VERSION)
+    assert f"v{CANONICAL_VERSION}" in text
+    assert "Canonical release surface compilation" in text
+    assert "Dual-channel" in text
+    assert "Idempotent generated-section markers" in text
+
+
+def test_release_text_shared_across_all_outputs(project: Path) -> None:
+    compile_release_surfaces(project)
+    canonical = _compile_release_text(CANONICAL_VERSION)
+
+    changelog = (project / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert canonical in changelog, "canonical text missing from CHANGELOG.md generated block"
+
+    notes = (project / "artifacts" / "release" / f"release-notes-v{CANONICAL_VERSION}.md").read_text(encoding="utf-8")
+    assert canonical in notes, "canonical text missing from release notes artifact"
+
+    body = (project / "artifacts" / "release" / f"release-body-v{CANONICAL_VERSION}.md").read_text(encoding="utf-8")
+    assert canonical in body, "canonical text missing from release body artifact"
+
+    tag = (project / "artifacts" / "release" / f"tag-body-v{CANONICAL_VERSION}.md").read_text(encoding="utf-8")
+    assert canonical in tag, "canonical text missing from tag body artifact"
+
+
+def test_release_body_artifact_created(project: Path) -> None:
+    result = compile_release_surfaces(project)
+    body = project / "artifacts" / "release" / f"release-body-v{CANONICAL_VERSION}.md"
+    assert body.exists()
+    content = body.read_text(encoding="utf-8")
+    assert f"v{CANONICAL_VERSION}" in content
+    assert f"artifacts/release/release-body-v{CANONICAL_VERSION}.md" in result["artifacts"]
+
+
+def test_tag_body_artifact_created(project: Path) -> None:
+    result = compile_release_surfaces(project)
+    tag = project / "artifacts" / "release" / f"tag-body-v{CANONICAL_VERSION}.md"
+    assert tag.exists()
+    content = tag.read_text(encoding="utf-8")
+    assert f"v{CANONICAL_VERSION}" in content
+    assert f"artifacts/release/tag-body-v{CANONICAL_VERSION}.md" in result["artifacts"]
+
+
+def test_check_only_returns_ok_when_fresh(project: Path) -> None:
+    compile_release_surfaces(project)
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "ok"
+    assert result["drift"] == []
+
+
+def test_check_only_detects_changelog_marker_tampering(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    cl = project / "CHANGELOG.md"
+    content = cl.read_text(encoding="utf-8")
+    content = content.replace("Canonical release surface compilation", "TAMPERED CONTENT")
+    cl.write_text(content, encoding="utf-8")
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    assert len(result["drift"]) > 0
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "changelog_current" in drift_surfaces
+
+
+def test_check_only_detects_readme_marker_tampering(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    readme = project / "README.md"
+    content = readme.read_text(encoding="utf-8")
+    content = content.replace("npm install @trac3er/oh-my-god", "TAMPERED INSTALL CMD")
+    readme.write_text(content, encoding="utf-8")
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "readme_quickstart" in drift_surfaces
+
+
+def test_check_only_does_not_write_files(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    cl = project / "CHANGELOG.md"
+    original = cl.read_text(encoding="utf-8")
+    tampered = original.replace("Canonical release surface compilation", "TAMPERED")
+    cl.write_text(tampered, encoding="utf-8")
+
+    compile_release_surfaces(project, check_only=True)
+    assert cl.read_text(encoding="utf-8") == tampered, "check_only must not overwrite files"
+
+
+def test_check_only_detects_missing_artifact(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    body = project / "artifacts" / "release" / f"release-body-v{CANONICAL_VERSION}.md"
+    body.unlink()
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "github_release_body" in drift_surfaces
