@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Stop Hook Dispatcher — Priority-based multiplexer for stop checks."""
+from __future__ import annotations
 
 import json
 import importlib.util

@@ -91,6 +91,8 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 
 ## Quickstart
 
+**Prerequisites**: Node >=18, Python >=3.10
+
 Install with npm or bunx (Bun runtime):
 
 ```bash

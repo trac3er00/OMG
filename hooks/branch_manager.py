@@ -6,6 +6,8 @@ Extracts task description from OMG state files for branch naming.
 
 Feature-gated: OMG_GIT_WORKFLOW_ENABLED (uses get_feature_flag('GIT_WORKFLOW'))
 """
+from __future__ import annotations
+
 import json
 import os
 import re

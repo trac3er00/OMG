@@ -1082,6 +1082,31 @@ def test_postinstall_script_in_package_json():
     assert "install" not in pkg["scripts"], "plain 'install' script still present in package.json"
 
 
+def test_omg_cli_version_gate_rejects_python_below_3_10():
+    """The omg.py entrypoint must fail cleanly under a simulated Python 3.9 runtime."""
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import runpy, sys; "
+                "from collections import namedtuple; "
+                "VersionInfo = namedtuple('VersionInfo', 'major minor micro releaselevel serial'); "
+                "sys.version_info = VersionInfo(3, 9, 0, 'final', 0); "
+                "runpy.run_path('scripts/omg.py', run_name='__main__')"
+            ),
+        ],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode != 0
+    assert "OMG requires Python 3.10" in proc.stderr
+    assert "Found: Python 3.9" in proc.stderr
+    assert "Traceback" not in proc.stderr
+
+
 def test_npmignore_includes_hud_and_mcp():
     """.npmignore must NOT exclude plugin/runtime MCP or HUD assets from the npm package."""
     npmignore = (ROOT / ".npmignore").read_text(encoding="utf-8").splitlines()

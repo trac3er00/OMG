@@ -10,6 +10,8 @@ Detection only — does not block the stop.
 
 Feature flag: OMG_IDLE_DETECTION_ENABLED (default: False)
 """
+from __future__ import annotations
+
 import json
 import sys
 import os

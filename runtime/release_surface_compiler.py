@@ -229,7 +229,7 @@ def _install_fast_path_content() -> str:
     return (
         "## Fast Path\n"
         "\n"
-        "> **Prerequisite**: Node >=18\n"
+        "> **Prerequisites**: Node >=18, Python >=3.10\n"
         "\n"
         "```bash\n"
         "omg install --plan    # preview changes\n"
@@ -399,6 +399,7 @@ def _check_artifact_drift(
 def _check_release_surfaces(root: Path) -> dict[str, Any]:
     markers = get_generated_section_markers()
     drift: list[dict[str, str]] = []
+    surfaces = get_public_surfaces()
 
     canonical = _compile_release_text(CANONICAL_VERSION)
 
@@ -422,6 +423,22 @@ def _check_release_surfaces(root: Path) -> dict[str, Any]:
         markers.get("proof_generated_section", ""),
         _proof_content(), "proof_generated_section", drift,
     )
+    fast_path_marker = markers.get("install_fast_path", "")
+    install_surfaces = [
+        s for s in surfaces
+        if s.get("marker") == fast_path_marker
+        and s["category"] == "docs"
+        and "docs/install/" in s.get("path", "")
+    ]
+    for surface in install_surfaces:
+        _check_marker_drift(
+            root,
+            str(surface["path"]),
+            fast_path_marker,
+            _install_fast_path_content(),
+            str(surface["id"]),
+            drift,
+        )
 
     _check_artifact_drift(
         root, f"artifacts/release/release-notes-v{CANONICAL_VERSION}.md",

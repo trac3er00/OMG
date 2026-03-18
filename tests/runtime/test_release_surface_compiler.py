@@ -116,6 +116,16 @@ def test_install_guides_get_fast_path(project: Path) -> None:
         )
 
 
+def test_install_guides_fast_path_mentions_python_prerequisite(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    for name in _INSTALL_GUIDE_NAMES:
+        guide = project / "docs" / "install" / f"{name}.md"
+        content = guide.read_text(encoding="utf-8")
+        assert "Node >=18" in content, f"Node prerequisite missing in {name}"
+        assert "Python >=3.10" in content, f"Python prerequisite missing in {name}"
+
+
 def test_install_guide_fast_path_idempotent(project: Path) -> None:
     compile_release_surfaces(project)
     compile_release_surfaces(project)
@@ -279,6 +289,22 @@ def test_check_only_detects_readme_marker_tampering(project: Path) -> None:
     assert "readme_quickstart" in drift_surfaces
 
 
+def test_check_only_detects_install_fast_path_tampering(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    guide = project / "docs" / "install" / "claude-code.md"
+    content = guide.read_text(encoding="utf-8")
+    guide.write_text(
+        content.replace("Python >=3.10", "Python >=3.9"),
+        encoding="utf-8",
+    )
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "install_claude_code" in drift_surfaces
+
+
 def test_check_only_does_not_write_files(project: Path) -> None:
     compile_release_surfaces(project)
 
@@ -347,9 +373,10 @@ class TestQuickstartContent:
 
 class TestInstallFastPathContent:
 
-    def test_fast_path_has_node_prerequisite(self) -> None:
+    def test_fast_path_has_node_and_python_prerequisites(self) -> None:
         content = _install_fast_path_content()
         assert "Node" in content and "18" in content, "Node >=18 prerequisite missing"
+        assert "Python" in content and "3.10" in content, "Python >=3.10 prerequisite missing"
 
     def test_fast_path_shows_omg_install_plan(self) -> None:
         content = _install_fast_path_content()

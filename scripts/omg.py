@@ -32,6 +32,15 @@ ROOT_DIR = Path(SCRIPTS_DIR).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+if sys.version_info < (3, 10):
+    sys.exit(
+        "\n\u274c OMG requires Python 3.10 or newer.\n"
+        "   Found: Python {}.{}\n"
+        "   Install Python 3.10+ and ensure 'python3' resolves to it.\n".format(
+            sys.version_info.major, sys.version_info.minor
+        )
+    )
+
 from hooks._common import bootstrap_runtime_paths
 
 bootstrap_runtime_paths(__file__)

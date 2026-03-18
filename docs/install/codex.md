@@ -39,7 +39,7 @@ Optional browser capability:
 <!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
-> **Prerequisite**: Node >=18
+> **Prerequisites**: Node >=18, Python >=3.10
 
 ```bash
 omg install --plan    # preview changes

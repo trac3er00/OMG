@@ -4,6 +4,8 @@
 Canonical state path: .omg/state/*
 Legacy fallback path: .omc/* (auto-migrated when detected)
 """
+from __future__ import annotations
+
 import json
 import os
 import sys

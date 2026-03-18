@@ -14,6 +14,8 @@ Inspired by earlier OMG routing experiments. Key upgrades:
 
 No dependency on CLAUDE.md or AGENTS.md.
 """
+from __future__ import annotations
+
 import hashlib
 import json, sys, os, re, time
 from datetime import datetime, timezone
