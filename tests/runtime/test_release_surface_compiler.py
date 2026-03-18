@@ -7,7 +7,14 @@ from pathlib import Path
 import pytest
 
 from runtime.adoption import CANONICAL_VERSION
-from runtime.release_surface_compiler import compile_release_surfaces, _compile_release_text
+from runtime.release_surface_compiler import (
+    compile_release_surfaces,
+    _compile_release_text,
+    _quickstart_content,
+    _install_fast_path_content,
+    _proof_content,
+    _command_surface_snippet,
+)
 
 
 _MINIMAL_OMG_PY = '''\
@@ -263,7 +270,7 @@ def test_check_only_detects_readme_marker_tampering(project: Path) -> None:
 
     readme = project / "README.md"
     content = readme.read_text(encoding="utf-8")
-    content = content.replace("npm install @trac3er/oh-my-god", "TAMPERED INSTALL CMD")
+    content = content.replace("omg install --plan", "TAMPERED INSTALL CMD")
     readme.write_text(content, encoding="utf-8")
 
     result = compile_release_surfaces(project, check_only=True)
@@ -294,3 +301,121 @@ def test_check_only_detects_missing_artifact(project: Path) -> None:
     assert result["status"] == "drift"
     drift_surfaces = [d["surface"] for d in result["drift"]]
     assert "github_release_body" in drift_surfaces
+
+
+class TestQuickstartContent:
+
+    def test_quickstart_shows_omg_install_plan(self) -> None:
+        content = _quickstart_content()
+        assert "omg install --plan" in content
+
+    def test_quickstart_shows_omg_install_apply(self) -> None:
+        content = _quickstart_content()
+        assert "omg install --apply" in content
+
+    def test_quickstart_does_not_lead_with_npm(self) -> None:
+        content = _quickstart_content()
+        lines = content.split("\n")
+        first_code_block = []
+        in_block = False
+        for line in lines:
+            if line.strip().startswith("```") and not in_block:
+                in_block = True
+                continue
+            if line.strip().startswith("```") and in_block:
+                break
+            if in_block:
+                first_code_block.append(line)
+        first_block_text = "\n".join(first_code_block)
+        assert "npm install" not in first_block_text, "npm should not be in first code block"
+
+    def test_quickstart_crazy_only_in_footnote(self) -> None:
+        content = _quickstart_content()
+        lines = content.split("\n")
+        for line in lines:
+            if "/OMG:crazy" in line or "OMG:crazy" in line:
+                lowered = line.lower()
+                assert any(
+                    w in lowered for w in ("compat", "footnote", "legacy", "alias", ">")
+                ), f"/OMG:crazy must appear only in footnote context, found in: {line!r}"
+
+    def test_quickstart_in_readme_after_compile(self, project: Path) -> None:
+        compile_release_surfaces(project)
+        content = (project / "README.md").read_text()
+        assert "omg install --plan" in content
+
+
+class TestInstallFastPathContent:
+
+    def test_fast_path_has_node_prerequisite(self) -> None:
+        content = _install_fast_path_content()
+        assert "Node" in content and "18" in content, "Node >=18 prerequisite missing"
+
+    def test_fast_path_shows_omg_install_plan(self) -> None:
+        content = _install_fast_path_content()
+        assert "omg install --plan" in content
+
+    def test_fast_path_shows_omg_install_apply(self) -> None:
+        content = _install_fast_path_content()
+        assert "omg install --apply" in content
+
+    def test_fast_path_in_install_guides(self, project: Path) -> None:
+        compile_release_surfaces(project)
+        for name in _INSTALL_GUIDE_NAMES:
+            content = (project / "docs" / "install" / f"{name}.md").read_text()
+            assert "Node" in content and "18" in content, (
+                f"Node >=18 prerequisite missing from {name}"
+            )
+
+
+class TestProofContent:
+
+    def test_proof_shows_proof_open_html(self) -> None:
+        content = _proof_content()
+        assert "omg proof open --html" in content
+
+    def test_proof_shows_blocked_last(self) -> None:
+        content = _proof_content()
+        assert "omg blocked --last" in content
+
+    def test_proof_shows_explain_run(self) -> None:
+        content = _proof_content()
+        assert "omg explain run" in content
+
+    def test_proof_shows_budget_simulate(self) -> None:
+        content = _proof_content()
+        assert "omg budget simulate --enforce" in content
+
+    def test_proof_human_commands_before_artifact_paths(self) -> None:
+        content = _proof_content()
+        cmd_pos = content.find("omg proof open --html")
+        artifact_pos = content.find(".omg/evidence")
+        if artifact_pos >= 0:
+            assert cmd_pos < artifact_pos, "Human commands must come before artifact paths"
+
+    def test_proof_section_in_readme(self, project: Path) -> None:
+        compile_release_surfaces(project)
+        content = (project / "README.md").read_text()
+        assert "<!-- OMG:GENERATED:proof -->" in content
+        assert "omg proof open --html" in content
+
+
+class TestCommandSurfaceSnippet:
+
+    def test_command_surface_uses_promoted_commands(self, project: Path) -> None:
+        content = _command_surface_snippet(project)
+        assert "omg ship" in content
+        assert "omg proof" in content
+        assert "omg install --plan" in content
+
+    def test_command_surface_does_not_include_crazy(self, project: Path) -> None:
+        content = _command_surface_snippet(project)
+        assert "crazy" not in content.lower()
+
+    def test_command_surface_works_without_omg_py(self, project: Path) -> None:
+        no_omg = project / "no-omg-dir"
+        no_omg.mkdir()
+        (no_omg / "README.md").write_text("# test\n")
+        content = _command_surface_snippet(no_omg)
+        assert "omg ship" in content
+        assert "omg proof" in content

@@ -13,6 +13,7 @@ from runtime.release_surface_registry import (
     GENERATED_SECTION_MARKERS,
     get_public_surfaces,
     get_generated_section_markers,
+    get_promoted_public_commands,
 )
 
 
@@ -63,6 +64,10 @@ def compile_release_surfaces(
         content, updated = _upsert_section(content, cmd_key, _command_surface_snippet(root))
         if updated:
             sections_updated.append("readme_command_surface")
+        proof_key = _marker_key(markers.get("proof_generated_section", "")) or "proof"
+        content, updated = _upsert_section(content, proof_key, _proof_content())
+        if updated:
+            sections_updated.append("proof_generated_section")
         readme.write_text(content, encoding="utf-8")
 
     changelog = root / "CHANGELOG.md"
@@ -201,21 +206,22 @@ def _upsert_section(
 
 def _quickstart_content() -> str:
     return (
-        "Install with npm or bunx:\n"
+        "Preview what OMG will configure, then apply:\n"
         "\n"
         "```bash\n"
-        "npm install @trac3er/oh-my-god\n"
-        "# or\n"
-        "bunx @trac3er/oh-my-god\n"
+        "omg install --plan\n"
+        "omg install --apply\n"
         "```\n"
         "\n"
-        "Then run:\n"
+        "Then start working:\n"
         "\n"
-        "```text\n"
-        "/OMG:setup\n"
-        "/OMG:browser <goal>\n"
-        "/OMG:crazy <goal>\n"
-        "```"
+        "```bash\n"
+        "omg ship\n"
+        "omg proof open --html\n"
+        "omg blocked --last\n"
+        "```\n"
+        "\n"
+        "> Compatibility: `/OMG:crazy <goal>` is still accepted as an alias."
     )
 
 
@@ -223,21 +229,37 @@ def _install_fast_path_content() -> str:
     return (
         "## Fast Path\n"
         "\n"
+        "> **Prerequisite**: Node >=18\n"
+        "\n"
         "```bash\n"
-        "npm install @trac3er/oh-my-god\n"
-        "# or\n"
-        "bunx @trac3er/oh-my-god\n"
+        "omg install --plan    # preview changes\n"
+        "omg install --apply   # apply configuration\n"
         "```\n"
         "\n"
         "This registers the OMG control plane for your host automatically."
     )
 
 
+def _proof_content() -> str:
+    return (
+        "## Verification\n"
+        "\n"
+        "```bash\n"
+        "omg proof open --html\n"
+        "omg blocked --last\n"
+        "omg explain run <id>\n"
+        "omg budget simulate --enforce\n"
+        "```\n"
+        "\n"
+        "Machine-generated evidence artifacts: `.omg/evidence/`"
+    )
+
+
 def _command_surface_snippet(root: Path) -> str:
-    commands = _extract_commands(root)
-    if not commands:
-        return "No commands extracted."
-    return "\n".join(f"- `omg {name}`" for name, _ in commands[:15])
+    promoted = get_promoted_public_commands()
+    if not promoted:
+        return "No commands available."
+    return "\n".join(f"- `{cmd}`" for cmd in promoted)
 
 
 def _extract_commands(root: Path) -> list[tuple[str, str]]:
@@ -394,6 +416,11 @@ def _check_release_surfaces(root: Path) -> dict[str, Any]:
         root, "README.md",
         markers.get("readme_command_surface", ""),
         _command_surface_snippet(root), "readme_command_surface", drift,
+    )
+    _check_marker_drift(
+        root, "README.md",
+        markers.get("proof_generated_section", ""),
+        _proof_content(), "proof_generated_section", drift,
     )
 
     _check_artifact_drift(
