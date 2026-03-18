@@ -49,7 +49,7 @@ from runtime.data_lineage import build_lineage_manifest
 from runtime.eval_gate import evaluate_trace
 from runtime.incident_replay import build_incident_pack
 from runtime.domain_packs import get_domain_pack_contract
-from runtime.doc_generator import generate_docs
+from runtime.doc_generator import generate_docs, check_docs, GENERATED_ARTIFACTS
 from runtime.preflight import run_preflight
 from runtime.remote_supervisor import issue_local_supervisor_session, verify_local_supervisor_token
 from runtime.security_check import run_security_check
@@ -2197,58 +2197,28 @@ def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> N
 
 
 def cmd_docs_generate(args: argparse.Namespace) -> int:
-    output_root = Path(args.output_root) if args.output_root else ROOT_DIR / ".sisyphus" / "tmp" / "generated-docs"
-    
-    if args.check:
-        import tempfile
-        import shutil
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_path = Path(tmp_dir)
-            result = generate_docs(tmp_path)
-            if result["status"] != "ok":
-                print(f"Failed to generate docs for check: {result.get('error', 'Unknown error')}")
-                return 1
-            
-            drift = []
-            # We check artifacts that are supposed to be at the repo root if output_root was not specified
-            # The task says: "regenerates INSTALL-VERIFICATION-INDEX.md and QUICK-REFERENCE.md at the repo root"
-            # But generate_docs writes to output_root.
-            # If output_root is specified, we should probably check against that.
-            # If not, we check against ROOT_DIR for the root docs.
-            
-            check_targets = [
-                ("INSTALL-VERIFICATION-INDEX.md", ROOT_DIR / "INSTALL-VERIFICATION-INDEX.md"),
-                ("QUICK-REFERENCE.md", ROOT_DIR / "QUICK-REFERENCE.md"),
-            ]
-            
-            for name, on_disk_path in check_targets:
-                generated_content = (tmp_path / name).read_text(encoding="utf-8")
-                if not on_disk_path.exists():
-                    drift.append(f"Missing on disk: {name}")
-                    continue
-                on_disk_content = on_disk_path.read_text(encoding="utf-8")
-                if generated_content != on_disk_content:
-                    drift.append(f"Content drift: {name}")
-            
-            if drift:
-                print("Doc check FAILED. Drift detected:")
-                for d in drift:
-                    print(f"  - {d}")
-                print("\nRun 'python3 scripts/omg.py docs generate' to fix.")
-                return 1
-            
-            print("Doc check PASSED. No drift detected.")
-            return 0
+    check_root = Path(args.output_root) if args.output_root else ROOT_DIR
 
+    if args.check:
+        result = check_docs(check_root)
+        if result["status"] != "ok":
+            print("Doc check FAILED. Drift detected:")
+            for d in result["drift"]:
+                print(f"  - {d}")
+            print("\nRun 'python3 scripts/omg.py docs generate' to fix.")
+            return 1
+        print("Doc check PASSED. No drift detected.")
+        return 0
+
+    output_root = Path(args.output_root) if args.output_root else ROOT_DIR / ".sisyphus" / "tmp" / "generated-docs"
     result = generate_docs(output_root)
     if result["status"] == "ok":
-        # If output_root was default, we also copy the root docs to ROOT_DIR
         if not args.output_root:
-            for name in ["INSTALL-VERIFICATION-INDEX.md", "QUICK-REFERENCE.md"]:
+            for name in GENERATED_ARTIFACTS:
                 src = output_root / name
                 dst = ROOT_DIR / name
                 dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-                print(f"Updated root doc: {name}")
+            print(f"Copied all {len(GENERATED_ARTIFACTS)} artifacts to repo root")
 
         print(f"Successfully generated docs at: {result['output_root']}")
         for artifact in result["artifacts"]:

@@ -35,3 +35,40 @@
 ## Files Changed
 - `runtime/release_surface_compiler.py` — unified text builder, check_only mode, release body + tag body artifacts
 - `tests/runtime/test_release_surface_compiler.py` — 10 new tests for unified text, check mode, artifact creation
+
+# Task 4: Regenerate Public Front Door Around omg Launcher
+
+## Learnings
+
+- `_quickstart_content()` is the single source for the README quickstart generated block — changing it automatically flows through `_upsert_section` and `_check_release_surfaces` drift detection
+- `_command_surface_snippet()` was argparse-based (AST extraction from `scripts/omg.py`); switched to `get_promoted_public_commands()` from registry — decouples docs from parser internals
+- New `_proof_content()` wired into both `compile_release_surfaces()` (write path) and `_check_release_surfaces()` (drift check) via `proof_generated_section` marker from registry
+- `/OMG:crazy` appears only as `> Compatibility:` blockquote footnote in generated quickstart — test enforces footnote-only context via keyword check (`compat`, `footnote`, `legacy`, `alias`, `>`)
+- Node >=18 prerequisite uses markdown blockquote banner: `> **Prerequisite**: Node >=18`
+- `_write_command_surface_doc()` intentionally kept using `_extract_commands()` for the full reference doc — only the README snippet uses promoted commands
+- Existing drift detection test updated: tamper string changed from `npm install @trac3er/oh-my-god` to `omg install --plan` to match new content
+- TDD red phase confirmed via ImportError on `_proof_content` before implementation
+- 40 total tests pass (17 matched by task filter), 0 LSP errors on both changed files
+
+## Files Changed
+- `runtime/release_surface_compiler.py` — updated 4 functions, added `_proof_content()`, wired proof into compile + check paths
+- `tests/runtime/test_release_surface_compiler.py` — 17 new tests across 4 test classes (TestQuickstartContent, TestInstallFastPathContent, TestProofContent, TestCommandSurfaceSnippet)
+
+# Task 5: Extend docs generate --check to Cover All Generated Artifacts
+
+## Learnings
+
+- `.sisyphus/tmp/generated-docs/` is gitignored — artifacts there can't be verified by CI `--check`; solution: copy all 9 to ROOT_DIR on `docs generate`
+- `GENERATED_ARTIFACTS` tuple in `doc_generator.py` is the single source of truth for artifact names; used by both `generate_docs()` return value and `check_docs()`
+- `check_docs(on_disk_root)` generates fresh to tempdir, compares all 9 against `on_disk_root`; JSON comparison strips `generated_at` timestamps; malformed JSON on disk treated as drift
+- `cmd_docs_generate --check` now delegates to `check_docs(ROOT_DIR)` instead of inline 2-file comparison
+- `cmd_docs_generate` write mode expanded from copying 2 root docs to copying all 9 artifacts to ROOT_DIR
+- Content fixes: install-verification.json commands changed from `python3 scripts/omg.py doctor/validate` to `omg doctor/validate`; QUICK-REFERENCE.md Quick Commands changed from `/OMG:setup`, `/OMG:crazy`, `/OMG:browser`, `/OMG:deep-plan` to `omg install --plan`, `omg doctor`, `omg ship`
+- TDD red phase confirmed via ImportError on `check_docs` and `GENERATED_ARTIFACTS` before implementation
+- 34 total tests pass (17 doc_generator + 17 github_workflows), 0 LSP errors on all 3 changed files
+
+## Files Changed
+- `runtime/doc_generator.py` — added `GENERATED_ARTIFACTS`, `check_docs()`, fixed content in install-verification.json and QUICK-REFERENCE.md
+- `scripts/omg.py` — updated import, rewrote `cmd_docs_generate` check/write modes
+- `tests/runtime/test_doc_generator.py` — 8 new tests for check_docs and content verification
+- Root artifacts regenerated: all 9 at ROOT_DIR

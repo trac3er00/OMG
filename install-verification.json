@@ -1,0 +1,18 @@
+{
+  "generated_by": "omg docs generate",
+  "version": "2.2.7",
+  "generated_at": "2026-03-18T00:54:22.535918+00:00",
+  "verification_commands": [
+    {
+      "name": "doctor",
+      "command": "omg doctor"
+    },
+    {
+      "name": "validate",
+      "command": "omg validate"
+    }
+  ],
+  "cache_paths": [
+    ".omg/cache"
+  ]
+}

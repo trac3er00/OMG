@@ -32,7 +32,6 @@
 
 | Task | Command |
 | :--- | :--- |
-| Setup | `/OMG:setup` |
-| Browser | `/OMG:browser <goal>` |
-| Crazy Mode | `/OMG:crazy <goal>` |
-| Deep Plan | `/OMG:deep-plan <goal>` |
+| Install | `omg install --plan` |
+| Diagnostics | `omg doctor` |
+| Ship | `omg ship` |
