@@ -216,6 +216,7 @@ def _collect_cli_health(target: str) -> dict[str, dict[str, Any]]:
 
 def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
     target = req.target.lower().strip()
+    selected: dict[str, str] | None = None
     if target == "auto":
         selected = select_target(req.problem, req.context)
         target = selected["target"]
@@ -230,11 +231,17 @@ def dispatch_team(req: TeamDispatchRequest) -> TeamDispatchResult:
         findings.append(f"Expected: {req.expected_outcome}")
 
     cli_health = _collect_cli_health(target)
-    equalizer_decision = select_provider(
-        task_text=req.problem,
-        project_dir=_OMG_ROOT,
-        context_packet={"summary": req.context},
-    )
+    if selected is not None:
+        equalizer_decision = select_provider(
+            task_text=req.problem,
+            project_dir=_OMG_ROOT,
+            context_packet={"summary": req.context},
+        )
+    else:
+        equalizer_decision = {
+            "provider": target,
+            "reason": "explicit target requested",
+        }
     findings.append(
         "Equalizer preferred provider: "
         f"{equalizer_decision['provider']} ({equalizer_decision['reason']})"

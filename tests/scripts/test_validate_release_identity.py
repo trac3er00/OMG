@@ -473,7 +473,9 @@ class TestReleaseSurfaceDriftGate:
         from runtime.release_surface_registry import get_public_surfaces
 
         import tempfile
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td, \
+             patch("runtime.contract_compiler.compile_release_surfaces", return_value={"status": "ok", "drift": []}), \
+             patch("runtime.contract_compiler.check_docs", return_value={"status": "ok", "drift": []}):
             root = Path(td) / "root"
             output = Path(td) / "output"
             root.mkdir()

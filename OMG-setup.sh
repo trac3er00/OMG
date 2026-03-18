@@ -1279,7 +1279,7 @@ from runtime.install_planner import compute_install_plan, execute_plan  # noqa: 
 
 detected_clis = {
     host: {"detected": bool(shutil.which(host))}
-    for host in ("codex", "gemini", "kimi")
+    for host in ("codex", "gemini", "kimi", "opencode")
 }
 
 plan = compute_install_plan(

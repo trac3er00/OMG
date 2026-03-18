@@ -2883,7 +2883,7 @@ def build_parser() -> argparse.ArgumentParser:
     env_doctor_cmd.add_argument("--format", default="text", choices=["text", "json"], dest="format")
     env_doctor_cmd.add_argument("--fix", action="store_true", default=False, help="Attempt to fix failing checks")
     env_doctor_cmd.add_argument("--dry-run", action="store_true", default=False, dest="dry_run")
-    env_doctor_cmd.set_defaults(func=cmd_doctor)
+    env_doctor_cmd.set_defaults(func=cmd_env_doctor)
 
     return parser
 

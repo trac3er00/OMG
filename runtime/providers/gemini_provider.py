@@ -17,6 +17,7 @@ from runtime.release_run_coordinator import build_release_env_prefix
 from runtime.tmux_session_manager import TmuxSessionManager
 
 _logger = logging.getLogger(__name__)
+_AUTH_CHECK_TIMEOUT_SECONDS = 5
 
 
 def _attach_normalized_output(payload: dict[str, Any], *, prompt: str, project_dir: str) -> dict[str, Any]:
@@ -57,7 +58,7 @@ class GeminiProvider(CLIProvider):
     def check_auth(self) -> tuple[bool | None, str]:
         """Check Gemini authentication status via ``gemini auth status``."""
         try:
-            result = self.run_tool(["gemini", "auth", "status"], timeout=30)
+            result = self.run_tool(["gemini", "auth", "status"], timeout=_AUTH_CHECK_TIMEOUT_SECONDS)
             if result.returncode == 0:
                 return True, result.stdout.strip()
             return False, result.stderr.strip() or result.stdout.strip()

@@ -55,7 +55,7 @@ class TestCheckAuth:
         fake = subprocess.CompletedProcess(args=[], returncode=0, stdout="authenticated\n", stderr="")
         with patch.object(provider, "run_tool", return_value=fake) as mock_rt:
             ok, msg = provider.check_auth()
-            mock_rt.assert_called_once_with(["codex", "auth", "status"], timeout=30)
+            mock_rt.assert_called_once_with(["codex", "auth", "status"], timeout=5)
             assert ok is True
             assert "authenticated" in msg
 

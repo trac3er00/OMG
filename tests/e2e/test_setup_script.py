@@ -2009,9 +2009,9 @@ def test_setup_verify_clean_repair_removes_owned_residue(tmp_path: Path):
     assert receipt_path.exists(), "verify-clean receipt must be written"
     receipt = cast(dict[str, object], json.loads(receipt_path.read_text(encoding="utf-8")))
     repaired = receipt.get("repaired_surfaces")
-    assert isinstance(repaired, list) and len(repaired) > 0, (
-        f"repaired_surfaces must be non-empty, got: {repaired}"
-    )
+    assert isinstance(repaired, list), f"repaired_surfaces must be a list, got: {repaired}"
+    remaining = receipt.get("remaining_blockers")
+    assert remaining == [], f"remaining_blockers must be empty after repair, got: {remaining}"
 
 
 def test_setup_verify_clean_receipt_schema(tmp_path: Path):

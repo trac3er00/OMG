@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import zipfile
 from unittest.mock import patch
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -64,6 +65,15 @@ def _stub_registry_validation_for_non_registry_tests(monkeypatch, request) -> No
             "contract": {},
             "bundles": [],
         },
+    )
+
+
+@pytest.fixture(autouse=True)
+def _stub_worker_watchdog(monkeypatch) -> None:
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "get_worker_watchdog",
+        lambda _project_dir=None: SimpleNamespace(get_stalled_workers=lambda: []),
     )
 
 
@@ -985,6 +995,7 @@ def test_release_readiness_rejects_cosmetic_evidence_and_eval_regressions(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,

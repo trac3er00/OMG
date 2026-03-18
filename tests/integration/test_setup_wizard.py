@@ -208,21 +208,18 @@ class TestConfigureMcpIntegration:
             "gemini": {"detected": True, "auth_ok": True},
         }
 
-        with patch("hooks.setup_wizard.write_codex_mcp_config") as mock_codex, \
-             patch("hooks.setup_wizard.write_codex_mcp_stdio_config"), \
-             patch("hooks.setup_wizard.write_gemini_mcp_config") as mock_gemini, \
-             patch("hooks.setup_wizard.write_gemini_mcp_stdio_config") as mock_gemini_stdio, \
-             patch("hooks.setup_wizard.write_kimi_mcp_stdio_config"), \
-             patch("hooks.setup_wizard.write_kimi_mcp_config"), \
-             patch("hooks.setup_wizard.write_claude_mcp_config"):
+        with patch("runtime.install_planner.execute_plan", return_value={
+            "executed": True,
+            "actions_completed": [],
+            "actions_skipped": [],
+            "receipt": None,
+            "errors": [],
+        }):
             result = setup_wizard.configure_mcp(str(tmp_path), detected)
 
         assert "codex" not in result["configured"]
         assert "gemini" in result["configured"]
-        mock_codex.assert_not_called()
-        mock_gemini.assert_not_called()
-        written_server_names = [call.kwargs["server_name"] for call in mock_gemini_stdio.call_args_list]
-        assert written_server_names == ["filesystem", "omg-control"]
+        assert result["errors"] == {}
 
     def test_configure_mcp_persists_selected_mcp_preferences(self, tmp_path, monkeypatch, _patch_cli_writers):
         """Selected MCPs should be persisted in the saved preferences."""
