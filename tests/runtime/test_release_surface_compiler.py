@@ -165,3 +165,28 @@ def test_return_structure(project: Path) -> None:
     assert isinstance(result["sections_updated"], list)
     assert len(result["artifacts"]) > 0
     assert len(result["sections_updated"]) > 0
+
+
+def test_registry_includes_release_body_surfaces() -> None:
+    from runtime.release_surface_registry import get_public_surfaces
+
+    surfaces = get_public_surfaces()
+    ids = {s["id"] for s in surfaces}
+    assert "github_release_body_artifact" in ids
+    assert "tag_body_artifact" in ids
+
+
+def test_registry_includes_proof_section_marker() -> None:
+    from runtime.release_surface_registry import get_generated_section_markers
+
+    markers = get_generated_section_markers()
+    assert "proof_generated_section" in markers
+
+
+def test_promoted_commands_available_to_compiler() -> None:
+    from runtime.release_surface_registry import PROMOTED_PUBLIC_COMMANDS
+
+    assert isinstance(PROMOTED_PUBLIC_COMMANDS, list)
+    assert len(PROMOTED_PUBLIC_COMMANDS) > 0
+    for cmd in PROMOTED_PUBLIC_COMMANDS:
+        assert "crazy" not in cmd.lower()

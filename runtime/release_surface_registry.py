@@ -19,6 +19,7 @@ GENERATED_SECTION_MARKERS: dict[str, str] = {
     "install_fast_path": "<!-- OMG:GENERATED:install-fast-path -->",
     "changelog_current": "<!-- OMG:GENERATED:changelog-v2.2.7 -->",
     "command_surface_doc": "<!-- OMG:GENERATED:command-surface -->",
+    "proof_generated_section": "<!-- OMG:GENERATED:proof -->",
 }
 
 _INSTALL_GUIDES: list[tuple[str, str]] = [
@@ -74,6 +75,25 @@ PUBLIC_SURFACES: list[PublicSurface] = [
         "path": "docs/command-surface.md",
         "marker": "<!-- OMG:GENERATED:command-surface -->",
         "description": "command surface reference doc",
+    },
+    {
+        "id": "github_release_body_artifact",
+        "category": "release_body",
+        "path": "artifacts/release/github-release-body.md",
+        "description": "GitHub release body text for tag publish",
+    },
+    {
+        "id": "tag_body_artifact",
+        "category": "release_body",
+        "path": "artifacts/release/tag-body.md",
+        "description": "annotated tag body text for release",
+    },
+    {
+        "id": "proof_generated_section",
+        "category": "docs",
+        "path": "README.md",
+        "marker": "<!-- OMG:GENERATED:proof -->",
+        "description": "generated proof section in README",
     },
     {
         "id": "launcher_python",
@@ -164,6 +184,9 @@ _REQUIRED_IDS: frozenset[str] = frozenset({
     "install_opencode",
     "install_github_app",
     "command_surface_doc",
+    "github_release_body_artifact",
+    "tag_body_artifact",
+    "proof_generated_section",
     "launcher_python",
     "launcher_shell",
     "launcher_npm_bin",
@@ -186,7 +209,19 @@ _REQUIRED_CATEGORIES: frozenset[str] = frozenset({
     "sign_artifact",
     "npm",
     "action",
+    "release_body",
 })
+
+PROMOTED_PUBLIC_COMMANDS: list[str] = [
+    "omg ship",
+    "omg proof",
+    "omg blocked --last",
+    "omg explain run <id>",
+    "omg budget simulate --enforce",
+    "omg install --plan",
+    "omg install --apply",
+    "omg env doctor",
+]
 
 
 def get_public_surfaces() -> list[PublicSurface]:
@@ -195,6 +230,10 @@ def get_public_surfaces() -> list[PublicSurface]:
 
 def get_generated_section_markers() -> dict[str, str]:
     return dict(GENERATED_SECTION_MARKERS)
+
+
+def get_promoted_public_commands() -> list[str]:
+    return list(PROMOTED_PUBLIC_COMMANDS)
 
 
 def validate_registry() -> list[str]:
@@ -214,5 +253,12 @@ def validate_registry() -> list[str]:
     dupes = {sid for sid in ids_list if ids_list.count(sid) > 1}
     if dupes:
         blockers.append(f"duplicate surface ids: {sorted(dupes)}")
+
+    crazy_commands = [c for c in PROMOTED_PUBLIC_COMMANDS if "crazy" in c.lower()]
+    if crazy_commands:
+        blockers.append(
+            f"/OMG:crazy is compatibility-only and must not appear in "
+            f"PROMOTED_PUBLIC_COMMANDS: {crazy_commands}"
+        )
 
     return blockers
