@@ -17,7 +17,7 @@ def run_session_end_capture(tmp_path: Path, session_id: str, memory_enabled: boo
     env["OMG_MEMORY_ENABLED"] = "true" if memory_enabled else "false"
     input_data = json.dumps({"session_id": session_id, "cwd": str(tmp_path)})
     return subprocess.run(
-        ["python3", hook_path],
+        [sys.executable, hook_path],
         input=input_data,
         capture_output=True,
         text=True,

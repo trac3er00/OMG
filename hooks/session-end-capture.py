@@ -13,8 +13,6 @@ import glob
 from datetime import datetime
 from typing import Callable, cast
 
-import yaml
-
 _HOOKS_DIR = os.path.dirname(__file__)
 _PROJECT_ROOT = os.path.dirname(_HOOKS_DIR)
 if _PROJECT_ROOT not in sys.path:
