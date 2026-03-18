@@ -447,3 +447,10 @@ def test_release_readiness_standalone_verification_remains_blocking() -> None:
 def test_pytest_uses_loadgroup_when_repo_has_xdist_group_markers() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert '--dist",\n    "loadgroup"' in pyproject or "--dist',\n    'loadgroup'" in pyproject or '"loadgroup"' in pyproject
+
+
+def test_release_workflow_stages_release_surface_manifest_before_gate() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    compile_job = _section(text, "  compile-public-and-parity:\n", "  compile-enterprise:\n")
+    assert "release-surface.json" in compile_job
+    assert "compile_release_surfaces" in compile_job

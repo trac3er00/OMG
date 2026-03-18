@@ -174,6 +174,20 @@ jobs:
           HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
           python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/release
 
+      - name: Stage release-surface manifests into release artifacts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from runtime.release_surface_compiler import compile_release_surfaces
+
+          result = compile_release_surfaces(Path("."))
+          if result.get("status") != "ok":
+              raise SystemExit(f"release surface compilation failed: {result}")
+          PY
+          mkdir -p artifacts/release/dist/public artifacts/release/dist/enterprise
+          cp dist/public/release-surface.json artifacts/release/dist/public/release-surface.json
+          cp dist/enterprise/release-surface.json artifacts/release/dist/enterprise/release-surface.json
+
       - name: Emit host semantic parity report
         run: python3 scripts/emit_host_parity.py --output-root artifacts/release --gate release-readiness
 
