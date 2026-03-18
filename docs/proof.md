@@ -3,18 +3,43 @@
 [![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
 
-<!-- OMG:GENERATED:proof-quickstart -->
-## Getting Started with Proof
+## How to Read Your Proof
 
-```bash
-omg proof open --html       # open latest evidence pack as narrated proof
-omg blocked --last          # inspect last governance block explanation
-omg explain run <id>        # explain a specific run
-omg budget simulate --enforce
-```
+OMG generates machine-backed evidence for every claim. Here is what the outputs mean.
 
-Machine-generated evidence artifacts: `.omg/evidence/`
-<!-- /OMG:GENERATED:proof-quickstart -->
+### Quick Verdict
+
+Run `omg proof open --html` to see a rendered summary, or `omg proof` for a terminal summary. The output tells you:
+
+- **Status**: `pass` or `fail` — whether all required evidence was produced and valid
+- **Blockers**: What failed and why, in plain language
+- **Evidence Coverage**: Which verification areas have evidence and which are missing
+
+### What "Pass" Means
+
+A passing proof means:
+1. All required evidence artifacts were generated and are fresh (not stale)
+2. The claim-judge verified every claim has backing evidence
+3. Test-intent-lock confirmed tests match stated intentions
+4. No governance blockers are active
+
+### What "Fail" Means
+
+A failing proof means one or more of:
+- Missing evidence artifacts (check `.omg/evidence/` for gaps)
+- Stale evidence (re-run the relevant workflow)
+- Claim without backing evidence (the claim-judge rejected a claim)
+- Active governance blockers (run `omg blocked --last` for details)
+
+### Common Commands
+
+| Goal | Command |
+|:-----|:--------|
+| See proof summary | `omg proof` |
+| Open HTML report | `omg proof open --html` |
+| See what is blocked | `omg blocked --last` |
+| Explain a specific run | `omg explain run --run-id <id>` |
+| Check budget usage | `omg budget simulate --enforce` |
 
 ## Verification Status
 
@@ -57,6 +82,10 @@ Music OMR is the permanent daily release gate artifact. Release readiness requir
 - Trace metadata: `trace.trace_id`, `trace.gate=music-omr-daily`, `trace.run_scope=release-run`, `trace_metadata.testbed`, `trace_metadata.fixture_count`, `trace_metadata.run_id_linkage`
 - Freshness threshold: `freshness_threshold_secs`, `freshness.freshness_threshold_secs`
 - Run linkage: `run_id` must match the active release run, `trace_metadata.run_id_linkage` must equal `run_id`
+
+### What This Means
+
+The Music OMR daily gate ensures the OMR (Optical Music Recognition) engine produces correct, deterministic results. If the gate passes, the transposition and score-parsing logic is verified against known fixtures. If it fails, check the `freshness` and `fixture_inventory_valid` fields in the evidence JSON for the specific failure reason.
 
 ## Forge v0.3 Evidence
 

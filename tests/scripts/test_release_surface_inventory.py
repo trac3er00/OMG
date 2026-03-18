@@ -89,8 +89,9 @@ class TestInventoryCompleteness:
         # 14 JSON + 1 regex(pyproject) + 25 YAML + 1 CHANGELOG
         # + 1 frontmatter + 3 CLI-ADAPTER-MAP + 1 shell + 1 js + 1 banner + 1 json
         # + 1 JSON (validate.md) + 1 banner (settings.json)
-        # = 51
-        assert len(AUTHORED_SURFACES) == 51
+        # + 1 regex (INSTALL-VERIFICATION-INDEX.md)
+        # = 52
+        assert len(AUTHORED_SURFACES) == 52
 
     def test_all_json_surfaces_from_sync_script_covered(self) -> None:
         """Every JSON surface from sync-release-identity.py must appear."""
@@ -239,6 +240,16 @@ class TestDerivedSurfaces:
         assert len(dirs) >= 3
 
 
+    def test_install_verification_index_tracked(self) -> None:
+        """INSTALL-VERIFICATION-INDEX.md must be tracked as an authored surface."""
+        entries = [
+            s for s in AUTHORED_SURFACES
+            if s.file_path == "INSTALL-VERIFICATION-INDEX.md"
+        ]
+        assert len(entries) == 1
+        assert entries[0].surface_type == "regex_line"
+
+
 class TestHelpers:
     """Verify helper function behavior."""
 
@@ -248,11 +259,11 @@ class TestHelpers:
 
     def test_get_authored_paths_count(self) -> None:
         paths = get_authored_paths()
-        # 43 unique files: 9 JSON files + pyproject.toml + 25 YAML + CHANGELOG
+        # 44 unique files: 9 JSON files + pyproject.toml + 25 YAML + CHANGELOG
         # + OMG_COMPAT_CONTRACT + CLI-ADAPTER-MAP + OMG-setup.sh + hud/omg-hud.mjs
         # + .claude-plugin/scripts/install.sh + runtime/omg_compat_contract_snapshot.json
-        # + commands/OMG:validate.md
-        assert len(paths) == 43
+        # + commands/OMG:validate.md + INSTALL-VERIFICATION-INDEX.md
+        assert len(paths) == 44
 
 
 class TestTypeSafety:

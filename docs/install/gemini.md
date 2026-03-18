@@ -37,19 +37,12 @@ Optional browser capability:
 <!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
-> **Prerequisite**: Node >=18
+> **Prerequisites**: Node >=18, Python >=3.10 (macOS or Linux)
 
 ```bash
-npm install -g @trac3er/oh-my-god  # put omg on PATH
-omg env doctor                     # check environment
-omg install --plan                 # preview changes
-omg install --apply                # apply configuration
+omg install --plan    # preview changes
+omg install --apply   # apply configuration
 ```
 
-For project-local usage: `npm install @trac3er/oh-my-god`.
-Then run commands through `npm exec omg -- <args>`.
-
-`npm install` performs dependency resolution and bin linking.
-The `postinstall` hook runs `--plan` only (no mutations).
-Mutation requires explicit `omg install --apply`.
+This previews what OMG will configure. Run `omg install --apply` to apply.
 <!-- /OMG:GENERATED:install-fast-path -->
