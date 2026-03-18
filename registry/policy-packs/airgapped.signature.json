@@ -4,7 +4,7 @@
   "scope": "policy-pack/airgapped",
   "reason": "Signing policy pack airgapped",
   "signer_key_id": "1f5fe64ec2f8c901",
-  "issued_at": "2026-03-17T02:45:30.876650+00:00",
-  "signature": "untrusted comment: signature from omg local signing key\nBoVi7fimYzUEXLmp5FCszM0o5b6onUUAR47O4djlEA+EVxgoio7ts9te7ydL3z8bF62AuaEwALXRnNwTbha1BA==\ntrusted comment: type=omg-approval-artifact-v1 keyid=1f5fe64ec2f8c901 issued_at=2026-03-17T02:45:30.876650+00:00 digest=9cdb4fc37bdd487e7e86bf15460c566b6e2accdda76180582af31fcb8126b90c\nLT7sN6/D/4+tAcITmAh82gO4Q7yvUTSR7ZTf539V76ruCEypikdZoUGdXz0Gcr5FIIjaM15KXQAUkSbJ0dmXDw==",
+  "issued_at": "2026-03-18T03:27:26.101684+00:00",
+  "signature": "untrusted comment: signature from omg local signing key\nQMdksugGU9/OGKu4XYAsxOSpP7YMTdPFe0oBg/99ufVcuGiKcfuEDFgxyOdjprYzrf0ni5LAVKZgzg01Oi9mBw==\ntrusted comment: type=omg-approval-artifact-v1 keyid=1f5fe64ec2f8c901 issued_at=2026-03-18T03:27:26.101684+00:00 digest=9cdb4fc37bdd487e7e86bf15460c566b6e2accdda76180582af31fcb8126b90c\ngs7lk/Rmd9N40Bnk7Ufws9zataQZOa5YGeZRtKDgLlJNqVUfS13l+6Rmz5n+DBmvHe0OJpht7p0aqls86gBZDw==",
   "run_id": ""
 }
