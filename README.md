@@ -104,6 +104,8 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 <!-- OMG:GENERATED:install-intro -->
 Start by installing the published launcher and checking your host environment:
 
+Supported platforms: macOS and Linux.
+
 ```bash
 npm install -g @trac3er/oh-my-god
 omg env doctor
@@ -257,6 +259,8 @@ OMG is a plugin and orchestration layer for supported CLIs. It is not a base-mod
 <!-- OMG:GENERATED:quickstart -->
 Install OMG, verify the environment, then preview and apply the managed changes:
 
+Supported platforms: macOS and Linux.
+
 ```bash
 npm install -g @trac3er/oh-my-god
 omg env doctor
@@ -293,7 +297,7 @@ omg blocked --last
 ```bash
 omg proof open --html
 omg blocked --last
-omg explain run <id>
+omg explain run --run-id <id>
 omg budget simulate --enforce
 ```
 

@@ -434,6 +434,8 @@ class TestProofContent:
     def test_proof_shows_explain_run(self) -> None:
         content = _proof_content()
         assert "omg explain run" in content
+        assert "omg explain run --run-id <id>" in content
+        assert "omg explain run <id>" not in content
 
     def test_proof_shows_budget_simulate(self) -> None:
         content = _proof_content()

@@ -276,6 +276,8 @@ def _quickstart_content() -> str:
     return (
         "Install OMG, verify the environment, then preview and apply the managed changes:\n"
         "\n"
+        "Supported platforms: macOS and Linux.\n"
+        "\n"
         "```bash\n"
         "npm install -g @trac3er/oh-my-god\n"
         "omg env doctor\n"
@@ -299,7 +301,7 @@ def _install_fast_path_content() -> str:
     return (
         "## Fast Path\n"
         "\n"
-        "> **Prerequisites**: Node >=18, Python >=3.10\n"
+        "> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10\n"
         "\n"
         "```bash\n"
         "omg env doctor\n"
@@ -314,6 +316,8 @@ def _install_fast_path_content() -> str:
 def _install_intro_content() -> str:
     return (
         "Start by installing the published launcher and checking your host environment:\n"
+        "\n"
+        "Supported platforms: macOS and Linux.\n"
         "\n"
         "```bash\n"
         "npm install -g @trac3er/oh-my-god\n"
@@ -394,7 +398,7 @@ def _proof_content() -> str:
         "```bash\n"
         "omg proof open --html\n"
         "omg blocked --last\n"
-        "omg explain run <id>\n"
+        "omg explain run --run-id <id>\n"
         "omg budget simulate --enforce\n"
         "```\n"
         "\n"

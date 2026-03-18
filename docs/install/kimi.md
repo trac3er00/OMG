@@ -37,7 +37,7 @@ Optional browser capability:
 <!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
-> **Prerequisites**: Node >=18, Python >=3.10
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
 omg env doctor
