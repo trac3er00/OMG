@@ -745,7 +745,7 @@ def test_setup_uninstall_removes_detected_cli_host_configs(tmp_path: Path):
     fake_bin = tmp_path / "fake-bin"
     fake_bin.mkdir()
 
-    for binary in ("codex", "gemini", "kimi"):
+    for binary in ("codex", "gemini", "kimi", "opencode"):
         script = fake_bin / binary
         _ = script.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
         script.chmod(0o755)
@@ -782,6 +782,96 @@ def test_setup_uninstall_removes_detected_cli_host_configs(tmp_path: Path):
     )
     kimi_servers = cast(dict[str, object], kimi_config.get("mcpServers") or {})
     assert "omg-control" not in kimi_servers
+
+    opencode_config = cast(
+        dict[str, object],
+        json.loads((home_dir / ".config" / "opencode" / "opencode.json").read_text(encoding="utf-8")),
+    )
+    opencode_servers = cast(dict[str, object], opencode_config.get("mcp") or {})
+    assert "omg-control" not in opencode_servers
+
+
+def test_setup_uninstall_preserves_opencode_plugin_entries(tmp_path: Path):
+    """OpenCode host cleanup must remove OMG MCP only, not third-party plugin entries."""
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    opencode_dir = home_dir / ".config" / "opencode"
+    opencode_dir.mkdir(parents=True)
+    (opencode_dir / "opencode.json").write_text(
+        json.dumps(
+            {
+                "plugin": ["oh-my-opencode@latest"],
+                "mcp": {
+                    "omg-control": {"type": "stdio", "command": "python3", "args": ["-m", "runtime.omg_mcp_server"]},
+                    "other-server": {"type": "stdio", "command": "node", "args": ["server.js"]},
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir), "HOME": str(home_dir)}
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    opencode_config = cast(dict[str, object], json.loads((opencode_dir / "opencode.json").read_text(encoding="utf-8")))
+    assert opencode_config.get("plugin") == ["oh-my-opencode@latest"]
+    opencode_servers = cast(dict[str, object], opencode_config.get("mcp") or {})
+    assert "omg-control" not in opencode_servers
+    assert "other-server" in opencode_servers
+
+
+def test_setup_uninstall_removes_omg_metadata_from_claude_settings(tmp_path: Path):
+    """Verify Claude settings.json no longer keeps the _omg metadata block after uninstall."""
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    settings_path = claude_dir / "settings.json"
+    settings_path.write_text(
+        json.dumps(
+            {
+                "enabledPlugins": {"linear@claude-plugins-official": True},
+                "_omg": {"_version": "2.2.7", "preset": "safe"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir), "HOME": str(tmp_path / "home")}
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    settings = cast(dict[str, object], json.loads(settings_path.read_text(encoding="utf-8")))
+    assert "_omg" not in settings
+    enabled_plugins = cast(dict[str, object], settings.get("enabledPlugins") or {})
+    assert enabled_plugins == {"linear@claude-plugins-official": True}
+
+
+def test_setup_uninstall_removes_codex_managed_residue(tmp_path: Path):
+    """Verify Codex OMG state, HUD, and managed skills are removed on uninstall."""
+    claude_dir = tmp_path / ".claude"
+    home_dir = tmp_path / "home"
+    codex_dir = home_dir / ".codex"
+
+    (codex_dir / ".omg").mkdir(parents=True)
+    (codex_dir / "hud").mkdir(parents=True)
+    (codex_dir / "bin").mkdir(parents=True)
+    managed_skill = codex_dir / "skills" / "omg-orchestrator"
+    managed_skill.mkdir(parents=True)
+    (managed_skill / ".omg-managed-skill").write_text("managed\n", encoding="utf-8")
+    (codex_dir / "hud" / "omg-codex-hud.py").write_text("# hud\n", encoding="utf-8")
+    (codex_dir / "bin" / "omg-codex-hud").write_text("#!/bin/sh\n", encoding="utf-8")
+
+    env = {"CLAUDE_CONFIG_DIR": str(claude_dir), "HOME": str(home_dir)}
+    uninstall_proc = _run_script(SETUP, ["uninstall", "--non-interactive"], env=env)
+    assert uninstall_proc.returncode == 0
+
+    assert not (codex_dir / ".omg").exists()
+    assert not (codex_dir / "hud" / "omg-codex-hud.py").exists()
+    assert not (codex_dir / "bin" / "omg-codex-hud").exists()
+    assert not managed_skill.exists()
 
 
 def test_setup_install_as_plugin_prunes_duplicate_plugin_mcp_servers(tmp_path: Path):

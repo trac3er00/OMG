@@ -1171,14 +1171,53 @@ def test_policy_pack_scaffold_returns_template():
 
 
 def test_policy_pack_sign_requires_signing_key():
-    """policy-pack sign now requires a signing key (no longer a stub)."""
     proc = _run(["policy-pack", "sign", "airgapped", "--format", "json"])
-    # Without OMG_SIGNING_KEY or --key-path, exits 1 with a clear error
     assert proc.returncode == 1
     out = json.loads(proc.stdout)
     assert out["schema"] == "PolicyPackSign"
     assert out["status"] == "error"
     assert "signing key" in out.get("error", "").lower()
+
+
+_DEV_PRIVATE_KEY_CLI = "Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8="
+
+
+def test_policy_pack_keygen_json_output(tmp_path: Path):
+    keypair_path = tmp_path / "test-keypair.json"
+    proc = _run(["policy-pack", "keygen", "--output", str(keypair_path), "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "PolicyPackKeygen"
+    assert out["status"] == "ok"
+    assert out["algorithm"] == "ed25519-minisign"
+    assert "key_id" in out
+    assert "public_key" in out
+    assert "output_path" in out
+    assert keypair_path.exists()
+
+
+def test_policy_pack_keygen_no_output_emits_to_stdout():
+    proc = _run(["policy-pack", "keygen", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "PolicyPackKeygen"
+    assert out["status"] == "ok"
+    assert "output_path" not in out
+
+
+def test_policy_pack_verify_all_json(tmp_path: Path):
+    env = {"OMG_SIGNING_KEY": _DEV_PRIVATE_KEY_CLI}
+    sign_proc = _run(["policy-pack", "sign", "locked-prod", "--format", "json"], env=env)
+    assert sign_proc.returncode == 0, f"sign failed: {sign_proc.stdout}"
+
+    verify_proc = _run(["policy-pack", "verify", "--all", "--format", "json"])
+    assert verify_proc.returncode == 0, f"stdout={verify_proc.stdout}\nstderr={verify_proc.stderr}"
+    out = json.loads(verify_proc.stdout)
+    assert out["schema"] == "PolicyPackVerifyAll"
+    assert out["status"] == "verified"
+    assert out["total"] >= 1
+    assert out["passed"] >= 1
+    assert isinstance(out["results"], list)
 
 
 # --- doctor repair-pack tests ---

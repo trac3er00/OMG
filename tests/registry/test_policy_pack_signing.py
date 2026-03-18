@@ -44,13 +44,31 @@ def _sign_pack(pack_id: str, key_id: str, private_key: str) -> tuple[dict[str, A
         signer_private_key=private_key,
     )
 
+    import base64
+    from registry.verify_artifact import _load_ed25519_backend, _key_id_from_public_key
+
+    signer_public_key_b64 = ""
+    try:
+        serialization, Ed25519PrivateKey, _ = _load_ed25519_backend()
+        private_raw = base64.b64decode(private_key, validate=True)
+        priv_key_obj = Ed25519PrivateKey.from_private_bytes(private_raw)
+        public_key_raw = priv_key_obj.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        signer_public_key_b64 = base64.b64encode(public_key_raw).decode("ascii")
+    except Exception:
+        pass
+
     signature_artifact = asdict(approval)
     lockfile = {
+        "lockfile_version": 1,
         "pack_id": pack_id,
         "pack_path": f"registry/policy-packs/{pack_id}.yaml",
         "canonical_digest": digest,
         "signer_key_id": key_id,
-        "algorithm": "ed25519",
+        "signer_public_key": signer_public_key_b64,
+        "algorithm": "ed25519-minisign",
         "signature_path": f"registry/policy-packs/{pack_id}.signature.json",
         "created_at": approval.issued_at,
     }
@@ -113,8 +131,9 @@ class TestLockfileFields:
     def test_lockfile_has_required_fields(self):
         _, lockfile = _sign_pack(_PACK_ID, _DEV_KEY_ID, _DEV_PRIVATE_KEY)
 
-        required = {"pack_id", "pack_path", "canonical_digest", "signer_key_id",
-                     "algorithm", "signature_path", "created_at"}
+        required = {"lockfile_version", "pack_id", "pack_path", "canonical_digest",
+                     "signer_key_id", "signer_public_key", "algorithm",
+                     "signature_path", "created_at"}
         assert required.issubset(set(lockfile.keys()))
 
     def test_lockfile_signature_path_format(self):
@@ -131,9 +150,22 @@ class TestLockfileFields:
         _, lockfile = _sign_pack(_PACK_ID, _DEV_KEY_ID, _DEV_PRIVATE_KEY)
         assert lockfile["signer_key_id"] == _DEV_KEY_ID
 
-    def test_lockfile_algorithm_is_ed25519(self):
+    def test_lockfile_algorithm_is_ed25519_minisign(self):
         _, lockfile = _sign_pack(_PACK_ID, _DEV_KEY_ID, _DEV_PRIVATE_KEY)
-        assert lockfile["algorithm"] == "ed25519"
+        assert lockfile["algorithm"] == "ed25519-minisign"
+
+    def test_lockfile_version_is_integer(self):
+        _, lockfile = _sign_pack(_PACK_ID, _DEV_KEY_ID, _DEV_PRIVATE_KEY)
+        assert lockfile["lockfile_version"] == 1
+        assert isinstance(lockfile["lockfile_version"], int)
+
+    def test_lockfile_signer_public_key_is_base64(self):
+        _, lockfile = _sign_pack(_PACK_ID, _DEV_KEY_ID, _DEV_PRIVATE_KEY)
+        import base64
+        pub = lockfile["signer_public_key"]
+        assert isinstance(pub, str) and len(pub) > 0
+        raw = base64.b64decode(pub, validate=True)
+        assert len(raw) == 32
 
 
 class TestCLISignVerify:
@@ -151,7 +183,6 @@ class TestCLISignVerify:
         assert output["status"] == "signed"
 
     def test_cli_verify_exits_zero(self):
-        # given: pack is signed
         env = os.environ.copy()
         env["OMG_SIGNING_KEY"] = _DEV_PRIVATE_KEY
         sign_result = subprocess.run(
@@ -161,14 +192,100 @@ class TestCLISignVerify:
         )
         assert sign_result.returncode == 0
 
-        # when: verify is called
         verify_result = subprocess.run(
             [sys.executable, str(_SCRIPTS_DIR / "omg.py"),
              "policy-pack", "verify", _PACK_ID, "--format", "json"],
             capture_output=True, text=True, env=env, timeout=30,
         )
 
-        # then: exits 0 with verified status
         assert verify_result.returncode == 0, f"stdout={verify_result.stdout}\nstderr={verify_result.stderr}"
         output = json.loads(verify_result.stdout)
         assert output["status"] == "verified"
+
+
+class TestKeygenRoundTrip:
+
+    def test_keygen_cli_produces_keypair(self, tmp_path):
+        keypair_path = tmp_path / "test-key.json"
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPTS_DIR / "omg.py"),
+             "policy-pack", "keygen", "--output", str(keypair_path), "--format", "json"],
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0, f"stdout={result.stdout}\nstderr={result.stderr}"
+        output = json.loads(result.stdout)
+        assert output["schema"] == "PolicyPackKeygen"
+        assert output["status"] == "ok"
+        assert output["algorithm"] == "ed25519-minisign"
+        assert "key_id" in output
+        assert "public_key" in output
+        assert keypair_path.exists()
+
+        keypair = json.loads(keypair_path.read_text(encoding="utf-8"))
+        assert "private_key" in keypair
+        assert "public_key" in keypair
+        assert keypair["algorithm"] == "ed25519-minisign"
+
+    def test_json_keypath_sign_then_verify(self, tmp_path):
+        keypair_path = tmp_path / "dev-key.json"
+        keypair_path.write_text(json.dumps({
+            "key_id": _DEV_KEY_ID,
+            "algorithm": "ed25519-minisign",
+            "private_key": _DEV_PRIVATE_KEY,
+            "public_key": "placeholder",
+        }), encoding="utf-8")
+
+        env = os.environ.copy()
+        sign_result = subprocess.run(
+            [sys.executable, str(_SCRIPTS_DIR / "omg.py"),
+             "policy-pack", "sign", _PACK_ID,
+             "--key-path", str(keypair_path), "--format", "json"],
+            capture_output=True, text=True, env=env, timeout=30,
+        )
+        assert sign_result.returncode == 0, f"stdout={sign_result.stdout}\nstderr={sign_result.stderr}"
+        sign_out = json.loads(sign_result.stdout)
+        assert sign_out["status"] == "signed"
+        assert sign_out["signer_key_id"] == _DEV_KEY_ID
+
+        verify_result = subprocess.run(
+            [sys.executable, str(_SCRIPTS_DIR / "omg.py"),
+             "policy-pack", "verify", _PACK_ID, "--format", "json"],
+            capture_output=True, text=True, env=env, timeout=30,
+        )
+        assert verify_result.returncode == 0, f"stdout={verify_result.stdout}\nstderr={verify_result.stderr}"
+        verify_out = json.loads(verify_result.stdout)
+        assert verify_out["status"] == "verified"
+
+    def test_lockfile_from_sign_has_new_fields(self):
+        import base64
+        env = os.environ.copy()
+        env["OMG_SIGNING_KEY"] = _DEV_PRIVATE_KEY
+        sign_result = subprocess.run(
+            [sys.executable, str(_SCRIPTS_DIR / "omg.py"),
+             "policy-pack", "sign", _PACK_ID, "--format", "json"],
+            capture_output=True, text=True, env=env, timeout=30,
+        )
+        assert sign_result.returncode == 0, f"stdout={sign_result.stdout}\nstderr={sign_result.stderr}"
+
+        lock_path = _PACKS_DIR / f"{_PACK_ID}.lock.json"
+        lockfile = json.loads(lock_path.read_text(encoding="utf-8"))
+        assert lockfile["lockfile_version"] == 1
+        assert lockfile["algorithm"] == "ed25519-minisign"
+        assert "signer_public_key" in lockfile
+        assert isinstance(lockfile["signer_public_key"], str)
+        decoded_pub = base64.b64decode(lockfile["signer_public_key"], validate=True)
+        assert len(decoded_pub) == 32
+
+    def test_tampered_lockfile_algorithm_fails(self):
+        env = os.environ.copy()
+        env["OMG_SIGNING_KEY"] = _DEV_PRIVATE_KEY
+        sign_result = subprocess.run(
+            [sys.executable, str(_SCRIPTS_DIR / "omg.py"),
+             "policy-pack", "sign", _PACK_ID, "--format", "json"],
+            capture_output=True, text=True, env=env, timeout=30,
+        )
+        assert sign_result.returncode == 0
+
+        lock_path = _PACKS_DIR / f"{_PACK_ID}.lock.json"
+        lockfile = json.loads(lock_path.read_text(encoding="utf-8"))
+        assert lockfile["algorithm"] == "ed25519-minisign"
