@@ -379,3 +379,29 @@ def test_github_review_helpers_assert_pass_fails_when_required_artifacts_missing
     assert payload["verdict"] == "fail"
     with pytest.raises(SystemExit):
         helpers.assert_pass(payload)
+
+
+# ---------------------------------------------------------------------------
+# Release-readiness: policy-pack trust enforcement
+# ---------------------------------------------------------------------------
+
+
+def test_release_readiness_workflow_has_policy_pack_verify_step() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    verify_pos = release_job.find("policy-pack verify --all")
+    gate_pos = release_job.find("Run release readiness gate")
+    assert verify_pos >= 0, "Missing 'policy-pack verify --all' step in release-readiness"
+    assert gate_pos >= 0, "Missing 'Run release readiness gate' step"
+    assert verify_pos < gate_pos, "policy-pack verify --all must appear before release readiness gate"
+
+
+def test_release_readiness_workflow_enforces_trusted_packs() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    gate_pos = release_job.find("Run release readiness gate")
+    assert gate_pos >= 0, "Missing 'Run release readiness gate' step"
+    gate_section = release_job[gate_pos:]
+    assert 'OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"' in gate_section, (
+        "Run release readiness gate must set OMG_REQUIRE_TRUSTED_POLICY_PACKS: '1'"
+    )

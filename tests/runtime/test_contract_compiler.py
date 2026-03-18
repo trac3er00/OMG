@@ -3139,3 +3139,106 @@ def test_check_policy_pack_signatures_enforcing_valid(tmp_path: Path, monkeypatc
     assert result["status"] == "ok"
     assert result["enforcing"] is True
     assert result["blockers"] == []
+
+
+def test_check_policy_pack_signatures_enforcing_tampered(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", "1")
+    packs_dir = tmp_path / "registry" / "policy-packs"
+    packs_dir.mkdir(parents=True)
+
+    fake_digest = "a" * 64
+    for pack_id in ("locked-prod", "fintech", "airgapped"):
+        (packs_dir / f"{pack_id}.yaml").write_text(f"id: {pack_id}\nversion: '1.0'\n")
+        (packs_dir / f"{pack_id}.lock.json").write_text(
+            json.dumps({"canonical_digest": fake_digest})
+        )
+        (packs_dir / f"{pack_id}.signature.json").write_text(
+            json.dumps({
+                "artifact_digest": fake_digest,
+                "action": "policy-pack-sign",
+                "scope": f"policy-pack/{pack_id}",
+                "reason": "test",
+                "signer_key_id": "test-key",
+                "issued_at": "2026-01-01T00:00:00Z",
+                "signature": "test-sig",
+            })
+        )
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "error"
+    assert result["enforcing"] is True
+    assert len(result["blockers"]) == 3
+    assert all("tampered" in b for b in result["blockers"])
+
+
+def test_check_policy_pack_signatures_enforcing_untrusted(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", "1")
+    packs_dir = tmp_path / "registry" / "policy-packs"
+    packs_dir.mkdir(parents=True)
+
+    digest = "a" * 64
+    for pack_id in ("locked-prod", "fintech", "airgapped"):
+        (packs_dir / f"{pack_id}.lock.json").write_text(
+            json.dumps({"canonical_digest": digest})
+        )
+        (packs_dir / f"{pack_id}.signature.json").write_text(
+            json.dumps({
+                "artifact_digest": digest,
+                "action": "policy-pack-sign",
+                "scope": f"policy-pack/{pack_id}",
+                "reason": "test",
+                "signer_key_id": "test-key",
+                "issued_at": "2026-01-01T00:00:00Z",
+                "signature": "test-sig",
+            })
+        )
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "verify_approval_artifact",
+        lambda approval, expected: {"valid": False, "reason": "unknown signer key id"},
+    )
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "error"
+    assert result["enforcing"] is True
+    assert len(result["blockers"]) == 3
+    assert all("untrusted" in b for b in result["blockers"])
+
+
+def test_check_policy_pack_signatures_enforcing_invalid_sig(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OMG_REQUIRE_TRUSTED_POLICY_PACKS", "1")
+    packs_dir = tmp_path / "registry" / "policy-packs"
+    packs_dir.mkdir(parents=True)
+
+    digest = "a" * 64
+    for pack_id in ("locked-prod", "fintech", "airgapped"):
+        (packs_dir / f"{pack_id}.lock.json").write_text(
+            json.dumps({"canonical_digest": digest})
+        )
+        (packs_dir / f"{pack_id}.signature.json").write_text(
+            json.dumps({
+                "artifact_digest": digest,
+                "action": "policy-pack-sign",
+                "scope": f"policy-pack/{pack_id}",
+                "reason": "test",
+                "signer_key_id": "test-key",
+                "issued_at": "2026-01-01T00:00:00Z",
+                "signature": "test-sig",
+            })
+        )
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "verify_approval_artifact",
+        lambda approval, expected: {"valid": False, "reason": "invalid approval signature"},
+    )
+
+    result = _check_policy_pack_signatures(tmp_path)
+
+    assert result["status"] == "error"
+    assert result["enforcing"] is True
+    assert len(result["blockers"]) == 3
+    assert all("invalid_signature" in b for b in result["blockers"])
