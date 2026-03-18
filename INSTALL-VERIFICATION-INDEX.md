@@ -20,20 +20,18 @@
 
 ---
 
-## 🎯 Installation Targets & Methods
+<!-- OMG:GENERATED:verification-index-targets -->
+## Installation Targets & Methods
 
 ### Canonical Targets
-1. **Claude**
-   - **Config:** `.mcp.json`
+1. **Claude** — Config: `.mcp.json`
+2. **Codex** — Config: `~/.codex/config.toml`
+3. **Gemini** — Config: `~/.gemini/settings.json`
+4. **Kimi** — Config: `~/.kimi/mcp.json`
 
-2. **Codex**
-   - **Config:** `~/.codex/config.toml`
-
-3. **Gemini**
-   - **Config:** `~/.gemini/settings.json`
-
-4. **Kimi**
-   - **Config:** `~/.kimi/mcp.json`
+### Compatibility Targets
+5. **OpenCode** — Config: `~/.config/opencode/opencode.json`
+<!-- /OMG:GENERATED:verification-index-targets -->
 
 ---
 

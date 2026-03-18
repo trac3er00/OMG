@@ -20,6 +20,11 @@ GENERATED_SECTION_MARKERS: dict[str, str] = {
     "changelog_current": "<!-- OMG:GENERATED:changelog-v2.2.7 -->",
     "command_surface_doc": "<!-- OMG:GENERATED:command-surface -->",
     "proof_generated_section": "<!-- OMG:GENERATED:proof -->",
+    "install_intro": "<!-- OMG:GENERATED:install-intro -->",
+    "why_omg": "<!-- OMG:GENERATED:why-omg -->",
+    "proof_quickstart": "<!-- OMG:GENERATED:proof-quickstart -->",
+    "quick_reference_hosts": "<!-- OMG:GENERATED:quick-reference-hosts -->",
+    "verification_index_targets": "<!-- OMG:GENERATED:verification-index-targets -->",
 }
 
 _INSTALL_GUIDES: list[tuple[str, str]] = [
@@ -94,6 +99,41 @@ PUBLIC_SURFACES: list[PublicSurface] = [
         "path": "README.md",
         "marker": "<!-- OMG:GENERATED:proof -->",
         "description": "generated proof section in README",
+    },
+    {
+        "id": "install_intro",
+        "category": "docs",
+        "path": "README.md",
+        "marker": "<!-- OMG:GENERATED:install-intro -->",
+        "description": "authoritative install intro section in README",
+    },
+    {
+        "id": "why_omg",
+        "category": "docs",
+        "path": "README.md",
+        "marker": "<!-- OMG:GENERATED:why-omg -->",
+        "description": "authoritative why-omg section in README",
+    },
+    {
+        "id": "proof_quickstart",
+        "category": "docs",
+        "path": "docs/proof.md",
+        "marker": "<!-- OMG:GENERATED:proof-quickstart -->",
+        "description": "proof quickstart section in proof docs",
+    },
+    {
+        "id": "quick_reference_hosts",
+        "category": "docs",
+        "path": "QUICK-REFERENCE.md",
+        "marker": "<!-- OMG:GENERATED:quick-reference-hosts -->",
+        "description": "host table in quick reference",
+    },
+    {
+        "id": "verification_index_targets",
+        "category": "docs",
+        "path": "INSTALL-VERIFICATION-INDEX.md",
+        "marker": "<!-- OMG:GENERATED:verification-index-targets -->",
+        "description": "installation targets in verification index",
     },
     {
         "id": "launcher_python",
@@ -199,6 +239,11 @@ _REQUIRED_IDS: frozenset[str] = frozenset({
     "sign_locked_prod",
     "sign_fintech",
     "sign_airgapped",
+    "install_intro",
+    "why_omg",
+    "proof_quickstart",
+    "quick_reference_hosts",
+    "verification_index_targets",
 })
 
 _REQUIRED_CATEGORIES: frozenset[str] = frozenset({

@@ -66,6 +66,7 @@ jobs:
           OMG_REQUIRE_HOST_PARITY_REPORT: "1"
           OMG_REQUIRE_EXEC_KERNEL_EVIDENCE: "1"
           OMG_REQUIRE_GOVERNED_TOOL_EVIDENCE: "1"
+          OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"
           OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
         run: |
           python3 scripts/sync-release-identity.py --check

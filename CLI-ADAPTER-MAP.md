@@ -210,15 +210,16 @@ OpenCode remains a compatibility-only adapter surface and is intentionally exclu
   "name": "@trac3er/oh-my-god",
   "version": "2.2.7",
   "scripts": {
-    "postinstall": "./OMG-setup.sh install --non-interactive",
+    "postinstall": "python3 scripts/omg.py install --plan",
     "update": "./OMG-setup.sh update",
     "uninstall": "./OMG-setup.sh uninstall"
   }
 }
 ```
 
-- **npm install hook:** `postinstall` triggers `./OMG-setup.sh install --non-interactive`
-- **Auto-plugin mode:** npm lifecycle detected → `INSTALL_AS_PLUGIN=true`
+- **npm install:** dependency resolution + bin link only (no mutations)
+- **postinstall hook:** runs `python3 scripts/omg.py install --plan` (preview only, no mutations)
+- **Mutation:** requires explicit `omg install --apply`
 - **CI/automation context detection:** `$npm_lifecycle_event` or `$npm_execpath` set → `NON_INTERACTIVE=true`
 
 ### Plugin Marketplace Metadata
@@ -361,6 +362,11 @@ Key Options:
 - [ ] `~/.kimi/config.toml` has valid token
 - [ ] Provider detected via `shutil.which("kimi")`
 - [ ] Host rules met: compilation_targets, mcp, skills, automations
+
+### Policy Pack Signing (all targets)
+- [ ] All policy packs in `registry/policy-packs/` have corresponding `.lock.json` and `.signature.json` files
+- [ ] `omg policy-pack verify --all` passes
+- [ ] `registry/trusted_signers.json` contains active signing keys
 
 ---
 

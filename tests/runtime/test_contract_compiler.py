@@ -3091,6 +3091,18 @@ def test_release_surface_drift_blocks_missing_manifest(tmp_path: Path, monkeypat
     assert any("release-surface.json" in b for b in result["blockers"])
 
 
+def test_compile_contract_outputs_emits_release_surface_manifest(tmp_path: Path) -> None:
+    result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=list(CANONICAL_HOSTS),
+        channel="public",
+    )
+
+    assert result["status"] == "ok"
+    assert (tmp_path / "dist" / "public" / "release-surface.json").exists()
+
+
 # ---------------------------------------------------------------------------
 # _check_policy_pack_signatures
 # ---------------------------------------------------------------------------

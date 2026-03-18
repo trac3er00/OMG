@@ -1453,6 +1453,19 @@ def _build_dist_manifest(output_root: Path, *, channel: str, hosts: list[str], a
     return out_path
 
 
+def _write_release_surface_manifest(output_root: Path, *, channel: str) -> Path:
+    dist_root = output_root / "dist" / channel
+    payload = {
+        "generated_by": "omg release compile-surfaces",
+        "version": CANONICAL_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "surfaces": get_public_surfaces(),
+    }
+    out_path = dist_root / "release-surface.json"
+    _write_json(out_path, payload)
+    return out_path
+
+
 def compile_contract_outputs(
     *,
     root_dir: str | Path | None = None,
@@ -1547,7 +1560,9 @@ def compile_contract_outputs(
 
     bundled_artifacts = _copy_release_bundle(output_root=output, channel=channel, artifacts=artifacts)
     manifest_path = _build_dist_manifest(output, channel=channel, hosts=selected_hosts, artifacts=bundled_artifacts)
+    release_surface_path = _write_release_surface_manifest(output, channel=channel)
     artifacts.append(manifest_path)
+    artifacts.append(release_surface_path)
 
     return {
         "schema": "OmgContractCompileResult",

@@ -135,8 +135,19 @@ jobs:
           OMG_REQUIRE_HOST_PARITY_REPORT: "1"
           OMG_REQUIRE_EXEC_KERNEL_EVIDENCE: "1"
           OMG_REQUIRE_GOVERNED_TOOL_EVIDENCE: "1"
+          OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"
           OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
         run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release > artifacts/release/.omg/evidence/release-readiness.json
+
+  artifact-self-audit:
+    name: Published artifact self-audit
+    needs:
+      - resolve-target
+      - release-readiness
+    uses: ./.github/workflows/omg-artifact-self-audit.yml
+    with:
+      version: ${{ needs.resolve-target.outputs.version }}
+      sha: ${{ needs.resolve-target.outputs.sha }}
 
   publish:
     name: Publish @trac3er/oh-my-god to npm
@@ -144,6 +155,7 @@ jobs:
       - resolve-target
       - compat-gate
       - release-readiness
+      - artifact-self-audit
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -32,6 +32,26 @@ git push origin main
 
 `release.yml` is now the single authoritative publish path and runs semantic-release on merges to `main`. It uses full git history (`fetch-depth: 0`) and performs release-readiness checks before publishing.
 
+### 2a. Ensure policy packs are signed
+
+All policy packs must be signed before releasing. The CI release-readiness gate enforces this via `OMG_REQUIRE_TRUSTED_POLICY_PACKS=1`.
+
+```bash
+# Generate a new signing keypair (first time only)
+python3 scripts/omg.py policy-pack keygen --output keys/dev-key.json --add-to-trust-root
+
+# Sign a specific pack
+OMG_SIGNING_KEY="<base64-private-key>" python3 scripts/omg.py policy-pack sign locked-prod
+
+# Or use a key file
+python3 scripts/omg.py policy-pack sign locked-prod --key-path keys/dev-key.json
+
+# Verify all packs
+python3 scripts/omg.py policy-pack verify --all
+```
+
+If any pack is unsigned or tampered, the release-readiness gate will fail.
+
 ### 3. What semantic-release automates
 
 - determines next version from conventional commits

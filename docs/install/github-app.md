@@ -152,9 +152,16 @@ Confirm your setup with this checklist:
 > **Prerequisite**: Node >=18
 
 ```bash
-omg install --plan    # preview changes
-omg install --apply   # apply configuration
+npm install -g @trac3er/oh-my-god  # put omg on PATH
+omg env doctor                     # check environment
+omg install --plan                 # preview changes
+omg install --apply                # apply configuration
 ```
 
-This registers the OMG control plane for your host automatically.
+For project-local usage: `npm install @trac3er/oh-my-god`.
+Then run commands through `npm exec omg -- <args>`.
+
+`npm install` performs dependency resolution and bin linking.
+The `postinstall` hook runs `--plan` only (no mutations).
+Mutation requires explicit `omg install --apply`.
 <!-- /OMG:GENERATED:install-fast-path -->

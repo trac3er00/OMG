@@ -6,7 +6,7 @@
 npm install @trac3er/oh-my-god
 ```
 
-The npm postinstall now registers the local `omg` marketplace, enables `omg@omg`, and installs the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
+`npm install` performs dependency resolution and bin linking only. The `postinstall` hook runs `omg install --plan` (preview, no mutations). To apply configuration, run `omg install --apply` explicitly.
 
 ## Official Claude Plugin Flow
 
@@ -55,9 +55,16 @@ That enables OMG's browser capability metadata for `/OMG:browser` and records th
 > **Prerequisite**: Node >=18
 
 ```bash
-omg install --plan    # preview changes
-omg install --apply   # apply configuration
+npm install -g @trac3er/oh-my-god  # put omg on PATH
+omg env doctor                     # check environment
+omg install --plan                 # preview changes
+omg install --apply                # apply configuration
 ```
 
-This registers the OMG control plane for your host automatically.
+For project-local usage: `npm install @trac3er/oh-my-god`.
+Then run commands through `npm exec omg -- <args>`.
+
+`npm install` performs dependency resolution and bin linking.
+The `postinstall` hook runs `--plan` only (no mutations).
+Mutation requires explicit `omg install --apply`.
 <!-- /OMG:GENERATED:install-fast-path -->
