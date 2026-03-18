@@ -149,10 +149,11 @@ Confirm your setup with this checklist:
 <!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
+> **Prerequisite**: Node >=18
+
 ```bash
-npm install @trac3er/oh-my-god
-# or
-bunx @trac3er/oh-my-god
+omg install --plan    # preview changes
+omg install --apply   # apply configuration
 ```
 
 This registers the OMG control plane for your host automatically.

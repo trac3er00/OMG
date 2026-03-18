@@ -4,7 +4,7 @@
 ### Governed Release Surface (v2.2.7)
 
 - Canonical release surface compilation
-- Dual-channel manifests (public + enterprise)
+- Dual-channel artifact output (public + enterprise)
 - Idempotent generated-section markers in docs
 <!-- /OMG:GENERATED:changelog-v2.2.7 -->
 

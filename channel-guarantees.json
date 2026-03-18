@@ -1,7 +1,7 @@
 {
   "generated_by": "omg docs generate",
   "version": "2.2.7",
-  "generated_at": "2026-03-18T00:54:22.535918+00:00",
+  "generated_at": "2026-03-18T04:15:15.461364+00:00",
   "channels": {
     "public": "Standard production channel. Guarantees behavior parity across canonical hosts and standard evidence-backed verification.",
     "enterprise": "Hardened production channel. Guarantees enhanced evidence (lineage, provenance), tier-gated policy enforcement, and compatibility with specialized policy packs (fintech, airgapped)."

@@ -1,7 +1,7 @@
 {
   "generated_by": "omg release compile-surfaces",
   "version": "2.2.7",
-  "generated_at": "2026-03-17T02:43:33.085104+00:00",
+  "generated_at": "2026-03-18T04:15:11.296315+00:00",
   "surfaces": [
     {
       "id": "release_notes_artifact",
@@ -78,6 +78,25 @@
       "path": "docs/command-surface.md",
       "marker": "<!-- OMG:GENERATED:command-surface -->",
       "description": "command surface reference doc"
+    },
+    {
+      "id": "github_release_body_artifact",
+      "category": "release_body",
+      "path": "artifacts/release/github-release-body.md",
+      "description": "GitHub release body text for tag publish"
+    },
+    {
+      "id": "tag_body_artifact",
+      "category": "release_body",
+      "path": "artifacts/release/tag-body.md",
+      "description": "annotated tag body text for release"
+    },
+    {
+      "id": "proof_generated_section",
+      "category": "docs",
+      "path": "README.md",
+      "marker": "<!-- OMG:GENERATED:proof -->",
+      "description": "generated proof section in README"
     },
     {
       "id": "launcher_python",
