@@ -321,6 +321,12 @@ def test_check_only_detects_missing_artifact(project: Path) -> None:
     assert "github_release_body" in drift_surfaces
 
 
+def test_repo_release_surfaces_are_in_sync() -> None:
+    root = Path(__file__).resolve().parents[2]
+    result = compile_release_surfaces(root, check_only=True)
+    assert result["status"] == "ok", result["drift"]
+
+
 class TestQuickstartContent:
 
     def test_quickstart_shows_omg_install_plan(self) -> None:

@@ -1,7 +1,7 @@
 {
   "generated_by": "omg release compile-surfaces",
   "version": "2.2.7",
-  "generated_at": "2026-03-18T04:15:11.296315+00:00",
+  "generated_at": "2026-03-18T14:41:04.585524+00:00",
   "surfaces": [
     {
       "id": "release_notes_artifact",
@@ -97,6 +97,41 @@
       "path": "README.md",
       "marker": "<!-- OMG:GENERATED:proof -->",
       "description": "generated proof section in README"
+    },
+    {
+      "id": "install_intro",
+      "category": "docs",
+      "path": "README.md",
+      "marker": "<!-- OMG:GENERATED:install-intro -->",
+      "description": "authoritative install intro section in README"
+    },
+    {
+      "id": "why_omg",
+      "category": "docs",
+      "path": "README.md",
+      "marker": "<!-- OMG:GENERATED:why-omg -->",
+      "description": "authoritative why-omg section in README"
+    },
+    {
+      "id": "proof_quickstart",
+      "category": "docs",
+      "path": "docs/proof.md",
+      "marker": "<!-- OMG:GENERATED:proof-quickstart -->",
+      "description": "proof quickstart section in proof docs"
+    },
+    {
+      "id": "quick_reference_hosts",
+      "category": "docs",
+      "path": "QUICK-REFERENCE.md",
+      "marker": "<!-- OMG:GENERATED:quick-reference-hosts -->",
+      "description": "host table in quick reference"
+    },
+    {
+      "id": "verification_index_targets",
+      "category": "docs",
+      "path": "INSTALL-VERIFICATION-INDEX.md",
+      "marker": "<!-- OMG:GENERATED:verification-index-targets -->",
+      "description": "installation targets in verification index"
     },
     {
       "id": "launcher_python",

@@ -43,3 +43,6 @@
 | Install | `omg install --plan` |
 | Diagnostics | `omg doctor` |
 | Ship | `omg ship` |
+| Sign policy pack | `omg policy-pack sign <pack_id> --key-path <key>` |
+| Verify policy packs | `omg policy-pack verify --all` |
+| Generate signing key | `omg policy-pack keygen --output <path>` |

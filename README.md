@@ -190,12 +190,17 @@ Public contributions are welcome.
 OMG is a plugin and orchestration layer for supported CLIs. It is not a base-model training project. The goal is to make frontier agent hosts tighter, safer, more interoperable, and more verifiable than the default experience.
 
 <!-- OMG:GENERATED:quickstart -->
-Preview what OMG will configure, then apply:
+Install OMG, check your environment, preview, then apply:
 
 ```bash
+npm install -g @trac3er/oh-my-god
+omg env doctor
 omg install --plan
 omg install --apply
 ```
+
+For project-local usage without a global install:
+`npm install @trac3er/oh-my-god` and then `npm exec omg -- <args>`.
 
 Then start working:
 

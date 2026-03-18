@@ -229,3 +229,25 @@ def test_install_verification_json_uses_omg_commands(tmp_path):
         assert "python3 scripts/omg.py" not in cmd["command"]
     assert any(cmd["command"] == "omg doctor" for cmd in data["verification_commands"])
     assert any(cmd["command"] == "omg validate" for cmd in data["verification_commands"])
+
+
+def test_quick_reference_emits_release_surface_marker_block(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    content = (output_root / "QUICK-REFERENCE.md").read_text()
+    assert "<!-- OMG:GENERATED:quick-reference-hosts -->" in content
+    assert "<!-- /OMG:GENERATED:quick-reference-hosts -->" in content
+
+
+def test_install_verification_index_emits_release_surface_marker_block(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    content = (output_root / "INSTALL-VERIFICATION-INDEX.md").read_text()
+    assert "<!-- OMG:GENERATED:verification-index-targets -->" in content
+    assert "<!-- /OMG:GENERATED:verification-index-targets -->" in content
+
+
+def test_repo_generated_docs_are_in_sync() -> None:
+    root = Path(__file__).resolve().parents[2]
+    result = check_docs(root)
+    assert result["status"] == "ok", result["drift"]
