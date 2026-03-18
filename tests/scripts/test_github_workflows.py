@@ -384,6 +384,17 @@ def test_release_readiness_no_self_healing_compile_step() -> None:
     )
 
 
+def test_prepare_release_readiness_emits_release_surface_artifacts_before_upload() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    prepare_job = _section(text, "  prepare-release-readiness:\n", "  compile-public:\n")
+    emit_pos = prepare_job.find("Emit release surface text artifacts")
+    upload_pos = prepare_job.find("Upload foundation artifacts")
+    assert emit_pos >= 0, "prepare-release-readiness must emit release surface text artifacts"
+    assert upload_pos >= 0, "prepare-release-readiness must upload foundation artifacts"
+    assert emit_pos < upload_pos, "release surface text artifacts must be generated before foundation upload"
+    assert "compile_release_surfaces(Path('.'))" in prepare_job
+
+
 def test_github_review_helpers_assert_pass_fails_when_required_artifacts_missing(tmp_path: Path) -> None:
     event = {
         "action": "opened",
