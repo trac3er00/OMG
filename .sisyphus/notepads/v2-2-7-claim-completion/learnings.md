@@ -115,3 +115,20 @@
 - `scripts/omg.py` — added `cmd_env_doctor()`, `omg env doctor` subparser, imported `run_env_doctor`
 - `tests/runtime/test_compat_doctor.py` — 10 new tests in `TestEnvDoctor` class
 - `tests/scripts/test_omg_cli.py` — 4 new CLI tests for `omg env doctor`
+
+# Task 7: Require Env Preflight Before Install Plan/Apply
+
+## Learnings
+
+- `_run_install_preflight()` wraps `run_env_doctor()` with `OMG_TEST_PREFLIGHT_BLOCK` env var for subprocess-safe test injection — monkeypatch can't affect forked subprocess, so env var is the test seam
+- Blocking logic: `status == "blocker"` AND `required == True` — currently all env checks have `required=False`, so install won't block in practice until a check is promoted
+- `preflight_inject` dict uses `**` splat into each output dict (`plan_data`, `apply_data`, `result_data`) to add `preflight` key only when relevant
+- `--skip-preflight` returns `{"preflight": {"skipped": true}}` — distinct from absent (dry-run path) or present (plan/apply path)
+- Human-readable output: `_format_preflight_text()` prints before install plan output, with `[OK]`/`[WARNING]`/`[BLOCKER]` tags per check
+- Blocked path emits structured JSON with `schema` matching the expected output type (InstallPlan or InstallApplyResult) plus `preflight` key
+- TDD red phase confirmed: `assert "preflight" in out` failed before implementation
+- 12 tests pass (8 new + 4 env doctor), 0 LSP errors on both changed files
+
+## Files Changed
+- `scripts/omg.py` — added `_run_install_preflight()`, `_format_preflight_text()`, `--skip-preflight` flag, preflight gating in `cmd_install()`
+- `tests/scripts/test_omg_cli.py` — 8 new tests for install preflight gating

@@ -2034,6 +2034,40 @@ def _infer_repair_pack(check_name: str) -> str:
     return "general"
 
 
+def _run_install_preflight(fmt: str) -> dict[str, Any]:
+    if os.environ.get("OMG_TEST_PREFLIGHT_BLOCK") == "1":
+        return {
+            "schema": "DoctorResult",
+            "status": "fail",
+            "checks": [
+                {
+                    "name": "test_blocker",
+                    "status": "blocker",
+                    "message": "simulated blocking check",
+                    "required": True,
+                    "remediation": "Fix the simulated blocker",
+                },
+            ],
+            "version": "test",
+        }
+    return run_env_doctor(root_dir=ROOT_DIR)
+
+
+def _format_preflight_text(preflight: dict[str, Any]) -> str:
+    lines: list[str] = ["Running env preflight..."]
+    for check in preflight.get("checks", []):
+        tag = check["status"].upper()
+        line = f"  [{tag}] {check['name']}: {check['message']}"
+        if check["status"] == "blocker" and check.get("required"):
+            line += f"\n         Remediation: {check.get('remediation', 'N/A')}"
+        lines.append(line)
+    if preflight["status"] == "pass":
+        lines.append("  Preflight: PASS")
+    else:
+        lines.append("  Preflight: FAIL")
+    return "\n".join(lines)
+
+
 def cmd_install(args: argparse.Namespace) -> int:
     fmt = getattr(args, "format", "text")
     preset = getattr(args, "preset", "balanced")
@@ -2041,8 +2075,8 @@ def cmd_install(args: argparse.Namespace) -> int:
     do_plan = getattr(args, "plan", False)
     do_dry_run = getattr(args, "dry_run", False)
     do_apply = getattr(args, "apply", False)
+    skip_preflight = getattr(args, "skip_preflight", False)
 
-    # CI / non-interactive bypass: auto-promote to --apply
     is_ci = getattr(args, "ci", False) or os.environ.get("OMG_CI") == "1"
     is_non_interactive = getattr(args, "non_interactive", False)
     if not do_plan and not do_dry_run and not do_apply:
@@ -2055,6 +2089,47 @@ def cmd_install(args: argparse.Namespace) -> int:
                 print("Error: specify --plan, --dry-run, or --apply")
                 print("Run `omg install --plan` to preview, or `omg install --apply` to execute.")
             return 1
+
+    preflight_data: dict[str, Any] | None = None
+    if (do_plan or do_apply) and not skip_preflight:
+        preflight_data = _run_install_preflight(fmt)
+        if fmt != "json":
+            print(_format_preflight_text(preflight_data))
+        required_blockers = [
+            c for c in preflight_data.get("checks", [])
+            if c.get("status") == "blocker" and c.get("required") is True
+        ]
+        if required_blockers:
+            blocked_output: dict[str, Any] = {"preflight": preflight_data}
+            if do_plan:
+                blocked_output["schema"] = "InstallPlan"
+                blocked_output["status"] = "blocked"
+                blocked_output["actions"] = []
+                blocked_output["pre_checks"] = []
+                blocked_output["post_checks"] = []
+                blocked_output["integrity_errors"] = []
+            else:
+                blocked_output["schema"] = "InstallApplyResult"
+                blocked_output["executed"] = False
+                blocked_output["actions"] = []
+                blocked_output["receipts"] = []
+                blocked_output["errors"] = [
+                    f"env preflight blocker: {c['name']}: {c['message']}" for c in required_blockers
+                ]
+            if fmt == "json":
+                print(json.dumps(blocked_output, indent=2))
+            else:
+                for c in required_blockers:
+                    print(f"  BLOCKED: {c['name']}: {c['message']}")
+                    if c.get("remediation"):
+                        print(f"           Remediation: {c['remediation']}")
+            return 1
+
+    preflight_inject: dict[str, Any] = {}
+    if skip_preflight:
+        preflight_inject = {"preflight": {"skipped": True}}
+    elif preflight_data is not None:
+        preflight_inject = {"preflight": preflight_data}
 
     detected_clis = _detect_clis()
     plan = compute_install_plan(
@@ -2076,6 +2151,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             "post_checks": plan.post_checks,
             "source_root": plan.source_root,
             "integrity_errors": integrity_errors,
+            **preflight_inject,
         }
         if integrity_errors:
             plan_data["status"] = "blocked"
@@ -2099,6 +2175,7 @@ def cmd_install(args: argparse.Namespace) -> int:
                 "actions": [_install_action_to_dict(a) for a in plan.actions],
                 "receipts": [],
                 "errors": integrity_errors,
+                **preflight_inject,
             }
             if fmt == "json":
                 print(json.dumps(err_data, indent=2))
@@ -2130,6 +2207,7 @@ def cmd_install(args: argparse.Namespace) -> int:
             "actions_completed": result["actions_completed"],
             "actions_skipped": result["actions_skipped"],
             "errors": result["errors"],
+            **preflight_inject,
         }
         has_errors = bool(result["errors"])
         if fmt == "json":
@@ -2148,6 +2226,7 @@ def cmd_install(args: argparse.Namespace) -> int:
         "errors": result["errors"],
         "integrity_errors": integrity_errors,
         "actions": [_install_action_to_dict(a) for a in plan.actions],
+        **preflight_inject,
     }
     has_errors = bool(result["errors"]) or bool(integrity_errors)
     if fmt == "json":
@@ -2632,6 +2711,7 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--apply", action="store_true", help="Execute the install plan with real disk writes")
     install.add_argument("--ci", action="store_true", help="CI mode flag")
     install.add_argument("--non-interactive", action="store_true", dest="non_interactive", help="Non-interactive mode")
+    install.add_argument("--skip-preflight", action="store_true", dest="skip_preflight", help="Skip env preflight checks")
     install.add_argument("--format", default="text", choices=["text", "json"], dest="format")
     install.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS))
     install.add_argument("--mode", default="omg-only", choices=["omg-only", "coexist"])

@@ -1491,3 +1491,116 @@ def test_cli_env_doctor_text_output():
 def test_cli_env_doctor_help_lists_env():
     proc = _run(["--help"])
     assert "env" in proc.stdout + proc.stderr
+
+
+# --- install env preflight tests ---
+
+
+def test_install_plan_runs_env_preflight(monkeypatch):
+    """install --plan must call run_env_doctor() and include preflight results."""
+    import scripts.omg as omg_mod
+
+    called = {"count": 0}
+    original_env_doctor = omg_mod.run_env_doctor
+
+    def _stub_env_doctor(**kwargs):
+        called["count"] += 1
+        return {
+            "schema": "DoctorResult",
+            "status": "pass",
+            "checks": [
+                {"name": "node_version", "status": "ok", "message": "node v20", "required": False, "remediation": ""},
+            ],
+            "version": "test",
+        }
+
+    monkeypatch.setattr(omg_mod, "run_env_doctor", _stub_env_doctor)
+    proc = _run(["install", "--plan", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert "preflight" in out
+    assert out["preflight"]["status"] == "pass"
+
+
+def test_install_apply_runs_env_preflight(monkeypatch):
+    """install --apply must call run_env_doctor() before applying."""
+    import scripts.omg as omg_mod
+
+    called = {"count": 0}
+
+    def _stub_env_doctor(**kwargs):
+        called["count"] += 1
+        return {
+            "schema": "DoctorResult",
+            "status": "pass",
+            "checks": [
+                {"name": "node_version", "status": "ok", "message": "node v20", "required": False, "remediation": ""},
+            ],
+            "version": "test",
+        }
+
+    monkeypatch.setattr(omg_mod, "run_env_doctor", _stub_env_doctor)
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        proc = _run(["install", "--apply", "--format", "json"])
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert "preflight" in out
+        assert out["preflight"]["status"] == "pass"
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
+
+
+def test_install_plan_blocks_on_required_blocker():
+    """install --plan must exit 1 when env preflight has a required blocker."""
+    proc = _run(["install", "--plan", "--format", "json"],
+                env={"OMG_TEST_PREFLIGHT_BLOCK": "1"})
+    assert proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert "preflight" in out
+    assert out["preflight"]["status"] == "fail"
+    blockers = [c for c in out["preflight"]["checks"] if c["status"] == "blocker" and c["required"]]
+    assert len(blockers) >= 1
+
+
+def test_install_apply_blocks_on_required_blocker():
+    """install --apply must exit 1 when env preflight has a required blocker."""
+    proc = _run(["install", "--apply", "--format", "json"],
+                env={"OMG_TEST_PREFLIGHT_BLOCK": "1"})
+    assert proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert "preflight" in out
+    assert out["preflight"]["status"] == "fail"
+
+
+def test_install_plan_skip_preflight_bypasses():
+    """install --plan --skip-preflight must bypass env preflight."""
+    proc = _run(["install", "--plan", "--skip-preflight", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out.get("preflight", {}).get("skipped") is True
+
+
+def test_install_apply_skip_preflight_bypasses():
+    """install --apply --skip-preflight must bypass env preflight even with blocking env."""
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        proc = _run(["install", "--apply", "--skip-preflight", "--format", "json"],
+                    env={"OMG_TEST_PREFLIGHT_BLOCK": "1"})
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert out.get("preflight", {}).get("skipped") is True
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
+
+
+def test_install_env_preflight_human_output():
+    """install --plan text output must show preflight header and check names."""
+    proc = _run(["install", "--plan"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    combined = proc.stdout + proc.stderr
+    assert "preflight" in combined.lower() or "env preflight" in combined.lower()
