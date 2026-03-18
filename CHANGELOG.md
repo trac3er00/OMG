@@ -1,12 +1,22 @@
 # Changelog
 
-<!-- OMG:GENERATED:changelog-v2.2.9 -->
-### Governed Release Surface (v2.2.9)
+<!-- OMG:GENERATED:changelog-v2.2.10 -->
+### Governed Release Surface (v2.2.10)
 
 - Canonical release surface compilation
 - Dual-channel artifact output (public + enterprise)
 - Idempotent generated-section markers in docs
-<!-- /OMG:GENERATED:changelog-v2.2.9 -->
+<!-- /OMG:GENERATED:changelog-v2.2.10 -->
+
+## 2.2.10 - 2026-03-18
+
+### Release Truth and Launcher-First Install Path
+
+- **version alignment**: bump package, contract, registry, plugin, and generated bundle surfaces to match the v2.2.10 tag
+- **launcher-first install path**: canonical quickstart/install now leads with `npx omg env doctor` -> `npx omg install --plan` -> `npx omg install --apply` -> `npx omg ship`
+- **postinstall truthfulness**: document that `npm install` only resolves dependencies and links the bin while mutations remain explicit behind `npx omg install --apply`
+- **release-surface hardening**: block stale explain-run syntax, non-runnable local-install guidance, and front-door drift in `validate-release-identity`
+- **docs alignment**: regenerate README, host guides, proof surfaces, quick reference, verification index, and release artifacts against the authoritative v2.2.10 flow
 
 ## 2.2.9 - 2026-03-18
 

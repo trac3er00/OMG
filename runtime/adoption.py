@@ -15,7 +15,7 @@ CANONICAL_REPO_URL = "https://github.com/trac3er00/OMG"
 CANONICAL_PACKAGE_NAME = "@trac3er/oh-my-god"
 CANONICAL_PLUGIN_ID = "omg"
 CANONICAL_MARKETPLACE_ID = "omg"
-CANONICAL_VERSION = "2.2.9"
+CANONICAL_VERSION = "2.2.10"
 
 VALID_ADOPTION_MODES = ("omg-only", "coexist")
 CANONICAL_MODE_NAMES = ("chill", "focused", "exploratory")
