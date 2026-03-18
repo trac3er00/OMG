@@ -376,15 +376,17 @@ jobs:
           path: artifacts/release
           merge-multiple: true
 
-      - name: Compile release surfaces into output root
+      - name: Check release and docs drift (repo root)
         run: |
           python3 -c "
           from pathlib import Path
           from runtime.release_surface_compiler import compile_release_surfaces
-          result = compile_release_surfaces(Path('artifacts/release'))
-          print('Release surface compilation:', result['status'])
-          for a in result.get('artifacts', []):
-              print('  -', a)
+          from runtime.doc_generator import check_docs
+          r = compile_release_surfaces(Path('.'), check_only=True)
+          d = check_docs(Path('.'))
+          drift = r.get('drift', []) + d.get('drift', [])
+          [print('DRIFT:', x) for x in drift]
+          exit(1 if drift else 0)
           "
 
       - name: Restore canonical settings.json after artifact merge

@@ -72,3 +72,23 @@
 - `scripts/omg.py` — updated import, rewrote `cmd_docs_generate` check/write modes
 - `tests/runtime/test_doc_generator.py` — 8 new tests for check_docs and content verification
 - Root artifacts regenerated: all 9 at ROOT_DIR
+
+# Task 3: Move Release/Docs Drift Checking Ahead of Artifact Compilation in CI
+
+## Learnings
+
+- `_check_release_surface_drift(root, output_root)` extended with two new calls: `compile_release_surfaces(root, check_only=True)` and `check_docs(root)` — drift items prefixed with `release_text_drift:` and `docs_drift:` respectively
+- Both new imports added at module level in `contract_compiler.py`: `from runtime.release_surface_compiler import compile_release_surfaces` and `from runtime.doc_generator import check_docs`
+- `compile_release_surfaces` drift items are dicts with `surface`, `path`, `reason` keys — formatted as `{surface}: {reason}` in blocker string
+- `check_docs` drift items are plain strings (e.g. `"Missing: support-matrix.json"`) — used directly in blocker string
+- Existing fixture tests (`_build_surface_drift_fixture`) needed monkeypatch stubs for both new calls since fixture roots don't contain all doc/release artifacts — extracted `_stub_release_text_and_docs_clean(monkeypatch)` helper
+- Workflow change: "Compile release surfaces into output root" (self-healing step in `release-readiness` job) replaced with "Check release and docs drift (repo root)" that runs read-only `check_only=True` against `Path('.')`
+- Self-healing compile step was removed from `release-readiness` because compilation now happens in `compile-public` and `compile-enterprise` jobs
+- TDD red phase: 7 tests failed (AttributeError on missing imports + missing workflow step); green phase: all 112 tests pass
+- 0 LSP errors on all 4 changed files
+
+## Files Changed
+- `runtime/contract_compiler.py` — added imports, extended `_check_release_surface_drift()` with release-text and docs drift blockers
+- `.github/workflows/omg-release-readiness.yml` — replaced self-healing compile step with read-only drift check step
+- `tests/runtime/test_contract_compiler.py` — 7 new tests, updated 5 existing fixture tests with monkeypatch stubs
+- `tests/scripts/test_github_workflows.py` — 2 new workflow invariant tests

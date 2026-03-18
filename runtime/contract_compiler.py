@@ -30,6 +30,8 @@ from runtime.compliance_governor import evaluate_release_compliance
 from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active
 from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
 from runtime.release_surface_registry import get_public_surfaces, validate_registry
+from runtime.release_surface_compiler import compile_release_surfaces
+from runtime.doc_generator import check_docs
 from runtime.worker_watchdog import get_worker_watchdog
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
@@ -1925,6 +1927,17 @@ def _check_release_surface_drift(root: Path, output_root: Path) -> dict[str, Any
     checks["action_yml_exists"] = action_exists
     if not action_exists:
         blockers.append(f"release_surface_drift: {action_path_entry} not found")
+
+    release_text_result = compile_release_surfaces(root, check_only=True)
+    checks["release_text_drift"] = release_text_result
+    for item in release_text_result.get("drift", []):
+        label = item if isinstance(item, str) else f"{item.get('surface', 'unknown')}: {item.get('reason', 'drift')}"
+        blockers.append(f"release_text_drift: {label}")
+
+    docs_result = check_docs(root)
+    checks["docs_drift"] = docs_result
+    for item in docs_result.get("drift", []):
+        blockers.append(f"docs_drift: {item}")
 
     return {
         "status": "ok" if not blockers else "error",

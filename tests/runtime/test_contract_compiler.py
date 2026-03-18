@@ -3006,12 +3006,26 @@ def _build_surface_drift_fixture(
         (root / "action.yml").write_text("name: OMG\n", encoding="utf-8")
 
 
-def test_release_surface_drift_no_blockers_when_agreement(tmp_path: Path) -> None:
+def _stub_release_text_and_docs_clean(monkeypatch) -> None:
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "compile_release_surfaces",
+        lambda _root, check_only=False: {"status": "ok", "drift": []} if check_only else {"status": "ok", "artifacts": []},
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "check_docs",
+        lambda _root: {"status": "ok", "drift": []},
+    )
+
+
+def test_release_surface_drift_no_blockers_when_agreement(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "root"
     output = tmp_path / "output"
     root.mkdir()
     output.mkdir()
     _build_surface_drift_fixture(root, output, bin_key="omg", action_yml=True)
+    _stub_release_text_and_docs_clean(monkeypatch)
 
     result = _check_release_surface_drift(root, output)
 
@@ -3020,12 +3034,13 @@ def test_release_surface_drift_no_blockers_when_agreement(tmp_path: Path) -> Non
     assert "checks" in result
 
 
-def test_release_surface_drift_blocks_missing_npm_bin(tmp_path: Path) -> None:
+def test_release_surface_drift_blocks_missing_npm_bin(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "root"
     output = tmp_path / "output"
     root.mkdir()
     output.mkdir()
     _build_surface_drift_fixture(root, output, bin_key=None, action_yml=True)
+    _stub_release_text_and_docs_clean(monkeypatch)
 
     result = _check_release_surface_drift(root, output)
 
@@ -3033,12 +3048,13 @@ def test_release_surface_drift_blocks_missing_npm_bin(tmp_path: Path) -> None:
     assert any("package.json missing npm bin.omg" in b for b in result["blockers"])
 
 
-def test_release_surface_drift_blocks_missing_action_yml(tmp_path: Path) -> None:
+def test_release_surface_drift_blocks_missing_action_yml(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "root"
     output = tmp_path / "output"
     root.mkdir()
     output.mkdir()
     _build_surface_drift_fixture(root, output, bin_key="omg", action_yml=False)
+    _stub_release_text_and_docs_clean(monkeypatch)
 
     result = _check_release_surface_drift(root, output)
 
@@ -3046,12 +3062,13 @@ def test_release_surface_drift_blocks_missing_action_yml(tmp_path: Path) -> None
     assert any("action.yml not found" in b for b in result["blockers"])
 
 
-def test_release_surface_drift_blocks_wrong_npm_bin_key(tmp_path: Path) -> None:
+def test_release_surface_drift_blocks_wrong_npm_bin_key(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "root"
     output = tmp_path / "output"
     root.mkdir()
     output.mkdir()
     _build_surface_drift_fixture(root, output, bin_key="wrong-name", action_yml=True)
+    _stub_release_text_and_docs_clean(monkeypatch)
 
     result = _check_release_surface_drift(root, output)
 
@@ -3059,13 +3076,14 @@ def test_release_surface_drift_blocks_wrong_npm_bin_key(tmp_path: Path) -> None:
     assert any("package.json missing npm bin.omg" in b for b in result["blockers"])
 
 
-def test_release_surface_drift_blocks_missing_manifest(tmp_path: Path) -> None:
+def test_release_surface_drift_blocks_missing_manifest(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "root"
     output = tmp_path / "output"
     root.mkdir()
     output.mkdir()
     (root / "package.json").write_text('{"name":"test","version":"1.0.0","bin":{"omg":"./x"}}')
     (root / "action.yml").write_text("name: OMG\n")
+    _stub_release_text_and_docs_clean(monkeypatch)
 
     result = _check_release_surface_drift(root, output)
 
@@ -3139,3 +3157,179 @@ def test_check_policy_pack_signatures_enforcing_valid(tmp_path: Path, monkeypatc
     assert result["status"] == "ok"
     assert result["enforcing"] is True
     assert result["blockers"] == []
+
+
+# ---------------------------------------------------------------------------
+# _check_release_surface_drift: release-text and docs drift integration
+# ---------------------------------------------------------------------------
+
+
+def test_release_surface_drift_includes_release_text_drift_blockers(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """_check_release_surface_drift must call compile_release_surfaces(root, check_only=True)
+    and propagate drift items as release_text_drift: blockers."""
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    _build_surface_drift_fixture(root, output, bin_key="omg", action_yml=True)
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "compile_release_surfaces",
+        lambda _root, check_only=False: {
+            "status": "drift",
+            "drift": [
+                {"surface": "changelog_current", "path": "CHANGELOG.md", "reason": "content drift in generated block"},
+            ],
+        } if check_only else {"status": "ok", "artifacts": []},
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "check_docs",
+        lambda _root: {"status": "ok", "drift": []},
+    )
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "error"
+    assert any(b.startswith("release_text_drift:") for b in result["blockers"]), (
+        f"Expected release_text_drift: blocker, got: {result['blockers']}"
+    )
+
+
+def test_release_surface_drift_includes_docs_drift_blockers(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """_check_release_surface_drift must call check_docs(root) and propagate
+    drift items as docs_drift: blockers."""
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    _build_surface_drift_fixture(root, output, bin_key="omg", action_yml=True)
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "compile_release_surfaces",
+        lambda _root, check_only=False: {"status": "ok", "drift": []} if check_only else {"status": "ok", "artifacts": []},
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "check_docs",
+        lambda _root: {"status": "drift", "drift": ["Missing: support-matrix.json"]},
+    )
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "error"
+    assert any(b.startswith("docs_drift:") for b in result["blockers"]), (
+        f"Expected docs_drift: blocker, got: {result['blockers']}"
+    )
+
+
+def test_release_surface_drift_no_extra_blockers_when_both_clean(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """When both release-text and docs checks are clean, no new blockers appear."""
+    root = tmp_path / "root"
+    output = tmp_path / "output"
+    root.mkdir()
+    output.mkdir()
+    _build_surface_drift_fixture(root, output, bin_key="omg", action_yml=True)
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "compile_release_surfaces",
+        lambda _root, check_only=False: {"status": "ok", "drift": []} if check_only else {"status": "ok", "artifacts": []},
+    )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "check_docs",
+        lambda _root: {"status": "ok", "drift": []},
+    )
+
+    result = _check_release_surface_drift(root, output)
+
+    assert result["status"] == "ok"
+    assert not any(b.startswith("release_text_drift:") for b in result["blockers"])
+    assert not any(b.startswith("docs_drift:") for b in result["blockers"])
+
+
+def test_readiness_fails_when_release_text_drifts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """build_release_readiness must fail when release-text surfaces drift."""
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=list(CANONICAL_HOSTS),
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_release_surface_drift",
+        lambda _root, _output: {
+            "status": "error",
+            "blockers": ["release_text_drift: changelog_current content drift in CHANGELOG.md"],
+            "checks": {},
+        },
+    )
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("release_text_drift:" in b for b in readiness["blockers"])
+
+
+def test_readiness_fails_when_docs_drift(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """build_release_readiness must fail when generated docs drift."""
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=list(CANONICAL_HOSTS),
+        channel="public",
+    )
+    assert compile_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_release_surface_drift",
+        lambda _root, _output: {
+            "status": "error",
+            "blockers": ["docs_drift: Missing: support-matrix.json"],
+            "checks": {},
+        },
+    )
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="public")
+
+    assert readiness["status"] == "error"
+    assert any("docs_drift:" in b for b in readiness["blockers"])

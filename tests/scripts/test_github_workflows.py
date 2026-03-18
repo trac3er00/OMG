@@ -366,6 +366,24 @@ def test_github_review_helpers_build_pr_handoff_and_assert_pass(tmp_path: Path) 
     helpers.assert_pass(payload)
 
 
+def test_release_readiness_has_drift_check_before_compile_step() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    drift_pos = release_job.find("Check release and docs drift")
+    assert drift_pos >= 0, "Missing 'Check release and docs drift' step in release-readiness job"
+    compile_pos = release_job.find("Compile")
+    if compile_pos >= 0:
+        assert drift_pos < compile_pos, "Drift check must appear before any compile step"
+
+
+def test_release_readiness_no_self_healing_compile_step() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    assert "Compile release surfaces into output root" not in release_job, (
+        "Self-healing 'Compile release surfaces into output root' step must be removed from release-readiness"
+    )
+
+
 def test_github_review_helpers_assert_pass_fails_when_required_artifacts_missing(tmp_path: Path) -> None:
     event = {
         "action": "opened",
