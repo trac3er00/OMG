@@ -26,6 +26,7 @@ INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
 ENABLE_BROWSER=false
 VERIFY_CLEAN=false
+REPAIR=false
 ADOPTION_MODE="omg-only"
 ADOPT_MODE="auto"
 OMG_PRESET="safe"
@@ -90,6 +91,7 @@ Options:
                      User-facing preset for managed OMG features
   --enable-browser   Enable optional OMG browser capability metadata and guidance
   --verify-clean     After uninstall, verify no OMG-managed residue remains
+  --repair           With --verify-clean, back up and remove owned residue
   -h, --help         Show this help
 
 Examples:
@@ -222,6 +224,7 @@ parse_args() {
             --install-as-plugin) INSTALL_AS_PLUGIN=true ;;
             --enable-browser) ENABLE_BROWSER=true ;;
             --verify-clean) VERIFY_CLEAN=true ;;
+            --repair) REPAIR=true ;;
             --merge-policy=*) MERGE_POLICY="${arg#*=}" ;;
             --mode=*) ADOPTION_MODE="${arg#*=}" ;;
             --adopt=*) ADOPT_MODE="${arg#*=}" ;;
@@ -1639,87 +1642,315 @@ print(json.dumps(cleaned))
     fi
 
     if $VERIFY_CLEAN; then
-        local _residue=()
-        local _verify_paths=(
-            "$CLAUDE_DIR/hooks/.omg-version"
-            "$CLAUDE_DIR/hooks/.omg-coexist"
-            "$CLAUDE_DIR/omg-runtime"
-            "$CLAUDE_DIR/templates/omg"
-            "$CLAUDE_DIR/hud/omg-hud.mjs"
-            "$CLAUDE_DIR/.omg-manifest"
-        )
-        for _vpath in "${_verify_paths[@]}"; do
-            if [ -f "$_vpath" ] || [ -d "$_vpath" ]; then
-                _residue+=("$_vpath")
-            fi
-        done
-        for _rule in "$CLAUDE_DIR"/rules/omg-*.md "$CLAUDE_DIR"/rules/0[0-4]-*.md; do
-            if [ -f "$_rule" ]; then
-                _residue+=("$_rule")
-            fi
-        done
-        for _agent in "$CLAUDE_DIR"/agents/omg-*.md; do
-            if [ -f "$_agent" ]; then
-                _residue+=("$_agent")
-            fi
-        done
-
-        local _verify_status="clean"
-        local _blockers_json="[]"
-        if [ ${#_residue[@]} -gt 0 ]; then
-            _verify_status="residue_found"
-            _blockers_json=$(printf '%s\n' "${_residue[@]}" | python3 -c "import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))" 2>/dev/null || echo "[]")
-        fi
-
-        local _vc_host_configs_json
-        _vc_host_configs_json=$(python3 -c "
-import json, os
-home = os.path.expanduser('~')
-configs = {
-    'codex': os.path.join(home, '.codex', 'config.toml'),
-    'gemini': os.path.join(home, '.gemini', 'settings.json'),
-    'kimi': os.path.join(home, '.kimi', 'mcp.json'),
-}
-cleaned = []
-for host, path in configs.items():
-    if os.path.exists(path):
-        try:
-            content = open(path, encoding='utf-8').read()
-            if 'omg-control' not in content:
-                cleaned.append(path)
-        except Exception:
-            pass
-    else:
-        cleaned.append(path)
-print(json.dumps(cleaned))
-" 2>/dev/null || echo "[]")
-
-        local _verify_receipt
-        _verify_receipt=$(python3 -c "
-import json, sys
-print(json.dumps({
-    'verification_status': sys.argv[1],
-    'residue_blockers': json.loads(sys.argv[2]),
-    'host_configs_cleaned': json.loads(sys.argv[3]),
-}, indent=2, ensure_ascii=True))
-" "$_verify_status" "$_blockers_json" "$_vc_host_configs_json" 2>/dev/null || echo "{\"verification_status\": \"$_verify_status\", \"residue_blockers\": $_blockers_json, \"host_configs_cleaned\": $_vc_host_configs_json}")
-
-        if ! $DRY_RUN; then
-            echo "$_verify_receipt" | python3 -c "
-import json, sys
+        python3 - "$CLAUDE_DIR" "$REPAIR" "$DRY_RUN" <<'VERIFY_CLEAN_PY'
+import glob
+import json
+import os
+import shutil
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
-data = json.load(sys.stdin)
-path = Path(sys.argv[1]) / '.omg-verify-clean-receipt.json'
-path.parent.mkdir(parents=True, exist_ok=True)
-path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + '\n', encoding='utf-8')
-" "$CLAUDE_DIR" 2>/dev/null || true
-        fi
-        echo "  $_verify_receipt"
-        if [ "$_verify_status" = "clean" ]; then
-            echo "  ✓ Verify-clean: no OMG-owned residue found."
-        else
-            echo "  ✗ Verify-clean: residue found in ${#_residue[@]} path(s)"
-        fi
+
+claude_dir = Path(sys.argv[1])
+repair = sys.argv[2] == "true"
+dry_run = sys.argv[3] == "true"
+home = Path(os.path.expanduser("~"))
+
+
+def has_codex_section(path: Path, server_name: str) -> bool:
+    if not path.exists():
+        return False
+    lines = path.read_text(encoding="utf-8").splitlines()
+    headers = {f"[mcp_servers.{server_name}]", f'[mcp_servers."{server_name}"]'}
+    return any(line.strip() in headers for line in lines)
+
+
+def remove_codex_section(path: Path, server_name: str) -> bool:
+    if not path.exists():
+        return False
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    headers = {f"[mcp_servers.{server_name}]", f'[mcp_servers."{server_name}"]'}
+    start_idx = None
+    for idx, line in enumerate(lines):
+        if line.strip() in headers:
+            start_idx = idx
+            break
+    if start_idx is None:
+        return False
+    end_idx = len(lines)
+    for idx in range(start_idx + 1, len(lines)):
+        stripped = lines[idx].strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            end_idx = idx
+            break
+    updated = lines[:start_idx] + lines[end_idx:]
+    content = "".join(updated).lstrip("\n")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return True
+
+
+def has_json_server(path: Path, server_name: str, mcp_key: str = "mcpServers") -> bool:
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(data, dict):
+        return False
+    servers = data.get(mcp_key)
+    return isinstance(servers, dict) and server_name in servers
+
+
+def remove_json_server(path: Path, server_name: str, mcp_key: str = "mcpServers") -> bool:
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(data, dict):
+        return False
+    servers = data.get(mcp_key)
+    if not isinstance(servers, dict) or server_name not in servers:
+        return False
+    servers.pop(server_name, None)
+    data[mcp_key] = servers
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return True
+
+
+def has_omg_hooks(settings_path: Path) -> bool:
+    if not settings_path.exists():
+        return False
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return False
+    for _event, entries in hooks.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict) and "omg-runtime" in str(entry.get("command", "")):
+                return True
+    return False
+
+
+def remove_omg_hooks(settings_path: Path) -> bool:
+    if not settings_path.exists():
+        return False
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return False
+    changed = False
+    new_hooks: dict[str, object] = {}
+    for event, entries in hooks.items():
+        if not isinstance(entries, list):
+            new_hooks[event] = entries
+            continue
+        filtered = [
+            e for e in entries
+            if not (isinstance(e, dict) and "omg-runtime" in str(e.get("command", "")))
+        ]
+        if len(filtered) < len(entries):
+            changed = True
+        if filtered:
+            new_hooks[event] = filtered
+    if not changed:
+        return False
+    if new_hooks:
+        settings["hooks"] = new_hooks
+    else:
+        settings.pop("hooks", None)
+    settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return True
+
+
+def has_omg_status_line(settings_path: Path) -> bool:
+    if not settings_path.exists():
+        return False
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    sl = settings.get("statusLine")
+    return isinstance(sl, dict) and "omg-hud.mjs" in str(sl.get("command", ""))
+
+
+def remove_omg_status_line(settings_path: Path) -> bool:
+    if not settings_path.exists():
+        return False
+    try:
+        settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    sl = settings.get("statusLine")
+    if not (isinstance(sl, dict) and "omg-hud.mjs" in str(sl.get("command", ""))):
+        return False
+    settings.pop("statusLine", None)
+    settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return True
+
+
+audited_surfaces: list[str] = []
+residue_found: list[dict[str, str]] = []
+repaired_surfaces: list[dict[str, str]] = []
+backed_up: set[str] = set()
+
+file_residue_paths = [
+    claude_dir / "hooks" / ".omg-version",
+    claude_dir / "hooks" / ".omg-coexist",
+    claude_dir / "omg-runtime",
+    claude_dir / "templates" / "omg",
+    claude_dir / "hud" / "omg-hud.mjs",
+    claude_dir / ".omg-manifest",
+]
+audited_surfaces.append("claude_file_residue")
+for p in file_residue_paths:
+    if p.exists():
+        residue_found.append({"surface": "claude_file_residue", "path": str(p)})
+for pattern in [
+    str(claude_dir / "rules" / "omg-*.md"),
+    str(claude_dir / "rules" / "0[0-4]-*.md"),
+    str(claude_dir / "agents" / "omg-*.md"),
+]:
+    for match in glob.glob(pattern):
+        residue_found.append({"surface": "claude_file_residue", "path": match})
+
+settings_path = claude_dir / "settings.json"
+
+audited_surfaces.append("claude_hooks")
+if has_omg_hooks(settings_path):
+    residue_found.append({"surface": "claude_hooks", "path": str(settings_path)})
+
+audited_surfaces.append("claude_status_line")
+if has_omg_status_line(settings_path):
+    residue_found.append({"surface": "claude_status_line", "path": str(settings_path)})
+
+audited_surfaces.append("claude_plugin")
+try:
+    s = json.loads(settings_path.read_text(encoding="utf-8"))
+    if "omg@omg" in (s.get("enabledPlugins") or {}):
+        residue_found.append({"surface": "claude_plugin", "path": str(settings_path)})
+except Exception:
+    pass
+
+codex_path = home / ".codex" / "config.toml"
+audited_surfaces.append("codex_mcp")
+if has_codex_section(codex_path, "omg-control"):
+    residue_found.append({"surface": "codex_mcp", "path": str(codex_path)})
+
+gemini_path = home / ".gemini" / "settings.json"
+audited_surfaces.append("gemini_mcp")
+if has_json_server(gemini_path, "omg-control"):
+    residue_found.append({"surface": "gemini_mcp", "path": str(gemini_path)})
+
+kimi_path = home / ".kimi" / "mcp.json"
+audited_surfaces.append("kimi_mcp")
+if has_json_server(kimi_path, "omg-control"):
+    residue_found.append({"surface": "kimi_mcp", "path": str(kimi_path)})
+
+opencode_path = home / ".config" / "opencode" / "opencode.json"
+audited_surfaces.append("opencode_mcp")
+if has_json_server(opencode_path, "omg-control", mcp_key="mcp"):
+    residue_found.append({"surface": "opencode_mcp", "path": str(opencode_path)})
+
+if repair and not dry_run and residue_found:
+    def backup_once(p: Path) -> None:
+        key = str(p)
+        if key in backed_up or not p.exists():
+            return
+        bak = p.parent / (p.name + ".omg-backup")
+        if p.is_dir():
+            shutil.copytree(p, bak, dirs_exist_ok=True)
+        else:
+            shutil.copy2(p, bak)
+        backed_up.add(key)
+
+    for item in list(residue_found):
+        surface = item["surface"]
+        path = Path(item["path"])
+        if surface == "claude_file_residue":
+            if path.exists():
+                backup_once(path)
+                if path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink()
+                repaired_surfaces.append(item)
+        elif surface == "codex_mcp":
+            backup_once(path)
+            if remove_codex_section(path, "omg-control"):
+                repaired_surfaces.append(item)
+        elif surface in ("gemini_mcp", "kimi_mcp"):
+            backup_once(path)
+            if remove_json_server(path, "omg-control"):
+                repaired_surfaces.append(item)
+        elif surface == "opencode_mcp":
+            backup_once(path)
+            if remove_json_server(path, "omg-control", mcp_key="mcp"):
+                repaired_surfaces.append(item)
+        elif surface == "claude_hooks":
+            backup_once(path)
+            if remove_omg_hooks(path):
+                repaired_surfaces.append(item)
+        elif surface == "claude_status_line":
+            backup_once(path)
+            if remove_omg_status_line(path):
+                repaired_surfaces.append(item)
+        elif surface == "claude_plugin":
+            backup_once(path)
+            try:
+                s = json.loads(path.read_text(encoding="utf-8"))
+                ep = s.get("enabledPlugins")
+                if isinstance(ep, dict) and "omg@omg" in ep:
+                    ep.pop("omg@omg")
+                    if not ep:
+                        s.pop("enabledPlugins", None)
+                    path.write_text(json.dumps(s, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+                    repaired_surfaces.append(item)
+            except Exception:
+                pass
+
+repaired_set = {(r["surface"], r["path"]) for r in repaired_surfaces}
+remaining_blockers = [r for r in residue_found if (r["surface"], r["path"]) not in repaired_set]
+residue_surface_names = {r["surface"] for r in residue_found}
+preserved_surfaces = [s for s in audited_surfaces if s not in residue_surface_names]
+
+status = "clean" if not remaining_blockers else "residue_found"
+
+receipt: dict[str, object] = {
+    "schema": "VerifyCleanReceipt",
+    "timestamp": datetime.now(timezone.utc).isoformat(),
+    "verification_status": status,
+    "audited_surfaces": audited_surfaces,
+    "residue_found": residue_found,
+    "repaired_surfaces": repaired_surfaces,
+    "preserved_surfaces": preserved_surfaces,
+    "remaining_blockers": remaining_blockers,
+}
+
+if not dry_run:
+    receipt_path = claude_dir / ".omg-verify-clean-receipt.json"
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text(json.dumps(receipt, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+print(json.dumps(receipt, indent=2, ensure_ascii=True))
+if status == "clean":
+    print("  \u2713 Verify-clean: no OMG-owned residue found.", file=sys.stderr)
+else:
+    count = len(remaining_blockers)
+    print(f"  \u2717 Verify-clean: residue found in {count} surface(s)", file=sys.stderr)
+VERIFY_CLEAN_PY
     fi
 
     echo ""

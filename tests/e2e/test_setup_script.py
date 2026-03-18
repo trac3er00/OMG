@@ -1716,3 +1716,285 @@ def test_setup_uninstall_host_configs_cleaned_non_empty(tmp_path: Path):
     assert all(isinstance(p, str) and len(p) > 2 for p in host_configs), (
         f"host_configs_cleaned must contain real paths, got: {host_configs}"
     )
+
+
+# ---------------------------------------------------------------------------
+# verify-clean ownership-aware audit + repair
+# ---------------------------------------------------------------------------
+
+
+def test_setup_verify_clean_detects_all_owned_surfaces(tmp_path: Path):
+    """Dry-run verify-clean detects residue across all OMG-owned surfaces."""
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    home_dir = tmp_path / "home"
+
+    # Claude file residue
+    hooks_dir = claude_dir / "hooks"
+    hooks_dir.mkdir()
+    (hooks_dir / ".omg-version").write_text("1.0.0", encoding="utf-8")
+
+    # Claude settings.json with omg-runtime hook + statusLine
+    settings: dict[str, object] = {
+        "hooks": {
+            "PreToolUse": [
+                {"command": str(claude_dir / "omg-runtime" / "bin" / "omg-hook.py"), "type": "command"},
+            ]
+        },
+        "statusLine": {"command": str(claude_dir / "hud" / "omg-hud.mjs")},
+    }
+    (claude_dir / "settings.json").write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+    # Codex config.toml with omg-control
+    codex_dir = home_dir / ".codex"
+    codex_dir.mkdir(parents=True)
+    (codex_dir / "config.toml").write_text(
+        '[mcp_servers.omg-control]\ncommand = "python3"\nargs = ["-m", "runtime.omg_mcp_server"]\n',
+        encoding="utf-8",
+    )
+
+    # Gemini settings.json with omg-control
+    gemini_dir = home_dir / ".gemini"
+    gemini_dir.mkdir(parents=True)
+    (gemini_dir / "settings.json").write_text(
+        json.dumps({"mcpServers": {"omg-control": {"command": "python3"}}}) + "\n",
+        encoding="utf-8",
+    )
+
+    # Kimi mcp.json with omg-control
+    kimi_dir = home_dir / ".kimi"
+    kimi_dir.mkdir(parents=True)
+    (kimi_dir / "mcp.json").write_text(
+        json.dumps({"mcpServers": {"omg-control": {"command": "python3"}}}) + "\n",
+        encoding="utf-8",
+    )
+
+    # OpenCode config with omg-control
+    opencode_dir = home_dir / ".config" / "opencode"
+    opencode_dir.mkdir(parents=True)
+    (opencode_dir / "opencode.json").write_text(
+        json.dumps({"mcp": {"omg-control": {"command": "python3"}}}) + "\n",
+        encoding="utf-8",
+    )
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+    }
+    proc = _run_script(
+        SETUP,
+        ["uninstall", "--verify-clean", "--non-interactive", "--dry-run"],
+        env=env,
+    )
+    assert proc.returncode == 0, f"exit {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+    combined = proc.stdout + proc.stderr
+
+    # Must audit every owned surface
+    for surface in (
+        "claude_file_residue",
+        "claude_hooks",
+        "claude_status_line",
+        "codex_mcp",
+        "gemini_mcp",
+        "kimi_mcp",
+        "opencode_mcp",
+    ):
+        assert surface in combined, (
+            f"verify-clean must audit surface '{surface}', got:\n{combined}"
+        )
+
+    # Must report residue_found (not empty)
+    assert "residue_found" in combined, f"must contain residue_found:\n{combined}"
+
+
+def test_setup_verify_clean_repair_removes_owned_residue(tmp_path: Path):
+    """--repair combined with --verify-clean removes OMG-owned residue and preserves non-OMG config."""
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    home_dir = tmp_path / "home"
+
+    # Codex: omg-control section + user section
+    codex_dir = home_dir / ".codex"
+    codex_dir.mkdir(parents=True)
+    codex_toml = codex_dir / "config.toml"
+    codex_toml.write_text(
+        '[mcp_servers.my-tool]\ncommand = "my-tool"\n\n'
+        '[mcp_servers.omg-control]\ncommand = "python3"\nargs = ["-m", "runtime.omg_mcp_server"]\n',
+        encoding="utf-8",
+    )
+
+    # Gemini: omg-control + user server
+    gemini_dir = home_dir / ".gemini"
+    gemini_dir.mkdir(parents=True)
+    gemini_settings = gemini_dir / "settings.json"
+    gemini_settings.write_text(
+        json.dumps({
+            "mcpServers": {
+                "my-server": {"command": "my-server"},
+                "omg-control": {"command": "python3"},
+            },
+            "otherKey": "preserved",
+        }, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    # Kimi: omg-control + user server
+    kimi_dir = home_dir / ".kimi"
+    kimi_dir.mkdir(parents=True)
+    kimi_mcp = kimi_dir / "mcp.json"
+    kimi_mcp.write_text(
+        json.dumps({
+            "mcpServers": {
+                "other-server": {"command": "other"},
+                "omg-control": {"command": "python3"},
+            },
+        }, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    # OpenCode: omg-control + user MCP
+    opencode_dir = home_dir / ".config" / "opencode"
+    opencode_dir.mkdir(parents=True)
+    opencode_cfg = opencode_dir / "opencode.json"
+    opencode_cfg.write_text(
+        json.dumps({
+            "mcp": {
+                "my-mcp": {"command": "my-mcp"},
+                "omg-control": {"command": "python3"},
+            },
+        }, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    # Claude settings.json with omg-runtime hook + non-OMG hook + statusLine
+    settings: dict[str, object] = {
+        "hooks": {
+            "PreToolUse": [
+                {"command": str(claude_dir / "omg-runtime" / "bin" / "omg-hook.py"), "type": "command"},
+                {"command": "/usr/local/bin/my-linter", "type": "command"},
+            ]
+        },
+        "statusLine": {"command": str(claude_dir / "hud" / "omg-hud.mjs")},
+        "theme": "dark",
+    }
+    (claude_dir / "settings.json").write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+    }
+    proc = _run_script(
+        SETUP,
+        ["uninstall", "--verify-clean", "--repair", "--non-interactive"],
+        env=env,
+    )
+    assert proc.returncode == 0, f"exit {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+
+    # Codex: omg-control removed, my-tool preserved
+    codex_content = codex_toml.read_text(encoding="utf-8")
+    assert "[mcp_servers.omg-control]" not in codex_content, "omg-control must be removed from Codex"
+    assert "[mcp_servers.my-tool]" in codex_content, "my-tool must be preserved in Codex"
+
+    # Gemini: omg-control removed, my-server + otherKey preserved
+    gemini_data = cast(dict[str, object], json.loads(gemini_settings.read_text(encoding="utf-8")))
+    gemini_servers = cast(dict[str, object], gemini_data.get("mcpServers") or {})
+    assert "omg-control" not in gemini_servers, "omg-control must be removed from Gemini"
+    assert "my-server" in gemini_servers, "my-server must be preserved in Gemini"
+    assert gemini_data.get("otherKey") == "preserved", "otherKey must be preserved in Gemini"
+
+    # Kimi: omg-control removed, other-server preserved
+    kimi_data = cast(dict[str, object], json.loads(kimi_mcp.read_text(encoding="utf-8")))
+    kimi_servers = cast(dict[str, object], kimi_data.get("mcpServers") or {})
+    assert "omg-control" not in kimi_servers, "omg-control must be removed from Kimi"
+    assert "other-server" in kimi_servers, "other-server must be preserved in Kimi"
+
+    # OpenCode: omg-control removed, my-mcp preserved
+    oc_data = cast(dict[str, object], json.loads(opencode_cfg.read_text(encoding="utf-8")))
+    oc_servers = cast(dict[str, object], oc_data.get("mcp") or {})
+    assert "omg-control" not in oc_servers, "omg-control must be removed from OpenCode"
+    assert "my-mcp" in oc_servers, "my-mcp must be preserved in OpenCode"
+
+    # Receipt must exist and contain repaired_surfaces
+    receipt_path = claude_dir / ".omg-verify-clean-receipt.json"
+    assert receipt_path.exists(), "verify-clean receipt must be written"
+    receipt = cast(dict[str, object], json.loads(receipt_path.read_text(encoding="utf-8")))
+    repaired = receipt.get("repaired_surfaces")
+    assert isinstance(repaired, list) and len(repaired) > 0, (
+        f"repaired_surfaces must be non-empty, got: {repaired}"
+    )
+
+
+def test_setup_verify_clean_receipt_schema(tmp_path: Path):
+    """Verify-clean receipt contains all required fields."""
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True)
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+    }
+
+    # Install then uninstall to get a clean state
+    _run_script(SETUP, ["install", "--non-interactive", "--merge-policy=skip"], env=env)
+    proc = _run_script(
+        SETUP,
+        ["uninstall", "--verify-clean", "--non-interactive"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    receipt_path = claude_dir / ".omg-verify-clean-receipt.json"
+    assert receipt_path.exists(), "verify-clean receipt must be written"
+    receipt = cast(dict[str, object], json.loads(receipt_path.read_text(encoding="utf-8")))
+
+    required_keys = {"audited_surfaces", "residue_found", "repaired_surfaces", "preserved_surfaces", "remaining_blockers"}
+    missing = required_keys - set(receipt.keys())
+    assert not missing, f"Receipt missing required keys: {missing}, got: {list(receipt.keys())}"
+
+    # All values must be lists
+    for key in required_keys:
+        assert isinstance(receipt[key], list), f"receipt['{key}'] must be a list, got: {type(receipt[key])}"
+
+    # audited_surfaces must include all canonical surfaces
+    audited = cast(list[str], receipt["audited_surfaces"])
+    for surface in ("claude_file_residue", "claude_hooks", "claude_status_line", "codex_mcp", "gemini_mcp", "kimi_mcp", "opencode_mcp"):
+        assert surface in audited, f"'{surface}' must be in audited_surfaces, got: {audited}"
+
+    # backward compat
+    assert "verification_status" in receipt, "verification_status must be present for backward compat"
+
+
+def test_setup_verify_clean_codex_structural_removal(tmp_path: Path):
+    """Codex TOML cleanup uses structural section removal, preserving adjacent sections."""
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True)
+    home_dir = tmp_path / "home"
+
+    codex_dir = home_dir / ".codex"
+    codex_dir.mkdir(parents=True)
+    codex_toml = codex_dir / "config.toml"
+    # Adjacent sections with omg-control in the middle
+    codex_toml.write_text(
+        '[mcp_servers.before-tool]\ncommand = "before"\n\n'
+        '[mcp_servers.omg-control]\ncommand = "python3"\nargs = ["-m", "runtime.omg_mcp_server"]\n\n'
+        '[mcp_servers.after-tool]\ncommand = "after"\n',
+        encoding="utf-8",
+    )
+
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "HOME": str(home_dir),
+    }
+    proc = _run_script(
+        SETUP,
+        ["uninstall", "--verify-clean", "--repair", "--non-interactive"],
+        env=env,
+    )
+    assert proc.returncode == 0
+
+    codex_content = codex_toml.read_text(encoding="utf-8")
+    assert "[mcp_servers.omg-control]" not in codex_content, "omg-control must be structurally removed"
+    assert "[mcp_servers.before-tool]" in codex_content, "before-tool must survive structural removal"
+    assert "[mcp_servers.after-tool]" in codex_content, "after-tool must survive structural removal"

@@ -132,3 +132,23 @@
 ## Files Changed
 - `scripts/omg.py` — added `_run_install_preflight()`, `_format_preflight_text()`, `--skip-preflight` flag, preflight gating in `cmd_install()`
 - `tests/scripts/test_omg_cli.py` — 8 new tests for install preflight gating
+
+# Task 8: Verify-Clean Ownership-Aware Audit and Repair
+
+## Learnings
+
+- Verify-clean Python inline script (heredoc in bash) replaced the 6-path hardcoded check + substring host config check with ownership-based audit across 8 surfaces
+- Audited surfaces: `claude_file_residue`, `claude_hooks`, `claude_status_line`, `claude_plugin`, `codex_mcp`, `gemini_mcp`, `kimi_mcp`, `opencode_mcp`
+- OpenCode uses `"mcp"` key (not `"mcpServers"`) — `has_json_server()` and `remove_json_server()` take a `mcp_key` parameter to handle this
+- `remove_codex_section()` structural TOML parser duplicated in verify-clean heredoc (same pattern as `remove_detected_host_mcp_servers()`) — section boundaries are `[` lines
+- `backup_once()` helper prevents double-backing up settings.json when both hooks + statusLine residue exist
+- `--repair` flag: `REPAIR=false` variable, parsed in arg loop, passed to Python as `sys.argv[2]`
+- Receipt schema: `VerifyCleanReceipt` with `verification_status` (backward compat), `audited_surfaces`, `residue_found`, `repaired_surfaces`, `preserved_surfaces`, `remaining_blockers`
+- `remaining_blockers` = residue not repaired (e.g., when `--repair` not set); `preserved_surfaces` = audited but clean
+- Dry-run detection test uses `--dry-run` to prevent `remove_omg_files()` from cleaning, so verify-clean sees real residue
+- TDD red phase confirmed: `assert 'claude_file_residue' in combined` failed before implementation
+- 16 tests pass (12 existing + 4 new), 0 LSP errors on test file
+
+## Files Changed
+- `OMG-setup.sh` — `REPAIR` variable, `--repair` flag, refactored verify-clean block (lines ~1642-1870)
+- `tests/e2e/test_setup_script.py` — 4 new tests: detect_all_owned_surfaces, repair_removes_owned_residue, receipt_schema, codex_structural_removal
