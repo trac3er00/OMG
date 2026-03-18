@@ -2841,12 +2841,6 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--repair-pack", default=None, dest="repair_pack", help="Filter checks by repair pack (runtime, governance, host, release, claude, codex, gemini, kimi)")
     doctor.set_defaults(func=cmd_doctor)
 
-    env = sub.add_parser("env", help="Environment preflight checks")
-    env_sub = env.add_subparsers(dest="env_command", required=True)
-    env_doctor = env_sub.add_parser("doctor", help="Run env preflight doctor pack")
-    env_doctor.add_argument("--format", default="text", choices=["text", "json"], dest="format")
-    env_doctor.set_defaults(func=cmd_env_doctor)
-
     validate = sub.add_parser("validate", help="Canonical validation — doctor + contract + profile + install")
     validate.add_argument("--format", default="text", choices=["text", "json"], dest="format")
     validate.set_defaults(func=cmd_validate)
