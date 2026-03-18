@@ -147,6 +147,12 @@ jobs:
               raise SystemExit(f"compile_release_surfaces failed: {result}")
           PY
 
+      - name: Seed release surface manifests into output root
+        run: |
+          mkdir -p artifacts/release/dist/public artifacts/release/dist/enterprise
+          cp dist/public/release-surface.json artifacts/release/dist/public/release-surface.json
+          cp dist/enterprise/release-surface.json artifacts/release/dist/enterprise/release-surface.json
+
       - name: Sanitize colon filenames for upload
         run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
