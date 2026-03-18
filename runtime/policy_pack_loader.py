@@ -42,6 +42,10 @@ def list_policy_packs() -> list[str]:
 
 def load_policy_pack(pack_id: str) -> PolicyPack:
     normalized_pack_id = str(pack_id).strip()
+    # Validate pack_id against canonical list BEFORE constructing a file path
+    # to prevent path traversal via crafted pack_id values.
+    if normalized_pack_id not in POLICY_PACK_IDS:
+        raise ValueError(f"unknown policy pack id: {normalized_pack_id}")
     path = _PACKS_DIR / f"{normalized_pack_id}.yaml"
     if not path.exists():
         raise FileNotFoundError(f"policy pack not found: {normalized_pack_id}")

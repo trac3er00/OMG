@@ -70,6 +70,24 @@ def validate_server_url(server_url: str) -> str:
     return normalized
 
 
+def sanitize_run_id(value: str, *, max_length: int = 128) -> str:
+    """Sanitize a run_id for safe use in filesystem paths.
+
+    - Strip whitespace
+    - Replace any character that isn't alphanumeric, '-', '_', or '.' with '-'
+    - Remove '..' sequences to prevent path traversal
+    - Cap length at *max_length*
+    - Return ``"unknown"`` if empty after sanitization
+    """
+    cleaned = "".join(
+        ch if ch.isalnum() or ch in {"-", "_", "."} else "-"
+        for ch in str(value).strip()
+    )
+    cleaned = cleaned.replace("..", "")
+    cleaned = cleaned[:max_length]
+    return cleaned or "unknown"
+
+
 def toml_quote_string(value: str) -> str:
     """Escape TOML basic string content."""
     return value.replace("\\", "\\\\").replace('"', '\\"')
