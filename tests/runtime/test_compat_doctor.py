@@ -208,6 +208,131 @@ def test_run_doctor_fix_clean_install_untouched(tmp_path: Path, monkeypatch: pyt
     assert len(orphan_receipts) == 0
 
 
+# --- OpenCode and Codex residue tests ---
+
+
+def _make_opencode_with_orphan(home_dir: Path, claude_dir: Path) -> Path:
+    oc_dir = home_dir / ".config" / "opencode"
+    oc_dir.mkdir(parents=True, exist_ok=True)
+    cfg = {
+        "mcp": {
+            "omg-control": {
+                "command": str(claude_dir / "omg-runtime" / ".venv" / "bin" / "python"),
+                "args": ["-m", "runtime.omg_mcp_server"],
+            }
+        }
+    }
+    cfg_path = oc_dir / "opencode.json"
+    cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    return cfg_path
+
+
+def _make_codex_toml_with_orphan(home_dir: Path, claude_dir: Path) -> Path:
+    codex_dir = home_dir / ".codex"
+    codex_dir.mkdir(parents=True, exist_ok=True)
+    toml_content = (
+        '[mcp_servers.omg-control]\n'
+        f'command = "{claude_dir / "omg-runtime" / ".venv" / "bin" / "python"}"\n'
+        'args = ["-m", "runtime.omg_mcp_server"]\n'
+    )
+    cfg_path = codex_dir / "config.toml"
+    cfg_path.write_text(toml_content, encoding="utf-8")
+    return cfg_path
+
+
+def test_collect_orphaned_runtime_refs_detects_opencode_residue(tmp_path: Path) -> None:
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    _make_opencode_with_orphan(tmp_path, claude_dir)
+
+    refs = _collect_orphaned_runtime_refs(str(claude_dir), home_dir=str(tmp_path))
+    assert any("opencode" in r for r in refs), f"OpenCode residue not detected: {refs}"
+
+
+def test_collect_orphaned_runtime_refs_detects_codex_toml_residue(tmp_path: Path) -> None:
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    _make_codex_toml_with_orphan(tmp_path, claude_dir)
+
+    refs = _collect_orphaned_runtime_refs(str(claude_dir), home_dir=str(tmp_path))
+    assert any("codex" in r for r in refs), f"Codex TOML residue not detected: {refs}"
+
+
+def test_collect_orphaned_runtime_refs_detects_codex_toml_when_runtime_dir_exists_but_python_missing(tmp_path: Path) -> None:
+    claude_dir = tmp_path / ".claude"
+    (claude_dir / "omg-runtime").mkdir(parents=True)
+    _make_codex_toml_with_orphan(tmp_path, claude_dir)
+
+    refs = _collect_orphaned_runtime_refs(str(claude_dir), home_dir=str(tmp_path))
+    assert any("codex" in r for r in refs), f"Codex broken-venv residue not detected: {refs}"
+
+
+def test_fix_orphaned_runtime_removes_opencode_residue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    oc_cfg = _make_opencode_with_orphan(tmp_path, claude_dir)
+    monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
+    monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+
+    result = run_doctor_fix(root_dir=tmp_path, dry_run=False)
+    orphan_receipts = [r for r in result["fix_receipts"] if r["check"] == "orphaned_runtime"]
+    assert len(orphan_receipts) == 1
+    assert orphan_receipts[0]["executed"] is True
+
+    data = json.loads(oc_cfg.read_text())
+    assert "omg-control" not in data.get("mcp", {}), "OpenCode omg-control should be removed"
+
+
+def test_fix_orphaned_runtime_removes_codex_toml_residue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    codex_cfg = _make_codex_toml_with_orphan(tmp_path, claude_dir)
+    monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
+    monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+
+    result = run_doctor_fix(root_dir=tmp_path, dry_run=False)
+    orphan_receipts = [r for r in result["fix_receipts"] if r["check"] == "orphaned_runtime"]
+    assert len(orphan_receipts) == 1
+    assert orphan_receipts[0]["executed"] is True
+
+    content = codex_cfg.read_text()
+    assert "omg-control" not in content, "Codex omg-control should be removed from TOML"
+
+
+def test_fix_orphaned_runtime_removes_codex_toml_when_runtime_dir_exists_but_python_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    claude_dir = tmp_path / ".claude"
+    (claude_dir / "omg-runtime").mkdir(parents=True)
+    codex_cfg = _make_codex_toml_with_orphan(tmp_path, claude_dir)
+    monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
+    monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+
+    result = run_doctor_fix(root_dir=tmp_path, dry_run=False)
+    orphan_receipts = [r for r in result["fix_receipts"] if r["check"] == "orphaned_runtime"]
+    assert len(orphan_receipts) == 1
+    assert orphan_receipts[0]["executed"] is True
+
+    content = codex_cfg.read_text()
+    assert "omg-control" not in content, "Codex omg-control should be removed when managed python is missing"
+
+
+def test_fix_orphaned_runtime_dry_run_preserves_codex_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    codex_cfg = _make_codex_toml_with_orphan(tmp_path, claude_dir)
+    monkeypatch.setenv("CLAUDE_DIR", str(claude_dir))
+    monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+
+    result = run_doctor_fix(root_dir=tmp_path, dry_run=True)
+    orphan_receipts = [r for r in result["fix_receipts"] if r["check"] == "orphaned_runtime"]
+    assert len(orphan_receipts) == 1
+    assert orphan_receipts[0]["executed"] is False
+
+    content = codex_cfg.read_text()
+    assert "omg-control" in content, "dry_run should preserve Codex TOML"
+
+
 # --- env doctor tests ---
 
 

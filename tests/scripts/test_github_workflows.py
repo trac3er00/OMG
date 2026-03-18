@@ -423,3 +423,42 @@ def test_release_readiness_workflow_enforces_trusted_packs() -> None:
     assert 'OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"' in gate_section, (
         "Run release readiness gate must set OMG_REQUIRE_TRUSTED_POLICY_PACKS: '1'"
     )
+
+
+def test_release_workflow_enforces_trusted_packs() -> None:
+    text = _read_workflow_text("release.yml")
+    release_job = _section(text, "  release:\n")
+    readiness_pos = release_job.find("Run release readiness checks")
+    assert readiness_pos >= 0, "Missing 'Run release readiness checks' step in release.yml"
+    readiness_section = release_job[readiness_pos:]
+    assert 'OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"' in readiness_section, (
+        "release.yml readiness checks must set OMG_REQUIRE_TRUSTED_POLICY_PACKS: '1'"
+    )
+
+
+def test_publish_workflow_enforces_trusted_packs() -> None:
+    text = _read_workflow_text("publish-npm.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    gate_pos = release_job.find("Run release readiness gate")
+    assert gate_pos >= 0, "Missing 'Run release readiness gate' step in publish-npm.yml"
+    gate_section = release_job[gate_pos:]
+    assert 'OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"' in gate_section, (
+        "publish-npm.yml readiness gate must set OMG_REQUIRE_TRUSTED_POLICY_PACKS: '1'"
+    )
+
+
+def test_semantic_release_prepare_cmd_audits_packed_artifacts() -> None:
+    config = json.loads((ROOT / ".releaserc.json").read_text(encoding="utf-8"))
+    plugins = config.get("plugins", [])
+    exec_plugin = next(
+        (
+            entry for entry in plugins
+            if isinstance(entry, list) and entry and entry[0] == "@semantic-release/exec"
+        ),
+        None,
+    )
+    assert exec_plugin is not None, "semantic-release config must include @semantic-release/exec"
+    prepare_cmd = exec_plugin[1].get("prepareCmd", "")
+    assert "audit-published-artifact.py" in prepare_cmd
+    assert "npm pack" in prepare_cmd, "prepareCmd must audit npm pack output"
+    assert "git archive" in prepare_cmd, "prepareCmd must audit git archive output"

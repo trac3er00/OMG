@@ -3,6 +3,7 @@
 
 ## 🎯 Core Integration Points
 
+<!-- OMG:GENERATED:quick-reference-hosts -->
 ### Canonical Hosts
 
 | Host | Config File |
@@ -11,6 +12,13 @@
 | codex | `~/.codex/config.toml` |
 | gemini | `~/.gemini/settings.json` |
 | kimi | `~/.kimi/mcp.json` |
+
+### Compatibility Hosts
+
+| Host | Config File |
+| :--- | :--- |
+| opencode | `~/.config/opencode/opencode.json` |
+<!-- /OMG:GENERATED:quick-reference-hosts -->
 
 ### Release Channels
 

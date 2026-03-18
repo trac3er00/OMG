@@ -20,7 +20,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "python3 scripts/sync-release-identity.py",
+        "prepareCmd": "python3 scripts/sync-release-identity.py && rm -rf artifacts/npm-unpack artifacts/git-unpack artifacts/git-archive.tar.gz && python3 scripts/audit-published-artifact.py --version ${nextRelease.version} --source-tree . --output-json artifacts/audit/pre-publish-audit.json && TARBALL=$(npm pack --silent) && mkdir -p artifacts/npm-unpack artifacts/git-unpack && tar -xzf \"$TARBALL\" -C artifacts/npm-unpack && python3 scripts/audit-published-artifact.py --version ${nextRelease.version} --source-tree artifacts/npm-unpack/package --output-json artifacts/audit/npm-pack-audit.json && git archive --format=tar.gz --prefix=omg-v${nextRelease.version}/ HEAD > artifacts/git-archive.tar.gz && tar -xzf artifacts/git-archive.tar.gz -C artifacts/git-unpack && python3 scripts/audit-published-artifact.py --version ${nextRelease.version} --source-tree artifacts/git-unpack/omg-v${nextRelease.version} --output-json artifacts/audit/git-tarball-audit.json && rm -f \"$TARBALL\"",
         "publishCmd": ""
       }
     ],

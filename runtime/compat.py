@@ -794,22 +794,32 @@ def _collect_orphaned_runtime_refs(claude_dir: str, *, home_dir: str | None = No
         except (json.JSONDecodeError, OSError):
             pass
 
-    for cfg_path, key_path in [
-        (os.path.join(_home, ".codex", "config.toml"), "mcp_servers.omg-control"),
-        (os.path.join(_home, ".gemini", "settings.json"), "mcpServers.omg-control"),
-        (os.path.join(_home, ".kimi", "mcp.json"), "mcpServers.omg-control"),
+    for cfg_path, key_path, mcp_top_key in [
+        (os.path.join(_home, ".codex", "config.toml"), "mcp_servers.omg-control", None),
+        (os.path.join(_home, ".gemini", "settings.json"), "mcpServers.omg-control", "mcpServers"),
+        (os.path.join(_home, ".kimi", "mcp.json"), "mcpServers.omg-control", "mcpServers"),
+        (os.path.join(_home, ".config", "opencode", "opencode.json"), "mcp.omg-control", "mcp"),
     ]:
         if not os.path.isfile(cfg_path):
             continue
         try:
             if cfg_path.endswith(".toml"):
+                import tomlkit
+
                 content = open(cfg_path, "r", encoding="utf-8").read()
-                if _ORPHANED_RUNTIME_MARKER in content and runtime_absent:
+                doc = tomlkit.parse(content)
+                mcp_servers = doc.get("mcp_servers", {})
+                ctrl = mcp_servers.get("omg-control", {})
+                cmd = ctrl.get("command", "")
+                if isinstance(cmd, str) and _ORPHANED_RUNTIME_MARKER in cmd and (
+                    runtime_absent
+                    or not os.path.isfile(os.path.join(managed_runtime_dir, ".venv", "bin", "python"))
+                ):
                     refs.append(f"{cfg_path}:{key_path}")
             else:
                 with open(cfg_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                ctrl = data.get("mcpServers", {}).get("omg-control", {})
+                ctrl = data.get(mcp_top_key, {}).get("omg-control", {})
                 cmd = ctrl.get("command", "")
                 if _ORPHANED_RUNTIME_MARKER in cmd and (
                     runtime_absent
@@ -991,6 +1001,7 @@ _ENV_HOST_CONFIG_DIRS: dict[str, tuple[str, ...]] = {
     "gemini": (".gemini",),
     "kimi": (".kimi",),
     "claude": (".claude",),
+    "opencode": (".config/opencode",),
 }
 
 
@@ -1297,19 +1308,38 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
         except (json.JSONDecodeError, OSError):
             pass
 
+    codex_cfg = os.path.join(_home, ".codex", "config.toml")
+    if not dry_run and os.path.isfile(codex_cfg) and any(codex_cfg in r for r in refs):
+        try:
+            import tomlkit
+
+            with open(codex_cfg, "r", encoding="utf-8") as f:
+                doc = tomlkit.parse(f.read())
+            mcp_servers = doc.get("mcp_servers", {})
+            ctrl = mcp_servers.get("omg-control", {})
+            cmd = ctrl.get("command", "")
+            if isinstance(cmd, str) and _ORPHANED_RUNTIME_MARKER in cmd:
+                del mcp_servers["omg-control"]
+                with open(codex_cfg, "w", encoding="utf-8") as f:
+                    f.write(tomlkit.dumps(doc))
+                removed_paths.append(f"{codex_cfg}:mcp_servers.omg-control")
+        except Exception:
+            pass
+
     if not dry_run:
-        for cfg_path, key_path in [
-            (os.path.join(_home, ".gemini", "settings.json"), "mcpServers.omg-control"),
-            (os.path.join(_home, ".kimi", "mcp.json"), "mcpServers.omg-control"),
+        for cfg_path, key_path, mcp_top_key in [
+            (os.path.join(_home, ".gemini", "settings.json"), "mcpServers.omg-control", "mcpServers"),
+            (os.path.join(_home, ".kimi", "mcp.json"), "mcpServers.omg-control", "mcpServers"),
+            (os.path.join(_home, ".config", "opencode", "opencode.json"), "mcp.omg-control", "mcp"),
         ]:
             if not os.path.isfile(cfg_path) or not any(cfg_path in r for r in refs):
                 continue
             try:
                 with open(cfg_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                ctrl = data.get("mcpServers", {}).get("omg-control", {})
+                ctrl = data.get(mcp_top_key, {}).get("omg-control", {})
                 if _ORPHANED_RUNTIME_MARKER in ctrl.get("command", ""):
-                    del data["mcpServers"]["omg-control"]
+                    del data[mcp_top_key]["omg-control"]
                     content = json.dumps(data, indent=2, ensure_ascii=True) + "\n"
                     with open(cfg_path, "w", encoding="utf-8") as f:
                         f.write(content)

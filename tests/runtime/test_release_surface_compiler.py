@@ -14,6 +14,11 @@ from runtime.release_surface_compiler import (
     _install_fast_path_content,
     _proof_content,
     _command_surface_snippet,
+    _install_intro_content,
+    _why_omg_content,
+    _proof_quickstart_content,
+    _quick_reference_hosts_content,
+    _verification_index_targets_content,
 )
 
 
@@ -59,6 +64,19 @@ def project(tmp_path: Path) -> Path:
     scripts_dir = tmp_path / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     (scripts_dir / "omg.py").write_text(_MINIMAL_OMG_PY, encoding="utf-8")
+    proof_dir = tmp_path / "docs"
+    (proof_dir / "proof.md").write_text(
+        "# OMG Proof Surface\n\n## Verification Status\n\nDetails.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "QUICK-REFERENCE.md").write_text(
+        "<!-- GENERATED: DO NOT EDIT MANUALLY -->\n# OMG Quick Reference\n\nContent.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "INSTALL-VERIFICATION-INDEX.md").write_text(
+        "<!-- GENERATED: DO NOT EDIT MANUALLY -->\n# OMG Install Verification\n\nContent.\n",
+        encoding="utf-8",
+    )
     return tmp_path
 
 
@@ -313,7 +331,7 @@ class TestQuickstartContent:
         content = _quickstart_content()
         assert "omg install --apply" in content
 
-    def test_quickstart_does_not_lead_with_npm(self) -> None:
+    def test_quickstart_leads_with_install_step(self) -> None:
         content = _quickstart_content()
         lines = content.split("\n")
         first_code_block = []
@@ -327,7 +345,9 @@ class TestQuickstartContent:
             if in_block:
                 first_code_block.append(line)
         first_block_text = "\n".join(first_code_block)
-        assert "npm install" not in first_block_text, "npm should not be in first code block"
+        assert first_block_text.startswith("npm install -g @trac3er/oh-my-god"), (
+            "quickstart should start by installing the omg binary"
+        )
 
     def test_quickstart_crazy_only_in_footnote(self) -> None:
         content = _quickstart_content()
@@ -419,3 +439,135 @@ class TestCommandSurfaceSnippet:
         content = _command_surface_snippet(no_omg)
         assert "omg ship" in content
         assert "omg proof" in content
+
+
+class TestInstallIntroContent:
+
+    def test_leads_with_install_step(self) -> None:
+        content = _install_intro_content()
+        lines = content.split("\n")
+        code_lines = [l for l in lines if l.startswith("npm install") or l.startswith("npx ") or l.startswith("omg ")]
+        assert code_lines[0].startswith("npm install -g @trac3er/oh-my-god")
+
+    def test_states_npm_install_no_mutations(self) -> None:
+        content = _install_intro_content()
+        assert "bin linking only" in content
+        assert "no mutations" in content.lower()
+
+    def test_states_postinstall_plan_only(self) -> None:
+        content = _install_intro_content()
+        assert "omg install --plan" in content
+        assert "preview" in content.lower()
+
+    def test_does_not_contain_does_two_things(self) -> None:
+        content = _install_intro_content()
+        assert "does two things" not in content.lower()
+
+    def test_does_not_use_bare_npx_omg(self) -> None:
+        content = _install_intro_content()
+        assert "npx omg" not in content
+
+    def test_local_without_global_uses_scoped_package(self) -> None:
+        content = _install_intro_content()
+        assert "@trac3er/oh-my-god" in content
+
+    def test_install_intro_in_readme(self, project: Path) -> None:
+        compile_release_surfaces(project)
+        content = (project / "README.md").read_text()
+        assert "<!-- OMG:GENERATED:install-intro -->" in content
+        assert "npm install -g @trac3er/oh-my-god" in content
+
+
+class TestWhyOmgContent:
+
+    def test_slash_commands_in_footnote_only(self) -> None:
+        content = _why_omg_content()
+        for line in content.split("\n"):
+            if "/OMG:" in line:
+                assert line.startswith(">"), f"Slash command not in footnote: {line!r}"
+
+    def test_mentions_opencode(self) -> None:
+        content = _why_omg_content()
+        assert "OpenCode" in content
+
+    def test_why_omg_in_readme(self, project: Path) -> None:
+        compile_release_surfaces(project)
+        content = (project / "README.md").read_text()
+        assert "<!-- OMG:GENERATED:why-omg -->" in content
+
+
+class TestProofQuickstartContent:
+
+    def test_leads_with_proof_open(self) -> None:
+        content = _proof_quickstart_content()
+        lines = content.split("\n")
+        code_lines = [l for l in lines if l.startswith("omg ")]
+        assert code_lines[0].startswith("omg proof open --html")
+
+    def test_shows_blocked_last(self) -> None:
+        content = _proof_quickstart_content()
+        assert "omg blocked --last" in content
+
+    def test_proof_quickstart_in_proof_doc(self, project: Path) -> None:
+        compile_release_surfaces(project)
+        content = (project / "docs" / "proof.md").read_text()
+        assert "<!-- OMG:GENERATED:proof-quickstart -->" in content
+        assert "omg proof open --html" in content
+
+
+class TestQuickReferenceHosts:
+
+    def test_includes_opencode(self) -> None:
+        content = _quick_reference_hosts_content()
+        assert "opencode" in content
+
+    def test_includes_all_canonical_hosts(self) -> None:
+        content = _quick_reference_hosts_content()
+        for host in ("claude", "codex", "gemini", "kimi"):
+            assert host in content
+
+    def test_quick_ref_hosts_in_doc(self, project: Path) -> None:
+        compile_release_surfaces(project)
+        content = (project / "QUICK-REFERENCE.md").read_text()
+        assert "<!-- OMG:GENERATED:quick-reference-hosts -->" in content
+        assert "opencode" in content
+
+
+class TestVerificationIndexTargets:
+
+    def test_includes_opencode(self) -> None:
+        content = _verification_index_targets_content()
+        assert "OpenCode" in content
+
+    def test_includes_all_canonical_targets(self) -> None:
+        content = _verification_index_targets_content()
+        for host in ("Claude", "Codex", "Gemini", "Kimi"):
+            assert host in content
+
+    def test_verification_index_in_doc(self, project: Path) -> None:
+        compile_release_surfaces(project)
+        content = (project / "INSTALL-VERIFICATION-INDEX.md").read_text()
+        assert "<!-- OMG:GENERATED:verification-index-targets -->" in content
+        assert "OpenCode" in content
+
+
+class TestDocsKillGuards:
+    """Ensure banned language never returns in documentation."""
+
+    def test_does_two_things_language_eliminated(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        for md in root.rglob("*.md"):
+            rel = md.relative_to(root)
+            if any(part.startswith(".") for part in rel.parts):
+                continue
+            if "node_modules" in str(rel):
+                continue
+            content = md.read_text(encoding="utf-8")
+            assert "does two things" not in content.lower(), (
+                f"Banned phrase 'does two things' found in {rel}"
+            )
+
+    def test_install_fast_path_states_no_mutations(self) -> None:
+        content = _install_fast_path_content()
+        assert "no mutations" in content.lower()
+        assert "omg install --apply" in content

@@ -6,7 +6,7 @@
 npm install @trac3er/oh-my-god
 ```
 
-The npm postinstall now registers the local `omg` marketplace, enables `omg@omg`, and installs the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
+`npm install` performs dependency resolution and bin linking only. The `postinstall` hook runs `omg install --plan` (preview, no mutations). To apply configuration, run `omg install --apply` explicitly.
 
 ## Official Claude Plugin Flow
 

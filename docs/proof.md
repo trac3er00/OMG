@@ -3,6 +3,19 @@
 [![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
 
+<!-- OMG:GENERATED:proof-quickstart -->
+## Getting Started with Proof
+
+```bash
+omg proof open --html       # open latest evidence pack as narrated proof
+omg blocked --last          # inspect last governance block explanation
+omg explain run <id>        # explain a specific run
+omg budget simulate --enforce
+```
+
+Machine-generated evidence artifacts: `.omg/evidence/`
+<!-- /OMG:GENERATED:proof-quickstart -->
+
 ## Verification Status
 
 OMG keeps verification visible instead of burying it in implementation details.

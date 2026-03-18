@@ -244,6 +244,9 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "| Install | `omg install --plan` |",
         "| Diagnostics | `omg doctor` |",
         "| Ship | `omg ship` |",
+        "| Sign policy pack | `omg policy-pack sign <pack_id> --key-path <key>` |",
+        "| Verify policy packs | `omg policy-pack verify --all` |",
+        "| Generate signing key | `omg policy-pack keygen --output <path>` |",
     ])
     
     _write_text(output_root / "QUICK-REFERENCE.md", "\n".join(quick_md) + "\n")

@@ -67,14 +67,16 @@ graph TD
 - Plugin id: `omg`
 - Marketplace id: `omg`
 
+<!-- OMG:GENERATED:why-omg -->
 ## Why OMG
 
-- Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
-- Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
 - Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI are canonical behavior-parity hosts; OpenCode is compatibility-only.
-- Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
+- Compiled planning: advanced planning is compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
 - Proof-first delivery: verification, provider coverage, HUD artifacts, and transcripts are published instead of implied.
+
+> Compatibility: `/OMG:setup`, `/OMG:crazy`, `/OMG:browser` etc. remain as Claude Code slash-command aliases.
+<!-- /OMG:GENERATED:why-omg -->
 
 ## Canonical Contract
 
@@ -89,55 +91,30 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 
 ![OMG HUD](docs/assets/omg-hud.svg)
 
+<!-- OMG:GENERATED:install-intro -->
 ## Quickstart
 
-Install with npm or bunx (Bun runtime):
-
 ```bash
-npm install @trac3er/oh-my-god
-# or
-bunx @trac3er/oh-my-god
+npm install -g @trac3er/oh-my-god
+omg env doctor              # check your environment
+omg install --plan          # preview what OMG will configure
+omg install --apply         # apply configuration
+omg ship                    # start working
 ```
 
-That fast path now does two things:
+`npm install @trac3er/oh-my-god` handles dependency resolution and bin linking only.
+The `postinstall` hook runs `omg install --plan` (preview, no mutations).
+To apply changes, run `omg install --apply` explicitly.
 
-- registers the local `omg` marketplace plus `omg@omg` plugin bundle for Claude Code
-- wires `omg-control` into detected Codex, Gemini, and Kimi MCP configs using the managed OMG Python runtime
+For global installation: `npm install -g @trac3er/oh-my-god` to get `omg` on PATH.
+For local without global: `npm install @trac3er/oh-my-god`, then `npm exec omg -- <args>`.
 
-Or clone and run the setup manager:
-
-```bash
-git clone https://github.com/trac3er00/OMG
-cd OMG
-chmod +x OMG-setup.sh
-./OMG-setup.sh install --mode=omg-only --preset=balanced
-```
-
-Then run:
-
-```text
-/OMG:setup
-/OMG:browser capture login flow evidence
-/OMG:crazy stabilize auth and dashboard flows
-```
-
-On non-Claude hosts, verify native MCP registration instead:
+On non-Claude hosts, verify native MCP registration:
 
 - `codex mcp list`
 - `gemini mcp list`
 - `kimi mcp list`
-
-Success looks like:
-
-- supported hosts are detected
-- Claude Code sees `omg@omg` as enabled instead of `failed to load`
-- Claude Code's plugin bundle owns `omg-control` via `.claude-plugin/mcp.json`; project or user `.mcp.json` entries can keep `filesystem` without collisions
-- `~/.claude/settings.json` has a `statusLine` command for `~/.claude/hud/omg-hud.mjs`
-- `~/.codex/config.toml`, `~/.gemini/settings.json`, and `~/.kimi/mcp.json` receive `omg-control` when those CLIs are on `PATH`
-- additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)
-- `.omg/state/adoption-report.json` is written when another ecosystem is present
-- OMG reports the selected preset and next step
-- narrowed defaults keep the required control plane small while optional capabilities such as browser automation remain opt-in
+<!-- /OMG:GENERATED:install-intro -->
 
 ## Install Guides
 
