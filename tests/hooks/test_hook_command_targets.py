@@ -75,3 +75,11 @@ def test_instructions_loaded_hook_entrypoint_executes() -> None:
     )
 
     assert proc.returncode == 0
+
+
+def test_reviewed_hook_entrypoints_postpone_annotation_evaluation() -> None:
+    for hook_name in ("idle-detector.py", "prompt-enhancer.py"):
+        source = (HOOKS_DIR / hook_name).read_text(encoding="utf-8")
+        assert (
+            "from __future__ import annotations" in source
+        ), f"{hook_name} must postpone annotation evaluation for Python 3.9-safe imports"

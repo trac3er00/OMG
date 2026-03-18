@@ -1,19 +1,12 @@
 # Install OMG for Kimi CLI
 
-<!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
-> **Prerequisites:** Node >= 18, Python 3.10+, macOS or Linux.
-
 ```bash
-npx omg install --plan    # preview changes
-npx omg install --apply   # apply configuration
+npm install @trac3er/oh-my-god
 ```
 
-This configures the OMG control plane for your host.
-<!-- /OMG:GENERATED:install-fast-path -->
-
-If `kimi` is on `PATH`, `npx omg install --apply` writes the `omg-control` stdio server entry to `~/.kimi/mcp.json`.
+If `kimi` is already on `PATH`, OMG writes an `omg-control` stdio server entry to `~/.kimi/mcp.json` during install.
 
 ## Manual Path
 
@@ -40,3 +33,16 @@ Optional browser capability:
 
 - Kimi uses native MCP registration; it does not consume Claude `/OMG:*` slash commands
 - OMG support on Kimi is the shared runtime plus MCP control plane
+
+<!-- OMG:GENERATED:install-fast-path -->
+## Fast Path
+
+> **Prerequisites**: Node >=18, Python >=3.10
+
+```bash
+omg install --plan    # preview changes
+omg install --apply   # apply configuration
+```
+
+This registers the OMG control plane for your host automatically.
+<!-- /OMG:GENERATED:install-fast-path -->

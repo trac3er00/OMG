@@ -6,6 +6,8 @@ Features are implemented in later tasks:
 - Memory capture: Task 19
 - Compound learning: Task 30
 """
+from __future__ import annotations
+
 import sys
 import os
 import json

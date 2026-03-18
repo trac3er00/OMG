@@ -1,4 +1,6 @@
 """Shared utilities for OMG hooks. Pure stdlib — no external deps."""
+from __future__ import annotations
+
 import json
 import os
 import sys

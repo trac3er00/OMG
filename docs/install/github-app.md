@@ -149,12 +149,12 @@ Confirm your setup with this checklist:
 <!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
-> **Prerequisites:** Node >= 18, Python 3.10+, macOS or Linux.
+> **Prerequisites**: Node >=18, Python >=3.10
 
 ```bash
-npx omg install --plan    # preview changes
-npx omg install --apply   # apply configuration
+omg install --plan    # preview changes
+omg install --apply   # apply configuration
 ```
 
-This configures the OMG control plane for your host.
+This registers the OMG control plane for your host automatically.
 <!-- /OMG:GENERATED:install-fast-path -->
