@@ -1,12 +1,19 @@
 # Install OMG for Claude Code
 
+<!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
+> **Prerequisites:** Node >= 18, Python 3.10+, macOS or Linux.
+
 ```bash
-npm install @trac3er/oh-my-god
+npx omg install --plan    # preview changes
+npx omg install --apply   # apply configuration
 ```
 
-The npm postinstall now registers the local `omg` marketplace, enables `omg@omg`, and installs the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
+This configures the OMG control plane for your host.
+<!-- /OMG:GENERATED:install-fast-path -->
+
+The npm postinstall runs `omg install --plan` to preview configuration changes. Run `npx omg install --apply` to register the marketplace, enable `omg@omg`, and install the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
 
 ## Official Claude Plugin Flow
 
@@ -17,7 +24,7 @@ claude plugin marketplace add /path/to/OMG --scope user
 claude plugin install omg@omg --scope user
 ```
 
-`npm install` is equivalent for OMG because the setup script now writes the marketplace registration that Claude expects.
+`npm install` previews what OMG will configure. Run `npx omg install --apply` to write the marketplace registration that Claude expects.
 
 Claude-specific note:
 
@@ -48,16 +55,3 @@ That enables OMG's browser capability metadata for `/OMG:browser` and records th
 - `~/.claude/.mcp.json` should not duplicate the plugin-managed `omg-control` server
 - `~/.claude/omg-runtime/.venv/bin/python` should exist
 - if browser capability is enabled, `~/.claude/omg-runtime/browser/capability.json` should exist
-
-<!-- OMG:GENERATED:install-fast-path -->
-## Fast Path
-
-> **Prerequisite**: Node >=18
-
-```bash
-omg install --plan    # preview changes
-omg install --apply   # apply configuration
-```
-
-This registers the OMG control plane for your host automatically.
-<!-- /OMG:GENERATED:install-fast-path -->

@@ -832,7 +832,7 @@ def test_setup_uninstall_removes_omg_metadata_from_claude_settings(tmp_path: Pat
         json.dumps(
             {
                 "enabledPlugins": {"linear@claude-plugins-official": True},
-                "_omg": {"_version": "2.2.7", "preset": "safe"},
+                "_omg": {"_version": "2.2.8", "preset": "safe"},
             }
         )
         + "\n",

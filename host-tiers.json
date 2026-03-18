@@ -1,7 +1,7 @@
 {
   "generated_by": "omg docs generate",
-  "version": "2.2.7",
-  "generated_at": "2026-03-18T04:15:15.461364+00:00",
+  "version": "2.2.8",
+  "generated_at": "2026-03-18T06:06:59.746015+00:00",
   "tiers": {
     "canonical": [
       "claude",

@@ -1,4 +1,4 @@
-# OMG Codex Rules (channel: public)
+# OMG Codex Rules (channel: enterprise)
 
 ## Defaults
 

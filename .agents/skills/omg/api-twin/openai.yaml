@@ -2,7 +2,7 @@ name: omg-api-twin
 description: "Versioned endpoint cassette replay with latency, drift, and cost reporting."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: api-twin
   title: "OMG API Twin"
 mcp_servers:

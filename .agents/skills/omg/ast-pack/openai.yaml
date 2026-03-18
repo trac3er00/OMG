@@ -2,7 +2,7 @@ name: omg-ast-pack
 description: "Governed AST search and replace lane with canonical approvals and proofs."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: ast-pack
   title: "OMG AST Pack Lane"
 mcp_servers:

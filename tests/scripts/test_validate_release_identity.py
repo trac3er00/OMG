@@ -449,7 +449,7 @@ class TestReleaseSurfaceDriftGate:
             root.mkdir()
             output.mkdir()
 
-            pkg = {"name": "@trac3er/oh-my-god", "version": "2.2.7"}
+            pkg = {"name": "@trac3er/oh-my-god", "version": "2.2.8"}
             (root / "package.json").write_text(json.dumps(pkg))
             (root / "action.yml").write_text("name: OMG\n")
 
@@ -457,7 +457,7 @@ class TestReleaseSurfaceDriftGate:
             manifest_dir.mkdir(parents=True)
             manifest = {
                 "generated_by": "omg release compile-surfaces",
-                "version": "2.2.7",
+                "version": "2.2.8",
                 "generated_at": "2025-01-01T00:00:00+00:00",
                 "surfaces": get_public_surfaces(),
             }
@@ -470,6 +470,8 @@ class TestReleaseSurfaceDriftGate:
 
     def test_drift_gate_ok_when_all_surfaces_agree(self):
         from runtime.contract_compiler import _check_release_surface_drift
+        from runtime.doc_generator import generate_docs
+        from runtime.release_surface_compiler import compile_release_surfaces
         from runtime.release_surface_registry import get_public_surfaces
 
         import tempfile
@@ -479,15 +481,17 @@ class TestReleaseSurfaceDriftGate:
             root.mkdir()
             output.mkdir()
 
-            pkg = {"name": "@trac3er/oh-my-god", "version": "2.2.7", "bin": {"omg": "./OMG-setup.sh"}}
+            pkg = {"name": "@trac3er/oh-my-god", "version": "2.2.8", "bin": {"omg": "./OMG-setup.sh"}}
             (root / "package.json").write_text(json.dumps(pkg))
             (root / "action.yml").write_text("name: OMG\n")
+            generate_docs(root)
+            compile_release_surfaces(root)
 
             manifest_dir = output / "dist" / "public"
             manifest_dir.mkdir(parents=True)
             manifest = {
                 "generated_by": "omg release compile-surfaces",
-                "version": "2.2.7",
+                "version": "2.2.8",
                 "generated_at": "2025-01-01T00:00:00+00:00",
                 "surfaces": get_public_surfaces(),
             }

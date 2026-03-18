@@ -1,7 +1,7 @@
 """Tests for the release surface registry contract.
 
 Verifies that runtime/release_surface_registry.py covers all required
-public-surface behavioral parity entries for v2.2.7: docs, launchers,
+public-surface behavioral parity entries for v2.2.8: docs, launchers,
 check names, workflows, and signed artifacts.
 """
 from __future__ import annotations

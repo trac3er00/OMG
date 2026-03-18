@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/security-check.yaml",
       "digest": {
-        "sha256": "f371b1fb0d9ca7b10a2eb0bc90320d8b575c97bd35556a2484cfaf11211b2688"
+        "sha256": "b137941297956ea0999e1f859511a4e06440e07a92c7a280f532e3061c59a7e8"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-16T21:33:13.851834+00:00"
+      "timestamp": "2026-03-18T06:00:04.130516+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-16T21:33:13.851834+00:00",
+  "issued_at": "2026-03-18T06:00:04.130516+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "bbf05ac936f96654",
-    "value": "untrusted comment: signature from omg local signing key\nUgvwUsVQvx6qEHd7yBLIfO2SQtS6ygT+YW7AmPflLjHswTY1p4MsNyHmUz9R/0b0Pai3Eh69q+4jZaJbngGoDQ==\ntrusted comment: type=omg-slsa-v1 keyid=bbf05ac936f96654 issued_at=2026-03-16T21:33:13.851940+00:00 artifact=bundle/registry/bundles/security-check.yaml sha256=f371b1fb0d9ca7b10a2eb0bc90320d8b575c97bd35556a2484cfaf11211b2688\nVvOMauanuWx+I7tUsDeCN4XlCOqYPJAzvSe1NyEoC+TXQJ2tAxOyyJa3nyuJcBO7YHtHzjit+059I5Z0vlg6Dw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=bbf05ac936f96654 issued_at=2026-03-16T21:33:13.851940+00:00 artifact=bundle/registry/bundles/security-check.yaml sha256=f371b1fb0d9ca7b10a2eb0bc90320d8b575c97bd35556a2484cfaf11211b2688"
+    "keyid": "9db62c85d5d9f15a",
+    "value": "untrusted comment: signature from omg local signing key\n6dsVg/O2bEueehX0ok7t+ztsrgCuGI1Zuirocd52IRWgPNYtwouZGtYm8hAoogKmsL0iAKX/bhwyfgDZzicHCQ==\ntrusted comment: type=omg-slsa-v1 keyid=9db62c85d5d9f15a issued_at=2026-03-18T06:00:04.130627+00:00 artifact=bundle/registry/bundles/security-check.yaml sha256=b137941297956ea0999e1f859511a4e06440e07a92c7a280f532e3061c59a7e8\nmIQIBYObopeYcc0v+d/ZJppdExuAfDfTAcNbzRlyIffVa8a3xdj7EW4De5vqivQbzb+dl/lms3qM0tGWRukKBg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=9db62c85d5d9f15a issued_at=2026-03-18T06:00:04.130627+00:00 artifact=bundle/registry/bundles/security-check.yaml sha256=b137941297956ea0999e1f859511a4e06440e07a92c7a280f532e3061c59a7e8"
   }
 }

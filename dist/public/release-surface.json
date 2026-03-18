@@ -1,19 +1,19 @@
 {
   "generated_by": "omg release compile-surfaces",
-  "version": "2.2.7",
-  "generated_at": "2026-03-18T04:15:11.296315+00:00",
+  "version": "2.2.8",
+  "generated_at": "2026-03-18T06:04:09.657957+00:00",
   "surfaces": [
     {
       "id": "release_notes_artifact",
       "category": "docs",
-      "path": "artifacts/release/release-notes-v2.2.7.md",
-      "description": "release notes artifact for v2.2.7"
+      "path": "artifacts/release/release-notes-v2.2.8.md",
+      "description": "release notes artifact for v2.2.8"
     },
     {
       "id": "changelog_current_block",
       "category": "docs",
       "path": "CHANGELOG.md",
-      "marker": "<!-- OMG:GENERATED:changelog-v2.2.7 -->",
+      "marker": "<!-- OMG:GENERATED:changelog-v2.2.8 -->",
       "description": "current release block in changelog"
     },
     {

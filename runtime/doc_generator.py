@@ -75,7 +75,10 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "generated_at": timestamp,
         "verification_commands": [
             {"name": "doctor", "command": "omg doctor"},
+            {"name": "env doctor", "command": "omg env doctor"},
             {"name": "validate", "command": "omg validate"},
+            {"name": "contract validate", "command": "omg contract validate"},
+            {"name": "install plan", "command": "omg install --plan"},
         ],
         "cache_paths": [
             ".omg/cache",
@@ -241,9 +244,16 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "",
         "| Task | Command |",
         "| :--- | :--- |",
-        "| Install | `omg install --plan` |",
-        "| Diagnostics | `omg doctor` |",
-        "| Ship | `omg ship` |",
+        "| Install (preview) | `npx omg install --plan` |",
+        "| Install (apply) | `npx omg install --apply` |",
+        "| Diagnostics | `npx omg doctor` |",
+        "| Environment check | `npx omg env doctor` |",
+        "| Ship | `npx omg ship` |",
+        "| Proof dashboard | `npx omg proof open --html` |",
+        "| Explain run | `npx omg explain run <id>` |",
+        "| Blocked inspection | `npx omg blocked --last` |",
+        "| Validate | `npx omg validate` |",
+        "| Contract validate | `npx omg contract validate` |",
     ])
     
     _write_text(output_root / "QUICK-REFERENCE.md", "\n".join(quick_md) + "\n")

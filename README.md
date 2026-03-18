@@ -69,8 +69,8 @@ graph TD
 
 ## Why OMG
 
-- Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
-- Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
+- Front door: `npx omg install --apply`, then `npx omg ship`. Slash commands `/OMG:setup` and `/OMG:crazy` are accepted as compatibility aliases.
+- Browser automation: `npx omg ship` with browser goals, or `/OMG:browser <goal>` in Claude Code (`/OMG:playwright` kept as alias).
 - Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI are canonical behavior-parity hosts; OpenCode is compatibility-only.
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
 - Native adoption: setup detects OMC, OMX, and Superpowers-style environments without exposing copycat public migration commands.
@@ -91,18 +91,19 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 
 ## Quickstart
 
+> **Prerequisites:** Node >= 18, Python 3.10+, macOS or Linux.
+
 Install with npm or bunx (Bun runtime):
 
 ```bash
-npm install @trac3er/oh-my-god
+npm install -g @trac3er/oh-my-god
+# or
+npx @trac3er/oh-my-god install --plan
 # or
 bunx @trac3er/oh-my-god
 ```
 
-That fast path now does two things:
-
-- registers the local `omg` marketplace plus `omg@omg` plugin bundle for Claude Code
-- wires `omg-control` into detected Codex, Gemini, and Kimi MCP configs using the managed OMG Python runtime
+The npm postinstall runs `omg install --plan` to preview configuration changes without writing anything. Run `npx omg install --apply` to execute the plan and configure your host.
 
 Or clone and run the setup manager:
 
@@ -216,16 +217,16 @@ OMG is a plugin and orchestration layer for supported CLIs. It is not a base-mod
 Preview what OMG will configure, then apply:
 
 ```bash
-omg install --plan
-omg install --apply
+npx omg install --plan
+npx omg install --apply
 ```
 
 Then start working:
 
 ```bash
-omg ship
-omg proof open --html
-omg blocked --last
+npx omg ship
+npx omg proof open --html
+npx omg blocked --last
 ```
 
 > Compatibility: `/OMG:crazy <goal>` is still accepted as an alias.

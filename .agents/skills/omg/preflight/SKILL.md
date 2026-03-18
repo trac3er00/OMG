@@ -5,7 +5,7 @@ description: "Repo-aware route selection based on diff, manifests, and classifie
 
 # OMG Preflight
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/tracebank/events.jsonl`

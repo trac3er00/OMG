@@ -36,7 +36,7 @@ python3 scripts/omg.py validate --format json
       "required": true | false
     }
   ],
-  "version": "2.2.7"
+  "version": "2.2.8"
 }
 ```
 

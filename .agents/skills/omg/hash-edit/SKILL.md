@@ -5,7 +5,7 @@ description: "Governed hash-bound edit lane with signed approvals and evidence r
 
 # OMG Hash Edit Lane
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/hash-edit-{run_id}.json`

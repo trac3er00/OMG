@@ -2,7 +2,7 @@ name: omg-hash-edit
 description: "Governed hash-bound edit lane with signed approvals and evidence routing."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: hash-edit
   title: "OMG Hash Edit Lane"
 mcp_servers:

@@ -32,6 +32,13 @@
 
 | Task | Command |
 | :--- | :--- |
-| Install | `omg install --plan` |
-| Diagnostics | `omg doctor` |
-| Ship | `omg ship` |
+| Install (preview) | `npx omg install --plan` |
+| Install (apply) | `npx omg install --apply` |
+| Diagnostics | `npx omg doctor` |
+| Environment check | `npx omg env doctor` |
+| Ship | `npx omg ship` |
+| Proof dashboard | `npx omg proof open --html` |
+| Explain run | `npx omg explain run <id>` |
+| Blocked inspection | `npx omg blocked --last` |
+| Validate | `npx omg validate` |
+| Contract validate | `npx omg contract validate` |
