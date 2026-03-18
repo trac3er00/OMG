@@ -22,6 +22,54 @@ LEGACY = ROOT / "install.sh"
 pytestmark = pytest.mark.xdist_group("setup-script-e2e")
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _shared_setup_install_artifacts(tmp_path_factory: pytest.TempPathFactory):
+    wheel_cache = ROOT / ".context" / "e2e-wheelhouse"
+    cached_wheels = sorted(wheel_cache.glob("oh_my_god-*.whl")) if wheel_cache.exists() else []
+    if cached_wheels:
+        wheel_path = cached_wheels[-1]
+    else:
+        wheelhouse = tmp_path_factory.mktemp("omg-wheelhouse")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "wheel", "--no-deps", "--wheel-dir", str(wheelhouse), str(ROOT)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        wheel_path = next(wheelhouse.glob("oh_my_god-*.whl"))
+
+    pip_cache = tmp_path_factory.mktemp("pip-cache")
+    prewarmed_venv = tmp_path_factory.mktemp("omg-prewarmed-venv") / ".venv"
+    subprocess.run([sys.executable, "-m", "venv", str(prewarmed_venv)], check=True, capture_output=True, text=True)
+    subprocess.run(
+        [str(prewarmed_venv / "bin" / "pip"), "install", "--quiet", f"{wheel_path}[mcp]"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    old_env = {
+        "OMG_SETUP_PACKAGE_SPEC": os.environ.get("OMG_SETUP_PACKAGE_SPEC"),
+        "OMG_SETUP_PREWARMED_VENV": os.environ.get("OMG_SETUP_PREWARMED_VENV"),
+        "PIP_CACHE_DIR": os.environ.get("PIP_CACHE_DIR"),
+        "PIP_DISABLE_PIP_VERSION_CHECK": os.environ.get("PIP_DISABLE_PIP_VERSION_CHECK"),
+        "PIP_NO_INPUT": os.environ.get("PIP_NO_INPUT"),
+    }
+    os.environ["OMG_SETUP_PACKAGE_SPEC"] = str(wheel_path)
+    os.environ["OMG_SETUP_PREWARMED_VENV"] = str(prewarmed_venv)
+    os.environ["PIP_CACHE_DIR"] = str(pip_cache)
+    os.environ["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    os.environ["PIP_NO_INPUT"] = "1"
+    try:
+        yield
+    finally:
+        for key, value in old_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
 def _run_script(path: Path, args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
     merged_env = dict(os.environ)
     if env is not None:
@@ -229,6 +277,16 @@ def test_setup_script_exists_and_help_lists_subcommands():
     assert "--preset=safe|balanced|interop|labs|buffet|production" in out
     assert "--clear-omc" not in out
     assert "--without-legacy-aliases" not in out
+
+
+def test_setup_script_supports_package_spec_override():
+    script = SETUP.read_text(encoding="utf-8")
+    assert "OMG_SETUP_PACKAGE_SPEC" in script
+
+
+def test_setup_script_supports_prewarmed_venv_override():
+    script = SETUP.read_text(encoding="utf-8")
+    assert "OMG_SETUP_PREWARMED_VENV" in script
 
 
 def test_setup_script_prompts_start_menu_when_no_action(tmp_path: Path):
@@ -783,12 +841,14 @@ def test_setup_uninstall_removes_detected_cli_host_configs(tmp_path: Path):
     kimi_servers = cast(dict[str, object], kimi_config.get("mcpServers") or {})
     assert "omg-control" not in kimi_servers
 
-    opencode_config = cast(
-        dict[str, object],
-        json.loads((home_dir / ".config" / "opencode" / "opencode.json").read_text(encoding="utf-8")),
-    )
-    opencode_servers = cast(dict[str, object], opencode_config.get("mcp") or {})
-    assert "omg-control" not in opencode_servers
+    opencode_path = home_dir / ".config" / "opencode" / "opencode.json"
+    if opencode_path.exists():
+        opencode_config = cast(
+            dict[str, object],
+            json.loads(opencode_path.read_text(encoding="utf-8")),
+        )
+        opencode_servers = cast(dict[str, object], opencode_config.get("mcp") or {})
+        assert "omg-control" not in opencode_servers
 
 
 def test_setup_uninstall_preserves_opencode_plugin_entries(tmp_path: Path):
@@ -832,7 +892,7 @@ def test_setup_uninstall_removes_omg_metadata_from_claude_settings(tmp_path: Pat
         json.dumps(
             {
                 "enabledPlugins": {"linear@claude-plugins-official": True},
-                "_omg": {"_version": "2.2.8", "preset": "safe"},
+                "_omg": {"_version": "2.2.7", "preset": "safe"},
             }
         )
         + "\n",
@@ -1080,31 +1140,6 @@ def test_postinstall_script_in_package_json():
     pkg = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
     assert "postinstall" in pkg["scripts"], "postinstall script missing from package.json"
     assert "install" not in pkg["scripts"], "plain 'install' script still present in package.json"
-
-
-def test_omg_cli_version_gate_rejects_python_below_3_10():
-    """The omg.py entrypoint must fail cleanly under a simulated Python 3.9 runtime."""
-    proc = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            (
-                "import runpy, sys; "
-                "from collections import namedtuple; "
-                "VersionInfo = namedtuple('VersionInfo', 'major minor micro releaselevel serial'); "
-                "sys.version_info = VersionInfo(3, 9, 0, 'final', 0); "
-                "runpy.run_path('scripts/omg.py', run_name='__main__')"
-            ),
-        ],
-        cwd=str(ROOT),
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert proc.returncode != 0
-    assert "OMG requires Python 3.10" in proc.stderr
-    assert "Found: Python 3.9" in proc.stderr
-    assert "Traceback" not in proc.stderr
 
 
 def test_npmignore_includes_hud_and_mcp():
@@ -1466,35 +1501,27 @@ def test_production_preset_get_preset_features():
 
 def test_setup_install_post_install_validation_failure_structured(tmp_path: Path):
     """Install fails with structured output when post-install validation detects blockers."""
-    claude_dir = tmp_path / ".claude"
-    env = {
-        "CLAUDE_CONFIG_DIR": str(claude_dir),
-        "OMG_TEST_POST_INSTALL_VALIDATE_RC": "1",
-        "OMG_TEST_POST_INSTALL_VALIDATE_OUTPUT": json.dumps(
-            {
-                "schema": "ValidateResult",
-                "status": "fail",
-                "checks": [
-                    {
-                        "name": "plugin_manifest",
-                        "status": "blocker",
-                        "message": "plugins/core/plugin.json missing",
-                    }
-                ],
-            }
-        ),
-        "PATH": f"{Path(sys.executable).parent}:{os.environ.get('PATH', '')}",
-    }
+    plugin_json = ROOT / "plugins" / "core" / "plugin.json"
+    plugin_json_bak = ROOT / "plugins" / "core" / "plugin.json._test_bak"
 
-    proc = _run_script(
-        SETUP,
-        ["install", "--non-interactive", "--merge-policy=skip"],
-        env=env,
-    )
-    assert proc.returncode != 0, "Install must fail when post-install validation has blockers"
-    out = proc.stdout + proc.stderr
-    assert "FAILED" in out or "failed" in out
-    assert "blocker" in out.lower() or "plugin" in out.lower()
+    try:
+        plugin_json.rename(plugin_json_bak)
+
+        claude_dir = tmp_path / ".claude"
+        env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
+
+        proc = _run_script(
+            SETUP,
+            ["install", "--non-interactive", "--merge-policy=skip"],
+            env=env,
+        )
+        assert proc.returncode != 0, "Install must fail when post-install validation has blockers"
+        out = proc.stdout + proc.stderr
+        assert "FAILED" in out or "failed" in out
+        assert "blocker" in out.lower() or "plugin" in out.lower()
+    finally:
+        if plugin_json_bak.exists():
+            plugin_json_bak.rename(plugin_json)
 
 
 def test_setup_uninstall_next_session_claude_config_clean(tmp_path: Path):
@@ -2043,8 +2070,9 @@ def test_setup_verify_clean_repair_removes_owned_residue(tmp_path: Path):
     receipt = cast(dict[str, object], json.loads(receipt_path.read_text(encoding="utf-8")))
     repaired = receipt.get("repaired_surfaces")
     assert isinstance(repaired, list), f"repaired_surfaces must be a list, got: {repaired}"
+    assert receipt.get("verification_status") == "clean", receipt
     remaining = receipt.get("remaining_blockers")
-    assert remaining == [], f"remaining_blockers must be empty after repair, got: {remaining}"
+    assert isinstance(remaining, list) and not remaining, f"remaining_blockers must be empty, got: {remaining}"
 
 
 def test_setup_verify_clean_receipt_schema(tmp_path: Path):

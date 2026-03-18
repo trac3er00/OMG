@@ -8,6 +8,11 @@ on:
         required: true
         type: string
   pull_request:
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".gitignore"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,8 +32,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
-            setup.py
-            setup.cfg
             requirements*.txt
 
       - name: Install Python dependencies
@@ -45,7 +48,7 @@ jobs:
 
       - name: Plugin interop diagnostics (advisory)
         continue-on-error: true
-        run: python3 scripts/omg.py diagnose-plugins --format json
+        run: python3 scripts/omg.py diagnose-plugins --format json || echo "::warning::Plugin interop diagnostics failed"
 
       - name: Export contract snapshot
         run: python3 scripts/omg.py compat snapshot --output artifacts/omg-compat-contracts.json
@@ -75,7 +78,7 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
 
-  compile-public-compat:
+  compile-and-parity-compat:
     runs-on: ubuntu-latest
     needs: prepare-compat-gate
     steps:
@@ -89,8 +92,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
-            setup.py
-            setup.cfg
             requirements*.txt
 
       - name: Install Python dependencies
@@ -107,139 +108,26 @@ jobs:
           HOST_FLAGS="$(python3 -c 'from runtime.canonical_surface import get_canonical_hosts; print(" ".join(f"--host {host}" for host in get_canonical_hosts()))')"
           python3 scripts/omg.py contract compile ${HOST_FLAGS} --channel public --output-root artifacts/public
 
-      - name: Sanitize colon filenames for upload
-        run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
-
-      - name: Upload compat compiled artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: compat-public-compiled
-          path: artifacts
-          if-no-files-found: error
-          include-hidden-files: true
-
-  emit-compat-host-parity:
-    runs-on: ubuntu-latest
-    needs: compile-public-compat
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: |
-            pyproject.toml
-            setup.py
-            setup.cfg
-            requirements*.txt
-
-      - name: Install Python dependencies
-        run: pip install .[test]
-
-      - name: Download compat compiled artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: compat-public-compiled
-          path: artifacts
-
       - name: Emit host semantic parity report
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          from runtime.host_parity import check_parity, emit_parity_report
-
-          run_id = os.environ.get("GITHUB_RUN_ID", "compat-gate")
-          output_root = Path("artifacts/public")
-
-          def _load_json(path: Path) -> dict:
-              payload = json.loads(path.read_text(encoding="utf-8"))
-              if not isinstance(payload, dict):
-                  raise SystemExit(f"expected JSON object in {path}")
-              return payload
-
-          outputs = {
-              "claude": {
-                  "output": {
-                      "status": "ok",
-                      "compiled": True,
-                  },
-                  "source": {
-                      "kind": "compiled_artifact",
-                      "artifact_path": "settings.json",
-                  },
-                  "exit_code": 0,
-              },
-              "codex": {
-                  "output": {
-                      "status": "ok",
-                      "compiled": True,
-                  },
-                  "source": {
-                      "kind": "compiled_artifact",
-                      "artifact_path": ".agents/skills/omg/AGENTS.fragment.md",
-                  },
-                  "exit_code": 0,
-              },
-              "gemini": {
-                  "output": {
-                      "status": "ok",
-                      "compiled": True,
-                  },
-                  "source": {
-                      "kind": "compiled_artifact",
-                      "artifact_path": ".gemini/settings.json",
-                  },
-                  "exit_code": 0,
-              },
-              "kimi": {
-                  "output": {
-                      "status": "ok",
-                      "compiled": True,
-                  },
-                  "source": {
-                      "kind": "compiled_artifact",
-                      "artifact_path": ".kimi/mcp.json",
-                  },
-                  "exit_code": 0,
-              },
-          }
-
-          # Hard requirement: parity must be backed by real compiled host artifacts.
-          _load_json(output_root / "settings.json")
-          (output_root / ".agents" / "skills" / "omg" / "AGENTS.fragment.md").read_text(encoding="utf-8")
-          _load_json(output_root / ".gemini" / "settings.json")
-          _load_json(output_root / ".kimi" / "mcp.json")
-
-          result = check_parity(outputs, context={"gate": "compat-workflow"})
-          emit_parity_report(run_id, result, project_dir=str(output_root))
-          if not result.passed:
-              raise SystemExit(f"host semantic parity drift detected: {result.drift_details}")
-          PY
+        run: python3 scripts/emit_host_parity.py --output-root artifacts/public --gate compat
 
       - name: Sanitize colon filenames for upload
         run: find artifacts -type f -name '*:*' -delete 2>/dev/null || true
 
-      - name: Upload compat parity artifacts
+      - name: Upload compat compiled + parity artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: compat-host-parity
+          name: compat-public-compiled
           path: artifacts
           if-no-files-found: error
           include-hidden-files: true
 
   pr-analyze:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && always()
     runs-on: ubuntu-latest
     needs:
       - prepare-compat-gate
-      - compile-public-compat
-      - emit-compat-host-parity
+      - compile-and-parity-compat
     permissions:
       contents: read
     steps:
@@ -253,8 +141,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
-            setup.py
-            setup.cfg
             requirements*.txt
 
       - name: Install Python dependencies
@@ -311,8 +197,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
-            setup.py
-            setup.cfg
             requirements*.txt
 
       - name: Install Python dependencies
@@ -347,8 +231,7 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     needs:
-      - compile-public-compat
-      - emit-compat-host-parity
+      - compile-and-parity-compat
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -360,8 +243,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
-            setup.py
-            setup.cfg
             requirements*.txt
 
       - name: Install Python dependencies
@@ -385,7 +266,7 @@ jobs:
             python3 scripts/omg.py release readiness --channel public --output-root artifacts/public > artifacts/omg-release-readiness-public.json
 
       - name: Run host parity regression tests
-        run: python3 -m pytest tests/runtime/test_host_parity.py -q
+        run: python3 -m pytest tests/runtime/test_host_parity.py -q --no-cov
 
       - name: Check standalone naming hygiene
         run: python3 scripts/check-omg-standalone-clean.py
@@ -393,8 +274,11 @@ jobs:
       - name: Check public-readiness hygiene
         run: python3 scripts/check-omg-public-ready.py
 
-      - name: Run regression tests
-        run: python3 -m pytest -q
+      - name: Run fast regression tests
+        run: python3 -m pytest -q --no-cov -m "not slow and not e2e"
+
+      - name: Run slow and e2e regression tests
+        run: python3 -m pytest -q --no-cov -m "slow or e2e"
 
       - name: Validate full release identity
         run: python3 scripts/validate-release-identity.py --scope all --forbid-version "${{ inputs.FORBID_VERSION }}"
@@ -423,8 +307,6 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
-            setup.py
-            setup.cfg
             requirements*.txt
 
       - name: Install Python dependencies

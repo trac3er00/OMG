@@ -54,13 +54,31 @@ def _clear_feature_cache():
 
 @pytest.fixture()
 def _patch_cli_writers():
-    """Mock all non-Claude MCP config writers (they write to HOME dirs)."""
-    with patch("hooks.setup_wizard.write_codex_mcp_config"), \
-         patch("hooks.setup_wizard.write_codex_mcp_stdio_config"), \
-         patch("hooks.setup_wizard.write_gemini_mcp_config"), \
-         patch("hooks.setup_wizard.write_gemini_mcp_stdio_config"), \
-         patch("hooks.setup_wizard.write_kimi_mcp_stdio_config"), \
-         patch("hooks.setup_wizard.write_kimi_mcp_config"):
+    """Execute only Claude-scoped install-plan writes during setup wizard tests."""
+    def _execute_claude_only(plan, *, dry_run: bool = False):
+        completed: list[str] = []
+        skipped: list[str] = []
+        if not dry_run:
+            for action in plan.actions:
+                if action.host != "claude":
+                    skipped.append(action.target_path)
+                    continue
+                target = Path(action.target_path)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(action.content, encoding="utf-8")
+                completed.append(action.target_path)
+        return {
+            "executed": not dry_run,
+            "actions_completed": completed,
+            "actions_skipped": skipped,
+            "receipt": None,
+            "errors": [],
+        }
+
+    with patch(
+        "runtime.install_planner.execute_plan",
+        side_effect=_execute_claude_only,
+    ):
         yield
 
 
@@ -202,24 +220,32 @@ class TestConfigureMcpIntegration:
         assert server_cfg["url"] == "http://127.0.0.1:8765/mcp"
 
     def test_configure_mcp_skips_undetected(self, tmp_path):
-        """configure_mcp skips config writer for undetected CLIs."""
+        """configure_mcp excludes undetected hosts from the generated install plan."""
         detected = {
             "codex": {"detected": False, "auth_ok": None},
             "gemini": {"detected": True, "auth_ok": True},
         }
 
-        with patch("runtime.install_planner.execute_plan", return_value={
-            "executed": True,
-            "actions_completed": [],
-            "actions_skipped": [],
-            "receipt": None,
-            "errors": [],
-        }):
+        captured_hosts: list[str] = []
+
+        def _capture_execute(plan, *, dry_run: bool = False):
+            del dry_run
+            captured_hosts.extend(action.host for action in plan.actions)
+            return {
+                "executed": True,
+                "actions_completed": [],
+                "actions_skipped": [],
+                "receipt": None,
+                "errors": [],
+            }
+
+        with patch("runtime.install_planner.execute_plan", side_effect=_capture_execute):
             result = setup_wizard.configure_mcp(str(tmp_path), detected)
 
         assert "codex" not in result["configured"]
         assert "gemini" in result["configured"]
-        assert result["errors"] == {}
+        assert "codex" not in captured_hosts
+        assert "gemini" in captured_hosts
 
     def test_configure_mcp_persists_selected_mcp_preferences(self, tmp_path, monkeypatch, _patch_cli_writers):
         """Selected MCPs should be persisted in the saved preferences."""

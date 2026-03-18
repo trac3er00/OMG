@@ -105,9 +105,16 @@ addopts = [
     "--dist",
     "loadgroup",
     "--timeout=30",
-    "--cov=.",
+    "--cov=runtime",
+    "--cov=hooks",
+    "--cov=commands",
+    "--cov=plugins",
+    "--cov=tools",
+    "--cov=agents",
+    "--cov=registry",
+    "--cov=lab",
+    "--cov=control_plane",
     "--cov-report=term-missing",
-    "--cov-report=html",
 ]
 markers = [
     "slow: marks tests as slow",
@@ -117,7 +124,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["."]
+source = ["runtime", "hooks", "commands", "plugins", "tools", "agents", "registry", "lab", "control_plane"]
 omit = [
     "tests/*",
     "*/__pycache__/*",

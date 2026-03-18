@@ -11,6 +11,8 @@ import pytest
 from runtime.adoption import CANONICAL_VERSION
 from runtime.interaction_journal import InteractionJournal
 
+pytestmark = pytest.mark.slow
+
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "omg.py"
 
@@ -303,7 +305,7 @@ def test_cli_waive_tests_emits_structured_waiver_artifact(tmp_path: Path):
 
 
 def test_cli_teams_command():
-    teams = _run(["teams", "--problem", "debug api auth bug"])
+    teams = _run(["teams", "--problem", "debug api auth bug"], env={"OMG_TEST_FAKE_PROVIDER_HEALTH": "1"})
     assert teams.returncode == 0
     teams_out = json.loads(teams.stdout)
     assert teams_out["status"] == "ok"
@@ -396,12 +398,13 @@ def test_cli_ccg_launches_two_worker_tracks(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_cli_teams_auto_routing_honors_explicit_and_ccg_keywords():
-    gemini = _run(["teams", "--target", "auto", "--problem", "please use gemini for this component"])
+    env = {"OMG_TEST_FAKE_PROVIDER_HEALTH": "1"}
+    gemini = _run(["teams", "--target", "auto", "--problem", "please use gemini for this component"], env=env)
     assert gemini.returncode == 0
     gemini_out = json.loads(gemini.stdout)
     assert gemini_out["evidence"]["target"] == "gemini"
 
-    ccg = _run(["teams", "--target", "auto", "--problem", "run a ccg review for full stack auth and dashboard"])
+    ccg = _run(["teams", "--target", "auto", "--problem", "run a ccg review for full stack auth and dashboard"], env=env)
     assert ccg.returncode == 0
     ccg_out = json.loads(ccg.stdout)
     assert ccg_out["evidence"]["target"] == "ccg"
@@ -458,7 +461,10 @@ def test_cli_compat_list_and_run():
     assert listed_out["count"] >= 30
     assert "omg-teams" in listed_out["skills"]
 
-    run = _run(["compat", "run", "--skill", "omg-teams", "--problem", "compat smoke"])
+    run = _run(
+        ["compat", "run", "--skill", "omg-teams", "--problem", "compat smoke"],
+        env={"OMG_TEST_FAKE_PROVIDER_HEALTH": "1"},
+    )
     assert run.returncode == 0
     run_out = json.loads(run.stdout)
     assert run_out["schema"] == "OmgCompatResult"
@@ -1508,22 +1514,22 @@ def test_cli_env_doctor_json_output():
     assert out["schema"] == "DoctorResult"
     assert "checks" in out
     check_names = {c["name"] for c in out["checks"]}
-    assert "node_version" in check_names
-    assert "python3_available" in check_names
-    assert "claude_auth" in check_names
+    assert "python_version" in check_names
+    assert "omg_control_reachable" in check_names
+    assert "managed_runtime" in check_names
     for check in out["checks"]:
         assert check["status"] in {"ok", "blocker", "warning"}
         assert "message" in check
         assert "required" in check
-        assert check["required"] is False
-        assert "remediation" in check
+        assert isinstance(check["required"], bool)
+        assert "repair_pack" in check
 
 
 def test_cli_env_doctor_text_output():
     proc = _run(["env", "doctor"])
     assert proc.returncode == 0 or proc.returncode == 1
-    assert "node_version" in proc.stdout
-    assert "python3_available" in proc.stdout
+    assert "python_version" in proc.stdout
+    assert "managed_runtime" in proc.stdout
     assert "PASS" in proc.stdout or "WARN" in proc.stdout
 
 

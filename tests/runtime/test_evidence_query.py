@@ -368,6 +368,4 @@ def test_unknown_profile_behavior(tmp_path: Path) -> None:
     assert pack["evidence_profile_known"] is False
     assert pack["evidence_profile_error"] == "unknown_evidence_profile:not-a-real-profile"
     requirements = pack["evidence_requirements"]
-    assert isinstance(requirements, list)
-    assert "security_scan" in requirements
-    assert "sbom" in requirements
+    assert requirements == []

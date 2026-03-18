@@ -12,6 +12,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = ROOT / "scripts"
+
+pytestmark = pytest.mark.slow
 sys.path.insert(0, str(ROOT))
 
 from lab.pipeline import publish_artifact, run_pipeline, run_pipeline_with_evidence  # noqa: E402

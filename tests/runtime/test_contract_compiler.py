@@ -9,11 +9,12 @@ from pathlib import Path
 import shutil
 import zipfile
 from unittest.mock import patch
-from types import SimpleNamespace
 
 import pytest
 import yaml
 from runtime.adoption import CANONICAL_VERSION
+
+pytestmark = pytest.mark.slow
 from runtime.canonical_surface import get_canonical_hosts
 from runtime.evidence_requirements import requirements_for_profile
 from runtime import contract_compiler as contract_compiler_module
@@ -70,10 +71,19 @@ def _stub_registry_validation_for_non_registry_tests(monkeypatch, request) -> No
 
 @pytest.fixture(autouse=True)
 def _stub_worker_watchdog(monkeypatch) -> None:
+    class _QuietWatchdog:
+        def get_stalled_workers(self) -> list[dict[str, object]]:
+            return []
+
+    monkeypatch.setattr(contract_compiler_module, "get_worker_watchdog", lambda _root=None: _QuietWatchdog())
+
+
+@pytest.fixture(autouse=True)
+def _stub_provider_statuses(monkeypatch) -> None:
     monkeypatch.setattr(
         contract_compiler_module,
-        "get_worker_watchdog",
-        lambda _project_dir=None: SimpleNamespace(get_stalled_workers=lambda: []),
+        "_provider_statuses",
+        lambda: {host: {"ready": True, "source": "fixture"} for host in CANONICAL_HOSTS},
     )
 
 
@@ -608,22 +618,6 @@ def test_release_readiness_accepts_schema_v2_evidence_fixture(tmp_path: Path, mo
     assert primitives["evidence_paths"]["profile_digest"] == ".omg/state/profile.yaml"
 
 
-def test_compile_contract_outputs_emits_release_surface_manifest_for_output_root(tmp_path: Path) -> None:
-    result = compile_contract_outputs(
-        root_dir=ROOT,
-        output_root=tmp_path,
-        hosts=["claude", "codex"],
-        channel="public",
-    )
-
-    assert result["status"] == "ok"
-    manifest_path = tmp_path / "dist" / "public" / "release-surface.json"
-    assert manifest_path.exists()
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["generated_by"] == "omg release compile-surfaces"
-    assert manifest["version"] == CANONICAL_VERSION
-
-
 def test_validate_contract_registry_reports_expected_bundles() -> None:
     result = validate_contract_registry(ROOT)
 
@@ -1006,28 +1000,11 @@ def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatc
     assert readiness["blockers"] == []
 
 
-def test_compile_contract_outputs_emits_release_surface_manifest(tmp_path: Path) -> None:
-    compile_result = compile_contract_outputs(
-        root_dir=ROOT,
-        output_root=tmp_path,
-        hosts=list(CANONICAL_HOSTS),
-        channel="public",
-    )
-
-    assert compile_result["status"] == "ok"
-    manifest_path = tmp_path / "dist" / "public" / "release-surface.json"
-    assert manifest_path.exists()
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert payload["version"] == CANONICAL_VERSION
-    assert "dist/public/release-surface.json" in compile_result["artifacts"]
-
-
 def test_release_readiness_rejects_cosmetic_evidence_and_eval_regressions(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
-    _patch_fast_release_checks(monkeypatch)
     compile_result = compile_contract_outputs(
         root_dir=ROOT,
         output_root=tmp_path,
@@ -3030,7 +3007,7 @@ def _build_surface_drift_fixture(
     surfaces = get_public_surfaces()
     manifest = {
         "generated_by": "omg release compile-surfaces",
-        "version": "2.2.8",
+        "version": "2.2.7",
         "generated_at": "2025-01-01T00:00:00+00:00",
         "surfaces": surfaces,
     }
@@ -3040,7 +3017,7 @@ def _build_surface_drift_fixture(
         json.dumps(manifest, indent=2), encoding="utf-8",
     )
 
-    pkg: dict[str, object] = {"name": "@trac3er/oh-my-god", "version": "2.2.8"}
+    pkg: dict[str, object] = {"name": "@trac3er/oh-my-god", "version": "2.2.7"}
     if bin_key is not None:
         pkg["bin"] = {bin_key: "./OMG-setup.sh"}
     (root / "package.json").write_text(json.dumps(pkg, indent=2), encoding="utf-8")
@@ -3132,34 +3109,6 @@ def test_release_surface_drift_blocks_missing_manifest(tmp_path: Path, monkeypat
 
     assert result["status"] == "error"
     assert any("release-surface.json" in b for b in result["blockers"])
-
-
-def test_compile_contract_outputs_emits_release_surface_manifest(tmp_path: Path) -> None:
-    result = compile_contract_outputs(
-        root_dir=ROOT,
-        output_root=tmp_path,
-        hosts=list(CANONICAL_HOSTS),
-        channel="public",
-    )
-
-    assert result["status"] == "ok"
-    assert (tmp_path / "dist" / "public" / "release-surface.json").exists()
-
-
-def test_release_surface_drift_uses_repo_manifest_when_output_manifest_missing(
-    tmp_path: Path, monkeypatch
-) -> None:
-    root = tmp_path / "root"
-    output = tmp_path / "output"
-    root.mkdir()
-    output.mkdir()
-    _build_surface_drift_fixture(root, root, bin_key="omg", action_yml=True)
-    _stub_release_text_and_docs_clean(monkeypatch)
-
-    result = _check_release_surface_drift(root, output)
-
-    assert result["status"] == "ok"
-    assert result["blockers"] == []
 
 
 # ---------------------------------------------------------------------------

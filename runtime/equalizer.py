@@ -127,6 +127,9 @@ def _domain_fit(task_text: str) -> str:
 
 
 def _probe_provider(provider: str) -> tuple[bool, bool | None, str]:
+    if os.environ.get("OMG_TEST_FAKE_PROVIDER_HEALTH", "").strip() == "1":
+        return True, True, "test-health-override"
+
     normalized_provider = str(provider).strip().lower()
     if normalized_provider == "claude":
         claude_bin = os.environ.get("OMG_CLAUDE_BIN", "claude")

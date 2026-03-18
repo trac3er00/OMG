@@ -4,10 +4,36 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+import runtime.compat as compat_module
 from runtime.compat import dispatch_compat_skill, list_compat_skills
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+class _FakeTeamDispatch:
+    def __init__(self, target: str) -> None:
+        self._target = target
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "TeamDispatchResult",
+            "status": "ok",
+            "findings": [f"fake {self._target} route"],
+            "actions": [f"{self._target}: analyze", f"{self._target}: verify"],
+            "evidence": {"target": self._target},
+        }
+
+
+@pytest.fixture(autouse=True)
+def _stub_team_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _dispatch(req):
+        target = "codex" if req.target == "auto" else req.target
+        return _FakeTeamDispatch(target)
+
+    monkeypatch.setattr(compat_module, "dispatch_team", _dispatch)
 
 
 def test_list_compat_skills_meets_standalone_contract():

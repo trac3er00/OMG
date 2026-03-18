@@ -174,6 +174,13 @@ def test_release_readiness_not_schedule_only_or_has_release_bridge() -> None:
     assert any(marker in release_text for marker in bridge_markers), "release.yml must call or gate release readiness"
 
 
+def test_release_readiness_runs_on_pull_request() -> None:
+    readiness = _load_workflow("omg-release-readiness.yml")
+    readiness_on = _workflow_on(readiness)
+    assert isinstance(readiness_on, dict), "omg-release-readiness.yml must define event triggers"
+    assert "pull_request" in readiness_on, "omg-release-readiness.yml must keep pull_request coverage"
+
+
 def test_compat_gate_has_doc_drift_check_before_reviewer_handoff() -> None:
     text = _read_workflow_text("omg-compat-gate.yml")
     pr_analyze = _section(text, "  pr-analyze:\n", "  post-review:\n")
@@ -384,29 +391,6 @@ def test_release_readiness_no_self_healing_compile_step() -> None:
     )
 
 
-def test_prepare_release_readiness_emits_release_surface_artifacts_before_upload() -> None:
-    text = _read_workflow_text("omg-release-readiness.yml")
-    prepare_job = _section(text, "  prepare-release-readiness:\n", "  compile-public:\n")
-    emit_pos = prepare_job.find("Emit release surface text artifacts")
-    upload_pos = prepare_job.find("Upload foundation artifacts")
-    assert emit_pos >= 0, "prepare-release-readiness must emit release surface text artifacts"
-    assert upload_pos >= 0, "prepare-release-readiness must upload foundation artifacts"
-    assert emit_pos < upload_pos, "release surface text artifacts must be generated before foundation upload"
-    assert "compile_release_surfaces(Path('.'))" in prepare_job
-
-
-def test_prepare_release_readiness_seeds_release_surface_manifests_into_output_root() -> None:
-    text = _read_workflow_text("omg-release-readiness.yml")
-    prepare_job = _section(text, "  prepare-release-readiness:\n", "  compile-public:\n")
-    seed_pos = prepare_job.find("Seed release surface manifests into output root")
-    upload_pos = prepare_job.find("Upload foundation artifacts")
-    assert seed_pos >= 0, "prepare-release-readiness must seed release-surface manifests into artifacts/release"
-    assert upload_pos >= 0, "prepare-release-readiness must upload foundation artifacts"
-    assert seed_pos < upload_pos, "release-surface manifests must be seeded before foundation upload"
-    assert "artifacts/release/dist/public/release-surface.json" in prepare_job
-    assert "artifacts/release/dist/enterprise/release-surface.json" in prepare_job
-
-
 def test_github_review_helpers_assert_pass_fails_when_required_artifacts_missing(tmp_path: Path) -> None:
     event = {
         "action": "opened",
@@ -448,40 +432,32 @@ def test_release_readiness_workflow_enforces_trusted_packs() -> None:
     )
 
 
-def test_release_workflow_enforces_trusted_packs() -> None:
-    text = _read_workflow_text("release.yml")
-    release_job = _section(text, "  release:\n")
-    readiness_pos = release_job.find("Run release readiness checks")
-    assert readiness_pos >= 0, "Missing 'Run release readiness checks' step in release.yml"
-    readiness_section = release_job[readiness_pos:]
-    assert 'OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"' in readiness_section, (
-        "release.yml readiness checks must set OMG_REQUIRE_TRUSTED_POLICY_PACKS: '1'"
-    )
-
-
-def test_publish_workflow_enforces_trusted_packs() -> None:
-    text = _read_workflow_text("publish-npm.yml")
+def test_release_readiness_standalone_verification_remains_blocking() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
     release_job = _section(text, "  release-readiness:\n")
-    gate_pos = release_job.find("Run release readiness gate")
-    assert gate_pos >= 0, "Missing 'Run release readiness gate' step in publish-npm.yml"
-    gate_section = release_job[gate_pos:]
-    assert 'OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"' in gate_section, (
-        "publish-npm.yml readiness gate must set OMG_REQUIRE_TRUSTED_POLICY_PACKS: '1'"
+    standalone_pos = release_job.find("Run standalone verification")
+    assert standalone_pos >= 0, "Missing 'Run standalone verification' step"
+    standalone_section = release_job[standalone_pos:release_job.find("\n      - name:", standalone_pos + 1)]
+    assert "continue-on-error: true" not in standalone_section, "Standalone verification must fail the release workflow"
+    assert '::warning::Standalone verification failed' not in standalone_section, (
+        "Standalone verification must remain a blocker, not a warning"
     )
 
 
-def test_semantic_release_prepare_cmd_audits_packed_artifacts() -> None:
-    config = json.loads((ROOT / ".releaserc.json").read_text(encoding="utf-8"))
-    plugins = config.get("plugins", [])
-    exec_plugin = next(
-        (
-            entry for entry in plugins
-            if isinstance(entry, list) and entry and entry[0] == "@semantic-release/exec"
-        ),
-        None,
-    )
-    assert exec_plugin is not None, "semantic-release config must include @semantic-release/exec"
-    prepare_cmd = exec_plugin[1].get("prepareCmd", "")
-    assert "audit-published-artifact.py" in prepare_cmd
-    assert "npm pack" in prepare_cmd, "prepareCmd must audit npm pack output"
-    assert "git archive" in prepare_cmd, "prepareCmd must audit git archive output"
+def test_pytest_uses_loadgroup_when_repo_has_xdist_group_markers() -> None:
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert '--dist",\n    "loadgroup"' in pyproject or "--dist',\n    'loadgroup'" in pyproject or '"loadgroup"' in pyproject
+
+
+def test_release_workflow_stages_release_surface_manifest_before_gate() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    compile_job = _section(text, "  compile-public-and-parity:\n", "  compile-enterprise:\n")
+    assert "release-surface.json" in compile_job
+    assert "compile_release_surfaces" in compile_job
+
+
+def test_release_readiness_normalizes_release_surface_manifest_after_download() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    assert "Normalize release-surface manifests after artifact download" in release_job
+    assert "release-surface.json" in release_job

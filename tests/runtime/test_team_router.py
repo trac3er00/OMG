@@ -78,6 +78,17 @@ def test_dispatch_team_reports_live_connection_when_auth_ok(monkeypatch):
     assert gemini["live_connection"] is True
 
 
+def test_dispatch_team_uses_test_health_override(monkeypatch):
+    monkeypatch.setenv("OMG_TEST_FAKE_PROVIDER_HEALTH", "1")
+    result = dispatch_team(TeamDispatchRequest(target="gemini", problem="review layout")).to_dict()
+
+    assert result["status"] == "ok"
+    gemini = result["evidence"]["cli_health"]["gemini"]
+    assert gemini["available"] is True
+    assert gemini["auth_ok"] is True
+    assert gemini["live_connection"] is True
+
+
 def test_execute_crazy_mode_launches_five_workers(monkeypatch):
     captured: list[dict[str, object]] = []
 
