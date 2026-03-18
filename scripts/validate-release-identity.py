@@ -85,6 +85,30 @@ _INSTALL_GUIDES = (
 
 _BAD_LOCAL_INSTALL = "npm install @trac3er/oh-my-god"
 
+_NPX_FRONT_DOOR_TARGETS: dict[str, tuple[str, ...]] = {
+    "README.md": (
+        "npx omg env doctor",
+        "npx omg install --plan",
+        "npx omg install --apply",
+        "npx omg ship",
+    ),
+    "docs/install/claude-code.md": (
+        "npx omg env doctor",
+        "npx omg install --plan",
+        "npx omg install --apply",
+    ),
+    "docs/install/codex.md": (
+        "npx omg env doctor",
+        "npx omg install --plan",
+        "npx omg install --apply",
+    ),
+    "docs/install/opencode.md": (
+        "npx omg env doctor",
+        "npx omg install --plan",
+        "npx omg install --apply",
+    ),
+}
+
 
 def validate_authored(repo_root: Path, canonical: str) -> dict[str, Any]:
     blockers: list[dict[str, str]] = []
@@ -364,6 +388,28 @@ def _find_install_launcher_blockers(repo_root: Path) -> list[str]:
     return blockers
 
 
+def _find_npx_front_door_blockers(repo_root: Path) -> list[str]:
+    blockers: list[str] = []
+    bare_commands = (
+        "omg env doctor",
+        "omg install --plan",
+        "omg install --apply",
+        "omg ship",
+    )
+    for rel_path, required_commands in _NPX_FRONT_DOOR_TARGETS.items():
+        path = repo_root / rel_path
+        if not path.exists():
+            continue
+        content = path.read_text(encoding="utf-8")
+        for command in required_commands:
+            if command not in content:
+                blockers.append(f"npx_front_door:{rel_path}:missing '{command}'")
+        for command in bare_commands:
+            if re.search(rf"(?m)^{re.escape(command)}$", content):
+                blockers.append(f"npx_front_door:{rel_path}:uses bare '{command}'")
+    return blockers
+
+
 def validate_release_surface(repo_root: Path, canonical: str) -> dict[str, Any]:
     blockers: list[str] = []
     checks: dict[str, Any] = {}
@@ -390,6 +436,10 @@ def validate_release_surface(repo_root: Path, canonical: str) -> dict[str, Any]:
     install_launcher_blockers = _find_install_launcher_blockers(repo_root)
     checks["install_launchers"] = install_launcher_blockers
     blockers.extend(install_launcher_blockers)
+
+    npx_front_door_blockers = _find_npx_front_door_blockers(repo_root)
+    checks["npx_front_door"] = npx_front_door_blockers
+    blockers.extend(npx_front_door_blockers)
 
     latest_version = _latest_changelog_version(repo_root)
     checks["latest_changelog_version"] = latest_version

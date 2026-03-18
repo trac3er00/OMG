@@ -79,7 +79,7 @@ OMG keeps the host you already use, then adds governed install, proof, and relea
 > Legacy Claude compatibility commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain documented as footnotes only.
 <!-- /OMG:GENERATED:why-omg -->
 
-- Claude front door: run `omg env doctor`, then `omg install --plan`, then `omg install --apply`.
+- Claude front door: run `npx omg env doctor`, then `npx omg install --plan`, then `npx omg install --apply`.
 - Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
 - Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI are canonical behavior-parity hosts; OpenCode is compatibility-only.
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
@@ -102,42 +102,37 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 ## Quickstart
 
 <!-- OMG:GENERATED:install-intro -->
-Start by installing the published launcher and checking your host environment:
+Run the published launcher directly and keep mutations explicit:
 
 Supported platforms: macOS and Linux.
 
 ```bash
-npm install -g @trac3er/oh-my-god
-omg env doctor
-omg install --plan
-omg install --apply
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
 ```
 
-`npm install -g @trac3er/oh-my-god` performs dependency resolution and bin linking only.
+If you choose `npm install`, it performs dependency resolution and bin linking only.
 
-The package postinstall runs `omg install --plan` as a preview, so it makes no mutations until you explicitly run `omg install --apply`.
+The package postinstall runs `omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
 <!-- /OMG:GENERATED:install-intro -->
 
-**Prerequisites**: Node >=18, Python >=3.10
+**Prerequisites**: Node >=18, Python >=3.10, macOS/Linux only
 
-Install the published launcher first:
-
-```bash
-npm install -g @trac3er/oh-my-god
-```
-
-`npm install -g @trac3er/oh-my-god` handles dependency resolution and bin linking only. The package postinstall runs `omg install --plan` as a preview, which makes no mutations and does not register marketplaces or wire host configs for you.
+Canonical launcher-first flow:
 
 Then run:
 
 ```bash
-omg env doctor
-omg install --plan
-omg install --apply
-omg ship
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
+npx omg ship
 ```
 
-On non-Claude hosts, verify native MCP registration after `omg install --apply`:
+If you choose `npm install`, it only resolves dependencies and links the bin. The package postinstall remains preview-only and still requires explicit `npx omg install --apply` for mutations.
+
+On non-Claude hosts, verify native MCP registration after `npx omg install --apply`:
 
 - `codex mcp list`
 - `gemini mcp list`
@@ -149,30 +144,13 @@ Success looks like:
 - Claude Code sees `omg@omg` as enabled instead of `failed to load`
 - Claude Code's plugin bundle owns `omg-control` via `.claude-plugin/mcp.json`; project or user `.mcp.json` entries can keep `filesystem` without collisions
 - `~/.claude/settings.json` has a `statusLine` command for `~/.claude/hud/omg-hud.mjs`
-- `~/.codex/config.toml`, `~/.gemini/settings.json`, and `~/.kimi/mcp.json` receive `omg-control` after `omg install --apply` when those CLIs are on `PATH`
+- `~/.codex/config.toml`, `~/.gemini/settings.json`, and `~/.kimi/mcp.json` receive `omg-control` after `npx omg install --apply` when those CLIs are on `PATH`
 - additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
 - narrowed defaults keep the required control plane small while optional capabilities such as browser automation remain opt-in
 
-### Legacy Compatibility
-
-The older clone-and-setup flow still works when you need it:
-
-```bash
-git clone https://github.com/trac3er00/OMG
-cd OMG
-chmod +x OMG-setup.sh
-./OMG-setup.sh install --mode=omg-only --preset=balanced
-```
-
-Claude compatibility slash commands remain available as legacy entry points:
-
-```text
-/OMG:setup
-/OMG:browser capture login flow evidence
-/OMG:crazy stabilize auth and dashboard flows
-```
+> Legacy compatibility only: clone-and-setup flows plus Claude slash commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain available for older environments, but they are not the primary install path.
 
 ## Install Guides
 
@@ -262,18 +240,17 @@ Install OMG, verify the environment, then preview and apply the managed changes:
 Supported platforms: macOS and Linux.
 
 ```bash
-npm install -g @trac3er/oh-my-god
-omg env doctor
-omg install --plan
-omg install --apply
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
 ```
 
 Then start working:
 
 ```bash
-omg ship
-omg proof open --html
-omg blocked --last
+npx omg ship
+npx omg proof open --html
+npx omg blocked --last
 ```
 
 > Legacy compatibility: `/OMG:crazy <goal>` is still accepted as an alias.

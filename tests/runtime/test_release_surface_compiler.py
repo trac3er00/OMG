@@ -357,11 +357,11 @@ class TestQuickstartContent:
 
     def test_quickstart_shows_omg_install_plan(self) -> None:
         content = _quickstart_content()
-        assert "omg install --plan" in content
+        assert "npx omg install --plan" in content
 
     def test_quickstart_shows_omg_install_apply(self) -> None:
         content = _quickstart_content()
-        assert "omg install --apply" in content
+        assert "npx omg install --apply" in content
 
     def test_quickstart_leads_with_install_step(self) -> None:
         content = _quickstart_content()
@@ -377,8 +377,8 @@ class TestQuickstartContent:
             if in_block:
                 first_code_block.append(line)
         first_block_text = "\n".join(first_code_block)
-        assert first_block_text.startswith("npm install -g @trac3er/oh-my-god"), (
-            "quickstart should start by installing the omg binary"
+        assert first_block_text.startswith("npx omg env doctor"), (
+            "quickstart should start with the launcher-first npx flow"
         )
 
     def test_quickstart_crazy_only_in_footnote(self) -> None:
@@ -394,7 +394,7 @@ class TestQuickstartContent:
     def test_quickstart_in_readme_after_compile(self, project: Path) -> None:
         compile_release_surfaces(project)
         content = (project / "README.md").read_text()
-        assert "omg install --plan" in content
+        assert "npx omg install --plan" in content
 
 
 class TestInstallFastPathContent:
@@ -406,11 +406,11 @@ class TestInstallFastPathContent:
 
     def test_fast_path_shows_omg_install_plan(self) -> None:
         content = _install_fast_path_content()
-        assert "omg install --plan" in content
+        assert "npx omg install --plan" in content
 
     def test_fast_path_shows_omg_install_apply(self) -> None:
         content = _install_fast_path_content()
-        assert "omg install --apply" in content
+        assert "npx omg install --apply" in content
 
     def test_fast_path_in_install_guides(self, project: Path) -> None:
         compile_release_surfaces(project)
@@ -482,7 +482,7 @@ class TestInstallIntroContent:
         content = _install_intro_content()
         lines = content.split("\n")
         code_lines = [l for l in lines if l.startswith("npm install") or l.startswith("npx ") or l.startswith("omg ")]
-        assert code_lines[0].startswith("npm install -g @trac3er/oh-my-god")
+        assert code_lines[0].startswith("npx omg env doctor")
 
     def test_states_npm_install_no_mutations(self) -> None:
         content = _install_intro_content()
@@ -491,26 +491,28 @@ class TestInstallIntroContent:
 
     def test_states_postinstall_plan_only(self) -> None:
         content = _install_intro_content()
-        assert "omg install --plan" in content
+        assert "npx omg install --plan" in content
         assert "preview" in content.lower()
 
     def test_does_not_contain_does_two_things(self) -> None:
         content = _install_intro_content()
         assert "does two things" not in content.lower()
 
-    def test_does_not_use_bare_npx_omg(self) -> None:
+    def test_uses_npx_omg_flow(self) -> None:
         content = _install_intro_content()
-        assert "npx omg" not in content
+        assert "npx omg env doctor" in content
+        assert "npx omg install --plan" in content
+        assert "npx omg install --apply" in content
 
-    def test_local_without_global_uses_scoped_package(self) -> None:
+    def test_does_not_require_global_install(self) -> None:
         content = _install_intro_content()
-        assert "@trac3er/oh-my-god" in content
+        assert "npm install -g @trac3er/oh-my-god" not in content
 
     def test_install_intro_in_readme(self, project: Path) -> None:
         compile_release_surfaces(project)
         content = (project / "README.md").read_text()
         assert "<!-- OMG:GENERATED:install-intro -->" in content
-        assert "npm install -g @trac3er/oh-my-god" in content
+        assert "npx omg env doctor" in content
 
 
 class TestWhyOmgContent:

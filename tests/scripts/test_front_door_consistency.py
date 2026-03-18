@@ -60,8 +60,8 @@ class TestFrontDoorConsistency:
         block_end = readme.find("```", block_start + 3) if block_start >= 0 else -1
         if block_start >= 0 and block_end >= 0:
             run_block = readme[block_start:block_end]
-            assert "omg " in run_block, (
-                "Primary run block should use launcher syntax"
+            assert "npx omg " in run_block, (
+                "Primary run block should use the launcher-first npx syntax"
             )
             assert "omg ship <goal>" not in run_block, (
                 "Primary run block should not advertise unsupported positional ship syntax"
@@ -81,8 +81,8 @@ class TestFrontDoorConsistency:
         block_end = section.find("```", block_start + 3) if block_start >= 0 else -1
         if block_start >= 0 and block_end >= 0:
             run_block = section[block_start:block_end]
-            assert "omg " in run_block, (
-                "claude-code.md primary run block should use launcher syntax"
+            assert "npx omg " in run_block, (
+                "claude-code.md primary run block should use the launcher-first npx syntax"
             )
             assert "omg ship <goal>" not in run_block, (
                 "claude-code.md primary run block should not advertise unsupported positional ship syntax"

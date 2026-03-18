@@ -3,10 +3,12 @@
 ## Fast Path
 
 ```bash
-npm install -g @trac3er/oh-my-god
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
 ```
 
-`npm install -g` resolves dependencies and links the `omg` binary on your PATH. The package postinstall runs `omg install --plan` as a preview, so it makes no mutations and does not register the Claude marketplace for you.
+This launcher-first path keeps mutations explicit. If you choose `npm install`, it only links the bin and still requires explicit `npx omg install --apply` for mutations.
 
 ## Official Claude Plugin Flow
 
@@ -17,7 +19,7 @@ claude plugin marketplace add /path/to/OMG --scope user
 claude plugin install omg@omg --scope user
 ```
 
-Run `omg install --apply` after reviewing the preview if you want OMG to write Claude-facing configuration.
+Run `npx omg install --apply` after reviewing the preview if you want OMG to write Claude-facing configuration.
 
 Claude-specific note:
 
@@ -35,17 +37,12 @@ That enables OMG's browser capability metadata for `/OMG:browser` and records th
 ## Run
 
 ```bash
-omg env doctor
-omg install --plan
-omg install --apply
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
 ```
 
-Legacy compatibility for Claude slash commands:
-
-```text
-/OMG:setup
-/OMG:crazy <goal>
-```
+> Legacy compatibility only: Claude slash commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain available for older environments.
 
 ## Verify
 
@@ -63,9 +60,9 @@ Legacy compatibility for Claude slash commands:
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
-omg env doctor
-omg install --plan    # preview only, no mutations
-omg install --apply   # apply configuration
+npx omg env doctor
+npx omg install --plan    # preview only, no mutations
+npx omg install --apply   # apply configuration
 ```
 
 The preview step is advisory only and makes no mutations until you run apply.

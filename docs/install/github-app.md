@@ -152,9 +152,9 @@ Confirm your setup with this checklist:
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
-omg env doctor
-omg install --plan    # preview only, no mutations
-omg install --apply   # apply configuration
+npx omg env doctor
+npx omg install --plan    # preview only, no mutations
+npx omg install --apply   # apply configuration
 ```
 
 The preview step is advisory only and makes no mutations until you run apply.

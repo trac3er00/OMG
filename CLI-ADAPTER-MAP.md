@@ -252,8 +252,8 @@ CANONICAL_VERSION = "2.2.9"
 
 | Target | Fast Path | Manual Path | Preset | Mode |
 |--------|-----------|-------------|--------|------|
-| **Claude Code** | `npm install @trac3er/oh-my-god` | `git clone + ./OMG-setup.sh install --mode=omg-only --preset=balanced` | `balanced` | `omg-only` |
-| **Codex** | `npm install @trac3er/oh-my-god` | `git clone + ./OMG-setup.sh install --mode=omg-only --preset=interop` | `interop` | `omg-only` |
+| **Claude Code** | `npx omg env doctor -> npx omg install --plan -> npx omg install --apply` | `git clone + ./OMG-setup.sh install --mode=omg-only --preset=balanced` | `balanced` | `omg-only` |
+| **Codex** | `npx omg env doctor -> npx omg install --plan -> npx omg install --apply` | `git clone + ./OMG-setup.sh install --mode=omg-only --preset=interop` | `interop` | `omg-only` |
 | **Gemini** | Not documented | Via provider registry detect + setup | N/A | Via adoption |
 | **Kimi** | Not documented | Via provider registry detect + setup | N/A | Via adoption |
 

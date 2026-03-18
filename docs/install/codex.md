@@ -3,10 +3,12 @@
 ## Fast Path
 
 ```bash
-npm install -g @trac3er/oh-my-god
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
 ```
 
-`npm install -g` resolves dependencies and links the `omg` binary on your PATH. The package postinstall runs `omg install --plan` as a preview, so it makes no mutations and does not write `~/.codex/config.toml` until you later run `omg install --apply`.
+This launcher-first path keeps mutations explicit. If you choose `npm install`, it only links the bin and still requires explicit `npx omg install --apply` for mutations.
 
 ## Manual Path
 
@@ -42,9 +44,9 @@ Optional browser capability:
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
-omg env doctor
-omg install --plan    # preview only, no mutations
-omg install --apply   # apply configuration
+npx omg env doctor
+npx omg install --plan    # preview only, no mutations
+npx omg install --apply   # apply configuration
 ```
 
 The preview step is advisory only and makes no mutations until you run apply.

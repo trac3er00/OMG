@@ -29,6 +29,7 @@ build_report = _mod.build_report
 validate_release_surface = getattr(_mod, "validate_release_surface", None)
 find_explain_command_blockers = getattr(_mod, "_find_explain_command_blockers", None)
 find_install_launcher_blockers = getattr(_mod, "_find_install_launcher_blockers", None)
+find_npx_front_door_blockers = getattr(_mod, "_find_npx_front_door_blockers", None)
 
 _OLD_VERSION = "0.0.1-test"
 
@@ -156,6 +157,9 @@ class TestReleaseSurfaceValidation:
     def test_install_launcher_blocker_helper_available(self):
         assert callable(find_install_launcher_blockers), "_find_install_launcher_blockers must exist"
 
+    def test_npx_front_door_blocker_helper_available(self):
+        assert callable(find_npx_front_door_blockers), "_find_npx_front_door_blockers must exist"
+
     def test_build_report_includes_release_surface_section(self):
         report = build_report(
             canonical="2.2.9",
@@ -200,6 +204,17 @@ class TestReleaseSurfaceValidation:
         blockers = find_install_launcher_blockers(tmp_path)
 
         assert any("docs/install/codex.md" in blocker for blocker in blockers)
+
+    def test_npx_front_door_blocker_flags_bare_omg_flow(self, tmp_path):
+        readme = tmp_path / "README.md"
+        readme.write_text(
+            "```bash\nomg env doctor\nomg install --plan\nomg install --apply\nomg ship\n```\n",
+            encoding="utf-8",
+        )
+
+        blockers = find_npx_front_door_blockers(tmp_path)
+
+        assert any("README.md" in blocker for blocker in blockers)
 
 
 class TestDerivedDrift:
