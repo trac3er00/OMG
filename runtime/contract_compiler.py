@@ -30,6 +30,8 @@ from runtime.compliance_governor import evaluate_release_compliance
 from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active
 from runtime.release_surfaces import get_package_parity_surfaces, get_runtime_behavior_surfaces
 from runtime.release_surface_registry import get_public_surfaces, validate_registry
+from runtime.release_surface_compiler import compile_release_surfaces
+from runtime.doc_generator import check_docs
 from runtime.worker_watchdog import get_worker_watchdog
 from runtime.adoption import (
     CANONICAL_MARKETPLACE_ID,
@@ -41,7 +43,7 @@ from runtime.adoption import (
 from runtime.canonical_taxonomy import CANONICAL_PRESETS, POLICY_PACK_IDS, RELEASE_CHANNELS
 from registry.approval_artifact import verify_approval_artifact
 from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
-from registry.verify_artifact import sign_artifact_statement, verify_artifact_statement
+from registry.verify_artifact import sign_artifact_statement, verify_artifact_statement, _load_trusted_signers
 
 
 CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
@@ -1926,6 +1928,17 @@ def _check_release_surface_drift(root: Path, output_root: Path) -> dict[str, Any
     if not action_exists:
         blockers.append(f"release_surface_drift: {action_path_entry} not found")
 
+    release_text_result = compile_release_surfaces(root, check_only=True)
+    checks["release_text_drift"] = release_text_result
+    for item in release_text_result.get("drift", []):
+        label = item if isinstance(item, str) else f"{item.get('surface', 'unknown')}: {item.get('reason', 'drift')}"
+        blockers.append(f"release_text_drift: {label}")
+
+    docs_result = check_docs(root)
+    checks["docs_drift"] = docs_result
+    for item in docs_result.get("drift", []):
+        blockers.append(f"docs_drift: {item}")
+
     return {
         "status": "ok" if not blockers else "error",
         "blockers": blockers,
@@ -2236,24 +2249,68 @@ def _check_policy_pack_signatures(root: Path) -> dict[str, Any]:
         sig_path = packs_dir / f"{pack_id}.signature.json"
 
         if not lock_path.is_file() or not sig_path.is_file():
-            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            blockers.append(f"policy_pack_signature: {pack_id} unsigned: lock or sig file missing")
             continue
 
         try:
             lock_data = json.loads(lock_path.read_text(encoding="utf-8"))
             sig_data = json.loads(sig_path.read_text(encoding="utf-8"))
         except Exception:
-            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            blockers.append(f"policy_pack_signature: {pack_id} unsigned: lock or sig file missing")
             continue
 
         expected_digest = str(lock_data.get("canonical_digest", "")).strip()
         if not expected_digest:
-            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            blockers.append(f"policy_pack_signature: {pack_id} unsigned: lock or sig file missing")
             continue
+
+        # Tampered check: recompute pack content digest and compare with lockfile
+        pack_path = packs_dir / f"{pack_id}.yaml"
+        if pack_path.is_file():
+            try:
+                pack_content = yaml.safe_load(pack_path.read_text(encoding="utf-8"))
+                if isinstance(pack_content, dict):
+                    canonical = json.dumps(
+                        pack_content, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+                    ).encode("utf-8")
+                    actual_digest = hashlib.sha256(canonical).hexdigest()
+                    if actual_digest != expected_digest:
+                        blockers.append(
+                            f"policy_pack_signature: {pack_id} tampered: pack content changed since signing"
+                        )
+                        continue
+            except Exception:
+                pass
+
+        # Lockfile signer_public_key vs trust root mismatch check
+        lockfile_signer_pk = str(lock_data.get("signer_public_key", "")).strip()
+        if lockfile_signer_pk:
+            signer_key_id = str(lock_data.get("signer_key_id", "")).strip()
+            if signer_key_id:
+                try:
+                    trusted_signers = _load_trusted_signers()
+                    signer = trusted_signers.get(signer_key_id)
+                    if signer and str(signer.get("public_key", "")).strip() != lockfile_signer_pk:
+                        blockers.append(
+                            f"policy_pack_signature: {pack_id} lockfile_mismatch: signer_public_key doesn't match trust root"
+                        )
+                        continue
+                except Exception:
+                    pass
 
         result = verify_approval_artifact(sig_data, expected_digest)
         if not result.get("valid"):
-            blockers.append(f"policy_pack_signature: {pack_id} is unsigned or unverified")
+            reason = str(result.get("reason", "")).strip()
+            if reason == "unknown signer key id":
+                blockers.append(
+                    f"policy_pack_signature: {pack_id} untrusted: signer key not in trust root"
+                )
+            elif reason == "invalid approval signature":
+                blockers.append(
+                    f"policy_pack_signature: {pack_id} invalid_signature: cryptographic verification failed"
+                )
+            else:
+                blockers.append(f"policy_pack_signature: {pack_id} failed: {reason}")
 
     return {
         "status": "ok" if not blockers else "error",

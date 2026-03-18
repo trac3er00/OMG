@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -12,6 +13,18 @@ from runtime.canonical_taxonomy import (
     POLICY_PACK_IDS,
 )
 from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
+
+GENERATED_ARTIFACTS: tuple[str, ...] = (
+    "support-matrix.json",
+    "preset-matrix.json",
+    "host-tiers.json",
+    "install-verification.json",
+    "channel-guarantees.json",
+    "SUPPORT-MATRIX.md",
+    "PRESET-REFERENCE.md",
+    "INSTALL-VERIFICATION-INDEX.md",
+    "QUICK-REFERENCE.md",
+)
 
 def generate_docs(output_root: Path) -> dict[str, Any]:
     output_root.mkdir(parents=True, exist_ok=True)
@@ -61,8 +74,8 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "version": CANONICAL_VERSION,
         "generated_at": timestamp,
         "verification_commands": [
-            {"name": "doctor", "command": "python3 scripts/omg.py doctor"},
-            {"name": "validate", "command": "python3 scripts/omg.py validate"},
+            {"name": "doctor", "command": "omg doctor"},
+            {"name": "validate", "command": "omg validate"},
         ],
         "cache_paths": [
             ".omg/cache",
@@ -228,10 +241,9 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "",
         "| Task | Command |",
         "| :--- | :--- |",
-        "| Setup | `/OMG:setup` |",
-        "| Browser | `/OMG:browser <goal>` |",
-        "| Crazy Mode | `/OMG:crazy <goal>` |",
-        "| Deep Plan | `/OMG:deep-plan <goal>` |",
+        "| Install | `omg install --plan` |",
+        "| Diagnostics | `omg doctor` |",
+        "| Ship | `omg ship` |",
     ])
     
     _write_text(output_root / "QUICK-REFERENCE.md", "\n".join(quick_md) + "\n")
@@ -253,18 +265,39 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
     return {
         "status": "ok",
         "output_root": str(output_root),
-        "artifacts": [
-            "support-matrix.json",
-            "preset-matrix.json",
-            "host-tiers.json",
-            "install-verification.json",
-            "SUPPORT-MATRIX.md",
-            "PRESET-REFERENCE.md",
-            "INSTALL-VERIFICATION-INDEX.md",
-            "QUICK-REFERENCE.md",
-            "channel-guarantees.json",
-        ]
+        "artifacts": list(GENERATED_ARTIFACTS),
     }
+
+
+def check_docs(on_disk_root: Path) -> dict[str, Any]:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        result = generate_docs(tmp_path)
+        if result["status"] != "ok":
+            return {"status": "error", "drift": []}
+
+        drift: list[str] = []
+        for name in GENERATED_ARTIFACTS:
+            target = on_disk_root / name
+            if not target.exists():
+                drift.append(f"Missing: {name}")
+                continue
+            if name.endswith(".json"):
+                try:
+                    gen_data = json.loads((tmp_path / name).read_text(encoding="utf-8"))
+                    disk_data = json.loads(target.read_text(encoding="utf-8"))
+                    gen_data.pop("generated_at", None)
+                    disk_data.pop("generated_at", None)
+                    if gen_data != disk_data:
+                        drift.append(f"Drift: {name}")
+                except (json.JSONDecodeError, ValueError):
+                    drift.append(f"Drift: {name}")
+            else:
+                if (tmp_path / name).read_text(encoding="utf-8") != target.read_text(encoding="utf-8"):
+                    drift.append(f"Drift: {name}")
+
+        return {"status": "drift" if drift else "ok", "drift": drift}
+
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
     _ = path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")

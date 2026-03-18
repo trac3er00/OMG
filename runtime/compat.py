@@ -984,6 +984,199 @@ def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
     }
 
 
+_ENV_HOST_CLIS = ("codex", "gemini", "kimi", "opencode")
+
+_ENV_HOST_CONFIG_DIRS: dict[str, tuple[str, ...]] = {
+    "codex": (".codex",),
+    "gemini": (".gemini",),
+    "kimi": (".kimi",),
+    "claude": (".claude",),
+}
+
+
+def _env_check(
+    name: str, *, ok: bool, message: str, required: bool = False, remediation: str = "",
+) -> dict[str, Any]:
+    if ok:
+        status = "ok"
+    elif required:
+        status = "blocker"
+    else:
+        status = "warning"
+    return {
+        "name": name,
+        "status": status,
+        "message": message,
+        "required": required,
+        "remediation": remediation,
+    }
+
+
+def _check_node_version() -> dict[str, Any]:
+    import shutil
+    import subprocess as _sp
+
+    if shutil.which("node") is None:
+        return _env_check(
+            "node_version", ok=False,
+            message="node not found on PATH",
+            remediation="Install Node.js >= 18 from https://nodejs.org",
+        )
+    try:
+        proc = _sp.run(
+            ["node", "--version"], capture_output=True, text=True, timeout=10,
+        )
+        raw = proc.stdout.strip().lstrip("v")
+        major = int(raw.split(".")[0])
+        ok = major >= 18
+        return _env_check(
+            "node_version", ok=ok,
+            message=f"node v{raw}" + ("" if ok else " (requires >= 18)"),
+            remediation="" if ok else "Upgrade Node.js to >= 18",
+        )
+    except Exception as exc:
+        return _env_check(
+            "node_version", ok=False,
+            message=f"node version check failed: {exc}",
+            remediation="Install Node.js >= 18 from https://nodejs.org",
+        )
+
+
+def _check_python3_available() -> dict[str, Any]:
+    import shutil
+    path = shutil.which("python3")
+    if path:
+        return _env_check("python3_available", ok=True, message=f"python3 at {path}")
+    return _env_check(
+        "python3_available", ok=False,
+        message="python3 not found on PATH",
+        remediation="Install Python 3 from https://python.org",
+    )
+
+
+def _check_cli_path(cli_name: str) -> dict[str, Any]:
+    import shutil
+    path = shutil.which(cli_name)
+    if path:
+        return _env_check(f"{cli_name}_path", ok=True, message=f"{cli_name} at {path}")
+    return _env_check(
+        f"{cli_name}_path", ok=False,
+        message=f"{cli_name} not found on PATH",
+        remediation=f"Install {cli_name} CLI and ensure it is on PATH",
+    )
+
+
+def _check_cli_auth(cli_name: str) -> dict[str, Any] | None:
+    import shutil
+    if shutil.which(cli_name) is None:
+        return None
+
+    try:
+        from runtime.cli_provider import get_provider
+        import runtime.providers.codex_provider  # noqa: F401
+        import runtime.providers.gemini_provider  # noqa: F401
+        import runtime.providers.kimi_provider  # noqa: F401
+        import runtime.providers.opencode_provider  # noqa: F401
+    except ImportError:
+        return None
+
+    provider = get_provider(cli_name)
+    if provider is None:
+        return None
+
+    try:
+        auth_ok, auth_msg = provider.check_auth()
+    except Exception as exc:
+        return _env_check(
+            f"{cli_name}_auth", ok=False,
+            message=f"{cli_name} auth check error: {exc}",
+            remediation=f"Run '{cli_name} auth login' to authenticate",
+        )
+
+    if auth_ok is True:
+        return _env_check(f"{cli_name}_auth", ok=True, message=auth_msg)
+    elif auth_ok is False:
+        return _env_check(
+            f"{cli_name}_auth", ok=False, message=auth_msg,
+            remediation=f"Run '{cli_name} auth login' to authenticate",
+        )
+    return _env_check(
+        f"{cli_name}_auth", ok=False, message=auth_msg,
+        remediation=f"Check {cli_name} authentication configuration",
+    )
+
+
+def _check_writable_config_dir(host: str, *, home_dir: str | None = None) -> dict[str, Any]:
+    _home = home_dir or os.environ.get("OMG_TEST_HOME_DIR", os.path.expanduser("~"))
+    rel_parts = _ENV_HOST_CONFIG_DIRS.get(host)
+    if not rel_parts:
+        return _env_check(
+            f"writable_{host}_config", ok=False,
+            message=f"unknown host config path for {host}",
+        )
+    target = os.path.join(_home, *rel_parts)
+    if os.path.isdir(target):
+        writable = os.access(target, os.W_OK)
+        return _env_check(
+            f"writable_{host}_config", ok=writable,
+            message=f"{target} {'writable' if writable else 'not writable'}",
+            remediation="" if writable else f"Check permissions on {target}",
+        )
+    parent = os.path.dirname(target)
+    parent_writable = os.path.isdir(parent) and os.access(parent, os.W_OK)
+    return _env_check(
+        f"writable_{host}_config",
+        ok=parent_writable,
+        message=f"{target} not present; parent {'writable' if parent_writable else 'not writable'}",
+        remediation="" if parent_writable else f"Ensure parent directory {parent} exists and is writable",
+    )
+
+
+def run_env_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
+    repo_root = root_dir or Path(__file__).resolve().parent.parent
+    home_dir = os.environ.get("OMG_TEST_HOME_DIR", os.path.expanduser("~"))
+    checks: list[dict[str, Any]] = []
+
+    checks.append(_check_node_version())
+    checks.append(_check_python3_available())
+
+    for cli_name in _ENV_HOST_CLIS:
+        checks.append(_check_cli_path(cli_name))
+
+    for cli_name in _ENV_HOST_CLIS:
+        auth_check = _check_cli_auth(cli_name)
+        if auth_check is not None:
+            checks.append(auth_check)
+
+    checks.append(_env_check(
+        "claude_auth", ok=True,
+        message="host-native/non-probed",
+    ))
+
+    for host in ("claude", "codex", "gemini", "kimi"):
+        checks.append(_check_writable_config_dir(host, home_dir=home_dir))
+
+    has_blocker = any(c["status"] == "blocker" for c in checks)
+    verdict_receipt = _normalize_verdict_payload({
+        "status": "fail" if has_blocker else "pass",
+        "blockers": [c["name"] for c in checks if c["status"] == "blocker"],
+        "planned_actions": [],
+        "executed_actions": ["run_env_doctor"],
+        "provenance": "runtime.compat.run_env_doctor",
+        "evidence_paths": {},
+        "next_steps": ["Fix any blocker checks."] if has_blocker else [],
+        "executed": True,
+    })
+    return {
+        "schema": "DoctorResult",
+        "status": "fail" if has_blocker else "pass",
+        "verdict": "fail" if has_blocker else "pass",
+        "checks": checks,
+        "version": CANONICAL_VERSION,
+        "verdict_receipt": verdict_receipt,
+    }
+
+
 class DoctorFixSpec(TypedDict):
     fixable: bool
     fix_handler: Callable[[Path, dict[str, Any]], dict[str, Any]] | None

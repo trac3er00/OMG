@@ -13,10 +13,18 @@ from runtime.release_surface_registry import (
     GENERATED_SECTION_MARKERS,
     get_public_surfaces,
     get_generated_section_markers,
+    get_promoted_public_commands,
 )
 
 
-def compile_release_surfaces(root: Path) -> dict[str, Any]:
+def compile_release_surfaces(
+    root: Path,
+    *,
+    check_only: bool = False,
+) -> dict[str, Any]:
+    if check_only:
+        return _check_release_surfaces(root)
+
     artifacts: list[str] = []
     sections_updated: list[str] = []
     markers = get_generated_section_markers()
@@ -30,10 +38,20 @@ def compile_release_surfaces(root: Path) -> dict[str, Any]:
         _write_json(out, manifest)
         artifacts.append(str(out.relative_to(root)))
 
-    notes_path = root / "artifacts" / "release" / f"release-notes-v{CANONICAL_VERSION}.md"
-    notes_path.parent.mkdir(parents=True, exist_ok=True)
-    _write_release_notes(notes_path)
+    release_dir = root / "artifacts" / "release"
+    release_dir.mkdir(parents=True, exist_ok=True)
+
+    notes_path = release_dir / f"release-notes-v{CANONICAL_VERSION}.md"
+    notes_path.write_text(_release_notes_content(), encoding="utf-8")
     artifacts.append(str(notes_path.relative_to(root)))
+
+    body_path = release_dir / f"release-body-v{CANONICAL_VERSION}.md"
+    body_path.write_text(_release_body_content(), encoding="utf-8")
+    artifacts.append(str(body_path.relative_to(root)))
+
+    tag_path = release_dir / f"tag-body-v{CANONICAL_VERSION}.md"
+    tag_path.write_text(_tag_body_content(), encoding="utf-8")
+    artifacts.append(str(tag_path.relative_to(root)))
 
     readme = root / "README.md"
     if readme.exists():
@@ -46,6 +64,10 @@ def compile_release_surfaces(root: Path) -> dict[str, Any]:
         content, updated = _upsert_section(content, cmd_key, _command_surface_snippet(root))
         if updated:
             sections_updated.append("readme_command_surface")
+        proof_key = _marker_key(markers.get("proof_generated_section", "")) or "proof"
+        content, updated = _upsert_section(content, proof_key, _proof_content())
+        if updated:
+            sections_updated.append("proof_generated_section")
         readme.write_text(content, encoding="utf-8")
 
     changelog = root / "CHANGELOG.md"
@@ -53,7 +75,8 @@ def compile_release_surfaces(root: Path) -> dict[str, Any]:
         content = changelog.read_text(encoding="utf-8")
         cl_key = _marker_key(markers.get("changelog_current", "")) or f"changelog-v{CANONICAL_VERSION}"
         content, updated = _upsert_section(
-            content, cl_key, _changelog_content(), insert_after="# Changelog",
+            content, cl_key, _compile_release_text(CANONICAL_VERSION),
+            insert_after="# Changelog",
         )
         if updated:
             sections_updated.append("changelog_current")
@@ -99,25 +122,48 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
     )
 
 
-def _write_release_notes(path: Path) -> None:
-    _ = path.write_text(
+def _compile_release_text(version: str) -> str:
+    return (
+        f"### Governed Release Surface (v{version})\n"
+        "\n"
+        "- Canonical release surface compilation\n"
+        "- Dual-channel artifact output (public + enterprise)\n"
+        "- Idempotent generated-section markers in docs"
+    )
+
+
+def _release_notes_content() -> str:
+    canonical = _compile_release_text(CANONICAL_VERSION)
+    return (
         f"# OMG v{CANONICAL_VERSION} Release Notes\n"
         "\n"
-        "## Highlights\n"
-        "\n"
-        "- Governed release surface compilation\n"
-        "- Dual-channel artifact output (public + enterprise)\n"
-        "\n"
-        "## Changes\n"
-        "\n"
-        "See [CHANGELOG.md](../../CHANGELOG.md) for full details.\n"
+        f"{canonical}\n"
         "\n"
         "## Artifacts\n"
         "\n"
         "- `dist/public/release-surface.json`\n"
         "- `dist/enterprise/release-surface.json`\n"
-        "- `docs/command-surface.md`\n",
-        encoding="utf-8",
+        "- `docs/command-surface.md`\n"
+    )
+
+
+def _release_body_content() -> str:
+    canonical = _compile_release_text(CANONICAL_VERSION)
+    return (
+        f"# OMG v{CANONICAL_VERSION}\n"
+        "\n"
+        f"{canonical}\n"
+        "\n"
+        "See [CHANGELOG.md](../../CHANGELOG.md) for full history.\n"
+    )
+
+
+def _tag_body_content() -> str:
+    canonical = _compile_release_text(CANONICAL_VERSION)
+    return (
+        f"OMG v{CANONICAL_VERSION}\n"
+        "\n"
+        f"{canonical}\n"
     )
 
 
@@ -160,31 +206,22 @@ def _upsert_section(
 
 def _quickstart_content() -> str:
     return (
-        "Install with npm or bunx:\n"
+        "Preview what OMG will configure, then apply:\n"
         "\n"
         "```bash\n"
-        "npm install @trac3er/oh-my-god\n"
-        "# or\n"
-        "bunx @trac3er/oh-my-god\n"
+        "omg install --plan\n"
+        "omg install --apply\n"
         "```\n"
         "\n"
-        "Then run:\n"
+        "Then start working:\n"
         "\n"
-        "```text\n"
-        "/OMG:setup\n"
-        "/OMG:browser <goal>\n"
-        "/OMG:crazy <goal>\n"
-        "```"
-    )
-
-
-def _changelog_content() -> str:
-    return (
-        f"### Governed Release Surface (v{CANONICAL_VERSION})\n"
+        "```bash\n"
+        "omg ship\n"
+        "omg proof open --html\n"
+        "omg blocked --last\n"
+        "```\n"
         "\n"
-        "- Canonical release surface compilation\n"
-        "- Dual-channel manifests (public + enterprise)\n"
-        "- Idempotent generated-section markers in docs"
+        "> Compatibility: `/OMG:crazy <goal>` is still accepted as an alias."
     )
 
 
@@ -192,21 +229,37 @@ def _install_fast_path_content() -> str:
     return (
         "## Fast Path\n"
         "\n"
+        "> **Prerequisite**: Node >=18\n"
+        "\n"
         "```bash\n"
-        "npm install @trac3er/oh-my-god\n"
-        "# or\n"
-        "bunx @trac3er/oh-my-god\n"
+        "omg install --plan    # preview changes\n"
+        "omg install --apply   # apply configuration\n"
         "```\n"
         "\n"
         "This registers the OMG control plane for your host automatically."
     )
 
 
+def _proof_content() -> str:
+    return (
+        "## Verification\n"
+        "\n"
+        "```bash\n"
+        "omg proof open --html\n"
+        "omg blocked --last\n"
+        "omg explain run <id>\n"
+        "omg budget simulate --enforce\n"
+        "```\n"
+        "\n"
+        "Machine-generated evidence artifacts: `.omg/evidence/`"
+    )
+
+
 def _command_surface_snippet(root: Path) -> str:
-    commands = _extract_commands(root)
-    if not commands:
-        return "No commands extracted."
-    return "\n".join(f"- `omg {name}`" for name, _ in commands[:15])
+    promoted = get_promoted_public_commands()
+    if not promoted:
+        return "No commands available."
+    return "\n".join(f"- `{cmd}`" for cmd in promoted)
 
 
 def _extract_commands(root: Path) -> list[tuple[str, str]]:
@@ -295,3 +348,92 @@ def _write_command_surface_doc(path: Path, root: Path) -> None:
             lines.append(f"| `omg {name}` | {help_text or chr(8212)} |")
 
     _ = path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _extract_marker_content(content: str, key: str) -> str | None:
+    open_tag = f"<!-- OMG:GENERATED:{key} -->"
+    close_tag = f"<!-- /OMG:GENERATED:{key} -->"
+    pattern = re.compile(
+        re.escape(open_tag) + r"\n(.*?)\n" + re.escape(close_tag), re.DOTALL,
+    )
+    m = pattern.search(content)
+    return m.group(1) if m else None
+
+
+def _check_marker_drift(
+    root: Path,
+    rel_path: str,
+    marker: str,
+    expected_body: str,
+    surface_name: str,
+    drift: list[dict[str, str]],
+) -> None:
+    path = root / rel_path
+    if not path.exists():
+        return
+    key = _marker_key(marker)
+    if not key:
+        return
+    actual = _extract_marker_content(path.read_text(encoding="utf-8"), key)
+    if actual is None:
+        drift.append({"surface": surface_name, "path": rel_path, "reason": "marker block not found"})
+    elif actual != expected_body:
+        drift.append({"surface": surface_name, "path": rel_path, "reason": "content drift in generated block"})
+
+
+def _check_artifact_drift(
+    root: Path,
+    rel_path: str,
+    expected_content: str,
+    surface_name: str,
+    drift: list[dict[str, str]],
+) -> None:
+    path = root / rel_path
+    if not path.exists():
+        drift.append({"surface": surface_name, "path": rel_path, "reason": "artifact file missing"})
+        return
+    if path.read_text(encoding="utf-8") != expected_content:
+        drift.append({"surface": surface_name, "path": rel_path, "reason": "artifact content drift"})
+
+
+def _check_release_surfaces(root: Path) -> dict[str, Any]:
+    markers = get_generated_section_markers()
+    drift: list[dict[str, str]] = []
+
+    canonical = _compile_release_text(CANONICAL_VERSION)
+
+    _check_marker_drift(
+        root, "CHANGELOG.md",
+        markers.get("changelog_current", ""),
+        canonical, "changelog_current", drift,
+    )
+    _check_marker_drift(
+        root, "README.md",
+        markers.get("readme_quickstart", ""),
+        _quickstart_content(), "readme_quickstart", drift,
+    )
+    _check_marker_drift(
+        root, "README.md",
+        markers.get("readme_command_surface", ""),
+        _command_surface_snippet(root), "readme_command_surface", drift,
+    )
+    _check_marker_drift(
+        root, "README.md",
+        markers.get("proof_generated_section", ""),
+        _proof_content(), "proof_generated_section", drift,
+    )
+
+    _check_artifact_drift(
+        root, f"artifacts/release/release-notes-v{CANONICAL_VERSION}.md",
+        _release_notes_content(), "release_notes", drift,
+    )
+    _check_artifact_drift(
+        root, f"artifacts/release/release-body-v{CANONICAL_VERSION}.md",
+        _release_body_content(), "github_release_body", drift,
+    )
+    _check_artifact_drift(
+        root, f"artifacts/release/tag-body-v{CANONICAL_VERSION}.md",
+        _tag_body_content(), "tag_body", drift,
+    )
+
+    return {"status": "ok" if not drift else "drift", "drift": drift}

@@ -13,6 +13,32 @@
       ],
       "owner": "omg-local",
       "notes": "TEST-ONLY trust root — private key is committed in repo. Do NOT use for production attestation. Production signing requires OMG_SIGNING_KEY env var with a key not committed to the repository."
+    },
+    {
+      "key_id": "24280fe9f927c712",
+      "algorithm": "ed25519-minisign",
+      "public_key": "CcVbfRJr1bST580nJFIh8pUNRaMcBDDhGO2GPWVhdI8=",
+      "status": "active",
+      "usage": [
+        "dev",
+        "test",
+        "offline-attestation"
+      ],
+      "owner": "omg-local",
+      "notes": "test-lockfile-fields"
+    },
+    {
+      "key_id": "9902c47f32f29c2e",
+      "algorithm": "ed25519-minisign",
+      "public_key": "sbsqazR1pnPZ9FxutfjVQRz/sN5DTiz9vVMWu5DPfys=",
+      "status": "active",
+      "usage": [
+        "dev",
+        "test",
+        "offline-attestation"
+      ],
+      "owner": "omg-local",
+      "notes": "test-lockfile-fields"
     }
   ]
 }

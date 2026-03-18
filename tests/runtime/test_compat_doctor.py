@@ -206,3 +206,100 @@ def test_run_doctor_fix_clean_install_untouched(tmp_path: Path, monkeypatch: pyt
     result = run_doctor_fix(root_dir=tmp_path, dry_run=False)
     orphan_receipts = [r for r in result["fix_receipts"] if r["check"] == "orphaned_runtime"]
     assert len(orphan_receipts) == 0
+
+
+# --- env doctor tests ---
+
+
+from runtime.compat import run_env_doctor
+
+
+class TestEnvDoctor:
+    """Tests for the env-doctor pack (run_env_doctor)."""
+
+    def test_returns_doctor_result_schema(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        result = run_env_doctor(root_dir=tmp_path)
+        assert result["schema"] == "DoctorResult"
+        assert result["status"] in ("pass", "fail")
+        assert "checks" in result
+        assert isinstance(result["checks"], list)
+        assert "verdict_receipt" in result
+
+    def test_includes_node_version_check(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        result = run_env_doctor(root_dir=tmp_path)
+        names = {c["name"] for c in result["checks"]}
+        assert "node_version" in names
+
+    def test_includes_python3_check(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        result = run_env_doctor(root_dir=tmp_path)
+        names = {c["name"] for c in result["checks"]}
+        assert "python3_available" in names
+
+    def test_includes_path_checks_for_host_clis(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        result = run_env_doctor(root_dir=tmp_path)
+        names = {c["name"] for c in result["checks"]}
+        for cli in ("codex", "gemini", "kimi", "opencode"):
+            assert f"{cli}_path" in names, f"missing {cli}_path check"
+
+    def test_includes_claude_auth_non_probed(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        result = run_env_doctor(root_dir=tmp_path)
+        claude_auth = [c for c in result["checks"] if c["name"] == "claude_auth"]
+        assert len(claude_auth) == 1
+        assert claude_auth[0]["status"] == "ok"
+        assert "host-native/non-probed" in claude_auth[0]["message"]
+        assert claude_auth[0]["required"] is False
+
+    def test_all_checks_not_required(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        result = run_env_doctor(root_dir=tmp_path)
+        for check in result["checks"]:
+            assert check["required"] is False, f"check {check['name']} has required=True"
+
+    def test_checks_have_remediation_field(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        result = run_env_doctor(root_dir=tmp_path)
+        for check in result["checks"]:
+            assert "remediation" in check, f"check {check['name']} missing remediation field"
+
+    def test_includes_writable_dir_checks(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        result = run_env_doctor(root_dir=tmp_path)
+        names = {c["name"] for c in result["checks"]}
+        writable_checks = [n for n in names if n.startswith("writable_")]
+        assert len(writable_checks) >= 1, "expected at least one writable_* check"
+
+    def test_includes_auth_checks_for_detected_clis(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Auth checks appear for each detected CLI provider."""
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        import shutil
+        # Mock all CLIs as not on PATH so no auth checks fire (except claude)
+        monkeypatch.setattr(shutil, "which", lambda name: None)
+        result = run_env_doctor(root_dir=tmp_path)
+        auth_names = [c["name"] for c in result["checks"] if c["name"].endswith("_auth")]
+        # claude_auth should always be present
+        assert "claude_auth" in auth_names
+        # No other auth checks when CLIs are not on PATH
+        non_claude_auth = [n for n in auth_names if n != "claude_auth"]
+        assert len(non_claude_auth) == 0
+
+    def test_node_check_warns_when_node_missing(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Node check is warning when node is not on PATH."""
+        monkeypatch.setenv("OMG_TEST_HOME_DIR", str(tmp_path))
+        import shutil
+        original_which = shutil.which
+        monkeypatch.setattr(shutil, "which", lambda name: None if name == "node" else original_which(name))
+        import subprocess
+        original_run = subprocess.run
+        def _block_node(cmd, **kwargs):
+            if cmd and cmd[0] == "node":
+                raise FileNotFoundError("node not found")
+            return original_run(cmd, **kwargs)
+        monkeypatch.setattr(subprocess, "run", _block_node)
+        result = run_env_doctor(root_dir=tmp_path)
+        node_check = next(c for c in result["checks"] if c["name"] == "node_version")
+        assert node_check["status"] == "warning"

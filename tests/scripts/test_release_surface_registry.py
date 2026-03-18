@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from runtime.release_surface_registry import (
     GENERATED_SECTION_MARKERS,
+    PROMOTED_PUBLIC_COMMANDS,
     PUBLIC_SURFACES,
     get_public_surfaces,
     get_generated_section_markers,
@@ -51,6 +52,11 @@ _REQUIRED_SURFACE_IDS: list[str] = [
     "install_opencode",
     "install_github_app",
     "command_surface_doc",
+    # Release body artifacts
+    "github_release_body_artifact",
+    "tag_body_artifact",
+    # Proof section
+    "proof_generated_section",
     # Launchers
     "launcher_python",
     "launcher_shell",
@@ -93,7 +99,7 @@ class TestRegistryCompleteness:
 
     def test_minimum_surface_count(self) -> None:
         surfaces = get_public_surfaces()
-        assert len(surfaces) >= 23
+        assert len(surfaces) >= 26
 
 
 class TestValidateRegistry:
@@ -186,9 +192,70 @@ class TestParametrizedMissingSurface:
 
     @pytest.mark.parametrize("surface_id", _REQUIRED_SURFACE_IDS)
     def test_removing_surface_causes_validation_failure(self, surface_id: str) -> None:
-        """If any required surface were missing, validate_registry would catch it."""
         surfaces = get_public_surfaces()
         found_ids = {s["id"] for s in surfaces}
         assert surface_id in found_ids, (
             f"Required surface '{surface_id}' missing from registry"
+        )
+
+
+class TestReleaseBodyArtifacts:
+
+    def test_github_release_body_artifact_present(self) -> None:
+        surfaces = get_public_surfaces()
+        found = [s for s in surfaces if s["id"] == "github_release_body_artifact"]
+        assert len(found) == 1
+        assert found[0]["category"] == "release_body"
+
+    def test_tag_body_artifact_present(self) -> None:
+        surfaces = get_public_surfaces()
+        found = [s for s in surfaces if s["id"] == "tag_body_artifact"]
+        assert len(found) == 1
+        assert found[0]["category"] == "release_body"
+
+    def test_proof_generated_section_marker(self) -> None:
+        markers = get_generated_section_markers()
+        assert "proof_generated_section" in markers
+        assert "proof" in markers["proof_generated_section"].lower()
+
+
+class TestPromotedPublicCommands:
+
+    _EXPECTED_COMMANDS: list[str] = [
+        "omg ship",
+        "omg proof",
+        "omg blocked --last",
+        "omg explain run <id>",
+        "omg budget simulate --enforce",
+        "omg install --plan",
+        "omg install --apply",
+        "omg env doctor",
+    ]
+
+    def test_promoted_commands_is_list(self) -> None:
+        assert isinstance(PROMOTED_PUBLIC_COMMANDS, list)
+
+    def test_promoted_commands_nonempty(self) -> None:
+        assert len(PROMOTED_PUBLIC_COMMANDS) > 0
+
+    def test_promoted_commands_contains_all_expected(self) -> None:
+        for cmd in self._EXPECTED_COMMANDS:
+            assert cmd in PROMOTED_PUBLIC_COMMANDS, (
+                f"Expected '{cmd}' in PROMOTED_PUBLIC_COMMANDS"
+            )
+
+    def test_crazy_not_in_promoted_commands(self) -> None:
+        for cmd in PROMOTED_PUBLIC_COMMANDS:
+            assert "/OMG:crazy" not in cmd, (
+                "/OMG:crazy must not appear in PROMOTED_PUBLIC_COMMANDS"
+            )
+            assert "crazy" not in cmd.lower(), (
+                "crazy-related commands must not appear in PROMOTED_PUBLIC_COMMANDS"
+            )
+
+    def test_validate_registry_rejects_crazy_in_promoted(self) -> None:
+        blockers = validate_registry()
+        crazy_blockers = [b for b in blockers if "crazy" in b.lower()]
+        assert crazy_blockers == [], (
+            "validate_registry should pass when /OMG:crazy is absent from promoted list"
         )

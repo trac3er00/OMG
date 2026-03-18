@@ -213,37 +213,44 @@ Public contributions are welcome.
 OMG is a plugin and orchestration layer for supported CLIs. It is not a base-model training project. The goal is to make frontier agent hosts tighter, safer, more interoperable, and more verifiable than the default experience.
 
 <!-- OMG:GENERATED:quickstart -->
-Install with npm or bunx:
+Preview what OMG will configure, then apply:
 
 ```bash
-npm install @trac3er/oh-my-god
-# or
-bunx @trac3er/oh-my-god
+omg install --plan
+omg install --apply
 ```
 
-Then run:
+Then start working:
 
-```text
-/OMG:setup
-/OMG:browser <goal>
-/OMG:crazy <goal>
+```bash
+omg ship
+omg proof open --html
+omg blocked --last
 ```
+
+> Compatibility: `/OMG:crazy <goal>` is still accepted as an alias.
 <!-- /OMG:GENERATED:quickstart -->
 
 <!-- OMG:GENERATED:command-surface -->
 - `omg ship`
-- `omg fix`
-- `omg issue`
-- `omg undo`
-- `omg secure`
-- `omg security`
-- `omg waive-tests`
-- `omg api-twin`
-- `omg preflight`
-- `omg resolve-policy`
-- `omg policy-pack`
 - `omg proof`
-- `omg blocked`
-- `omg explain`
-- `omg budget`
+- `omg blocked --last`
+- `omg explain run <id>`
+- `omg budget simulate --enforce`
+- `omg install --plan`
+- `omg install --apply`
+- `omg env doctor`
 <!-- /OMG:GENERATED:command-surface -->
+
+<!-- OMG:GENERATED:proof -->
+## Verification
+
+```bash
+omg proof open --html
+omg blocked --last
+omg explain run <id>
+omg budget simulate --enforce
+```
+
+Machine-generated evidence artifacts: `.omg/evidence/`
+<!-- /OMG:GENERATED:proof -->

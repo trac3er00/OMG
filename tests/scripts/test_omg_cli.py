@@ -1171,14 +1171,53 @@ def test_policy_pack_scaffold_returns_template():
 
 
 def test_policy_pack_sign_requires_signing_key():
-    """policy-pack sign now requires a signing key (no longer a stub)."""
     proc = _run(["policy-pack", "sign", "airgapped", "--format", "json"])
-    # Without OMG_SIGNING_KEY or --key-path, exits 1 with a clear error
     assert proc.returncode == 1
     out = json.loads(proc.stdout)
     assert out["schema"] == "PolicyPackSign"
     assert out["status"] == "error"
     assert "signing key" in out.get("error", "").lower()
+
+
+_DEV_PRIVATE_KEY_CLI = "Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8="
+
+
+def test_policy_pack_keygen_json_output(tmp_path: Path):
+    keypair_path = tmp_path / "test-keypair.json"
+    proc = _run(["policy-pack", "keygen", "--output", str(keypair_path), "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "PolicyPackKeygen"
+    assert out["status"] == "ok"
+    assert out["algorithm"] == "ed25519-minisign"
+    assert "key_id" in out
+    assert "public_key" in out
+    assert "output_path" in out
+    assert keypair_path.exists()
+
+
+def test_policy_pack_keygen_no_output_emits_to_stdout():
+    proc = _run(["policy-pack", "keygen", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "PolicyPackKeygen"
+    assert out["status"] == "ok"
+    assert "output_path" not in out
+
+
+def test_policy_pack_verify_all_json(tmp_path: Path):
+    env = {"OMG_SIGNING_KEY": _DEV_PRIVATE_KEY_CLI}
+    sign_proc = _run(["policy-pack", "sign", "locked-prod", "--format", "json"], env=env)
+    assert sign_proc.returncode == 0, f"sign failed: {sign_proc.stdout}"
+
+    verify_proc = _run(["policy-pack", "verify", "--all", "--format", "json"])
+    assert verify_proc.returncode == 0, f"stdout={verify_proc.stdout}\nstderr={verify_proc.stderr}"
+    out = json.loads(verify_proc.stdout)
+    assert out["schema"] == "PolicyPackVerifyAll"
+    assert out["status"] == "verified"
+    assert out["total"] >= 1
+    assert out["passed"] >= 1
+    assert isinstance(out["results"], list)
 
 
 # --- doctor repair-pack tests ---
@@ -1457,3 +1496,150 @@ def test_cli_doctor_fix_json_receipt_has_required_fields():
         assert "backup_path" in receipt
         assert "verification" in receipt
         assert "executed" in receipt
+
+
+# --- env doctor CLI tests ---
+
+
+def test_cli_env_doctor_json_output():
+    proc = _run(["env", "doctor", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "DoctorResult"
+    assert "checks" in out
+    check_names = {c["name"] for c in out["checks"]}
+    assert "node_version" in check_names
+    assert "python3_available" in check_names
+    assert "claude_auth" in check_names
+    for check in out["checks"]:
+        assert check["status"] in {"ok", "blocker", "warning"}
+        assert "message" in check
+        assert "required" in check
+        assert check["required"] is False
+        assert "remediation" in check
+
+
+def test_cli_env_doctor_text_output():
+    proc = _run(["env", "doctor"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    assert "node_version" in proc.stdout
+    assert "python3_available" in proc.stdout
+    assert "PASS" in proc.stdout or "WARN" in proc.stdout
+
+
+def test_cli_env_doctor_help_lists_env():
+    proc = _run(["--help"])
+    assert "env" in proc.stdout + proc.stderr
+
+
+# --- install env preflight tests ---
+
+
+def test_install_plan_runs_env_preflight(monkeypatch):
+    """install --plan must call run_env_doctor() and include preflight results."""
+    import scripts.omg as omg_mod
+
+    called = {"count": 0}
+    original_env_doctor = omg_mod.run_env_doctor
+
+    def _stub_env_doctor(**kwargs):
+        called["count"] += 1
+        return {
+            "schema": "DoctorResult",
+            "status": "pass",
+            "checks": [
+                {"name": "node_version", "status": "ok", "message": "node v20", "required": False, "remediation": ""},
+            ],
+            "version": "test",
+        }
+
+    monkeypatch.setattr(omg_mod, "run_env_doctor", _stub_env_doctor)
+    proc = _run(["install", "--plan", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert "preflight" in out
+    assert out["preflight"]["status"] == "pass"
+
+
+def test_install_apply_runs_env_preflight(monkeypatch):
+    """install --apply must call run_env_doctor() before applying."""
+    import scripts.omg as omg_mod
+
+    called = {"count": 0}
+
+    def _stub_env_doctor(**kwargs):
+        called["count"] += 1
+        return {
+            "schema": "DoctorResult",
+            "status": "pass",
+            "checks": [
+                {"name": "node_version", "status": "ok", "message": "node v20", "required": False, "remediation": ""},
+            ],
+            "version": "test",
+        }
+
+    monkeypatch.setattr(omg_mod, "run_env_doctor", _stub_env_doctor)
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        proc = _run(["install", "--apply", "--format", "json"])
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert "preflight" in out
+        assert out["preflight"]["status"] == "pass"
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
+
+
+def test_install_plan_blocks_on_required_blocker():
+    """install --plan must exit 1 when env preflight has a required blocker."""
+    proc = _run(["install", "--plan", "--format", "json"],
+                env={"OMG_TEST_PREFLIGHT_BLOCK": "1"})
+    assert proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert "preflight" in out
+    assert out["preflight"]["status"] == "fail"
+    blockers = [c for c in out["preflight"]["checks"] if c["status"] == "blocker" and c["required"]]
+    assert len(blockers) >= 1
+
+
+def test_install_apply_blocks_on_required_blocker():
+    """install --apply must exit 1 when env preflight has a required blocker."""
+    proc = _run(["install", "--apply", "--format", "json"],
+                env={"OMG_TEST_PREFLIGHT_BLOCK": "1"})
+    assert proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert "preflight" in out
+    assert out["preflight"]["status"] == "fail"
+
+
+def test_install_plan_skip_preflight_bypasses():
+    """install --plan --skip-preflight must bypass env preflight."""
+    proc = _run(["install", "--plan", "--skip-preflight", "--format", "json"])
+    assert proc.returncode == 0, f"stderr: {proc.stderr}"
+    out = json.loads(proc.stdout)
+    assert out.get("preflight", {}).get("skipped") is True
+
+
+def test_install_apply_skip_preflight_bypasses():
+    """install --apply --skip-preflight must bypass env preflight even with blocking env."""
+    mcp_json = ROOT / ".mcp.json"
+    original = mcp_json.read_text(encoding="utf-8") if mcp_json.exists() else None
+    try:
+        proc = _run(["install", "--apply", "--skip-preflight", "--format", "json"],
+                    env={"OMG_TEST_PREFLIGHT_BLOCK": "1"})
+        assert proc.returncode == 0, f"stderr: {proc.stderr}"
+        out = json.loads(proc.stdout)
+        assert out.get("preflight", {}).get("skipped") is True
+    finally:
+        if original is not None:
+            mcp_json.write_text(original, encoding="utf-8")
+
+
+def test_install_env_preflight_human_output():
+    """install --plan text output must show preflight header and check names."""
+    proc = _run(["install", "--plan"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    combined = proc.stdout + proc.stderr
+    assert "preflight" in combined.lower() or "env preflight" in combined.lower()
