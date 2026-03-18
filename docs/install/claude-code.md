@@ -6,7 +6,7 @@
 npm install @trac3er/oh-my-god
 ```
 
-The npm postinstall now registers the local `omg` marketplace, enables `omg@omg`, and installs the Claude plugin bundle under `~/.claude/plugins/cache/omg/omg/<version>`.
+`npm install` resolves dependencies and links the `omg` binary only. The package postinstall runs `omg install --plan` as a preview, so it makes no mutations and does not register the Claude marketplace for you.
 
 ## Official Claude Plugin Flow
 
@@ -17,7 +17,7 @@ claude plugin marketplace add /path/to/OMG --scope user
 claude plugin install omg@omg --scope user
 ```
 
-`npm install` is equivalent for OMG because the setup script now writes the marketplace registration that Claude expects.
+Run `omg install --apply` after reviewing the preview if you want OMG to write Claude-facing configuration.
 
 Claude-specific note:
 
@@ -33,6 +33,14 @@ Optional browser capability:
 That enables OMG's browser capability metadata for `/OMG:browser` and records the preferred upstream Playwright CLI command under `~/.claude/omg-runtime/browser/capability.json`.
 
 ## Run
+
+```bash
+omg env doctor
+omg install --plan
+omg install --apply
+```
+
+Legacy compatibility for Claude slash commands:
 
 ```text
 /OMG:setup
@@ -55,9 +63,10 @@ That enables OMG's browser capability metadata for `/OMG:browser` and records th
 > **Prerequisites**: Node >=18, Python >=3.10
 
 ```bash
-omg install --plan    # preview changes
+omg env doctor
+omg install --plan    # preview only, no mutations
 omg install --apply   # apply configuration
 ```
 
-This registers the OMG control plane for your host automatically.
+The preview step is advisory only and makes no mutations until you run apply.
 <!-- /OMG:GENERATED:install-fast-path -->

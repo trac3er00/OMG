@@ -87,7 +87,7 @@ function readOmgVersion() {
     // fall through to static fallback
   }
 
-  return "2.2.8";
+  return "2.2.9";
 }
 
 const OMG_VERSION = readOmgVersion();

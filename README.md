@@ -69,7 +69,17 @@ graph TD
 
 ## Why OMG
 
-- Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
+<!-- OMG:GENERATED:why-omg -->
+OMG keeps the host you already use, then adds governed install, proof, and release surfaces on top.
+
+- Canonical host parity targets are Claude, Codex, Gemini, and Kimi.
+- OpenCode remains a supported compatibility host for teams that need it.
+- Install and verification stay explicit: doctor first, preview second, apply last.
+
+> Legacy Claude compatibility commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain documented as footnotes only.
+<!-- /OMG:GENERATED:why-omg -->
+
+- Claude front door: run `omg env doctor`, then `omg install --plan`, then `omg install --apply`.
 - Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
 - Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI are canonical behavior-parity hosts; OpenCode is compatibility-only.
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
@@ -91,39 +101,41 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 
 ## Quickstart
 
+<!-- OMG:GENERATED:install-intro -->
+Start by installing the published launcher and checking your host environment:
+
+```bash
+npm install -g @trac3er/oh-my-god
+omg env doctor
+omg install --plan
+omg install --apply
+```
+
+`npm install -g @trac3er/oh-my-god` performs dependency resolution and bin linking only.
+
+The package postinstall runs `omg install --plan` as a preview, so it makes no mutations until you explicitly run `omg install --apply`.
+<!-- /OMG:GENERATED:install-intro -->
+
 **Prerequisites**: Node >=18, Python >=3.10
 
-Install with npm or bunx (Bun runtime):
+Install the published launcher first:
 
 ```bash
-npm install @trac3er/oh-my-god
-# or
-bunx @trac3er/oh-my-god
+npm install -g @trac3er/oh-my-god
 ```
 
-That fast path now does two things:
-
-- registers the local `omg` marketplace plus `omg@omg` plugin bundle for Claude Code
-- wires `omg-control` into detected Codex, Gemini, and Kimi MCP configs using the managed OMG Python runtime
-
-Or clone and run the setup manager:
-
-```bash
-git clone https://github.com/trac3er00/OMG
-cd OMG
-chmod +x OMG-setup.sh
-./OMG-setup.sh install --mode=omg-only --preset=balanced
-```
+`npm install -g @trac3er/oh-my-god` handles dependency resolution and bin linking only. The package postinstall runs `omg install --plan` as a preview, which makes no mutations and does not register marketplaces or wire host configs for you.
 
 Then run:
 
-```text
-/OMG:setup
-/OMG:browser capture login flow evidence
-/OMG:crazy stabilize auth and dashboard flows
+```bash
+omg env doctor
+omg install --plan
+omg install --apply
+omg ship
 ```
 
-On non-Claude hosts, verify native MCP registration instead:
+On non-Claude hosts, verify native MCP registration after `omg install --apply`:
 
 - `codex mcp list`
 - `gemini mcp list`
@@ -135,11 +147,30 @@ Success looks like:
 - Claude Code sees `omg@omg` as enabled instead of `failed to load`
 - Claude Code's plugin bundle owns `omg-control` via `.claude-plugin/mcp.json`; project or user `.mcp.json` entries can keep `filesystem` without collisions
 - `~/.claude/settings.json` has a `statusLine` command for `~/.claude/hud/omg-hud.mjs`
-- `~/.codex/config.toml`, `~/.gemini/settings.json`, and `~/.kimi/mcp.json` receive `omg-control` when those CLIs are on `PATH`
+- `~/.codex/config.toml`, `~/.gemini/settings.json`, and `~/.kimi/mcp.json` receive `omg-control` after `omg install --apply` when those CLIs are on `PATH`
 - additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
 - narrowed defaults keep the required control plane small while optional capabilities such as browser automation remain opt-in
+
+### Legacy Compatibility
+
+The older clone-and-setup flow still works when you need it:
+
+```bash
+git clone https://github.com/trac3er00/OMG
+cd OMG
+chmod +x OMG-setup.sh
+./OMG-setup.sh install --mode=omg-only --preset=balanced
+```
+
+Claude compatibility slash commands remain available as legacy entry points:
+
+```text
+/OMG:setup
+/OMG:browser capture login flow evidence
+/OMG:crazy stabilize auth and dashboard flows
+```
 
 ## Install Guides
 
@@ -184,14 +215,23 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 
 ## Command Surface
 
-Primary entry points:
+Primary launcher entry points:
+
+- `omg env doctor`
+- `omg install --plan`
+- `omg install --apply`
+- `omg ship`
+- `omg proof open --html`
+- `omg blocked --last`
+
+Claude compatibility aliases remain available when you need them:
 
 - `/OMG:setup`
 - `/OMG:browser`
 - `/OMG:crazy`
 - `/OMG:deep-plan` (compatibility path to `plan-council`)
 
-Advanced surfaces stay available for deeper workflows:
+Advanced launcher and compatibility surfaces stay available for deeper workflows:
 
 - `/OMG:playwright` (compatibility alias to `/OMG:browser`)
 - `/OMG:security-check`
@@ -215,9 +255,11 @@ Public contributions are welcome.
 OMG is a plugin and orchestration layer for supported CLIs. It is not a base-model training project. The goal is to make frontier agent hosts tighter, safer, more interoperable, and more verifiable than the default experience.
 
 <!-- OMG:GENERATED:quickstart -->
-Preview what OMG will configure, then apply:
+Install OMG, verify the environment, then preview and apply the managed changes:
 
 ```bash
+npm install -g @trac3er/oh-my-god
+omg env doctor
 omg install --plan
 omg install --apply
 ```
@@ -230,17 +272,18 @@ omg proof open --html
 omg blocked --last
 ```
 
-> Compatibility: `/OMG:crazy <goal>` is still accepted as an alias.
+> Legacy compatibility: `/OMG:crazy <goal>` is still accepted as an alias.
 <!-- /OMG:GENERATED:quickstart -->
 
 <!-- OMG:GENERATED:command-surface -->
 - `omg ship`
 - `omg proof`
 - `omg blocked --last`
-- `omg explain run <id>`
+- `omg explain run --run-id <id>`
 - `omg budget simulate --enforce`
 - `omg install --plan`
 - `omg install --apply`
+- `omg doctor`
 - `omg env doctor`
 <!-- /OMG:GENERATED:command-surface -->
 

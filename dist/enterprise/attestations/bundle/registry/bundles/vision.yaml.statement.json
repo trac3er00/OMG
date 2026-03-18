@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/vision.yaml",
       "digest": {
-        "sha256": "684a23967e9f83283e1277938e0b0a574e6e0134142cffc78bd9cad62f44aac7"
+        "sha256": "52e14297cedbcc7d7ba81e320a020fb695b06e406b184241c735c7bdb41da9e6"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T06:00:04.132518+00:00"
+      "timestamp": "2026-03-18T21:01:42.078700+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T06:00:04.132518+00:00",
+  "issued_at": "2026-03-18T21:01:42.078700+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "3c1861eab7a754ce",
-    "value": "untrusted comment: signature from omg local signing key\nS0yt1nUrPEDiEE5Tkk87I3fKpefjZK0lgLqvNCnq5srMm+PIRUHfb55GOf2wgnODBj/649o9i8uyHtUeqc/CAg==\ntrusted comment: type=omg-slsa-v1 keyid=3c1861eab7a754ce issued_at=2026-03-18T06:00:04.132624+00:00 artifact=bundle/registry/bundles/vision.yaml sha256=684a23967e9f83283e1277938e0b0a574e6e0134142cffc78bd9cad62f44aac7\nm0ujgDWtExoqIWi4maR7/5JfasFN/vOFjei2Hme+20A8KISGO6pGdPNH5aIqD1hb3wIVmwlkvpPuwN1isvQEDA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=3c1861eab7a754ce issued_at=2026-03-18T06:00:04.132624+00:00 artifact=bundle/registry/bundles/vision.yaml sha256=684a23967e9f83283e1277938e0b0a574e6e0134142cffc78bd9cad62f44aac7"
+    "keyid": "de35149313d81077",
+    "value": "untrusted comment: signature from omg local signing key\nfKc0WARAI2w0ryaK8+8CXeDSuP5DtSH8RJ9tBNgtLpzmESve1LGDEoTNka6jSzSQ14wQokqql2noOpoP5VLyBQ==\ntrusted comment: type=omg-slsa-v1 keyid=de35149313d81077 issued_at=2026-03-18T21:01:42.078806+00:00 artifact=bundle/registry/bundles/vision.yaml sha256=52e14297cedbcc7d7ba81e320a020fb695b06e406b184241c735c7bdb41da9e6\nhL+CFCHMscxMcI42wzg7eFvu2jRJD60fOVGINiIngqqJE1Q9ahxfMAfgRKgpnd2fcBVBRnGMtUlECEG/54+yAQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=de35149313d81077 issued_at=2026-03-18T21:01:42.078806+00:00 artifact=bundle/registry/bundles/vision.yaml sha256=52e14297cedbcc7d7ba81e320a020fb695b06e406b184241c735c7bdb41da9e6"
   }
 }

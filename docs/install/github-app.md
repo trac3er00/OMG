@@ -152,9 +152,10 @@ Confirm your setup with this checklist:
 > **Prerequisites**: Node >=18, Python >=3.10
 
 ```bash
-omg install --plan    # preview changes
+omg env doctor
+omg install --plan    # preview only, no mutations
 omg install --apply   # apply configuration
 ```
 
-This registers the OMG control plane for your host automatically.
+The preview step is advisory only and makes no mutations until you run apply.
 <!-- /OMG:GENERATED:install-fast-path -->

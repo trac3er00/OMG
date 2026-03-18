@@ -1,12 +1,23 @@
 # Changelog
 
-<!-- OMG:GENERATED:changelog-v2.2.8 -->
-### Governed Release Surface (v2.2.8)
+<!-- OMG:GENERATED:changelog-v2.2.9 -->
+### Governed Release Surface (v2.2.9)
 
 - Canonical release surface compilation
 - Dual-channel artifact output (public + enterprise)
 - Idempotent generated-section markers in docs
-<!-- /OMG:GENERATED:changelog-v2.2.8 -->
+<!-- /OMG:GENERATED:changelog-v2.2.9 -->
+
+## 2.2.9 - 2026-03-18
+
+### Version Alignment and Documentation Accuracy
+
+- **version alignment**: bump all surfaces to match v2.2.9 tag
+- **documentation accuracy**: replace false postinstall claims; npm postinstall runs `omg install --plan` as a preview and makes no mutations
+- **install flow rewrite**: canonical front door is now `npx omg env doctor` -> `npx omg install --plan` -> `npx omg install --apply` -> `npx omg ship`
+- **legacy demotion**: `/OMG:setup` -> `/OMG:crazy` moved to legacy footnotes; `OMG-setup.sh` demoted to compatibility path
+- **docs compiler expansion**: add generators for install intro, why OMG, proof quickstart, quick-reference hosts, and verification index targets
+- **kill banned copy**: remove the stale install-language phrase from tracked markdown surfaces
 
 ## 2.2.8 - 2026-03-18
 

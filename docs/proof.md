@@ -5,6 +5,18 @@
 
 ## How to Read Your Proof
 
+<!-- OMG:GENERATED:proof-quickstart -->
+## Proof Quickstart
+
+```bash
+omg proof open --html
+omg blocked --last
+omg explain run --run-id <id>
+```
+
+Use the HTML view first, then inspect blockers or explain a specific run.
+<!-- /OMG:GENERATED:proof-quickstart -->
+
 OMG generates machine-backed evidence for every claim. Here is what the outputs mean.
 
 ### Quick Verdict

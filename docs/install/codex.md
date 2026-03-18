@@ -6,7 +6,7 @@
 npm install @trac3er/oh-my-god
 ```
 
-If `codex` is already on `PATH`, OMG now wires `omg-control` into `~/.codex/config.toml` during install using the managed OMG Python runtime.
+`npm install` resolves dependencies and links the `omg` binary only. The package postinstall runs `omg install --plan` as a preview, so it makes no mutations and does not write `~/.codex/config.toml` until you later run `omg install --apply`.
 
 ## Manual Path
 
@@ -42,9 +42,10 @@ Optional browser capability:
 > **Prerequisites**: Node >=18, Python >=3.10
 
 ```bash
-omg install --plan    # preview changes
+omg env doctor
+omg install --plan    # preview only, no mutations
 omg install --apply   # apply configuration
 ```
 
-This registers the OMG control plane for your host automatically.
+The preview step is advisory only and makes no mutations until you run apply.
 <!-- /OMG:GENERATED:install-fast-path -->

@@ -22,6 +22,8 @@ if str(_REPO_ROOT) not in sys.path:
 
 from runtime.release_surfaces import AUTHORED_SURFACES, SCOPED_RESIDUE_TARGETS
 from registry.verify_artifact import verify_artifact_statement
+from runtime.release_surface_compiler import compile_release_surfaces
+from runtime.doc_generator import check_docs
 
 import importlib.util
 
@@ -49,6 +51,21 @@ _PROMOTION_MANIFEST_SURFACES = {
 }
 
 _CHANGELOG_HISTORICAL_RE = re.compile(r"^## \[?\d+\.\d+\.\d+\]?")
+_VERSION_HEADER_RE = re.compile(r"^##\s+\[?(\d+\.\d+\.\d+)\]?\b")
+
+_REQUIRED_GENERATED_MARKERS: dict[str, tuple[str, ...]] = {
+    "README.md": (
+        "install-intro",
+        "quickstart",
+        "command-surface",
+        "why-omg",
+        "proof",
+    ),
+    "CHANGELOG.md": (),
+    "docs/proof.md": ("proof-quickstart",),
+    "QUICK-REFERENCE.md": ("quick-reference-hosts",),
+    "INSTALL-VERIFICATION-INDEX.md": ("verification-index-targets",),
+}
 
 
 def validate_authored(repo_root: Path, canonical: str) -> dict[str, Any]:
@@ -292,6 +309,112 @@ def scan_scoped_residue(repo_root: Path, forbid_version: str) -> dict[str, Any]:
     return {"status": status, "forbid_version": forbid_version, "blockers": blockers}
 
 
+def _latest_changelog_version(repo_root: Path) -> str:
+    changelog = repo_root / "CHANGELOG.md"
+    if not changelog.exists():
+        return ""
+    for raw_line in changelog.read_text(encoding="utf-8").splitlines():
+        match = _VERSION_HEADER_RE.match(raw_line.strip())
+        if match:
+            return match.group(1)
+    return ""
+
+
+def validate_release_surface(repo_root: Path, canonical: str) -> dict[str, Any]:
+    blockers: list[str] = []
+    checks: dict[str, Any] = {}
+
+    release_surface_result = compile_release_surfaces(repo_root, check_only=True)
+    checks["release_surface_drift"] = release_surface_result
+    for item in release_surface_result.get("drift", []):
+        if isinstance(item, dict):
+            surface = str(item.get("surface", "unknown"))
+            reason = str(item.get("reason", "drift"))
+            blockers.append(f"release_surface_drift:{surface}:{reason}")
+        else:
+            blockers.append(f"release_surface_drift:{item}")
+
+    docs_result = check_docs(repo_root)
+    checks["docs_drift"] = docs_result
+    for item in docs_result.get("drift", []):
+        blockers.append(f"docs_drift:{item}")
+
+    latest_version = _latest_changelog_version(repo_root)
+    checks["latest_changelog_version"] = latest_version
+    if latest_version != canonical:
+        blockers.append(
+            f"latest_changelog_version:{latest_version or '<missing>'}:expected:{canonical}"
+        )
+
+    readme = (repo_root / "README.md").read_text(encoding="utf-8")
+    line = next((raw for raw in readme.splitlines() if "Claude front door:" in raw), "")
+    checks["readme_claude_front_door"] = line
+    if not line or "omg " not in line:
+        blockers.append("front_door:README Claude front door must use launcher syntax")
+    elif "/OMG:" in line and line.index("omg ") > line.index("/OMG:"):
+        blockers.append("front_door:README Claude front door lists slash commands before launcher")
+
+    command_idx = readme.find("## Command Surface")
+    next_section = readme.find("\n## ", command_idx + 1) if command_idx >= 0 else -1
+    command_surface = readme[command_idx : next_section if next_section > 0 else len(readme)] if command_idx >= 0 else ""
+    checks["readme_command_surface"] = command_idx >= 0
+    launcher_pos = command_surface.find("omg ")
+    slash_pos = command_surface.find("/OMG:")
+    if launcher_pos < 0:
+        blockers.append("front_door:README Command Surface must mention launcher commands")
+    elif slash_pos >= 0 and launcher_pos > slash_pos:
+        blockers.append("front_door:README Command Surface must lead with launcher commands")
+
+    pkg = json.loads((repo_root / "package.json").read_text(encoding="utf-8"))
+    postinstall = str(pkg.get("scripts", {}).get("postinstall", ""))
+    checks["postinstall"] = postinstall
+    if "--plan" not in postinstall or "--apply" in postinstall:
+        blockers.append("install_truthfulness:package.json postinstall must stay plan-only")
+
+    truthfulness_targets = [
+        repo_root / "README.md",
+        repo_root / "docs" / "install" / "claude-code.md",
+        repo_root / "docs" / "install" / "codex.md",
+        repo_root / "docs" / "install" / "gemini.md",
+        repo_root / "docs" / "install" / "kimi.md",
+        repo_root / "docs" / "install" / "opencode.md",
+    ]
+    truthfulness_hits: dict[str, bool] = {}
+    for path in truthfulness_targets:
+        if not path.exists():
+            continue
+        content = path.read_text(encoding="utf-8").lower()
+        rel = str(path.relative_to(repo_root))
+        truthfulness_hits[rel] = "no mutations" in content
+        if "no mutations" not in content:
+            blockers.append(f"install_truthfulness:{rel}:missing 'no mutations'")
+        if "`npm install` is equivalent for omg" in content:
+            blockers.append(f"install_truthfulness:{rel}:claims npm install equivalence")
+    checks["install_truthfulness"] = truthfulness_hits
+
+    marker_checks: dict[str, list[str]] = {}
+    for rel_path, markers in _REQUIRED_GENERATED_MARKERS.items():
+        path = repo_root / rel_path
+        if not path.exists():
+            blockers.append(f"generated_surface:{rel_path}:missing file")
+            continue
+        content = path.read_text(encoding="utf-8")
+        expected_markers = list(markers)
+        if rel_path == "CHANGELOG.md":
+            expected_markers = [f"changelog-v{canonical}"]
+        marker_checks[rel_path] = expected_markers
+        for marker in expected_markers:
+            if f"<!-- OMG:GENERATED:{marker} -->" not in content:
+                blockers.append(f"generated_surface:{rel_path}:missing marker {marker}")
+    checks["generated_markers"] = marker_checks
+
+    return {
+        "status": "fail" if blockers else "ok",
+        "blockers": blockers,
+        "checks": checks,
+    }
+
+
 def build_report(
     *,
     canonical: str,
@@ -300,9 +423,10 @@ def build_report(
     authored: dict[str, Any] | None,
     derived: dict[str, Any] | None,
     scoped_residue: dict[str, Any] | None,
+    release_surface: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     has_failure = False
-    for section in (authored, derived, scoped_residue):
+    for section in (authored, derived, scoped_residue, release_surface):
         if section is not None and section.get("status") == "fail":
             has_failure = True
             break
@@ -319,6 +443,8 @@ def build_report(
         report["derived"] = derived
     if scoped_residue is not None:
         report["scoped_residue"] = scoped_residue
+    if release_surface is not None:
+        report["release_surface"] = release_surface
 
     report["overall_status"] = "fail" if has_failure else "ok"
     return report
@@ -344,6 +470,7 @@ def main() -> int:
     authored_result = None
     derived_result = None
     residue_result = None
+    release_surface_result = None
 
     if args.scope in ("authored", "all"):
         authored_result = validate_authored(_REPO_ROOT, canonical)
@@ -365,6 +492,9 @@ def main() -> int:
         else:
             residue_result = scan_scoped_residue(_REPO_ROOT, args.forbid_version)
 
+    if args.scope == "all":
+        release_surface_result = validate_release_surface(_REPO_ROOT, canonical)
+
     report = build_report(
         canonical=canonical,
         scope=args.scope,
@@ -372,6 +502,7 @@ def main() -> int:
         authored=authored_result,
         derived=derived_result,
         scoped_residue=residue_result,
+        release_surface=release_surface_result,
     )
 
     output = json.dumps(report, indent=2)

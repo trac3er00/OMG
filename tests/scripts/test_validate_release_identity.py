@@ -26,6 +26,7 @@ validate_authored = _mod.validate_authored
 validate_derived = _mod.validate_derived
 scan_scoped_residue = _mod.scan_scoped_residue
 build_report = _mod.build_report
+validate_release_surface = getattr(_mod, "validate_release_surface", None)
 
 _OLD_VERSION = "0.0.1-test"
 
@@ -41,6 +42,8 @@ class TestHappyPath:
         output = json.loads(result.stdout)
         assert output["overall_status"] == "ok"
         assert result.returncode == 0
+        assert "release_surface" in output
+        assert output["release_surface"]["status"] == "ok"
 
     def test_json_output_structure(self):
         result = subprocess.run(
@@ -139,6 +142,36 @@ class TestAuthoredDrift:
         assert len(result["blockers"]) == 2
         assert result["blockers"][0]["surface"] == ".gemini/settings.json _omg._version"
         assert result["blockers"][1]["surface"] == ".gemini/settings.json _omg.generated.contract_version"
+
+
+class TestReleaseSurfaceValidation:
+    def test_validate_release_surface_available(self):
+        assert callable(validate_release_surface), "validate_release_surface must exist"
+
+    def test_build_report_includes_release_surface_section(self):
+        report = build_report(
+            canonical="2.2.9",
+            scope="all",
+            forbid_version=None,
+            authored={"status": "ok", "blockers": []},
+            derived={"status": "ok", "blockers": []},
+            scoped_residue=None,
+            release_surface={"status": "ok", "blockers": [], "checks": {}},
+        )
+        assert "release_surface" in report
+        assert report["release_surface"]["status"] == "ok"
+
+    def test_release_surface_failure_flips_overall_status(self):
+        report = build_report(
+            canonical="2.2.9",
+            scope="all",
+            forbid_version=None,
+            authored={"status": "ok", "blockers": []},
+            derived={"status": "ok", "blockers": []},
+            scoped_residue=None,
+            release_surface={"status": "fail", "blockers": ["front_door"], "checks": {}},
+        )
+        assert report["overall_status"] == "fail"
 
 
 class TestDerivedDrift:

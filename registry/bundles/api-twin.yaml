@@ -1,6 +1,6 @@
 id: api-twin
 kind: simulation
-version: 2.2.8
+version: 2.2.9
 title: OMG API Twin
 description: Versioned endpoint cassette replay with latency, drift, and cost reporting.
 hosts:

@@ -64,7 +64,7 @@ def _record_copy_with_context_metadata(root: Path, record: JsonObject) -> JsonOb
         if resolved is not None:
             evidence_profile = resolved  # use canonical name
     except ValueError:
-        evidence_requirements = requirements_for_profile(None)
+        evidence_requirements = []
         profile_is_known = False
 
     intent_gate_payload = _load_json(root / ".omg" / "state" / "intent_gate" / f"{run_id}.json") or {}

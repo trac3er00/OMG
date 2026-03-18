@@ -17,7 +17,7 @@ GENERATED_SECTION_MARKERS: dict[str, str] = {
     "readme_quickstart": "<!-- OMG:GENERATED:quickstart -->",
     "readme_command_surface": "<!-- OMG:GENERATED:command-surface -->",
     "install_fast_path": "<!-- OMG:GENERATED:install-fast-path -->",
-    "changelog_current": "<!-- OMG:GENERATED:changelog-v2.2.8 -->",
+    "changelog_current": "<!-- OMG:GENERATED:changelog-v2.2.9 -->",
     "command_surface_doc": "<!-- OMG:GENERATED:command-surface -->",
     "proof_generated_section": "<!-- OMG:GENERATED:proof -->",
     "install_intro": "<!-- OMG:GENERATED:install-intro -->",
@@ -40,14 +40,14 @@ PUBLIC_SURFACES: list[PublicSurface] = [
     {
         "id": "release_notes_artifact",
         "category": "docs",
-        "path": "artifacts/release/release-notes-v2.2.8.md",
-        "description": "release notes artifact for v2.2.8",
+        "path": "artifacts/release/release-notes-v2.2.9.md",
+        "description": "release notes artifact for v2.2.9",
     },
     {
         "id": "changelog_current_block",
         "category": "docs",
         "path": "CHANGELOG.md",
-        "marker": "<!-- OMG:GENERATED:changelog-v2.2.8 -->",
+        "marker": "<!-- OMG:GENERATED:changelog-v2.2.9 -->",
         "description": "current release block in changelog",
     },
     {
@@ -266,6 +266,7 @@ PROMOTED_PUBLIC_COMMANDS: list[str] = [
     "omg install --plan",
     "omg install --apply",
     "omg doctor",
+    "omg env doctor",
 ]
 
 

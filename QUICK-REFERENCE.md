@@ -5,6 +5,19 @@
 
 ### Canonical Hosts
 
+<!-- OMG:GENERATED:quick-reference-hosts -->
+### Host Targets
+
+| host | role | config |
+| :--- | :--- | :--- |
+| claude | canonical | `.mcp.json` |
+| codex | canonical | `~/.codex/config.toml` |
+| gemini | canonical | `~/.gemini/settings.json` |
+| kimi | canonical | `~/.kimi/mcp.json` |
+| opencode | compatibility | `~/.config/opencode/opencode.json` |
+
+<!-- /OMG:GENERATED:quick-reference-hosts -->
+
 | Host | Config File |
 | :--- | :--- |
 | claude | `.mcp.json` |
