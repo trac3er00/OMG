@@ -78,6 +78,15 @@ def _stub_worker_watchdog(monkeypatch) -> None:
     monkeypatch.setattr(contract_compiler_module, "get_worker_watchdog", lambda _root=None: _QuietWatchdog())
 
 
+@pytest.fixture(autouse=True)
+def _stub_provider_statuses(monkeypatch) -> None:
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_provider_statuses",
+        lambda: {host: {"ready": True, "source": "fixture"} for host in CANONICAL_HOSTS},
+    )
+
+
 def _patch_fast_release_checks(monkeypatch) -> None:
     monkeypatch.setattr(
         contract_compiler_module,
