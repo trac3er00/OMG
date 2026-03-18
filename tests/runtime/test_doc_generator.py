@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 import pytest
-from runtime.doc_generator import generate_docs
+from runtime.doc_generator import generate_docs, check_docs, GENERATED_ARTIFACTS
 from runtime.adoption import CANONICAL_VERSION
 from runtime.canonical_surface import get_canonical_hosts
 
@@ -138,3 +138,94 @@ def test_no_labs_as_channel_in_artifacts(tmp_path):
                 assert "labs" not in channels
             elif isinstance(channels, dict):
                 assert "labs" not in channels
+
+
+def test_generated_artifacts_constant_has_all_nine():
+    assert len(GENERATED_ARTIFACTS) == 9
+    expected = {
+        "support-matrix.json",
+        "preset-matrix.json",
+        "host-tiers.json",
+        "install-verification.json",
+        "channel-guarantees.json",
+        "SUPPORT-MATRIX.md",
+        "PRESET-REFERENCE.md",
+        "INSTALL-VERIFICATION-INDEX.md",
+        "QUICK-REFERENCE.md",
+    }
+    assert set(GENERATED_ARTIFACTS) == expected
+
+
+def test_check_docs_returns_ok_when_fresh(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    result = check_docs(output_root)
+    assert result["status"] == "ok"
+    assert result["drift"] == []
+
+
+def test_check_docs_detects_drift_in_any_single_artifact(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    for name in GENERATED_ARTIFACTS:
+        (output_root / name).write_text("TAMPERED", encoding="utf-8")
+        result = check_docs(output_root)
+        assert result["status"] == "drift", f"Expected drift for {name}"
+        assert any(name in d for d in result["drift"]), f"{name} not in drift list"
+        generate_docs(output_root)
+
+
+def test_check_docs_detects_missing_artifact(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    (output_root / "channel-guarantees.json").unlink()
+    result = check_docs(output_root)
+    assert result["status"] == "drift"
+    assert any("channel-guarantees.json" in d for d in result["drift"])
+
+
+def test_check_docs_reports_all_nine_when_all_missing(tmp_path):
+    output_root = tmp_path / "docs"
+    output_root.mkdir(parents=True, exist_ok=True)
+    result = check_docs(output_root)
+    assert result["status"] == "drift"
+    assert len(result["drift"]) == 9
+
+
+def test_quick_reference_no_slash_commands(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    content = (output_root / "QUICK-REFERENCE.md").read_text()
+    assert "/OMG:setup" not in content
+    assert "/OMG:crazy" not in content
+    assert "/OMG:browser" not in content
+    assert "/OMG:deep-plan" not in content
+
+
+def test_quick_reference_uses_omg_launcher(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    content = (output_root / "QUICK-REFERENCE.md").read_text()
+    assert "omg install --plan" in content
+    assert "omg doctor" in content
+    assert "omg ship" in content
+
+
+def test_install_verification_index_uses_omg_commands(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    content = (output_root / "INSTALL-VERIFICATION-INDEX.md").read_text()
+    assert "python3 scripts/omg.py doctor" not in content
+    assert "python3 scripts/omg.py validate" not in content
+    assert "omg doctor" in content
+    assert "omg validate" in content
+
+
+def test_install_verification_json_uses_omg_commands(tmp_path):
+    output_root = tmp_path / "docs"
+    generate_docs(output_root)
+    data = json.loads((output_root / "install-verification.json").read_text())
+    for cmd in data["verification_commands"]:
+        assert "python3 scripts/omg.py" not in cmd["command"]
+    assert any(cmd["command"] == "omg doctor" for cmd in data["verification_commands"])
+    assert any(cmd["command"] == "omg validate" for cmd in data["verification_commands"])

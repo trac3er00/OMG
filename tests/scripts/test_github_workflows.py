@@ -366,6 +366,24 @@ def test_github_review_helpers_build_pr_handoff_and_assert_pass(tmp_path: Path) 
     helpers.assert_pass(payload)
 
 
+def test_release_readiness_has_drift_check_before_compile_step() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    drift_pos = release_job.find("Check release and docs drift")
+    assert drift_pos >= 0, "Missing 'Check release and docs drift' step in release-readiness job"
+    compile_pos = release_job.find("Compile")
+    if compile_pos >= 0:
+        assert drift_pos < compile_pos, "Drift check must appear before any compile step"
+
+
+def test_release_readiness_no_self_healing_compile_step() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    assert "Compile release surfaces into output root" not in release_job, (
+        "Self-healing 'Compile release surfaces into output root' step must be removed from release-readiness"
+    )
+
+
 def test_github_review_helpers_assert_pass_fails_when_required_artifacts_missing(tmp_path: Path) -> None:
     event = {
         "action": "opened",
@@ -379,3 +397,29 @@ def test_github_review_helpers_assert_pass_fails_when_required_artifacts_missing
     assert payload["verdict"] == "fail"
     with pytest.raises(SystemExit):
         helpers.assert_pass(payload)
+
+
+# ---------------------------------------------------------------------------
+# Release-readiness: policy-pack trust enforcement
+# ---------------------------------------------------------------------------
+
+
+def test_release_readiness_workflow_has_policy_pack_verify_step() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    verify_pos = release_job.find("policy-pack verify --all")
+    gate_pos = release_job.find("Run release readiness gate")
+    assert verify_pos >= 0, "Missing 'policy-pack verify --all' step in release-readiness"
+    assert gate_pos >= 0, "Missing 'Run release readiness gate' step"
+    assert verify_pos < gate_pos, "policy-pack verify --all must appear before release readiness gate"
+
+
+def test_release_readiness_workflow_enforces_trusted_packs() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    gate_pos = release_job.find("Run release readiness gate")
+    assert gate_pos >= 0, "Missing 'Run release readiness gate' step"
+    gate_section = release_job[gate_pos:]
+    assert 'OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"' in gate_section, (
+        "Run release readiness gate must set OMG_REQUIRE_TRUSTED_POLICY_PACKS: '1'"
+    )

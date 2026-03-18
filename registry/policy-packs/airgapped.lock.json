@@ -1,9 +1,11 @@
 {
+  "lockfile_version": 1,
   "pack_id": "airgapped",
   "pack_path": "registry/policy-packs/airgapped.yaml",
   "canonical_digest": "9cdb4fc37bdd487e7e86bf15460c566b6e2accdda76180582af31fcb8126b90c",
   "signer_key_id": "1f5fe64ec2f8c901",
-  "algorithm": "ed25519",
+  "signer_public_key": "QwRr/kCSs+lJlOraFdzCDYqqB7ZY/TlU644O+4vcpd4=",
+  "algorithm": "ed25519-minisign",
   "signature_path": "registry/policy-packs/airgapped.signature.json",
-  "created_at": "2026-03-17T02:45:30.876650+00:00"
+  "created_at": "2026-03-18T03:27:26.101684+00:00"
 }

@@ -41,8 +41,8 @@
 
 | Name | Command |
 | :--- | :--- |
-| doctor | `python3 scripts/omg.py doctor` |
-| validate | `python3 scripts/omg.py validate` |
+| doctor | `omg doctor` |
+| validate | `omg validate` |
 
 ## 📂 Cache Paths
 

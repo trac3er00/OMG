@@ -52,3 +52,4 @@ Generated for OMG v2.2.7.
 | `omg profile-review` | Review governed profile state |
 | `omg docs` | OMG documentation generator |
 | `omg install` | Compute, dry-run, or apply an install plan |
+| `omg env` | Environment preflight and doctor alias |
