@@ -678,6 +678,53 @@ if changed:
 PY
 }
 
+remove_omg_metadata_from_settings() {
+    local settings_path="$CLAUDE_DIR/settings.json"
+    if [ ! -f "$settings_path" ]; then
+        return 0
+    fi
+    if ! command -v python3 &>/dev/null; then
+        return 0
+    fi
+    python3 - "$settings_path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+settings_path = Path(sys.argv[1])
+try:
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+except Exception:
+    raise SystemExit(0)
+if not isinstance(settings, dict):
+    raise SystemExit(0)
+
+changed = False
+if "_omg" in settings:
+    settings.pop("_omg", None)
+    changed = True
+
+if changed:
+    settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+}
+
+remove_codex_managed_residue() {
+    local codex_dir="${HOME:-$HOME}/.codex"
+    [ -d "$codex_dir" ] || return 0
+
+    rm -rf "$codex_dir/.omg"
+    rm -f "$codex_dir/bin/omg-codex-hud"
+    rm -f "$codex_dir/hud/omg-codex-hud.py"
+
+    if [ -d "$codex_dir/skills" ]; then
+        while IFS= read -r skill_dir; do
+            [ -f "$skill_dir/.omg-managed-skill" ] || continue
+            rm -rf "$skill_dir"
+        done < <(find "$codex_dir/skills" -maxdepth 1 -mindepth 1 -type d -name 'omg-*' 2>/dev/null | sort)
+    fi
+}
+
 emit_uninstall_receipt() {
     local receipt_path="$CLAUDE_DIR/.omg-uninstall-receipt.json"
     local removed_paths_json="${1:-[]}"
@@ -1255,7 +1302,7 @@ plan = compute_install_plan(
 plan.pre_checks = []
 result = execute_plan(plan)
 
-configured = [action.host for action in plan.actions if action.host in {"codex", "gemini", "kimi"}]
+configured = [action.host for action in plan.actions if action.host in {"codex", "gemini", "kimi", "opencode"}]
 if not result.get("errors") and configured:
     print(",".join(configured))
 PY
@@ -1317,6 +1364,25 @@ def remove_json_server(path: Path, server_name: str) -> bool:
     return True
 
 
+def remove_opencode_server(path: Path, server_name: str) -> bool:
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(data, dict):
+        return False
+    mcp_servers = data.get("mcp")
+    if not isinstance(mcp_servers, dict) or server_name not in mcp_servers:
+        return False
+    mcp_servers.pop(server_name, None)
+    data["mcp"] = mcp_servers
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return True
+
+
 removed: list[str] = []
 home = Path(os.path.expanduser("~"))
 if remove_codex_section(home / ".codex" / "config.toml", "omg-control"):
@@ -1325,6 +1391,8 @@ if remove_json_server(home / ".gemini" / "settings.json", "omg-control"):
     removed.append("gemini")
 if remove_json_server(home / ".kimi" / "mcp.json", "omg-control"):
     removed.append("kimi")
+if remove_opencode_server(home / ".config" / "opencode" / "opencode.json", "omg-control"):
+    removed.append("opencode")
 
 if removed:
     print(",".join(removed))
@@ -1461,6 +1529,8 @@ remove_omg_files() {
         rm -rf "$CLAUDE_DIR/templates/omg"
         [[ "$CLAUDE_DIR/omg-runtime" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/omg-runtime" >&2; exit 1; }
         rm -rf "$CLAUDE_DIR/omg-runtime"
+        [[ "$CLAUDE_DIR/.omg" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $CLAUDE_DIR/.omg" >&2; exit 1; }
+        rm -rf "$CLAUDE_DIR/.omg"
 
         [[ "$PLUGIN_CACHE_DIR" == "$CLAUDE_DIR"* ]] || { echo "ERROR: rm -rf target outside expected directory: $PLUGIN_CACHE_DIR" >&2; exit 1; }
         rm -rf "$PLUGIN_CACHE_DIR"
@@ -1488,6 +1558,10 @@ remove_omg_files() {
 
         remove_omg_hooks_from_settings
         echo "  ✓ Removed OMG hook entries from settings.json (if any)"
+        remove_omg_metadata_from_settings
+        echo "  ✓ Removed OMG metadata from settings.json (if any)"
+        remove_codex_managed_residue
+        echo "  ✓ Removed Codex OMG residue (if any)"
     fi
 }
 

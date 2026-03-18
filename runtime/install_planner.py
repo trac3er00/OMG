@@ -46,6 +46,7 @@ _HOST_CONFIG_PATHS: dict[str, tuple[str, ...]] = {
     "codex": (".codex", "config.toml"),
     "gemini": (".gemini", "settings.json"),
     "kimi": (".kimi", "mcp.json"),
+    "opencode": (".config", "opencode", "opencode.json"),
 }
 
 
@@ -313,6 +314,54 @@ def _compute_json_host_content(
     return json.dumps(data, indent=2, ensure_ascii=True) + "\n"
 
 
+def _compute_opencode_content(
+    *,
+    target_path: Path,
+    selected_servers: dict[str, dict[str, Any]],
+    http_memory_allowed: bool,
+    server_url: str,
+    server_name: str,
+    control_command: str,
+    control_args: list[str],
+    control_server_name: str,
+) -> str:
+    data = _load_json_path(target_path)
+    mcp_servers = data.get("mcp")
+    if not isinstance(mcp_servers, dict):
+        mcp_servers = {}
+
+    for selected_server_name, payload in selected_servers.items():
+        if selected_server_name == "omg-memory":
+            if not http_memory_allowed:
+                continue
+            mcp_servers[server_name] = {"type": "http", "url": server_url}
+            continue
+
+        if selected_server_name == "omg-control":
+            mcp_servers[control_server_name] = {
+                "type": "stdio",
+                "command": control_command,
+                "args": control_args,
+            }
+            continue
+
+        if payload.get("type") == "http":
+            mcp_servers[selected_server_name] = {
+                "type": "http",
+                "url": str(payload.get("url", "")),
+            }
+            continue
+
+        mcp_servers[selected_server_name] = {
+            "type": "stdio",
+            "command": str(payload.get("command", "")),
+            "args": [str(arg) for arg in cast(list[Any], payload.get("args", []))],
+        }
+
+    data["mcp"] = mcp_servers
+    return json.dumps(data, indent=2, ensure_ascii=True) + "\n"
+
+
 def _compute_codex_content(
     *,
     target_path: Path,
@@ -410,6 +459,7 @@ def compute_install_plan(
         "codex": home / ".codex" / "config.toml",
         "gemini": home / ".gemini" / "settings.json",
         "kimi": home / ".kimi" / "mcp.json",
+        "opencode": home / ".config" / "opencode" / "opencode.json",
     }
 
     for host, target_path in host_targets.items():
@@ -419,6 +469,17 @@ def compute_install_plan(
 
         if host == "codex":
             content = _compute_codex_content(
+                target_path=target_path,
+                selected_servers=selected,
+                http_memory_allowed=http_memory_allowed,
+                server_url=server_url,
+                server_name=server_name,
+                control_command=control_command,
+                control_args=resolved_control_args,
+                control_server_name=control_server_name,
+            )
+        elif host == "opencode":
+            content = _compute_opencode_content(
                 target_path=target_path,
                 selected_servers=selected,
                 http_memory_allowed=http_memory_allowed,
@@ -546,6 +607,7 @@ def get_owned_install_paths(project_dir: str) -> list[str]:
         str(home / ".codex" / "config.toml"),
         str(home / ".gemini" / "settings.json"),
         str(home / ".kimi" / "mcp.json"),
+        str(home / ".config" / "opencode" / "opencode.json"),
         str(project / ".mcp.json"),
         str(project / ".claude" / "settings.json"),
         str(project / ".claude" / "hooks"),

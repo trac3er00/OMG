@@ -1,9 +1,11 @@
 {
+  "lockfile_version": 1,
   "pack_id": "locked-prod",
   "pack_path": "registry/policy-packs/locked-prod.yaml",
   "canonical_digest": "685ad062bda949705bd3c54ab3670957fbf7638811322f7851d28341a03f0625",
   "signer_key_id": "1f5fe64ec2f8c901",
-  "algorithm": "ed25519",
+  "signer_public_key": "QwRr/kCSs+lJlOraFdzCDYqqB7ZY/TlU644O+4vcpd4=",
+  "algorithm": "ed25519-minisign",
   "signature_path": "registry/policy-packs/locked-prod.signature.json",
-  "created_at": "2026-03-16T23:33:34.545266+00:00"
+  "created_at": "2026-03-18T03:40:41.454274+00:00"
 }

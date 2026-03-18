@@ -394,6 +394,9 @@ jobs:
           cp settings.json artifacts/release/settings.json
           mkdir -p artifacts/release/.omg/evidence
 
+      - name: Verify trusted policy pack signatures
+        run: python3 scripts/omg.py policy-pack verify --all --format json | tee artifacts/release/.omg/evidence/policy-pack-verify.json; test ${PIPESTATUS[0]} -eq 0
+
       - name: Run release readiness gate
         env:
           OMG_REQUIRE_HOST_PARITY_REPORT: "1"

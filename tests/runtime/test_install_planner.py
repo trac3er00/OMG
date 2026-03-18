@@ -115,6 +115,7 @@ def test_compute_install_plan_has_separate_actions_for_detected_hosts(
             "codex": {"detected": True},
             "gemini": {"detected": True},
             "kimi": {"detected": True},
+            "opencode": {"detected": True},
         },
         preset="safe",
         mode="focused",
@@ -128,6 +129,7 @@ def test_compute_install_plan_has_separate_actions_for_detected_hosts(
     assert "codex" in hosts
     assert "gemini" in hosts
     assert "kimi" in hosts
+    assert "opencode" in hosts
 
 
 get_owned_install_paths = install_planner.get_owned_install_paths
@@ -148,6 +150,7 @@ def test_get_owned_install_paths_returns_known_config_paths(
     assert ".codex" in joined
     assert ".gemini" in joined
     assert ".kimi" in joined
+    assert ".config/opencode" in joined
     assert ".mcp.json" in joined
     assert ".claude" in joined
 
@@ -171,3 +174,20 @@ def test_normalize_detected_clis_derives_configured_state_from_host_configs(tmp_
     assert normalized["codex"]["detected"] is True
     assert normalized["codex"]["configured"] is False
     assert normalized["kimi"]["detected"] is False
+
+
+def test_normalize_detected_clis_derives_opencode_configured_state(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    opencode_config = home / ".config" / "opencode" / "opencode.json"
+    opencode_config.parent.mkdir(parents=True)
+    opencode_config.write_text("{}\n", encoding="utf-8")
+
+    normalized = normalize_detected_clis(
+        {
+            "opencode": {"detected": False},
+        },
+        home_path=home,
+    )
+
+    assert normalized["opencode"]["detected"] is False
+    assert normalized["opencode"]["configured"] is True
