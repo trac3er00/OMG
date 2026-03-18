@@ -3,9 +3,11 @@ from __future__ import annotations
 import importlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import runtime.tracebank as tracebank
+from runtime import contract_compiler as contract_compiler_module
 from runtime.contract_compiler import build_release_readiness, compile_contract_outputs
 from runtime.data_lineage import build_lineage_manifest
 from runtime.eval_gate import evaluate_trace
@@ -15,6 +17,15 @@ from runtime.omg_browser_cli import run_browser_cli
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+
+@pytest.fixture(autouse=True)
+def _stub_worker_watchdog(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "get_worker_watchdog",
+        lambda _project_dir=None: SimpleNamespace(get_stalled_workers=lambda: []),
+    )
 
 
 def _load_fixture(name: str) -> dict[str, object]:

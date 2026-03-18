@@ -1279,7 +1279,7 @@ from runtime.install_planner import compute_install_plan, execute_plan  # noqa: 
 
 detected_clis = {
     host: {"detected": bool(shutil.which(host))}
-    for host in ("codex", "gemini", "kimi")
+    for host in ("codex", "gemini", "kimi", "opencode")
 }
 
 plan = compute_install_plan(
@@ -2463,7 +2463,12 @@ run_install_like() {
     echo "Post-install validation..."
     local validate_output=""
     local validate_rc=0
-    validate_output=$(python3 "$SCRIPT_DIR/scripts/omg.py" validate --format json 2>&1) || validate_rc=$?
+    if [ -n "${OMG_TEST_POST_INSTALL_VALIDATE_OUTPUT:-}" ]; then
+        validate_output="${OMG_TEST_POST_INSTALL_VALIDATE_OUTPUT}"
+        validate_rc="${OMG_TEST_POST_INSTALL_VALIDATE_RC:-1}"
+    else
+        validate_output=$(python3 "$SCRIPT_DIR/scripts/omg.py" validate --format json 2>&1) || validate_rc=$?
+    fi
 
     if ! $DRY_RUN && [ -n "$validate_output" ]; then
         mkdir -p "$CLAUDE_DIR/.omg/state"

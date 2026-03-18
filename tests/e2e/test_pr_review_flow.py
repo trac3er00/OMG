@@ -91,6 +91,50 @@ def test_full_pr_review_flow_with_mocked_github_api():
     assert any(url.endswith("/reviews/5001/dismissals") for url in called_urls)
 
 
+def test_full_pr_flow_with_external_ci_failure():
+    event = {
+        "action": "opened",
+        "repository": {"full_name": "acme/omg"},
+        "pull_request": {
+            "number": 99,
+            "head": {"sha": "sha-e2e"},
+        },
+    }
+    pass_evidence = {
+        "verdict": "pass",
+        "artifacts": ["artifacts/release/.omg/evidence/release-readiness.json"],
+        "checks": [{"name": "compat-gate", "status": "ok"}],
+        "evidence_gaps": [],
+        "inline_comments": [],
+    }
+
+    session = Mock()
+    session.get.return_value = _response(200, {
+        "total_count": 2,
+        "check_runs": [
+            {"name": "build-and-test", "status": "completed", "conclusion": "failure"},
+            {"name": "OMG PR Reviewer", "status": "completed", "conclusion": "success"},
+        ],
+    })
+    session.post.side_effect = [
+        _response(200, {"id": 10001}),
+        _response(201, {"id": 10002}),
+    ]
+    bot = GitHubReviewBot(session=session)
+
+    with patch("runtime.github_review_bot.get_github_token", return_value={"status": "ok", "token": "ghs_e2e"}):
+        result = bot.process_pull_request_event(event, pass_evidence)
+
+    assert result["status"] == "ok"
+    assert result["review_status"] == "rejected"
+    assert result["head_sha"] == "sha-e2e"
+
+    review_post_call = session.post.call_args_list[0]
+    review_body = review_post_call.kwargs.get("json", {}).get("body", "")
+    assert "build-and-test" in review_body
+    assert "failed" in review_body.lower()
+
+
 # ---------------------------------------------------------------------------
 # build_check_run_payload — standalone App seam tests
 # ---------------------------------------------------------------------------

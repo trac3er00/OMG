@@ -22,7 +22,7 @@ def test_exits_zero_with_valid_input():
     input_data = json.dumps({"session_id": "test-session-123", "cwd": "/tmp"})
 
     result = subprocess.run(
-        ["python3", hook_path],
+        [sys.executable, hook_path],
         input=input_data,
         capture_output=True,
         text=True,
@@ -39,7 +39,7 @@ def test_exits_zero_with_invalid_json():
     input_data = "{ invalid json }"
 
     result = subprocess.run(
-        ["python3", hook_path],
+        [sys.executable, hook_path],
         input=input_data,
         capture_output=True,
         text=True,
@@ -56,7 +56,7 @@ def test_exits_zero_with_missing_session_id():
     input_data = json.dumps({"cwd": "/tmp"})
 
     result = subprocess.run(
-        ["python3", hook_path],
+        [sys.executable, hook_path],
         input=input_data,
         capture_output=True,
         text=True,
@@ -73,7 +73,7 @@ def test_exits_zero_with_empty_input():
     input_data = ""
 
     result = subprocess.run(
-        ["python3", hook_path],
+        [sys.executable, hook_path],
         input=input_data,
         capture_output=True,
         text=True,
@@ -93,7 +93,7 @@ def _run_hook(project_dir: Path, run_id: str, home_dir: Path) -> subprocess.Comp
     env = os.environ.copy()
     env["HOME"] = str(home_dir)
     return subprocess.run(
-        ["python3", hook_path],
+        [sys.executable, hook_path],
         input=input_data,
         capture_output=True,
         text=True,

@@ -1,6 +1,7 @@
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -267,7 +268,7 @@ def test_execute_commit_plan_reads_quality_gate_config_and_runs_commands():
 
         quality_dir = Path(repo_dir) / ".omg" / "state"
         quality_dir.mkdir(parents=True, exist_ok=True)
-        cfg = {"test": "python3 -m pytest --version"}
+        cfg = {"test": f"{sys.executable} -m pytest --version"}
         (quality_dir / "quality-gate.json").write_text(json.dumps(cfg), encoding="utf-8")
 
         plan = [{"files": ["ok.py"], "message": "feat(core): with quality gate"}]

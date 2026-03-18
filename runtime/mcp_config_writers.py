@@ -9,8 +9,11 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generator, cast
 
-import tomlkit
-import tomlkit.exceptions
+try:
+    import tomlkit
+    import tomlkit.exceptions
+except ImportError:  # Portable runtime may run without third-party TOML support.
+    tomlkit = None
 
 from hooks.security_validators import (
     toml_quote_string,
@@ -26,6 +29,11 @@ _O_NOFOLLOW: int = getattr(os, "O_NOFOLLOW", 0)
 _active_transaction: ConfigTransaction | None = None
 _planned_content: dict[str, str] = {}
 _last_receipt: dict[str, Any] | None = None
+
+
+def _require_tomlkit() -> None:
+    if tomlkit is None:
+        raise RuntimeError("tomlkit is required for Codex TOML config writes")
 
 
 def _fsync_dir(path: Path | str) -> None:
@@ -242,6 +250,7 @@ def write_claude_mcp_stdio_config(
 
 
 def _compute_codex_toml_http(target_path: Path, server_url: str, server_name: str) -> str:
+    _require_tomlkit()
     existing = _get_current_content(target_path)
     try:
         doc = tomlkit.parse(existing) if existing else tomlkit.document()
@@ -260,6 +269,7 @@ def _compute_codex_toml_http(target_path: Path, server_url: str, server_name: st
 
 
 def _compute_codex_toml_stdio(target_path: Path, command: str, args: list[str], server_name: str) -> str:
+    _require_tomlkit()
     existing = _get_current_content(target_path)
     try:
         doc = tomlkit.parse(existing) if existing else tomlkit.document()

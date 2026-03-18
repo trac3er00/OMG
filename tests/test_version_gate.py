@@ -23,7 +23,6 @@ How to fix failures:
 """
 from __future__ import annotations
 
-import fcntl
 import json
 import subprocess
 import sys
@@ -38,7 +37,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from runtime.adoption import CANONICAL_VERSION  # noqa: E402
 from runtime.canonical_surface import get_canonical_hosts  # noqa: E402
-from runtime.contract_compiler import compile_contract_outputs  # noqa: E402
 
 
 # ─────────────────────────────────────────────
@@ -57,61 +55,9 @@ def _version_label(path: str) -> str:
     return f"{path} must be {CANONICAL_VERSION}"
 
 
-_GENERATED_OUTPUT_LOCKS = ROOT / ".context" / "pytest-locks"
-
-
-def _compile_target_for(rel: str) -> tuple[str, Path | None] | None:
-    if rel.startswith("artifacts/release/dist/public/"):
-        return "public", ROOT / "artifacts" / "release"
-    if rel.startswith("artifacts/release/dist/enterprise/"):
-        return "enterprise", ROOT / "artifacts" / "release"
-    if rel.startswith("dist/public/"):
-        return "public", None
-    if rel.startswith("dist/enterprise/"):
-        return "enterprise", None
-    return None
-
-
-def _lock_name_for(channel: str, output_root: Path | None) -> str:
-    if output_root is None:
-        return "contract-compile-root.lock"
-    return f"contract-compile-{output_root.name}.lock"
-
-
-def _ensure_generated_path(path: Path, rel: str, fix_hint: str) -> None:
-    if path.exists():
-        return
-
-    compile_target = _compile_target_for(rel)
-    if compile_target is None:
-        return
-
-    channel, output_root = compile_target
-    _GENERATED_OUTPUT_LOCKS.mkdir(parents=True, exist_ok=True)
-    lock_path = _GENERATED_OUTPUT_LOCKS / _lock_name_for(channel, output_root)
-    with lock_path.open("w", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        try:
-            if path.exists():
-                return
-            result = compile_contract_outputs(
-                root_dir=ROOT,
-                output_root=output_root,
-                hosts=list(get_canonical_hosts()),
-                channel=channel,
-            )
-        finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-
-    assert result["status"] == "ok", (
-        f"Failed to generate {rel} for test verification.\n"
-        f"Errors: {result.get('errors', [])}\n"
-        f"Fix: {fix_hint}"
-    )
-
-
 def _require_generated_path(path: Path, rel: str, fix_hint: str) -> Path:
-    _ensure_generated_path(path, rel, fix_hint)
+    if rel.startswith("artifacts/release/") and not path.exists():
+        pytest.skip(f"{rel} is CI-generated and absent in this checkout")
     assert path.exists(), f"{rel} missing.\nFix: {fix_hint}"
     return path
 

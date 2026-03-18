@@ -30,7 +30,7 @@ _atomic_json_write = None
 def _ensure_imports():
     """Lazy import feature flag and atomic write from hooks/_common.py."""
     global _get_feature_flag, _atomic_json_write
-    if _get_feature_flag is not None:
+    if _get_feature_flag is not None and _atomic_json_write is not None:
         return
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if repo_root not in sys.path:
@@ -38,8 +38,10 @@ def _ensure_imports():
     try:
         from hooks._common import get_feature_flag as _gff
         from hooks._common import atomic_json_write as _ajw
-        _get_feature_flag = _gff
-        _atomic_json_write = _ajw
+        if _get_feature_flag is None:
+            _get_feature_flag = _gff
+        if _atomic_json_write is None:
+            _atomic_json_write = _ajw
     except ImportError:
         pass
 

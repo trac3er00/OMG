@@ -410,10 +410,13 @@ def _is_safe_command(cmd: str) -> tuple[bool, str, list[str]]:
     if not argv:
         return False, "empty command", []
 
+    normalized_argv = list(argv)
+    normalized_argv[0] = os.path.basename(normalized_argv[0])
+
     for prefix in _ALLOWED_PREFIXES:
         if len(argv) < len(prefix):
             continue
-        if tuple(argv[: len(prefix)]) == prefix:
+        if tuple(argv[: len(prefix)]) == prefix or tuple(normalized_argv[: len(prefix)]) == prefix:
             return True, "", argv
 
     return False, "not in allowed commands list", []

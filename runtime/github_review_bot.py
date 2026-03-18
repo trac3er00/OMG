@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from copy import deepcopy
 from typing import Any
 
 import requests
@@ -12,6 +13,17 @@ from runtime.github_review_formatter import format_review_payload
 from runtime.verdict_schema import VerdictReceipt, VerdictStatus
 
 CHECK_RUN_NAME = "OMG PR Reviewer"
+
+# Job names from omg-compat-gate.yml — excluded when scanning for external CI failures.
+_COMPAT_GATE_JOB_NAMES: frozenset[str] = frozenset({
+    "prepare-compat-gate", "compile-public-compat",
+    "emit-compat-host-parity", "pr-analyze",
+    "post-review", "compat-gate", "standalone-no-vendor",
+})
+
+_FAILING_CONCLUSIONS: frozenset[str] = frozenset({
+    "failure", "cancelled", "timed_out", "action_required",
+})
 
 _VERDICT_TO_CONCLUSION: dict[VerdictStatus, str] = {
     "pass": "success",
@@ -114,7 +126,14 @@ class GitHubReviewBot:
                 "message": "GitHub token is empty.",
             }
 
-        formatted = format_review_payload(evidence)
+        review_evidence = deepcopy(evidence)
+
+        external_failures = self._get_external_check_failures(
+            repo=repo, head_sha=head_sha, token=token,
+        )
+        self._enrich_evidence_with_external_failures(review_evidence, external_failures)
+
+        formatted = format_review_payload(review_evidence)
         if formatted.get("status") != "ok":
             return formatted
 
@@ -362,6 +381,71 @@ class GitHubReviewBot:
         if value == "stale":
             return "stale"
         return "pending"
+
+    def _get_external_check_failures(
+        self, *, repo: str, head_sha: str, token: str,
+    ) -> list[dict[str, str]]:
+        failures: list[dict[str, str]] = []
+        url = f"{self.api_base}/repos/{repo}/commits/{head_sha}/check-runs"
+        page = 1
+        per_page = 100
+
+        while True:
+            try:
+                response = self.session.get(
+                    url,
+                    headers=self._headers(token),
+                    params={"per_page": per_page, "page": page},
+                    timeout=20,
+                )
+                if int(getattr(response, "status_code", 0)) >= 400:
+                    return failures
+                data = response.json()
+            except Exception:
+                return failures
+            if not isinstance(data, dict):
+                return failures
+            check_runs = data.get("check_runs")
+            if not isinstance(check_runs, list):
+                return failures
+            for cr in check_runs:
+                if not isinstance(cr, dict):
+                    continue
+                name = str(cr.get("name", "")).strip()
+                if name == CHECK_RUN_NAME or name in _COMPAT_GATE_JOB_NAMES:
+                    continue
+                if str(cr.get("status", "")).strip() != "completed":
+                    continue
+                conclusion = str(cr.get("conclusion", "")).strip()
+                if conclusion in _FAILING_CONCLUSIONS:
+                    failures.append({
+                        "name": name,
+                        "status": "failed",
+                        "detail": f"external CI check conclusion={conclusion}",
+                    })
+            if len(check_runs) < per_page:
+                return failures
+            page += 1
+        return failures
+
+    @staticmethod
+    def _enrich_evidence_with_external_failures(
+        evidence: dict[str, Any], external_failures: list[dict[str, str]],
+    ) -> None:
+        if not external_failures:
+            return
+        checks = evidence.get("checks")
+        if not isinstance(checks, list):
+            checks = []
+            evidence["checks"] = checks
+        checks.extend(external_failures)
+        gaps = evidence.get("evidence_gaps")
+        if not isinstance(gaps, list):
+            gaps = []
+            evidence["evidence_gaps"] = gaps
+        for f in external_failures:
+            gaps.append(f"external CI check failed: {f['name']} ({f['detail']})")
+        evidence["verdict"] = "fail"
 
     def _headers(self, token: str) -> dict[str, str]:
         return {

@@ -1548,6 +1548,17 @@ def compile_contract_outputs(
     bundled_artifacts = _copy_release_bundle(output_root=output, channel=channel, artifacts=artifacts)
     manifest_path = _build_dist_manifest(output, channel=channel, hosts=selected_hosts, artifacts=bundled_artifacts)
     artifacts.append(manifest_path)
+    release_surface_path = output / "dist" / channel / "release-surface.json"
+    _write_json(
+        release_surface_path,
+        {
+            "generated_by": "omg release compile-surfaces",
+            "version": CANONICAL_VERSION,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "surfaces": get_public_surfaces(),
+        },
+    )
+    artifacts.append(release_surface_path)
 
     return {
         "schema": "OmgContractCompileResult",

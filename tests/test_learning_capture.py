@@ -1,4 +1,4 @@
-import subprocess, json, os
+import subprocess, json, os, sys
 from pathlib import Path
 import pytest
 
@@ -14,7 +14,7 @@ def run_session_end(tmp_path, env_overrides=None):
 
     input_data = json.dumps({'session_id': 'ses_test123', 'cwd': str(tmp_path)})
     result = subprocess.run(
-        ['python3', 'hooks/session-end-capture.py'],
+        [sys.executable, 'hooks/session-end-capture.py'],
         input=input_data, capture_output=True, text=True, env=env,
         cwd=str(ROOT)
     )

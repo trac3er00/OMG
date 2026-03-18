@@ -33,6 +33,17 @@ from runtime.cli_provider import get_provider, list_available_providers  # noqa:
 import runtime.providers.codex_provider  # noqa: E402, F401
 import runtime.providers.gemini_provider  # noqa: E402, F401
 import runtime.providers.kimi_provider  # noqa: E402, F401
+import runtime.providers.opencode_provider  # noqa: E402, F401
+from runtime.mcp_config_writers import (  # noqa: E402
+    write_claude_mcp_config,
+    write_claude_mcp_stdio_config,
+    write_codex_mcp_config,
+    write_codex_mcp_stdio_config,
+    write_gemini_mcp_config,
+    write_gemini_mcp_stdio_config,
+    write_kimi_mcp_config,
+    write_kimi_mcp_stdio_config,
+)
 from runtime.plugin_interop import discover_host_plugin_state  # noqa: E402
 from runtime.validate import run_validate as _run_post_install_validate  # noqa: E402
 from runtime.adoption import (  # noqa: E402
