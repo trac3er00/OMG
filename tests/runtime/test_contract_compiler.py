@@ -980,6 +980,22 @@ def test_dual_channel_bundles_keep_independent_hashes(tmp_path: Path, monkeypatc
     assert readiness["blockers"] == []
 
 
+def test_compile_contract_outputs_emits_release_surface_manifest(tmp_path: Path) -> None:
+    compile_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=list(CANONICAL_HOSTS),
+        channel="public",
+    )
+
+    assert compile_result["status"] == "ok"
+    manifest_path = tmp_path / "dist" / "public" / "release-surface.json"
+    assert manifest_path.exists()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload["version"] == CANONICAL_VERSION
+    assert "dist/public/release-surface.json" in compile_result["artifacts"]
+
+
 def test_release_readiness_rejects_cosmetic_evidence_and_eval_regressions(
     tmp_path: Path,
     monkeypatch,
