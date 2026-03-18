@@ -18,6 +18,41 @@ from runtime.release_surface_registry import get_promoted_public_commands
 class TestFrontDoorConsistency:
     """Launcher syntax must be primary everywhere."""
 
+    def test_native_adoption_public_onboarding_is_launcher_first(self) -> None:
+        """Native adoption guide must describe launcher-first onboarding."""
+        path = REPO_ROOT / "docs" / "migration" / "native-adoption.md"
+        content = path.read_text(encoding="utf-8")
+        assert "Public onboarding is launcher-first:" in content
+        assert "npx omg env doctor" in content
+        assert "npx omg install --plan" in content
+        assert "npx omg install --apply" in content
+        assert "Legacy Claude aliases" in content
+
+    def test_readme_command_surface_demotes_legacy_aliases(self) -> None:
+        """README should subordinate slash-command aliases to the launcher list."""
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+        cmd_idx = readme.find("## Command Surface")
+        assert cmd_idx >= 0, "README must have a Command Surface section"
+        next_section = readme.find("\n## ", cmd_idx + 1)
+        section = readme[cmd_idx : next_section if next_section > 0 else len(readme)]
+        assert "> **Legacy/advanced aliases**:" in section
+        assert section.find("> **Legacy/advanced aliases**:") > section.find("- `omg env doctor`")
+
+    def test_host_guides_demote_legacy_clone_paths(self) -> None:
+        """Manual clone paths should be hidden behind legacy/advanced disclosure."""
+        for guide in ("codex.md", "gemini.md", "kimi.md", "opencode.md"):
+            path = REPO_ROOT / "docs" / "install" / guide
+            content = path.read_text(encoding="utf-8")
+            assert "<details><summary>Legacy clone path (advanced)</summary>" in content, guide
+            assert "## Manual Path" not in content, guide
+
+    def test_claude_code_browser_legacy_script_is_disclosed(self) -> None:
+        """Legacy setup-script browser path should be visually subordinate in Claude docs."""
+        path = REPO_ROOT / "docs" / "install" / "claude-code.md"
+        content = path.read_text(encoding="utf-8")
+        assert "<details><summary>Optional: browser via legacy setup script</summary>" in content
+        assert "./OMG-setup.sh install --enable-browser" in content
+
     def test_readme_why_omg_claude_front_door_uses_launcher(self) -> None:
         """README Why OMG section must describe Claude with launcher-first wording."""
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")

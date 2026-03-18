@@ -78,10 +78,24 @@ OMG keeps verification visible instead of burying it in implementation details.
   - worker watchdog replay: `.omg/evidence/subagents/<run_id>-replay.json`
   - merge writer provenance: `.omg/evidence/merge-writer-<run_id>.json`
   - tool fabric ledger: `.omg/state/ledger/tool-ledger.jsonl`
-  - budget envelope state: `.omg/state/budget-envelopes/<run_id>.json`
-  - issue report: `.omg/evidence/issues/<run_id>.json`
-  - host parity report: `.omg/evidence/host-parity-<run_id>.json`
-  - music OMR testbed evidence: `.omg/evidence/music-omr-<run_id>.json`
+- budget envelope state: `.omg/state/budget-envelopes/<run_id>.json`
+- issue report: `.omg/evidence/issues/<run_id>.json`
+- host parity report: `.omg/evidence/host-parity-<run_id>.json`
+- music OMR testbed evidence: `.omg/evidence/music-omr-<run_id>.json`
+
+## Certification Lanes
+
+OMG proof is multi-lane. Each lane binds a user-facing claim to a freshness policy,
+required evidence, and a release-facing verdict. Music OMR is Lane 1 because it is
+the first continuously enforced daily certification lane, not because it represents
+the full platform proof surface.
+
+- Lane 1: Music OMR daily gate for deterministic score parsing and live transposition
+- Planned lane: install/apply correctness for launcher previews versus applied mutations
+- Planned lane: uninstall cleanliness for rollback and host cleanup guarantees
+- Planned lane: host parity for canonical provider behavior normalization
+- Planned lane: trust-chain verification for signed approvals, ledgering, and provenance
+- Planned lane: proof-surface integrity for generated docs, artifacts, and release surfaces
 
 ## Permanent Music OMR Daily Gate
 

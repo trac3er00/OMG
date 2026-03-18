@@ -112,7 +112,7 @@ npx omg install --plan
 npx omg install --apply
 ```
 
-If you choose `npm install`, it performs dependency resolution and bin linking only.
+If you run `npm install @trac3er/oh-my-god`, it resolves dependencies and links `omg` into `node_modules/.bin/` but makes no configuration mutations. For one-off or CI use, `npx omg ...` downloads and runs without a permanent local install.
 
 The package postinstall runs `omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
 <!-- /OMG:GENERATED:install-intro -->
@@ -129,8 +129,6 @@ npx omg install --plan
 npx omg install --apply
 npx omg ship
 ```
-
-If you choose `npm install`, it only resolves dependencies and links the bin. The package postinstall remains preview-only and still requires explicit `npx omg install --apply` for mutations.
 
 On non-Claude hosts, verify native MCP registration after `npx omg install --apply`:
 
@@ -184,9 +182,9 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 - Execution Kernel: `exec-kernel` facade with `worker-watchdog` stall detection and `merge-writer` provenance
 - Governed Tool Fabric: Lane-based tool governance with signed approval and ledgering
 - Budget Envelopes: Multi-dimensional resource tracking (CPU, memory, wall time, tokens, network)
-- Issue Surface: Active red-team and diagnostic surface via `/OMG:issue`
 - Host Parity: Semantic host parity normalization across canonical providers
-- Music OMR: Flagship testbed for OMR and live transposition
+- Issue Surface: Active red-team and diagnostic surface via `/OMG:issue`
+- Certification Lane 1: Music OMR daily gate for deterministic OMR and live transposition
 - Evidence profiles: `browser-flow`, `forge-cybersecurity`, `interop-diagnosis`, `install-validation`, `buffet`
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
@@ -204,23 +202,9 @@ Primary launcher entry points:
 - `omg proof open --html`
 - `omg blocked --last`
 
-Claude compatibility aliases remain available when you need them:
-
-- `/OMG:setup`
-- `/OMG:browser`
-- `/OMG:crazy`
-- `/OMG:deep-plan` (compatibility path to `plan-council`)
-
-Advanced launcher and compatibility surfaces stay available for deeper workflows:
-
-- `/OMG:playwright` (compatibility alias to `/OMG:browser`)
-- `/OMG:security-check`
-- `/OMG:api-twin`
-- `/OMG:preflight`
-- `/OMG:teams`
-- `/OMG:ccg`
-- `/OMG:compat`
-- `/OMG:ship`
+> **Legacy/advanced aliases**: `/OMG:setup`, `/OMG:browser`, `/OMG:crazy`, `/OMG:deep-plan`,
+> `/OMG:playwright`, `/OMG:security-check`, `/OMG:api-twin`, `/OMG:preflight`, `/OMG:teams`,
+> `/OMG:ccg`, `/OMG:compat`, `/OMG:ship`
 
 ## Contributing
 

@@ -486,8 +486,15 @@ class TestInstallIntroContent:
 
     def test_states_npm_install_no_mutations(self) -> None:
         content = _install_intro_content()
-        assert "bin linking only" in content
+        assert "node_modules/.bin/" in content
         assert "no mutations" in content.lower()
+
+    def test_explains_npm_install_and_npx_roles(self) -> None:
+        content = _install_intro_content()
+        assert "npm install @trac3er/oh-my-god" in content
+        assert "resolves dependencies" in content
+        assert "one-off or CI" in content
+        assert "downloads and runs without a permanent local install" in content
 
     def test_states_postinstall_plan_only(self) -> None:
         content = _install_intro_content()

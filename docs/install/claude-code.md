@@ -28,9 +28,13 @@ Claude-specific note:
 
 Optional browser capability:
 
+<details><summary>Optional: browser via legacy setup script</summary>
+
 ```bash
 ./OMG-setup.sh install --enable-browser
 ```
+
+</details>
 
 That enables OMG's browser capability metadata for `/OMG:browser` and records the preferred upstream Playwright CLI command under `~/.claude/omg-runtime/browser/capability.json`.
 

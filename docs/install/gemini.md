@@ -10,7 +10,7 @@ npx omg install --apply
 
 This launcher-first path keeps mutations explicit. If you choose `npm install`, it only links the bin and still requires explicit `npx omg install --apply` for mutations.
 
-## Manual Path
+<details><summary>Legacy clone path (advanced)</summary>
 
 ```bash
 git clone https://github.com/trac3er00/OMG
@@ -23,6 +23,8 @@ Optional browser capability:
 ```bash
 ./OMG-setup.sh install --mode=omg-only --preset=interop --enable-browser
 ```
+
+</details>
 
 ## Verify
 
