@@ -11,6 +11,8 @@ import threading
 import pytest
 from unittest.mock import patch, MagicMock, call
 
+pytestmark = pytest.mark.slow
+
 # Ensure imports work
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _HOOKS_DIR = os.path.join(_ROOT, "hooks")

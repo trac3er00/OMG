@@ -347,6 +347,11 @@ def test_release_readiness_names_proof_chain_blocker_when_trace_link_is_missing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    class _QuietWatchdog:
+        def get_stalled_workers(self) -> list[dict[str, object]]:
+            return []
+
+    monkeypatch.setattr("runtime.contract_compiler.get_worker_watchdog", lambda _root=None: _QuietWatchdog())
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     compile_result = compile_contract_outputs(
         root_dir=ROOT,

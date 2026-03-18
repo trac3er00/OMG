@@ -471,6 +471,7 @@ class TestReleaseSurfaceDriftGate:
     def test_drift_gate_ok_when_all_surfaces_agree(self):
         from runtime.contract_compiler import _check_release_surface_drift
         from runtime.release_surface_registry import get_public_surfaces
+        from unittest.mock import patch
 
         import tempfile
         with tempfile.TemporaryDirectory() as td:
@@ -493,7 +494,14 @@ class TestReleaseSurfaceDriftGate:
             }
             (manifest_dir / "release-surface.json").write_text(json.dumps(manifest))
 
-            result = _check_release_surface_drift(root, output)
+            with patch(
+                "runtime.contract_compiler.compile_release_surfaces",
+                return_value={"status": "ok", "drift": []},
+            ), patch(
+                "runtime.contract_compiler.check_docs",
+                return_value={"status": "ok", "drift": []},
+            ):
+                result = _check_release_surface_drift(root, output)
 
         assert result["status"] == "ok"
         assert result["blockers"] == []

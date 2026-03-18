@@ -13,6 +13,8 @@ from unittest.mock import patch
 import pytest
 import yaml
 from runtime.adoption import CANONICAL_VERSION
+
+pytestmark = pytest.mark.slow
 from runtime.canonical_surface import get_canonical_hosts
 from runtime.evidence_requirements import requirements_for_profile
 from runtime import contract_compiler as contract_compiler_module
@@ -65,6 +67,15 @@ def _stub_registry_validation_for_non_registry_tests(monkeypatch, request) -> No
             "bundles": [],
         },
     )
+
+
+@pytest.fixture(autouse=True)
+def _stub_worker_watchdog(monkeypatch) -> None:
+    class _QuietWatchdog:
+        def get_stalled_workers(self) -> list[dict[str, object]]:
+            return []
+
+    monkeypatch.setattr(contract_compiler_module, "get_worker_watchdog", lambda _root=None: _QuietWatchdog())
 
 
 def _patch_fast_release_checks(monkeypatch) -> None:

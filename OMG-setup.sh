@@ -375,18 +375,36 @@ verify_install_integrity() {
 
 provision_managed_venv() {
     local venv_dir="$CLAUDE_DIR/omg-runtime/.venv"
+    local package_spec="${SCRIPT_DIR}[mcp]"
 
     if [ ! -f "$venv_dir/bin/python" ]; then
-        python3 -m venv "$venv_dir" || {
-            echo "  ⚠ Could not create managed venv (continuing without it)"
-            return 0
-        }
+        if [ -n "${OMG_SETUP_PREWARMED_VENV:-}" ] && [ -d "${OMG_SETUP_PREWARMED_VENV:-}" ]; then
+            mkdir -p "$(dirname "$venv_dir")"
+            ln -s "$OMG_SETUP_PREWARMED_VENV" "$venv_dir" || {
+                echo "  ⚠ Could not link prewarmed managed venv (continuing with local venv creation)"
+                python3 -m venv "$venv_dir" || {
+                    echo "  ⚠ Could not create managed venv (continuing without it)"
+                    return 0
+                }
+            }
+        else
+            python3 -m venv "$venv_dir" || {
+                echo "  ⚠ Could not create managed venv (continuing without it)"
+                return 0
+            }
+        fi
+    fi
+
+    # Tests may provide a prebuilt wheel to avoid rebuilding the local package for
+    # every managed-runtime install. Symlink mode intentionally keeps editable install semantics.
+    if ! $USE_SYMLINK && [ -n "${OMG_SETUP_PACKAGE_SPEC:-}" ]; then
+        package_spec="$OMG_SETUP_PACKAGE_SPEC"
     fi
 
     if $USE_SYMLINK; then
         "$venv_dir/bin/pip" install --quiet -e "${SCRIPT_DIR}[mcp]" 2>/dev/null || true
     else
-        "$venv_dir/bin/pip" install --quiet "${SCRIPT_DIR}[mcp]" 2>/dev/null || true
+        "$venv_dir/bin/pip" install --quiet "$package_spec" 2>/dev/null || true
     fi
 
     echo "  ✓ Managed venv → $venv_dir"

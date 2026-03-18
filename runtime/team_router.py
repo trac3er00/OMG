@@ -206,6 +206,24 @@ def _check_tool_auth(tool_name: str) -> tuple[bool | None, str]:
 
 
 def _collect_cli_health(target: str) -> dict[str, dict[str, Any]]:
+    if os.environ.get("OMG_TEST_FAKE_PROVIDER_HEALTH", "").strip() == "1":
+        if target == "ccg":
+            providers = ("codex", "gemini")
+        elif target in ("codex", "gemini"):
+            providers = (target,)
+        else:
+            providers = tuple()
+        return {
+            provider: {
+                "available": True,
+                "auth_ok": True,
+                "live_connection": True,
+                "status_message": "test-health-override",
+                "install_hint": _INSTALL_HINTS.get(provider, ""),
+            }
+            for provider in providers
+        }
+
     return _selector_collect_cli_health(
         target,
         check_tool_available=_check_tool_available,

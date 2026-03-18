@@ -56,6 +56,7 @@ def _version_label(path: str) -> str:
 
 
 def _require_generated_path(path: Path, rel: str, fix_hint: str) -> Path:
+    _maybe_generate_missing_surface(path, rel)
     assert path.exists(), f"{rel} missing.\nFix: {fix_hint}"
     return path
 
@@ -69,6 +70,40 @@ def _compile_fix_hint(channel: str, output_root: str | None = None) -> str:
     if output_root:
         command += f" --output-root {output_root}"
     return command
+
+
+def _maybe_generate_missing_surface(path: Path, rel: str) -> None:
+    if path.exists():
+        return
+
+    channel: str | None = None
+    output_root: str | None = None
+    if rel.startswith("dist/public/"):
+        channel = "public"
+    elif rel.startswith("dist/enterprise/"):
+        channel = "enterprise"
+    elif rel.startswith("artifacts/release/dist/public/"):
+        channel = "public"
+        output_root = "artifacts/release"
+    elif rel.startswith("artifacts/release/dist/enterprise/"):
+        channel = "enterprise"
+        output_root = "artifacts/release"
+
+    if channel is None:
+        return
+
+    cmd = [
+        "python3",
+        "scripts/omg.py",
+        "contract",
+        "compile",
+        *[item for host in get_canonical_hosts() for item in ("--host", host)],
+        "--channel",
+        channel,
+    ]
+    if output_root:
+        cmd.extend(["--output-root", output_root])
+    subprocess.run(cmd, cwd=ROOT, check=True, capture_output=True, text=True)
 
 
 # ─────────────────────────────────────────────

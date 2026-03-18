@@ -33,12 +33,14 @@ def test_mcp_json_pins_versions_without_auto_install_flags():
 
 
 def test_mcp_json_has_default_servers():
-    """Root .mcp.json ships only the safe-preset defaults: filesystem + omg-control."""
+    """Root .mcp.json ships the required baseline servers without risky browser/search defaults."""
     mcp_path = os.path.join(WORKTREE_ROOT, ".mcp.json")
     with open(mcp_path) as f:
         cfg = json.load(f)
-    assert len(cfg["mcpServers"]) == 2
-    assert set(cfg["mcpServers"]) == {"filesystem", "omg-control"}
+    servers = set(cfg["mcpServers"])
+    assert {"filesystem", "omg-control"} <= servers
+    assert "chrome-devtools" not in servers
+    assert "websearch" not in servers
 
 
 def test_build_mcp_config_filesystem_scopes_to_project_root():

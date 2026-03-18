@@ -68,3 +68,8 @@ def test_select_provider_falls_back_to_claude_when_best_unavailable(monkeypatch)
     out = equalizer.select_provider(task_text="responsive ui design", project_dir=".")
     assert out["provider"] in {"claude", "codex", "kimi"}
     assert set(out.keys()) == {"provider", "reason", "cost_tier", "domain_fit"}
+
+
+def test_probe_provider_uses_test_health_override(monkeypatch):
+    monkeypatch.setenv("OMG_TEST_FAKE_PROVIDER_HEALTH", "1")
+    assert equalizer._probe_provider("gemini") == (True, True, "test-health-override")

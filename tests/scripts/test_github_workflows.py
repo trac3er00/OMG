@@ -174,6 +174,13 @@ def test_release_readiness_not_schedule_only_or_has_release_bridge() -> None:
     assert any(marker in release_text for marker in bridge_markers), "release.yml must call or gate release readiness"
 
 
+def test_release_readiness_runs_on_pull_request() -> None:
+    readiness = _load_workflow("omg-release-readiness.yml")
+    readiness_on = _workflow_on(readiness)
+    assert isinstance(readiness_on, dict), "omg-release-readiness.yml must define event triggers"
+    assert "pull_request" in readiness_on, "omg-release-readiness.yml must keep pull_request coverage"
+
+
 def test_compat_gate_has_doc_drift_check_before_reviewer_handoff() -> None:
     text = _read_workflow_text("omg-compat-gate.yml")
     pr_analyze = _section(text, "  pr-analyze:\n", "  post-review:\n")
@@ -423,3 +430,20 @@ def test_release_readiness_workflow_enforces_trusted_packs() -> None:
     assert 'OMG_REQUIRE_TRUSTED_POLICY_PACKS: "1"' in gate_section, (
         "Run release readiness gate must set OMG_REQUIRE_TRUSTED_POLICY_PACKS: '1'"
     )
+
+
+def test_release_readiness_standalone_verification_remains_blocking() -> None:
+    text = _read_workflow_text("omg-release-readiness.yml")
+    release_job = _section(text, "  release-readiness:\n")
+    standalone_pos = release_job.find("Run standalone verification")
+    assert standalone_pos >= 0, "Missing 'Run standalone verification' step"
+    standalone_section = release_job[standalone_pos:release_job.find("\n      - name:", standalone_pos + 1)]
+    assert "continue-on-error: true" not in standalone_section, "Standalone verification must fail the release workflow"
+    assert '::warning::Standalone verification failed' not in standalone_section, (
+        "Standalone verification must remain a blocker, not a warning"
+    )
+
+
+def test_pytest_uses_loadgroup_when_repo_has_xdist_group_markers() -> None:
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert '--dist",\n    "loadgroup"' in pyproject or "--dist',\n    'loadgroup'" in pyproject or '"loadgroup"' in pyproject

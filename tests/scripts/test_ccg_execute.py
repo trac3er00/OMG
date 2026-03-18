@@ -94,13 +94,13 @@ class TestExecuteCcgMode:
         assert mock_parallel.call_args[0][1] == "/my/project"
 
     @patch("runtime.team_router.execute_agents_parallel")
-    def test_context_included_in_prompts(self, mock_parallel: MagicMock) -> None:
+    def test_context_included_in_prompts(self, mock_parallel: MagicMock, tmp_path: Path) -> None:
         mock_parallel.return_value = self._two_track_results()
         from runtime.team_router import execute_ccg_mode
 
         execute_ccg_mode(
             problem="test",
-            project_dir="/tmp/test",
+            project_dir=str(tmp_path),
             context="extra context here",
         )
 
@@ -157,13 +157,13 @@ class TestExecuteCcgMode:
         assert "claude" in mm
 
     @patch("runtime.team_router.execute_agents_parallel")
-    def test_worker_count_is_two(self, mock_parallel: MagicMock) -> None:
+    def test_worker_count_is_two(self, mock_parallel: MagicMock, tmp_path: Path) -> None:
         mock_parallel.return_value = self._two_track_results()
         from runtime.team_router import execute_ccg_mode
 
         result = execute_ccg_mode(
             problem="test",
-            project_dir="/tmp/test",
+            project_dir=str(tmp_path),
         )
 
         assert result["worker_count"] == 2
