@@ -92,3 +92,26 @@
 - `.github/workflows/omg-release-readiness.yml` — replaced self-healing compile step with read-only drift check step
 - `tests/runtime/test_contract_compiler.py` — 7 new tests, updated 5 existing fixture tests with monkeypatch stubs
 - `tests/scripts/test_github_workflows.py` — 2 new workflow invariant tests
+
+# Task 6: Add Env-Doctor Pack and `omg env doctor` Alias
+
+## Learnings
+
+- `_doctor_check()` returns `{name, status, message, required}` — env doctor needed `remediation` field so created `_env_check()` helper with extended schema
+- `_ENV_HOST_CONFIG_DIRS` maps host names to home-relative config directory parts; reuses `OMG_TEST_HOME_DIR` env var for test isolation (same pattern as orphaned_runtime tests)
+- Provider auto-registration requires explicit imports: `import runtime.providers.codex_provider` etc. before calling `get_provider()` — providers register themselves on import via `register_provider()`
+- `check_auth()` returns `tuple[bool | None, str]` — `True/False/None` tri-state; env doctor maps `None` to warning status
+- Claude auth is special-cased as `host-native/non-probed` with `status=ok` — no subprocess probe, always participates in PATH/config-dir checks
+- All env checks use `required=False` — env pack is advisory, never blocks release-readiness doctor
+- `_infer_repair_pack()` in `omg.py` handles `repair_pack` assignment post-hoc; env checks get pack inference from name keywords
+- Parser structure: `env` -> subparser `doctor` with `--format` flag, mirrors `cmd_doctor()` text output style
+- Node version check: runs `node --version`, strips `v` prefix, parses major int, compares `>= 18`
+- Config dir writability: checks `os.access(target, os.W_OK)` if dir exists, falls back to parent writable check
+- TDD red phase: ImportError on `run_env_doctor` confirmed before implementation
+- 42 tests pass (14 new: 10 unit + 4 CLI), 0 LSP errors on all 4 changed files
+
+## Files Changed
+- `runtime/compat.py` — added `run_env_doctor()`, `_env_check()`, `_check_node_version()`, `_check_python3_available()`, `_check_cli_path()`, `_check_cli_auth()`, `_check_writable_config_dir()`, `_ENV_HOST_CLIS`, `_ENV_HOST_CONFIG_DIRS`
+- `scripts/omg.py` — added `cmd_env_doctor()`, `omg env doctor` subparser, imported `run_env_doctor`
+- `tests/runtime/test_compat_doctor.py` — 10 new tests in `TestEnvDoctor` class
+- `tests/scripts/test_omg_cli.py` — 4 new CLI tests for `omg env doctor`

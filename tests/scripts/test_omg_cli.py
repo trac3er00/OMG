@@ -1457,3 +1457,37 @@ def test_cli_doctor_fix_json_receipt_has_required_fields():
         assert "backup_path" in receipt
         assert "verification" in receipt
         assert "executed" in receipt
+
+
+# --- env doctor CLI tests ---
+
+
+def test_cli_env_doctor_json_output():
+    proc = _run(["env", "doctor", "--format", "json"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    out = json.loads(proc.stdout)
+    assert out["schema"] == "DoctorResult"
+    assert "checks" in out
+    check_names = {c["name"] for c in out["checks"]}
+    assert "node_version" in check_names
+    assert "python3_available" in check_names
+    assert "claude_auth" in check_names
+    for check in out["checks"]:
+        assert check["status"] in {"ok", "blocker", "warning"}
+        assert "message" in check
+        assert "required" in check
+        assert check["required"] is False
+        assert "remediation" in check
+
+
+def test_cli_env_doctor_text_output():
+    proc = _run(["env", "doctor"])
+    assert proc.returncode == 0 or proc.returncode == 1
+    assert "node_version" in proc.stdout
+    assert "python3_available" in proc.stdout
+    assert "PASS" in proc.stdout or "WARN" in proc.stdout
+
+
+def test_cli_env_doctor_help_lists_env():
+    proc = _run(["--help"])
+    assert "env" in proc.stdout + proc.stderr

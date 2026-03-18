@@ -71,6 +71,7 @@ from runtime.compat import (
     list_compat_skills,
     run_doctor,
     run_doctor_fix,
+    run_env_doctor,
 )
 from runtime.validate import run_validate, format_text as validate_format_text
 from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
@@ -1907,6 +1908,28 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0 if result["status"] == "pass" else 1
 
 
+def cmd_env_doctor(args: argparse.Namespace) -> int:
+    fmt = getattr(args, "format", "text")
+    result = run_env_doctor(root_dir=ROOT_DIR)
+    for check in result.get("checks", []):
+        check["repair_pack"] = _infer_repair_pack(check.get("name", ""))
+
+    if fmt == "json":
+        print(json.dumps(result, indent=2))
+    else:
+        print("Env Doctor")
+        for check in result["checks"]:
+            marker = "PASS" if check["status"] == "ok" else ("BLOCKER" if check["status"] == "blocker" else "WARN")
+            req_tag = "" if check["required"] else " (optional)"
+            pack_tag = f" [{check.get('repair_pack', 'general')}]"
+            print(f"  {marker:>7} {check['name']}: {check['message']}{req_tag}{pack_tag}")
+        blockers = sum(1 for c in result["checks"] if c["status"] == "blocker")
+        warnings = sum(1 for c in result["checks"] if c["status"] == "warning")
+        passed = sum(1 for c in result["checks"] if c["status"] == "ok")
+        print(f"\nPASS [{passed}] | WARN [{warnings}] | BLOCKER [{blockers}]")
+    return 0 if result["status"] == "pass" else 1
+
+
 def _detect_clis() -> dict[str, Any]:
     """Detect which host CLIs are available on PATH."""
     import shutil
@@ -2572,6 +2595,12 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--dry-run", action="store_true", default=False, dest="dry_run", help="Plan fixes without applying (requires --fix)")
     doctor.add_argument("--repair-pack", default=None, dest="repair_pack", help="Filter checks by repair pack (runtime, governance, host, release, claude, codex, gemini, kimi)")
     doctor.set_defaults(func=cmd_doctor)
+
+    env = sub.add_parser("env", help="Environment preflight checks")
+    env_sub = env.add_subparsers(dest="env_command", required=True)
+    env_doctor = env_sub.add_parser("doctor", help="Run env preflight doctor pack")
+    env_doctor.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    env_doctor.set_defaults(func=cmd_env_doctor)
 
     validate = sub.add_parser("validate", help="Canonical validation — doctor + contract + profile + install")
     validate.add_argument("--format", default="text", choices=["text", "json"], dest="format")
