@@ -239,6 +239,13 @@ AUTHORED_SURFACES: list[AuthoredSurface] = [
         "settings.json", "banner_literal", r'OMG (\d+\.\d+\.\d+)',
         "settings banner comment version",
     ),
+
+    # 9. INSTALL-VERIFICATION-INDEX.md — version string (line 6)
+    AuthoredSurface(
+        "INSTALL-VERIFICATION-INDEX.md", "regex_line",
+        r'\*\*Version:\*\* OMG (\d+\.\d+\.\d+)',
+        "install verification index version string",
+    ),
 ]
 
 

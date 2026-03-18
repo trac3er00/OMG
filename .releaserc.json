@@ -34,7 +34,25 @@
         "assets": [
           "CHANGELOG.md",
           "package.json",
-          "pyproject.toml"
+          "pyproject.toml",
+          "runtime/adoption.py",
+          "settings.json",
+          ".gemini/settings.json",
+          ".kimi/mcp.json",
+          ".claude-plugin/plugin.json",
+          ".claude-plugin/marketplace.json",
+          ".claude-plugin/scripts/install.sh",
+          "plugins/core/plugin.json",
+          "plugins/advanced/plugin.json",
+          "registry/omg-capability.schema.json",
+          "registry/bundles/*.yaml",
+          "OMG_COMPAT_CONTRACT.md",
+          "CLI-ADAPTER-MAP.md",
+          "OMG-setup.sh",
+          "hud/omg-hud.mjs",
+          "runtime/omg_compat_contract_snapshot.json",
+          "commands/OMG:validate.md",
+          "INSTALL-VERIFICATION-INDEX.md"
         ],
         "message": "chore(release): ${nextRelease.version} [skip ci]"
       }

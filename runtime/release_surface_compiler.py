@@ -229,14 +229,14 @@ def _install_fast_path_content() -> str:
     return (
         "## Fast Path\n"
         "\n"
-        "> **Prerequisite**: Node >=18\n"
+        "> **Prerequisites**: Node >=18, Python >=3.10 (macOS or Linux)\n"
         "\n"
         "```bash\n"
         "omg install --plan    # preview changes\n"
         "omg install --apply   # apply configuration\n"
         "```\n"
         "\n"
-        "This registers the OMG control plane for your host automatically."
+        "This previews what OMG will configure. Run `omg install --apply` to apply."
     )
 
 
@@ -247,7 +247,7 @@ def _proof_content() -> str:
         "```bash\n"
         "omg proof open --html\n"
         "omg blocked --last\n"
-        "omg explain run <id>\n"
+        "omg explain run --run-id <id>\n"
         "omg budget simulate --enforce\n"
         "```\n"
         "\n"

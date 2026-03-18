@@ -216,11 +216,11 @@ PROMOTED_PUBLIC_COMMANDS: list[str] = [
     "omg ship",
     "omg proof",
     "omg blocked --last",
-    "omg explain run <id>",
+    "omg explain run --run-id <id>",
     "omg budget simulate --enforce",
     "omg install --plan",
     "omg install --apply",
-    "omg env doctor",
+    "omg doctor",
 ]
 
 

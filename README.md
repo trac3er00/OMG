@@ -69,7 +69,7 @@ graph TD
 
 ## Why OMG
 
-- Claude front door: install, run `/OMG:setup`, then `/OMG:crazy <goal>`.
+- Claude front door: install, run `omg install --apply`, then `omg ship` (`/OMG:*` stays available as compatibility aliases).
 - Browser front door: run `/OMG:browser <goal>` for browser automation and verification, with `/OMG:playwright` kept as a compatibility alias and the upstream Playwright CLI handling browser execution.
 - Multi-host support: Claude Code, Codex, Gemini CLI, and Kimi CLI are canonical behavior-parity hosts; OpenCode is compatibility-only.
 - Compiled planning: advanced planning is now compiled into the `plan-council` bundle for deterministic execution.
@@ -89,6 +89,14 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 
 ![OMG HUD](docs/assets/omg-hud.svg)
 
+## Prerequisites
+
+| Requirement | Version | Notes |
+|:------------|:--------|:------|
+| Node.js | >= 18 | Required for npm install and the `omg` launcher |
+| Python | >= 3.10 | Required for the OMG runtime and control plane |
+| OS | macOS or Linux | Windows is not supported |
+
 ## Quickstart
 
 Install with npm or bunx (Bun runtime):
@@ -99,7 +107,7 @@ npm install @trac3er/oh-my-god
 bunx @trac3er/oh-my-god
 ```
 
-That fast path now does two things:
+That fast path generates an install plan. Run `omg install --apply` to apply it, which then:
 
 - registers the local `omg` marketplace plus `omg@omg` plugin bundle for Claude Code
 - wires `omg-control` into detected Codex, Gemini, and Kimi MCP configs using the managed OMG Python runtime
@@ -115,11 +123,12 @@ chmod +x OMG-setup.sh
 
 Then run:
 
-```text
-/OMG:setup
-/OMG:browser capture login flow evidence
-/OMG:crazy stabilize auth and dashboard flows
+```bash
+omg ship
+omg proof open --html
 ```
+
+> Claude Code users can also use `/OMG:setup` and `/OMG:crazy <goal>` as compatibility aliases.
 
 On non-Claude hosts, verify native MCP registration instead:
 
@@ -182,23 +191,22 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 
 ## Command Surface
 
-Primary entry points:
+Primary entry points (all hosts):
 
-- `/OMG:setup`
-- `/OMG:browser`
-- `/OMG:crazy`
+- `omg ship` — idea to evidence to PR
+- `omg install --plan` / `omg install --apply` — configure host
+- `omg proof open --html` — view verification artifacts
+- `omg doctor` — check install and runtime health
+- `omg blocked --last` — see active blockers
+- `omg explain run --run-id <id>` — explain a specific run
+
+Claude Code slash commands (compatibility):
+
+- `/OMG:setup`, `/OMG:crazy`, `/OMG:browser`
 - `/OMG:deep-plan` (compatibility path to `plan-council`)
-
-Advanced surfaces stay available for deeper workflows:
-
-- `/OMG:playwright` (compatibility alias to `/OMG:browser`)
-- `/OMG:security-check`
-- `/OMG:api-twin`
-- `/OMG:preflight`
-- `/OMG:teams`
-- `/OMG:ccg`
-- `/OMG:compat`
-- `/OMG:ship`
+- `/OMG:playwright` (alias for `/OMG:browser`)
+- `/OMG:security-check`, `/OMG:api-twin`, `/OMG:preflight`
+- `/OMG:teams`, `/OMG:ccg`, `/OMG:compat`, `/OMG:ship`
 
 ## Contributing
 
@@ -235,11 +243,11 @@ omg blocked --last
 - `omg ship`
 - `omg proof`
 - `omg blocked --last`
-- `omg explain run <id>`
+- `omg explain run --run-id <id>`
 - `omg budget simulate --enforce`
 - `omg install --plan`
 - `omg install --apply`
-- `omg env doctor`
+- `omg doctor`
 <!-- /OMG:GENERATED:command-surface -->
 
 <!-- OMG:GENERATED:proof -->
@@ -248,7 +256,7 @@ omg blocked --last
 ```bash
 omg proof open --html
 omg blocked --last
-omg explain run <id>
+omg explain run --run-id <id>
 omg budget simulate --enforce
 ```
 
