@@ -1441,27 +1441,35 @@ def test_production_preset_get_preset_features():
 
 def test_setup_install_post_install_validation_failure_structured(tmp_path: Path):
     """Install fails with structured output when post-install validation detects blockers."""
-    plugin_json = ROOT / "plugins" / "core" / "plugin.json"
-    plugin_json_bak = ROOT / "plugins" / "core" / "plugin.json._test_bak"
+    claude_dir = tmp_path / ".claude"
+    env = {
+        "CLAUDE_CONFIG_DIR": str(claude_dir),
+        "OMG_TEST_POST_INSTALL_VALIDATE_RC": "1",
+        "OMG_TEST_POST_INSTALL_VALIDATE_OUTPUT": json.dumps(
+            {
+                "schema": "ValidateResult",
+                "status": "fail",
+                "checks": [
+                    {
+                        "name": "plugin_manifest",
+                        "status": "blocker",
+                        "message": "plugins/core/plugin.json missing",
+                    }
+                ],
+            }
+        ),
+        "PATH": f"{Path(sys.executable).parent}:{os.environ.get('PATH', '')}",
+    }
 
-    try:
-        plugin_json.rename(plugin_json_bak)
-
-        claude_dir = tmp_path / ".claude"
-        env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
-
-        proc = _run_script(
-            SETUP,
-            ["install", "--non-interactive", "--merge-policy=skip"],
-            env=env,
-        )
-        assert proc.returncode != 0, "Install must fail when post-install validation has blockers"
-        out = proc.stdout + proc.stderr
-        assert "FAILED" in out or "failed" in out
-        assert "blocker" in out.lower() or "plugin" in out.lower()
-    finally:
-        if plugin_json_bak.exists():
-            plugin_json_bak.rename(plugin_json)
+    proc = _run_script(
+        SETUP,
+        ["install", "--non-interactive", "--merge-policy=skip"],
+        env=env,
+    )
+    assert proc.returncode != 0, "Install must fail when post-install validation has blockers"
+    out = proc.stdout + proc.stderr
+    assert "FAILED" in out or "failed" in out
+    assert "blocker" in out.lower() or "plugin" in out.lower()
 
 
 def test_setup_uninstall_next_session_claude_config_clean(tmp_path: Path):
