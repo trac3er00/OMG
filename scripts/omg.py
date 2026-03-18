@@ -2804,6 +2804,14 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--mode", default="omg-only", choices=["omg-only", "coexist"])
     install.set_defaults(func=cmd_install)
 
+    env_cmd = sub.add_parser("env", help="Environment preflight and doctor alias")
+    env_sub = env_cmd.add_subparsers(dest="env_command", required=True)
+    env_doctor_cmd = env_sub.add_parser("doctor", help="Run env preflight doctor checks (alias for doctor --repair-pack host)")
+    env_doctor_cmd.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    env_doctor_cmd.add_argument("--fix", action="store_true", default=False, help="Attempt to fix failing checks")
+    env_doctor_cmd.add_argument("--dry-run", action="store_true", default=False, dest="dry_run")
+    env_doctor_cmd.set_defaults(func=cmd_doctor)
+
     return parser
 
 
