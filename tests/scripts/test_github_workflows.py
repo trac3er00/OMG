@@ -380,6 +380,26 @@ def test_publish_workflow_uses_oh_my_god_bot_git_identity() -> None:
     assert "github-actions[bot]" not in text
 
 
+def test_github_install_docs_use_token_setup_not_app_setup() -> None:
+    action_doc = (ROOT / "docs" / "install" / "github-action.md").read_text(encoding="utf-8")
+    token_doc = ROOT / "docs" / "install" / "github-token.md"
+    app_doc = (ROOT / "docs" / "install" / "github-app.md").read_text(encoding="utf-8")
+    app_required_checks_doc = (ROOT / "docs" / "install" / "github-app-required-checks.md").read_text(encoding="utf-8")
+
+    assert token_doc.exists(), "docs/install/github-token.md must exist"
+    assert "OMG_GITHUB_TOKEN" in action_doc
+    assert "GitHub App Setup" not in action_doc
+    assert "github-token.md" in action_doc
+
+    assert "deprecated" in app_doc.lower()
+    assert "Create the GitHub App" not in app_doc
+    assert "OMG_GITHUB_TOKEN" in app_doc
+
+    assert "deprecated" in app_required_checks_doc.lower()
+    assert "app_id" not in app_required_checks_doc
+    assert "OMG_GITHUB_TOKEN" in app_required_checks_doc
+
+
 def test_evidence_gate_reusable_workflow_exists_and_has_correct_structure() -> None:
     workflow = _load_workflow("evidence-gate.yml")
     on_triggers = _workflow_on(workflow)
