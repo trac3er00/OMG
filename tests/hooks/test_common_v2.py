@@ -225,6 +225,15 @@ def test_should_skip_stop_hooks_allows_context_limit_stop_reason(tmp_path: Path,
     assert _common.should_skip_stop_hooks({"stop_reason": "context window exceeded"}) is True
 
 
+def test_should_skip_stop_hooks_allows_context_limit_failure_reason(tmp_path: Path, monkeypatch):
+    import _common
+
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    monkeypatch.setattr(_common, "is_stop_block_loop", lambda *args, **kwargs: False)
+
+    assert _common.should_skip_stop_hooks({"failure_reason": "context window exceeded"}) is True
+
+
 def test_should_skip_stop_hooks_guard5_skips_after_recent_block(tmp_path: Path, monkeypatch):
     import _common
 
@@ -327,20 +336,3 @@ def test_record_stop_block_serializes_increment_under_lock(tmp_path: Path, monke
 
     state = json.loads(tracker_path.read_text(encoding="utf-8"))
     assert state["count"] == 3
-
-
-if __name__ == "__main__":
-    # Run tests manually if pytest not available
-    test_get_feature_flag_reads_from_omg_namespace(None)
-    print("✓ test_get_feature_flag_reads_from_omg_namespace passed")
-
-    test_get_feature_flag_ignores_oal_namespace(None)
-    print("✓ test_get_feature_flag_ignores_oal_namespace passed")
-
-    test_get_feature_flag_omg_takes_precedence(None)
-    print("✓ test_get_feature_flag_omg_takes_precedence passed")
-
-    test_get_feature_flag_env_var_overrides_omg(None)
-    print("✓ test_get_feature_flag_env_var_overrides_omg passed")
-
-    print("\nAll tests passed!")

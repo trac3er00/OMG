@@ -542,7 +542,8 @@ def should_skip_stop_hooks(data):
     #   Similarly, rate-limit stops (429/quota) must not be blocked or they loop.
     stop_reason = str(data.get("stop_reason", data.get("stopReason", ""))).lower()
     end_turn_reason = str(data.get("end_turn_reason", data.get("endTurnReason", ""))).lower()
-    signal_text = " ".join(part for part in (stop_reason, end_turn_reason) if part)
+    failure_reason = str(data.get("failure_reason", data.get("failureReason", ""))).lower()
+    signal_text = " ".join(part for part in (stop_reason, end_turn_reason, failure_reason) if part)
     context_limit_markers = (
         "context window",
         "token limit",
@@ -610,7 +611,7 @@ def should_skip_stop_hooks(data):
     #   Claude Code often doesn't set stop_reason/end_turn_reason for context-limit stops.
     #   If we blocked recently (any count >= 1 within window) AND stop_reason is missing,
     #   it's almost certainly a deadlock. Allow the stop to proceed.
-    if not stop_reason and not end_turn_reason:
+    if not stop_reason and not end_turn_reason and not failure_reason:
         try:
             _pdir = get_project_dir()
             _tracker_path = os.path.join(_pdir, _STOP_BLOCK_TRACKER)

@@ -51,6 +51,21 @@ def test_policy_engine_masks_env_reads(tmp_path: Path):
     assert "abc123" not in decision.reason
 
 
+def test_policy_engine_masks_exported_env_reads(tmp_path: Path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "export DEBUG=true\nexport SECRET_KEY=abc123\n",
+        encoding="utf-8",
+    )
+
+    decision = evaluate_file_access("Read", str(env_file))
+
+    assert decision.action == "deny"
+    assert "export DEBUG=true" in decision.reason
+    assert "export SECRET_KEY=****" in decision.reason
+    assert "abc123" not in decision.reason
+
+
 def test_policy_engine_still_blocks_env_writes(tmp_path: Path):
     env_file = tmp_path / ".env"
     env_file.write_text("SECRET_KEY=abc123\n", encoding="utf-8")

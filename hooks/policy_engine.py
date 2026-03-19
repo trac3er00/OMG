@@ -364,7 +364,7 @@ BLOCKED_FILES = {
 EXAMPLE_FILES = {".env.example", ".env.sample", ".env.template"}
 
 _SECRET_VALUE_RE = re.compile(
-    r"^(\s*[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$"
+    r"^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$"
 )
 _SAFE_VALUES = {
     "true", "false", "0", "1", "yes", "no",
