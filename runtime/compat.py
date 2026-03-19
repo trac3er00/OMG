@@ -1366,6 +1366,7 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
     if not dry_run and os.path.isfile(codex_cfg) and any(codex_cfg in r for r in refs):
         try:
             import tomlkit
+            import tomlkit.exceptions
         except ImportError:
             tomlkit = None  # type: ignore[assignment]
         if tomlkit is not None:

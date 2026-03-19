@@ -45,7 +45,8 @@ class TestProofStory:
     def test_proof_docs_keep_music_omr_as_flagship_gate(self) -> None:
         path = REPO_ROOT / "docs" / "proof.md"
         content = path.read_text(encoding="utf-8")
-        assert "flagship" in content.lower()
+        assert "Music OMR" in content and "flagship" in content.lower()
+        assert "Lane 1" in content and "flagship" in content.lower()
 
     def test_readme_keeps_music_omr_as_flagship_gate(self) -> None:
         path = REPO_ROOT / "README.md"

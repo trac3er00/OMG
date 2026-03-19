@@ -349,6 +349,51 @@ def test_check_only_detects_missing_artifact(project: Path) -> None:
     assert "github_release_body" in drift_surfaces
 
 
+def test_check_only_detects_stale_legacy_quickstart_section(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    readme = project / "README.md"
+    content = readme.read_text(encoding="utf-8")
+    # Inject a stale legacy section that should have been removed
+    stale_section = "\n<!-- OMG:GENERATED:quickstart -->\nStale content\n<!-- /OMG:GENERATED:quickstart -->\n"
+    readme.write_text(content + stale_section, encoding="utf-8")
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "legacy:quickstart" in drift_surfaces
+
+
+def test_check_only_detects_stale_legacy_command_surface_section(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    readme = project / "README.md"
+    content = readme.read_text(encoding="utf-8")
+    # Inject a stale legacy section that should have been removed
+    stale_section = "\n<!-- OMG:GENERATED:command-surface -->\nStale content\n<!-- /OMG:GENERATED:command-surface -->\n"
+    readme.write_text(content + stale_section, encoding="utf-8")
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "legacy:command-surface" in drift_surfaces
+
+
+def test_check_only_detects_stale_legacy_proof_section(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    readme = project / "README.md"
+    content = readme.read_text(encoding="utf-8")
+    # Inject a stale legacy section that should have been removed
+    stale_section = "\n<!-- OMG:GENERATED:proof -->\nStale content\n<!-- /OMG:GENERATED:proof -->\n"
+    readme.write_text(content + stale_section, encoding="utf-8")
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "legacy:proof" in drift_surfaces
+
+
 def test_repo_release_surfaces_are_in_sync() -> None:
     root = Path(__file__).resolve().parents[2]
     result = compile_release_surfaces(root, check_only=True)

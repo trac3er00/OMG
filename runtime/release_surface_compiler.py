@@ -550,6 +550,26 @@ def _check_artifact_drift(
         drift.append({"surface": surface_name, "path": rel_path, "reason": "artifact content drift"})
 
 
+def _check_stale_legacy_section(
+    root: Path,
+    rel_path: str,
+    key: str,
+    drift: list[dict[str, str]],
+) -> None:
+    """Detect stale legacy generated sections that should have been removed."""
+    path = root / rel_path
+    if not path.exists():
+        return
+    open_tag = f"<!-- OMG:GENERATED:{key} -->"
+    content = path.read_text(encoding="utf-8")
+    if open_tag in content:
+        drift.append({
+            "surface": f"legacy:{key}",
+            "path": rel_path,
+            "reason": f"stale legacy section '{key}' should be removed",
+        })
+
+
 def _check_release_surfaces(root: Path) -> dict[str, Any]:
     markers = get_generated_section_markers()
     drift: list[dict[str, str]] = []
@@ -572,6 +592,9 @@ def _check_release_surfaces(root: Path) -> dict[str, Any]:
         markers.get("why_omg", ""),
         _why_omg_content(), "why_omg", drift,
     )
+    # Check for stale legacy sections that should have been removed
+    for legacy_key in ("quickstart", "command-surface", "proof"):
+        _check_stale_legacy_section(root, "README.md", legacy_key, drift)
     fast_path_marker = markers.get("install_fast_path", "")
     install_surfaces = [
         s for s in surfaces

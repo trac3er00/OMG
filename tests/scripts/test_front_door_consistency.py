@@ -36,7 +36,11 @@ class TestFrontDoorConsistency:
         next_section = readme.find("\n## ", cmd_idx + 1)
         section = readme[cmd_idx : next_section if next_section > 0 else len(readme)]
         assert "> **Legacy/advanced aliases**:" in section
-        assert section.find("> **Legacy/advanced aliases**:") > section.find("- `npx omg env doctor`")
+        legacy_pos = section.find("> **Legacy/advanced aliases**:")
+        launcher_pos = section.find("- `npx omg env doctor`")
+        assert legacy_pos >= 0, "Section must contain legacy aliases marker"
+        assert launcher_pos >= 0, "Section must contain launcher command"
+        assert legacy_pos > launcher_pos
 
     def test_readme_quickstart_has_single_authoritative_launcher_flow(self) -> None:
         """README quickstart should not append older generated launcher blocks."""
@@ -52,7 +56,7 @@ class TestFrontDoorConsistency:
         for guide in ("codex.md", "gemini.md", "kimi.md", "opencode.md"):
             path = REPO_ROOT / "docs" / "install" / guide
             content = path.read_text(encoding="utf-8")
-            assert "<details><summary>Restricted environments / air-gapped fallback</summary>" in content, guide
+            assert "<details><summary>Restricted environments / offline-capable fallback</summary>" in content, guide
             assert "## Manual Path" not in content, guide
 
     def test_host_guides_have_single_fast_path_section(self) -> None:

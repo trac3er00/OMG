@@ -57,6 +57,8 @@ def check_cli_version(source_tree: Path, expected: str) -> dict[str, Any]:
     if not bin_omg.exists():
         return {"status": "skip", "found": "<bin/omg missing>", "expected": expected}
     try:
+        # security-reviewed: subprocess.run with hardcoded command ["node", bin_omg, "--version"]
+        # No shell=True, no user-controlled arguments in command list, timeout enforced.
         result = subprocess.run(
             ["node", str(bin_omg), "--version"],
             capture_output=True,
@@ -76,7 +78,7 @@ def check_changelog_section(source_tree: Path, expected: str) -> dict[str, Any]:
     if not changelog.exists():
         return {"status": "fail", "details": "CHANGELOG.md not found"}
     content = changelog.read_text(encoding="utf-8")
-    header_pattern = re.compile(rf"^## \[?{re.escape(expected)}\]?", re.MULTILINE)
+    header_pattern = re.compile(rf"^## \[?{re.escape(expected)}\]?(?:\s|$)", re.MULTILINE)
     has_header = bool(header_pattern.search(content))
     marker = f"OMG:GENERATED:changelog-v{expected}"
     has_marker = marker in content
@@ -95,7 +97,7 @@ def check_install_verification_index(source_tree: Path, expected: str) -> dict[s
     if not verification_index.exists():
         return {"status": "fail", "found": "<missing>", "expected": expected}
     content = verification_index.read_text(encoding="utf-8")
-    pattern = re.compile(rf"\*?\*?Version:?\*?\*?\s*OMG\s+{re.escape(expected)}")
+    pattern = re.compile(rf"\*?\*?Version:?\*?\*?\s*OMG\s+{re.escape(expected)}(?:\s|$)")
     if pattern.search(content):
         return {"status": "ok", "found": expected, "expected": expected}
     version_match = re.search(r"\*?\*?Version:?\*?\*?\s*OMG\s+([\d.]+)", content)
