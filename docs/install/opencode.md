@@ -1,14 +1,18 @@
 # Install OMG for OpenCode
 
+<!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
+
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
 npx omg env doctor
-npx omg install --plan
-npx omg install --apply
+npx omg install --plan    # preview only, no mutations
+npx omg install --apply   # apply configuration
 ```
 
-This launcher-first path keeps mutations explicit. If you choose `npm install`, it only links the bin and still requires explicit `npx omg install --apply` for mutations.
+The preview step is advisory only and makes no mutations until you run apply.
+<!-- /OMG:GENERATED:install-fast-path -->
 
 <details><summary>Legacy clone path (advanced)</summary>
 
@@ -32,17 +36,3 @@ cd OMG
 
 - OpenCode consumes OMG through compatibility-host MCP registration
 - canonical v2.2.10 behavior-parity hosts are Claude Code, Codex, Gemini CLI, and Kimi CLI
-
-<!-- OMG:GENERATED:install-fast-path -->
-## Fast Path
-
-> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
-
-```bash
-npx omg env doctor
-npx omg install --plan    # preview only, no mutations
-npx omg install --apply   # apply configuration
-```
-
-The preview step is advisory only and makes no mutations until you run apply.
-<!-- /OMG:GENERATED:install-fast-path -->

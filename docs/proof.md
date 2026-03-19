@@ -9,9 +9,9 @@
 ## Proof Quickstart
 
 ```bash
-omg proof open --html
-omg blocked --last
-omg explain run --run-id <id>
+npx omg proof open --html
+npx omg blocked --last
+npx omg explain run --run-id <id>
 ```
 
 Use the HTML view first, then inspect blockers or explain a specific run.
@@ -21,7 +21,7 @@ OMG generates machine-backed evidence for every claim. Here is what the outputs 
 
 ### Quick Verdict
 
-Run `omg proof open --html` to see a rendered summary, or `omg proof` for a terminal summary. The output tells you:
+Run `npx omg proof open --html` to see a rendered summary, or `npx omg proof` for a terminal summary. The output tells you:
 
 - **Status**: `pass` or `fail` — whether all required evidence was produced and valid
 - **Blockers**: What failed and why, in plain language
@@ -41,17 +41,17 @@ A failing proof means one or more of:
 - Missing evidence artifacts (check `.omg/evidence/` for gaps)
 - Stale evidence (re-run the relevant workflow)
 - Claim without backing evidence (the claim-judge rejected a claim)
-- Active governance blockers (run `omg blocked --last` for details)
+- Active governance blockers (run `npx omg blocked --last` for details)
 
 ### Common Commands
 
 | Goal | Command |
 |:-----|:--------|
-| See proof summary | `omg proof` |
-| Open HTML report | `omg proof open --html` |
-| See what is blocked | `omg blocked --last` |
-| Explain a specific run | `omg explain run --run-id <id>` |
-| Check budget usage | `omg budget simulate --enforce` |
+| See proof summary | `npx omg proof` |
+| Open HTML report | `npx omg proof open --html` |
+| See what is blocked | `npx omg blocked --last` |
+| Explain a specific run | `npx omg explain run --run-id <id>` |
+| Check budget usage | `npx omg budget simulate --enforce` |
 
 ## Verification Status
 

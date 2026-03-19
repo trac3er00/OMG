@@ -186,12 +186,13 @@ class TestReleaseSurfaceValidation:
         assert report["overall_status"] == "fail"
 
     def test_explain_command_blocker_flags_positional_readme_syntax(self, tmp_path):
-        readme = tmp_path / "README.md"
-        readme.write_text("```bash\nomg explain run <id>\n```\n", encoding="utf-8")
+        proof = tmp_path / "docs" / "proof.md"
+        proof.parent.mkdir(parents=True, exist_ok=True)
+        proof.write_text("```bash\nnpx omg explain run <id>\n```\n", encoding="utf-8")
 
         blockers = find_explain_command_blockers(tmp_path)
 
-        assert any("README.md" in blocker for blocker in blockers)
+        assert any("docs/proof.md" in blocker for blocker in blockers)
 
     def test_install_launcher_blocker_flags_plain_local_npm_install(self, tmp_path):
         guide = tmp_path / "docs" / "install" / "codex.md"

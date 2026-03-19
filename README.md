@@ -93,42 +93,29 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 - Normative spec: `OMG_COMPAT_CONTRACT.md`
 - Executable registry: `registry/omg-capability.schema.json` and `registry/bundles/*.yaml`
 - Generated Codex pack: `.agents/skills/omg/`
-- Validation: `omg contract validate`
-- Compilation: `omg contract compile --host claude --host codex --host gemini --host kimi --channel public`
-- Release gate: `omg release readiness --channel dual`
+- Validation: `npx omg contract validate`
+- Compilation: `npx omg contract compile --host claude --host codex --host gemini --host kimi --channel public`
+- Release gate: `npx omg release readiness --channel dual`
 
 ![OMG HUD](docs/assets/omg-hud.svg)
 
 ## Quickstart
 
 <!-- OMG:GENERATED:install-intro -->
-Run the published launcher directly and keep mutations explicit:
-
-Supported platforms: macOS and Linux.
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
 npx omg env doctor
 npx omg install --plan
-npx omg install --apply
-```
-
-If you run `npm install @trac3er/oh-my-god`, it resolves dependencies and links `omg` into `node_modules/.bin/` but makes no configuration mutations. For one-off or CI use, `npx omg ...` downloads and runs without a permanent local install.
-
-The package postinstall runs `omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
-<!-- /OMG:GENERATED:install-intro -->
-
-**Prerequisites**: Node >=18, Python >=3.10, macOS/Linux only
-
-Canonical launcher-first flow:
-
-Then run:
-
-```bash
-npx omg env doctor
-npx omg install --plan
+# confirm preview output before applying
 npx omg install --apply
 npx omg ship
 ```
+
+Local package-manager installs only link `omg` into `node_modules/.bin/`; they do not mutate configuration.
+
+The package postinstall runs `npx omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
+<!-- /OMG:GENERATED:install-intro -->
 
 On non-Claude hosts, verify native MCP registration after `npx omg install --apply`:
 
@@ -195,12 +182,12 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 
 Primary launcher entry points:
 
-- `omg env doctor`
-- `omg install --plan`
-- `omg install --apply`
-- `omg ship`
-- `omg proof open --html`
-- `omg blocked --last`
+- `npx omg env doctor`
+- `npx omg install --plan`
+- `npx omg install --apply`
+- `npx omg ship`
+- `npx omg proof open --html`
+- `npx omg blocked --last`
 
 > **Legacy/advanced aliases**: `/OMG:setup`, `/OMG:browser`, `/OMG:crazy`, `/OMG:deep-plan`,
 > `/OMG:playwright`, `/OMG:security-check`, `/OMG:api-twin`, `/OMG:preflight`, `/OMG:teams`,
@@ -217,50 +204,3 @@ Public contributions are welcome.
 ## Positioning
 
 OMG is a plugin and orchestration layer for supported CLIs. It is not a base-model training project. The goal is to make frontier agent hosts tighter, safer, more interoperable, and more verifiable than the default experience.
-
-<!-- OMG:GENERATED:quickstart -->
-Install OMG, verify the environment, then preview and apply the managed changes:
-
-Supported platforms: macOS and Linux.
-
-```bash
-npx omg env doctor
-npx omg install --plan
-npx omg install --apply
-```
-
-Then start working:
-
-```bash
-npx omg ship
-npx omg proof open --html
-npx omg blocked --last
-```
-
-> Legacy compatibility: `/OMG:crazy <goal>` is still accepted as an alias.
-<!-- /OMG:GENERATED:quickstart -->
-
-<!-- OMG:GENERATED:command-surface -->
-- `omg ship`
-- `omg proof`
-- `omg blocked --last`
-- `omg explain run --run-id <id>`
-- `omg budget simulate --enforce`
-- `omg install --plan`
-- `omg install --apply`
-- `omg doctor`
-- `omg env doctor`
-<!-- /OMG:GENERATED:command-surface -->
-
-<!-- OMG:GENERATED:proof -->
-## Verification
-
-```bash
-omg proof open --html
-omg blocked --last
-omg explain run --run-id <id>
-omg budget simulate --enforce
-```
-
-Machine-generated evidence artifacts: `.omg/evidence/`
-<!-- /OMG:GENERATED:proof -->

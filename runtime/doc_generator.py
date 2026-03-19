@@ -78,11 +78,11 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "version": CANONICAL_VERSION,
         "generated_at": timestamp,
         "verification_commands": [
-            {"name": "doctor", "command": "omg doctor"},
-            {"name": "env doctor", "command": "omg env doctor"},
-            {"name": "validate", "command": "omg validate"},
-            {"name": "contract validate", "command": "omg contract validate"},
-            {"name": "install plan", "command": "omg install --plan"},
+            {"name": "doctor", "command": "npx omg doctor"},
+            {"name": "env doctor", "command": "npx omg env doctor"},
+            {"name": "validate", "command": "npx omg validate"},
+            {"name": "contract validate", "command": "npx omg contract validate"},
+            {"name": "install plan", "command": "npx omg install --plan"},
         ],
         "cache_paths": [
             ".omg/cache",
@@ -123,19 +123,20 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
     ]
     
     # Get all unique flags
-    all_flags = sorted(next(iter(PRESET_FEATURES.values())).keys())
-    
-    header = "| Feature | " + " | ".join(CANONICAL_PRESETS) + " |"
-    separator = "| :--- | " + " | ".join([":---:"] * len(CANONICAL_PRESETS)) + " |"
-    preset_md.append(header)
-    preset_md.append(separator)
-    
-    for flag in all_flags:
-        row = f"| {flag} | "
-        row += " | ".join(["✅" if PRESET_FEATURES[p].get(flag) else "❌" for p in CANONICAL_PRESETS])
-        row += " |"
-        preset_md.append(row)
-    
+    if PRESET_FEATURES:
+        all_flags = sorted(next(iter(PRESET_FEATURES.values())).keys())
+
+        header = "| Feature | " + " | ".join(CANONICAL_PRESETS) + " |"
+        separator = "| :--- | " + " | ".join([":---:"] * len(CANONICAL_PRESETS)) + " |"
+        preset_md.append(header)
+        preset_md.append(separator)
+
+        for flag in all_flags:
+            row = f"| {flag} | "
+            row += " | ".join(["✅" if PRESET_FEATURES[p].get(flag) else "❌" for p in CANONICAL_PRESETS])
+            row += " |"
+            preset_md.append(row)
+
     _write_text(output_root / "PRESET-REFERENCE.md", "\n".join(preset_md) + "\n")
     
     # 7. INSTALL-VERIFICATION-INDEX.md

@@ -28,6 +28,8 @@ from runtime.doc_generator import check_docs
 import importlib.util
 
 _SYNC_SCRIPT = _REPO_ROOT / "scripts" / "sync-release-identity.py"
+if not _SYNC_SCRIPT.exists() or not str(_SYNC_SCRIPT.resolve()).startswith(str(_REPO_ROOT)):
+    raise FileNotFoundError(f"sync-release-identity.py not found at {_SYNC_SCRIPT}")
 _sync_spec = importlib.util.spec_from_file_location("sync_release_identity", _SYNC_SCRIPT)
 assert _sync_spec is not None and _sync_spec.loader is not None
 _sync_mod = importlib.util.module_from_spec(_sync_spec)
@@ -56,10 +58,7 @@ _VERSION_HEADER_RE = re.compile(r"^##\s+\[?(\d+\.\d+\.\d+)\]?\b")
 _REQUIRED_GENERATED_MARKERS: dict[str, tuple[str, ...]] = {
     "README.md": (
         "install-intro",
-        "quickstart",
-        "command-surface",
         "why-omg",
-        "proof",
     ),
     "CHANGELOG.md": (),
     "docs/proof.md": ("proof-quickstart",),
@@ -68,8 +67,7 @@ _REQUIRED_GENERATED_MARKERS: dict[str, tuple[str, ...]] = {
 }
 
 _EXPECTED_EXPLAIN_COMMANDS: dict[str, str] = {
-    "README.md": "omg explain run --run-id <id>",
-    "docs/proof.md": "omg explain run --run-id <id>",
+    "docs/proof.md": "npx omg explain run --run-id <id>",
     "QUICK-REFERENCE.md": "npx omg explain run --run-id <id>",
 }
 
@@ -448,7 +446,11 @@ def validate_release_surface(repo_root: Path, canonical: str) -> dict[str, Any]:
             f"latest_changelog_version:{latest_version or '<missing>'}:expected:{canonical}"
         )
 
-    readme = (repo_root / "README.md").read_text(encoding="utf-8")
+    readme_path = repo_root / "README.md"
+    if not readme_path.exists():
+        blockers.append("front_door:README.md not found")
+        return {"status": "fail", "blockers": blockers, "checks": checks}
+    readme = readme_path.read_text(encoding="utf-8")
     line = next((raw for raw in readme.splitlines() if "Claude front door:" in raw), "")
     checks["readme_claude_front_door"] = line
     if not line or "omg " not in line:
@@ -467,7 +469,11 @@ def validate_release_surface(repo_root: Path, canonical: str) -> dict[str, Any]:
     elif slash_pos >= 0 and launcher_pos > slash_pos:
         blockers.append("front_door:README Command Surface must lead with launcher commands")
 
-    pkg = json.loads((repo_root / "package.json").read_text(encoding="utf-8"))
+    pkg_path = repo_root / "package.json"
+    if not pkg_path.exists():
+        blockers.append("install_truthfulness:package.json not found")
+        return {"status": "fail", "blockers": blockers, "checks": checks}
+    pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
     postinstall = str(pkg.get("scripts", {}).get("postinstall", ""))
     checks["postinstall"] = postinstall
     if "--plan" not in postinstall or "--apply" in postinstall:
@@ -610,8 +616,12 @@ def main() -> int:
     output = json.dumps(report, indent=2)
 
     if args.output_json:
-        Path(args.output_json).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.output_json).write_text(output + "\n", encoding="utf-8")
+        out_path = Path(args.output_json).resolve()
+        if not str(out_path).startswith(str(_REPO_ROOT)):
+            print(json.dumps({"error": f"--output-json must be within repo root: {_REPO_ROOT}"}), file=sys.stderr)
+            return 1
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(output + "\n", encoding="utf-8")
     else:
         print(output)
 

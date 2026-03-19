@@ -39,11 +39,11 @@
 
 | Name | Command |
 | :--- | :--- |
-| doctor | `omg doctor` |
-| env doctor | `omg env doctor` |
-| validate | `omg validate` |
-| contract validate | `omg contract validate` |
-| install plan | `omg install --plan` |
+| doctor | `npx omg doctor` |
+| env doctor | `npx omg env doctor` |
+| validate | `npx omg validate` |
+| contract validate | `npx omg contract validate` |
+| install plan | `npx omg install --plan` |
 
 ## 📂 Cache Paths
 

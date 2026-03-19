@@ -1,14 +1,18 @@
 # Install OMG for Claude Code
 
+<!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
+
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
 npx omg env doctor
-npx omg install --plan
-npx omg install --apply
+npx omg install --plan    # preview only, no mutations
+npx omg install --apply   # apply configuration
 ```
 
-This launcher-first path keeps mutations explicit. If you choose `npm install`, it only links the bin and still requires explicit `npx omg install --apply` for mutations.
+The preview step is advisory only and makes no mutations until you run apply.
+<!-- /OMG:GENERATED:install-fast-path -->
 
 ## Official Claude Plugin Flow
 
@@ -38,16 +42,6 @@ Optional browser capability:
 
 That enables OMG's browser capability metadata for `/OMG:browser` and records the preferred upstream Playwright CLI command under `~/.claude/omg-runtime/browser/capability.json`.
 
-## Run
-
-```bash
-npx omg env doctor
-npx omg install --plan
-npx omg install --apply
-```
-
-> Legacy compatibility only: Claude slash commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain available for older environments.
-
 ## Verify
 
 - `claude plugin list` should show `omg@omg` with `Status: enabled`
@@ -57,17 +51,3 @@ npx omg install --apply
 - `~/.claude/.mcp.json` should not duplicate the plugin-managed `omg-control` server
 - `~/.claude/omg-runtime/.venv/bin/python` should exist
 - if browser capability is enabled, `~/.claude/omg-runtime/browser/capability.json` should exist
-
-<!-- OMG:GENERATED:install-fast-path -->
-## Fast Path
-
-> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
-
-```bash
-npx omg env doctor
-npx omg install --plan    # preview only, no mutations
-npx omg install --apply   # apply configuration
-```
-
-The preview step is advisory only and makes no mutations until you run apply.
-<!-- /OMG:GENERATED:install-fast-path -->

@@ -1,7 +1,7 @@
 {
   "generated_by": "omg release compile-surfaces",
   "version": "2.2.10",
-  "generated_at": "2026-03-18T22:13:41.578822+00:00",
+  "generated_at": "2026-03-19T00:15:10.709871+00:00",
   "surfaces": [
     {
       "id": "release_notes_artifact",
@@ -15,20 +15,6 @@
       "path": "CHANGELOG.md",
       "marker": "<!-- OMG:GENERATED:changelog-v2.2.10 -->",
       "description": "current release block in changelog"
-    },
-    {
-      "id": "readme_quickstart",
-      "category": "docs",
-      "path": "README.md",
-      "marker": "<!-- OMG:GENERATED:quickstart -->",
-      "description": "quickstart section in README"
-    },
-    {
-      "id": "readme_command_surface",
-      "category": "docs",
-      "path": "README.md",
-      "marker": "<!-- OMG:GENERATED:command-surface -->",
-      "description": "command surface section in README"
     },
     {
       "id": "install_claude_code",
@@ -90,13 +76,6 @@
       "category": "release_body",
       "path": "artifacts/release/tag-body.md",
       "description": "annotated tag body text for release"
-    },
-    {
-      "id": "proof_generated_section",
-      "category": "docs",
-      "path": "README.md",
-      "marker": "<!-- OMG:GENERATED:proof -->",
-      "description": "generated proof section in README"
     },
     {
       "id": "install_intro",
