@@ -9,6 +9,10 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 _SCRIPT = ROOT / "scripts" / "audit-published-artifact.py"
+sys.path.insert(0, str(ROOT))
+
+from runtime.adoption import CANONICAL_VERSION
+from runtime.release_artifact_audit import run_source_tree_audit
 
 # Import the script module via importlib to avoid filename-with-hyphens issues
 _spec = importlib.util.spec_from_file_location("audit_published_artifact", _SCRIPT)
@@ -23,6 +27,17 @@ check_changelog_section = _mod.check_changelog_section
 check_install_verification_index = _mod.check_install_verification_index
 check_host_list_parity = _mod.check_host_list_parity
 check_install_path_hygiene = _mod.check_install_path_hygiene
+
+
+def test_script_run_audit_matches_shared_engine() -> None:
+    report = run_audit(ROOT, CANONICAL_VERSION)
+    shared = run_source_tree_audit(ROOT, CANONICAL_VERSION)
+
+    assert report["schema"] == shared["schema"]
+    assert report["version_expected"] == shared["version_expected"]
+    assert report["checks"] == shared["checks"]
+    assert report["overall_status"] == shared["overall_status"]
+    assert report["blockers"] == shared["blockers"]
 
 
 class TestHappyPath:

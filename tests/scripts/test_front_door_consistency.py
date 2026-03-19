@@ -52,7 +52,7 @@ class TestFrontDoorConsistency:
         for guide in ("codex.md", "gemini.md", "kimi.md", "opencode.md"):
             path = REPO_ROOT / "docs" / "install" / guide
             content = path.read_text(encoding="utf-8")
-            assert "<details><summary>Legacy clone path (advanced)</summary>" in content, guide
+            assert "<details><summary>Restricted environments / air-gapped fallback</summary>" in content, guide
             assert "## Manual Path" not in content, guide
 
     def test_host_guides_have_single_fast_path_section(self) -> None:
@@ -66,7 +66,7 @@ class TestFrontDoorConsistency:
         """Legacy setup-script browser path should be visually subordinate in Claude docs."""
         path = REPO_ROOT / "docs" / "install" / "claude-code.md"
         content = path.read_text(encoding="utf-8")
-        assert "<details><summary>Optional: browser via legacy setup script</summary>" in content
+        assert "<details><summary>Restricted environments: legacy browser setup</summary>" in content
         assert "./OMG-setup.sh install --enable-browser" in content
 
     def test_install_verification_index_uses_npx_commands(self) -> None:

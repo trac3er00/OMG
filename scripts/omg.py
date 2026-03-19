@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OMG 2.0.8 CLI entrypoint.
+"""OMG CLI entrypoint.
 
 Implements practical command-line flows for:
 - omg ship
@@ -60,6 +60,11 @@ from runtime.eval_gate import evaluate_trace
 from runtime.incident_replay import build_incident_pack
 from runtime.domain_packs import get_domain_pack_contract
 from runtime.doc_generator import generate_docs, check_docs, GENERATED_ARTIFACTS
+from runtime.release_artifact_audit import (
+    format_release_audit_text,
+    resolve_github_token,
+    run_release_artifact_audit,
+)
 from runtime.preflight import run_preflight
 from runtime.remote_supervisor import issue_local_supervisor_session, verify_local_supervisor_token
 from runtime.security_check import run_security_check
@@ -160,6 +165,19 @@ def _now_run_id() -> str:
 
 def cmd_ship(args: argparse.Namespace) -> int:
     project_dir = _ensure_project_dir()
+    release_audit = run_release_artifact_audit(
+        ROOT_DIR,
+        repo="trac3er00/OMG",
+        version=CANONICAL_VERSION,
+    )
+    if release_audit.get("overall_status") != "ok":
+        print(json.dumps({
+            "status": "error",
+            "error_code": "RELEASE_AUDIT_BLOCKED",
+            "message": "Release artifact audit drift blocks omg ship.",
+            "release_audit": release_audit,
+        }, indent=2))
+        return 2
     idea_path = args.idea
     idea = _parse_simple_idea_yaml(idea_path) if idea_path.endswith((".yml", ".yaml")) else _load_json(idea_path)
 
@@ -2460,10 +2478,46 @@ def cmd_diagnose_plugins_approve(args: argparse.Namespace) -> int:
 def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     release_sub = parent.add_subparsers(dest=dest, required=True)
 
+    release_audit = release_sub.add_parser("audit", help="Audit release artifacts and remote release surfaces")
+    release_audit.add_argument("--artifact", action="store_true", help="Run the release artifact audit")
+    release_audit.add_argument("--apply", action="store_true", help="Apply GitHub release remediation")
+    release_audit.add_argument("--confirm", default="", help="Confirmation token that must match the target version for --apply")
+    release_audit.add_argument("--repo", default="trac3er00/OMG", help="GitHub owner/name repo slug")
+    release_audit.add_argument("--version", default="", help="Override target version")
+    release_audit.add_argument("--format", default="text", choices=["text", "json"])
+    release_audit.add_argument("--output-json", default="", help="Write JSON report to this path")
+    release_audit.set_defaults(func=cmd_release_audit)
+
     release_readiness = release_sub.add_parser("readiness", help="Check production release readiness for compiled artifacts")
     release_readiness.add_argument("--channel", default="dual", choices=["public", "enterprise", "dual"])
     release_readiness.add_argument("--output-root", default="", help="Check compiled outputs from this root instead of the repo root")
     release_readiness.set_defaults(func=cmd_release_readiness)
+
+
+def cmd_release_audit(args: argparse.Namespace) -> int:
+    if not getattr(args, "artifact", False):
+        print("release audit currently requires --artifact", file=sys.stderr)
+        return 2
+
+    report = run_release_artifact_audit(
+        ROOT_DIR,
+        repo=str(args.repo),
+        version=str(args.version),
+        apply=bool(getattr(args, "apply", False)),
+        confirm=str(getattr(args, "confirm", "")),
+        github_token=resolve_github_token(),
+    )
+    if getattr(args, "output_json", ""):
+        output_path = Path(str(args.output_json))
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    if getattr(args, "format", "text") == "json":
+        print(json.dumps(report, indent=2))
+    else:
+        print(format_release_audit_text(report))
+    if report.get("status") == "error":
+        return 2
+    return 0 if report.get("overall_status") == "ok" else 1
 
 
 def cmd_docs_generate(args: argparse.Namespace) -> int:
@@ -2840,7 +2894,7 @@ def build_parser() -> argparse.ArgumentParser:
     parity_eval.add_argument("--output-root", default="", help="Write outputs here instead of repo root")
     parity_eval.set_defaults(func=cmd_provider_parity_eval)
 
-    release = sub.add_parser("release", help="OMG release-readiness checks")
+    release = sub.add_parser("release", help="OMG release audit and readiness checks")
     _add_release_subcommands(release, dest="release_command")
 
     doctor = sub.add_parser("doctor", help="Canonical install and runtime verification")

@@ -41,3 +41,17 @@ class TestProofStory:
         section = content[proof_idx : next_section if next_section > 0 else len(content)]
         assert "Certification Lane 1" in section
         assert "Flagship testbed" not in section
+
+    def test_proof_docs_keep_music_omr_as_flagship_gate(self) -> None:
+        path = REPO_ROOT / "docs" / "proof.md"
+        content = path.read_text(encoding="utf-8")
+        assert "flagship" in content.lower()
+
+    def test_readme_keeps_music_omr_as_flagship_gate(self) -> None:
+        path = REPO_ROOT / "README.md"
+        content = path.read_text(encoding="utf-8")
+        proof_idx = content.find("## Proof")
+        assert proof_idx >= 0, "README must have a Proof section"
+        next_section = content.find("\n## ", proof_idx + 1)
+        section = content[proof_idx : next_section if next_section > 0 else len(content)]
+        assert "flagship" in section.lower()

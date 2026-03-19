@@ -86,11 +86,12 @@ OMG keeps verification visible instead of burying it in implementation details.
 ## Certification Lanes
 
 OMG proof is multi-lane. Each lane binds a user-facing claim to a freshness policy,
-required evidence, and a release-facing verdict. Music OMR is Lane 1 because it is
-the first continuously enforced daily certification lane, not because it represents
-the full platform proof surface.
+required evidence, and a release-facing verdict. Music OMR is Lane 1 and the
+permanent flagship gate because it is the hardest continuously enforced daily
+testbed in the system: real-time optical music recognition, transcription
+accuracy, and live transposition under production-style constraints.
 
-- Lane 1: Music OMR daily gate for deterministic score parsing and live transposition
+- Lane 1 / flagship: Music OMR daily gate for deterministic score parsing and live transposition
 - Planned lane: install/apply correctness for launcher previews versus applied mutations
 - Planned lane: uninstall cleanliness for rollback and host cleanup guarantees
 - Planned lane: host parity for canonical provider behavior normalization

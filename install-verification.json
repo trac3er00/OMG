@@ -22,6 +22,10 @@
     {
       "name": "install plan",
       "command": "npx omg install --plan"
+    },
+    {
+      "name": "release audit",
+      "command": "npx omg release audit --artifact"
     }
   ],
   "cache_paths": [

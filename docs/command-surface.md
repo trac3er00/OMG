@@ -45,7 +45,7 @@ Generated for OMG v2.2.10.
 | `npx omg contract` | Canonical OMG contract validation and compilation |
 | `npx omg context` | Context packet compiler |
 | `npx omg provider-parity-eval` | Evaluate provider parity across canonical hosts |
-| `npx omg release` | OMG release-readiness checks |
+| `npx omg release` | OMG release audit and readiness checks |
 | `npx omg doctor` | Canonical install and runtime verification |
 | `npx omg validate` | Canonical validation — doctor + contract + profile + install |
 | `npx omg diagnose-plugins` | Diagnose plugin interoperability and conflicts |

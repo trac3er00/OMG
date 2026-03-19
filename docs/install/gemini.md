@@ -14,7 +14,7 @@ npx omg install --apply   # apply configuration
 The preview step is advisory only and makes no mutations until you run apply.
 <!-- /OMG:GENERATED:install-fast-path -->
 
-<details><summary>Legacy clone path (advanced)</summary>
+<details><summary>Restricted environments / air-gapped fallback</summary>
 
 ```bash
 git clone https://github.com/trac3er00/OMG

@@ -32,7 +32,7 @@ Claude-specific note:
 
 Optional browser capability:
 
-<details><summary>Optional: browser via legacy setup script</summary>
+<details><summary>Restricted environments: legacy browser setup</summary>
 
 ```bash
 ./OMG-setup.sh install --enable-browser

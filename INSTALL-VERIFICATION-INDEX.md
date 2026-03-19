@@ -16,7 +16,7 @@
 ### Source Files Referenced
 - `runtime/mcp_config_writers.py`
 - `runtime/adoption.py`
-- `OMG-setup.sh`
+- `runtime/install_planner.py`
 
 ---
 
@@ -44,6 +44,7 @@
 | validate | `npx omg validate` |
 | contract validate | `npx omg contract validate` |
 | install plan | `npx omg install --plan` |
+| release audit | `npx omg release audit --artifact` |
 
 ## 📂 Cache Paths
 

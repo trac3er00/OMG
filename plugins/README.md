@@ -1,12 +1,24 @@
 # OMG Commands
 
-OMG exposes a small native front door and keeps the rest of the surface available as advanced plugins.
+OMG exposes a launcher-first front door and keeps the rest of the surface available as advanced plugins.
 
-## Native Entry Points
+## Launcher-First Install
+
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
+
+```bash
+npx omg env doctor
+npx omg install --plan
+npx omg install --apply
+npx omg ship
+```
+
+Local package-manager installs only link `omg` into `node_modules/.bin/`; configuration changes still require an explicit `npx omg install --apply`.
+
+## Native Plugin Entry Points
 
 | Command | Description |
 |---------|-------------|
-| `/OMG:setup` | Native setup and adoption flow for supported hosts |
 | `/OMG:ship` | Ship — Idea to Evidence to PR |
 | `/OMG:browser` | Canonical browser automation and verification surface |
 
@@ -54,7 +66,7 @@ plugins/
 
 ## Adoption Notes
 
-Public migration commands are intentionally avoided. OMG uses `/OMG:setup` and `OMG-setup.sh` to detect and adopt older ecosystems internally, while `compat` remains focused on legacy skill routing.
+Restricted environments / air-gapped fallback: `/OMG:setup` and `OMG-setup.sh` remain available when launcher-first install cannot mutate host configuration directly. `compat` remains focused on legacy skill routing.
 
 `/OMG:playwright` remains available as a compatibility alias to `/OMG:browser`.
 
@@ -62,3 +74,5 @@ Public migration commands are intentionally avoided. OMG uses `/OMG:setup` and `
 
 - Install guides live in [docs/install/claude-code.md](../docs/install/claude-code.md) and [docs/install/codex.md](../docs/install/codex.md).
 - Proof surface lives in [docs/proof.md](../docs/proof.md).
+- Quick reference lives in [QUICK-REFERENCE.md](../QUICK-REFERENCE.md).
+- Install verification lives in [INSTALL-VERIFICATION-INDEX.md](../INSTALL-VERIFICATION-INDEX.md).

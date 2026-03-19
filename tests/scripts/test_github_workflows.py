@@ -456,6 +456,15 @@ def test_release_workflow_stages_release_surface_manifest_before_gate() -> None:
     assert "compile_release_surfaces" in compile_job
 
 
+def test_release_workflow_runs_release_audit_before_release_readiness() -> None:
+    text = _read_workflow_text("release.yml")
+    audit_pos = text.find("python3 scripts/omg.py release audit --artifact")
+    readiness_pos = text.find("python3 scripts/omg.py release readiness")
+    assert audit_pos >= 0, "release.yml must run release audit before publish"
+    assert readiness_pos >= 0, "release.yml must run release readiness before publish"
+    assert audit_pos < readiness_pos, "release audit must run before release readiness"
+
+
 def test_release_readiness_normalizes_release_surface_manifest_after_download() -> None:
     text = _read_workflow_text("omg-release-readiness.yml")
     release_job = _section(text, "  release-readiness:\n")

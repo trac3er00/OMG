@@ -209,6 +209,7 @@ def test_quick_reference_uses_omg_launcher(tmp_path):
     assert "npx omg install --plan" in content
     assert "npx omg doctor" in content
     assert "npx omg ship" in content
+    assert "npx omg release audit --artifact" in content
 
 
 def test_quick_reference_uses_real_explain_run_syntax(tmp_path):
@@ -237,6 +238,7 @@ def test_install_verification_json_uses_omg_commands(tmp_path):
         assert "python3 scripts/omg.py" not in cmd["command"]
     assert any(cmd["command"] == "npx omg doctor" for cmd in data["verification_commands"])
     assert any(cmd["command"] == "npx omg validate" for cmd in data["verification_commands"])
+    assert any(cmd["command"] == "npx omg release audit --artifact" for cmd in data["verification_commands"])
 
 
 def test_quick_reference_emits_release_surface_marker_block(tmp_path):

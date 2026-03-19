@@ -135,7 +135,7 @@ Success looks like:
 - OMG reports the selected preset and next step
 - narrowed defaults keep the required control plane small while optional capabilities such as browser automation remain opt-in
 
-> Legacy compatibility only: clone-and-setup flows plus Claude slash commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain available for older environments, but they are not the primary install path.
+> Restricted environments / air-gapped fallback only: clone-and-setup flows plus Claude slash commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain available when launcher-first install cannot modify the host directly.
 
 ## Install Guides
 
@@ -171,7 +171,7 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 - Budget Envelopes: Multi-dimensional resource tracking (CPU, memory, wall time, tokens, network)
 - Host Parity: Semantic host parity normalization across canonical providers
 - Issue Surface: Active red-team and diagnostic surface via `/OMG:issue`
-- Certification Lane 1: Music OMR daily gate for deterministic OMR and live transposition
+- Certification Lane 1 and permanent flagship gate: Music OMR daily verification for deterministic OMR and live transposition under the hardest real-time domain constraints in the stack
 - Evidence profiles: `browser-flow`, `forge-cybersecurity`, `interop-diagnosis`, `install-validation`, `buffet`
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
