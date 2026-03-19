@@ -1366,19 +1366,22 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
     if not dry_run and os.path.isfile(codex_cfg) and any(codex_cfg in r for r in refs):
         try:
             import tomlkit
-
-            with open(codex_cfg, "r", encoding="utf-8") as f:
-                doc = tomlkit.parse(f.read())
-            mcp_servers = doc.get("mcp_servers", {})
-            ctrl = mcp_servers.get("omg-control", {})
-            cmd = ctrl.get("command", "")
-            if isinstance(cmd, str) and _ORPHANED_RUNTIME_MARKER in cmd:
-                del mcp_servers["omg-control"]
-                with open(codex_cfg, "w", encoding="utf-8") as f:
-                    f.write(tomlkit.dumps(doc))
-                removed_paths.append(f"{codex_cfg}:mcp_servers.omg-control")
-        except (OSError, KeyError, ImportError):
-            pass
+        except ImportError:
+            tomlkit = None  # type: ignore[assignment]
+        if tomlkit is not None:
+            try:
+                with open(codex_cfg, "r", encoding="utf-8") as f:
+                    doc = tomlkit.parse(f.read())
+                mcp_servers = doc.get("mcp_servers", {})
+                ctrl = mcp_servers.get("omg-control", {})
+                cmd = ctrl.get("command", "")
+                if isinstance(cmd, str) and _ORPHANED_RUNTIME_MARKER in cmd:
+                    del mcp_servers["omg-control"]
+                    with open(codex_cfg, "w", encoding="utf-8") as f:
+                        f.write(tomlkit.dumps(doc))
+                    removed_paths.append(f"{codex_cfg}:mcp_servers.omg-control")
+            except (OSError, KeyError, tomlkit.exceptions.ParseError):
+                pass
 
     if not dry_run:
         for cfg_path, key_path, mcp_top_key in [

@@ -258,6 +258,18 @@ def run_release_artifact_audit(
     session: Any | None = None,
 ) -> dict[str, Any]:
     expected_version = version.strip() or _detect_canonical_version(repo_root)
+    if not expected_version:
+        return {
+            "status": "error",
+            "error_code": "VERSION_UNRESOLVABLE",
+            "message": "No version supplied and canonical version could not be detected.",
+            "repo": repo,
+            "version": "",
+            "overall_status": "fail",
+            "verdict": "FAIL",
+            "checks": {},
+            "blockers": ["version_unresolvable"],
+        }
     if apply and confirm.strip() != expected_version:
         return {
             "status": "error",

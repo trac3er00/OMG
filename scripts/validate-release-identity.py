@@ -28,7 +28,7 @@ from runtime.doc_generator import check_docs
 import importlib.util
 
 _SYNC_SCRIPT = _REPO_ROOT / "scripts" / "sync-release-identity.py"
-if not _SYNC_SCRIPT.exists() or not str(_SYNC_SCRIPT.resolve()).startswith(str(_REPO_ROOT)):
+if not _SYNC_SCRIPT.exists() or not _SYNC_SCRIPT.resolve().is_relative_to(_REPO_ROOT):
     raise FileNotFoundError(f"sync-release-identity.py not found at {_SYNC_SCRIPT}")
 _sync_spec = importlib.util.spec_from_file_location("sync_release_identity", _SYNC_SCRIPT)
 assert _sync_spec is not None and _sync_spec.loader is not None
@@ -617,7 +617,7 @@ def main() -> int:
 
     if args.output_json:
         out_path = Path(args.output_json).resolve()
-        if not str(out_path).startswith(str(_REPO_ROOT)):
+        if not out_path.is_relative_to(_REPO_ROOT):
             print(json.dumps({"error": f"--output-json must be within repo root: {_REPO_ROOT}"}), file=sys.stderr)
             return 1
         out_path.parent.mkdir(parents=True, exist_ok=True)

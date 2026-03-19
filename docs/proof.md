@@ -78,10 +78,10 @@ OMG keeps verification visible instead of burying it in implementation details.
   - worker watchdog replay: `.omg/evidence/subagents/<run_id>-replay.json`
   - merge writer provenance: `.omg/evidence/merge-writer-<run_id>.json`
   - tool fabric ledger: `.omg/state/ledger/tool-ledger.jsonl`
-- budget envelope state: `.omg/state/budget-envelopes/<run_id>.json`
-- issue report: `.omg/evidence/issues/<run_id>.json`
-- host parity report: `.omg/evidence/host-parity-<run_id>.json`
-- music OMR testbed evidence: `.omg/evidence/music-omr-<run_id>.json`
+  - budget envelope state: `.omg/state/budget-envelopes/<run_id>.json`
+  - issue report: `.omg/evidence/issues/<run_id>.json`
+  - host parity report: `.omg/evidence/host-parity-<run_id>.json`
+  - music OMR testbed evidence: `.omg/evidence/music-omr-<run_id>.json`
 
 ## Certification Lanes
 

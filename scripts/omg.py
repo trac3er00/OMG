@@ -169,6 +169,7 @@ def cmd_ship(args: argparse.Namespace) -> int:
         ROOT_DIR,
         repo="trac3er00/OMG",
         version=CANONICAL_VERSION,
+        github_token=resolve_github_token(),
     )
     if release_audit.get("overall_status") != "ok":
         print(json.dumps({
