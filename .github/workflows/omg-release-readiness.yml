@@ -7,20 +7,69 @@ on:
         description: "Previous release version to block from residue checks"
         required: true
         type: string
-  pull_request:
+  issue_comment:
+    types: [created]
   schedule:
     - cron: "13 3 * * *"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  resolve-pr:
+    if: >-
+      github.event_name == 'issue_comment'
+      && github.event.issue.pull_request
+      && contains(github.event.comment.body, '@omg')
+    runs-on: ubuntu-latest
+    outputs:
+      pr-number: ${{ steps.pr.outputs.pr_number }}
+      head-sha: ${{ steps.pr.outputs.head_sha }}
+      base-sha: ${{ steps.pr.outputs.base_sha }}
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Acknowledge trigger
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+      - name: Fetch PR details
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            if (pr.data.state !== 'open') {
+              core.setFailed('PR is not open');
+              return;
+            }
+            core.setOutput('pr_number', pr.data.number);
+            core.setOutput('head_sha', pr.data.head.sha);
+            core.setOutput('base_sha', pr.data.base.sha);
+
   prepare-release-readiness:
+    if: always() && (needs.resolve-pr.result == 'success' || github.event_name != 'issue_comment')
+    needs:
+      - resolve-pr
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -164,10 +213,15 @@ jobs:
 
   compile-public-and-parity:
     runs-on: ubuntu-latest
-    needs: prepare-release-readiness
+    if: always() && (needs.resolve-pr.result == 'success' || github.event_name != 'issue_comment')
+    needs:
+      - resolve-pr
+      - prepare-release-readiness
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -222,10 +276,15 @@ jobs:
 
   compile-enterprise:
     runs-on: ubuntu-latest
-    needs: prepare-release-readiness
+    if: always() && (needs.resolve-pr.result == 'success' || github.event_name != 'issue_comment')
+    needs:
+      - resolve-pr
+      - prepare-release-readiness
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -263,12 +322,16 @@ jobs:
 
   release-readiness:
     runs-on: ubuntu-latest
+    if: always() && (needs.resolve-pr.result == 'success' || github.event_name != 'issue_comment')
     needs:
+      - resolve-pr
       - compile-public-and-parity
       - compile-enterprise
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5

@@ -7,23 +7,67 @@ on:
         description: "Previous release version to block from residue checks"
         required: true
         type: string
-  pull_request:
-    paths-ignore:
-      - "*.md"
-      - "docs/**"
-      - "LICENSE"
-      - ".gitignore"
+  issue_comment:
+    types: [created]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  resolve-pr:
+    if: >-
+      github.event_name == 'issue_comment'
+      && github.event.issue.pull_request
+      && contains(github.event.comment.body, '@omg')
+    runs-on: ubuntu-latest
+    outputs:
+      pr-number: ${{ steps.pr.outputs.pr_number }}
+      head-sha: ${{ steps.pr.outputs.head_sha }}
+      base-sha: ${{ steps.pr.outputs.base_sha }}
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Acknowledge trigger
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            });
+
+      - name: Fetch PR details
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            if (pr.data.state !== 'open') {
+              core.setFailed('PR is not open');
+              return;
+            }
+            core.setOutput('pr_number', pr.data.number);
+            core.setOutput('head_sha', pr.data.head.sha);
+            core.setOutput('base_sha', pr.data.base.sha);
+
   prepare-compat-gate:
+    if: always() && (needs.resolve-pr.result == 'success' || github.event_name == 'workflow_dispatch')
+    needs:
+      - resolve-pr
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -80,10 +124,15 @@ jobs:
 
   compile-and-parity-compat:
     runs-on: ubuntu-latest
-    needs: prepare-compat-gate
+    if: always() && (needs.resolve-pr.result == 'success' || github.event_name == 'workflow_dispatch')
+    needs:
+      - resolve-pr
+      - prepare-compat-gate
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -123,9 +172,10 @@ jobs:
           include-hidden-files: true
 
   pr-analyze:
-    if: github.event_name == 'pull_request' && always()
+    if: always() && needs.resolve-pr.result == 'success'
     runs-on: ubuntu-latest
     needs:
+      - resolve-pr
       - prepare-compat-gate
       - compile-and-parity-compat
     permissions:
@@ -133,6 +183,8 @@ jobs:
     steps:
       - name: Checkout PR analysis surface
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -156,10 +208,24 @@ jobs:
       - name: Run generated-doc drift check
         run: python3 scripts/omg.py docs generate --check
 
+      - name: Synthesize PR event
+        run: |
+          cat > /tmp/pr-event.json <<'EVEOF'
+          {
+            "action": "comment_triggered",
+            "repository": {"full_name": "${{ github.repository }}"},
+            "pull_request": {
+              "number": ${{ needs.resolve-pr.outputs.pr-number }},
+              "head": {"sha": "${{ needs.resolve-pr.outputs.head-sha }}"},
+              "base": {"sha": "${{ needs.resolve-pr.outputs.base-sha }}"}
+            }
+          }
+          EVEOF
+
       - name: Build reviewer bot handoff from cached artifacts
         run: |
           python3 scripts/github_review_helpers.py build-pr-handoff \
-            --event-path "$GITHUB_EVENT_PATH" \
+            --event-path "/tmp/pr-event.json" \
             --artifacts-root artifacts \
             --output artifacts/reviewer/review-input.json
 
@@ -175,9 +241,11 @@ jobs:
           if-no-files-found: error
 
   post-review:
-    if: github.event_name == 'pull_request' && always()
+    if: always() && needs.resolve-pr.result == 'success'
     runs-on: ubuntu-latest
-    needs: pr-analyze
+    needs:
+      - resolve-pr
+      - pr-analyze
     permissions:
       contents: read
       pull-requests: write
@@ -186,7 +254,7 @@ jobs:
       - name: Checkout trusted base surface
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ needs.resolve-pr.outputs.base-sha }}
           fetch-depth: 1
           persist-credentials: false
 
@@ -208,10 +276,24 @@ jobs:
           name: reviewer-bot-pr-input
           path: artifacts/reviewer
 
+      - name: Synthesize PR event
+        run: |
+          cat > /tmp/pr-event.json <<'EVEOF'
+          {
+            "action": "comment_triggered",
+            "repository": {"full_name": "${{ github.repository }}"},
+            "pull_request": {
+              "number": ${{ needs.resolve-pr.outputs.pr-number }},
+              "head": {"sha": "${{ needs.resolve-pr.outputs.head-sha }}"},
+              "base": {"sha": "${{ needs.resolve-pr.outputs.base-sha }}"}
+            }
+          }
+          EVEOF
+
       - name: Post trusted PR review via GitHub App
         run: |
           python3 scripts/github_review_helpers.py post-review \
-            --event-path "$GITHUB_EVENT_PATH" \
+            --event-path "/tmp/pr-event.json" \
             --input artifacts/reviewer/review-input.json \
             --output artifacts/reviewer/review-result.json
         env:
@@ -228,7 +310,7 @@ jobs:
           if-no-files-found: error
 
   compat-gate:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs:
       - compile-and-parity-compat
@@ -294,7 +376,7 @@ jobs:
           if-no-files-found: error
 
   standalone-no-vendor:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

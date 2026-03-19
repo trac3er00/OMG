@@ -96,9 +96,17 @@ def _has_release_push_branch(push_config: object) -> bool:
 
 
 def test_all_target_workflows_define_concurrency() -> None:
-    for workflow_name in ("omg-compat-gate.yml", "omg-release-readiness.yml", "publish-npm.yml"):
+    text = _read_workflow_text("publish-npm.yml")
+    assert re.search(
+        r"^concurrency:\n  group: \$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}\n  cancel-in-progress: true",
+        text,
+        flags=re.MULTILINE,
+    )
+
+    for workflow_name in ("omg-compat-gate.yml", "omg-release-readiness.yml"):
         text = _read_workflow_text(workflow_name)
-        assert re.search(r"^concurrency:\n  group: \$\{\{ github\.workflow \}\}-\$\{\{ github\.ref \}\}\n  cancel-in-progress: true", text, flags=re.MULTILINE)
+        assert "github.event.issue.number || github.ref" in text
+        assert "cancel-in-progress: true" in text
 
 
 def test_compat_workflow_has_split_pr_analyze_and_trusted_post_review_jobs() -> None:
@@ -125,7 +133,7 @@ def test_trusted_post_review_lane_never_checks_out_pr_head() -> None:
     text = _read_workflow_text("omg-compat-gate.yml")
     post_review = _section(text, "  post-review:\n", "  compat-gate:\n")
     assert "uses: actions/checkout@v4" in post_review
-    assert "ref: ${{ github.event.pull_request.base.sha }}" in post_review
+    assert "ref: ${{ needs.resolve-pr.outputs.base-sha }}" in post_review
     assert "head.sha" not in post_review
 
 
@@ -178,7 +186,8 @@ def test_release_readiness_runs_on_pull_request() -> None:
     readiness = _load_workflow("omg-release-readiness.yml")
     readiness_on = _workflow_on(readiness)
     assert isinstance(readiness_on, dict), "omg-release-readiness.yml must define event triggers"
-    assert "pull_request" in readiness_on, "omg-release-readiness.yml must keep pull_request coverage"
+    assert "issue_comment" in readiness_on, "omg-release-readiness.yml must use issue_comment for manual PR coverage"
+    assert "pull_request" not in readiness_on, "omg-release-readiness.yml must not auto-trigger on pull_request"
 
 
 def test_compat_gate_has_doc_drift_check_before_reviewer_handoff() -> None:
@@ -232,7 +241,7 @@ def test_post_review_runs_only_on_trusted_lane() -> None:
     assert checkout_steps, "post-review must checkout trusted base surface"
     checkout_with_base_sha = any(
         isinstance(step.get("with"), dict)
-        and str(step["with"].get("ref", "")) == "${{ github.event.pull_request.base.sha }}"
+        and str(step["with"].get("ref", "")) == "${{ needs.resolve-pr.outputs.base-sha }}"
         for step in checkout_steps
     )
 
@@ -241,6 +250,53 @@ def test_post_review_runs_only_on_trusted_lane() -> None:
         assert has_trusted_if_guard or checkout_with_base_sha, (
             "post-review must exclude untrusted PR head (trusted if guard or base.sha checkout required)"
         )
+
+
+def test_comment_triggered_workflows_resolve_pr_from_at_omg_comment() -> None:
+    for workflow_name in ("omg-compat-gate.yml", "omg-release-readiness.yml"):
+        workflow = _load_workflow(workflow_name)
+        workflow_on = _workflow_on(workflow)
+        assert isinstance(workflow_on, dict), f"{workflow_name} must define event triggers"
+        assert "issue_comment" in workflow_on, f"{workflow_name} must accept issue_comment events"
+        issue_comment = workflow_on["issue_comment"]
+        assert isinstance(issue_comment, dict), f"{workflow_name} issue_comment trigger must be configured"
+        assert issue_comment.get("types") == ["created"], f"{workflow_name} must only trigger on new comments"
+        assert "pull_request" not in workflow_on, f"{workflow_name} must not auto-trigger on pull_request"
+
+        jobs = workflow.get("jobs")
+        assert isinstance(jobs, dict), f"{workflow_name} must define jobs"
+        resolve_pr = jobs.get("resolve-pr")
+        assert isinstance(resolve_pr, dict), f"{workflow_name} must define resolve-pr"
+        resolve_if = str(resolve_pr.get("if", ""))
+        assert "github.event_name == 'issue_comment'" in resolve_if
+        assert "github.event.issue.pull_request" in resolve_if
+        assert "contains(github.event.comment.body, '@omg')" in resolve_if
+
+        outputs = resolve_pr.get("outputs")
+        assert isinstance(outputs, dict), f"{workflow_name} resolve-pr must export outputs"
+        assert outputs.get("pr-number") == "${{ steps.pr.outputs.pr_number }}"
+        assert outputs.get("head-sha") == "${{ steps.pr.outputs.head_sha }}"
+        assert outputs.get("base-sha") == "${{ steps.pr.outputs.base_sha }}"
+
+
+def test_comment_triggered_workflows_checkout_resolved_pr_head() -> None:
+    for workflow_name in ("omg-compat-gate.yml", "omg-release-readiness.yml"):
+        text = _read_workflow_text(workflow_name)
+        assert "ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}" in text
+
+
+def test_compat_pr_review_jobs_use_synthesized_pr_event() -> None:
+    text = _read_workflow_text("omg-compat-gate.yml")
+    pr_analyze = _section(text, "  pr-analyze:\n", "  post-review:\n")
+    post_review = _section(text, "  post-review:\n", "  compat-gate:\n")
+
+    assert "needs.resolve-pr.result == 'success'" in pr_analyze
+    assert "needs.resolve-pr.outputs.pr-number" in pr_analyze
+    assert '--event-path "/tmp/pr-event.json"' in pr_analyze
+
+    assert "needs.resolve-pr.result == 'success'" in post_review
+    assert "needs.resolve-pr.outputs.pr-number" in post_review
+    assert '--event-path "/tmp/pr-event.json"' in post_review
 
 
 def test_pr_analyze_and_post_review_are_separate_jobs() -> None:
