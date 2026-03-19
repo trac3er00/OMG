@@ -465,6 +465,12 @@ def test_github_review_helpers_assert_pass_fails_when_required_artifacts_missing
         helpers.assert_pass(payload)
 
 
+def test_github_review_helpers_post_review_help_is_auth_neutral() -> None:
+    script = (ROOT / "scripts" / "github_review_helpers.py").read_text(encoding="utf-8")
+    assert 'help="Use GitHub App auth and post PR review/check run."' not in script
+    assert 'help="Use configured GitHub auth and post PR review/check run."' in script
+
+
 # ---------------------------------------------------------------------------
 # Release-readiness: policy-pack trust enforcement
 # ---------------------------------------------------------------------------

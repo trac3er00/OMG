@@ -197,7 +197,7 @@ def _parse_args() -> argparse.Namespace:
     assert_cmd = subparsers.add_parser("assert-pass", help="Fail if handoff verdict is not pass.")
     assert_cmd.add_argument("--input", required=True)
 
-    post = subparsers.add_parser("post-review", help="Use GitHub App auth and post PR review/check run.")
+    post = subparsers.add_parser("post-review", help="Use configured GitHub auth and post PR review/check run.")
     post.add_argument("--event-path", required=True)
     post.add_argument("--input", required=True)
     post.add_argument("--output", required=True)

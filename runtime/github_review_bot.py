@@ -160,7 +160,7 @@ class GitHubReviewBot:
             annotations=check_annotations,
         )
         # Check-run is supplementary — don't fail the whole flow if it errors
-        # (e.g., app may lack Checks permission while still having PR write)
+        # (e.g., the configured account may lack Checks permission while still having PR write)
 
         review_status = self._to_review_status(str(formatted["review_status"]))
         state = self.contract.record_review(
