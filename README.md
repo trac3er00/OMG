@@ -189,7 +189,8 @@ Primary launcher entry points:
 - `npx omg proof open --html`
 - `npx omg blocked --last`
 
-> **Legacy/advanced aliases**: `/OMG:setup`, `/OMG:browser`, `/OMG:crazy`, `/OMG:deep-plan`,
+> **Legacy/advanced aliases**: `/OMG:setup`, `/OMG:browser`, `/OMG:crazy`, `/OMG:deep-plan`
+> (compatibility path to `plan-council`),
 > `/OMG:playwright`, `/OMG:security-check`, `/OMG:api-twin`, `/OMG:preflight`, `/OMG:teams`,
 > `/OMG:ccg`, `/OMG:compat`, `/OMG:ship`
 
