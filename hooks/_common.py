@@ -6,7 +6,8 @@ import os
 import sys
 import fcntl
 import site
-from datetime import datetime, timezone
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # --- Stop-Block Loop Breaker ---
@@ -45,6 +46,10 @@ def bootstrap_runtime_paths(anchor: str | os.PathLike[str] | None = None) -> Non
     keeps ``hooks/``, ``runtime/``, ``lab/`` and related packages side by side.
     This helper resolves both layouts and is safe to call repeatedly.
     """
+    _claude_dir = Path(os.path.expanduser("~/.claude"))
+    if (_claude_dir / ".omg-uninstalling").exists():
+        sys.exit(0)
+
     anchor_path = Path(anchor).resolve() if anchor is not None else Path(__file__).resolve()
     hooks_dir = anchor_path.parent
     parent_dir = hooks_dir.parent
@@ -157,26 +162,32 @@ def read_file_safe(path, max_bytes=2000):
 
 def log_hook_error(hook_name, error, context=None):
     """Log hook error to .omg/state/ledger/hook-errors.jsonl with file locking.
-    
+
     Args:
         hook_name: Name of the hook that errored
         error: Exception or error message
         context: Optional dict with additional context
-    
+
     Silently fails if logging cannot be completed (crash isolation).
     """
     try:
         project_dir = get_project_dir()
         ledger_dir = os.path.join(project_dir, ".omg", "state", "ledger")
         os.makedirs(ledger_dir, exist_ok=True)
-        
+
         ledger_path = os.path.join(ledger_dir, "hook-errors.jsonl")
-        
-        # Rotation: if file > 100KB, rename to .hook-errors.jsonl.1
+        entry = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "hook": hook_name,
+            "error": str(error),
+        }
+        if context:
+            entry["context"] = context
+        line = json.dumps(entry, separators=(",", ":")) + "\n"
+
         try:
-            if os.path.exists(ledger_path):
-                size = os.path.getsize(ledger_path)
-                if size > 100 * 1024:  # 100KB
+            with _locked_path(ledger_path):
+                if os.path.exists(ledger_path) and os.path.getsize(ledger_path) > 100 * 1024:
                     archive = ledger_path + ".1"
                     if os.path.exists(archive):
                         try:
@@ -187,39 +198,21 @@ def log_hook_error(hook_name, error, context=None):
                         os.rename(ledger_path, archive)
                     except OSError:
                         pass
-        except Exception:
-            pass
-        
-        # Build entry
-        entry = {
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "hook": hook_name,
-            "error": str(error),
-        }
-        if context:
-            entry["context"] = context
-        
-        # Write with file locking
-        try:
-            fd = open(ledger_path, "a")
-            fcntl.flock(fd.fileno(), fcntl.LOCK_EX)
-            fd.write(json.dumps(entry, separators=(",", ":")) + "\n")
-            fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
-            fd.close()
-        except (ImportError, BlockingIOError):
-            # Fallback: write without locking
-            try:
-                with open(ledger_path, "a") as f:
-                    f.write(json.dumps(entry, separators=(",", ":")) + "\n")
-            except Exception as e:
-                print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
-                pass
+
+                fd = os.open(
+                    ledger_path,
+                    os.O_WRONLY | os.O_CREAT | os.O_APPEND | _O_NOFOLLOW_HOOKS,
+                    0o600,
+                )
+                with os.fdopen(fd, "a", encoding="utf-8") as handle:
+                    handle.seek(0, os.SEEK_END)
+                    handle.write(line)
+                    handle.flush()
+                    os.fsync(handle.fileno())
         except Exception as e:
             print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
-            pass
     except Exception as e:
         print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
-        pass
 
 
 _O_NOFOLLOW_HOOKS: int = getattr(os, "O_NOFOLLOW", 0)
@@ -231,6 +224,20 @@ def _fsync_dir_hooks(dirpath):
         os.fsync(fd)
     finally:
         os.close(fd)
+
+
+@contextmanager
+def _locked_path(path):
+    lock_path = path + ".lock"
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | _O_NOFOLLOW_HOOKS, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield lock_path
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
 
 def atomic_json_write(path, data):
@@ -270,6 +277,75 @@ def atomic_json_write(path, data):
         _fsync_dir_hooks(parent or ".")
     except Exception as e:
         print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
+
+
+def write_checklist_session(project_dir, session_id=None):
+    """Persist session metadata for the active planning checklist."""
+    if not session_id:
+        session_id = _get_session_id()
+    sidecar = os.path.join(project_dir, ".omg", "state", "_checklist.session")
+    atomic_json_write(sidecar, {
+        "session_id": session_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def read_checklist_session(project_dir):
+    """Read planning checklist session metadata."""
+    sidecar = os.path.join(project_dir, ".omg", "state", "_checklist.session")
+    try:
+        if os.path.exists(sidecar):
+            with open(sidecar, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            if isinstance(payload, dict):
+                return payload
+    except Exception:
+        pass
+    return None
+
+
+def _parse_hook_timestamp(raw_value: str):
+    text = str(raw_value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def has_recent_tool_activity(project_dir, since_minutes=60):
+    """Summarize recent tool-ledger activity for planning-gate advisories."""
+    result = {"has_writes": False, "has_tests": False, "tool_count": 0}
+    ledger = os.path.join(project_dir, ".omg", "state", "ledger", "tool-ledger.jsonl")
+    if not os.path.exists(ledger):
+        return result
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=since_minutes)
+        with open(ledger, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+                ts = _parse_hook_timestamp(entry.get("ts", ""))
+                if ts is not None and ts < cutoff:
+                    continue
+                result["tool_count"] += 1
+                tool = str(entry.get("tool", ""))
+                if tool in ("Write", "Edit", "MultiEdit"):
+                    result["has_writes"] = True
+                command = str(entry.get("command", "")).lower()
+                if any(kw in command for kw in ("test", "lint", "check", "build", "pytest", "jest", "vitest")):
+                    result["has_tests"] = True
+    except OSError:
+        pass
+    return result
 
 
 # Feature flags cache — read settings.json once per hook invocation
@@ -466,10 +542,7 @@ def should_skip_stop_hooks(data):
     #   Similarly, rate-limit stops (429/quota) must not be blocked or they loop.
     stop_reason = str(data.get("stop_reason", data.get("stopReason", ""))).lower()
     end_turn_reason = str(data.get("end_turn_reason", data.get("endTurnReason", ""))).lower()
-    signal_text = " ".join(
-        str(data.get(k, ""))
-        for k in ("message", "error", "reason", "type", "event")
-    ).lower()
+    signal_text = " ".join(part for part in (stop_reason, end_turn_reason) if part)
     context_limit_markers = (
         "context window",
         "token limit",
@@ -581,39 +654,37 @@ def _get_session_id():
 
 def record_stop_block(project_dir=None, reason: str = "unknown", session_id: str = ""):
     """Record that a stop hook block was issued. Called before block_decision().
-    
+
     Args:
         project_dir: Project directory (auto-detected if None)
         reason: Human-readable reason for the block (e.g., 'ralph_loop', 'planning_gate', 'quality_check')
         session_id: Session identifier to prevent cross-session interference
     """
     try:
-        if not session_id:
-            session_id = _get_session_id()
+        current_session_id = session_id or _get_session_id()
         pdir = project_dir or get_project_dir()
         path = os.path.join(pdir, _STOP_BLOCK_TRACKER)
         state = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "count": 1,
-            "session_id": session_id,
+            "session_id": current_session_id,
             "reason": reason,
         }
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    old = json.load(f)
-                elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(old["ts"])).total_seconds()
-                if elapsed < _BLOCK_LOOP_WINDOW_SECS:
-                    state["count"] = old.get("count", 0) + 1
-                    # Preserve session_id and reason from old state if not overridden
-                    if not session_id:
-                        state["session_id"] = old.get("session_id", "")
-                    if reason == "unknown":
-                        state["reason"] = old.get("reason", "unknown")
-                # else: reset — old block is stale
-            except Exception:
-                pass  # intentional: corrupt file, start fresh
-        atomic_json_write(path, state)
+        with _locked_path(path):
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        old = json.load(f)
+                    elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(old["ts"])).total_seconds()
+                    if elapsed < _BLOCK_LOOP_WINDOW_SECS:
+                        state["count"] = old.get("count", 0) + 1
+                        if current_session_id == "unknown":
+                            state["session_id"] = old.get("session_id", "unknown")
+                        if reason == "unknown":
+                            state["reason"] = old.get("reason", "unknown")
+                except Exception:
+                    pass  # intentional: corrupt file, start fresh
+            atomic_json_write(path, state)
     except Exception:
         pass  # intentional: never crash on tracking
 

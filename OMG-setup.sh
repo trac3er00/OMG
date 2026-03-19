@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
@@ -1509,6 +1510,14 @@ remove_omg_files() {
             remove_plugin_managed_mcp=true
         fi
 
+        echo "uninstalling" > "$CLAUDE_DIR/.omg-uninstalling"
+        remove_omg_hooks_from_settings
+        echo "  ✓ Removed OMG hook entries from settings.json (if any)"
+        remove_omg_metadata_from_settings
+        echo "  ✓ Removed OMG metadata from settings.json (if any)"
+        remove_codex_managed_residue
+        echo "  ✓ Removed Codex OMG residue (if any)"
+
         # Use manifest for precise removal if available.
         if [ -f "$OMG_MANIFEST" ]; then
             while IFS= read -r entry; do
@@ -1573,13 +1582,7 @@ remove_omg_files() {
         if [ -n "$removed_host_mcp" ]; then
             echo "  ✓ Removed OMG MCP config from detected hosts: $removed_host_mcp"
         fi
-
-        remove_omg_hooks_from_settings
-        echo "  ✓ Removed OMG hook entries from settings.json (if any)"
-        remove_omg_metadata_from_settings
-        echo "  ✓ Removed OMG metadata from settings.json (if any)"
-        remove_codex_managed_residue
-        echo "  ✓ Removed Codex OMG residue (if any)"
+        rm -f "$CLAUDE_DIR/.omg-uninstalling"
     fi
 }
 
