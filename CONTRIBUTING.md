@@ -50,7 +50,7 @@ Before cutting a release, run the checklist in [docs/release-checklist.md](docs/
 
 ### GitHub Actions (automated CI)
 
-Only three workflows run in GitHub Actions:
+Only four workflows run in GitHub Actions:
 
 | Workflow | Trigger | Purpose |
 |---|---|---|
