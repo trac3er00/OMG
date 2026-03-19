@@ -20,6 +20,7 @@ jobs:
       github.event_name == 'issue_comment'
       && github.event.issue.pull_request
       && contains(github.event.comment.body, '@omg')
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     outputs:
       pr-number: ${{ steps.pr.outputs.pr_number }}
@@ -67,7 +68,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.ref }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -132,7 +133,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.ref }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -184,7 +185,7 @@ jobs:
       - name: Checkout PR analysis surface
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}
+          ref: ${{ needs.resolve-pr.outputs.head-sha || github.ref }}
 
       - name: Setup Python
         uses: actions/setup-python@v5

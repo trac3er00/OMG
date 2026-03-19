@@ -271,6 +271,9 @@ def test_comment_triggered_workflows_resolve_pr_from_at_omg_comment() -> None:
         assert "github.event_name == 'issue_comment'" in resolve_if
         assert "github.event.issue.pull_request" in resolve_if
         assert "contains(github.event.comment.body, '@omg')" in resolve_if
+        assert "github.event.comment.author_association" in resolve_if
+        for association in ("OWNER", "MEMBER", "COLLABORATOR"):
+            assert association in resolve_if
 
         outputs = resolve_pr.get("outputs")
         assert isinstance(outputs, dict), f"{workflow_name} resolve-pr must export outputs"
@@ -282,7 +285,7 @@ def test_comment_triggered_workflows_resolve_pr_from_at_omg_comment() -> None:
 def test_comment_triggered_workflows_checkout_resolved_pr_head() -> None:
     for workflow_name in ("omg-compat-gate.yml", "omg-release-readiness.yml"):
         text = _read_workflow_text(workflow_name)
-        assert "ref: ${{ needs.resolve-pr.outputs.head-sha || github.sha }}" in text
+        assert "ref: ${{ needs.resolve-pr.outputs.head-sha || github.ref }}" in text
 
 
 def test_compat_pr_review_jobs_use_synthesized_pr_event() -> None:
