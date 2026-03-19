@@ -66,6 +66,37 @@ def test_policy_engine_masks_exported_env_reads(tmp_path: Path):
     assert "abc123" not in decision.reason
 
 
+def test_policy_engine_masks_multiline_env_continuations(tmp_path: Path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        'PRIVATE_KEY="line1\nSECRET_CONTINUATION\nline3"\n',
+        encoding="utf-8",
+    )
+
+    decision = evaluate_file_access("Read", str(env_file))
+
+    assert decision.action == "deny"
+    assert "PRIVATE_KEY=****" in decision.reason
+    assert "SECRET_CONTINUATION" not in decision.reason
+    assert "line3" not in decision.reason
+    assert "[masked unparseable line]" in decision.reason
+
+
+def test_policy_engine_masks_unparseable_env_lines(tmp_path: Path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "not a valid assignment sentinel\nanother bad line\n",
+        encoding="utf-8",
+    )
+
+    decision = evaluate_file_access("Read", str(env_file))
+
+    assert decision.action == "deny"
+    assert "not a valid assignment sentinel" not in decision.reason
+    assert "another bad line" not in decision.reason
+    assert "[masked unparseable line]" in decision.reason
+
+
 def test_policy_engine_still_blocks_env_writes(tmp_path: Path):
     env_file = tmp_path / ".env"
     env_file.write_text("SECRET_KEY=abc123\n", encoding="utf-8")

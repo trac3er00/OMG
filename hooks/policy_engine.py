@@ -370,6 +370,7 @@ _SAFE_VALUES = {
     "true", "false", "0", "1", "yes", "no",
     "development", "production", "staging", "test", "localhost",
 }
+_MASKED_UNPARSEABLE_ENV_LINE = "[masked unparseable line]"
 
 BLOCKED_PATH_PATTERNS = [
     r"/\.aws/(credentials|config)$",
@@ -443,7 +444,7 @@ def mask_env_content(file_path: str) -> str:
             continue
         match = _SECRET_VALUE_RE.match(stripped)
         if not match:
-            masked.append(stripped)
+            masked.append(_MASKED_UNPARSEABLE_ENV_LINE)
             continue
         key_part, value_part = match.group(1), match.group(2).strip().strip("\"'")
         if not value_part or value_part.lower() in _SAFE_VALUES:

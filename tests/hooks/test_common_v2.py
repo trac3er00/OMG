@@ -285,6 +285,24 @@ def test_record_stop_block_preserves_existing_session_when_current_unknown(tmp_p
     assert state["reason"] == "quality_check"
 
 
+def test_record_stop_block_creates_tracker_parent_on_first_write(tmp_path: Path):
+    import _common
+
+    tracker_path = tmp_path / ".omg" / "state" / "ledger" / ".stop-block-tracker.json"
+
+    _common.record_stop_block(
+        project_dir=str(tmp_path),
+        reason="quality_check",
+        session_id="session-a",
+    )
+
+    assert tracker_path.exists()
+    state = json.loads(tracker_path.read_text(encoding="utf-8"))
+    assert state["count"] == 1
+    assert state["session_id"] == "session-a"
+    assert state["reason"] == "quality_check"
+
+
 def test_record_stop_block_serializes_increment_under_lock(tmp_path: Path, monkeypatch):
     import _common
 

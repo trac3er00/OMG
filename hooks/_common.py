@@ -665,6 +665,9 @@ def record_stop_block(project_dir=None, reason: str = "unknown", session_id: str
         current_session_id = session_id or _get_session_id()
         pdir = project_dir or get_project_dir()
         path = os.path.join(pdir, _STOP_BLOCK_TRACKER)
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         state = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "count": 1,
