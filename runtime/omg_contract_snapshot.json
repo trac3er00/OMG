@@ -1,6 +1,6 @@
 {
   "schema": "OmgCompatContractSnapshot",
-  "contract_version": "2.0.8",
+  "contract_version": "2.2.10",
   "count": 47,
   "contracts": [
     {
@@ -912,5 +912,25 @@
       "notes": "Writes long-form memory artifact for writing workflows."
     }
   ],
-  "generated_at": "2026-03-08T03:01:11.439504+00:00"
+  "host_surfaces": {
+    "canonical_parity_hosts": [
+      "claude",
+      "codex",
+      "gemini",
+      "kimi"
+    ],
+    "release_blocking_hosts": [
+      "claude",
+      "codex",
+      "gemini",
+      "kimi"
+    ],
+    "compatibility_only_hosts": [
+      "opencode"
+    ],
+    "release_non_blocking_hosts": [
+      "opencode"
+    ]
+  },
+  "generated_at": "2026-03-19T23:03:39.741433+00:00"
 }

@@ -912,5 +912,25 @@
       "notes": "Writes long-form memory artifact for writing workflows."
     }
   ],
-  "generated_at": "2026-03-09T21:20:44.496932+00:00"
+  "host_surfaces": {
+    "canonical_parity_hosts": [
+      "claude",
+      "codex",
+      "gemini",
+      "kimi"
+    ],
+    "release_blocking_hosts": [
+      "claude",
+      "codex",
+      "gemini",
+      "kimi"
+    ],
+    "compatibility_only_hosts": [
+      "opencode"
+    ],
+    "release_non_blocking_hosts": [
+      "opencode"
+    ]
+  },
+  "generated_at": "2026-03-19T23:03:40.160182+00:00"
 }

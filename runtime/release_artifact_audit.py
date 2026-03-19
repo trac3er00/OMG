@@ -18,6 +18,16 @@ def _check_status(ok: bool) -> str:
     return "ok" if ok else "fail"
 
 
+def _run_tool(cmd: list[str], *, timeout: int = 10) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess with mandatory timeout and no shell.
+
+    All subprocess usage in this module MUST go through this helper.
+    """
+    return subprocess.run(
+        cmd, capture_output=True, text=True, check=False, timeout=timeout,
+    )
+
+
 def check_package_json_version(source_tree: Path, expected: str) -> dict[str, Any]:
     pkg = source_tree / "package.json"
     if not pkg.exists():
@@ -57,15 +67,7 @@ def check_cli_version(source_tree: Path, expected: str) -> dict[str, Any]:
     if not bin_omg.exists():
         return {"status": "skip", "found": "<bin/omg missing>", "expected": expected}
     try:
-        # security-reviewed: subprocess.run with hardcoded command ["node", bin_omg, "--version"]
-        # No shell=True, no user-controlled arguments in command list, timeout enforced.
-        result = subprocess.run(
-            ["node", str(bin_omg), "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
+        result = _run_tool(["node", str(bin_omg), "--version"])
         output = result.stdout.strip()
         found = output.replace("omg ", "").strip()
         return {"status": _check_status(found == expected), "found": output, "expected": expected}

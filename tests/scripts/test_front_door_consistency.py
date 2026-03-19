@@ -56,7 +56,7 @@ class TestFrontDoorConsistency:
         for guide in ("codex.md", "gemini.md", "kimi.md", "opencode.md"):
             path = REPO_ROOT / "docs" / "install" / guide
             content = path.read_text(encoding="utf-8")
-            assert "<details><summary>Restricted environments / offline-capable fallback</summary>" in content, guide
+            assert "<details><summary>Restricted environments / manual setup</summary>" in content, guide
             assert "## Manual Path" not in content, guide
 
     def test_host_guides_have_single_fast_path_section(self) -> None:
