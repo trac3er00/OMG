@@ -291,7 +291,7 @@ jobs:
           }
           EVEOF
 
-      - name: Post trusted PR review via GitHub App
+      - name: Post trusted PR review
         run: |
           python3 scripts/github_review_helpers.py post-review \
             --event-path "/tmp/pr-event.json" \
