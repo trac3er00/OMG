@@ -13,11 +13,7 @@ on:
         required: true
         type: string
     secrets:
-      GITHUB_APP_ID:
-        required: true
-      GITHUB_APP_PRIVATE_KEY:
-        required: true
-      GITHUB_INSTALLATION_ID:
+      OMG_GITHUB_TOKEN:
         required: true
 
 jobs:
@@ -37,11 +33,9 @@ jobs:
       - name: Install deps
         run: pip install -e . --quiet
 
-      - name: Post GitHub App review
+      - name: Post trusted PR review
         env:
-          GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-          GITHUB_INSTALLATION_ID: ${{ secrets.GITHUB_INSTALLATION_ID }}
+          OMG_GITHUB_TOKEN: ${{ secrets.OMG_GITHUB_TOKEN }}
           OMG_REVIEWER_HANDOFF_PATH: artifacts/reviewer-bot-pr-input.json
         run: |
           python3 scripts/github_review_helpers.py post-review \

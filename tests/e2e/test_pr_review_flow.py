@@ -250,24 +250,24 @@ class TestSplitLaneSecurityModel:
         assert "contents: read" in pr_analyze
         assert "pull-requests: write" not in pr_analyze
         assert "checks: write" not in pr_analyze
-        assert "secrets.OMG_APP_ID" not in pr_analyze
-        assert "secrets.OMG_APP_PRIVATE_KEY" not in pr_analyze
+        assert "secrets.OMG_GITHUB_TOKEN" not in pr_analyze
 
     def test_post_review_job_uses_trusted_base_sha_checkout(self) -> None:
         from pathlib import Path
 
         text = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "omg-compat-gate.yml").read_text()
         post_review = text[text.find("  post-review:"):text.find("  compat-gate:")]
-        assert "ref: ${{ github.event.pull_request.base.sha }}" in post_review
+        assert "ref: ${{ needs.resolve-pr.outputs.base-sha }}" in post_review
         assert "pull-requests: write" in post_review
         assert "checks: write" in post_review
 
-    def test_post_review_job_has_app_credentials(self) -> None:
+    def test_post_review_job_has_token_credentials(self) -> None:
         from pathlib import Path
 
         text = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "omg-compat-gate.yml").read_text()
         post_review = text[text.find("  post-review:"):text.find("  compat-gate:")]
-        has_app_id = "secrets.OMG_APP_ID" in post_review or "secrets.GITHUB_APP_ID" in post_review
-        has_private_key = "secrets.OMG_APP_PRIVATE_KEY" in post_review or "secrets.GITHUB_APP_PRIVATE_KEY" in post_review
-        assert has_app_id, "post-review must reference App ID secret"
-        assert has_private_key, "post-review must reference App private key secret"
+        assert "secrets.OMG_GITHUB_TOKEN" in post_review
+        assert "secrets.OMG_APP_ID" not in post_review
+        assert "secrets.GITHUB_APP_ID" not in post_review
+        assert "secrets.OMG_APP_PRIVATE_KEY" not in post_review
+        assert "secrets.GITHUB_APP_PRIVATE_KEY" not in post_review

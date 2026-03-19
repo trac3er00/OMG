@@ -124,9 +124,13 @@ def test_compat_workflow_has_split_pr_analyze_and_trusted_post_review_jobs() -> 
 
     assert "pull-requests: write" in post_review
     assert "checks: write" in post_review
-    assert _contains_secret_ref(post_review, "OMG_APP_ID") or _contains_secret_ref(post_review, "GITHUB_APP_ID")
-    assert _contains_secret_ref(post_review, "OMG_APP_PRIVATE_KEY") or _contains_secret_ref(post_review, "GITHUB_APP_PRIVATE_KEY")
-    assert _contains_secret_ref(post_review, "OMG_APP_INSTALLATION_ID") or _contains_secret_ref(post_review, "GITHUB_INSTALLATION_ID")
+    assert _contains_secret_ref(post_review, "OMG_GITHUB_TOKEN")
+    assert not _contains_secret_ref(post_review, "OMG_APP_ID")
+    assert not _contains_secret_ref(post_review, "GITHUB_APP_ID")
+    assert not _contains_secret_ref(post_review, "OMG_APP_PRIVATE_KEY")
+    assert not _contains_secret_ref(post_review, "GITHUB_APP_PRIVATE_KEY")
+    assert not _contains_secret_ref(post_review, "OMG_APP_INSTALLATION_ID")
+    assert not _contains_secret_ref(post_review, "GITHUB_INSTALLATION_ID")
 
 
 def test_trusted_post_review_lane_never_checks_out_pr_head() -> None:
@@ -375,9 +379,10 @@ def test_evidence_gate_reusable_workflow_exists_and_has_correct_structure() -> N
     assert "head-sha" in inputs
 
     secrets = call_config.get("secrets", {})
-    assert "GITHUB_APP_ID" in secrets
-    assert "GITHUB_APP_PRIVATE_KEY" in secrets
-    assert "GITHUB_INSTALLATION_ID" in secrets
+    assert "OMG_GITHUB_TOKEN" in secrets
+    assert "GITHUB_APP_ID" not in secrets
+    assert "GITHUB_APP_PRIVATE_KEY" not in secrets
+    assert "GITHUB_INSTALLATION_ID" not in secrets
 
     jobs = workflow.get("jobs")
     assert isinstance(jobs, dict), "evidence-gate.yml must define jobs"
@@ -386,9 +391,10 @@ def test_evidence_gate_reusable_workflow_exists_and_has_correct_structure() -> N
     text = _read_workflow_text("evidence-gate.yml")
     assert "pull_request" not in on_triggers, "evidence-gate.yml must not have non-reusable triggers"
     assert "push" not in on_triggers, "evidence-gate.yml must not have non-reusable triggers"
-    assert "secrets.GITHUB_APP_ID" in text
-    assert "secrets.GITHUB_APP_PRIVATE_KEY" in text
-    assert "secrets.GITHUB_INSTALLATION_ID" in text
+    assert "secrets.OMG_GITHUB_TOKEN" in text
+    assert "secrets.GITHUB_APP_ID" not in text
+    assert "secrets.GITHUB_APP_PRIVATE_KEY" not in text
+    assert "secrets.GITHUB_INSTALLATION_ID" not in text
 
 
 def test_evidence_gate_post_review_passes_event_path_arg() -> None:
