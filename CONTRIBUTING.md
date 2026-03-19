@@ -46,14 +46,55 @@ Public-surface changes should also mention whether README, proof docs, install d
 
 Before cutting a release, run the checklist in [docs/release-checklist.md](docs/release-checklist.md).
 
-## CI Gates
+## CI/CD & Code Review
 
-The public release path is expected to pass:
+### GitHub Actions (automated CI)
 
-- compat gate
-- public-readiness hygiene check
-- standalone verification
-- full pytest suite
+Only three workflows run in GitHub Actions:
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `cla.yml` | PR opened / comment | CLA signature verification |
+| `gitguardian.yml` | push / PR | Secret scanning via GitGuardian |
+| `release.yml` | push to main | Automated semantic-release + npm publish |
+| `publish-npm.yml` | manual dispatch | Manual versioned npm publish |
+
+### Cubic AI (PR review)
+
+All code review and quality gates are handled by **Cubic AI** with 5 custom agents:
+
+| Agent | What it checks |
+|---|---|
+| **Contract Integrity** | Snapshot drift, version parity, contract schema completeness |
+| **Release Safety** | Workflow integrity, secret handling, release gate preservation |
+| **Compat & Host Parity** | Breaking changes, host config sync, vendor name leaks |
+| **Public Surface & Docs** | Manifest consistency, doc drift, internal exposure |
+| **Security Hygiene** | Secret exposure, unpinned actions, dangerous patterns |
+
+### When to update Cubic agents
+
+If your PR touches any of these areas, **you must also update the corresponding Cubic agent instruction** in the Cubic dashboard:
+
+| Change | Cubic agent to update |
+|---|---|
+| New contract fields or schema changes | Contract Integrity |
+| New host added (e.g. `.windsurf/`) | Compat & Host Parity |
+| New workflow or release step added | Release Safety |
+| New public directory or doc convention | Public Surface & Docs |
+| New dependency type or secret pattern | Security Hygiene |
+| File path restructure (e.g. `runtime/` renamed) | **All agents** (update file patterns) |
+
+**How to update:** Go to Cubic dashboard → Settings → Custom Agents → edit the relevant agent's instruction and/or file patterns.
+
+### Legacy CI gates (removed)
+
+The following workflows were migrated to Cubic and deleted:
+
+- `evidence-gate.yml` → Cubic built-in PR review
+- `omg-artifact-self-audit.yml` → Public Surface & Docs agent
+- `omg-compat-gate.yml` → Contract Integrity + Compat & Host Parity agents
+- `omg-release-readiness.yml` → Release Safety agent
+- `action.yml` + review bot → Cubic built-in inline comments
 
 ## Scope Guidance
 
