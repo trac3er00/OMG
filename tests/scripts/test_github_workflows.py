@@ -364,6 +364,22 @@ def test_publish_workflow_requires_readiness_gate() -> None:
     assert "release-readiness" in needs, "publish job must depend on release-readiness"
 
 
+def test_release_workflow_uses_omg_github_token_not_app_token() -> None:
+    text = _read_workflow_text("release.yml")
+    assert "OMG_GITHUB_TOKEN" in text
+    assert "actions/create-github-app-token" not in text
+    assert "GITHUB_APP_ID" not in text
+    assert "GITHUB_APP_PRIVATE_KEY" not in text
+    assert "GITHUB_INSTALLATION_ID" not in text
+
+
+def test_publish_workflow_uses_oh_my_god_bot_git_identity() -> None:
+    text = _read_workflow_text("publish-npm.yml")
+    assert 'git config user.name "oh-my-god-bot"' in text
+    assert "oh-my-god-bot@users.noreply.github.com" in text
+    assert "github-actions[bot]" not in text
+
+
 def test_evidence_gate_reusable_workflow_exists_and_has_correct_structure() -> None:
     workflow = _load_workflow("evidence-gate.yml")
     on_triggers = _workflow_on(workflow)

@@ -18,31 +18,19 @@ jobs:
       pull-requests: write
       id-token: write
     env:
-      GITHUB_APP_ID: ${{ vars.GITHUB_APP_ID }}
-      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-      GITHUB_INSTALLATION_ID: ${{ vars.GITHUB_INSTALLATION_ID }}
+      OMG_GITHUB_TOKEN: ${{ secrets.OMG_GITHUB_TOKEN }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Validate required release credentials
         run: |
-          test -n "${GITHUB_APP_ID}" || (echo "Missing GITHUB_APP_ID" && exit 1)
-          test -n "${GITHUB_APP_PRIVATE_KEY}" || (echo "Missing GITHUB_APP_PRIVATE_KEY" && exit 1)
-          test -n "${GITHUB_INSTALLATION_ID}" || (echo "Missing GITHUB_INSTALLATION_ID" && exit 1)
+          test -n "${OMG_GITHUB_TOKEN}" || (echo "Missing OMG_GITHUB_TOKEN" && exit 1)
           test -n "${NPM_TOKEN}" || (echo "Missing NPM_TOKEN" && exit 1)
-
-      - name: Create GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ env.GITHUB_APP_ID }}
-          private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
-          installation-id: ${{ env.GITHUB_INSTALLATION_ID }}
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ env.OMG_GITHUB_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -61,6 +49,11 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
+      - name: Configure git identity
+        run: |
+          git config user.name "oh-my-god-bot"
+          git config user.email "oh-my-god-bot@users.noreply.github.com"
+
       - name: Run release readiness checks
         env:
           OMG_REQUIRE_HOST_PARITY_REPORT: "1"
@@ -74,7 +67,7 @@ jobs:
 
       - name: Run semantic-release
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ env.OMG_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ env.OMG_GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
         run: npx semantic-release

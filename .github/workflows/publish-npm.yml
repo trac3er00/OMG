@@ -167,6 +167,7 @@ jobs:
         with:
           ref: ${{ needs.resolve-target.outputs.sha }}
           fetch-depth: 0
+          token: ${{ secrets.OMG_GITHUB_TOKEN }}
 
       - name: Pre-release tag safety check
         if: github.event_name == 'workflow_dispatch'
@@ -186,7 +187,7 @@ jobs:
             echo "OK: Tag ${TAG} is clear for creation."
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.OMG_GITHUB_TOKEN }}
 
       - name: Create and push tag (workflow_dispatch only, if tag doesn't exist)
         if: github.event_name == 'workflow_dispatch'
@@ -198,8 +199,8 @@ jobs:
             echo "Tag v${VERSION} already exists on remote — skipping tag creation"
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "oh-my-god-bot"
+          git config user.email "oh-my-god-bot@users.noreply.github.com"
           git tag "v${VERSION}" "${SHA}" -m "Release v${VERSION} — published via workflow dispatch"
           git push origin "v${VERSION}" && echo "Created and pushed tag v${VERSION} at ${SHA}" || \
             echo "WARNING: Tag push failed (tag protection rule) — continuing with publish"
