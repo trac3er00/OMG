@@ -269,7 +269,8 @@ def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[s
                             and not _is_non_source_path(file_path)):
                         current_turn_source_write_entries.append(result)
                 if tool_name == "Bash":
-                    cmd = (result.get("tool_input") or {}).get("command", "")
+                    tool_input = result.get("tool_input")
+                    cmd = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
                     if cmd:
                         current_turn_commands.append(cmd.lower()[:300])
 
@@ -309,7 +310,7 @@ def check_verification(data, project_dir):
 
     skip_verification_block = False
 
-    # Cooldown: if recently blocked and current turn has test commands, skip verification block
+    # Cooldown: if recently blocked and current turn has test commands, skip check
     cooldown_path = os.path.join(project_dir, ".omg/state/ledger/.verification-blocked.json")
     if current_turn_commands and os.path.exists(cooldown_path):
         try:

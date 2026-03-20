@@ -11,7 +11,7 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, _resolve_project_dir, record_stop_block, is_stop_block_loop
+from _common import setup_crash_handler, json_input, _resolve_project_dir, is_stop_block_loop, record_stop_block
 from state_migration import resolve_state_dir
 
 setup_crash_handler("circuit-breaker", fail_closed=False)
@@ -176,7 +176,6 @@ if is_failure:
     recent_errs = "\n".join(f"  - {e}" for e in entry["errors"] if e)
 
     if effective_count >= 5:
-        record_stop_block(reason="circuit_breaker_hard_stop")
         last_err = entry['errors'][-1][:80] if entry['errors'] else 'unknown'
         options_json = json.dumps({
             "question": f"'{pattern_key}' failed {count}x. This approach is broken. How to proceed?",
@@ -196,6 +195,8 @@ if is_failure:
             f"@@ASK_USER_OPTIONS@@\n{options_json}",
             file=sys.stderr
         )
+        # Record the hard-stop so loop-breaker (Guard 4) can detect repeated blocks
+        record_stop_block(project_dir=project_dir, reason="circuit_breaker_hard_stop")
         # NOTE: exit(0), not exit(2). Non-zero exits crash sibling hooks
         # ("Sibling tool call errored"). The warning is in stderr.
         sys.exit(0)

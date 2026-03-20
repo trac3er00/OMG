@@ -76,7 +76,7 @@ def test_public_ready_check_detects_stale_internal_reference(tmp_path: Path):
 
 
 def test_public_ready_check_detects_old_repo_identifier(tmp_path: Path):
-    _write(tmp_path / "README.md", "Repo: trac3er00/OAL\n")
+    _write(tmp_path / "README.md", "Repo: trac3r00/OAL\n")
     _write(tmp_path / "CONTRIBUTING.md", "# contributing\n")
     _write(tmp_path / "SECURITY.md", "# security\n")
     _write(tmp_path / "CODE_OF_CONDUCT.md", "# code of conduct\n")

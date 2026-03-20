@@ -73,8 +73,8 @@ def test_get_dispatch_params_fallback_when_model_unavailable():
     assert params['preferred_model'] in ('codex-cli', 'claude')
 
 
-def test_registry_has_10_agents():
-    assert len(AGENT_REGISTRY) == 16  # 10 original + 6 bundled agents (Task 2.3)
+def test_registry_has_17_agents():
+    assert len(AGENT_REGISTRY) == 17  # 10 original + 6 bundled + release-engineer
 
 
 def test_registry_includes_api_builder_agent():

@@ -44,7 +44,7 @@ def test_run_source_tree_audit_keeps_existing_check_names() -> None:
 def test_run_release_artifact_audit_rejects_apply_without_confirmation() -> None:
     report = run_release_artifact_audit(
         ROOT,
-        repo="trac3er00/OMG",
+        repo="trac3r00/OMG",
         version=CANONICAL_VERSION,
         apply=True,
         confirm="",
@@ -58,7 +58,7 @@ def test_run_release_artifact_audit_rejects_apply_without_confirmation() -> None
 def test_run_release_artifact_audit_rejects_apply_without_credentials() -> None:
     report = run_release_artifact_audit(
         ROOT,
-        repo="trac3er00/OMG",
+        repo="trac3r00/OMG",
         version=CANONICAL_VERSION,
         apply=True,
         confirm=CANONICAL_VERSION,
@@ -86,15 +86,15 @@ class _FakeSession:
 
     def get(self, url: str, *, headers=None, timeout=None):  # noqa: ANN001
         self.calls.append(("GET", url, None))
-        if url.endswith(f"/repos/trac3er00/OMG/releases/tags/v{CANONICAL_VERSION}"):
+        if url.endswith(f"/repos/trac3r00/OMG/releases/tags/v{CANONICAL_VERSION}"):
             return _FakeResponse(404, {"message": "Not Found"})
-        if url.endswith("/repos/trac3er00/OMG/releases"):
+        if url.endswith("/repos/trac3r00/OMG/releases"):
             return _FakeResponse(200, [{"tag_name": "v2.2.9"}])
-        if url == "https://github.com/trac3er00/OMG":
+        if url == "https://github.com/trac3r00/OMG":
             return _FakeResponse(200, text="npx omg env doctor")
-        if url == "https://github.com/trac3er00/OMG/releases":
+        if url == "https://github.com/trac3r00/OMG/releases":
             return _FakeResponse(200, text="Latest v2.2.9")
-        if url == f"https://github.com/trac3er00/OMG/releases/tag/v{CANONICAL_VERSION}":
+        if url == f"https://github.com/trac3r00/OMG/releases/tag/v{CANONICAL_VERSION}":
             return _FakeResponse(404, text="Not Found")
         raise AssertionError(f"Unexpected GET {url}")
 
@@ -107,8 +107,8 @@ class _FakeSession:
                 {
                     "id": 42,
                     "tag_name": f"v{CANONICAL_VERSION}",
-                    "upload_url": "https://uploads.github.com/repos/trac3er00/OMG/releases/42/assets{?name,label}",
-                    "html_url": f"https://github.com/trac3er00/OMG/releases/tag/v{CANONICAL_VERSION}",
+                    "upload_url": "https://uploads.github.com/repos/trac3r00/OMG/releases/42/assets{?name,label}",
+                    "html_url": f"https://github.com/trac3r00/OMG/releases/tag/v{CANONICAL_VERSION}",
                 },
             )
         if url.startswith("https://uploads.github.com/"):
@@ -126,7 +126,7 @@ def test_apply_release_artifact_remediation_creates_release_marks_latest_and_upl
     session = _FakeSession()
 
     result = apply_release_artifact_remediation(
-        repo="trac3er00/OMG",
+        repo="trac3r00/OMG",
         version="2.2.10",
         release_body="# Release body\n",
         asset_paths=[notes, audit],
@@ -141,7 +141,7 @@ def test_apply_release_artifact_remediation_creates_release_marks_latest_and_upl
     assert result["rollback_log"].endswith(".json")
     create_call = session.calls[0]
     assert create_call[0] == "POST"
-    assert create_call[1].endswith("/repos/trac3er00/OMG/releases")
+    assert create_call[1].endswith("/repos/trac3r00/OMG/releases")
     assert create_call[2]["tag_name"] == "v2.2.10"
     assert create_call[2]["make_latest"] == "true"
     upload_calls = [call for call in session.calls if call[1].startswith("https://uploads.github.com/")]
@@ -164,7 +164,7 @@ def test_run_release_artifact_audit_flags_remote_release_drift_when_tag_page_mis
 
     report = run_release_artifact_audit(
         ROOT,
-        repo="trac3er00/OMG",
+        repo="trac3r00/OMG",
         version=CANONICAL_VERSION,
         session=session,
     )

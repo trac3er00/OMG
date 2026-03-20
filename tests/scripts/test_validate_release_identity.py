@@ -198,7 +198,7 @@ class TestReleaseSurfaceValidation:
         guide = tmp_path / "docs" / "install" / "codex.md"
         guide.parent.mkdir(parents=True, exist_ok=True)
         guide.write_text(
-            "```bash\nnpm install @trac3er/oh-my-god\n```\n\n```bash\nomg env doctor\n```\n",
+            "```bash\nnpm install @trac3r/oh-my-god\n```\n\n```bash\nomg env doctor\n```\n",
             encoding="utf-8",
         )
 
@@ -526,7 +526,7 @@ class TestReleaseSurfaceDriftGate:
             root.mkdir()
             output.mkdir()
 
-            pkg = {"name": "@trac3er/oh-my-god", "version": "2.2.7"}
+            pkg = {"name": "@trac3r/oh-my-god", "version": "2.2.7"}
             (root / "package.json").write_text(json.dumps(pkg))
             (root / "action.yml").write_text("name: OMG\n")
 
@@ -557,7 +557,7 @@ class TestReleaseSurfaceDriftGate:
             root.mkdir()
             output.mkdir()
 
-            pkg = {"name": "@trac3er/oh-my-god", "version": "2.2.7", "bin": {"omg": "./OMG-setup.sh"}}
+            pkg = {"name": "@trac3r/oh-my-god", "version": "2.2.7", "bin": {"omg": "./OMG-setup.sh"}}
             (root / "package.json").write_text(json.dumps(pkg))
             (root / "action.yml").write_text("name: OMG\n")
 

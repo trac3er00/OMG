@@ -67,8 +67,8 @@
 
 ### Governed Execution Engine Milestone
 
-- **production preset**: new `production` preset enables all governed flags — use `--preset=production` with `OMG-setup.sh` or `bunx @trac3er/oh-my-god`
-- **bunx install path**: `bunx @trac3er/oh-my-god` works alongside `npm install`
+- **production preset**: new `production` preset enables all governed flags — use `--preset=production` with `OMG-setup.sh` or `bunx @trac3r/oh-my-god`
+- **bunx install path**: `bunx @trac3r/oh-my-god` works alongside `npm install`
 - **terms_guard**: real enforcement blocks promotional cross-model sharing, hidden identity switching, undisclosed third-party data sharing
 - **six governed agents**: `architect-planner`, `explorer-indexer`, `implementer`, `security-reviewer`, `verifier`, `causal-tracer` compiled into Claude host artifacts; no `bypassPermissions` on any
 - **method compiler**: `contract compile --method` emits signed seven-phase methodology artifacts
