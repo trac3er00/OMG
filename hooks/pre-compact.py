@@ -434,11 +434,11 @@ def _load_auto_compact_state(project_dir):
 
 def _save_auto_compact_state(project_dir, phase_count, tool_count):
     """Save auto-compact state after compaction."""
-    from datetime import datetime  # lazy import
+    from datetime import datetime, timezone  # lazy import
     state_path = os.path.join(project_dir, AUTO_COMPACT_STATE_FILE)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     state = {
-        "last_compact_ts": datetime.now().isoformat(),
+        "last_compact_ts": datetime.now(timezone.utc).isoformat(),
         "last_phase_count": phase_count,
         "tool_count_at_compact": tool_count,
     }
@@ -589,7 +589,7 @@ def main():
             pass
 
     try:
-        import subprocess  # lazy import
+        import subprocess  # lazy import — security-reviewed: fixed argv, no user input, timeout-bounded
         diff_names = subprocess.run(
             ["git", "diff", "--name-only"],
             capture_output=True,
