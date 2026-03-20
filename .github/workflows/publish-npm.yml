@@ -140,7 +140,7 @@ jobs:
         run: python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release > artifacts/release/.omg/evidence/release-readiness.json
 
   publish:
-    name: Publish @trac3er/oh-my-god to npm
+    name: Publish @trac3r/oh-my-god to npm
     needs:
       - resolve-target
       - compat-gate
@@ -240,6 +240,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Tag @latest
-        run: npm dist-tag add @trac3er/oh-my-god@${{ steps.version.outputs.VERSION }} latest
+        run: npm dist-tag add @trac3r/oh-my-god@${{ steps.version.outputs.VERSION }} latest
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

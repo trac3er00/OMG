@@ -9,7 +9,7 @@ echo "Updating OMG plugin..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(dirname "$SCRIPT_DIR")"
 OMG_ROOT="$(dirname "$PLUGIN_DIR")"
-PKG_NAME="@trac3er/oh-my-god"
+PKG_NAME="@trac3r/oh-my-god"
 CURRENT_VERSION=""
 LATEST_VERSION=""
 TMP_DIR=""
@@ -49,7 +49,7 @@ if [ -n "$LATEST_VERSION" ] && [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
     TMP_DIR="$(mktemp -d)"
     npm install --prefix "$TMP_DIR" "$PKG_NAME@$LATEST_VERSION" --silent --no-audit --no-fund
 
-    UPDATE_ROOT="$TMP_DIR/node_modules/@trac3er/oh-my-god"
+    UPDATE_ROOT="$TMP_DIR/node_modules/@trac3r/oh-my-god"
     if [ -f "$UPDATE_ROOT/OMG-setup.sh" ]; then
         echo "Running update from npm release package..."
         bash "$UPDATE_ROOT/OMG-setup.sh" update --install-as-plugin --non-interactive

@@ -81,7 +81,7 @@ _INSTALL_GUIDES = (
     "docs/install/opencode.md",
 )
 
-_BAD_LOCAL_INSTALL = "npm install @trac3er/oh-my-god"
+_BAD_LOCAL_INSTALL = "npm install @trac3r/oh-my-god"
 
 _NPX_FRONT_DOOR_TARGETS: dict[str, tuple[str, ...]] = {
     "README.md": (

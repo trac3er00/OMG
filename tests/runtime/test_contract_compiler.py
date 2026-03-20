@@ -3017,7 +3017,7 @@ def _build_surface_drift_fixture(
         json.dumps(manifest, indent=2), encoding="utf-8",
     )
 
-    pkg: dict[str, object] = {"name": "@trac3er/oh-my-god", "version": "2.2.7"}
+    pkg: dict[str, object] = {"name": "@trac3r/oh-my-god", "version": "2.2.7"}
     if bin_key is not None:
         pkg["bin"] = {bin_key: "./OMG-setup.sh"}
     (root / "package.json").write_text(json.dumps(pkg, indent=2), encoding="utf-8")

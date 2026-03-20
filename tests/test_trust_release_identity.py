@@ -35,7 +35,7 @@ def test_trust_release_identity_is_canonical():
     release_enterprise = _optional_release_json(ROOT / "artifacts" / "release" / "dist" / "enterprise" / "manifest.json")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert package["name"] == "@trac3er/oh-my-god"
+    assert package["name"] == "@trac3r/oh-my-god"
     assert package["version"] == CANONICAL_VERSION
     assert package["repository"] == {
         "type": "git",
@@ -81,7 +81,7 @@ def test_trust_release_identity_is_canonical():
 
     assert readme.startswith("# OMG")
     assert "https://github.com/trac3r00/OMG" in readme
-    assert "@trac3er/oh-my-god" in readme
+    assert "@trac3r/oh-my-god" in readme
 
 
 def test_runtime_consumer_surfaces_match_canonical():

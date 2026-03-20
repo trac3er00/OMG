@@ -49,7 +49,7 @@ class TestFrontDoorConsistency:
         assert "<!-- OMG:GENERATED:command-surface -->" not in readme
         assert "<!-- OMG:GENERATED:proof -->" not in readme
         assert "Canonical launcher-first flow:" not in readme
-        assert "npm install @trac3er/oh-my-god" not in readme
+        assert "npm install @trac3r/oh-my-god" not in readme
 
     def test_host_guides_demote_legacy_clone_paths(self) -> None:
         """Manual clone paths should be hidden behind legacy/advanced disclosure."""
