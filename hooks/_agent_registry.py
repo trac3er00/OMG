@@ -100,6 +100,16 @@ AGENT_REGISTRY = {
         'agent_file': 'agents/omg-infra-engineer.md',
         'model_version': 'gpt-5.3',
     },
+    'release-engineer': {
+        'preferred_model': 'claude',
+        'task_category': 'unspecified-high',
+        'skills': [],
+        'trigger_keywords': {'release', 'version', 'publish', 'changelog', 'semver', 'tag', 'bump', 'distribute'},
+        'mcp_tools': ['context7'],
+        'description': 'Release specialist. Versioning, changelogs, release automation, SemVer compliance.',
+        'agent_file': 'agents/omg-release-engineer.md',
+        'model_version': 'claude-sonnet-4-5',
+    },
     # Cognitive modes
     'research-mode': {
         'preferred_model': 'claude',
