@@ -22,7 +22,7 @@ jobs:
 
       # ... your build / test steps that produce artifacts/ ...
 
-      - uses: trac3er00/OMG@v2
+      - uses: trac3r00/OMG@v2
         with:
           repo-full-name: ${{ github.repository }}
           pr-number: ${{ github.event.pull_request.number }}

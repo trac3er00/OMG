@@ -11,7 +11,7 @@ from runtime.canonical_taxonomy import CANONICAL_PRESETS, RELEASE_CHANNELS
 
 
 CANONICAL_BRAND = "OMG"
-CANONICAL_REPO_URL = "https://github.com/trac3er00/OMG"
+CANONICAL_REPO_URL = "https://github.com/trac3r00/OMG"
 CANONICAL_PACKAGE_NAME = "@trac3er/oh-my-god"
 CANONICAL_PLUGIN_ID = "omg"
 CANONICAL_MARKETPLACE_ID = "omg"

@@ -56,7 +56,7 @@ OMG ships a reusable GitHub Actions workflow at `.github/workflows/evidence-gate
 ```yaml
 jobs:
   evidence-gate:
-    uses: trac3er00/OMG/.github/workflows/evidence-gate.yml@main
+    uses: trac3r00/OMG/.github/workflows/evidence-gate.yml@main
     with:
       repo-full-name: ${{ github.repository }}
       pr-number: ${{ github.event.pull_request.number }}
@@ -69,7 +69,7 @@ jobs:
 
 The reusable workflow accepts three inputs (`repo-full-name`, `pr-number`, `head-sha`) and three secrets (`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_INSTALLATION_ID`). The caller is responsible for ensuring the checkout happens from the trusted base SHA — the reusable workflow itself only runs the posting step.
 
-> **Tip**: Pin the workflow reference to a specific commit SHA or tag rather than `@main` for production use: `uses: trac3er00/OMG/.github/workflows/evidence-gate.yml@<sha>`.
+> **Tip**: Pin the workflow reference to a specific commit SHA or tag rather than `@main` for production use: `uses: trac3r00/OMG/.github/workflows/evidence-gate.yml@<sha>`.
 
 ## Pinning Required Checks by `app_id`
 

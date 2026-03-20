@@ -20,7 +20,7 @@ ECOSYSTEM_REPOS: tuple[dict[str, Any], ...] = (
     {
         "name": "omg-superpowers",
         "aliases": ("omg-superpowers",),
-        "repo": "https://github.com/trac3er00/OMG.git",
+        "repo": "https://github.com/trac3r00/OMG.git",
         "ref": "main",
         "route": "plan",
         "category": "tdd",

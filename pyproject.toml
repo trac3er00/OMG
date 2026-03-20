@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "trac3er00", email = "trac3er00@example.com"}
+    {name = "trac3r00", email = "trac3r00@example.com"}
 ]
 keywords = ["claude", "claude-code", "orchestration", "multi-agent", "ai", "llm", "codex", "gemini"]
 classifiers = [
@@ -43,9 +43,9 @@ mcp = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/trac3er00/OMG"
-Repository = "https://github.com/trac3er00/OMG.git"
-Issues = "https://github.com/trac3er00/OMG/issues"
+Homepage = "https://github.com/trac3r00/OMG"
+Repository = "https://github.com/trac3r00/OMG.git"
+Issues = "https://github.com/trac3r00/OMG/issues"
 
 [tool.setuptools]
 include-package-data = true
