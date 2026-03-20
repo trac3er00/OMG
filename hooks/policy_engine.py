@@ -143,8 +143,8 @@ HIDDEN_INSTRUCTION_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
 )
 
 CACHE_POISONING_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
-    (re.compile(r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}/\.omg/state/", re.IGNORECASE), 0.04, "state-path-overwrite-attempt"),
-    (re.compile(r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}/\.omg/shadow/active-run", re.IGNORECASE), 0.04, "active-run-overwrite-attempt"),
+    (re.compile(r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}(?:/)?\.omg/state/", re.IGNORECASE), 0.04, "state-path-overwrite-attempt"),
+    (re.compile(r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}(?:/)?\.omg/shadow/active-run", re.IGNORECASE), 0.04, "active-run-overwrite-attempt"),
     (re.compile(r"\b(?:cache|state)\s*(?:poison|override|overwrite|tamper)\b", re.IGNORECASE), 0.02, "cache-poisoning-language"),
 )
 
@@ -363,6 +363,15 @@ BLOCKED_FILES = {
 
 EXAMPLE_FILES = {".env.example", ".env.sample", ".env.template"}
 
+_SECRET_VALUE_RE = re.compile(
+    r"^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$"
+)
+_SAFE_VALUES = {
+    "true", "false", "0", "1", "yes", "no",
+    "development", "production", "staging", "test", "localhost",
+}
+_MASKED_UNPARSEABLE_ENV_LINE = "[masked unparseable line]"
+
 BLOCKED_PATH_PATTERNS = [
     r"/\.aws/(credentials|config)$",
     r"/\.kube/config$",
@@ -391,7 +400,7 @@ def _is_omg_credential_path(normalized_path: str) -> bool:
     """Return True if the path is an OMG credential store file.
 
     Only exempts files that are:
-    1. Inside .omg/state/ directory
+    1. Inside the current project's .omg/state/ directory
     2. Named exactly 'credentials.enc' or 'credentials.meta'
     3. Feature flag MULTI_CREDENTIAL is enabled
 
@@ -403,18 +412,46 @@ def _is_omg_credential_path(normalized_path: str) -> bool:
     except Exception:
         get_feature_flag = getattr(importlib.import_module("_common"), "get_feature_flag")
 
-    # Only exempt if feature is enabled
     if not get_feature_flag("MULTI_CREDENTIAL", default=False):
         return False
 
-    basename = os.path.basename(normalized_path).lower()
+    try:
+        real_path = os.path.realpath(normalized_path)
+    except (OSError, ValueError):
+        real_path = normalized_path
+
+    basename = os.path.basename(real_path).lower()
     if basename not in _OMG_CREDENTIAL_STORE_ALLOWLIST:
         return False
 
-    # Verify it's actually inside .omg/state/
-    parent = os.path.dirname(normalized_path)
-    return parent.endswith(os.sep + ".omg" + os.sep + "state") or \
-           parent.endswith("/.omg/state")
+    project_state_dir = os.path.realpath(os.path.join(_project_dir(), ".omg", "state"))
+    return os.path.dirname(real_path) == project_state_dir
+
+
+def mask_env_content(file_path: str) -> str:
+    """Return a masked preview of env-file contents."""
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except OSError:
+        return "[Could not read file]"
+
+    masked: list[str] = []
+    for line in lines:
+        stripped = line.rstrip("\n")
+        if stripped.startswith("#") or not stripped.strip():
+            masked.append(stripped)
+            continue
+        match = _SECRET_VALUE_RE.match(stripped)
+        if not match:
+            masked.append(_MASKED_UNPARSEABLE_ENV_LINE)
+            continue
+        key_part, value_part = match.group(1), match.group(2).strip().strip("\"'")
+        if not value_part or value_part.lower() in _SAFE_VALUES:
+            masked.append(stripped)
+        else:
+            masked.append(f"{key_part}****")
+    return "\n".join(masked)
 
 
 # === ALLOWLIST SUPPORT =======================================================
@@ -629,11 +666,23 @@ def evaluate_file_access(
             ["immutable-env-template"],
         )
 
+    if re.match(r"^\.env(\..+)?$", basename) and basename not in EXAMPLE_FILES:
+        if tool in ("Write", "Edit", "MultiEdit"):
+            return deny(
+                f"Secret file write blocked: {file_path}",
+                "critical",
+                ["secret-access"],
+            )
+        masked = mask_env_content(normalized)
+        return deny(
+            f"Direct .env read blocked. Masked preview:\n\n{masked}\n\n"
+            "Keys/tokens/passwords masked with ****. Ask the user for specific values if needed.",
+            "high",
+            ["secret-access-masked"],
+        )
+
     if basename in BLOCKED_FILES:
         return deny(f"Secret file blocked: {file_path}", "critical", ["secret-access"])
-
-    if re.match(r"^\.env(\..+)?$", basename) and basename not in EXAMPLE_FILES:
-        return deny(f"Environment file blocked: {file_path}", "critical", ["secret-access"])
 
     # EXEMPTION: OMG credential store files within .omg/state/
     # These are managed by hooks/credential_store.py and must be accessible
