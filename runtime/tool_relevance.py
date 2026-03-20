@@ -42,7 +42,7 @@ _TOOL_CATALOG: list[dict[str, Any]] = [
 
 def _tokenize(text: str) -> set[str]:
     """Extract unique lowercase tokens from text."""
-    return set(re.findall(r'\b[a-z][a-z0-9_-]{2,}\b', text.lower()))
+    return set(re.findall(r'\b[a-z][a-z0-9_-]+\b', text.lower()))
 
 
 def _score_tool(tool: dict[str, Any], prompt_tokens: set[str], prompt_lower: str) -> float:
@@ -94,7 +94,7 @@ def discover_relevant_tools(
     Returns:
         List of dicts: [{name, score, description, category, reason}, ...]
     """
-    tools = catalog or _TOOL_CATALOG
+    tools = catalog if catalog is not None else _TOOL_CATALOG
     prompt_lower = prompt.lower()
     prompt_tokens = _tokenize(prompt_lower)
 
@@ -103,10 +103,16 @@ def discover_relevant_tools(
         score = _score_tool(tool, prompt_tokens, prompt_lower)
         if score >= min_score:
             # Build reason from matched keywords
-            matched_kws = [
-                kw for kw in tool.get("keywords", [])
-                if kw.lower() in prompt_lower or set(kw.lower().split()).issubset(prompt_tokens)
-            ]
+            matched_kws = []
+            for kw in tool.get("keywords", []):
+                kw_lower = kw.lower()
+                kw_tokens = set(kw_lower.split())
+                if len(kw_tokens) > 1:
+                    if kw_lower in prompt_lower or kw_tokens.issubset(prompt_tokens):
+                        matched_kws.append(kw)
+                else:
+                    if kw_lower in prompt_tokens:
+                        matched_kws.append(kw)
             scored.append((score, {
                 "name": tool["name"],
                 "score": round(score, 1),

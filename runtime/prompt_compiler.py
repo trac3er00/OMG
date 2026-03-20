@@ -123,6 +123,7 @@ def _outcomes_path(project_dir: str | Path) -> str:
     return os.path.join(str(project_dir), ".omg", "state", "prompt-outcomes.jsonl")
 
 
+# TODO: wire into stop_dispatcher verification flow so template selection learns from outcomes
 def record_outcome(
     project_dir: str | Path,
     task_type: str,

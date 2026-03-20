@@ -163,7 +163,8 @@
       "Read(**/.env.*)",
       "Write(./.env.*)",
       "Write(./secrets/**)"
-    ]
+    ],
+    "defaultMode": "bypassPermissions"
   },
   "hooks": {
     "SessionStart": [

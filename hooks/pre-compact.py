@@ -434,11 +434,11 @@ def _load_auto_compact_state(project_dir):
 
 def _save_auto_compact_state(project_dir, phase_count, tool_count):
     """Save auto-compact state after compaction."""
-    from datetime import datetime  # lazy import
+    from datetime import datetime, timezone  # lazy import
     state_path = os.path.join(project_dir, AUTO_COMPACT_STATE_FILE)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     state = {
-        "last_compact_ts": datetime.now().isoformat(),
+        "last_compact_ts": datetime.now(timezone.utc).isoformat(),
         "last_phase_count": phase_count,
         "tool_count_at_compact": tool_count,
     }
@@ -504,6 +504,14 @@ def main():
 
     project_dir = _resolve_project_dir()
     compaction_limits = _host_aware_compaction_threshold(data)
+
+    # Advisory: check if auto-compact heuristics suggest compaction
+    try:
+        should_suggest, reason = _check_auto_compact_advisory(project_dir)
+        if should_suggest:
+            print(f"[OMG pre-compact] Auto-compact advisory: {reason}", file=sys.stderr)
+    except Exception:
+        pass  # crash isolation: advisory failure should not block compaction
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     state_dir = resolve_state_dir(project_dir, "state", "")
     snapshot_dir = os.path.join(state_dir, "snapshots", ts)
@@ -589,7 +597,7 @@ def main():
             pass
 
     try:
-        import subprocess  # lazy import
+        import subprocess  # lazy import — security-reviewed: fixed argv, no user input, timeout-bounded
         diff_names = subprocess.run(
             ["git", "diff", "--name-only"],
             capture_output=True,

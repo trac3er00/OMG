@@ -37,6 +37,11 @@ TIER_REGISTRY: dict[str, TierSpec] = {
         max_parallel_agents=3,
         features=("baseline", "higher_budget"),
     ),
+    "max": TierSpec(
+        budget_usd_per_session=100.0,
+        max_parallel_agents=5,
+        features=("baseline", "higher_budget", "extended_context"),
+    ),
     "team": TierSpec(
         budget_usd_per_session=50.0,
         max_parallel_agents=8,

@@ -532,7 +532,7 @@ if not is_crazy and not is_ulw and budget_ok():
             and get_compiled_preamble is not None
             and budget_ok()):
         try:
-            _task_type = complexity_category if complexity_category in ("bugfix", "feature", "refactor", "security", "docs") else detected_intent
+            _task_type = detected_intent
             if _task_type in ("fix",):
                 _task_type = "bugfix"
             elif _task_type in ("implement", "add"):
