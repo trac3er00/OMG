@@ -17,7 +17,7 @@ The preview step is advisory only and makes no mutations until you run apply.
 <details><summary>Restricted environments / manual setup</summary>
 
 ```bash
-git clone https://github.com/trac3er00/OMG
+git clone https://github.com/trac3r00/OMG
 cd OMG
 ./OMG-setup.sh install --mode=omg-only --preset=interop
 ```

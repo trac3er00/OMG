@@ -39,7 +39,7 @@ class TestInstallTruthfulness:
     def test_readme_quickstart_mentions_apply(self) -> None:
         """README quickstart must mention --apply when describing what npm install does."""
         readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-        quickstart_idx = readme.find("npm install @trac3er/oh-my-god")
+        quickstart_idx = readme.find("npm install @trac3r/oh-my-god")
         generated_idx = readme.find("<!-- OMG:GENERATED:quickstart -->")
         if quickstart_idx >= 0 and generated_idx >= 0:
             authored_section = readme[quickstart_idx:generated_idx]

@@ -2,13 +2,13 @@
   "name": "omg",
   "description": "Marketplace metadata for the OMG Claude plugin",
   "owner": {
-    "name": "trac3er00"
+    "name": "trac3r00"
   },
   "metadata": {
     "description": "OMG - Oh-My-God for Claude Code and supported agent hosts",
     "version": "2.1.7",
-    "homepage": "https://github.com/trac3er00/OMG",
-    "repository": "https://github.com/trac3er00/OMG"
+    "homepage": "https://github.com/trac3r00/OMG",
+    "repository": "https://github.com/trac3r00/OMG"
   },
   "plugins": [
     {
@@ -17,7 +17,7 @@
       "version": "2.1.7",
       "source": "./",
       "author": {
-        "name": "trac3er00"
+        "name": "trac3r00"
       },
       "license": "MIT",
       "category": "productivity",

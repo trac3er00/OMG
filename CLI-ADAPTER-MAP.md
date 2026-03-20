@@ -207,7 +207,7 @@ OpenCode remains a compatibility-only adapter surface and is intentionally exclu
 **File:** `package.json`
 ```json
 {
-  "name": "@trac3er/oh-my-god",
+  "name": "@trac3r/oh-my-god",
   "version": "2.2.11",
   "scripts": {
     "postinstall": "python3 scripts/omg.py install --plan",
@@ -237,8 +237,8 @@ PLUGIN_CACHE_DIR="$CLAUDE_DIR/plugins/cache/$PLUGIN_MARKETPLACE/$PLUGIN_NAME"
 **File:** `runtime/adoption.py`
 ```python
 CANONICAL_BRAND = "OMG"
-CANONICAL_REPO_URL = "https://github.com/trac3er00/OMG"
-CANONICAL_PACKAGE_NAME = "@trac3er/oh-my-god"
+CANONICAL_REPO_URL = "https://github.com/trac3r00/OMG"
+CANONICAL_PACKAGE_NAME = "@trac3r/oh-my-god"
 CANONICAL_PLUGIN_ID = "omg"
 CANONICAL_MARKETPLACE_ID = "omg"
 CANONICAL_VERSION = "2.2.11"
