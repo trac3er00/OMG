@@ -320,6 +320,7 @@ def check_verification(data, project_dir):
                     for cmd in current_turn_commands
                 )
                 if has_test_in_turn:
+                    data["_has_test"] = True
                     return blocks
         except Exception:
             pass

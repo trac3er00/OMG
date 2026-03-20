@@ -279,7 +279,7 @@ def hook_reentry_guard(hook_name):
     fd = None
     acquired = False
     try:
-        fd = os.open(lock_file, os.O_RDWR | os.O_CREAT, 0o600)
+        fd = os.open(lock_file, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         for _ in range(3):
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)

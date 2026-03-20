@@ -3,7 +3,7 @@ from __future__ import annotations
 
 RELEASE_CHANNELS: tuple[str, ...] = ("public", "enterprise")
 CANONICAL_PRESETS: tuple[str, ...] = ("safe", "balanced", "interop", "labs", "buffet", "production")
-SUBSCRIPTION_TIERS: tuple[str, ...] = ("free", "pro", "team", "enterprise_tier")
+SUBSCRIPTION_TIERS: tuple[str, ...] = ("free", "pro", "max", "team", "enterprise_tier")
 POLICY_PACK_IDS: tuple[str, ...] = ("fintech", "airgapped", "locked-prod")
 
 

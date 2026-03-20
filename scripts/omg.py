@@ -2553,6 +2553,145 @@ def cmd_docs_generate(args: argparse.Namespace) -> int:
     return 1
 
 
+# --- Memory CLI handlers ---
+
+
+def _get_memory_store() -> Any:
+    """Get a MemoryStore instance using OMG_MEMORY_STORE env var or default."""
+    from runtime.memory_store import MemoryStore
+
+    store_path = os.environ.get("OMG_MEMORY_STORE")
+    return MemoryStore(store_path=store_path) if store_path else MemoryStore()
+
+
+def cmd_memory_export(args: argparse.Namespace) -> int:
+    """Export memory items to JSON or Markdown format."""
+    store = _get_memory_store()
+    items = store.list_all(include_quarantined=True)
+
+    output_format = getattr(args, "format", "json")
+    output_path = getattr(args, "output", None)
+
+    if output_format == "markdown":
+        lines = ["# OMG Shared Memory Export", ""]
+        for item in items:
+            lines.append(f"## {item.get('key', 'unknown')}")
+            lines.append(f"- ID: {item.get('id', '')}")
+            lines.append(f"- Content: {item.get('content', '')}")
+            lines.append(f"- Source: {item.get('source_cli', '')}")
+            lines.append(f"- Created: {item.get('created_at', '')}")
+            lines.append("")
+        content = "\n".join(lines)
+    else:
+        content = json.dumps(items, indent=2)
+
+    if output_path:
+        Path(output_path).write_text(content, encoding="utf-8")
+    else:
+        print(content)
+    return 0
+
+
+def cmd_memory_import(args: argparse.Namespace) -> int:
+    """Import memory items from a JSON file."""
+    import_path = getattr(args, "file", None)
+    review = getattr(args, "review", False)
+
+    if not import_path or not Path(import_path).exists():
+        print(json.dumps({"status": "error", "message": f"File not found: {import_path}"}))
+        return 1
+
+    try:
+        items = json.loads(Path(import_path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(json.dumps({"status": "error", "message": f"Invalid JSON: {exc}"}))
+        return 1
+
+    store = _get_memory_store()
+    count = store.import_items(items, quarantined=not review)
+    print(json.dumps({"status": "ok", "imported": count, "quarantined": not review}))
+    return 0
+
+
+def cmd_memory_list(args: argparse.Namespace) -> int:
+    """List memory items with optional filtering."""
+    store = _get_memory_store()
+    layer = getattr(args, "layer", None)
+
+    # Note: MemoryStore uses 'namespace' internally, but tests use 'layer' terminology
+    items = store.list_all(namespace=layer, include_quarantined=True)
+
+    # Print table header
+    print("ID | Key | Layer | Confidence | Created At")
+    print("-" * 60)
+    for item in items:
+        item_id = str(item.get("id", ""))[:8]
+        key = str(item.get("key", ""))[:20]
+        layer_val = str(item.get("namespace", item.get("layer", "default")))
+        confidence = str(item.get("confidence", "1.0"))
+        created = str(item.get("created_at", ""))[:19]
+        print(f"{item_id} | {key} | {layer_val} | {confidence} | {created}")
+    return 0
+
+
+def cmd_memory_sync(args: argparse.Namespace) -> int:
+    """Sync memory items from external sources like Claude.ai web paste."""
+    from_web = getattr(args, "from_web", None)
+
+    if not from_web or not Path(from_web).exists():
+        print(json.dumps({"status": "error", "message": f"File not found: {from_web}"}))
+        return 1
+
+    try:
+        paste_content = Path(from_web).read_text(encoding="utf-8")
+    except Exception as exc:
+        print(json.dumps({"status": "error", "message": str(exc)}))
+        return 1
+
+    # Parse bullet-point style paste (- Item content)
+    lines = [line.strip() for line in paste_content.strip().split("\n")]
+    items = []
+    for line in lines:
+        if line.startswith("- "):
+            content = line[2:].strip()
+            if content:
+                items.append({
+                    "id": str(__import__("uuid").uuid4()),
+                    "key": f"web-paste-{len(items)+1}",
+                    "content": content,
+                    "source_cli": "web-paste",
+                    "tags": ["imported", "web"],
+                })
+
+    store = _get_memory_store()
+    count = store.import_items(items, quarantined=True)
+    print(json.dumps({"status": "ok", "imported": count, "source": "web-paste"}))
+    return 0
+
+
+def _add_memory_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    """Add memory subcommands to the parser."""
+    sub = parent.add_subparsers(dest=dest, required=True)
+
+    export_cmd = sub.add_parser("export", help="Export memory items")
+    export_cmd.add_argument("--format", default="json", choices=["json", "markdown"])
+    export_cmd.add_argument("--output", default=None, help="Output file path")
+    export_cmd.set_defaults(func=cmd_memory_export)
+
+    import_cmd = sub.add_parser("import", help="Import memory items from JSON file")
+    import_cmd.add_argument("file", help="JSON file to import")
+    import_cmd.add_argument("--review", action="store_true", help="Mark items as reviewed (not quarantined)")
+    import_cmd.set_defaults(func=cmd_memory_import)
+
+    list_cmd = sub.add_parser("list", help="List memory items")
+    list_cmd.add_argument("--layer", default=None, help="Filter by layer/namespace")
+    list_cmd.set_defaults(func=cmd_memory_list)
+
+    sync_cmd = sub.add_parser("sync", help="Sync memory from external sources")
+    sync_cmd.add_argument("--from-web", dest="from_web", help="Path to web paste file")
+    sync_cmd.set_defaults(func=cmd_memory_sync)
+
+
 def _add_docs_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     sub = parent.add_subparsers(dest=dest)
 
@@ -2928,6 +3067,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     docs = sub.add_parser("docs", help="OMG documentation generator")
     _add_docs_subcommands(docs, dest="docs_command")
+
+    memory = sub.add_parser("memory", help="Shared memory management")
+    _add_memory_subcommands(memory, dest="memory_command")
 
     install = sub.add_parser("install", help="Compute, dry-run, or apply an install plan")
     install.add_argument("--plan", action="store_true", help="Emit structured action plan without mutations")

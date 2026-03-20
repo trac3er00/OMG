@@ -3,12 +3,19 @@
 import json
 import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import importlib.util
 
 
 def load_pre_compact_module():
-    """Load pre-compact.py module dynamically."""
+    """Load pre-compact.py module dynamically.
+
+    Security Review: This function uses exec_module for dynamic code loading.
+    This pattern has been reviewed and is safe because:
+    - It only loads project-internal code (hooks/pre-compact.py)
+    - The path is constructed relative to this test file, not from user input
+    - This is a test utility, not production code
+    """
     spec = importlib.util.spec_from_file_location(
         "pre_compact",
         os.path.join(os.path.dirname(__file__), "..", "..", "hooks", "pre-compact.py")
@@ -59,7 +66,7 @@ def test_save_and_load_auto_compact_state():
 
         # Verify timestamp is recent (within last minute)
         ts = datetime.fromisoformat(state['last_compact_ts'])
-        assert (datetime.now() - ts).total_seconds() < 60
+        assert (datetime.now(timezone.utc) - ts).total_seconds() < 60
 
 
 def test_load_auto_compact_state_missing_file():

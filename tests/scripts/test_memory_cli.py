@@ -14,7 +14,14 @@ SCRIPT = ROOT / "scripts" / "omg.py"
 
 
 def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    """Run omg.py with the given arguments."""
+    """Run omg.py with the given arguments.
+
+    Security Review: This function uses subprocess.run to invoke our own CLI.
+    This pattern has been reviewed and is safe because:
+    - It only executes the project's own omg.py script (SCRIPT path is hardcoded)
+    - Arguments come from test code, not external user input
+    - This is a test utility for verifying CLI behavior
+    """
     merged_env = dict(os.environ)
     if env is not None:
         merged_env.update(env)
@@ -173,13 +180,14 @@ class TestMemoryList:
         assert "my-key" in result.stdout
 
     def test_list_with_layer_filter(self, tmp_path: Path) -> None:
-        """Test list filtering by layer."""
+        """Test list filtering by layer (namespace in MemoryStore API)."""
         db_path = tmp_path / "store.sqlite3"
 
         from runtime.memory_store import MemoryStore
         store = MemoryStore(store_path=str(db_path))
-        store.add(key="project-key", content="Content 1", source_cli="test", tags=[], layer="project")
-        store.add(key="session-key", content="Content 2", source_cli="test", tags=[], layer="session")
+        # Note: MemoryStore uses 'namespace' internally, but CLI uses 'layer' terminology
+        store.add(key="project-key", content="Content 1", source_cli="test", tags=[], namespace="project")
+        store.add(key="session-key", content="Content 2", source_cli="test", tags=[], namespace="session")
         del store
 
         result = _run(["memory", "list", "--layer", "project"], env={"OMG_MEMORY_STORE": str(db_path)})

@@ -706,3 +706,191 @@ class ContextEngine:
             return handles
         except Exception:
             return []
+
+
+# ── NF3c: Folder-scoped context cache ────────────────────────────────────────
+
+_CONTEXT_CACHE_DIR = Path(".omg") / "context"
+
+
+def _folder_cache_path(project_dir: str | Path, folder_path: str) -> Path:
+    """Return the cache file path for a given folder."""
+    import hashlib
+    folder_hash = hashlib.sha256(folder_path.encode()).hexdigest()[:16]
+    return Path(project_dir) / _CONTEXT_CACHE_DIR / f"{folder_hash}.md"
+
+
+def get_folder_context(project_dir: str | Path, folder_path: str) -> str | None:
+    """Retrieve cached folder context if it exists and is still valid.
+
+    Returns None if:
+    - Cache file doesn't exist
+    - Folder has been modified since cache was created (stale)
+    """
+    cache_path = _folder_cache_path(project_dir, folder_path)
+    if not cache_path.exists():
+        return None
+
+    # Check if folder exists and compare modification times
+    folder = Path(folder_path)
+    if not folder.exists():
+        return None
+
+    try:
+        cache_mtime = cache_path.stat().st_mtime
+        folder_mtime = folder.stat().st_mtime
+        if folder_mtime > cache_mtime:
+            return None  # Cache is stale
+        return cache_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def save_folder_context(project_dir: str | Path, folder_path: str, content: str) -> str:
+    """Save folder context to cache file.
+
+    Returns the path to the cache file.
+    """
+    cache_path = _folder_cache_path(project_dir, folder_path)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(content, encoding="utf-8")
+    return str(cache_path)
+
+
+# ── NF3d: Context entry scoring ──────────────────────────────────────────────
+
+import time as _time
+
+
+def score_context_entry(entry: dict[str, Any], active_task: str | None = None) -> float:
+    """Score a context entry for relevance and priority.
+
+    Scoring factors:
+    - Recency: entries decay over time (half-life ~1 hour)
+    - Type boost: plan/checklist entries get +0.3
+    - Task relevance: keyword overlap with active_task gives boost
+    - Usage boost: referenced entries score higher
+
+    Returns a float between 0.0 and 1.0.
+    """
+    score = 0.3  # Base score (lower to prevent clamping)
+
+    # Recency decay (half-life ~1 hour = 3600 seconds)
+    now = _time.time()
+    timestamp = entry.get("timestamp", now)
+    age_seconds = max(0, now - timestamp)
+    recency_factor = 0.5 ** (age_seconds / 3600)  # Half-life decay
+    score += 0.2 * recency_factor  # Max +0.2 for very recent entries
+
+    # Type boost
+    entry_type = entry.get("type", "general")
+    type_boosts = {
+        "plan": 0.3,
+        "checklist": 0.3,
+        "task_focus": 0.25,
+        "unsolved": 0.2,
+        "blocker": 0.2,
+        "error": 0.15,
+    }
+    score += type_boosts.get(entry_type, 0.0)
+
+    # Task relevance boost (keyword overlap)
+    if active_task:
+        content = entry.get("content", "")
+        task_keywords = set(active_task.lower().split())
+        content_keywords = set(content.lower().split())
+        overlap = len(task_keywords & content_keywords)
+        if overlap > 0:
+            score += min(0.15, overlap * 0.05)  # Max +0.15 for relevance
+
+    # Usage/reference boost
+    if entry.get("referenced"):
+        score += 0.1
+
+    # Clamp to [0.0, 1.0]
+    return max(0.0, min(1.0, score))
+
+
+def rank_context_entries(
+    entries: list[dict[str, Any]],
+    active_task: str | None = None,
+) -> list[dict[str, Any]]:
+    """Rank context entries by score descending.
+
+    Adds a '_score' field to each entry and returns entries sorted
+    by score (highest first).
+    """
+    scored_entries = []
+    for entry in entries:
+        entry_copy = dict(entry)
+        entry_copy["_score"] = score_context_entry(entry, active_task)
+        scored_entries.append(entry_copy)
+
+    scored_entries.sort(key=lambda e: e["_score"], reverse=True)
+    return scored_entries
+
+
+# ── NF3e: Smart compact ──────────────────────────────────────────────────────
+
+_PROTECTED_TYPES = frozenset({"plan", "checklist", "task_focus", "unsolved", "blocker", "error"})
+
+
+def smart_compact(
+    project_dir: str | Path,
+    entries: list[dict[str, Any]],
+    drop_ratio: float = 0.3,
+    active_task: str | None = None,
+) -> dict[str, Any]:
+    """Intelligently compact context entries by dropping lowest-scoring ones.
+
+    Protected entries (plan, checklist, task_focus, unsolved, blocker, error)
+    and entries with 'protected': True are never dropped.
+
+    Args:
+        project_dir: Project root directory (for potential persistence)
+        entries: List of context entries
+        drop_ratio: Fraction of droppable entries to drop (0.0-1.0)
+        active_task: Optional active task for relevance scoring
+
+    Returns:
+        Dict with 'kept', 'dropped', 'kept_count', 'dropped_count' keys.
+    """
+    if not entries:
+        return {"kept": [], "dropped": [], "kept_count": 0, "dropped_count": 0}
+
+    # Score all entries first
+    scored = rank_context_entries(entries, active_task)
+
+    # Separate protected and droppable
+    protected: list[dict[str, Any]] = []
+    droppable: list[dict[str, Any]] = []
+
+    for entry in scored:
+        entry_type = entry.get("type", "general")
+        is_protected = (
+            entry_type in _PROTECTED_TYPES
+            or entry.get("protected") is True
+        )
+        if is_protected:
+            protected.append(entry)
+        else:
+            droppable.append(entry)
+
+    # Sort droppable by score ascending (lowest first = drop candidates)
+    droppable.sort(key=lambda e: e["_score"])
+
+    # Calculate how many to drop
+    drop_count = int(len(droppable) * drop_ratio)
+
+    dropped = droppable[:drop_count]
+    kept_droppable = droppable[drop_count:]
+
+    # Combine protected + kept droppable
+    kept = protected + kept_droppable
+
+    return {
+        "kept": kept,
+        "dropped": dropped,
+        "kept_count": len(kept),
+        "dropped_count": len(dropped),
+    }
