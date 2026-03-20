@@ -38,6 +38,7 @@ def test_stop_dispatcher_stop_hook_active_guard():
         capture_output=True,
         cwd=str(ROOT),
         check=False,
+        timeout=20,
     )
     assert result.returncode == 0
     assert result.stdout == ""
@@ -74,7 +75,7 @@ def test_single_pass_blocking(tmp_path):
     result = subprocess.run(
         [sys.executable, "hooks/stop_dispatcher.py"],
         input=json.dumps({"stop_hook_active": False}),
-        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False,
+        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False, timeout=20,
     )
     assert result.returncode == 0
     assert result.stdout.count('"decision"') == 1, "Expected exactly one block decision"
@@ -112,7 +113,7 @@ def test_session_isolated_loop_tracker(tmp_path):
     result = subprocess.run(
         [sys.executable, "hooks/stop_dispatcher.py"],
         input=json.dumps({"stop_hook_active": False}),
-        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False,
+        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False, timeout=20,
     )
     assert result.returncode == 0
     assert "Guard 4 triggered" not in result.stderr, (
@@ -316,7 +317,7 @@ def test_single_pass_ralph_blocks_prevent_quality_blocks(tmp_path):
     result = subprocess.run(
         [sys.executable, "hooks/stop_dispatcher.py"],
         input=json.dumps({"stop_hook_active": False}),
-        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False,
+        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False, timeout=20,
     )
 
     assert result.returncode == 0
@@ -361,7 +362,7 @@ def test_session_isolated_tracker_does_not_suppress_hooks(tmp_path):
     result = subprocess.run(
         [sys.executable, "hooks/stop_dispatcher.py"],
         input=json.dumps({"stop_hook_active": False}),
-        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False,
+        text=True, capture_output=True, cwd=str(ROOT), env=env, check=False, timeout=20,
     )
 
     assert result.returncode == 0
@@ -377,6 +378,7 @@ def test_stop_gate_wrapper_executes_dispatcher_guard():
         capture_output=True,
         cwd=str(ROOT),
         check=False,
+        timeout=20,
     )
     assert result.returncode == 0
     assert result.stdout == ""
@@ -418,6 +420,47 @@ def test_planning_gate_skips_read_only_turn(tmp_path):
 
     assert block_reasons == []
     assert advisories == []
+
+
+def test_planning_gate_demotes_stale_checklist_from_another_session(tmp_path, monkeypatch):
+    checklist = tmp_path / ".omg" / "state" / "_checklist.md"
+    checklist.parent.mkdir(parents=True, exist_ok=True)
+    checklist.write_text("- [x] Done\n- [ ] Pending\n", encoding="utf-8")
+    (checklist.parent / "_checklist.session").write_text(
+        json.dumps(
+            {
+                "session_id": "old-session",
+                "created_at": "2099-01-01T00:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(stop_dispatcher, "resolve_state_file", lambda *_args, **_kwargs: str(checklist))
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "new-session")
+
+    block_reasons, advisories = stop_dispatcher.check_planning_gate(str(tmp_path), data=_base_data())
+
+    assert block_reasons == []
+    assert len(advisories) == 1
+    assert "stale checklist" in advisories[0]
+    assert "different session" in advisories[0]
+
+
+def test_planning_gate_warns_when_checklist_complete_without_recent_activity(tmp_path, monkeypatch):
+    checklist = tmp_path / ".omg" / "state" / "_checklist.md"
+    checklist.parent.mkdir(parents=True, exist_ok=True)
+    checklist.write_text("- [x] One\n- [x] Two\n- [x] Three\n", encoding="utf-8")
+
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(stop_dispatcher, "resolve_state_file", lambda *_args, **_kwargs: str(checklist))
+
+    block_reasons, advisories = stop_dispatcher.check_planning_gate(str(tmp_path), data=_base_data())
+
+    assert block_reasons == []
+    assert len(advisories) == 1
+    assert "no code changes or test runs found" in advisories[0]
 
 
 def test_tdd_proof_chain_skips_read_only_turn(monkeypatch, tmp_path):

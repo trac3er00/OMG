@@ -14,12 +14,9 @@ PublicSurface = dict[str, Any]
 
 
 GENERATED_SECTION_MARKERS: dict[str, str] = {
-    "readme_quickstart": "<!-- OMG:GENERATED:quickstart -->",
-    "readme_command_surface": "<!-- OMG:GENERATED:command-surface -->",
     "install_fast_path": "<!-- OMG:GENERATED:install-fast-path -->",
     "changelog_current": "<!-- OMG:GENERATED:changelog-v2.2.10 -->",
     "command_surface_doc": "<!-- OMG:GENERATED:command-surface -->",
-    "proof_generated_section": "<!-- OMG:GENERATED:proof -->",
     "install_intro": "<!-- OMG:GENERATED:install-intro -->",
     "why_omg": "<!-- OMG:GENERATED:why-omg -->",
     "proof_quickstart": "<!-- OMG:GENERATED:proof-quickstart -->",
@@ -50,20 +47,6 @@ PUBLIC_SURFACES: list[PublicSurface] = [
         "marker": "<!-- OMG:GENERATED:changelog-v2.2.10 -->",
         "description": "current release block in changelog",
     },
-    {
-        "id": "readme_quickstart",
-        "category": "docs",
-        "path": "README.md",
-        "marker": "<!-- OMG:GENERATED:quickstart -->",
-        "description": "quickstart section in README",
-    },
-    {
-        "id": "readme_command_surface",
-        "category": "docs",
-        "path": "README.md",
-        "marker": "<!-- OMG:GENERATED:command-surface -->",
-        "description": "command surface section in README",
-    },
     *[
         {
             "id": guide_id,
@@ -92,13 +75,6 @@ PUBLIC_SURFACES: list[PublicSurface] = [
         "category": "release_body",
         "path": "artifacts/release/tag-body.md",
         "description": "annotated tag body text for release",
-    },
-    {
-        "id": "proof_generated_section",
-        "category": "docs",
-        "path": "README.md",
-        "marker": "<!-- OMG:GENERATED:proof -->",
-        "description": "generated proof section in README",
     },
     {
         "id": "install_intro",
@@ -215,8 +191,6 @@ PUBLIC_SURFACES: list[PublicSurface] = [
 _REQUIRED_IDS: frozenset[str] = frozenset({
     "release_notes_artifact",
     "changelog_current_block",
-    "readme_quickstart",
-    "readme_command_surface",
     "install_claude_code",
     "install_codex",
     "install_gemini",
@@ -226,7 +200,6 @@ _REQUIRED_IDS: frozenset[str] = frozenset({
     "command_surface_doc",
     "github_release_body_artifact",
     "tag_body_artifact",
-    "proof_generated_section",
     "launcher_python",
     "launcher_shell",
     "launcher_npm_bin",

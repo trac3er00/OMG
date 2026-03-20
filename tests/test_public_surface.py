@@ -116,6 +116,27 @@ def test_deep_plan_is_compatibility_path_to_plan_council():
     assert "compatibility path to `plan-council`" in plugins_readme
 
 
+def test_plugins_readme_leads_with_launcher_first_install_story():
+    plugins_readme = (ROOT / "plugins" / "README.md").read_text(encoding="utf-8")
+    assert "npx omg env doctor" in plugins_readme
+    assert "npx omg install --plan" in plugins_readme
+    assert plugins_readme.index("npx omg env doctor") < plugins_readme.index("/OMG:setup")
+
+
+def test_scripts_omg_docstring_has_no_stale_version_literal():
+    cli_text = (ROOT / "scripts" / "omg.py").read_text(encoding="utf-8")
+    assert "2.0.8 CLI entrypoint" not in cli_text
+
+
+def test_package_includes_operator_docs_in_published_artifact():
+    pkg = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    files = set(pkg["files"])
+    assert "docs/install/" in files
+    assert "docs/proof.md" in files
+    assert "QUICK-REFERENCE.md" in files
+    assert "INSTALL-VERIFICATION-INDEX.md" in files
+
+
 def test_proof_docs_include_truth_bundle_artifacts():
     proof = (ROOT / "docs" / "proof.md").read_text(encoding="utf-8")
     assert "claim-judge" in proof

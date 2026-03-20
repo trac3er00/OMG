@@ -9,9 +9,9 @@
 ## Proof Quickstart
 
 ```bash
-omg proof open --html
-omg blocked --last
-omg explain run --run-id <id>
+npx omg proof open --html
+npx omg blocked --last
+npx omg explain run --run-id <id>
 ```
 
 Use the HTML view first, then inspect blockers or explain a specific run.
@@ -21,7 +21,7 @@ OMG generates machine-backed evidence for every claim. Here is what the outputs 
 
 ### Quick Verdict
 
-Run `omg proof open --html` to see a rendered summary, or `omg proof` for a terminal summary. The output tells you:
+Run `npx omg proof open --html` to see a rendered summary, or `npx omg proof` for a terminal summary. The output tells you:
 
 - **Status**: `pass` or `fail` — whether all required evidence was produced and valid
 - **Blockers**: What failed and why, in plain language
@@ -41,17 +41,17 @@ A failing proof means one or more of:
 - Missing evidence artifacts (check `.omg/evidence/` for gaps)
 - Stale evidence (re-run the relevant workflow)
 - Claim without backing evidence (the claim-judge rejected a claim)
-- Active governance blockers (run `omg blocked --last` for details)
+- Active governance blockers (run `npx omg blocked --last` for details)
 
 ### Common Commands
 
 | Goal | Command |
 |:-----|:--------|
-| See proof summary | `omg proof` |
-| Open HTML report | `omg proof open --html` |
-| See what is blocked | `omg blocked --last` |
-| Explain a specific run | `omg explain run --run-id <id>` |
-| Check budget usage | `omg budget simulate --enforce` |
+| See proof summary | `npx omg proof` |
+| Open HTML report | `npx omg proof open --html` |
+| See what is blocked | `npx omg blocked --last` |
+| Explain a specific run | `npx omg explain run --run-id <id>` |
+| Check budget usage | `npx omg budget simulate --enforce` |
 
 ## Verification Status
 
@@ -82,6 +82,21 @@ OMG keeps verification visible instead of burying it in implementation details.
   - issue report: `.omg/evidence/issues/<run_id>.json`
   - host parity report: `.omg/evidence/host-parity-<run_id>.json`
   - music OMR testbed evidence: `.omg/evidence/music-omr-<run_id>.json`
+
+## Certification Lanes
+
+OMG proof is multi-lane. Each lane binds a user-facing claim to a freshness policy,
+required evidence, and a release-facing verdict. Music OMR is Lane 1 and the
+permanent flagship gate because it is the hardest continuously enforced daily
+testbed in the system: real-time optical music recognition, transcription
+accuracy, and live transposition under production-style constraints.
+
+- Lane 1 / flagship: Music OMR daily gate for deterministic score parsing and live transposition
+- Planned lane: install/apply correctness for launcher previews versus applied mutations
+- Planned lane: uninstall cleanliness for rollback and host cleanup guarantees
+- Planned lane: host parity for canonical provider behavior normalization
+- Planned lane: trust-chain verification for signed approvals, ledgering, and provenance
+- Planned lane: proof-surface integrity for generated docs, artifacts, and release surfaces
 
 ## Permanent Music OMR Daily Gate
 

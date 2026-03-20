@@ -1,6 +1,6 @@
 {
   "name": "@trac3er/oh-my-god",
-  "version": "2.2.10",
+  "version": "2.2.11",
   "description": "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts",
   "main": "OMG-setup.sh",
   "bin": {
@@ -18,7 +18,12 @@
     "plugins/",
     "tools/",
     "hud/",
+    "docs/install/",
+    "docs/proof.md",
+    "docs/command-surface.md",
     "README.md",
+    "QUICK-REFERENCE.md",
+    "INSTALL-VERIFICATION-INDEX.md",
     "OMG-setup.sh",
     "settings.json",
     "pyproject.toml",

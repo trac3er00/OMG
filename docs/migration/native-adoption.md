@@ -2,7 +2,13 @@
 
 OMG keeps adoption native to OMG. There is no public `migrate` command to memorize or map back to another project.
 
-Use either:
+Use the launcher-first flow:
+
+- `npx omg env doctor`
+- `npx omg install --plan`
+- `npx omg install --apply`
+
+Legacy compatibility paths remain available when you need them:
 
 - `/OMG:setup`
 - `./OMG-setup.sh install --adopt=auto`
@@ -54,4 +60,4 @@ Native adoption writes:
 
 - OMG-native setup language replaces public migration language.
 - Compatibility references remain documented so users coming from OMC, OMX, or Superpowers can understand what setup detected.
-- Public onboarding stays focused on `/OMG:setup` and `/OMG:crazy`.
+- Public onboarding is launcher-first: `npx omg env doctor` / `npx omg install --plan` / `npx omg install --apply`. Legacy Claude aliases (`/OMG:setup`, `/OMG:crazy`) remain available.

@@ -3,7 +3,7 @@
 
 **Purpose:** Track all CLI adapter integration points, installation flows, and critical assumptions for end-to-end verification.
 
-**Version:** OMG 2.2.10
+**Version:** OMG 2.2.11
 
 ---
 
@@ -16,7 +16,7 @@
 ### Source Files Referenced
 - `runtime/mcp_config_writers.py`
 - `runtime/adoption.py`
-- `OMG-setup.sh`
+- `runtime/install_planner.py`
 
 ---
 
@@ -39,11 +39,12 @@
 
 | Name | Command |
 | :--- | :--- |
-| doctor | `omg doctor` |
-| env doctor | `omg env doctor` |
-| validate | `omg validate` |
-| contract validate | `omg contract validate` |
-| install plan | `omg install --plan` |
+| doctor | `npx omg doctor` |
+| env doctor | `npx omg env doctor` |
+| validate | `npx omg validate` |
+| contract validate | `npx omg contract validate` |
+| install plan | `npx omg install --plan` |
+| release audit | `npx omg release audit --artifact` |
 
 ## 📂 Cache Paths
 

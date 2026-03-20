@@ -100,12 +100,14 @@ def test_manifest_emitted_to_both_channels(project: Path) -> None:
     assert "dist/enterprise/release-surface.json" in result["artifacts"]
 
 
-def test_readme_quickstart_marker_inserted(project: Path) -> None:
+def test_readme_uses_single_generated_install_intro(project: Path) -> None:
     compile_release_surfaces(project)
 
     content = (project / "README.md").read_text()
-    assert "<!-- OMG:GENERATED:quickstart -->" in content
-    assert "<!-- /OMG:GENERATED:quickstart -->" in content
+    assert "<!-- OMG:GENERATED:install-intro -->" in content
+    assert "<!-- OMG:GENERATED:quickstart -->" not in content
+    assert "<!-- OMG:GENERATED:command-surface -->" not in content
+    assert "<!-- OMG:GENERATED:proof -->" not in content
 
 
 def test_readme_markers_idempotent(project: Path) -> None:
@@ -115,8 +117,8 @@ def test_readme_markers_idempotent(project: Path) -> None:
     compile_release_surfaces(project)
     second = (project / "README.md").read_text()
 
-    assert second.count("<!-- OMG:GENERATED:quickstart -->") == 1
-    assert second.count("<!-- /OMG:GENERATED:quickstart -->") == 1
+    assert second.count("<!-- OMG:GENERATED:install-intro -->") == 1
+    assert "<!-- OMG:GENERATED:quickstart -->" not in second
     assert first == second
 
 
@@ -162,7 +164,7 @@ def test_command_surface_doc_created(project: Path) -> None:
     assert cmd_surface.exists()
     content = cmd_surface.read_text()
     assert "Command Surface" in content
-    assert "omg ship" in content
+    assert "npx omg ship" in content
     assert "docs/command-surface.md" in result["artifacts"]
 
 
@@ -212,11 +214,11 @@ def test_registry_includes_release_body_surfaces() -> None:
     assert "tag_body_artifact" in ids
 
 
-def test_registry_includes_proof_section_marker() -> None:
+def test_registry_no_longer_tracks_readme_proof_section_marker() -> None:
     from runtime.release_surface_registry import get_generated_section_markers
 
     markers = get_generated_section_markers()
-    assert "proof_generated_section" in markers
+    assert "proof_generated_section" not in markers
 
 
 def test_promoted_commands_available_to_compiler() -> None:
@@ -304,7 +306,7 @@ def test_check_only_detects_readme_marker_tampering(project: Path) -> None:
     result = compile_release_surfaces(project, check_only=True)
     assert result["status"] == "drift"
     drift_surfaces = [d["surface"] for d in result["drift"]]
-    assert "readme_quickstart" in drift_surfaces
+    assert "install_intro" in drift_surfaces
 
 
 def test_check_only_detects_install_fast_path_tampering(project: Path) -> None:
@@ -345,6 +347,51 @@ def test_check_only_detects_missing_artifact(project: Path) -> None:
     assert result["status"] == "drift"
     drift_surfaces = [d["surface"] for d in result["drift"]]
     assert "github_release_body" in drift_surfaces
+
+
+def test_check_only_detects_stale_legacy_quickstart_section(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    readme = project / "README.md"
+    content = readme.read_text(encoding="utf-8")
+    # Inject a stale legacy section that should have been removed
+    stale_section = "\n<!-- OMG:GENERATED:quickstart -->\nStale content\n<!-- /OMG:GENERATED:quickstart -->\n"
+    readme.write_text(content + stale_section, encoding="utf-8")
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "legacy:quickstart" in drift_surfaces
+
+
+def test_check_only_detects_stale_legacy_command_surface_section(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    readme = project / "README.md"
+    content = readme.read_text(encoding="utf-8")
+    # Inject a stale legacy section that should have been removed
+    stale_section = "\n<!-- OMG:GENERATED:command-surface -->\nStale content\n<!-- /OMG:GENERATED:command-surface -->\n"
+    readme.write_text(content + stale_section, encoding="utf-8")
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "legacy:command-surface" in drift_surfaces
+
+
+def test_check_only_detects_stale_legacy_proof_section(project: Path) -> None:
+    compile_release_surfaces(project)
+
+    readme = project / "README.md"
+    content = readme.read_text(encoding="utf-8")
+    # Inject a stale legacy section that should have been removed
+    stale_section = "\n<!-- OMG:GENERATED:proof -->\nStale content\n<!-- /OMG:GENERATED:proof -->\n"
+    readme.write_text(content + stale_section, encoding="utf-8")
+
+    result = compile_release_surfaces(project, check_only=True)
+    assert result["status"] == "drift"
+    drift_surfaces = [d["surface"] for d in result["drift"]]
+    assert "legacy:proof" in drift_surfaces
 
 
 def test_repo_release_surfaces_are_in_sync() -> None:
@@ -394,7 +441,7 @@ class TestQuickstartContent:
     def test_quickstart_in_readme_after_compile(self, project: Path) -> None:
         compile_release_surfaces(project)
         content = (project / "README.md").read_text()
-        assert "npx omg install --plan" in content
+        assert "<!-- OMG:GENERATED:quickstart -->" not in content
 
 
 class TestInstallFastPathContent:
@@ -425,25 +472,25 @@ class TestProofContent:
 
     def test_proof_shows_proof_open_html(self) -> None:
         content = _proof_content()
-        assert "omg proof open --html" in content
+        assert "npx omg proof open --html" in content
 
     def test_proof_shows_blocked_last(self) -> None:
         content = _proof_content()
-        assert "omg blocked --last" in content
+        assert "npx omg blocked --last" in content
 
     def test_proof_shows_explain_run(self) -> None:
         content = _proof_content()
-        assert "omg explain run" in content
-        assert "omg explain run --run-id <id>" in content
-        assert "omg explain run <id>" not in content
+        assert "npx omg explain run" in content
+        assert "npx omg explain run --run-id <id>" in content
+        assert "npx omg explain run <id>" not in content
 
     def test_proof_shows_budget_simulate(self) -> None:
         content = _proof_content()
-        assert "omg budget simulate --enforce" in content
+        assert "npx omg budget simulate --enforce" in content
 
     def test_proof_human_commands_before_artifact_paths(self) -> None:
         content = _proof_content()
-        cmd_pos = content.find("omg proof open --html")
+        cmd_pos = content.find("npx omg proof open --html")
         artifact_pos = content.find(".omg/evidence")
         if artifact_pos >= 0:
             assert cmd_pos < artifact_pos, "Human commands must come before artifact paths"
@@ -451,17 +498,16 @@ class TestProofContent:
     def test_proof_section_in_readme(self, project: Path) -> None:
         compile_release_surfaces(project)
         content = (project / "README.md").read_text()
-        assert "<!-- OMG:GENERATED:proof -->" in content
-        assert "omg proof open --html" in content
+        assert "<!-- OMG:GENERATED:proof -->" not in content
 
 
 class TestCommandSurfaceSnippet:
 
     def test_command_surface_uses_promoted_commands(self, project: Path) -> None:
         content = _command_surface_snippet(project)
-        assert "omg ship" in content
-        assert "omg proof" in content
-        assert "omg install --plan" in content
+        assert "npx omg ship" in content
+        assert "npx omg proof" in content
+        assert "npx omg install --plan" in content
 
     def test_command_surface_does_not_include_crazy(self, project: Path) -> None:
         content = _command_surface_snippet(project)
@@ -472,8 +518,8 @@ class TestCommandSurfaceSnippet:
         no_omg.mkdir()
         (no_omg / "README.md").write_text("# test\n")
         content = _command_surface_snippet(no_omg)
-        assert "omg ship" in content
-        assert "omg proof" in content
+        assert "npx omg ship" in content
+        assert "npx omg proof" in content
 
 
 class TestInstallIntroContent:
@@ -486,11 +532,18 @@ class TestInstallIntroContent:
 
     def test_states_npm_install_no_mutations(self) -> None:
         content = _install_intro_content()
-        assert "bin linking only" in content
+        assert "node_modules/.bin/" in content
         assert "no mutations" in content.lower()
+
+    def test_explains_npm_install_and_npx_roles(self) -> None:
+        content = _install_intro_content()
+        assert "Local package-manager installs only link `omg` into `node_modules/.bin/`" in content
+        assert "do not mutate configuration" in content
+        assert "preview" in content.lower()
 
     def test_states_postinstall_plan_only(self) -> None:
         content = _install_intro_content()
+        assert "# confirm preview output before applying" in content
         assert "npx omg install --plan" in content
         assert "preview" in content.lower()
 
@@ -503,10 +556,12 @@ class TestInstallIntroContent:
         assert "npx omg env doctor" in content
         assert "npx omg install --plan" in content
         assert "npx omg install --apply" in content
+        assert "npx omg ship" in content
 
     def test_does_not_require_global_install(self) -> None:
         content = _install_intro_content()
         assert "npm install -g @trac3er/oh-my-god" not in content
+        assert "npm install @trac3er/oh-my-god" not in content
 
     def test_install_intro_in_readme(self, project: Path) -> None:
         compile_release_surfaces(project)
@@ -538,18 +593,18 @@ class TestProofQuickstartContent:
     def test_leads_with_proof_open(self) -> None:
         content = _proof_quickstart_content()
         lines = content.split("\n")
-        code_lines = [l for l in lines if l.startswith("omg ")]
-        assert code_lines[0].startswith("omg proof open --html")
+        code_lines = [l for l in lines if l.startswith("npx omg ")]
+        assert code_lines[0].startswith("npx omg proof open --html")
 
     def test_shows_blocked_last(self) -> None:
         content = _proof_quickstart_content()
-        assert "omg blocked --last" in content
+        assert "npx omg blocked --last" in content
 
     def test_proof_quickstart_in_proof_doc(self, project: Path) -> None:
         compile_release_surfaces(project)
         content = (project / "docs" / "proof.md").read_text()
         assert "<!-- OMG:GENERATED:proof-quickstart -->" in content
-        assert "omg proof open --html" in content
+        assert "npx omg proof open --html" in content
 
 
 class TestQuickReferenceHosts:

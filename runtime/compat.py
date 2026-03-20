@@ -531,7 +531,7 @@ def _update_session_state(project_dir: str, message: str) -> str:
                 data = json.load(f)
             if isinstance(data, dict):
                 payload = data
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             pass
     payload.setdefault("entries", [])
     if not isinstance(payload["entries"], list):
@@ -806,7 +806,8 @@ def _collect_orphaned_runtime_refs(claude_dir: str, *, home_dir: str | None = No
             if cfg_path.endswith(".toml"):
                 import tomlkit
 
-                content = open(cfg_path, "r", encoding="utf-8").read()
+                with open(cfg_path, "r", encoding="utf-8") as _f:
+                    content = _f.read()
                 doc = tomlkit.parse(content)
                 mcp_servers = doc.get("mcp_servers", {})
                 ctrl = mcp_servers.get("omg-control", {})
@@ -1365,19 +1366,23 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
     if not dry_run and os.path.isfile(codex_cfg) and any(codex_cfg in r for r in refs):
         try:
             import tomlkit
-
-            with open(codex_cfg, "r", encoding="utf-8") as f:
-                doc = tomlkit.parse(f.read())
-            mcp_servers = doc.get("mcp_servers", {})
-            ctrl = mcp_servers.get("omg-control", {})
-            cmd = ctrl.get("command", "")
-            if isinstance(cmd, str) and _ORPHANED_RUNTIME_MARKER in cmd:
-                del mcp_servers["omg-control"]
-                with open(codex_cfg, "w", encoding="utf-8") as f:
-                    f.write(tomlkit.dumps(doc))
-                removed_paths.append(f"{codex_cfg}:mcp_servers.omg-control")
-        except Exception:
-            pass
+            import tomlkit.exceptions
+        except ImportError:
+            tomlkit = None  # type: ignore[assignment]
+        if tomlkit is not None:
+            try:
+                with open(codex_cfg, "r", encoding="utf-8") as f:
+                    doc = tomlkit.parse(f.read())
+                mcp_servers = doc.get("mcp_servers", {})
+                ctrl = mcp_servers.get("omg-control", {})
+                cmd = ctrl.get("command", "")
+                if isinstance(cmd, str) and _ORPHANED_RUNTIME_MARKER in cmd:
+                    del mcp_servers["omg-control"]
+                    with open(codex_cfg, "w", encoding="utf-8") as f:
+                        f.write(tomlkit.dumps(doc))
+                    removed_paths.append(f"{codex_cfg}:mcp_servers.omg-control")
+            except (OSError, KeyError, tomlkit.exceptions.ParseError):
+                pass
 
     if not dry_run:
         for cfg_path, key_path, mcp_top_key in [
@@ -1595,7 +1600,7 @@ def _write_persistent_state(
                 current = json.load(f)
             if isinstance(current, dict):
                 payload.update(current)
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             pass
     payload.setdefault("history", [])
     if not isinstance(payload["history"], list):
@@ -2147,7 +2152,7 @@ def dispatch_compat_skill(
                     persistent["last_updated"] = _now()
                     with open(persistent_path, "w", encoding="utf-8") as f:
                         json.dump(persistent, f, indent=2, ensure_ascii=True)
-            except Exception:
+            except (json.JSONDecodeError, OSError):
                 pass
         return _res(
             skill=normalized,

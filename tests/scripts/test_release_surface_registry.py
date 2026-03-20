@@ -42,8 +42,6 @@ _REQUIRED_SURFACE_IDS: list[str] = [
     # Docs surfaces
     "release_notes_artifact",
     "changelog_current_block",
-    "readme_quickstart",
-    "readme_command_surface",
     # Install guide fast-path sections
     "install_claude_code",
     "install_codex",
@@ -55,8 +53,6 @@ _REQUIRED_SURFACE_IDS: list[str] = [
     # Release body artifacts
     "github_release_body_artifact",
     "tag_body_artifact",
-    # Proof section
-    "proof_generated_section",
     # Launchers
     "launcher_python",
     "launcher_shell",
@@ -131,14 +127,13 @@ class TestGeneratedSectionMarkers:
         markers = get_generated_section_markers()
         assert len(markers) > 0
 
-    def test_markers_contain_quickstart(self) -> None:
+    def test_markers_do_not_contain_readme_quickstart(self) -> None:
         markers = get_generated_section_markers()
-        assert "readme_quickstart" in markers
-        assert "<!-- OMG:GENERATED:quickstart -->" in markers["readme_quickstart"]
+        assert "readme_quickstart" not in markers
 
-    def test_markers_contain_command_surface(self) -> None:
+    def test_markers_do_not_contain_readme_command_surface(self) -> None:
         markers = get_generated_section_markers()
-        assert "readme_command_surface" in markers
+        assert "readme_command_surface" not in markers
 
     def test_markers_contain_install_fast_path(self) -> None:
         markers = get_generated_section_markers()
@@ -213,10 +208,9 @@ class TestReleaseBodyArtifacts:
         assert len(found) == 1
         assert found[0]["category"] == "release_body"
 
-    def test_proof_generated_section_marker(self) -> None:
+    def test_readme_proof_generated_section_marker_removed(self) -> None:
         markers = get_generated_section_markers()
-        assert "proof_generated_section" in markers
-        assert "proof" in markers["proof_generated_section"].lower()
+        assert "proof_generated_section" not in markers
 
 
 class TestPromotedPublicCommands:

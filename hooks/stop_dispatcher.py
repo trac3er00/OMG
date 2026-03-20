@@ -21,14 +21,17 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
         sys.path.insert(0, path)
 
 from hooks._common import (  # noqa: E402
+    _get_session_id,
     atomic_json_write,
     block_decision,
     bootstrap_runtime_paths,
     check_performance_budget,
     get_feature_flag,
     get_project_dir,
+    has_recent_tool_activity,
     json_input,
     log_hook_error,
+    read_checklist_session,
     record_stop_block,
     reset_stop_block_tracker,
     _resolve_project_dir,
@@ -36,6 +39,7 @@ from hooks._common import (  # noqa: E402
     should_skip_stop_hooks,
     STOP_CHECK_MAX_MS,
     STOP_DISPATCHER_TOTAL_MAX_MS,
+    write_checklist_session,
 )
 from hooks.state_migration import resolve_state_file  # noqa: E402
 
@@ -1019,6 +1023,47 @@ def check_planning_gate(project_dir, data=None):
     blocked = sum(1 for l in lines if re.search(r"^\s*-\s*\[!\]", l))
     pending = total - done - blocked
     if pending > 0:
+        sidecar_path = os.path.join(project_dir, ".omg", "state", "_checklist.session")
+        if not os.path.exists(sidecar_path):
+            write_checklist_session(project_dir)
+
+        session_data = read_checklist_session(project_dir)
+        current_session = _get_session_id()
+        stale_reason = None
+        if session_data:
+            checklist_session = str(session_data.get("session_id", "")).strip()
+            if (
+                checklist_session
+                and current_session != "unknown"
+                and checklist_session != current_session
+            ):
+                stale_reason = "different session"
+            created_at = str(session_data.get("created_at", "")).strip()
+            if not stale_reason and created_at:
+                try:
+                    created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    if created_dt.tzinfo is None:
+                        created_dt = created_dt.replace(tzinfo=timezone.utc)
+                    age = datetime.now(timezone.utc) - created_dt.astimezone(timezone.utc)
+                    if age.total_seconds() > 2 * 3600:
+                        stale_reason = f"{age.total_seconds() / 3600:.1f}h old"
+                except (ValueError, TypeError):
+                    pass
+        else:
+            try:
+                age_hours = (time.time() - os.path.getmtime(checklist)) / 3600
+                if age_hours > 2:
+                    stale_reason = f"{age_hours:.1f}h old (mtime fallback)"
+            except OSError:
+                pass
+
+        if stale_reason:
+            return [], [
+                f"[OMG advisory] Planning gate: stale checklist ({stale_reason}). "
+                f"{done}/{total} complete, {pending} pending. "
+                f"Clear with: rm .omg/state/_checklist.md"
+            ]
+
         # Check context pressure — demote to advisory if high
         _pressure_path = os.path.join(project_dir, ".omg", "state", ".context-pressure.json")
         _is_high_pressure = False
@@ -1037,6 +1082,14 @@ def check_planning_gate(project_dir, data=None):
         return [
             f"Planning gate: {done}/{total} complete, {pending} pending. Complete checklist before finishing."
         ], []
+    if pending == 0 and done >= 3:
+        activity = has_recent_tool_activity(project_dir, since_minutes=60)
+        if not activity.get("has_writes") and not activity.get("has_tests"):
+            return [], [
+                f"[OMG advisory] All {done} checklist items marked [x] but "
+                f"no code changes or test runs found in tool-ledger. "
+                f"If work was done externally, this can be ignored."
+            ]
     return [], []
 
 

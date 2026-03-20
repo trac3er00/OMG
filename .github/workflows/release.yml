@@ -70,6 +70,7 @@ jobs:
           OMG_RELEASE_READY_PROVIDERS: claude,codex,gemini,kimi
         run: |
           python3 scripts/sync-release-identity.py --check
+          python3 scripts/omg.py release audit --artifact --format json --output-json artifacts/release/release-audit.json
           python3 scripts/omg.py release readiness --channel dual --output-root artifacts/release
 
       - name: Run semantic-release

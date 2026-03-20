@@ -93,44 +93,29 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 - Normative spec: `OMG_COMPAT_CONTRACT.md`
 - Executable registry: `registry/omg-capability.schema.json` and `registry/bundles/*.yaml`
 - Generated Codex pack: `.agents/skills/omg/`
-- Validation: `omg contract validate`
-- Compilation: `omg contract compile --host claude --host codex --host gemini --host kimi --channel public`
-- Release gate: `omg release readiness --channel dual`
+- Validation: `npx omg contract validate`
+- Compilation: `npx omg contract compile --host claude --host codex --host gemini --host kimi --channel public`
+- Release gate: `npx omg release readiness --channel dual`
 
 ![OMG HUD](docs/assets/omg-hud.svg)
 
 ## Quickstart
 
 <!-- OMG:GENERATED:install-intro -->
-Run the published launcher directly and keep mutations explicit:
-
-Supported platforms: macOS and Linux.
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
 npx omg env doctor
 npx omg install --plan
-npx omg install --apply
-```
-
-If you choose `npm install`, it performs dependency resolution and bin linking only.
-
-The package postinstall runs `omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
-<!-- /OMG:GENERATED:install-intro -->
-
-**Prerequisites**: Node >=18, Python >=3.10, macOS/Linux only
-
-Canonical launcher-first flow:
-
-Then run:
-
-```bash
-npx omg env doctor
-npx omg install --plan
+# confirm preview output before applying
 npx omg install --apply
 npx omg ship
 ```
 
-If you choose `npm install`, it only resolves dependencies and links the bin. The package postinstall remains preview-only and still requires explicit `npx omg install --apply` for mutations.
+Local package-manager installs only link `omg` into `node_modules/.bin/`; they do not mutate configuration.
+
+The package postinstall runs `npx omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
+<!-- /OMG:GENERATED:install-intro -->
 
 On non-Claude hosts, verify native MCP registration after `npx omg install --apply`:
 
@@ -150,7 +135,7 @@ Success looks like:
 - OMG reports the selected preset and next step
 - narrowed defaults keep the required control plane small while optional capabilities such as browser automation remain opt-in
 
-> Legacy compatibility only: clone-and-setup flows plus Claude slash commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain available for older environments, but they are not the primary install path.
+> Restricted environments / air-gapped fallback only: clone-and-setup flows plus Claude slash commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain available when launcher-first install cannot modify the host directly.
 
 ## Install Guides
 
@@ -184,9 +169,9 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 - Execution Kernel: `exec-kernel` facade with `worker-watchdog` stall detection and `merge-writer` provenance
 - Governed Tool Fabric: Lane-based tool governance with signed approval and ledgering
 - Budget Envelopes: Multi-dimensional resource tracking (CPU, memory, wall time, tokens, network)
-- Issue Surface: Active red-team and diagnostic surface via `/OMG:issue`
 - Host Parity: Semantic host parity normalization across canonical providers
-- Music OMR: Flagship testbed for OMR and live transposition
+- Issue Surface: Active red-team and diagnostic surface via `/OMG:issue`
+- Certification Lane 1 and permanent flagship gate: Music OMR daily verification for deterministic OMR and live transposition under the hardest real-time domain constraints in the stack
 - Evidence profiles: `browser-flow`, `forge-cybersecurity`, `interop-diagnosis`, `install-validation`, `buffet`
 - Verification and provider matrix: [docs/proof.md](docs/proof.md)
 - Sample setup transcript: [docs/transcripts/setup.md](docs/transcripts/setup.md)
@@ -197,30 +182,17 @@ Current local verification for this release: See `.omg/evidence/` for machine-ge
 
 Primary launcher entry points:
 
-- `omg env doctor`
-- `omg install --plan`
-- `omg install --apply`
-- `omg ship`
-- `omg proof open --html`
-- `omg blocked --last`
+- `npx omg env doctor`
+- `npx omg install --plan`
+- `npx omg install --apply`
+- `npx omg ship`
+- `npx omg proof open --html`
+- `npx omg blocked --last`
 
-Claude compatibility aliases remain available when you need them:
-
-- `/OMG:setup`
-- `/OMG:browser`
-- `/OMG:crazy`
-- `/OMG:deep-plan` (compatibility path to `plan-council`)
-
-Advanced launcher and compatibility surfaces stay available for deeper workflows:
-
-- `/OMG:playwright` (compatibility alias to `/OMG:browser`)
-- `/OMG:security-check`
-- `/OMG:api-twin`
-- `/OMG:preflight`
-- `/OMG:teams`
-- `/OMG:ccg`
-- `/OMG:compat`
-- `/OMG:ship`
+> **Legacy/advanced aliases**: `/OMG:setup`, `/OMG:browser`, `/OMG:crazy`, `/OMG:deep-plan`
+> (compatibility path to `plan-council`),
+> `/OMG:playwright`, `/OMG:security-check`, `/OMG:api-twin`, `/OMG:preflight`, `/OMG:teams`,
+> `/OMG:ccg`, `/OMG:compat`, `/OMG:ship`
 
 ## Contributing
 
@@ -233,50 +205,3 @@ Public contributions are welcome.
 ## Positioning
 
 OMG is a plugin and orchestration layer for supported CLIs. It is not a base-model training project. The goal is to make frontier agent hosts tighter, safer, more interoperable, and more verifiable than the default experience.
-
-<!-- OMG:GENERATED:quickstart -->
-Install OMG, verify the environment, then preview and apply the managed changes:
-
-Supported platforms: macOS and Linux.
-
-```bash
-npx omg env doctor
-npx omg install --plan
-npx omg install --apply
-```
-
-Then start working:
-
-```bash
-npx omg ship
-npx omg proof open --html
-npx omg blocked --last
-```
-
-> Legacy compatibility: `/OMG:crazy <goal>` is still accepted as an alias.
-<!-- /OMG:GENERATED:quickstart -->
-
-<!-- OMG:GENERATED:command-surface -->
-- `omg ship`
-- `omg proof`
-- `omg blocked --last`
-- `omg explain run --run-id <id>`
-- `omg budget simulate --enforce`
-- `omg install --plan`
-- `omg install --apply`
-- `omg doctor`
-- `omg env doctor`
-<!-- /OMG:GENERATED:command-surface -->
-
-<!-- OMG:GENERATED:proof -->
-## Verification
-
-```bash
-omg proof open --html
-omg blocked --last
-omg explain run --run-id <id>
-omg budget simulate --enforce
-```
-
-Machine-generated evidence artifacts: `.omg/evidence/`
-<!-- /OMG:GENERATED:proof -->

@@ -65,19 +65,6 @@ def compile_release_surfaces(
         )
         if updated:
             sections_updated.append("install_intro")
-        quickstart_key = _marker_key(markers.get("readme_quickstart", "")) or "quickstart"
-        content, updated = _upsert_section(
-            content,
-            quickstart_key,
-            _quickstart_content(),
-            insert_after="## Quickstart",
-        )
-        if updated:
-            sections_updated.append("readme_quickstart")
-        cmd_key = _marker_key(markers.get("readme_command_surface", "")) or "command-surface"
-        content, updated = _upsert_section(content, cmd_key, _command_surface_snippet(root))
-        if updated:
-            sections_updated.append("readme_command_surface")
         why_omg_key = _marker_key(markers.get("why_omg", "")) or "why-omg"
         content, updated = _upsert_section(
             content,
@@ -87,10 +74,10 @@ def compile_release_surfaces(
         )
         if updated:
             sections_updated.append("why_omg")
-        proof_key = _marker_key(markers.get("proof_generated_section", "")) or "proof"
-        content, updated = _upsert_section(content, proof_key, _proof_content())
-        if updated:
-            sections_updated.append("proof_generated_section")
+        for key in ("quickstart", "command-surface", "proof"):
+            content, updated = _remove_generated_section(content, key)
+            if updated:
+                sections_updated.append(f"removed:{key}")
         readme.write_text(content, encoding="utf-8")
 
     changelog = root / "CHANGELOG.md"
@@ -256,8 +243,8 @@ def _upsert_section(
     )
 
     if pattern.search(content):
-        content = pattern.sub(block, content)
-        return content, True
+        new_content = pattern.sub(block, content)
+        return new_content, new_content != content
 
     if insert_after is not None:
         idx = content.find(insert_after)
@@ -314,19 +301,20 @@ def _install_fast_path_content() -> str:
 
 def _install_intro_content() -> str:
     return (
-        "Run the published launcher directly and keep mutations explicit:\n"
-        "\n"
-        "Supported platforms: macOS and Linux.\n"
+        "> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10\n"
         "\n"
         "```bash\n"
         "npx omg env doctor\n"
         "npx omg install --plan\n"
+        "# confirm preview output before applying\n"
         "npx omg install --apply\n"
+        "npx omg ship\n"
         "```\n"
         "\n"
-        "If you choose `npm install`, it performs dependency resolution and bin linking only.\n"
+        "Local package-manager installs only link `omg` into `node_modules/.bin/`; "
+        "they do not mutate configuration.\n"
         "\n"
-        "The package postinstall runs `omg install --plan` as a preview, so it makes "
+        "The package postinstall runs `npx omg install --plan` as a preview, so it makes "
         "no mutations until you explicitly run `npx omg install --apply`."
     )
 
@@ -350,9 +338,9 @@ def _proof_quickstart_content() -> str:
         "## Proof Quickstart\n"
         "\n"
         "```bash\n"
-        "omg proof open --html\n"
-        "omg blocked --last\n"
-        "omg explain run --run-id <id>\n"
+        "npx omg proof open --html\n"
+        "npx omg blocked --last\n"
+        "npx omg explain run --run-id <id>\n"
         "```\n"
         "\n"
         "Use the HTML view first, then inspect blockers or explain a specific run."
@@ -393,10 +381,10 @@ def _proof_content() -> str:
         "## Verification\n"
         "\n"
         "```bash\n"
-        "omg proof open --html\n"
-        "omg blocked --last\n"
-        "omg explain run --run-id <id>\n"
-        "omg budget simulate --enforce\n"
+        "npx omg proof open --html\n"
+        "npx omg blocked --last\n"
+        "npx omg explain run --run-id <id>\n"
+        "npx omg budget simulate --enforce\n"
         "```\n"
         "\n"
         "Machine-generated evidence artifacts: `.omg/evidence/`"
@@ -407,7 +395,7 @@ def _command_surface_snippet(root: Path) -> str:
     promoted = get_promoted_public_commands()
     if not promoted:
         return "No commands available."
-    return "\n".join(f"- `{cmd}`" for cmd in promoted)
+    return "\n".join(f"- `{_render_public_command(cmd)}`" for cmd in promoted)
 
 
 def _extract_commands(root: Path) -> list[tuple[str, str]]:
@@ -416,8 +404,11 @@ def _extract_commands(root: Path) -> list[tuple[str, str]]:
         return []
 
     try:
-        tree = ast.parse(omg_py.read_text(encoding="utf-8"))
-    except SyntaxError:
+        source = omg_py.read_text(encoding="utf-8")
+        if len(source) > 500_000:
+            return []
+        tree = ast.parse(source)
+    except (SyntaxError, OSError):
         return []
 
     build_fn: ast.FunctionDef | None = None
@@ -493,7 +484,7 @@ def _write_command_surface_doc(path: Path, root: Path) -> None:
         lines.append("| Command | Description |")
         lines.append("| :--- | :--- |")
         for name, help_text in commands:
-            lines.append(f"| `omg {name}` | {help_text or chr(8212)} |")
+            lines.append(f"| `{_render_public_command(f'omg {name}')}` | {help_text or chr(8212)} |")
 
     _ = path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -506,6 +497,21 @@ def _extract_marker_content(content: str, key: str) -> str | None:
     )
     m = pattern.search(content)
     return m.group(1) if m else None
+
+
+def _remove_generated_section(content: str, key: str) -> tuple[str, bool]:
+    open_tag = f"<!-- OMG:GENERATED:{key} -->"
+    close_tag = f"<!-- /OMG:GENERATED:{key} -->"
+    pattern = re.compile(r"\n?" + re.escape(open_tag) + r".*?" + re.escape(close_tag) + r"\n?", re.DOTALL)
+    new_content = pattern.sub("\n", content)
+    new_content = re.sub(r"\n{3,}", "\n\n", new_content)
+    return new_content, new_content != content
+
+
+def _render_public_command(command: str) -> str:
+    if command.startswith("omg "):
+        return f"npx {command}"
+    return command
 
 
 def _check_marker_drift(
@@ -544,6 +550,26 @@ def _check_artifact_drift(
         drift.append({"surface": surface_name, "path": rel_path, "reason": "artifact content drift"})
 
 
+def _check_stale_legacy_section(
+    root: Path,
+    rel_path: str,
+    key: str,
+    drift: list[dict[str, str]],
+) -> None:
+    """Detect stale legacy generated sections that should have been removed."""
+    path = root / rel_path
+    if not path.exists():
+        return
+    open_tag = f"<!-- OMG:GENERATED:{key} -->"
+    content = path.read_text(encoding="utf-8")
+    if open_tag in content:
+        drift.append({
+            "surface": f"legacy:{key}",
+            "path": rel_path,
+            "reason": f"stale legacy section '{key}' should be removed",
+        })
+
+
 def _check_release_surfaces(root: Path) -> dict[str, Any]:
     markers = get_generated_section_markers()
     drift: list[dict[str, str]] = []
@@ -558,29 +584,17 @@ def _check_release_surfaces(root: Path) -> dict[str, Any]:
     )
     _check_marker_drift(
         root, "README.md",
-        markers.get("readme_quickstart", ""),
-        _quickstart_content(), "readme_quickstart", drift,
-    )
-    _check_marker_drift(
-        root, "README.md",
         markers.get("install_intro", ""),
         _install_intro_content(), "install_intro", drift,
-    )
-    _check_marker_drift(
-        root, "README.md",
-        markers.get("readme_command_surface", ""),
-        _command_surface_snippet(root), "readme_command_surface", drift,
     )
     _check_marker_drift(
         root, "README.md",
         markers.get("why_omg", ""),
         _why_omg_content(), "why_omg", drift,
     )
-    _check_marker_drift(
-        root, "README.md",
-        markers.get("proof_generated_section", ""),
-        _proof_content(), "proof_generated_section", drift,
-    )
+    # Check for stale legacy sections that should have been removed
+    for legacy_key in ("quickstart", "command-surface", "proof"):
+        _check_stale_legacy_section(root, "README.md", legacy_key, drift)
     fast_path_marker = markers.get("install_fast_path", "")
     install_surfaces = [
         s for s in surfaces

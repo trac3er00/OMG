@@ -50,6 +50,7 @@
 | Diagnostics | `npx omg doctor` |
 | Environment check | `npx omg env doctor` |
 | Ship | `npx omg ship` |
+| Release audit | `npx omg release audit --artifact` |
 | Proof dashboard | `npx omg proof open --html` |
 | Explain run | `npx omg explain run --run-id <id>` |
 | Blocked inspection | `npx omg blocked --last` |
