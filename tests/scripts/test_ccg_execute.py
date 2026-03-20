@@ -26,7 +26,7 @@ class TestExecuteCcgMode:
     @patch("runtime.team_router.execute_agents_parallel")
     def test_returns_dict_with_required_keys(self, mock_parallel: MagicMock) -> None:
         """execute_ccg_mode must return dict with status/phases/model_mix/synthesis."""
-        mock_parallel.return_value = self._two_track_results()
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         result = execute_ccg_mode(
@@ -40,7 +40,7 @@ class TestExecuteCcgMode:
 
     @patch("runtime.team_router.execute_agents_parallel")
     def test_status_is_ok(self, mock_parallel: MagicMock) -> None:
-        mock_parallel.return_value = self._two_track_results()
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         result = execute_ccg_mode(
@@ -50,9 +50,9 @@ class TestExecuteCcgMode:
         assert result["status"] == "ok"
 
     @patch("runtime.team_router.execute_agents_parallel")
-    def test_dispatches_two_tracks(self, mock_parallel: MagicMock) -> None:
-        """CCG mode should dispatch exactly 2 parallel tracks (backend + frontend)."""
-        mock_parallel.return_value = self._two_track_results()
+    def test_dispatches_three_tracks(self, mock_parallel: MagicMock) -> None:
+        """CCG mode should dispatch exactly 3 parallel tracks (backend + frontend + architect)."""
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         execute_ccg_mode(
@@ -62,11 +62,14 @@ class TestExecuteCcgMode:
 
         mock_parallel.assert_called_once()
         tasks = mock_parallel.call_args[0][0]
-        assert len(tasks) == 2
+        assert len(tasks) == 3
         agent_names = {t["agent_name"] for t in tasks}
         assert "backend-engineer" in agent_names
         assert "frontend-designer" in agent_names
+        assert "architect" in agent_names
 
+    @patch("runtime.team_router.save_coordinator_state", return_value="/tmp/fake-state.json")
+    @patch("runtime.team_router.update_coordinator_state", return_value={})
     @patch("runtime.team_router._update_post_council_state")
     @patch("runtime.team_router._persist_council_verdicts")
     @patch("runtime.team_router.run_critics", return_value={})
@@ -81,8 +84,10 @@ class TestExecuteCcgMode:
         _mock_critics: MagicMock,
         _mock_persist: MagicMock,
         _mock_update: MagicMock,
+        _mock_coord_update: MagicMock,
+        _mock_coord_save: MagicMock,
     ) -> None:
-        mock_parallel.return_value = self._two_track_results()
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         execute_ccg_mode(
@@ -95,7 +100,7 @@ class TestExecuteCcgMode:
 
     @patch("runtime.team_router.execute_agents_parallel")
     def test_context_included_in_prompts(self, mock_parallel: MagicMock, tmp_path: Path) -> None:
-        mock_parallel.return_value = self._two_track_results()
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         execute_ccg_mode(
@@ -110,7 +115,7 @@ class TestExecuteCcgMode:
 
     @patch("runtime.team_router.execute_agents_parallel")
     def test_files_included_in_prompts(self, mock_parallel: MagicMock) -> None:
-        mock_parallel.return_value = self._two_track_results()
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         execute_ccg_mode(
@@ -125,7 +130,7 @@ class TestExecuteCcgMode:
 
     @patch("runtime.team_router.execute_agents_parallel")
     def test_phases_include_orchestrator_and_agents(self, mock_parallel: MagicMock) -> None:
-        mock_parallel.return_value = self._two_track_results()
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         result = execute_ccg_mode(
@@ -134,15 +139,16 @@ class TestExecuteCcgMode:
         )
 
         phases = result["phases"]
-        assert len(phases) >= 3  # orchestrator + 2 tracks + synthesis
+        assert len(phases) >= 4  # orchestrator + 3 tracks + synthesis
         phase_agents = [p.get("agent") for p in phases]
         assert "claude-orchestrator" in phase_agents
         assert "backend-engineer" in phase_agents
         assert "frontend-designer" in phase_agents
+        assert "architect" in phase_agents
 
     @patch("runtime.team_router.execute_agents_parallel")
     def test_model_mix_categorises_results(self, mock_parallel: MagicMock) -> None:
-        mock_parallel.return_value = self._two_track_results()
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         result = execute_ccg_mode(
@@ -157,8 +163,8 @@ class TestExecuteCcgMode:
         assert "claude" in mm
 
     @patch("runtime.team_router.execute_agents_parallel")
-    def test_worker_count_is_two(self, mock_parallel: MagicMock, tmp_path: Path) -> None:
-        mock_parallel.return_value = self._two_track_results()
+    def test_worker_count_is_three(self, mock_parallel: MagicMock, tmp_path: Path) -> None:
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         result = execute_ccg_mode(
@@ -166,12 +172,12 @@ class TestExecuteCcgMode:
             project_dir=str(tmp_path),
         )
 
-        assert result["worker_count"] == 2
-        assert result["target_worker_count"] == 2
+        assert result["worker_count"] == 3
+        assert result["target_worker_count"] == 3
 
     @patch("runtime.team_router.execute_agents_parallel")
     def test_parallel_execution_flag(self, mock_parallel: MagicMock) -> None:
-        mock_parallel.return_value = self._two_track_results()
+        mock_parallel.return_value = self._three_track_results()
         from runtime.team_router import execute_ccg_mode
 
         result = execute_ccg_mode(
@@ -202,7 +208,7 @@ class TestExecuteCcgMode:
     # --- helpers ---
 
     @staticmethod
-    def _two_track_results() -> list[dict[str, Any]]:
+    def _three_track_results() -> list[dict[str, Any]]:
         return [
             {
                 "agent": "backend-engineer",
@@ -220,6 +226,14 @@ class TestExecuteCcgMode:
                 "output": "Frontend analysis done",
                 "model": "gemini-cli",
             },
+            {
+                "agent": "architect",
+                "order": 3,
+                "status": "completed",
+                "exit_code": 0,
+                "output": "Architecture analysis done",
+                "model": "claude-sonnet",
+            },
         ]
 
 
@@ -233,7 +247,7 @@ class TestCmdCcgIntegration:
 
     @patch("runtime.team_router.execute_agents_parallel")
     def test_cmd_ccg_returns_execution_result(self, mock_parallel: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
-        mock_parallel.return_value = TestExecuteCcgMode._two_track_results()
+        mock_parallel.return_value = TestExecuteCcgMode._three_track_results()
 
         import sys
         sys.path.insert(0, str(ROOT))
@@ -260,7 +274,7 @@ class TestCmdCcgIntegration:
 
     @patch("runtime.team_router.execute_agents_parallel")
     def test_cmd_ccg_not_just_dispatch_plan(self, mock_parallel: MagicMock, capsys: pytest.CaptureFixture[str]) -> None:
-        mock_parallel.return_value = TestExecuteCcgMode._two_track_results()
+        mock_parallel.return_value = TestExecuteCcgMode._three_track_results()
 
         import sys
         sys.path.insert(0, str(ROOT))

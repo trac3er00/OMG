@@ -107,6 +107,68 @@ EVIDENCE_REQUIREMENTS_BY_PROFILE: Final[dict[str, list[str]]] = {
     "buffet": list(FULL_REQUIREMENTS),
     "security-audit": list(FULL_REQUIREMENTS),
     "release": list(FULL_REQUIREMENTS),
+    # NF4: Task completion certification lanes
+    "lane-feature-ship": [
+        "tests",
+        "lsp_clean",
+        "build",
+        "provenance",
+        "trace_link",
+    ],
+    "lane-bug-fix": [
+        "tests",
+        "lsp_clean",
+        "provenance",
+        "trace_link",
+    ],
+    "lane-security-remediation": [
+        "tests",
+        "lsp_clean",
+        "provenance",
+        "trace_link",
+        "security_scan",
+    ],
+    "lane-migration-refactor": [
+        "tests",
+        "lsp_clean",
+        "provenance",
+        "trace_link",
+    ],
+    "lane-regression-recovery": [
+        "tests",
+        "lsp_clean",
+        "provenance",
+        "trace_link",
+    ],
+}
+
+# NF4: Certification lane metadata
+CERTIFICATION_LANES: Final[dict[str, dict[str, str]]] = {
+    "lane-feature-ship": {
+        "label": "Feature Ship",
+        "gate_type": "active-gated",
+        "description": "Full feature delivery with tests, build, and PR",
+    },
+    "lane-bug-fix": {
+        "label": "Bug Fix",
+        "gate_type": "active-gated",
+        "description": "Bug fix with regression test and root cause verification",
+    },
+    "lane-security-remediation": {
+        "label": "Security Remediation",
+        "gate_type": "active-gated",
+        "description": "Security fix with scan, CVE reference, and verification",
+    },
+    "lane-migration-refactor": {
+        "label": "Migration / Refactor",
+        "gate_type": "active-advisory",
+        "description": "Migration or refactor with before/after parity proof",
+    },
+    "lane-regression-recovery": {
+        "label": "Regression Recovery",
+        "gate_type": "active-advisory",
+        "description": "Regression recovery with reproduced test and green suite",
+    },
 }
 
 

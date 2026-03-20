@@ -31,6 +31,65 @@ _jobs: dict[str, dict[str, Any]] = {}
 _lock = threading.Lock()
 
 
+# =============================================================================
+# NF5d: Native sub-agent API support (feature-flagged)
+# =============================================================================
+
+
+def is_native_subagent_available() -> bool:
+    """Check if native sub-agent API is available.
+
+    Requires both:
+    - OMG_NATIVE_SUBAGENTS env var set to "1" or "true"
+    - CLAUDE_CODE or CLAUDE_CODE_ENTRYPOINT env var exists
+
+    Returns:
+        True if native sub-agents are available, False otherwise.
+    """
+    # Check feature flag
+    native_flag = os.environ.get("OMG_NATIVE_SUBAGENTS", "").lower()
+    if native_flag not in ("1", "true"):
+        return False
+
+    # Check for Claude Code environment
+    claude_code = os.environ.get("CLAUDE_CODE")
+    claude_entrypoint = os.environ.get("CLAUDE_CODE_ENTRYPOINT")
+
+    return bool(claude_code or claude_entrypoint)
+
+
+def build_native_subagent_instruction(
+    agent_type: str, prompt: str, background: bool = True
+) -> dict[str, Any]:
+    """Build instruction dict for Claude Code Agent tool.
+
+    Args:
+        agent_type: Type of agent (e.g., "codex", "gemini", "task").
+        prompt: The prompt/task to send to the sub-agent.
+        background: Whether to run in background (default True).
+
+    Returns:
+        dict with keys: tool, subagent_type, prompt, run_in_background
+    """
+    return {
+        "tool": "Agent",
+        "subagent_type": agent_type,
+        "prompt": prompt,
+        "run_in_background": background,
+    }
+
+
+def get_dispatch_mode() -> str:
+    """Get the current dispatch mode for sub-agents.
+
+    Returns:
+        "native" if is_native_subagent_available(), "cli" otherwise.
+    """
+    if is_native_subagent_available():
+        return "native"
+    return "cli"
+
+
 def _get_feature_flag() -> Any:
     """Lazy-import get_feature_flag from hooks/_common.py."""
     hooks_dir = os.path.join(_OMG_ROOT, "hooks")

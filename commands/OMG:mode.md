@@ -1,6 +1,6 @@
 ---
 description: "Set canonical mode (chill/focused/exploratory) for the current session."
-allowed-tools: Read, Write, Edit, Bash
+allowed-tools: Read, Write, Edit, AskUserQuestion, Bash
 argument-hint: "[chill|focused|exploratory|clear]"
 ---
 
@@ -16,6 +16,19 @@ Switch Claude's operating mode for the current session.
 /OMG:mode exploratory  # Focus on discovery and synthesis
 /OMG:mode clear        # Clear current mode (return to default)
 ```
+
+## Interactive Selection
+
+When invoked without an argument, use `AskUserQuestion`:
+- question: "Which session mode do you want?"
+- header: "Mode"
+- options:
+  - label: "chill", description: "Conservative execution pace, low-risk maintenance"
+  - label: "focused", description: "Implementation-forward flow, active feature work"
+  - label: "exploratory", description: "Discovery, synthesis, and mapping"
+  - label: "clear", description: "Clear current mode (return to default)"
+
+Wait for user selection before proceeding.
 
 ## What It Does
 

@@ -1,0 +1,7 @@
+name: 'Docs Parity Check'
+description: 'Verify documentation matches actual repo state'
+runs:
+  using: 'composite'
+  steps:
+    - run: python3 scripts/check-doc-parity.py
+      shell: bash

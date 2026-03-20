@@ -350,12 +350,12 @@ def resolve_github_token() -> str:
         if value:
             return value
     try:
-        from runtime.github_integration import get_github_token
-    except ImportError:
-        return ""
-    token_result = get_github_token(env=os.environ)
-    if token_result.get("status") == "ok":
-        return str(token_result.get("token", "")).strip()
+        result = _run_tool(["gh", "auth", "token"], timeout=5)
+        token = result.stdout.strip()
+        if result.returncode == 0 and token:
+            return token
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
     return ""
 
 

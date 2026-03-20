@@ -1,6 +1,6 @@
 ---
 description: "Inspect or apply the canonical OMG preset for the current project."
-allowed-tools: Read, Write, Edit, Bash(python*:*), Bash(ls:*), Bash(grep:*)
+allowed-tools: Read, Write, Edit, AskUserQuestion, Bash(python*:*), Bash(ls:*), Bash(grep:*)
 argument-hint: "[safe|balanced|interop|labs|buffet|plugins-first]"
 ---
 
@@ -22,12 +22,17 @@ Inspect or apply the canonical OMG preset for the current project.
 
 ## Presets
 
-- `safe`: minimum managed OMG surface
-- `balanced`: safe defaults plus extra productivity MCPs
-- `interop`: coexistence and shared-memory oriented setup
-- `labs`: enables experimental and browser-heavy surfaces
-- `buffet`: full preset; enables every managed preset flag
-- `plugins-first`: compatibility alias for `interop`
+When invoked without an argument, use `AskUserQuestion`:
+- question: "Which OMG preset should be applied?"
+- header: "Preset"
+- options:
+  - label: "safe (Recommended)", description: "Minimum managed OMG surface"
+  - label: "balanced", description: "Safe defaults plus extra productivity MCPs"
+  - label: "labs", description: "Experimental and browser-heavy surfaces"
+  - label: "buffet", description: "Full preset — enables every managed flag"
+- (interop, plugins-first available via Other)
+
+Wait for user selection before applying.
 
 ## Behavior
 

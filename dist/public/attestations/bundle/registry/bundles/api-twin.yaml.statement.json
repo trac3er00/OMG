@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/api-twin.yaml",
       "digest": {
-        "sha256": "aea35dbdbf704b71d7ece9d0cbcffacf997a3645b86b61a2cdce4adc752e303f"
+        "sha256": "59cc44799a5d67bc7a1877ca59f2fa3d3da2394e570ec1edb2cb9dbbca685331"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:41.902138+00:00"
+      "timestamp": "2026-03-20T15:37:43.037828+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:41.902138+00:00",
+  "issued_at": "2026-03-20T15:37:43.037828+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "d8d3fdf327995d59",
-    "value": "untrusted comment: signature from omg local signing key\n0daJqSz8WPbHPwr9iGlpIO5zrK9NEB4iBNzP9bkqktL5A218xSHS1/4oRO72c5HL4pOUebz8rdsoqYOgmO84AQ==\ntrusted comment: type=omg-slsa-v1 keyid=d8d3fdf327995d59 issued_at=2026-03-18T21:01:41.902246+00:00 artifact=bundle/registry/bundles/api-twin.yaml sha256=aea35dbdbf704b71d7ece9d0cbcffacf997a3645b86b61a2cdce4adc752e303f\neSI4ct18DGhWGyGfvMHUQmmrJgTR++HNmHYVgrk4ndcBa8zPXR+H7arOYSZXs/OHUDESukEwUZaBEBS82muRBQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=d8d3fdf327995d59 issued_at=2026-03-18T21:01:41.902246+00:00 artifact=bundle/registry/bundles/api-twin.yaml sha256=aea35dbdbf704b71d7ece9d0cbcffacf997a3645b86b61a2cdce4adc752e303f"
+    "keyid": "2667319423e089f3",
+    "value": "untrusted comment: signature from omg local signing key\n8sIckIhmKF/rkAjmG7HW6tL6oKQ+lY64EtqthXAyZQgosXiuHNcD6TDnIKOxtUyMt7SzvmvKF6JRyKshe024Bg==\ntrusted comment: type=omg-slsa-v1 keyid=2667319423e089f3 issued_at=2026-03-20T15:37:43.037989+00:00 artifact=bundle/registry/bundles/api-twin.yaml sha256=59cc44799a5d67bc7a1877ca59f2fa3d3da2394e570ec1edb2cb9dbbca685331\nomT/WfAn5/9d1KZbKrXRG8iaoCdQ8rDmI/upxmlqFEaJk/LjSRSqHWFNNzom5cAIWawxLMw9AD1BH8XnAJm6DA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=2667319423e089f3 issued_at=2026-03-20T15:37:43.037989+00:00 artifact=bundle/registry/bundles/api-twin.yaml sha256=59cc44799a5d67bc7a1877ca59f2fa3d3da2394e570ec1edb2cb9dbbca685331"
   }
 }

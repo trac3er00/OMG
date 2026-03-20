@@ -101,3 +101,11 @@ Forge is a **domain-prototyping** surface, not a model-training research tool. I
 - Lab policy validation for all dataset and model sources
 - The `labs` preset boundary — no forge operations run without labs enabled
 - Domain-pack contracts (`runtime/domain_packs.py`) for domain-specific prototyping
+
+## Limitations
+
+1. **Validation and Routing, Not Training**: Forge is a job validation and routing layer. It orchestrates the lab pipeline but does not perform actual model training or simulation itself.
+
+2. **Adapter Dependencies**: Actual training and simulation require optional adapters (e.g., `axolotl` for training, `pybullet` for robotics simulation). Forge validates and routes jobs to these adapters if available.
+
+3. **Registry-Based Dispatch**: Specialist dispatch is registry-based routing to domain-specific components, not autonomous agent invocation. Specialists are predefined workflow stages, not independent agents.

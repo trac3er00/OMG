@@ -80,20 +80,21 @@ def test_readme_and_plugin_docs_promote_browser_command():
     assert "/OMG:browser" in proof
 
 
-def test_deep_plan_is_compatibility_path_to_plan_council():
-    """Assert the deep-plan/plan-council compatibility relationship end-to-end."""
+def test_deep_plan_is_linked_to_plan_council():
+    """Assert deep-plan and plan-council are properly connected."""
     # 1. plugin.json maps deep-plan to commands/OMG:deep-plan.md
     manifest = json.loads(
         (ROOT / "plugins" / "advanced" / "plugin.json").read_text(encoding="utf-8")
     )
     assert manifest["commands"]["deep-plan"]["path"] == "commands/OMG:deep-plan.md"
 
-    # 2. The command file itself mentions deep-plan and declares compatibility
+    # 2. The command file itself is a full 5-track planning command
     cmd_text = (ROOT / "plugins" / "advanced" / "commands" / "OMG:deep-plan.md").read_text(
         encoding="utf-8"
     )
     assert "deep-plan" in cmd_text.lower()
-    assert "compatibility" in cmd_text.lower()
+    assert "5-track" in cmd_text.lower() or "5 track" in cmd_text.lower()
+    # plan-council evidence artifact is referenced
     assert "plan-council" in cmd_text
 
     # 3. plan-council bundle references the plugin-relative command path
@@ -105,15 +106,13 @@ def test_deep_plan_is_compatibility_path_to_plan_council():
         "plugins/advanced/commands/OMG:deep-plan.md" in str(r) for r in refs
     ), f"plan-council bundle references do not include plugin-relative deep-plan path: {refs}"
 
-    # 4. README.md advertises /OMG:deep-plan as compatibility path to plan-council
+    # 4. README.md advertises /OMG:deep-plan
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "/OMG:deep-plan" in readme
-    assert "compatibility path to `plan-council`" in readme
 
-    # 5. plugins/README.md uses the same framing
+    # 5. plugins/README.md mentions /OMG:deep-plan
     plugins_readme = (ROOT / "plugins" / "README.md").read_text(encoding="utf-8")
     assert "/OMG:deep-plan" in plugins_readme
-    assert "compatibility path to `plan-council`" in plugins_readme
 
 
 def test_plugins_readme_leads_with_launcher_first_install_story():
@@ -171,16 +170,18 @@ def test_core_plugin_command_paths_resolve_relative_to_plugin_root():
         assert resolved.exists(), f"Command '{cmd_name}' path '{path}' does not resolve to {resolved}"
 
 
-def test_omg_deep_plan_root_stub_exists():
-    """Assert commands/OMG:deep-plan.md exists as a root slash-command stub coupled to plan-council."""
-    stub_path = ROOT / "commands" / "OMG:deep-plan.md"
-    assert stub_path.exists(), f"Root stub {stub_path} does not exist"
+def test_omg_deep_plan_root_command_exists():
+    """Assert commands/OMG:deep-plan.md exists as a full 5-track strategic planning command."""
+    cmd_path = ROOT / "commands" / "OMG:deep-plan.md"
+    assert cmd_path.exists(), f"Command file {cmd_path} does not exist"
 
-    content = stub_path.read_text(encoding="utf-8")
-    assert "plan-council" in content, "Root stub must reference plan-council"
-    assert "compatibility" in content.lower() or "alias" in content.lower(), \
-        "Root stub must declare compatibility or alias relationship"
-    assert "/OMG:deep-plan" in content, "Root stub must reference /OMG:deep-plan"
+    content = cmd_path.read_text(encoding="utf-8")
+    assert "5-track" in content.lower() or "5 track" in content.lower(), \
+        "deep-plan must reference 5-track architecture"
+    assert "architect" in content.lower(), \
+        "deep-plan must include architect track"
+    assert "/OMG:deep-plan" in content or "deep-plan" in content.lower(), \
+        "Command must reference deep-plan"
 
 
 def test_no_stale_presets_in_public_docs() -> None:
@@ -234,3 +235,75 @@ def test_no_hardcoded_version_drift() -> None:
                     drift.append(f"{rel}:{lineno}:{match.group(0)}")
 
     assert drift == [], "Hard-coded OMG version drift found: " + ", ".join(drift)
+
+
+# ---------------------------------------------------------------------------
+# Error / edge case / regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_plugin_manifests_are_valid_json() -> None:
+    """Malformed plugin.json breaks all command resolution."""
+    for manifest_path in ROOT.rglob("plugin.json"):
+        raw = manifest_path.read_text(encoding="utf-8")
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise AssertionError(f"Invalid JSON in {manifest_path}: {exc}") from exc
+        assert isinstance(data, dict), f"{manifest_path} top-level must be a dict"
+
+
+def test_core_plugin_commands_dict_is_not_empty() -> None:
+    """An empty commands dict means no skills will resolve at all."""
+    manifest = json.loads((ROOT / "plugins" / "core" / "plugin.json").read_text(encoding="utf-8"))
+    assert len(manifest["commands"]) > 0, "Core plugin must expose at least one command"
+
+
+def test_command_files_are_not_zero_byte() -> None:
+    """Zero-byte command files silently break skill resolution."""
+    cmd_dir = ROOT / "commands"
+    for md in sorted(cmd_dir.glob("OMG:*.md")):
+        if md.is_symlink():
+            continue
+        size = md.stat().st_size
+        assert size > 0, f"{md.name} is zero bytes"
+
+
+def test_registry_bundles_are_valid_yaml() -> None:
+    """Malformed bundle YAML breaks proof-gate and plan-council."""
+    bundle_dir = ROOT / "registry" / "bundles"
+    if not bundle_dir.exists():
+        return
+    for bundle_path in sorted(bundle_dir.glob("*.yaml")):
+        raw = bundle_path.read_text(encoding="utf-8")
+        try:
+            data = yaml.safe_load(raw)
+        except yaml.YAMLError as exc:
+            raise AssertionError(f"Invalid YAML in {bundle_path}: {exc}") from exc
+        assert isinstance(data, dict), f"{bundle_path} must be a dict"
+
+
+def test_package_json_version_matches_canonical() -> None:
+    """package.json version must match the runtime canonical version."""
+    pkg = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+    assert pkg["version"] == CANONICAL_VERSION, (
+        f"package.json version {pkg['version']} != canonical {CANONICAL_VERSION}"
+    )
+
+
+def test_readme_does_not_reference_deleted_workflows() -> None:
+    """Regression: stale badge/CI references to workflows that were removed."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    deleted = ["omg-compat-gate.yml", "omg-release-readiness.yml", "evidence-gate.yml"]
+    for wf in deleted:
+        assert wf not in readme, f"README.md still references deleted workflow {wf}"
+
+
+def test_schema_file_is_valid_json() -> None:
+    """The capability schema must parse without errors."""
+    schema_path = ROOT / "registry" / "omg-capability.schema.json"
+    if not schema_path.exists():
+        return
+    raw = schema_path.read_text(encoding="utf-8")
+    data = json.loads(raw)
+    assert "properties" in data, "Schema must have properties"

@@ -26,8 +26,6 @@ from hooks._budget import BUDGET_SESSION_TOTAL, BUDGET_SESSION_IDLE
 
 bootstrap_runtime_paths(__file__)
 
-from runtime.context_engine import render_profile_digest_text
-
 setup_crash_handler("session-start", fail_closed=False)
 
 data = json_input()
@@ -55,6 +53,7 @@ profile = _read_file(profile_path, 3000)
 if profile:
     # Inject bounded profile digest — skips discoverable info (conventions, ai_behavior)
     # and surfaces only non-discoverable preferences via render_profile_digest_text.
+    from runtime.context_engine import render_profile_digest_text
     digest = render_profile_digest_text(project_dir, max_chars=240)
     if digest:
         sections.append(f"@project: profile_digest={digest}")
@@ -113,7 +112,67 @@ if os.environ.get("OMG_INCLUDE_LEGACY_ALIASES", "0") == "1":
         if os.path.exists(cmd_file):
             tools.append(f"/{cmd_name} (alias)")
 
+# MCP server duplicate detection
+def _extract_mcp_base_name(server_name: str) -> str:
+    """Extract base name from MCP server name.
+
+    Examples:
+        plugin_linear_linear -> linear
+        claude_ai_Linear -> linear
+        plugin_omg_omg-control -> omg-control
+        omg-control -> omg-control
+        filesystem -> filesystem
+    """
+    # Remove common prefixes
+    name = server_name
+    for prefix in ["plugin_", "claude_ai_", "mcp_"]:
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+
+    # Handle cases like "plugin_linear_linear" -> "linear_linear" -> "linear"
+    # Check if we have a pattern like "X_X" or "X_X-Y"
+    parts = name.split("_")
+    if len(parts) >= 2:
+        # Case 1: exact duplicate like "linear_linear"
+        if parts[-1] == parts[-2]:
+            return parts[-1].lower()
+        # Case 2: pattern like "omg_omg-control" where first part matches start of second
+        if len(parts) == 2 and parts[1].startswith(parts[0]):
+            # Take the longer, more specific part
+            return parts[1].lower()
+
+    return name.lower()
+
+
+def _detect_duplicate_mcp_servers(all_servers: dict[str, dict]) -> list[str]:
+    """Detect duplicate MCP servers with similar names.
+
+    Returns list of warning messages about detected duplicates.
+    """
+    from collections import defaultdict
+
+    # Group servers by base name
+    groups = defaultdict(list)
+    for server_name, server_config in all_servers.items():
+        base_name = _extract_mcp_base_name(server_name)
+        groups[base_name].append(server_name)
+
+    # Find groups with duplicates
+    warnings = []
+    for base_name, server_names in groups.items():
+        if len(server_names) >= 2:
+            # Sort to ensure consistent output
+            sorted_names = sorted(server_names)
+            warnings.append(
+                f"  ⚠ Duplicate MCP servers detected for '{base_name}': {', '.join(sorted_names)}"
+            )
+
+    return warnings
+
+
 claude_config_dir = os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude"))
+all_mcp_servers = {}
 for mcp_loc in [
     os.path.join(project_dir, ".mcp.json"),
     os.path.join(claude_config_dir, ".mcp.json"),
@@ -123,9 +182,18 @@ for mcp_loc in [
         try:
             with open(mcp_loc, "r", encoding="utf-8") as f:
                 servers = json.load(f).get("mcpServers", {})
+            all_mcp_servers.update(servers)
             tools.extend(f"mcp:{n}" for n in list(servers.keys())[:5])
         except Exception:
             pass
+
+# Check for duplicate MCP servers
+duplicate_warnings = _detect_duplicate_mcp_servers(all_mcp_servers)
+if duplicate_warnings:
+    warning_text = "[MCP DUPLICATE DETECTION]\n"
+    warning_text += "\n".join(duplicate_warnings)
+    warning_text += "\n  → Suggestion: Remove redundant MCP server registrations to reduce context token usage."
+    sections.append(warning_text)
 
 if tools:
     sections.append("@tools: " + ", ".join(tools))

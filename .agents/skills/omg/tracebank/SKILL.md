@@ -5,7 +5,7 @@ description: "Structured plan-to-patch-to-verify trace capture for OMG routes."
 
 # OMG Tracebank
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/tracebank/events.jsonl`

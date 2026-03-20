@@ -1,6 +1,6 @@
 ---
 description: "Unified initializer — auto-detects: project setup (if no .omg/state), domain scaffolding (if argument given), or health check."
-allowed-tools: Read, Write, Edit, MultiEdit, Bash(mkdir:*), Bash(cat:*), Bash(find:*), Bash(ls:*), Bash(head:*), Bash(grep:*), Bash(tree:*), Bash(node:*), Bash(python*:*), Bash(tee:*), Grep, Glob
+allowed-tools: Read, Write, Edit, MultiEdit, AskUserQuestion, Bash(mkdir:*), Bash(cat:*), Bash(find:*), Bash(ls:*), Bash(head:*), Bash(grep:*), Bash(tree:*), Bash(node:*), Bash(python*:*), Bash(tee:*), Grep, Glob
 argument-hint: "[optional: domain name like 'payment', or 'check' for health check]"
 ---
 
@@ -91,11 +91,15 @@ Read the most complete existing domain. Extract:
 - Naming conventions, error handling, data flow patterns
 
 ### Step 2: Define the New Domain
-Ask the user:
-- "What entities does [domain] have?"
-- "What actions can be performed?"
-- "What external services does it talk to?"
-- "What are the business rules?"
+Use `AskUserQuestion` to gather domain details (batch up to 4 questions):
+- question: "What entities does [domain] have?", header: "Entities"
+  - options: (dynamically infer 2-4 likely entity patterns from reference domain + Other)
+- question: "What actions can be performed?", header: "Actions"
+  - options: (dynamically infer 2-4 likely CRUD/workflow actions + Other)
+- question: "What external services does it talk to?", header: "Services"
+  - options: (infer from project deps, e.g. "Database", "REST API", "Queue", "None")
+- question: "What are the business rules?", header: "Rules"
+  - options: (dynamically infer or use "Let me describe" as primary option)
 
 ### Step 3: Generate Domain Structure
 Match the reference pattern EXACTLY. Create:

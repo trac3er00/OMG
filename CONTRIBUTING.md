@@ -84,7 +84,7 @@ If your PR touches any of these areas, **you must also update the corresponding 
 | New dependency type or secret pattern | Security Hygiene |
 | File path restructure (e.g. `runtime/` renamed) | **All agents** (update file patterns) |
 
-**How to update:** Go to Cubic dashboard → Settings → Custom Agents → edit the relevant agent's instruction and/or file patterns.
+**How to update:** Agent prompts are versioned in `cubic-agents/`. Update the in-repo file FIRST, then sync to the Cubic dashboard (Settings → Custom Agents → edit the relevant agent's instruction and/or file patterns).
 
 ### Legacy CI gates (removed)
 

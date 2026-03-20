@@ -8,6 +8,38 @@
 - Idempotent generated-section markers in docs
 <!-- /OMG:GENERATED:changelog-v2.2.10 -->
 
+<!-- OMG:GENERATED:changelog-v2.2.12 -->
+### Governed Release Surface (v2.2.12)
+
+- Canonical release surface compilation
+- Dual-channel artifact output (public + enterprise)
+- Idempotent generated-section markers in docs
+<!-- /OMG:GENERATED:changelog-v2.2.12 -->
+
+## 2.2.12 - 2026-03-20
+
+### Deep Plan v2.3 Implementation, Circuit-Breaker Wiring, and Version Bump
+
+#### Hook System — Cross-Hook Wiring and Accuracy
+- **hook reentry guard**: add `hook_reentry_guard()` context manager to prevent concurrent hook execution with process-level fcntl locks
+- **circuit-breaker loop detection**: wire `circuit-breaker.py` to `record_stop_block()` and `is_stop_block_loop()` for cross-hook cycle breaking
+- **stop dispatcher reentry**: wrap `stop_dispatcher.main()` with reentry guard to prevent double prompt boxes
+- **verification accuracy**: fix `check_verification()` to use current-turn Bash commands from stop payload, not just 2-hour ledger window
+- **memory path exclusions**: add `memory/` and `.claude/projects/` to `NON_SOURCE_PATTERNS` to prevent false verification blocks on planning/memory writes
+- **verification cooldown**: add 60s cooldown marker after verification block to prevent re-blocking when tests are already running
+
+#### Runtime — Ledger Rotation and Session Slugs
+- **ledger rotation**: add `_rotate_ledger_if_needed()` to `pre-compact.py` — caps `tool-ledger.jsonl` at 10,000 lines with `.bak` backup
+- **session slug generation**: add `generate_session_slug()` for human-readable plan IDs (`{adjective}-{noun}-{YYYYMMDD}`)
+- **deep-plan artifact paths**: change plan output from `.omg/plans/deep-plan.{md,json}` to `.omg/plans/{slug}/plan.{md,json}`
+
+#### AI Enhancement — CoT and Model Hints
+- **CoT preamble injection**: inject step-by-step reasoning preamble for complex tasks (complexity >= 4) and sequential-thinking signals
+- **model parameter hints**: inject `@model-hint: opus` for HIGH complexity, `@model-hint: sonnet` for MEDIUM, with tier-aware routing fallback
+
+#### Permissions — Security Hardening
+- **ask permissions**: move network (`curl`, `wget`, `ssh`, `scp`, `rsync`), container (`docker`, `docker-compose`, `kubectl exec/edit/patch`), and interpreter (`env`, `node`, `python`, `python3`, `chmod`, `chown`, `sudo`) commands from `allow` to `ask`
+
 ## 2.2.11 - 2026-03-19
 
 ### PR Review Migration, Hook Hardening, and Release Audit Gate

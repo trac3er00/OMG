@@ -38,6 +38,11 @@ _PREFERENCE_ALLOWED_FIELDS = (
 )
 _INLINE_METADATA_MAX = 512
 _DEFAULT_NAMESPACE = "default"
+
+# NF2a: Layered memory taxonomy — 6 layers with precedence
+# task > session > project > folder > personal > shared
+MEMORY_LAYERS = ("task", "session", "project", "folder", "personal", "shared")
+MEMORY_LAYER_PRECEDENCE = {layer: i for i, layer in enumerate(MEMORY_LAYERS)}
 _DEFAULT_MEMORY_HOST = "127.0.0.1"
 _ENCRYPTED_PREFIX = "enc:v1:"
 _JSON_ENVELOPE_FORMAT = "omg.memory.json.v1"
@@ -105,6 +110,10 @@ class MemoryStore:
         profile_id: str = "",
         namespace: str = _DEFAULT_NAMESPACE,
         retention_days: int | None = None,
+        layer: str = "project",
+        confidence: float = 1.0,
+        decay_rate: float = 0.0,
+        source: str = "user",
     ) -> _Item:
         if self.count() >= _MAX_ITEMS:
             raise MemoryStoreFullError(
@@ -117,6 +126,8 @@ class MemoryStore:
         canonical_retention_days = _normalize_retention_days(retention_days)
         expires_at = _compute_expires_at(now, canonical_retention_days)
         redacted_content = _redact_pii(content)
+        canonical_layer = layer if layer in MEMORY_LAYERS else "project"
+        clamped_confidence = max(0.0, min(1.0, confidence))
         item: _Item = {
             "id": str(uuid.uuid4()),
             "key": key,
@@ -131,6 +142,11 @@ class MemoryStore:
             "created_at": now,
             "updated_at": now,
             "quarantined": False,
+            "layer": canonical_layer,
+            "confidence": clamped_confidence,
+            "decay_rate": max(0.0, min(1.0, decay_rate)),
+            "source": source,
+            "last_accessed_at": now,
         }
         if self._backend == "json":
             self._items.append(item)
@@ -142,8 +158,9 @@ class MemoryStore:
             """
             INSERT INTO memories(
                 id, key, content, source_cli, tags_json, run_id, profile_id,
-                namespace, retention_days, expires_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                namespace, retention_days, expires_at, created_at, updated_at,
+                layer, confidence, decay_rate, source, last_accessed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item["id"],
@@ -157,6 +174,11 @@ class MemoryStore:
                 canonical_retention_days,
                 expires_at,
                 now,
+                now,
+                canonical_layer,
+                clamped_confidence,
+                max(0.0, min(1.0, decay_rate)),
+                source,
                 now,
             ),
         )
@@ -275,6 +297,62 @@ class MemoryStore:
             if q in key_str or q in content_str or q in tags_str:
                 matches.append(item)
         return matches
+
+    def search_by_layer(
+        self,
+        query: str,
+        layers: list[str] | None = None,
+        *,
+        min_confidence: float = 0.0,
+    ) -> list[_Item]:
+        """Search memories filtered by layer, ordered by layer precedence."""
+        results = self.search(query)
+        if layers is not None:
+            results = [r for r in results if r.get("layer", "project") in layers]
+        if min_confidence > 0.0:
+            results = [r for r in results if float(r.get("confidence", 1.0)) >= min_confidence]
+        results.sort(key=lambda r: MEMORY_LAYER_PRECEDENCE.get(r.get("layer", "project"), 99))
+        return results
+
+    def apply_decay(self) -> int:
+        """Apply confidence decay to all memories. Returns count of decayed items."""
+        now = datetime.now(timezone.utc)
+        decayed = 0
+        items = self.list_all(include_quarantined=False)
+        for item in items:
+            decay_rate = float(item.get("decay_rate", 0.0))
+            if decay_rate <= 0.0:
+                continue
+            last_access = item.get("last_accessed_at") or item.get("updated_at", "")
+            if not last_access:
+                continue
+            try:
+                last_dt = datetime.fromisoformat(last_access)
+                days_since = (now - last_dt).total_seconds() / 86400.0
+                old_confidence = float(item.get("confidence", 1.0))
+                new_confidence = max(0.0, old_confidence - (decay_rate * days_since))
+                if new_confidence != old_confidence:
+                    self._update_field(item["id"], "confidence", new_confidence)
+                    decayed += 1
+            except (ValueError, TypeError):
+                continue
+        return decayed
+
+    def _update_field(self, item_id: str, field: str, value: Any) -> None:
+        """Update a single field on a memory item."""
+        if self._backend == "json":
+            for item in self._items:
+                if item.get("id") == item_id:
+                    item[field] = value
+                    item["updated_at"] = _utc_now_iso()
+                    break
+            self._save_json_items()
+        elif self._conn is not None:
+            self._conn.execute(
+                f"UPDATE memories SET {field} = ?, updated_at = ? WHERE id = ?",
+                (value, _utc_now_iso(), item_id),
+            )
+            self._conn.commit()
 
     def list_all(
         self,
@@ -818,7 +896,8 @@ class MemoryStore:
     def _row_to_item(self, row: sqlite3.Row) -> _Item:
         raw_expires_at = row["expires_at"] if "expires_at" in row.keys() else None
         expires_at = _normalize_expires_at(raw_expires_at)
-        return {
+        keys = row.keys()
+        item: _Item = {
             "id": row["id"],
             "key": row["key"],
             "content": self._decrypt_text(str(row["content"]), purpose="sqlite-content"),
@@ -826,13 +905,25 @@ class MemoryStore:
             "tags": _parse_json_array(row["tags_json"]),
             "run_id": row["run_id"],
             "profile_id": row["profile_id"],
-            "namespace": _qualify_namespace(row["namespace"] if "namespace" in row.keys() else _DEFAULT_NAMESPACE),
-            "retention_days": _normalize_retention_days(row["retention_days"] if "retention_days" in row.keys() else None),
+            "namespace": _qualify_namespace(row["namespace"] if "namespace" in keys else _DEFAULT_NAMESPACE),
+            "retention_days": _normalize_retention_days(row["retention_days"] if "retention_days" in keys else None),
             "expires_at": expires_at,
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
-            "quarantined": bool(row["quarantined"] if "quarantined" in row.keys() else 0),
+            "quarantined": bool(row["quarantined"] if "quarantined" in keys else 0),
         }
+        # NF2: Memory Mesh v2 columns (added via migration)
+        if "layer" in keys:
+            item["layer"] = row["layer"] or "project"
+        if "confidence" in keys:
+            item["confidence"] = float(row["confidence"]) if row["confidence"] is not None else 1.0
+        if "decay_rate" in keys:
+            item["decay_rate"] = float(row["decay_rate"]) if row["decay_rate"] is not None else 0.0
+        if "source" in keys:
+            item["source"] = row["source"] or "user"
+        if "last_accessed_at" in keys:
+            item["last_accessed_at"] = row["last_accessed_at"]
+        return item
 
     def _derive_key_bytes(self, *, purpose: str) -> bytes:
         secret_seed = os.environ.get("OMG_MEMORY_SECRET", "").strip()
@@ -1165,6 +1256,17 @@ def _ensure_memory_columns(conn: sqlite3.Connection) -> None:
         _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN expires_at TEXT")
     if "quarantined" not in columns:
         _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN quarantined INTEGER NOT NULL DEFAULT 0")
+    # NF2: Memory Mesh v2 — layered taxonomy + metadata
+    if "layer" not in columns:
+        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN layer TEXT NOT NULL DEFAULT 'project'")
+    if "confidence" not in columns:
+        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN confidence REAL NOT NULL DEFAULT 1.0")
+    if "decay_rate" not in columns:
+        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN decay_rate REAL NOT NULL DEFAULT 0.0")
+    if "source" not in columns:
+        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN source TEXT NOT NULL DEFAULT 'user'")
+    if "last_accessed_at" not in columns:
+        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN last_accessed_at TEXT")
 
 
 def _safe_add_memory_column(conn: sqlite3.Connection, ddl: str) -> None:

@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-1kQoqxlw40yvYEsbbeargwkpfwB0H3iwdIdbyp03q61UKG1oR6m7PZT/tmRmUioOEREcT7z8chswHQVBZgcZDA==
-trusted comment: type=omg-slsa-v1 keyid=9c426d9ed628ee43 issued_at=2026-03-18T21:01:41.903301+00:00 artifact=bundle/registry/bundles/claim-judge.yaml sha256=0716896b65b045a8220b7bb763016769730ed80fb8ffc15236addf990fa5154a
-JYCI4bBz36S2lgwqBt+3hdgRE7DqpKyuVcqadp2TZPTcWkNnAmnKSYMPEbtf4ztsAayCD2p8nx8KVJaUieRQDw==
+OK+rpc4NWRei8lcAgV3aYYt+kzjWRH/vJrM3DNWnlcnZk6d/2VLH1LZSeIbMz98m5MtuBiR0kkuhfAO0Vu4YDA==
+trusted comment: type=omg-slsa-v1 keyid=8ed1d8fe428d9810 issued_at=2026-03-20T15:37:43.039782+00:00 artifact=bundle/registry/bundles/claim-judge.yaml sha256=c9a605e45d044485eed79faa42e4b6b5b4eb8a86dd37e0e4a53786a2b5e3a9e0
+8JdxnTSmHR1get4T5q8Ss2GlPfsA2z9gDAWE52Xlbo7fxTpOoyYrw6ylsWmHtN6q7erGmUGewYsnXHnnMJiRCw==

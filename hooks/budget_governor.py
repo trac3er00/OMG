@@ -91,6 +91,14 @@ def _read_budget_config(project_dir: str) -> tuple[float, float, float, dict[str
         session_limit = _safe_float(budget_cfg.get("session_limit_usd"), session_limit)
         input_per_mtok = _safe_float(pricing.get("input_per_mtok"), DEFAULT_INPUT_PER_MTOK)
         output_per_mtok = _safe_float(pricing.get("output_per_mtok"), DEFAULT_OUTPUT_PER_MTOK)
+
+        # Apply OpusPlan budget multiplier when active
+        opus_plan_cfg = settings.get("_omg", {}).get("opus_plan", {})
+        if opus_plan_cfg.get("enabled"):
+            multiplier = _safe_float(opus_plan_cfg.get("budget_multiplier"), 1.0)
+            session_limit = session_limit * multiplier
+            tier_info["opus_plan_active"] = True
+            tier_info["budget_multiplier"] = multiplier
     except Exception:
         pass
 
@@ -163,6 +171,14 @@ def _read_thresholds_config(project_dir: str) -> list[int]:
         settings_path = os.path.join(project_dir, "settings.json")
         with open(settings_path, "r", encoding="utf-8") as f:
             settings = json.load(f)
+
+        # When OpusPlan is active, use its earlier warning threshold
+        opus_plan_cfg = settings.get("_omg", {}).get("opus_plan", {})
+        if opus_plan_cfg.get("enabled"):
+            warn_pct = int(opus_plan_cfg.get("warning_threshold_pct", 50))
+            # Build thresholds: first warning, critical (+30), limit (95)
+            return sorted({warn_pct, min(warn_pct + 30, 90), 95})
+
         raw = settings.get("_omg", {}).get("cost_budget", {}).get("thresholds")
         if isinstance(raw, list) and all(isinstance(t, (int, float)) for t in raw):
             return sorted(int(t) for t in raw)

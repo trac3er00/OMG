@@ -1,6 +1,6 @@
 ---
 description: "CRAZY mode — maximum multi-agent orchestration. Claude orchestrates, Codex deep-codes, Gemini designs. Anti-hallucination + error-loop prevention."
-allowed-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task
+allowed-tools: Read, Write, Edit, MultiEdit, AskUserQuestion, Bash, Grep, Glob, Task
 argument-hint: "[task description]"
 ---
 
@@ -11,14 +11,17 @@ argument-hint: "[task description]"
 STOP. Before doing ANYTHING, say out loud:
 "I understand you want me to [INTENT]: [specific goal]."
 
-| Signal | Intent | Action |
-|--------|--------|--------|
-| fix/bug/error | **FIX** | Debug → patch source → verify |
-| build/create/add | **IMPLEMENT** | Plan → code → test |
-| refactor/clean | **REFACTOR** | Preserve behavior, verify before+after |
-| review/check | **REVIEW** | Read ALL → report → don't change |
+If intent is obvious from the user's prompt, confirm: "This looks like [INTENT]. Proceeding."
+If ambiguous, use `AskUserQuestion`:
+- question: "What type of task is this?"
+- header: "Intent"
+- options:
+  - label: "FIX", description: "Debug, patch source, verify (fix/bug/error)"
+  - label: "IMPLEMENT", description: "Plan, code, test (build/create/add)"
+  - label: "REFACTOR", description: "Preserve behavior, verify before+after"
+  - label: "REVIEW", description: "Read all, report, don't change"
 
-If the user hasn't confirmed, ASK. Don't assume.
+Wait for user selection before acting.
 
 ## Phase 1.5: Brainstorm Merge (AUTOMATIC)
 
@@ -95,10 +98,13 @@ After EVERY implementation step:
 ```
 IF same_error >= 3:
     STOP. Do not retry.
-    OPTIONS:
-    1. /OMG:escalate codex "debug: [error] in [file]"
-    2. Completely different approach
-    3. Ask user for guidance
+    Use AskUserQuestion:
+      question: "Same error 3x. How should we proceed?"
+      header: "Stuck"
+      options:
+        - label: "Escalate to Codex", description: "Deep debug: [error] in [file]"
+        - label: "Different approach", description: "Try a fundamentally different strategy"
+        - label: "Ask for guidance", description: "Get user input on how to proceed"
     NEVER retry the same thing a 4th time.
 ```
 

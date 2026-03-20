@@ -1,11 +1,11 @@
-# OMG Codex Governance (channel: enterprise)
+# OMG Codex Governance (channel: public)
 
 ## Build & Test
 
 ```bash
 python3 -m pytest tests -q
 python3 scripts/omg.py contract validate
-python3 scripts/omg.py contract compile --host codex --channel enterprise
+python3 scripts/omg.py contract compile --host codex --channel public
 ```
 
 ## Protected Paths

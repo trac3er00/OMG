@@ -10,7 +10,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  docs-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run docs parity check
+        run: python3 scripts/check-doc-parity.py
+
   release:
+    needs: [docs-parity]
     runs-on: ubuntu-latest
     permissions:
       contents: write

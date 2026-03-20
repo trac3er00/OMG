@@ -98,6 +98,12 @@ from runtime.team_router import TeamDispatchRequest, dispatch_team, execute_ccg_
 from runtime.release_run_coordinator import resolve_current_run_id
 from runtime.subscription_tiers import detect_tier
 from runtime.policy_pack_loader import list_policy_packs, load_policy_pack
+from runtime.memory_store import MemoryStore
+from runtime.memory_parsers.export import export_to_markdown
+from runtime.memory_parsers.claude_import import parse_claude_paste
+from runtime.memory_parsers.gemini_import import parse_gemini_paste
+from runtime.memory_parsers.chatgpt_parser import conversations_to_memory_items, parse_conversations_file
+from runtime.skill_evolution import promote_if_proven
 
 
 CANONICAL_HOST_CHOICES = tuple(get_canonical_hosts())
@@ -1808,6 +1814,463 @@ def cmd_release_readiness(args: argparse.Namespace) -> int:
     return 0 if result.get("status") == "ok" else 2
 
 
+def cmd_memory_export(args: argparse.Namespace) -> int:
+    """Export memories from store in requested format."""
+    store = _get_memory_store()
+    items = store.export_all(include_quarantined=True)
+    output_format = getattr(args, "format", "json")
+
+    if output_format == "json":
+        result = json.dumps(items, indent=2, ensure_ascii=False)
+    elif output_format == "markdown":
+        result = export_to_markdown(items)
+    elif output_format == "encrypted":
+        result = json.dumps({
+            "note": "Encryption requires key setup. Set OMG_MEMORY_ENCRYPTION_KEY environment variable.",
+            "format": "json",
+            "items": items,
+        }, indent=2, ensure_ascii=False)
+    else:
+        result = json.dumps(items, indent=2, ensure_ascii=False)
+
+    output_path = getattr(args, "output", None)
+    if output_path:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(output_path).write_text(result, encoding="utf-8")
+        print(f"Exported {len(items)} memories to {output_path}")
+    else:
+        print(result)
+    return 0
+
+
+def cmd_memory_import(args: argparse.Namespace) -> int:
+    """Import memories from a file."""
+    import_path = args.file
+    if not Path(import_path).exists():
+        print(json.dumps({"status": "error", "error": f"File not found: {import_path}"}))
+        return 1
+
+    content = Path(import_path).read_text(encoding="utf-8")
+    items: list[dict[str, Any]] = []
+
+    # Try JSON format first
+    try:
+        data = json.loads(content)
+        if isinstance(data, list):
+            items = data
+        elif isinstance(data, dict) and "items" in data:
+            items = data["items"]
+    except json.JSONDecodeError:
+        # Try parsing as markdown or paste format
+        parsed = parse_claude_paste(content)
+        items = [
+            {
+                "id": str(uuid.uuid4()) if "uuid" in dir() else f"import-{i}",
+                "key": p.get("key", f"imported-{i}"),
+                "content": p.get("content", ""),
+                "source_cli": p.get("source_cli", "import"),
+                "tags": p.get("tags", ["imported"]),
+            }
+            for i, p in enumerate(parsed)
+        ]
+
+    if not items:
+        print(json.dumps({"status": "ok", "imported": 0, "message": "No items to import"}))
+        return 0
+
+    # Ensure each item has an id
+    import uuid as uuid_mod
+    for item in items:
+        if not item.get("id"):
+            item["id"] = str(uuid_mod.uuid4())
+
+    store = _get_memory_store()
+    review = getattr(args, "review", False)
+    count = store.import_items(items, quarantined=not review)
+
+    print(json.dumps({
+        "status": "ok",
+        "imported": count,
+        "quarantined": not review,
+    }))
+    return 0
+
+
+def cmd_memory_sync(args: argparse.Namespace) -> int:
+    """Sync memories from a web paste file."""
+    paste_file = args.from_web
+    if not Path(paste_file).exists():
+        print(json.dumps({"status": "error", "error": f"File not found: {paste_file}"}))
+        return 1
+
+    content = Path(paste_file).read_text(encoding="utf-8")
+
+    # Try different parsers
+    items: list[dict[str, Any]] = []
+    parser_used = "unknown"
+
+    # Try Claude format
+    claude_items = parse_claude_paste(content)
+    if claude_items:
+        items = claude_items
+        parser_used = "claude"
+
+    # Try Gemini format if Claude didn't match
+    if not items:
+        gemini_items = parse_gemini_paste(content)
+        if gemini_items:
+            items = gemini_items
+            parser_used = "gemini"
+
+    # Try ChatGPT format (expects JSON)
+    if not items:
+        try:
+            chatgpt_convos = json.loads(content)
+            if isinstance(chatgpt_convos, list) and chatgpt_convos:
+                items = conversations_to_memory_items(chatgpt_convos)
+                parser_used = "chatgpt"
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if not items:
+        print(json.dumps({"status": "ok", "imported": 0, "message": "No memories parsed from paste"}))
+        return 0
+
+    # Add source field and id to items
+    import uuid as uuid_mod
+    enriched_items = []
+    for item in items:
+        enriched = dict(item)
+        enriched["source"] = "web-paste"
+        if not enriched.get("id"):
+            enriched["id"] = str(uuid_mod.uuid4())
+        enriched_items.append(enriched)
+
+    store = _get_memory_store()
+    count = store.import_items(enriched_items, quarantined=True)
+
+    print(json.dumps({
+        "status": "ok",
+        "imported": count,
+        "parser": parser_used,
+        "source": "web-paste",
+    }))
+    return 0
+
+
+def _get_memory_store() -> MemoryStore:
+    """Create a MemoryStore, honoring OMG_MEMORY_STORE env for testing."""
+    store_path = os.environ.get("OMG_MEMORY_STORE")
+    return MemoryStore(store_path=store_path) if store_path else MemoryStore()
+
+
+def cmd_memory_list(args: argparse.Namespace) -> int:
+    """List memories with optional filters."""
+    store = _get_memory_store()
+    items = store.list_all(include_quarantined=True)
+
+    # Apply filters
+    layer_filter = getattr(args, "layer", None)
+    tag_filter = getattr(args, "tag", None)
+
+    if layer_filter:
+        items = [i for i in items if i.get("layer") == layer_filter]
+
+    if tag_filter:
+        items = [i for i in items if tag_filter in (i.get("tags") or [])]
+
+    # Format output as table
+    lines = ["ID | Key | Layer | Confidence | Created At"]
+    lines.append("-" * 80)
+    for item in items:
+        item_id = str(item.get("id", ""))[:8]
+        key = str(item.get("key", ""))[:30]
+        layer = str(item.get("layer", "project"))
+        confidence = f"{float(item.get('confidence', 1.0)):.2f}"
+        created_at = str(item.get("created_at", ""))[:19]
+        lines.append(f"{item_id} | {key} | {layer} | {confidence} | {created_at}")
+
+    print("\n".join(lines))
+    return 0
+
+
+# ============================================================================
+# Skill Foundry CLI Commands (NF6c)
+# ============================================================================
+
+
+def _load_skill_registry() -> dict[str, Any]:
+    """Load the compact skill registry from .omg/state/skill_registry/compact.json."""
+    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+    registry_path = project_dir / ".omg" / "state" / "skill_registry" / "compact.json"
+    if not registry_path.exists():
+        return {"active": [], "pruned": [], "summary_metadata": {}}
+    try:
+        return json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"active": [], "pruned": [], "summary_metadata": {}}
+
+
+def _load_skill_proposals() -> list[dict[str, Any]]:
+    """Load all skill proposals from .omg/state/skill-proposals/."""
+    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+    proposals_dir = project_dir / ".omg" / "state" / "skill-proposals"
+    if not proposals_dir.exists():
+        return []
+    proposals: list[dict[str, Any]] = []
+    for path in proposals_dir.glob("proposal-*.json"):
+        if "-eval.json" in path.name or "-promoted.json" in path.name:
+            continue
+        try:
+            proposal = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(proposal, dict):
+                proposals.append(proposal)
+        except (OSError, json.JSONDecodeError):
+            continue
+    return proposals
+
+
+def _load_proposal_by_id(proposal_id: str) -> dict[str, Any] | None:
+    """Load a specific proposal by ID."""
+    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+    proposal_path = project_dir / ".omg" / "state" / "skill-proposals" / f"{proposal_id}.json"
+    if not proposal_path.exists():
+        return None
+    try:
+        payload = json.loads(proposal_path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _load_proposal_evaluation(proposal_id: str) -> dict[str, Any] | None:
+    """Load the evaluation for a proposal."""
+    project_dir = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+    eval_path = project_dir / ".omg" / "state" / "skill-proposals" / f"{proposal_id}-eval.json"
+    if not eval_path.exists():
+        return None
+    try:
+        payload = json.loads(eval_path.read_text(encoding="utf-8"))
+        return payload if isinstance(payload, dict) else None
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _count_evidence_runs(proposal_id: str) -> tuple[int, int]:
+    """Count passing and failing evidence runs for a proposal.
+
+    Returns (passing_count, failing_count).
+    """
+    evaluation = _load_proposal_evaluation(proposal_id)
+    if evaluation is None:
+        return (0, 0)
+
+    proof_gate_result = evaluation.get("proof_gate_result", {})
+    if not isinstance(proof_gate_result, dict):
+        return (0, 0)
+
+    verdict = proof_gate_result.get("verdict", "fail")
+    blockers = proof_gate_result.get("blockers", [])
+    if not isinstance(blockers, list):
+        blockers = []
+
+    # Count evidence from evidence_summary if available
+    evidence_summary = proof_gate_result.get("evidence_summary", {})
+    if isinstance(evidence_summary, dict):
+        claim_count = evidence_summary.get("claim_count", 0)
+        if isinstance(claim_count, int) and claim_count > 0:
+            if verdict == "pass":
+                return (claim_count, 0)
+            else:
+                return (0, claim_count)
+
+    # Fallback: use verdict as single run
+    if verdict == "pass":
+        return (1, 0)
+    return (0, 1) if blockers else (0, 0)
+
+
+def cmd_skill_list(args: argparse.Namespace) -> int:
+    """List all active skills and pending proposals."""
+    registry = _load_skill_registry()
+    proposals = _load_skill_proposals()
+
+    active_skills = registry.get("active", [])
+    summary_metadata = registry.get("summary_metadata", {})
+
+    # Build table data
+    rows: list[tuple[str, str, int, str]] = []
+
+    # Active skills
+    for name in active_skills:
+        rows.append((name, "active", 0, "1.00"))
+
+    # Proposals
+    for proposal in proposals:
+        name = proposal.get("name", "unknown")
+        status = proposal.get("status", "proposed")
+        proposal_id = proposal.get("proposal_id", "")
+        if proposal.get("promoted"):
+            status = "promoted"
+
+        passing, failing = _count_evidence_runs(proposal_id)
+        evidence_runs = passing + failing
+        confidence = f"{passing / evidence_runs:.2f}" if evidence_runs > 0 else "0.00"
+        rows.append((name, status, evidence_runs, confidence))
+
+    if not rows:
+        print("No skills found")
+        return 0
+
+    # Print table
+    print(f"{'name':<40} | {'status':<10} | {'evidence_runs':>13} | {'confidence':>10}")
+    print("-" * 80)
+    for name, status, evidence_runs, confidence in rows:
+        print(f"{name:<40} | {status:<10} | {evidence_runs:>13} | {confidence:>10}")
+
+    return 0
+
+
+def cmd_skill_review(args: argparse.Namespace) -> int:
+    """Show proposal details and evidence summary."""
+    proposal_id = args.proposal_id
+
+    proposal = _load_proposal_by_id(proposal_id)
+    if proposal is None:
+        print(f"Proposal not found: {proposal_id}")
+        return 1
+
+    evaluation = _load_proposal_evaluation(proposal_id)
+
+    print("Proposal Details")
+    print("-" * 40)
+    print(f"  proposal_id: {proposal.get('proposal_id', 'N/A')}")
+    print(f"  name: {proposal.get('name', 'N/A')}")
+    print(f"  source: {proposal.get('source', 'N/A')}")
+    print(f"  status: {proposal.get('status', 'N/A')}")
+    print(f"  created_at: {proposal.get('created_at', 'N/A')}")
+
+    if proposal.get("description"):
+        print(f"  description: {proposal.get('description')}")
+
+    print()
+    print("Evidence Summary")
+    print("-" * 40)
+
+    passing, failing = _count_evidence_runs(proposal_id)
+
+    if evaluation is None:
+        print("  No evaluation found")
+        print()
+        print("Recommendation: needs more evidence")
+        return 0
+
+    proof_gate_result = evaluation.get("proof_gate_result", {})
+    verdict = proof_gate_result.get("verdict", "fail") if isinstance(proof_gate_result, dict) else "fail"
+    blockers = proof_gate_result.get("blockers", []) if isinstance(proof_gate_result, dict) else []
+
+    print(f"  passing_runs: {passing}")
+    print(f"  failing_runs: {failing}")
+    print(f"  verdict: {verdict}")
+
+    if blockers:
+        print(f"  blockers: {', '.join(str(b) for b in blockers)}")
+
+    print()
+
+    # Determine recommendation
+    # Requirements: >= 3 passing runs, no failures
+    if passing >= 3 and failing == 0:
+        print("Recommendation: promote")
+    else:
+        reasons: list[str] = []
+        if passing < 3:
+            reasons.append(f"need {3 - passing} more passing runs")
+        if failing > 0:
+            reasons.append(f"{failing} failing run(s) must be resolved")
+        print(f"Recommendation: needs more evidence ({'; '.join(reasons)})")
+
+    return 0
+
+
+def cmd_skill_promote(args: argparse.Namespace) -> int:
+    """Promote a proposal if evidence requirements are met."""
+    proposal_id = args.proposal_id
+
+    proposal = _load_proposal_by_id(proposal_id)
+    if proposal is None:
+        print(f"Proposal not found: {proposal_id}")
+        return 1
+
+    # Check evidence requirements
+    passing, failing = _count_evidence_runs(proposal_id)
+
+    if passing < 3:
+        print(f"Insufficient evidence: {passing} passing runs (need at least 3)")
+        return 1
+
+    if failing > 0:
+        print(f"Cannot promote: {failing} failing run(s) must be resolved first")
+        return 1
+
+    # Use the existing promote_if_proven function
+    result = promote_if_proven(proposal_id)
+
+    status = result.get("status", "error")
+    if status == "promoted":
+        print(f"Promoted: {proposal_id}")
+        return 0
+    elif status == "blocked":
+        reason = result.get("reason", "unknown")
+        print(f"Blocked: {reason}")
+        return 1
+    elif status == "missing":
+        print(f"Proposal not found: {proposal_id}")
+        return 1
+    else:
+        print(f"Promotion failed: {result}")
+        return 1
+
+
+def _add_skill_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    """Add skill subcommands for the Skill Foundry UX (NF6c)."""
+    skill_sub = parent.add_subparsers(dest=dest, required=True)
+
+    skill_list = skill_sub.add_parser("list", help="List all active skills and pending proposals")
+    skill_list.set_defaults(func=cmd_skill_list)
+
+    skill_review = skill_sub.add_parser("review", help="Show proposal details and evidence summary")
+    skill_review.add_argument("proposal_id", help="Proposal ID to review")
+    skill_review.set_defaults(func=cmd_skill_review)
+
+    skill_promote = skill_sub.add_parser("promote", help="Promote a proposal if evidence requirements are met")
+    skill_promote.add_argument("proposal_id", help="Proposal ID to promote")
+    skill_promote.set_defaults(func=cmd_skill_promote)
+
+
+def _add_memory_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    memory_sub = parent.add_subparsers(dest=dest, required=True)
+
+    memory_export = memory_sub.add_parser("export", help="Export memories from store")
+    memory_export.add_argument("--format", default="json", choices=["json", "markdown", "encrypted"], dest="format")
+    memory_export.add_argument("--output", default=None, help="Output file path (stdout if omitted)")
+    memory_export.set_defaults(func=cmd_memory_export)
+
+    memory_import = memory_sub.add_parser("import", help="Import memories from file")
+    memory_import.add_argument("file", help="File to import (JSON or markdown)")
+    memory_import.add_argument("--review", action="store_true", help="Auto-review (set quarantined=False)")
+    memory_import.set_defaults(func=cmd_memory_import)
+
+    memory_sync = memory_sub.add_parser("sync", help="Sync memories from web paste")
+    memory_sync.add_argument("--from-web", required=True, dest="from_web", help="Paste file from Claude.ai/ChatGPT")
+    memory_sync.set_defaults(func=cmd_memory_sync)
+
+    memory_list = memory_sub.add_parser("list", help="List memories")
+    memory_list.add_argument("--layer", default=None, help="Filter by layer")
+    memory_list.add_argument("--tag", default=None, help="Filter by tag")
+    memory_list.set_defaults(func=cmd_memory_list)
+
+
 def _add_compat_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     compat_sub = parent.add_subparsers(dest=dest, required=True)
     compat_list = compat_sub.add_parser("list", help="List supported legacy skill names")
@@ -2882,6 +3345,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     ecosystem = sub.add_parser("ecosystem", help="Upstream ecosystem sync and status")
     _add_ecosystem_subcommands(ecosystem, dest="ecosystem_command")
+
+    memory = sub.add_parser("memory", help="Memory Mesh import/export commands")
+    _add_memory_subcommands(memory, dest="memory_command")
+
+    # Skill Foundry subcommands (NF6c) - placed after memory to avoid merge conflicts
+    skill = sub.add_parser("skill", help="Skill Foundry approval and promotion UX")
+    _add_skill_subcommands(skill, dest="skill_command")
 
     contract = sub.add_parser("contract", help="Canonical OMG contract validation and compilation")
     _add_contract_subcommands(contract, dest="contract_command")

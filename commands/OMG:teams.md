@@ -1,7 +1,7 @@
 ---
 description: OMG internal staged team routing (standalone). /OMG:team canonical, /OMG:teams compatibility alias.
-allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(rg:*), Bash(find:*), Bash(cat:*), Bash(python3:*)
-argument-hint: "[codex|gemini|ccg|auto] 'problem statement'"
+allowed-tools: Read, Grep, Glob, AskUserQuestion, Bash(git:*), Bash(rg:*), Bash(find:*), Bash(cat:*), Bash(python3:*)
+argument-hint: "[codex|gemini|kimi|auto] 'problem statement'"
 ---
 
 # /OMG:teams — Standalone Internal Router
@@ -9,10 +9,24 @@ argument-hint: "[codex|gemini|ccg|auto] 'problem statement'"
 Canonical alias: `/OMG:team`
 Compatibility alias: `/OMG:teams`
 
-Use OMG's internal router using internal routing.
+Use OMG's internal router for multi-model dispatch.
+
+## Canonical Providers
+
+When invoked without an explicit target, use `AskUserQuestion`:
+- question: "Which dispatch target should handle this?"
+- header: "Target"
+- options:
+  - label: "auto (Recommended)", description: "Let router decide based on problem keywords"
+  - label: "codex", description: "Backend logic, security, debugging, algorithms"
+  - label: "gemini", description: "UI/UX, visual design, accessibility"
+  - label: "kimi", description: "Long-context analysis, document processing"
+- (ccg available via Other)
+
+Wait for user selection before dispatching. `claude` is always the host orchestrator (not selectable).
 
 ## Input contract
-- target: `auto|codex|gemini|ccg`
+- target: `auto|codex|gemini|kimi|ccg`
 - problem: clear issue statement
 - context: optional constraints
 - files: optional focus paths
@@ -47,6 +61,23 @@ python3 "$OMG_CLI" team --target codex --problem "[problem]"
 
 ## Output schema
 `TeamDispatchResult { status, findings[], actions[], evidence{} }`
+
+## Dispatch Strategy Reporting
+The router auto-detects the best dispatch method and reports it:
+
+| Strategy | Detection | Behavior |
+|----------|-----------|----------|
+| `agent` | Claude Code Agent tool available | Native parallel sub-agents |
+| `tmux` | `tmux` binary in PATH | Parallel tmux sessions |
+| `subprocess` | Fallback | Sequential subprocess calls |
+
+The active strategy appears in the output:
+```
+evidence: {
+  dispatch_strategy: "agent",  // or "tmux" or "subprocess"
+  cli_health: { ... }
+}
+```
 
 ## Full-power sub-agent protocol
 - For non-trivial tasks, launch multiple sub-agents in parallel (`run_in_background=true`) for independent tracks.

@@ -41,17 +41,32 @@ def _target(problem: str) -> str:
     return out["evidence"]["target"]
 
 
-def test_auto_route_respects_explicit_model_keywords():
-    assert _target("please use gemini for this UI review") == "gemini"
-    assert _target("please use codex for this backend debug") == "codex"
-    assert _target("run a ccg review for this change") == "ccg"
-    assert _target("ccg: review this change") == "ccg"
-    assert _target("route both codex and gemini for this bug") == "ccg"
+import pytest as _pytest_for_param
 
 
-def test_auto_route_detects_full_stack_with_space_and_mixed_domain():
-    assert _target("full stack login and dashboard review") == "ccg"
-    assert _target("frontend and backend architecture pass") == "ccg"
+@_pytest_for_param.mark.parametrize(
+    "problem,expected_target",
+    [
+        ("please use gemini for this UI review", "gemini"),
+        ("please use codex for this backend debug", "codex"),
+        ("run a ccg review for this change", "ccg"),
+        ("ccg: review this change", "ccg"),
+        ("route both codex and gemini for this bug", "ccg"),
+        ("full stack login and dashboard review", "ccg"),
+        ("frontend and backend architecture pass", "ccg"),
+    ],
+    ids=[
+        "explicit-gemini",
+        "explicit-codex",
+        "explicit-ccg",
+        "ccg-prefix",
+        "multi-model-triggers-ccg",
+        "full-stack-triggers-ccg",
+        "mixed-domain-triggers-ccg",
+    ],
+)
+def test_auto_route_selects_correct_target(problem: str, expected_target: str) -> None:
+    assert _target(problem) == expected_target
 
 
 def test_dispatch_team_reports_missing_cli_health(monkeypatch):
@@ -456,6 +471,7 @@ def test_execute_agents_parallel_preserves_all_results_when_orders_collide(monke
         }
 
     monkeypatch.setattr(team_router, "dispatch_to_model", _fake_dispatch)
+    monkeypatch.setattr(team_router, "_is_tmux_available", lambda: False)
 
     tasks = [
         {"agent_name": "a", "prompt": "one", "order": 0},
@@ -470,6 +486,7 @@ def test_execute_agents_parallel_preserves_all_results_when_orders_collide(monke
 
 
 def test_execute_agents_parallel_uses_runtime_profile_budget(tmp_path, monkeypatch):
+    monkeypatch.setattr(team_router, "_is_tmux_available", lambda: False)
     (tmp_path / ".omg").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".omg" / "runtime.yaml").write_text("profile: eco\n", encoding="utf-8")
 
@@ -696,3 +713,202 @@ def test_package_prompt_injects_bounded_profile_digest_without_raw_yaml(tmp_path
     assert "preferences:" not in digest
     assert "ver=profile-v8" in digest
     assert "Profile:\n" + digest in prompt
+
+
+def test_is_tmux_available_returns_bool():
+    """_is_tmux_available should return a boolean without raising."""
+    result = team_router._is_tmux_available()
+    assert isinstance(result, bool)
+
+
+def test_dispatch_parallel_tmux_raises_when_tmux_unavailable(monkeypatch):
+    """dispatch_parallel_tmux should raise RuntimeError when tmux is unavailable."""
+    class FakeMgr:
+        def is_tmux_available(self):
+            return False
+
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: FakeMgr())
+
+    import pytest
+    with pytest.raises(RuntimeError, match="tmux not available") as exc_info:
+        team_router.dispatch_parallel_tmux(
+            workers=[{"agent_name": "test", "prompt": "test", "order": 1}],
+            project_dir="/tmp",
+        )
+    assert "tmux" in str(exc_info).lower()
+
+
+def test_dispatch_parallel_tmux_timeout_kills_sessions(monkeypatch):
+    """Workers that exceed timeout should be cleaned up, not left dangling."""
+    sessions_killed = []
+
+    class FakeMgr:
+        def is_tmux_available(self):
+            return True
+
+        def make_session_name(self, name, unique_id=None):
+            return f"omg-{name}-{unique_id or 'test'}"
+
+        def get_or_create_session(self, name, cwd=None):
+            return name
+
+        def send_command(self, session, cmd):
+            pass
+
+        def capture_output(self, session, start=None):
+            return ""  # never finishes
+
+        def kill_session(self, session):
+            sessions_killed.append(session)
+
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: FakeMgr())
+    monkeypatch.setattr(team_router, "_get_agent_cli_command", lambda a, p, d: ("echo test", "test-model"))
+
+    results = team_router.dispatch_parallel_tmux(
+        workers=[{"agent_name": "slow-worker", "prompt": "test", "order": 1}],
+        project_dir="/tmp",
+        timeout=1,
+    )
+
+    assert len(sessions_killed) >= 1, "Timed-out tmux sessions must be killed"
+    assert results[0]["status"] == "error" or results[0].get("error"), \
+        "Timed-out workers should report error status"
+
+
+def test_dispatch_parallel_tmux_multiple_workers_all_cleaned_up(monkeypatch):
+    """All tmux sessions must be cleaned up even if some fail."""
+    sessions_created = []
+    sessions_killed = []
+
+    class FakeMgr:
+        def is_tmux_available(self):
+            return True
+
+        def make_session_name(self, name, unique_id=None):
+            return f"omg-{name}-{unique_id or 'test'}"
+
+        def get_or_create_session(self, name, cwd=None):
+            sessions_created.append(name)
+            return name
+
+        def send_command(self, session, cmd):
+            if "fail-worker" in session:
+                raise RuntimeError("session creation failed")
+
+        def capture_output(self, session, start=None):
+            return ""
+
+        def kill_session(self, session):
+            sessions_killed.append(session)
+
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: FakeMgr())
+    monkeypatch.setattr(team_router, "_get_agent_cli_command", lambda a, p, d: ("echo test", "test-model"))
+
+    results = team_router.dispatch_parallel_tmux(
+        workers=[
+            {"agent_name": "ok-worker", "prompt": "test", "order": 1},
+            {"agent_name": "fail-worker", "prompt": "test", "order": 2},
+        ],
+        project_dir="/tmp",
+        timeout=1,
+    )
+
+    # All created sessions must be killed in cleanup
+    for s in sessions_created:
+        assert s in sessions_killed, f"Session {s} was created but not cleaned up"
+
+
+def test_dispatch_parallel_tmux_returns_empty_for_no_workers(monkeypatch):
+    """dispatch_parallel_tmux should return empty list for no workers."""
+    class FakeMgr:
+        def is_tmux_available(self):
+            return True
+
+    monkeypatch.setattr(team_router, "_get_tmux_mgr", lambda: FakeMgr())
+
+    result = team_router.dispatch_parallel_tmux(
+        workers=[],
+        project_dir="/tmp",
+    )
+    assert result == []
+
+
+def test_execute_agents_parallel_falls_back_when_tmux_unavailable(monkeypatch):
+    """execute_agents_parallel should fall back to ThreadPoolExecutor when tmux unavailable."""
+    monkeypatch.setattr(team_router, "_is_tmux_available", lambda: False)
+
+    captured_args = []
+
+    def fake_execute_workers(
+        tasks, parallel, *, project_dir, dispatch_fn, timeout_per_worker, resolve_workers_fn, thread_pool_cls
+    ):
+        captured_args.append({
+            "tasks_count": len(tasks),
+            "parallel": parallel,
+            "project_dir": project_dir,
+        })
+        return [{"agent": "test", "status": "completed", "output": "ok"}]
+
+    monkeypatch.setattr(team_router, "execute_workers", fake_execute_workers)
+
+    result = team_router.execute_agents_parallel(
+        [{"agent_name": "test", "prompt": "test prompt", "order": 1}],
+        project_dir="/tmp/project",
+        timeout_per_agent=60,
+    )
+
+    assert len(captured_args) == 1
+    assert captured_args[0]["parallel"] is True
+    assert captured_args[0]["project_dir"] == "/tmp/project"
+    assert len(result) == 1
+
+
+def test_execute_agents_parallel_tries_tmux_first(monkeypatch):
+    """execute_agents_parallel should try tmux dispatch before falling back."""
+    tmux_called = []
+
+    def fake_dispatch_parallel_tmux(workers, project_dir, timeout=120):
+        tmux_called.append({"workers": workers, "project_dir": project_dir})
+        return [{"agent": w["agent_name"], "status": "completed", "output": "tmux"} for w in workers]
+
+    # Clear Claude Code env so detect_dispatch_strategy doesn't return DISPATCH_AGENT
+    monkeypatch.delenv("CLAUDE_CODE", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_ENTRYPOINT", raising=False)
+    monkeypatch.setattr(team_router, "_is_tmux_available", lambda: True)
+    monkeypatch.setattr(team_router, "dispatch_parallel_tmux", fake_dispatch_parallel_tmux)
+
+    result = team_router.execute_agents_parallel(
+        [{"agent_name": "test", "prompt": "test", "order": 1}],
+        project_dir="/tmp/project",
+    )
+
+    assert len(tmux_called) == 1
+    assert tmux_called[0]["project_dir"] == "/tmp/project"
+    assert result[0]["output"] == "tmux"
+
+
+def test_execute_agents_parallel_fallback_on_tmux_exception(monkeypatch):
+    """execute_agents_parallel should fall back when tmux dispatch raises."""
+    def fake_dispatch_parallel_tmux(workers, project_dir, timeout=120):
+        raise RuntimeError("tmux session creation failed")
+
+    monkeypatch.setattr(team_router, "_is_tmux_available", lambda: True)
+    monkeypatch.setattr(team_router, "dispatch_parallel_tmux", fake_dispatch_parallel_tmux)
+
+    fallback_called = []
+
+    def fake_execute_workers(
+        tasks, parallel, *, project_dir, dispatch_fn, timeout_per_worker, resolve_workers_fn, thread_pool_cls
+    ):
+        fallback_called.append(True)
+        return [{"agent": "test", "status": "completed", "output": "fallback"}]
+
+    monkeypatch.setattr(team_router, "execute_workers", fake_execute_workers)
+
+    result = team_router.execute_agents_parallel(
+        [{"agent_name": "test", "prompt": "test", "order": 1}],
+        project_dir="/tmp/project",
+    )
+
+    assert len(fallback_called) == 1
+    assert result[0]["output"] == "fallback"

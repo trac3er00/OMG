@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/lsp-pack/openai.yaml",
       "digest": {
-        "sha256": "e330762056921b42c4e8fda6de3f4036f02aaadff721d86611101436e2200d4a"
+        "sha256": "63d371f3dd2d2b9e555938461ed18a5c9b2558d5bdb90b736f20fe89f529f334"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:42.040949+00:00"
+      "timestamp": "2026-03-20T15:37:42.977447+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:42.040949+00:00",
+  "issued_at": "2026-03-20T15:37:42.977447+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "8869b441dba1c986",
-    "value": "untrusted comment: signature from omg local signing key\nrUMZBBBiIstLh6jidzu8XLRqFcAIt2XyIHaRZ/kbsVwz2YAzueirVSmVN5AQfjd3MnitBuf2a53MpTkZ5pKWCw==\ntrusted comment: type=omg-slsa-v1 keyid=8869b441dba1c986 issued_at=2026-03-18T21:01:42.041052+00:00 artifact=bundle/.agents/skills/omg/lsp-pack/openai.yaml sha256=e330762056921b42c4e8fda6de3f4036f02aaadff721d86611101436e2200d4a\nn8hGEMvQ4v78niiYfzBlNP9KP54rEe6Nnt9iRV7+x9A7VfOoLdawe/9MtZ6LVtyPuSxXnLxnFsDygID/uHb3BQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=8869b441dba1c986 issued_at=2026-03-18T21:01:42.041052+00:00 artifact=bundle/.agents/skills/omg/lsp-pack/openai.yaml sha256=e330762056921b42c4e8fda6de3f4036f02aaadff721d86611101436e2200d4a"
+    "keyid": "5220ae2d01ccb2b7",
+    "value": "untrusted comment: signature from omg local signing key\ncZNgS47Z/i6DVnC9+5NaeSycJojYY4PqAygkZzWl0rK1OhOFeGi1VNqxCzgG4yR5i4KBE5FpetIYIwTAIBjdBA==\ntrusted comment: type=omg-slsa-v1 keyid=5220ae2d01ccb2b7 issued_at=2026-03-20T15:37:42.977573+00:00 artifact=bundle/.agents/skills/omg/lsp-pack/openai.yaml sha256=63d371f3dd2d2b9e555938461ed18a5c9b2558d5bdb90b736f20fe89f529f334\nD2PGNvssFQYllmuhyxTUN6y93KnC7WlNMkzq2UM+BwxUUVj2EIMp0YjHW/t7aV7iJWqN9Ta9EY9Ci+WrN4F/Ag==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=5220ae2d01ccb2b7 issued_at=2026-03-20T15:37:42.977573+00:00 artifact=bundle/.agents/skills/omg/lsp-pack/openai.yaml sha256=63d371f3dd2d2b9e555938461ed18a5c9b2558d5bdb90b736f20fe89f529f334"
   }
 }

@@ -13,6 +13,7 @@ import shlex
 import shutil
 import subprocess
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -30,6 +31,11 @@ _TEAM_COMMAND_ALIASES = {
     "canonical": "/OMG:team",
     "compatibility": ["/OMG:teams"],
 }
+
+# --- Dispatch Strategy Constants (NF7e) ---
+DISPATCH_AGENT = "agent-tool"      # Native Claude Code Agent tool
+DISPATCH_TMUX = "tmux-session"     # Tmux parallel sessions
+DISPATCH_THREAD = "thread-pool"    # ThreadPoolExecutor fallback
 
 # Import providers to trigger auto-registration in provider registry
 try:
@@ -168,6 +174,74 @@ def _should_use_tmux() -> bool:
         return True
     except Exception:
         return False
+
+
+def _is_tmux_available() -> bool:
+    """Return True when tmux binary is available on PATH.
+
+    Unlike _should_use_tmux(), this does not check thread context.
+    Use this for deciding whether to attempt tmux-based parallel dispatch.
+    """
+    try:
+        return _get_tmux_mgr().is_tmux_available()
+    except Exception:
+        return False
+
+
+def detect_dispatch_strategy() -> str:
+    """Detect the best available dispatch strategy for parallel execution.
+
+    Priority order (NF7e hybrid dispatch):
+    1. agent-tool: Native Claude Code Agent tool (when running inside Claude Code)
+    2. tmux-session: Tmux parallel sessions (when tmux is available)
+    3. thread-pool: ThreadPoolExecutor fallback (always available)
+
+    Returns:
+        One of DISPATCH_AGENT, DISPATCH_TMUX, or DISPATCH_THREAD.
+    """
+    # Check for Claude Code environment
+    if os.environ.get("CLAUDE_CODE") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+        return DISPATCH_AGENT
+
+    # Check for tmux availability
+    if _is_tmux_available():
+        return DISPATCH_TMUX
+
+    # Fallback to thread pool
+    return DISPATCH_THREAD
+
+
+def dispatch_strategy_report(strategy: str) -> dict[str, Any]:
+    """Return metadata about a dispatch strategy's capabilities.
+
+    Args:
+        strategy: One of DISPATCH_AGENT, DISPATCH_TMUX, or DISPATCH_THREAD.
+
+    Returns:
+        Dict with strategy name, parallel capability, shared_context flag,
+        and list of supported providers.
+    """
+    if strategy == DISPATCH_AGENT:
+        return {
+            "strategy": "agent-tool",
+            "parallel": True,
+            "shared_context": True,
+            "providers": ["claude"],
+        }
+    if strategy == DISPATCH_TMUX:
+        return {
+            "strategy": "tmux-session",
+            "parallel": True,
+            "shared_context": False,
+            "providers": ["codex", "gemini", "kimi", "claude"],
+        }
+    # DISPATCH_THREAD or unknown
+    return {
+        "strategy": "thread-pool",
+        "parallel": True,
+        "shared_context": False,
+        "providers": ["codex", "gemini", "kimi"],
+    }
 
 
 def _auth_status_command(tool_name: str) -> list[str] | None:
@@ -670,6 +744,174 @@ def get_core_agent_model(agent_name: str) -> dict[str, Any] | None:
 
 
 
+def _get_agent_cli_command(agent_name: str, prompt: str, project_dir: str) -> tuple[str, str]:
+    """Determine CLI command and model name for an agent.
+
+    Returns (cli_command, model_name) tuple.
+    Falls back to codex if agent's preferred model is unavailable.
+    """
+    import sys as _sys
+
+    _hooks_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "hooks",
+    )
+    if _hooks_dir not in _sys.path:
+        _sys.path.insert(0, _hooks_dir)
+
+    try:
+        import importlib
+
+        agent_registry = importlib.import_module("_agent_registry")
+        AGENT_REGISTRY = getattr(agent_registry, "AGENT_REGISTRY", {})
+        detect_available_models = getattr(agent_registry, "detect_available_models", lambda: {"claude": True})
+
+        agent_obj = AGENT_REGISTRY.get(agent_name)
+        preferred = "codex-cli"
+        if isinstance(agent_obj, dict):
+            preferred = agent_obj.get("preferred_model", "codex-cli")
+
+        available = detect_available_models()
+
+        quoted_prompt = shlex.quote(prompt)
+        env_prefix = build_release_env_prefix(project_dir)
+
+        if preferred == "gemini-cli" and available.get("gemini-cli") and _check_tool_available("gemini"):
+            return (f"{env_prefix}gemini -p {quoted_prompt}", "gemini-cli")
+
+        if _check_tool_available("codex"):
+            return (f"{env_prefix}codex exec --json {quoted_prompt}", "codex-cli")
+
+        if _check_tool_available("gemini"):
+            return (f"{env_prefix}gemini -p {quoted_prompt}", "gemini-cli")
+
+    except Exception:
+        pass
+
+    # Fallback to codex command even if detection failed
+    quoted_prompt = shlex.quote(prompt)
+    return (f"{build_release_env_prefix(project_dir)}codex exec --json {quoted_prompt}", "codex-cli")
+
+
+def dispatch_parallel_tmux(
+    workers: list[dict[str, Any]],
+    project_dir: str,
+    timeout: int = 120,
+) -> list[dict[str, Any]]:
+    """Execute workers in parallel using separate tmux sessions for each.
+
+    Creates a tmux session per worker, sends the CLI command to each,
+    polls for completion, and collects results. Falls back to regular
+    execution if any session fails.
+
+    Returns results in the same format as execute_agents_parallel().
+    """
+    mgr = _get_tmux_mgr()
+    if not mgr.is_tmux_available():
+        raise RuntimeError("tmux not available")
+
+    # Sort workers by order for consistent result ordering
+    indexed_workers: list[tuple[int, int, dict[str, Any]]] = [
+        (idx, int(w.get("order", 0)), w) for idx, w in enumerate(workers)
+    ]
+    sorted_workers = sorted(indexed_workers, key=lambda x: (x[1], x[0]))
+    if not sorted_workers:
+        return []
+
+    # idx -> (session_name, agent_name, model_name, worker)
+    sessions: dict[int, tuple[str, str, str, dict[str, Any]]] = {}
+
+    try:
+        # Create sessions and send commands
+        for idx, order, worker in sorted_workers:
+            agent_name = str(worker.get("agent_name", "executor"))
+            prompt = str(worker.get("prompt", ""))
+            packaged = package_prompt(agent_name, prompt, project_dir)
+            session_name = mgr.make_session_name(agent_name, unique_id=str(uuid.uuid4())[:8])
+            try:
+                session = mgr.get_or_create_session(session_name, cwd=project_dir)
+            except RuntimeError as exc:
+                _logger.warning("Failed to create tmux session %s: %s", session_name, exc)
+                raise
+
+            cli_cmd, model_name = _get_agent_cli_command(agent_name, packaged, project_dir)
+            cmd = f"{cli_cmd}; printf '\\n{_TMUX_EXIT_MARKER}:%s\\n' \"$?\""
+
+            # Send command (non-blocking, just sends keys)
+            subprocess.run(
+                ["tmux", "send-keys", "-t", session, cmd, "Enter"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+            sessions[idx] = (session, agent_name, model_name, worker)
+
+        # Poll all sessions for completion
+        deadline = time.monotonic() + timeout
+        results_by_idx: dict[int, dict[str, Any]] = {}
+        pending_indices = set(sessions.keys())
+
+        while pending_indices and time.monotonic() < deadline:
+            for idx in list(pending_indices):
+                session, agent_name, model_name, worker = sessions[idx]
+                try:
+                    captured = subprocess.run(
+                        ["tmux", "capture-pane", "-t", session, "-p"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        timeout=10,
+                    )
+                    if captured.returncode == 0:
+                        pane_output = captured.stdout
+                        if _TMUX_EXIT_MARKER in pane_output:
+                            # Command completed
+                            output, exit_code = _parse_tmux_command_result(pane_output)
+                            result: dict[str, Any] = {
+                                "model": model_name,
+                                "output": output,
+                                "exit_code": exit_code,
+                            }
+                            order = int(worker.get("order", 0))
+                            status = "completed" if exit_code == 0 else "failed"
+                            results_by_idx[idx] = {
+                                "agent": agent_name,
+                                "order": order,
+                                "status": status,
+                                **result,
+                            }
+                            pending_indices.discard(idx)
+                except Exception as exc:
+                    _logger.warning("Error polling tmux session %s: %s", session, exc)
+
+            if pending_indices:
+                time.sleep(0.5)
+
+        # Handle timeouts
+        for idx in pending_indices:
+            session, agent_name, model_name, worker = sessions[idx]
+            order = int(worker.get("order", 0))
+            results_by_idx[idx] = {
+                "agent": agent_name,
+                "order": order,
+                "status": "error",
+                "error": "tmux command timeout",
+                "fallback": "claude",
+            }
+
+        # Return results in original order
+        return [results_by_idx[idx] for idx, _, _ in sorted_workers]
+
+    finally:
+        # Cleanup all sessions
+        for idx, (session, _, _, _) in sessions.items():
+            try:
+                mgr.kill_session(session)
+            except Exception:
+                pass
+
+
 def execute_agents_sequentially(
     agent_tasks: list[dict[str, Any]],
     project_dir: str,
@@ -694,7 +936,22 @@ def execute_agents_parallel(
     project_dir: str,
     timeout_per_agent: int = 120,
 ) -> list[dict[str, Any]]:
-    return execute_workers(
+    # Detect dispatch strategy (NF7e)
+    strategy = detect_dispatch_strategy()
+
+    # Try tmux-based parallel dispatch first (works in main thread)
+    if strategy == DISPATCH_TMUX:
+        try:
+            results = dispatch_parallel_tmux(agent_tasks, project_dir, timeout=timeout_per_agent)
+            for r in results:
+                r["dispatch_strategy"] = strategy
+            return results
+        except Exception as exc:
+            _logger.debug("tmux parallel dispatch failed, falling back to ThreadPoolExecutor: %s", exc)
+            strategy = DISPATCH_THREAD
+
+    # Fallback to existing ThreadPoolExecutor path
+    results = execute_workers(
         cast(list[WorkerTask], agent_tasks),
         True,
         project_dir=project_dir,
@@ -706,6 +963,9 @@ def execute_agents_parallel(
         ),
         thread_pool_cls=ThreadPoolExecutor,
     )
+    for r in results:
+        r["dispatch_strategy"] = strategy
+    return results
 
 
 def execute_crazy_mode(
@@ -869,13 +1129,17 @@ def execute_ccg_mode(
     context: str | None = None,
     files: list[str] | None = None,
 ) -> dict[str, Any]:
-    """CCG (Claude-Codex-Gemini) execution mode — 2-track parallel analysis.
+    """CCG (Claude-Codex-Gemini) execution mode — 3-track parallel analysis.
 
     Track 1: backend-engineer (Codex path) — backend/code analysis
     Track 2: frontend-designer (Gemini path) — UI/UX analysis
-    Then synthesises both tracks into unified output.
+    Track 3: architect (Claude path) — system architecture analysis
+    Then synthesises all tracks into unified output.
+
+    Creates and updates coordinator state throughout execution for shared
+    memory across model switches (NF5b).
     """
-    print("[CCG] Starting 2-track parallel agent execution...")
+    print("[CCG] Starting 3-track parallel agent execution...")
     print(f"[CCG] Problem: {problem[:100]}...")
 
     # Build context package
@@ -900,19 +1164,34 @@ def execute_ccg_mode(
     if clarification_status.get("requires_clarification") is True:
         return _build_clarification_blocked_result(
             mode="ccg",
-            target_worker_count=2,
+            target_worker_count=3,
             run_id=run_id,
             clarification_status=clarification_status,
             problem=problem,
             project_dir=project_dir,
         )
 
+    # Generate task_id for coordinator state (use run_id or generate new)
+    task_id = run_id or str(uuid.uuid4())[:12]
+
+    # Create initial coordinator state (NF5b)
+    initial_state: dict[str, Any] = {
+        "decisions": [f"Starting CCG mode for: {problem[:100]}"],
+        "files_touched": list(files or []),
+        "evidence": {},
+        "unsolved": [],
+        "model_history": ["claude-orchestrator"],
+        "problem": problem,
+        "mode": "ccg",
+    }
+    coordinator_state_path = save_coordinator_state(project_dir, task_id, initial_state)
+
     worker_tasks = [
         {
             "agent_name": "backend-engineer",
             "prompt": (
                 f"Backend implementation strategy for: {problem}\n\n"
-                f"Focus: APIs, data flow, failure handling, performance.\n\n"
+                f"Focus: APIs, data flow, failure handling, performance, security.\n\n"
                 f"Context:\n{full_context}"
             ),
             "order": 1,
@@ -926,9 +1205,48 @@ def execute_ccg_mode(
             ),
             "order": 2,
         },
+        {
+            "agent_name": "architect",
+            "prompt": (
+                f"System architecture analysis for: {problem}\n\n"
+                f"Focus: dependency graph, integration points, trade-offs, risks, rollback strategy.\n\n"
+                f"Context:\n{full_context}"
+            ),
+            "order": 3,
+        },
     ]
 
     results = execute_agents_parallel(worker_tasks, project_dir)
+
+    # Extract dispatch strategy from results (NF7e)
+    dispatch_strategy = results[0].get("dispatch_strategy") if results else detect_dispatch_strategy()
+
+    # Update coordinator state after parallel execution (NF5b)
+    track_decisions: list[str] = []
+    track_models: list[str] = []
+    track_evidence: dict[str, Any] = {}
+    track_unsolved: list[str] = []
+
+    for r in results:
+        agent = r.get("agent", "unknown")
+        status = r.get("status", "unknown")
+        model = r.get("model", r.get("fallback", "unknown"))
+        track_decisions.append(f"{agent} completed with status={status}")
+        track_models.append(model)
+        track_evidence[f"track_{agent}"] = {
+            "status": status,
+            "model": model,
+            "exit_code": r.get("exit_code"),
+        }
+        if status == "failed" or status == "error":
+            track_unsolved.append(f"{agent} track failed: {r.get('error', 'unknown error')}")
+
+    update_coordinator_state(project_dir, task_id, {
+        "decisions": track_decisions,
+        "model_history": track_models,
+        "evidence": track_evidence,
+        "unsolved": track_unsolved,
+    })
 
     result_blocks: list[str] = []
     for r in results:
@@ -938,9 +1256,10 @@ def execute_ccg_mode(
         )
 
     synthesis_prompt = (
-        "Synthesize results from two specialized CCG tracks:\n\n"
+        "Synthesize results from three specialized CCG tracks:\n\n"
         + "\n\n".join(result_blocks)
-        + "\n\nProvide a unified action plan merging backend and frontend perspectives."
+        + "\n\nProvide a unified action plan merging backend, frontend, and architecture perspectives. "
+        + "Resolve any conflicts using the architect track's dependency analysis as tiebreaker."
     )
 
     council_verdicts = run_critics(
@@ -952,10 +1271,17 @@ def execute_ccg_mode(
     _update_post_council_state(project_dir=project_dir, run_id=run_id)
     council_status = _council_status(council_verdicts)
 
+    # Final coordinator state update with council results
+    update_coordinator_state(project_dir, task_id, {
+        "decisions": [f"Council verdict: {council_status}"],
+        "model_history": ["claude-synthesis"],
+        "evidence": {"council_status": council_status},
+    })
+
     model_mix = {
         "gpt": [r.get("agent") for r in results if r.get("model") == "codex-cli"],
         "gemini": [r.get("agent") for r in results if r.get("model") == "gemini-cli"],
-        "claude": [r.get("agent") for r in results if r.get("fallback") == "claude"],
+        "claude": [r.get("agent") for r in results if r.get("fallback") == "claude" or (r.get("model") or "").startswith("claude")],
     }
 
     return {
@@ -979,16 +1305,18 @@ def execute_ccg_mode(
         "parallel_execution": True,
         "sequential_execution": False,
         "worker_count": len(results),
-        "target_worker_count": 2,
+        "target_worker_count": 3,
         "model_mix": model_mix,
         "findings": [
-            f"Workers launched: {len(results)}/2",
+            f"Workers launched: {len(results)}/3",
             f"GPT tracks: {len(model_mix['gpt'])}",
             f"Gemini tracks: {len(model_mix['gemini'])}",
             f"Claude tracks: {len(model_mix['claude'])}",
             f"Council status: {council_status}",
         ],
         "council_verdicts": council_verdicts,
+        "dispatch_strategy": dispatch_strategy,
+        "coordinator_state_path": coordinator_state_path,
         "exec_kernel": {
             "enabled": kernel.enabled,
             "run_id": run_id,
@@ -1397,3 +1725,242 @@ def route_with_role(task_text: str, role: str | None = None) -> dict[str, Any]:
         "role": resolved_role,
         "reason": f"role-based routing: {resolved_role} → {role_config.get('model', 'unknown')}",
     }
+
+
+# =============================================================================
+# Coordinator State Management (NF5b: Shared Memory Across Model Switches)
+# =============================================================================
+
+
+def save_coordinator_state(project_dir: str, task_id: str, state: dict[str, Any]) -> str:
+    """Save coordinator state to disk.
+
+    Writes state to `.omg/state/coordinator/<task_id>.json`.
+    State typically includes: decisions, files_touched, evidence, unsolved, model_history.
+
+    Args:
+        project_dir: Project root directory.
+        task_id: Unique task identifier (e.g., run_id or UUID).
+        state: State dict to persist.
+
+    Returns:
+        Absolute path to the saved state file.
+    """
+    state_dir = Path(project_dir) / ".omg" / "state" / "coordinator"
+    state_dir.mkdir(parents=True, exist_ok=True)
+
+    target = state_dir / f"{task_id}.json"
+    tmp = target.with_suffix(".tmp")
+
+    # Add metadata
+    state_with_meta = dict(state)
+    state_with_meta["_saved_at"] = datetime.now(timezone.utc).isoformat()
+    state_with_meta["_task_id"] = task_id
+
+    tmp.write_text(json.dumps(state_with_meta, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.rename(tmp, target)
+
+    return str(target)
+
+
+def load_coordinator_state(project_dir: str, task_id: str) -> dict[str, Any] | None:
+    """Load coordinator state from disk.
+
+    Reads from `.omg/state/coordinator/<task_id>.json`.
+
+    Args:
+        project_dir: Project root directory.
+        task_id: Unique task identifier.
+
+    Returns:
+        State dict if found and valid, None otherwise.
+    """
+    state_path = Path(project_dir) / ".omg" / "state" / "coordinator" / f"{task_id}.json"
+    if not state_path.exists():
+        return None
+
+    try:
+        content = state_path.read_text(encoding="utf-8")
+        return json.loads(content)
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
+def update_coordinator_state(project_dir: str, task_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+    """Merge updates into existing coordinator state.
+
+    Loads current state, merges updates, adds timestamp to update_history,
+    and persists the result.
+
+    Args:
+        project_dir: Project root directory.
+        task_id: Unique task identifier.
+        updates: Dict of updates to merge.
+
+    Returns:
+        Updated state dict.
+    """
+    existing = load_coordinator_state(project_dir, task_id)
+    if existing is None:
+        existing = {}
+
+    # Merge updates into existing state
+    merged = dict(existing)
+    for key, value in updates.items():
+        if key.startswith("_"):
+            # Skip internal metadata keys from user updates
+            continue
+        if key in merged and isinstance(merged[key], list) and isinstance(value, list):
+            # Extend lists rather than replace
+            merged[key] = merged[key] + value
+        elif key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            # Merge dicts recursively (shallow)
+            merged[key] = {**merged[key], **value}
+        else:
+            merged[key] = value
+
+    # Add timestamp to update_history
+    update_record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "keys_updated": list(updates.keys()),
+    }
+    if "update_history" not in merged:
+        merged["update_history"] = []
+    merged["update_history"].append(update_record)
+
+    # Persist
+    save_coordinator_state(project_dir, task_id, merged)
+
+    return merged
+
+
+def build_model_handoff_context(state: dict[str, Any], target_model: str) -> str:
+    """Build a context string for model handoff.
+
+    Formats state into a context string suitable for passing to the next model.
+    Format varies based on target:
+    - codex: terse, technical, bullet points
+    - gemini: visual-focused, component-aware
+
+    Args:
+        state: Coordinator state dict.
+        target_model: Target model name ("codex", "gemini", or other).
+
+    Returns:
+        Formatted context string for the target model.
+    """
+    decisions = state.get("decisions", [])
+    files_touched = state.get("files_touched", [])
+    evidence = state.get("evidence", {})
+    unsolved = state.get("unsolved", [])
+    model_history = state.get("model_history", [])
+
+    if target_model == "codex":
+        # Terse, technical format for Codex
+        lines = ["# Coordinator Handoff (terse)"]
+
+        if decisions:
+            lines.append("## Decisions")
+            for d in decisions[-5:]:  # Last 5 decisions
+                lines.append(f"- {d}")
+
+        if files_touched:
+            lines.append("## Files")
+            for f in files_touched[-10:]:
+                lines.append(f"- {f}")
+
+        if unsolved:
+            lines.append("## Unsolved")
+            for u in unsolved:
+                lines.append(f"- {u}")
+
+        if evidence:
+            lines.append("## Evidence Keys")
+            lines.append(f"- {', '.join(list(evidence.keys())[:10])}")
+
+        if model_history:
+            lines.append("## Prior Models")
+            lines.append(f"- {' -> '.join(model_history[-5:])}")
+
+        return "\n".join(lines)
+
+    elif target_model == "gemini":
+        # Visual-focused format for Gemini
+        lines = ["# Coordinator Handoff (visual context)"]
+
+        if decisions:
+            lines.append("")
+            lines.append("## Decisions Made")
+            for d in decisions[-5:]:
+                lines.append(f"  - {d}")
+
+        if files_touched:
+            lines.append("")
+            lines.append("## Files to Review")
+            ui_files = [f for f in files_touched if any(ext in f for ext in [".tsx", ".jsx", ".css", ".html", ".vue", ".svelte"])]
+            other_files = [f for f in files_touched if f not in ui_files]
+            if ui_files:
+                lines.append("### UI Components")
+                for f in ui_files[-8:]:
+                    lines.append(f"  - {f}")
+            if other_files:
+                lines.append("### Other Files")
+                for f in other_files[-5:]:
+                    lines.append(f"  - {f}")
+
+        if unsolved:
+            lines.append("")
+            lines.append("## Open Questions")
+            for u in unsolved:
+                lines.append(f"  - {u}")
+
+        if evidence:
+            lines.append("")
+            lines.append("## Available Evidence")
+            for key in list(evidence.keys())[:8]:
+                lines.append(f"  - {key}")
+
+        if model_history:
+            lines.append("")
+            lines.append("## Model Chain")
+            lines.append(f"  {' -> '.join(model_history[-5:])} -> gemini")
+
+        return "\n".join(lines)
+
+    else:
+        # Default format for other models (e.g., claude)
+        lines = ["# Coordinator State Handoff"]
+
+        if decisions:
+            lines.append("")
+            lines.append("## Decisions")
+            for d in decisions:
+                lines.append(f"- {d}")
+
+        if files_touched:
+            lines.append("")
+            lines.append("## Files Touched")
+            for f in files_touched:
+                lines.append(f"- {f}")
+
+        if unsolved:
+            lines.append("")
+            lines.append("## Unsolved Items")
+            for u in unsolved:
+                lines.append(f"- {u}")
+
+        if evidence:
+            lines.append("")
+            lines.append("## Evidence")
+            for key, val in list(evidence.items())[:10]:
+                if isinstance(val, str) and len(val) < 100:
+                    lines.append(f"- {key}: {val}")
+                else:
+                    lines.append(f"- {key}: (data)")
+
+        if model_history:
+            lines.append("")
+            lines.append("## Model History")
+            lines.append(f"- {' -> '.join(model_history)}")
+
+        return "\n".join(lines)

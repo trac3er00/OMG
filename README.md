@@ -1,6 +1,6 @@
 # OMG
 
-[![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
+[![Release](https://github.com/trac3er00/OMG/actions/workflows/release.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/release.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
 [![License](https://img.shields.io/github/license/trac3er00/OMG)](LICENSE)
 
@@ -48,9 +48,9 @@ graph TD
 | Feature | Raw Claude Code | Superpowers | OMG |
 | :--- | :---: | :---: | :---: |
 | **Governance** | Minimal | Plugin-based | Native Control Plane |
-| **Mutation Safety** | Basic | None | Hard Gates + Warnings |
-| **Verification** | Manual | None | Evidence-Backed Proof |
-| **Interoperability** | Single Host | Multi-Host | Universal MCP + Registry |
+| **Mutation Safety** | Basic | Plugin-gated | Hard Gates + Done-When Contracts |
+| **Verification** | Manual | TDD + Subagent Reviews | Machine-Gated Evidence Bundles + Proof-Gate |
+| **Interoperability** | Single Host | Multi-Host (Claude primary) | Universal MCP + Registry |
 | **State Management** | Volatile | Local Files | Encrypted + Namespaced |
 | **Orchestration** | Linear | Scripted | Modular Forge |
 

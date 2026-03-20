@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-x0IVDLIDwMfZetORI5Y8IbDSdxblYwLSt112s2SkKdH4MuRQZ/gGgiQyvVGMuGmsCI4aBd6sYqBser+F7O8sBw==
-trusted comment: type=omg-slsa-v1 keyid=3311f7f31ca6525d issued_at=2026-03-18T21:01:42.072692+00:00 artifact=bundle/registry/bundles/plan-council.yaml sha256=f5bd4d72fa3d1922db6194cd1f3b4926658b35017a07854b9225245695365e89
-3pwjvLwzu/TEBYUkePm+gwnFfpuyI6A9Aa0GEeMV8WDi0LjwPLr5+rhJlBAUNKuDeFtGB/KC6bNjbwDK4tiZAg==
+csSTycg3jUTGHPjqEHdHqyj9etOoDe2JyrWC8B2ugby2SIRZ3+LiULCfMiZwWhvbrISDATgm5JIQpPshmJVUAA==
+trusted comment: type=omg-slsa-v1 keyid=752b7aecfcc1ddc1 issued_at=2026-03-20T15:37:43.036832+00:00 artifact=bundle/registry/bundles/plan-council.yaml sha256=1f1310b09d134c7f8975d6174137edd43098ecc27bb05e8d76ee44af86eb5806
+pJpl6BtVGXWtSFTeKgDV1/LS72vjJl7PXpyeJUHlwuMwfI0j1eqEviXuo9DjJhGOGgqaheqbn8o2NdIn8I0uBw==

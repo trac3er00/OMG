@@ -37,6 +37,11 @@ TIER_REGISTRY: dict[str, TierSpec] = {
         max_parallel_agents=3,
         features=("baseline", "higher_budget"),
     ),
+    "max": TierSpec(
+        budget_usd_per_session=100.0,
+        max_parallel_agents=5,
+        features=("baseline", "higher_budget", "extended_context"),
+    ),
     "team": TierSpec(
         budget_usd_per_session=50.0,
         max_parallel_agents=8,
@@ -247,6 +252,8 @@ def _normalize_tier_value(raw: object) -> str | None:
     aliases = {
         "enterprise": "enterprise_tier",
         "enterprise-tier": "enterprise_tier",
+        "max_200": "max",
+        "max-200": "max",
     }
     value = aliases.get(value, value)
     if value in TIER_REGISTRY:

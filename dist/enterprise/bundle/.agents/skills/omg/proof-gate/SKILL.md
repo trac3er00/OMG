@@ -5,7 +5,7 @@ description: "Structured release proof gate that binds claims to required eviden
 
 # OMG Proof Gate
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/proof-gate-*.json`

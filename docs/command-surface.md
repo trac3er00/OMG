@@ -1,7 +1,7 @@
 <!-- GENERATED: DO NOT EDIT MANUALLY -->
 # OMG Command Surface
 
-Generated for OMG v2.2.10.
+Generated for OMG v2.2.12.
 
 ## Commands
 
@@ -42,6 +42,8 @@ Generated for OMG v2.2.10.
 | `npx omg compat` | OMG legacy compatibility bridge |
 | `npx omg omc` | Alias of `compat` for legacy scripts |
 | `npx omg ecosystem` | Upstream ecosystem sync and status |
+| `npx omg memory` | Memory Mesh import/export commands |
+| `npx omg skill` | Skill Foundry approval and promotion UX |
 | `npx omg contract` | Canonical OMG contract validation and compilation |
 | `npx omg context` | Context packet compiler |
 | `npx omg provider-parity-eval` | Evaluate provider parity across canonical hosts |

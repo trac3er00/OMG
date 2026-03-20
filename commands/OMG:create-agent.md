@@ -1,6 +1,6 @@
 ---
 description: "Wizard command for creating new custom agents in ~/.omg/agents/ or .omg/agents/."
-allowed-tools: Read, Write, Edit, Bash
+allowed-tools: Read, Write, Edit, AskUserQuestion, Bash
 argument-hint: "[agent-name]"
 ---
 
@@ -30,8 +30,12 @@ Or add to your project's `settings.json`:
 
 ## Agent Locations
 
-- **User-level**: `~/.omg/agents/<name>.md` — available in all projects
-- **Project-level**: `.omg/agents/<name>.md` — available in this project only
+Use `AskUserQuestion` to determine location:
+- question: "Where should the agent be created?"
+- header: "Location"
+- options:
+  - label: "Project-level (Recommended)", description: ".omg/agents/<name>.md — available in this project only"
+  - label: "User-level", description: "~/.omg/agents/<name>.md — available in all projects"
 
 Project-level agents override user-level agents with the same name.
 

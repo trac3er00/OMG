@@ -216,6 +216,10 @@ def merge_settings(existing, new):
             new_list = new_perms.get(category, [])
             merged_perms[category] = merge_permission_list(filtered_existing, new_list)
 
+        # Preserve defaultMode from new settings (bypass, plan, etc.)
+        if "defaultMode" in new_perms:
+            merged_perms["defaultMode"] = new_perms["defaultMode"]
+
         merged["permissions"] = merged_perms
 
     if "mcpServers" in new:

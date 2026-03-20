@@ -13,7 +13,10 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore[assignment]
 
 _HOOKS_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _HOOKS_DIR.parent
@@ -675,7 +678,10 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
     # Write config to YAML file
     config_path = os.path.join(state_dir, "cli-config.yaml")
     with open(config_path, "w") as f:
-        yaml.dump(default_config, f, default_flow_style=False, sort_keys=False)
+        if yaml is None:
+            json.dump(default_config, f, indent=2)
+        else:
+            yaml.dump(default_config, f, default_flow_style=False, sort_keys=False)
 
     _logger.info("Saved CLI config to %s", config_path)
 

@@ -1,6 +1,6 @@
 # OMG Proof Surface
 
-[![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
+[![Release](https://github.com/trac3er00/OMG/actions/workflows/release.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/release.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
 
 ## How to Read Your Proof
@@ -86,33 +86,44 @@ OMG keeps verification visible instead of burying it in implementation details.
 ## Certification Lanes
 
 OMG proof is multi-lane. Each lane binds a user-facing claim to a freshness policy,
-required evidence, and a release-facing verdict. Music OMR is Lane 1 and the
-permanent flagship gate because it is the hardest continuously enforced daily
-testbed in the system: real-time optical music recognition, transcription
-accuracy, and live transposition under production-style constraints.
+required evidence, and a release-facing verdict.
 
-- Lane 1 / flagship: Music OMR daily gate for deterministic score parsing and live transposition
-- Planned lane: install/apply correctness for launcher previews versus applied mutations
-- Planned lane: uninstall cleanliness for rollback and host cleanup guarantees
-- Planned lane: host parity for canonical provider behavior normalization
-- Planned lane: trust-chain verification for signed approvals, ledgering, and provenance
-- Planned lane: proof-surface integrity for generated docs, artifacts, and release surfaces
+### Active-Gated Lanes (release blocks if evidence missing)
+
+- **Lane 1 / flagship**: Music OMR test certification for deterministic score parsing (fixture-based)
+- **Lane 2 / feature-ship**: Full feature delivery (pytest pass + coverage + PR created + build green)
+- **Lane 3 / bug-fix**: Bug fix correctness (regression test + root cause doc + fix verified)
+- **Lane 4 / security**: Security remediation (sarif scan + CVE ref + fix verified + no new vulns)
+
+### Active-Advisory Lanes (reported in proof surface, not yet blocking)
+
+- **Lane 5 / migration**: Migration/refactor safety (before/after parity test + no behavior change proof)
+- **Lane 6 / recovery**: Regression recovery (failing test reproduced + fix + green suite)
+
+### Planned Lanes
+
+- install/apply correctness for launcher previews versus applied mutations
+- uninstall cleanliness for rollback and host cleanup guarantees
+- host parity for canonical provider behavior normalization
+- trust-chain verification for signed approvals, ledgering, and provenance
+- proof-surface integrity for generated docs, artifacts, and release surfaces
 
 ## Permanent Music OMR Daily Gate
 
-Music OMR is the permanent daily release gate artifact. Release readiness requires a fresh Music OMR evidence file tied to the active run id.
+Music OMR is a deterministic test certification lane that validates score-parsing and transposition logic against known fixtures.
 
-- Gate cadence: daily scheduled run via `.github/workflows/omg-release-readiness.yml`
+- Evidence artifact: `.omg/evidence/music-omr-<run_id>.json`
+- Test approach: fixture-based deterministic verification (not live data)
 - Run scope: `run_id` must match the active release evidence pack run
 - Freshness metadata: `freshness.generated_at`, `freshness.max_age_seconds`, `freshness.expires_at`, `freshness.is_fresh`
-- Fixture inventory: `fixture_inventory` must include deterministic fixture ids (for this gate: `simple_c_major.json`, `simple_g_major.json`, `chromatic_fragment.json`, `waltz_three_four.json`, `transposition_pressure_fixture.json`); minimum 5 fixtures required (`fixture_inventory_valid` must be `true`)
+- Fixture inventory: `fixture_inventory` must include deterministic fixture ids (for this lane: `simple_c_major.json`, `simple_g_major.json`, `chromatic_fragment.json`, `waltz_three_four.json`, `transposition_pressure_fixture.json`); minimum 5 fixtures required (`fixture_inventory_valid` must be `true`)
 - Trace metadata: `trace.trace_id`, `trace.gate=music-omr-daily`, `trace.run_scope=release-run`, `trace_metadata.testbed`, `trace_metadata.fixture_count`, `trace_metadata.run_id_linkage`
 - Freshness threshold: `freshness_threshold_secs`, `freshness.freshness_threshold_secs`
 - Run linkage: `run_id` must match the active release run, `trace_metadata.run_id_linkage` must equal `run_id`
 
 ### What This Means
 
-The Music OMR daily gate ensures the OMR (Optical Music Recognition) engine produces correct, deterministic results. If the gate passes, the transposition and score-parsing logic is verified against known fixtures. If it fails, check the `freshness` and `fixture_inventory_valid` fields in the evidence JSON for the specific failure reason.
+The Music OMR certification lane ensures the OMR (Optical Music Recognition) engine produces correct, deterministic results using pre-defined test fixtures. This is a testbed verification, not a production data gate. If the certification fails, check the `freshness` and `fixture_inventory_valid` fields in the evidence JSON for the specific failure reason.
 
 ## Forge v0.3 Evidence
 

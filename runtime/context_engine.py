@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,8 @@ _PACKET_REL_PATH = Path(".omg") / "state" / "context_engine_packet.json"
 _PROFILE_REL_PATH = Path(".omg") / "state" / "profile.yaml"
 _MEMORY_STORE_REL_PATH = Path(".omg") / "state" / "memory.sqlite3"
 _RELEASE_COORDINATOR_REL_BASE = Path(".omg") / "state" / "release_run_coordinator"
+_SESSION_REL_PATH = Path(".omg") / "state" / "session.json"
+_SNAPSHOTS_REL_BASE = Path(".omg") / "state" / "snapshots"
 _CONTEXT_PACKET_KIND = "context_engine_v2_packet"
 _CONTEXT_PACKET_SUMMARY = "governed context packet index"
 _PACKET_VERSION = "v2"
@@ -44,6 +47,240 @@ _STATE_PATHS = {
 }
 _COUNCIL_REL_BASE = Path(".omg") / "state" / "council_verdicts"
 _INTENT_GATE_REL_BASE = Path(".omg") / "state" / "intent_gate"
+
+
+# ---------------------------------------------------------------------------
+# NF3a: One-task-per-session guard
+# ---------------------------------------------------------------------------
+
+
+def get_active_task(project_dir: str) -> dict[str, Any] | None:
+    """Read session.json and extract the task_focus field.
+
+    Returns:
+        {"task": str, "started_at": str, "files_touched": list} or None if no active task.
+    """
+    root = Path(project_dir)
+    session_path = root / _SESSION_REL_PATH
+    if not session_path.exists():
+        return None
+
+    try:
+        raw = session_path.read_text(encoding="utf-8")
+        data = json.loads(raw)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    task_focus = data.get("task_focus")
+    if not isinstance(task_focus, dict):
+        return None
+
+    task = task_focus.get("task")
+    if not task or not isinstance(task, str):
+        return None
+
+    return {
+        "task": str(task),
+        "started_at": str(task_focus.get("started_at", "")),
+        "files_touched": list(task_focus.get("files_touched", [])) if isinstance(task_focus.get("files_touched"), list) else [],
+    }
+
+
+def detect_task_drift(current_prompt: str, active_task: dict[str, Any] | None) -> dict[str, Any]:
+    """Detect if the current prompt represents a new task vs continuing the active one.
+
+    Simple heuristic: if no words from the active task description appear in the prompt,
+    it might be a drift to a new task.
+
+    Returns:
+        {"drift": bool, "confidence": float, "active_task": str, "suggested_action": "snapshot|continue"}
+    """
+    if active_task is None:
+        return {"drift": False, "action": "none"}
+
+    task_description = str(active_task.get("task", "")).lower()
+    prompt_lower = current_prompt.lower()
+
+    # Extract meaningful words from task (3+ chars, alphanumeric)
+    task_words = set(
+        word for word in re.findall(r"\b[a-z0-9]{3,}\b", task_description)
+        if word not in {"the", "and", "for", "with", "this", "that", "from", "into"}
+    )
+
+    if not task_words:
+        # No meaningful words to compare
+        return {
+            "drift": False,
+            "confidence": 0.0,
+            "active_task": task_description,
+            "suggested_action": "continue",
+        }
+
+    # Count how many task words appear in the prompt
+    matches = sum(1 for word in task_words if word in prompt_lower)
+    match_ratio = matches / len(task_words) if task_words else 0.0
+
+    # If less than 20% of task words appear, consider it a potential drift
+    drift = match_ratio < 0.2
+    confidence = 1.0 - match_ratio  # Higher confidence when fewer matches
+
+    return {
+        "drift": drift,
+        "confidence": round(confidence, 2),
+        "active_task": task_description,
+        "suggested_action": "snapshot" if drift else "continue",
+    }
+
+
+def set_task_focus(project_dir: str, task: str, files: list[str] | None = None) -> None:
+    """Write task focus to session.json.
+
+    Updates the task_focus field with task description, timestamp, and optional files list.
+    """
+    root = Path(project_dir)
+    session_path = root / _SESSION_REL_PATH
+
+    # Read existing session data or create empty dict
+    existing_data: dict[str, Any] = {}
+    if session_path.exists():
+        try:
+            raw = session_path.read_text(encoding="utf-8")
+            loaded = json.loads(raw)
+            if isinstance(loaded, dict):
+                existing_data = loaded
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    # Update task_focus
+    existing_data["task_focus"] = {
+        "task": task,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "files_touched": files if files is not None else [],
+    }
+
+    # Write atomically
+    session_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = session_path.with_name(f"{session_path.name}.tmp")
+    tmp.write_text(json.dumps(existing_data, indent=2) + "\n", encoding="utf-8")
+    os.rename(tmp, session_path)
+
+
+# ---------------------------------------------------------------------------
+# NF3b: Protected handoff snapshot
+# ---------------------------------------------------------------------------
+
+
+def create_handoff_snapshot(project_dir: str) -> str:
+    """Create a snapshot for handoff in .omg/state/snapshots/<timestamp>.json.
+
+    Includes: active task, plan state, checklist state, touched files, memory refs.
+
+    Returns:
+        The path to the created snapshot file.
+    """
+    root = Path(project_dir)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    snapshot_path = root / _SNAPSHOTS_REL_BASE / f"{ts}.json"
+
+    # Gather active task
+    active_task = get_active_task(project_dir)
+
+    # Gather plan state
+    plan_path = root / ".omg" / "state" / "_plan.md"
+    plan_content: str | None = None
+    if plan_path.exists():
+        try:
+            plan_content = plan_path.read_text(encoding="utf-8")[:4000]
+        except OSError:
+            pass
+
+    # Gather checklist state
+    checklist_path = root / ".omg" / "state" / "_checklist.md"
+    checklist_content: str | None = None
+    if checklist_path.exists():
+        try:
+            checklist_content = checklist_path.read_text(encoding="utf-8")[:4000]
+        except OSError:
+            pass
+
+    # Gather touched files from active task
+    files_touched = active_task.get("files_touched", []) if active_task else []
+
+    # Gather memory refs from profile
+    profile_digest = load_profile_digest(project_dir)
+
+    snapshot_data = {
+        "schema": "HandoffSnapshot",
+        "schema_version": "1.0.0",
+        "timestamp": ts,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "active_task": active_task,
+        "plan_state": plan_content,
+        "checklist_state": checklist_content,
+        "files_touched": files_touched,
+        "memory_refs": {
+            "profile_version": profile_digest.get("profile_version", ""),
+            "tags": profile_digest.get("tags", []),
+        },
+    }
+
+    # Write atomically
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = snapshot_path.with_name(f"{snapshot_path.name}.tmp")
+    tmp.write_text(json.dumps(snapshot_data, indent=2) + "\n", encoding="utf-8")
+    os.rename(tmp, snapshot_path)
+
+    return str(snapshot_path)
+
+
+def list_handoff_snapshots(project_dir: str) -> list[dict[str, Any]]:
+    """List all handoff snapshots with metadata.
+
+    Returns:
+        List of dicts with timestamp, task, file_count, sorted by timestamp (newest first).
+    """
+    root = Path(project_dir)
+    snapshots_dir = root / _SNAPSHOTS_REL_BASE
+
+    if not snapshots_dir.exists() or not snapshots_dir.is_dir():
+        return []
+
+    result: list[dict[str, Any]] = []
+
+    for entry in snapshots_dir.iterdir():
+        if not entry.is_file() or not entry.name.endswith(".json"):
+            continue
+
+        try:
+            raw = entry.read_text(encoding="utf-8")
+            data = json.loads(raw)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        if not isinstance(data, dict):
+            continue
+
+        active_task = data.get("active_task")
+        task_str = ""
+        if isinstance(active_task, dict):
+            task_str = str(active_task.get("task", ""))
+
+        files_touched = data.get("files_touched", [])
+        file_count = len(files_touched) if isinstance(files_touched, list) else 0
+
+        result.append({
+            "path": str(entry),
+            "timestamp": str(data.get("timestamp", entry.stem)),
+            "task": task_str,
+            "file_count": file_count,
+        })
+
+    # Sort by timestamp descending (newest first)
+    result.sort(key=lambda x: x["timestamp"], reverse=True)
+    return result
 
 
 def load_profile_digest(project_dir: str | Path) -> dict[str, Any]:
@@ -706,3 +943,275 @@ class ContextEngine:
             return handles
         except Exception:
             return []
+
+
+# ---------------------------------------------------------------------------
+# NF3c: Folder-scoped context files
+# ---------------------------------------------------------------------------
+
+_CONTEXT_CACHE_REL_BASE = Path(".omg") / "context"
+
+
+def _folder_hash(folder_path: str) -> str:
+    """Generate a deterministic hash for a folder path."""
+    import hashlib
+
+    normalized = folder_path.strip().rstrip("/\\")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+
+
+def get_folder_context(project_dir: str, folder_path: str) -> str | None:
+    """Read cached folder context from .omg/context/<folder-hash>.md.
+
+    Returns the cached content if:
+      - The cache file exists
+      - The folder mtime <= context file mtime (cache is fresh)
+
+    Returns None if cache is stale or missing (caller should regenerate).
+    """
+    root = Path(project_dir)
+    folder = Path(folder_path)
+
+    # Compute hash and locate cache file
+    folder_hash = _folder_hash(folder_path)
+    cache_path = root / _CONTEXT_CACHE_REL_BASE / f"{folder_hash}.md"
+
+    if not cache_path.exists():
+        return None
+
+    # Check freshness: folder mtime vs cache mtime
+    try:
+        if folder.exists():
+            folder_mtime = folder.stat().st_mtime
+            cache_mtime = cache_path.stat().st_mtime
+            if folder_mtime > cache_mtime:
+                # Folder was modified after cache — cache is stale
+                return None
+    except OSError:
+        # If we can't stat, treat as stale
+        return None
+
+    # Read cached content
+    try:
+        return cache_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def save_folder_context(project_dir: str, folder_path: str, content: str) -> str:
+    """Write folder context to .omg/context/<folder-hash>.md.
+
+    Args:
+        project_dir: Root project directory.
+        folder_path: The folder this context describes.
+        content: Markdown content to cache.
+
+    Returns:
+        The path to the created cache file.
+    """
+    root = Path(project_dir)
+    folder_hash = _folder_hash(folder_path)
+    cache_path = root / _CONTEXT_CACHE_REL_BASE / f"{folder_hash}.md"
+
+    # Write atomically
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = cache_path.with_name(f"{cache_path.name}.tmp")
+    tmp.write_text(content, encoding="utf-8")
+    os.rename(tmp, cache_path)
+
+    return str(cache_path)
+
+
+# ---------------------------------------------------------------------------
+# NF3d: Context entry scoring (read-only-what-you-need heuristics)
+# ---------------------------------------------------------------------------
+
+import math
+import time
+
+
+def score_context_entry(entry: dict, active_task: str | None = None) -> float:
+    """Score a context entry from 0.0 to 1.0.
+
+    Scoring factors:
+      - Recency: newer entries score higher (exponential decay over 1 hour)
+      - Relevance: entries mentioning active task keywords score higher
+      - Type: plan/checklist entries get a base boost of +0.3
+      - Usage: entries that were read/referenced get a boost
+
+    Args:
+        entry: A dict with keys like 'timestamp', 'type', 'content', 'referenced'.
+        active_task: The current task description (for keyword matching).
+
+    Returns:
+        A float score between 0.0 and 1.0.
+    """
+    score = 0.0
+
+    # Recency component (max 0.4)
+    timestamp = entry.get("timestamp") or entry.get("created_at") or entry.get("updated_at")
+    if timestamp:
+        try:
+            if isinstance(timestamp, (int, float)):
+                entry_time = float(timestamp)
+            else:
+                # Parse ISO format
+                from datetime import datetime as dt
+
+                ts_str = str(timestamp).replace("Z", "+00:00")
+                parsed = dt.fromisoformat(ts_str)
+                entry_time = parsed.timestamp()
+
+            now = time.time()
+            age_seconds = max(0, now - entry_time)
+            # Exponential decay: half-life of 1 hour (3600 seconds)
+            decay = math.exp(-age_seconds / 3600)
+            score += 0.4 * decay
+        except (TypeError, ValueError, OSError):
+            # If we can't parse timestamp, give minimal recency score
+            score += 0.1
+
+    # Type boost (max +0.3)
+    entry_type = str(entry.get("type", "")).lower()
+    if entry_type in {"plan", "checklist", "_plan", "_checklist"}:
+        score += 0.3
+    elif entry_type in {"task", "focus", "task_focus"}:
+        score += 0.2
+    elif entry_type in {"unsolved", "blocker", "error"}:
+        score += 0.25
+
+    # Usage/reference boost (max +0.1)
+    if entry.get("referenced") or entry.get("read_count", 0) > 0:
+        score += 0.1
+
+    # Relevance to active task (max +0.2)
+    if active_task:
+        content = str(entry.get("content", "")).lower()
+        summary = str(entry.get("summary", "")).lower()
+        combined = f"{content} {summary}"
+
+        # Extract meaningful words from active task
+        task_words = set(
+            word for word in re.findall(r"\b[a-z0-9]{3,}\b", active_task.lower())
+            if word not in {"the", "and", "for", "with", "this", "that", "from", "into"}
+        )
+
+        if task_words:
+            matches = sum(1 for word in task_words if word in combined)
+            relevance_ratio = matches / len(task_words)
+            score += 0.2 * relevance_ratio
+
+    # Clamp to [0.0, 1.0]
+    return max(0.0, min(1.0, score))
+
+
+def rank_context_entries(entries: list[dict], active_task: str | None = None) -> list[dict]:
+    """Score each entry and sort by score descending.
+
+    Args:
+        entries: List of context entry dicts.
+        active_task: The current task description (for relevance scoring).
+
+    Returns:
+        Sorted list with '_score' field added to each entry.
+    """
+    scored: list[dict] = []
+    for entry in entries:
+        entry_copy = dict(entry)
+        entry_copy["_score"] = score_context_entry(entry, active_task)
+        scored.append(entry_copy)
+
+    # Sort by score descending
+    scored.sort(key=lambda e: e.get("_score", 0.0), reverse=True)
+    return scored
+
+
+# ---------------------------------------------------------------------------
+# NF3e: Smart compact
+# ---------------------------------------------------------------------------
+
+
+def _is_protected_entry(entry: dict) -> bool:
+    """Check if an entry should never be dropped during compaction.
+
+    Protected types:
+      - plan, checklist (active planning state)
+      - task_focus (active task)
+      - unsolved, blocker, error (critical issues)
+    """
+    entry_type = str(entry.get("type", "")).lower()
+    protected_types = {"plan", "checklist", "_plan", "_checklist", "task_focus", "unsolved", "blocker", "error"}
+
+    if entry_type in protected_types:
+        return True
+
+    # Also protect entries explicitly marked as protected
+    if entry.get("protected"):
+        return True
+
+    return False
+
+
+def smart_compact(
+    project_dir: str,
+    entries: list[dict],
+    drop_ratio: float = 0.4,
+) -> dict:
+    """Compact context entries by dropping lowest-scoring non-protected entries.
+
+    Protected entries (never dropped):
+      - plan, checklist, task_focus
+      - unsolved, blocker, error
+      - Entries with 'protected': True
+
+    Args:
+        project_dir: Root project directory (for potential state lookups).
+        entries: List of context entry dicts.
+        drop_ratio: Fraction of entries to drop (0.0 to 1.0). Default 0.4 (40%).
+
+    Returns:
+        {
+            "kept": list of kept entries,
+            "dropped": list of dropped entries,
+            "kept_count": int,
+            "dropped_count": int,
+        }
+    """
+    if not entries:
+        return {"kept": [], "dropped": [], "kept_count": 0, "dropped_count": 0}
+
+    # Get active task for relevance scoring
+    active_task_data = get_active_task(project_dir)
+    active_task_str = active_task_data.get("task") if active_task_data else None
+
+    # Score all entries
+    scored_entries = rank_context_entries(entries, active_task_str)
+
+    # Separate protected vs droppable
+    protected: list[dict] = []
+    droppable: list[dict] = []
+
+    for entry in scored_entries:
+        if _is_protected_entry(entry):
+            protected.append(entry)
+        else:
+            droppable.append(entry)
+
+    # Calculate how many to drop from droppable entries
+    target_drop_count = int(len(droppable) * drop_ratio)
+
+    # Drop from the lowest-scoring entries (they're already sorted by score descending)
+    # So we keep the first (len - target_drop_count) and drop the rest
+    keep_count = len(droppable) - target_drop_count
+    kept_droppable = droppable[:keep_count]
+    dropped = droppable[keep_count:]
+
+    # Combine protected + kept droppable
+    kept = protected + kept_droppable
+
+    return {
+        "kept": kept,
+        "dropped": dropped,
+        "kept_count": len(kept),
+        "dropped_count": len(dropped),
+    }

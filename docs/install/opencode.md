@@ -35,4 +35,5 @@ cd OMG
 ## Notes
 
 - OpenCode consumes OMG through compatibility-host MCP registration
-- canonical v2.2.10 behavior-parity hosts are Claude Code, Codex, Gemini CLI, and Kimi CLI
+- Canonical behavior-parity hosts are Claude Code, Codex, Gemini CLI, Kimi CLI, and OpenCode (via MCP)
+- All hosts enforce the same machine-gated proof pipeline

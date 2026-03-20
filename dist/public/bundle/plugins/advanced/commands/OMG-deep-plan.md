@@ -1,254 +1,290 @@
 ---
-description: Deep strategic planning — understands user direction, asks smart questions, creates comprehensive plan with domain awareness
-allowed-tools: Read, Write, Edit, MultiEdit, Bash(find:*), Bash(cat:*), Bash(git:*), Bash(wc:*), Bash(tree:*), Bash(mkdir:*), Bash(tee:*), Grep, Glob
+description: Deep strategic planning with 5-track parallel analysis (advanced plugin)
+allowed-tools: Agent, Read, Write, Edit, MultiEdit, AskUserQuestion, Bash(find:*), Bash(cat:*), Bash(git:*), Bash(wc:*), Bash(tree:*), Bash(mkdir:*), Bash(tee:*), Grep, Glob
 argument-hint: "[feature or goal to plan]"
 ---
 
-# /OMG:deep-plan — Strategic Planning with Direction Understanding
+# /OMG:deep-plan — Strategic Planning with 5-Track Parallel Analysis
+
+This is the advanced plugin implementation of deep-plan. It uses Claude Code's native Agent tool to launch 5 specialized planning agents in parallel, then synthesizes their outputs into a unified execution plan.
 
 ## Philosophy
-Regular planning = "what steps to take."
-Deep planning = "understand WHY the user wants this, WHAT direction they're heading, and HOW it fits the bigger picture."
 
-This command is the public compatibility path to the canonical `plan-council` bundle.
-Users invoke `/OMG:deep-plan`; the runtime routes to `plan-council` for execution.
+Regular planning = "what steps to take."
+Deep planning = "understand WHY the user wants this, WHAT direction they're heading, and HOW it fits the bigger picture" — analyzed from 5 specialized perspectives simultaneously.
+
+---
 
 ## Step 1: Direction Discovery (MANDATORY)
 
-Do not assume goals, constraints, or context. Extract direction from:
-- user prompt
-- `.omg/state/handoff.md`
-- `.omg/state/ledger/failure-tracker.json`
-- current repo structure and patterns
+Before launching parallel tracks, gather essential context.
 
-Before planning anything, understand:
-1. **User's real goal** — Often the stated request is one step toward something bigger. Ask: "What's the end state you're imagining?"
-2. **User's constraints** — Time, budget, existing code, team preferences, tech stack decisions already made.
-3. **User's domain knowledge** — Are they expert in this domain (follow their lead) or exploring (guide them)?
-4. **What they've already tried** — Check .omg/state/handoff.md, failure-tracker.json, git log.
+### 1.1 Read Context Sources
 
-If direction is still ambiguous after repo exploration, ask only minimal focused questions.
-
-Examples of BAD questions: "What framework do you want?" "What's your deadline?"
-Examples of GOOD questions:
-- "I see you have a Stripe integration started in /src/payment/. Are you building on that, or replacing it?"
-- "Your auth uses JWT in cookies. Should the new feature respect that pattern, or are you migrating to sessions?"
-- "The DB schema has 3 user types. Does this feature apply to all of them or just one?"
-
-## Step 2: Map the Domain
-
-Read the codebase to understand the CURRENT state:
 ```bash
-# Directory structure
-find . -type f -name "*.ts" -o -name "*.py" -o -name "*.go" | head -50
-
-# Key architectural patterns
-grep -rn "export class\|export function\|def \|func \|struct " src/ --include="*.{ts,py,go}" | head -30
-
-# Existing domain boundaries
-ls -la src/*/  # or app/*/ or packages/*/
-
-# Data flow
-grep -rn "import.*from\|require(" src/ --include="*.{ts,js}" | head -20
+# Check for existing state
+cat .omg/state/handoff.md 2>/dev/null || echo "No handoff"
+cat .omg/state/ledger/failure-tracker.json 2>/dev/null || echo "No failures"
+git log --oneline -10
 ```
 
-If DDD reference patterns exist (see .omg/knowledge/ or existing domain modules):
-- Read the reference domain FIRST
-- Plan the new feature to MATCH the pattern
-- Note any intentional deviations with WHY
+### 1.2 Understand Direction
 
-## Step 3: Create the Deep Plan (Plan Council Artifacts)
+Extract from context:
+1. **User's real goal** — Often the stated request is one step toward something bigger
+2. **User's constraints** — Time, budget, existing code, tech stack decisions
+3. **User's domain knowledge** — Expert (follow their lead) or exploring (guide them)
+4. **What they've already tried** — Check failure tracker, git log
 
-Generate the canonical `plan-council` artifacts. Use Bash heredoc to write these files.
-Required artifacts: `.omg/plans/deep-plan.md`, `.omg/plans/deep-plan.json`, `.omg/plans/dissent.json`, `.omg/evidence/plan-council.json`.
+### 1.3 Map the Domain
 
-### Artifact 1: `.omg/plans/deep-plan.md` (Human-readable)
+```bash
+# Directory structure
+find . -type f \( -name "*.ts" -o -name "*.py" -o -name "*.go" \) | head -50
+
+# Key architectural patterns
+grep -rn "export class\|export function\|def \|func \|struct " src/ --include="*.{ts,py,go}" 2>/dev/null | head -30
+
+# Existing domain boundaries
+ls -la src/*/ 2>/dev/null || ls -la app/*/ 2>/dev/null || ls -la packages/*/ 2>/dev/null
+```
+
+If direction is ambiguous after exploration, ask ONE focused clarifying question.
+
+**Good questions:**
+- "I see you have a Stripe integration in /src/payment/. Are you building on that, or replacing it?"
+- "Your auth uses JWT in cookies. Should the new feature respect that pattern?"
+- "The DB schema has 3 user types. Does this feature apply to all of them?"
+
+**Bad questions:**
+- "What framework do you want?"
+- "What's your deadline?"
+
+---
+
+## Step 2: Select the Best 5 Agents
+
+**Do NOT hardcode agents.** Use the agent selector to pick the 5 most relevant agents for this specific problem:
+
+```bash
+python3 runtime/agent_selector.py "{GOAL}" --n 5
+```
+
+This scores all ~40 agents in `agents/` against the goal using keyword affinity, description overlap, and file-type hints, then returns the top 5 with diversity enforcement (no two agents from the same role group).
+
+Review the selector output. The 5 selected agents become your 5 planning tracks.
+
+If the selector output seems wrong (e.g., missing a critical perspective like security for an auth change), override with better choices — but justify why.
+
+## Step 3: Launch 5 Parallel Planning Tracks
+
+Launch all 5 agents using Claude Code's Agent tool with `run_in_background: true`.
+
+For each selected agent, construct its prompt using the agent's specialization:
+
+```
+Agent(
+  prompt: """
+  You are the {AGENT_NAME} track for deep planning.
+  ({AGENT_DESCRIPTION})
+
+  GOAL: $ARGUMENTS
+  CODEBASE CONTEXT: [key files and patterns discovered in Step 1]
+
+  Produce a thorough planning analysis from YOUR specialized perspective.
+  Include all sections that apply to your domain:
+
+  1. DOMAIN ANALYSIS — What aspects of this goal fall in your domain?
+  2. KEY DECISIONS — Architecture/design decisions with options, trade-offs, rationale
+  3. IMPLEMENTATION PLAN — File-by-file changes, order, complexity (S/M/L)
+  4. RISK MATRIX — Risks rated LOW/MEDIUM/HIGH with mitigations
+  5. DEPENDENCIES — What you need from other tracks, what they need from you
+  6. ACCEPTANCE CRITERIA — How to verify your domain's requirements are met
+
+  Be specific — reference actual files and patterns.
+  """,
+  subagent_type: "{AGENT_SUBAGENT_TYPE}",
+  run_in_background: true
+)
+```
+
+---
+
+## Step 4: Collect Track Outputs
+
+Wait for all 5 background agents to complete. Collect their outputs.
+
+---
+
+## Step 5: Synthesis — Merge and Resolve Conflicts
+
+After collecting all outputs, run synthesis to merge into a unified plan.
+
+### Conflict Resolution Rules
+
+1. **Security wins over convenience** — Security track's "must validate" overrides shortcuts
+2. **Architecture sets boundaries** — Architecture decisions are authoritative
+3. **Testing validates feasibility** — If Testing says "untestable", revisit design
+4. **Cross-domain alignment** — API contracts must match data needs
+5. **Risk aggregation** — Combine all risk matrices into unified assessment
+
+### Synthesis Sections
+
+- **Unified Architecture** — Merge structure decisions from all tracks
+- **Implementation Order** — Combine all tracks into ordered steps
+- **Security Requirements** — Consolidate if security agent was selected
+- **Test Plan** — Integrate if testing agent was selected
+- **Conflict Resolution Log** — Document conflicts and resolutions
+
+---
+
+## Step 6: Generate Artifacts
+
+Generate a session slug for unique artifact paths:
+```bash
+python3 -c "import sys; sys.path.insert(0, 'hooks'); from _common import generate_session_slug; print(generate_session_slug())"
+```
+
+### Artifact 1: `.omg/plans/{slug}/plan.md`
+
 ```markdown
 # Deep Plan: [Feature Name]
 Created: [date]
-CHANGE_BUDGET=[small|medium|large]
+CHANGE_BUDGET: [small|medium|large]
 
 ## Direction
-[1-2 sentences: what the user is building toward, not just this task]
+[What the user is building toward]
 
-## Domain Context
-Reference pattern: [file/module that sets the pattern]
-Bounded contexts affected: [list]
-Key interfaces: [list the interfaces/types this touches]
+## Agents Selected
+- Track 1: {AGENT_1_NAME} — {AGENT_1_DESCRIPTION} (score: X.X)
+- Track 2: {AGENT_2_NAME} — {AGENT_2_DESCRIPTION} (score: X.X)
+- Track 3: {AGENT_3_NAME} — {AGENT_3_DESCRIPTION} (score: X.X)
+- Track 4: {AGENT_4_NAME} — {AGENT_4_DESCRIPTION} (score: X.X)
+- Track 5: {AGENT_5_NAME} — {AGENT_5_DESCRIPTION} (score: X.X)
 
 ## Architecture Decisions
-- [Decision]: [chosen approach] because [reason]
-  Alternatives considered: [what was rejected and why]
+[From architecture track]
 
 ## Implementation Plan
+[Merged from all tracks]
 
-### Phase 1: Foundation [N files, ~M lines]
-1. [ ] [specific action] — [file] — [what and why]
-2. [ ] [specific action] — [file]
+### Phase 1: Foundation
+1. [ ] [step] — [file] — [what and why]
+...
 
-### Phase 2: Core Logic [N files, ~M lines]
-3. [ ] [specific action]
-4. [ ] [specific action]
+### Phase 2: Core Logic
+...
 
-### Phase 3: Integration + Verification [N files, ~M lines]
-5. [ ] [specific action]
-6. [ ] Verification: /OMG:security-check [affected files]
+### Phase 3: Integration
+...
 
 ### Phase 4: Verification
-7. [ ] Tests: [what to test, how]
-8. [ ] Edge cases: [list]
-9. [ ] Manual verification: [steps]
+...
 
-## Risk Map
-- [Risk]: [mitigation]
-- [Risk]: [mitigation]
+## Security Requirements
+[From security track, if selected]
 
-## What NOT to Do
-- [Anti-pattern specific to this feature]
-- [Approach that looks tempting but will fail because...]
+## Test Plan
+[From testing track, if selected]
 
-## Files to Read Before Starting
-1. [file] — [why: contains the reference pattern]
-2. [file] — [why: defines the interface this must implement]
+## Risk Matrix (Unified)
+| Risk | Source Track | Severity | Mitigation |
+|------|--------------|----------|------------|
 
-## Plan Council Requirements
-### Assumptions
-List your assumptions below:
+## Conflict Resolution Log
+[Conflicts and resolutions]
+
+## Assumptions
 - [Assumption 1]
-- [Assumption 2]
+...
 
-### Objections and Dissent
-Record any objections or dissent:
-- [Dissent 1]
-- [Dissent 2]
+## Rollback Plan
+- [Step to revert]
+...
 
-### Rollback Plan
-Define the rollback plan:
-- [Step 1 to revert]
-- [Step 2 to revert]
-
-### Verification Commands
-List the verification commands:
-- [Command 1]
-- [Command 2]
-
-### Evidence Requirements
-Define the evidence requirements:
-- [Requirement 1]
-- [Requirement 2]
-
-### What would falsify this plan?
-Define what would falsify this plan:
-- [Condition 1]
-- [Condition 2]
+## What Would Falsify This Plan
+- [Condition that would invalidate assumptions]
+...
 ```
 
-### Artifact 2: `.omg/plans/deep-plan.json` (Machine-readable)
-Include the full task plan, workflow stages, and metadata.
+### Artifact 2: `.omg/plans/{slug}/plan.json`
 
-### Artifact 3: `.omg/plans/dissent.json` (Dissent log)
-Record all objections, risks, and counter-arguments raised during planning.
+Machine-readable with:
+- `goal`, `direction`, `change_budget`
+- `agents_selected[]` with each agent's name, score, and subagent_type
+- `tracks[]` with each track's output
+- `phases[]` with implementation steps
+- `risks[]` unified risk matrix
+- `conflicts[]` resolution log
 
-### Artifact 4: `.omg/evidence/plan-council.json` (Planning evidence)
-Record the planning process evidence, including tool outputs and validation results.
+### Artifact 3: `.omg/plans/dissent.json`
 
-## Step 4: Present and Iterate
+Record objections, risks, and counter-arguments raised during planning.
 
-Show the plan to the user. Ask:
-- "Does this match the direction you're thinking?"
-- "Anything I'm missing about your goals?"
-- "Should I adjust the scope or priority?"
+### Artifact 4: `.omg/evidence/plan-council.json`
 
-Update the plan based on feedback BEFORE starting implementation.
+Planning process evidence, tool outputs, validation results.
 
-## Step 4.5: Codex Plan Validation (MANDATORY)
+### Artifact 5: `.omg/state/_checklist.md`
 
-Before implementation, run a dedicated Codex validation pass on the final plan.
+Executable checklist with atomic steps:
+```markdown
+# Execution Checklist
 
-Checklist for Codex validation:
-- ordering and dependency correctness
-- hidden edge cases and rollback gaps
-- security/performance blind spots
-- missing verification steps
+## Pre-Implementation
+- [ ] Read [file1] — understand pattern
+...
 
-Only after applying those corrections, continue to execution.
+## Phase 1: Foundation
+- [ ] Create [file] with [what]
+...
 
-## Step 4.6: Multi-Agent Bootstrap (MANDATORY)
-
-After validation, launch exactly 5 planning tracks with mixed-model intent using OMG-native routing (same planning discipline as OMG):
-
-1. Architect track (Claude)
-2. Backend track (GPT/Codex)
-3. Frontend track (Gemini)
-4. Security track (GPT/Codex)
-5. Verification track (Claude)
-
-Dispatch pattern is mandatory: all 5 tracks launch in parallel as background sub-agents.
-
-```python
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Architect planning track", prompt="...")
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Backend planning track", prompt="...")
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Frontend planning track", prompt="...")
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Security planning track", prompt="...")
-task(subagent_type="explore", run_in_background=true, load_skills=[], description="Verification planning track", prompt="...")
+## Verification
+- [ ] Run: [test command]
+- [ ] Run: [lint command]
+...
 ```
 
-Collection and merge protocol:
-- collect every track using `background_output(task_id="...")`
-- run a `sequential-thinking` merge pass to resolve conflicts and ordering
-- emit one final executable checklist only after the merge pass
+---
 
-Each track must return:
-- concrete plan steps
-- risk notes
-- verification commands
+## Step 7: Present and Iterate
 
-Then merge outputs into a single execution checklist before implementation.
+Show the plan to the user, then use `AskUserQuestion`:
+- question: "How would you like to proceed with this plan?"
+- header: "Next step"
+- options:
+  - label: "Approve plan", description: "Start implementation from the generated checklist"
+  - label: "Adjust scope", description: "Narrow, expand, or reprioritize the plan"
+  - label: "Add constraints", description: "Share requirements or context that was missed"
+  - label: "Reject plan", description: "Start over with a different approach"
 
-## Step 5: Generate Checklist
+Wait for user selection. Update the plan based on feedback BEFORE implementation.
 
-Convert the plan into `.omg/state/_checklist.md` with concrete steps.
-Each step should be completable in ONE tool interaction (not "implement the feature").
+---
 
-## Step 5.5: Business Workflow Contract (MANDATORY)
+## Business Workflow Contract
 
-Deep-plan owns the business-style delivery workflow and task-plan contract.
+Deep-plan owns the business-style delivery workflow.
 
-Always generate a normalized workflow path and task plan directly from user instructions:
+**Canonical stages:** `plan -> implement -> qa -> simulate -> final_test -> production`
 
-- canonical stages: `plan -> implement -> qa -> simulate -> final_test -> production`
-- accepted user path keys: `workflow`, `path`, `delivery_path`, `workflow_path`
-- accepted stage aliases:
-  - `planning -> plan`
-  - `implementation|build -> implement`
-  - `quality|quality_assurance -> qa`
-  - `testing|test -> final_test`
-  - `prod|deploy -> production`
+**Stage aliases:**
+- `planning` -> `plan`
+- `implementation|build` -> `implement`
+- `quality|quality_assurance` -> `qa`
+- `testing|test` -> `final_test`
+- `prod|deploy` -> `production`
 
-Rules:
-1. If user provides a partial path, keep user order and append missing canonical stages.
-2. If user provides no path, use the full canonical path.
-3. Build tasks from:
-   - `user_instructions[]` (source of truth for requested workflow)
-   - `constraints[]` (delivery boundaries)
-   - `acceptance[]` (final test criteria)
-4. Include stage readiness for production handoff:
-   - `production=ready` only when QA/simulation/final_test gates pass.
+**Rules:**
+1. If user provides partial path, keep user order and append missing stages
+2. If no path provided, use full canonical path
+3. `production=ready` only when QA/simulation/final_test gates pass
 
-Persist this contract into planning artifacts:
-- `.omg/plans/deep-plan.md` (human-readable plan)
-- `.omg/plans/deep-plan.json` (machine-readable plan)
-- include structured task metadata in the plan output (`stage`, `title`, `detail`, `source`).
+Persist workflow into planning artifacts with structured metadata.
 
-## Integration with DDD
+---
 
-If this is a new domain:
-1. Ask the user to write (or help write) the first domain reference
-2. Extract the pattern: naming convention, data flow, error handling style
-3. Document the pattern in .omg/knowledge/domain-patterns/[name].md
-4. Use the pattern for ALL subsequent domains
-
-## Idea-as-Code Contract (required)
+## Idea-as-Code Contract
 
 Before leaving planning, ensure `.omg/idea.yml` exists with:
 - `goal`
@@ -257,10 +293,30 @@ Before leaving planning, ensure `.omg/idea.yml` exists with:
 - `risk.security[]|risk.performance[]|risk.compatibility[]`
 - `evidence_required.tests[]|security_scans[]|reproducibility[]`
 
-If missing, scaffold from template and fill from the conversation.
+If missing, scaffold from template.
+
+---
+
+## CLI Fallback (Non-Claude-Code Hosts)
+
+```bash
+OMG_CLI="${OMG_CLI_PATH:-$HOME/.claude/omg-runtime/scripts/omg.py}"
+if [ ! -f "$OMG_CLI" ] && [ -f "scripts/omg.py" ]; then
+  OMG_CLI="scripts/omg.py"
+fi
+
+python3 "$OMG_CLI" deep-plan --goal "$ARGUMENTS" --parallel-tracks
+```
+
+---
 
 ## Anti-patterns
-- Don't plan in your head and dump a wall of text — INTERACT with the user
-- Don't make architecture decisions without checking existing patterns
-- Don't create a plan with vague steps like "implement feature" — be specific
-- Don't skip the Direction step — it's the difference between useful and useless
+
+- Do NOT skip direction discovery
+- Do NOT launch tracks without codebase context
+- Do NOT ignore security findings
+- Do NOT resolve conflicts randomly — use resolution rules
+- Do NOT produce vague steps — be specific
+- Do NOT claim completion without generating artifacts
+- Do NOT make architecture decisions without checking existing patterns
+- Do NOT hardcode which agents to use — let the selector pick

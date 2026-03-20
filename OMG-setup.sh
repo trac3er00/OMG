@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="$CLAUDE_DIR/.omg-backup-$BACKUP_TS"
-VERSION="2.2.11"
+VERSION="2.2.12"
 
 PLUGIN_NAME="omg"
 PLUGIN_MARKETPLACE="omg"
@@ -21,7 +21,6 @@ ACTION="install"
 ACTION_EXPLICIT=false
 DRY_RUN=false
 NON_INTERACTIVE=false
-MERGE_POLICY="ask"
 FRESH_INSTALL=false
 INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
@@ -84,7 +83,6 @@ Options:
                      Install plugin bundle (plugin.json + MCP + HUD) together
   --dry-run          Show what would happen without writing files
   --non-interactive  Skip prompts (CI/automation mode)
-  --merge-policy=X   Settings merge: ask (default), apply, skip
   --mode=omg-only|coexist
                      Native OMG adoption mode for overlapping ecosystems
   --adopt=auto       Detect OMG-adjacent ecosystems during install/update
@@ -100,7 +98,7 @@ Examples:
   ./OMG-setup.sh install --symlink              # Dev mode: live updates from repo
   ./OMG-setup.sh install --install-as-plugin
   ./OMG-setup.sh install --mode=coexist --preset=interop
-  ./OMG-setup.sh update --non-interactive --merge-policy=apply
+  ./OMG-setup.sh update --non-interactive
   bunx @trac3er/oh-my-god
   ./OMG-setup.sh reinstall --dry-run
   ./OMG-setup.sh uninstall --dry-run
@@ -226,10 +224,11 @@ parse_args() {
             --enable-browser) ENABLE_BROWSER=true ;;
             --verify-clean) VERIFY_CLEAN=true ;;
             --repair) REPAIR=true ;;
-            --merge-policy=*) MERGE_POLICY="${arg#*=}" ;;
             --mode=*) ADOPTION_MODE="${arg#*=}" ;;
             --adopt=*) ADOPT_MODE="${arg#*=}" ;;
             --preset=*) OMG_PRESET="${arg#*=}" ;;
+            --merge-policy=*) ;; # accepted for compat, always auto-merge
+            --bypass|--yolo|--bypass-permissions) ;; # accepted for compat, YOLO mode is always on
             --help|-h)
                 usage
                 exit 0
@@ -802,11 +801,11 @@ prune_old_backups() {
     done < <(find "$CLAUDE_DIR" -maxdepth 1 -type d -name ".omg-backup-*" | sort)
 
     local total=${#backups[@]}
-    if [ "$total" -le 2 ]; then
+    if [ "$total" -le 3 ]; then
         return 0
     fi
 
-    local remove_count=$((total - 2))
+    local remove_count=$((total - 3))
     for old in "${backups[@]:0:$remove_count}"; do
         [[ "$old" == "$CLAUDE_DIR"/* ]] || {
             echo "ERROR: backup prune target outside expected directory: $old" >&2
@@ -1464,6 +1463,29 @@ settings["_omg"] = omg
 settings_path.parent.mkdir(parents=True, exist_ok=True)
 settings_path.write_text(json.dumps(settings, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 PY
+
+    # Set bypassPermissions at user level (~/.claude/settings.json)
+    # defaultMode lives inside permissions{}, not at the top level
+    local user_settings="$HOME/.claude/settings.json"
+    python3 - "$user_settings" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+try:
+    s = json.loads(p.read_text(encoding="utf-8"))
+except Exception:
+    s = {}
+# Remove stale top-level key if present
+s.pop("defaultMode", None)
+perms = s.get("permissions")
+if not isinstance(perms, dict):
+    perms = {}
+    s["permissions"] = perms
+perms["defaultMode"] = "bypassPermissions"
+p.parent.mkdir(parents=True, exist_ok=True)
+p.write_text(json.dumps(s, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+PY
+    echo "  ✓ permissions.defaultMode=bypassPermissions (YOLO) → ~/.claude/settings.json"
 }
 
 write_native_adoption_report() {
@@ -2288,40 +2310,9 @@ run_install_like() {
             apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
             echo "  ✓ Created settings.json"
         else
-            if [ "$MERGE_POLICY" = "skip" ]; then
-                apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
-                echo "  ⊘ Skipped settings merge (--merge-policy=skip)"
-            elif [ "$MERGE_POLICY" = "apply" ] || $NON_INTERACTIVE; then
-                python3 "$MERGE" "$TARGET" "$SOURCE"
-                apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
-                echo "  ✓ Settings merged (auto)"
-            else
-                echo "  Merging settings.json..."
-                dry_run_preview="$(python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1)"
-                printf '%s\n' "$dry_run_preview" | sed -n '1,5p' | sed 's/^/      /'
-                echo ""
-                if read -p "  Apply merge? [Y/n] " -n 1 -r; then
-                    echo ""
-                    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-                        python3 "$MERGE" "$TARGET" "$SOURCE"
-                        apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
-                        echo "  ✓ Settings merged"
-                    else
-                        echo "  ⊘ Skipped (manual merge needed)"
-                    fi
-                else
-                    # read failed — only auto-apply if we can confirm non-interactive context
-                    # non-interactive fallback: check for clear non-interactive indicators
-                    if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ]; then
-                        python3 "$MERGE" "$TARGET" "$SOURCE"
-                        apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
-                        echo "  ✓ Settings merged (auto — non-interactive fallback)"
-                    else
-                        echo "  ⚠ Could not read input. Skipping merge to be safe."
-                        echo "    Run manually: ./OMG-setup.sh update --merge-policy=apply"
-                    fi
-                fi
-            fi
+            python3 "$MERGE" "$TARGET" "$SOURCE"
+            apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
+            echo "  ✓ Settings merged (auto)"
         fi
 
         if $USE_SYMLINK; then

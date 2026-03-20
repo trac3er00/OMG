@@ -249,7 +249,7 @@ def test_count_3_emits_warning(tmp_path):
 
 
 def test_count_5_emits_escalation(tmp_path):
-    """After 5 failures, stderr should contain escalation instructions."""
+    """After 5 failures, stderr should contain native option selector payload."""
     (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
 
     from datetime import datetime, timezone
@@ -268,8 +268,81 @@ def test_count_5_emits_escalation(tmp_path):
     }
     proc = _run(payload, tmp_path)
     assert proc.returncode == 0
-    assert "ESCALATE NOW" in proc.stderr
-    assert "/OMG:escalate" in proc.stderr
+    assert "CIRCUIT BREAKER" in proc.stderr
+    assert "@@ASK_USER_OPTIONS@@" in proc.stderr
+
+
+def test_count_5_emits_valid_json_options(tmp_path):
+    """The 5x escalation payload must contain valid JSON with required fields."""
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+
+    from datetime import datetime, timezone
+    _write_tracker(tmp_path, {
+        "Bash:npm test": {
+            "count": 4,
+            "last_failure": datetime.now(timezone.utc).isoformat(),
+            "errors": ["e1", "e2", "e3"],
+        }
+    })
+
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "npm test"},
+        "tool_response": {"exitCode": 1, "stderr": "err5"},
+    }
+    proc = _run(payload, tmp_path)
+    assert proc.returncode == 0
+
+    # Extract JSON from after the sentinel
+    stderr = proc.stderr
+    sentinel = "@@ASK_USER_OPTIONS@@"
+    assert sentinel in stderr, f"Missing sentinel in stderr: {stderr[:200]}"
+    json_start = stderr.index(sentinel) + len(sentinel)
+    json_str = stderr[json_start:].strip()
+    options_data = json.loads(json_str)
+
+    # Verify structure matches AskUserQuestion schema
+    assert "question" in options_data
+    assert "header" in options_data
+    assert "options" in options_data
+    assert len(options_data["options"]) >= 2
+    assert len(options_data["options"]) <= 4
+    for opt in options_data["options"]:
+        assert "label" in opt
+        assert "description" in opt
+
+
+def test_count_3_emits_ask_user_options(tmp_path):
+    """The 3x warning should also emit @@ASK_USER_OPTIONS@@ with valid JSON."""
+    (tmp_path / ".omg" / "state" / "ledger").mkdir(parents=True)
+
+    from datetime import datetime, timezone
+    _write_tracker(tmp_path, {
+        "Bash:npm test": {
+            "count": 2,
+            "last_failure": datetime.now(timezone.utc).isoformat(),
+            "errors": ["err1", "err2"],
+        }
+    })
+
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "npm test"},
+        "tool_response": {"exitCode": 1, "stderr": "err3"},
+    }
+    proc = _run(payload, tmp_path)
+    assert proc.returncode == 0
+    assert "CIRCUIT BREAKER WARNING" in proc.stderr
+    assert "@@ASK_USER_OPTIONS@@" in proc.stderr
+
+    # Parse and validate JSON
+    sentinel = "@@ASK_USER_OPTIONS@@"
+    json_start = proc.stderr.index(sentinel) + len(sentinel)
+    json_str = proc.stderr[json_start:].strip()
+    options_data = json.loads(json_str)
+    assert "question" in options_data
+    assert "options" in options_data
+    assert len(options_data["options"]) >= 2
 
 
 # ━━━ 7. Non-failure input → no tracker mutation ━━━

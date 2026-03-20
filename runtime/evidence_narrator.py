@@ -1,8 +1,26 @@
 from __future__ import annotations
 
-from typing import TypedDict
+import json
+import re
+from pathlib import Path
+from typing import NotRequired, TypedDict
 
-from runtime.verdict_schema import VerdictReceipt
+from runtime.verdict_schema import ConclusionState, VerdictReceipt
+
+
+# Patterns that indicate completion claims requiring proof
+COMPLETION_CLAIM_PATTERNS: list[str] = [
+    r"\b(done|fixed|works|ready|shipped|completed|lgtm)\b",
+    r"\btests?\s+(pass|passed|passing|green)\b",
+]
+
+
+class CompletionClaimValidity(TypedDict):
+    allowed: bool
+    reason: str
+    missing: list[str]
+    conclusion: ConclusionState
+    advisory: NotRequired[str]
 
 
 class NarrativeResult(TypedDict):
@@ -145,3 +163,139 @@ def format_block_explanation(reason_code: str, context: dict) -> str:
         return f"{summary} — {actions_str}"
     else:
         return summary
+
+
+def check_completion_claim_validity(project_dir: str) -> CompletionClaimValidity:
+    """Check if a completion claim (done/works/ready) is supported by evidence.
+
+    Args:
+        project_dir: Path to the project root directory.
+
+    Returns:
+        CompletionClaimValidity dict with:
+        - allowed: True if claim is allowed (no active session OR passing proof exists)
+        - reason: Human-readable explanation
+        - missing: List of missing evidence items
+        - conclusion: ConclusionState from verdict_schema
+    """
+    root = Path(project_dir)
+    session_path = root / ".omg" / "state" / "session.json"
+    evidence_dir = root / ".omg" / "evidence"
+    missing: list[str] = []
+
+    # Check for active session via session.json
+    active_run_id: str | None = None
+    if session_path.exists():
+        try:
+            session_data = json.loads(session_path.read_text(encoding="utf-8"))
+            active_run_id = str(session_data.get("run_id", "")).strip() or None
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    # No active session means no active work requiring proof
+    if not active_run_id:
+        return {
+            "allowed": True,
+            "reason": "No active session requiring proof",
+            "missing": [],
+            "conclusion": "verified",
+        }
+
+    # Active session exists - check for proof gate verdict
+    proof_verdict_path = root / ".omg" / "state" / "proof_gate" / f"{active_run_id}.json"
+    has_passing_proof = False
+    if proof_verdict_path.exists():
+        try:
+            proof_data = json.loads(proof_verdict_path.read_text(encoding="utf-8"))
+            verdict = str(proof_data.get("verdict", "")).strip().lower()
+            has_passing_proof = verdict == "pass"
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    if not has_passing_proof:
+        missing.append("proof gate verdict")
+
+    # Check for evidence bundle
+    has_evidence_bundle = False
+    if evidence_dir.exists():
+        # Look for any evidence file matching the run_id
+        evidence_patterns = [
+            f"*{active_run_id}*.json",
+            "junit*.xml",
+            "coverage*.xml",
+            "*.sarif",
+        ]
+        for pattern in evidence_patterns:
+            if list(evidence_dir.glob(pattern)):
+                has_evidence_bundle = True
+                break
+
+    if not has_evidence_bundle:
+        missing.append("evidence bundle")
+
+    # Determine conclusion based on what's present
+    if has_passing_proof and has_evidence_bundle:
+        return {
+            "allowed": True,
+            "reason": "Proof gate passed with evidence",
+            "missing": [],
+            "conclusion": "verified",
+        }
+    elif has_passing_proof:
+        return {
+            "allowed": True,
+            "reason": "Proof gate passed (evidence inferred — collect evidence to upgrade to verified)",
+            "missing": missing,
+            "conclusion": "inferred",
+            "advisory": "Evidence bundle missing. Run verification commands to produce machine-readable evidence.",
+        }
+    elif missing:
+        return {
+            "allowed": False,
+            "reason": "Active session lacks proof",
+            "missing": missing,
+            "conclusion": "uncertain",
+        }
+    else:
+        return {
+            "allowed": False,
+            "reason": "Cannot verify completion",
+            "missing": ["test results", "proof gate verdict"],
+            "conclusion": "failed",
+        }
+
+
+def narrate_missing_evidence(missing: list[str]) -> str:
+    """Convert missing evidence items into a human-readable message.
+
+    Args:
+        missing: List of missing evidence item names.
+
+    Returns:
+        Human-readable message explaining what's missing.
+
+    Example:
+        >>> narrate_missing_evidence(["test results", "proof gate verdict"])
+        "Cannot confirm 'done' - missing: test results, proof gate verdict"
+    """
+    if not missing:
+        return "All required evidence is present."
+
+    items_str = ", ".join(missing)
+    return f"Cannot confirm 'done' - missing: {items_str}"
+
+
+def matches_completion_claim(text: str) -> bool:
+    """Check if text contains completion claim keywords.
+
+    Args:
+        text: Text to check for completion claims.
+
+    Returns:
+        True if text matches any COMPLETION_CLAIM_PATTERNS.
+    """
+    text_lower = text.lower()
+    for pattern in COMPLETION_CLAIM_PATTERNS:
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            return True
+    return False

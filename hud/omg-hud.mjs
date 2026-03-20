@@ -87,7 +87,7 @@ function readOmgVersion() {
     // fall through to static fallback
   }
 
-  return "2.2.11";
+  return "2.2.12";
 }
 
 const OMG_VERSION = readOmgVersion();
@@ -123,6 +123,7 @@ const DEFAULT_HUD_CONFIG = {
     maxOutputLines: 4,
     safeMode: true,
     inventory: true,
+    lastUpdate: true,
   },
   thresholds: {
     contextWarning: 70,
@@ -166,6 +167,7 @@ const PRESET_CONFIGS = {
     maxOutputLines: 2,
     safeMode: true,
     inventory: true,
+    lastUpdate: true,
   },
   standard: {
     cwd: true,
@@ -196,6 +198,7 @@ const PRESET_CONFIGS = {
     maxOutputLines: 4,
     safeMode: true,
     inventory: true,
+    lastUpdate: true,
   },
   full: {
     cwd: true,
@@ -226,6 +229,7 @@ const PRESET_CONFIGS = {
     maxOutputLines: 12,
     safeMode: true,
     inventory: true,
+    lastUpdate: true,
   },
   dense: {
     cwd: true,
@@ -256,6 +260,7 @@ const PRESET_CONFIGS = {
     maxOutputLines: 6,
     safeMode: true,
     inventory: true,
+    lastUpdate: true,
   },
   opencode: {
     cwd: true,
@@ -286,6 +291,7 @@ const PRESET_CONFIGS = {
     maxOutputLines: 4,
     safeMode: true,
     inventory: true,
+    lastUpdate: true,
   },
 };
 
@@ -395,6 +401,29 @@ function colorByPercent(value, label, warning = 60, critical = 85) {
   return green(`${label}`);
 }
 
+/**
+ * Safely execute a render function, returning null on error.
+ * This prevents individual section failures from killing the whole HUD.
+ */
+function safeRender(fn) {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get current time in HH:MM:SS format for lastUpdate display.
+ */
+function getLastUpdateTime() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
 function readJsonSafe(path) {
   try {
     if (!existsSync(path)) return null;
@@ -444,12 +473,28 @@ async function readStdin() {
   if (process.stdin.isTTY) return null;
   const chunks = [];
   process.stdin.setEncoding("utf8");
-  for await (const chunk of process.stdin) chunks.push(chunk);
-  const raw = chunks.join("");
-  if (!raw.trim()) return null;
+
+  // Add 2-second timeout to prevent hanging if stdin never closes
+  const STDIN_TIMEOUT_MS = 2000;
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("stdin timeout")), STDIN_TIMEOUT_MS);
+  });
+
   try {
+    const readPromise = (async () => {
+      for await (const chunk of process.stdin) chunks.push(chunk);
+      return chunks.join("");
+    })();
+
+    const raw = await Promise.race([readPromise, timeoutPromise]);
+    clearTimeout(timeoutId);
+
+    if (!raw.trim()) return null;
     return JSON.parse(raw);
-  } catch {
+  } catch (err) {
+    clearTimeout(timeoutId);
+    // Timeout or parse error - return null gracefully
     return null;
   }
 }
@@ -516,7 +561,12 @@ function isKnownModelHost(modelId) {
 }
 
 function getHostAwareCompactionTrigger(cwd, modelId) {
-  const fallback = 200_000;
+  // Model-aware fallback: 1M models get 150k trigger, others get 80k
+  const lower = String(modelId || "").toLowerCase();
+  const is1MModel = lower.includes("opus") || lower.includes("sonnet-4") ||
+                    lower.includes("gpt-5") || lower.includes("gemini-2");
+  const fallback = is1MModel ? 150_000 : 80_000;
+
   if (!isKnownModelHost(modelId)) {
     return fallback;
   }
@@ -654,6 +704,8 @@ function readOmgState(cwd) {
     autopilot: null,
     prd: null,
     backgroundTasks: [],
+    conclusion: null,
+    sessionEnd: null,
   };
 
   const modeFiles = [
@@ -750,6 +802,30 @@ function readOmgState(cwd) {
       // ignore
     }
   }
+
+  // Read session-end.json for conclusion state and unsolved_surface
+  const sessionEndState = readJsonSafe(join(stateDir, "session-end.json"));
+  if (sessionEndState) {
+    result.sessionEnd = sessionEndState;
+    // Look for conclusion in payload or top-level
+    const conclusion = sessionEndState.conclusion || sessionEndState.payload?.conclusion;
+    if (conclusion) {
+      result.conclusion = conclusion;
+    }
+  }
+
+  // Also check other state files for conclusion field
+  if (!result.conclusion) {
+    const stateFiles = ["background-verification.json", "session-start.json"];
+    for (const file of stateFiles) {
+      const state = readJsonSafe(join(stateDir, file));
+      if (state?.conclusion) {
+        result.conclusion = state.conclusion;
+        break;
+      }
+    }
+  }
+
   return result;
 }
 
@@ -1125,7 +1201,7 @@ function renderVerificationStatus(state) {
   if (state.status === "no_active_run") {
     return dim("verification: no active run");
   }
-  const { status, blockers, evidence_links, progress } = state;
+  const { status, blockers, evidence_links, progress, conclusion } = state;
   const blockerCount = blockers.length;
   const latestEvidence = evidence_links.length > 0
     ? evidence_links[evidence_links.length - 1]
@@ -1146,6 +1222,20 @@ function renderVerificationStatus(state) {
     }
   }
 
+  // Truth state rendering with color coding
+  if (conclusion) {
+    switch (conclusion) {
+      case "verified":
+        return green("\u2713 verified") + evidenceSuffix;
+      case "inferred":
+        return yellow("~ inferred") + evidenceSuffix;
+      case "uncertain":
+        return dim(yellow("? uncertain")) + evidenceSuffix;
+      case "failed":
+        return red("\u2717 failed") + evidenceSuffix;
+    }
+  }
+
   if (status === "ok") {
     return green("\u2713 verification ok") + evidenceSuffix;
   }
@@ -1157,6 +1247,14 @@ function renderVerificationStatus(state) {
     return red(`\u2717 verification blocked${blockerSuffix}`) + evidenceSuffix;
   }
   return dim("verification: unknown");
+}
+
+function renderTruthGate(state) {
+  if (!state || !state.unsolved_surface) return null;
+  const unsolved = state.unsolved_surface;
+  const items = unsolved.unsolved_items;
+  if (!items || !Array.isArray(items) || items.length === 0) return null;
+  return yellow(`unsolved:${items.length}`);
 }
 
 function renderTodos(todos) {
@@ -1390,24 +1488,24 @@ async function main() {
       return;
     }
 
-    const cfg = readHudConfig();
+    const cfg = safeRender(() => readHudConfig()) || { elements: {}, thresholds: {}, contextLimitWarning: {} };
     const cwd = stdin.cwd || process.cwd();
-    const ctxPct = getContextPercent(stdin);
-    const model = getModelShort(stdin, cfg.elements.modelFormat || "short");
-    const duration = sessionDuration(stdin.transcript_path);
-    const omgState = readOmgState(cwd);
-    const transcript = parseTranscript(stdin.transcript_path);
-    const rateLimits = readRateLimits();
-    const sessionTokenTotal = getSessionTokenTotal(stdin);
-    const dailyTokenTotal = getDailyTokenTotalFromStatsCache();
-    const weeklyTokenTotal = getWeeklyTokenTotalFromStatsCache();
-    const git = getGitInfo(cwd);
-    const promptTime = getLastPromptTime(cwd);
-    const inventory = getRuntimeInventory();
+    const ctxPct = safeRender(() => getContextPercent(stdin)) || 0;
+    const model = safeRender(() => getModelShort(stdin, cfg.elements.modelFormat || "short")) || "?";
+    const duration = safeRender(() => sessionDuration(stdin.transcript_path));
+    const omgState = safeRender(() => readOmgState(cwd)) || { modes: [], backgroundTasks: [] };
+    const transcript = safeRender(() => parseTranscript(stdin.transcript_path)) || {};
+    const rateLimits = safeRender(() => readRateLimits()) || {};
+    const sessionTokenTotal = safeRender(() => getSessionTokenTotal(stdin));
+    const dailyTokenTotal = safeRender(() => getDailyTokenTotalFromStatsCache());
+    const weeklyTokenTotal = safeRender(() => getWeeklyTokenTotalFromStatsCache());
+    const git = safeRender(() => getGitInfo(cwd)) || {};
+    const promptTime = safeRender(() => getLastPromptTime(cwd));
+    const inventory = safeRender(() => getRuntimeInventory()) || {};
 
     const warning = Number(cfg.thresholds.contextWarning ?? 60);
     const critical = Number(cfg.thresholds.contextCritical ?? 85);
-    const compactThreshold = getCompactWarningThreshold(stdin, cfg, cwd);
+    const compactThreshold = safeRender(() => getCompactWarningThreshold(stdin, cfg, cwd)) || 80;
 
     const els = [];
 
@@ -1528,21 +1626,28 @@ async function main() {
     }
 
     const verificationStateDir = join(cwd, ".omg", "state");
-    const verificationState = readVerificationState(verificationStateDir);
-    els.push(renderVerificationStatus(verificationState));
+    const verificationState = safeRender(() => readVerificationState(verificationStateDir));
+    const verificationEl = safeRender(() => renderVerificationStatus(verificationState));
+    if (verificationEl) els.push(verificationEl);
 
     // Session health monitor
     if (cfg.elements.sessionHealth !== false) {
-      const sessionHealth =
+      const sessionHealth = safeRender(() =>
         readSessionHealthFromStdin(stdin) ||
-        readLatestSessionHealth(verificationStateDir);
-      const healthEl = renderSessionHealth(sessionHealth);
+        readLatestSessionHealth(verificationStateDir)
+      );
+      const healthEl = safeRender(() => renderSessionHealth(sessionHealth));
       if (healthEl) els.push(healthEl);
     }
 
     // Model name
     if (cfg.elements.model !== false && model && model !== "?") {
       els.push(dim(model));
+    }
+
+    // Last update timestamp
+    if (cfg.elements.lastUpdate !== false) {
+      els.push(dim(`@${getLastUpdateTime()}`));
     }
 
     const details = [];

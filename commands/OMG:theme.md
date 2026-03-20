@@ -16,6 +16,21 @@ Interactive theme selection, preview, and auto-detection for OMG.
 /OMG:theme --auto
 ```
 
+## Interactive Selection
+
+When invoked without arguments, use `AskUserQuestion` to present theme choices.
+Dynamically populate options from available themes (show top 3-4 by popularity + auto):
+- question: "Which theme do you want to apply?"
+- header: "Theme"
+- options: (dynamically populate, e.g.)
+  - label: "auto (Recommended)", description: "Detect dark/light mode automatically"
+  - label: "catppuccin-mocha", description: "Warm dark theme"
+  - label: "catppuccin-latte", description: "Warm light theme"
+  - label: "[next popular theme]", description: "[description]"
+- Other themes accessible via Other.
+
+Wait for user selection before applying.
+
 ## What It Does
 
 1. `--list`: Returns a sorted list of available theme names.

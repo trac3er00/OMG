@@ -10,6 +10,7 @@ from runtime import artifact_parsers
 from runtime.context_engine import load_profile_digest
 from runtime.evidence_query import get_evidence_pack
 from runtime.evidence_requirements import FULL_REQUIREMENTS, normalize_profile, resolve_profile, requirements_for_profile
+from runtime.verdict_schema import resolve_conclusion
 
 
 def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, Any]:
@@ -82,9 +83,17 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
     elif any(token == "block" for token in aggregate_tokens):
         verdict = "insufficient"
 
+    # Determine if evidence exists based on whether any result has artifacts or trace_ids
+    evidence_exists = any(
+        result.get("evidence", {}).get("artifacts") or result.get("evidence", {}).get("trace_ids")
+        for result in results
+    )
+    conclusion = resolve_conclusion(verdict, evidence_exists)
+
     return {
         "schema": "ClaimJudgeResults",
         "verdict": verdict,
+        "conclusion": conclusion,
         "results": results,
         "advisory_context": {"profile_digest": profile_digest},
     }
@@ -232,9 +241,13 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
     else:
         verdict = "pass"
 
+    evidence_exists = bool(artifacts or trace_ids)
+    conclusion = resolve_conclusion(verdict, evidence_exists)
+
     return {
         "schema": "ClaimJudgeResult",
         "verdict": verdict,
+        "conclusion": conclusion,
         "reasons": reasons,
         "claim_type": claim_type,
         "subject": subject,

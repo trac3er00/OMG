@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/health/SKILL.md",
       "digest": {
-        "sha256": "0c562e6e071e7b01c9ffea76293d425d45f4aaef4297c42ef757ca7113a6ca02"
+        "sha256": "93806b8c1848b55240de4697692b21516aebc2ca905d049eb6ca5104a372f88e"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:42.037390+00:00"
+      "timestamp": "2026-03-20T15:37:42.970304+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:42.037390+00:00",
+  "issued_at": "2026-03-20T15:37:42.970304+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "5f2af4fddba4a118",
-    "value": "untrusted comment: signature from omg local signing key\nrucN6rgGac5rL/ve38N4UQdND/ucot3eU9BvCYhB1vW0QeRmQfDxDwuqyeeAQnZVq80lJUEmKJYq+Ki3t3NPDQ==\ntrusted comment: type=omg-slsa-v1 keyid=5f2af4fddba4a118 issued_at=2026-03-18T21:01:42.037494+00:00 artifact=bundle/.agents/skills/omg/health/SKILL.md sha256=0c562e6e071e7b01c9ffea76293d425d45f4aaef4297c42ef757ca7113a6ca02\nJUfegg3lcVMHiL1tfr7cWMN4+pZusbhkbU35SFjiVsScRUUv/kEgoqMK8KtXwfRexdcOy82oUkKKkDVriUo4DA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=5f2af4fddba4a118 issued_at=2026-03-18T21:01:42.037494+00:00 artifact=bundle/.agents/skills/omg/health/SKILL.md sha256=0c562e6e071e7b01c9ffea76293d425d45f4aaef4297c42ef757ca7113a6ca02"
+    "keyid": "0bdbd6f79f1f508f",
+    "value": "untrusted comment: signature from omg local signing key\nShzj80DKCLF/uQUe6G2HOQ32Ri/5m11R1AjqbBTqbgpqHLfqEZ4DU6+LlFTJDOrgHNB2/47wMnuSf9uG5q9VAA==\ntrusted comment: type=omg-slsa-v1 keyid=0bdbd6f79f1f508f issued_at=2026-03-20T15:37:42.970419+00:00 artifact=bundle/.agents/skills/omg/health/SKILL.md sha256=93806b8c1848b55240de4697692b21516aebc2ca905d049eb6ca5104a372f88e\nMx3e3PPtpUTOy+NaJ7N4Sqvw25paTMGHC0twbmXg+T+U5+UPQAAzhJ6CXAEzUycFP5IAfwpUrlN0SJHMPxp6CA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=0bdbd6f79f1f508f issued_at=2026-03-20T15:37:42.970419+00:00 artifact=bundle/.agents/skills/omg/health/SKILL.md sha256=93806b8c1848b55240de4697692b21516aebc2ca905d049eb6ca5104a372f88e"
   }
 }

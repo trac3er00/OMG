@@ -7,6 +7,7 @@ from typing import Any
 
 from runtime import artifact_parsers
 from runtime.evidence_requirements import FULL_REQUIREMENTS, requirements_for_profile
+from runtime.verdict_schema import resolve_conclusion
 
 
 _REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
@@ -69,14 +70,20 @@ def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
             blockers.append("production_gate_test_intent_lock_unsatisfied")
 
     unique_blockers = list(dict.fromkeys(item for item in blockers if str(item).strip()))
+    # Evidence exists if all required primitives are present and not blocked
+    evidence_exists = bool(primitive_payload and proof_result and lock_payload)
     if unique_blockers:
+        conclusion = resolve_conclusion("fail", evidence_exists)
         return {
             "status": "blocked",
+            "conclusion": conclusion,
             "blockers": unique_blockers,
             "required_primitives": list(_PRODUCTION_REQUIRED_PRIMITIVES),
         }
+    conclusion = resolve_conclusion("pass", evidence_exists)
     return {
         "status": "ok",
+        "conclusion": conclusion,
         "required_primitives": list(_PRODUCTION_REQUIRED_PRIMITIVES),
     }
 
@@ -139,9 +146,13 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
         "has_waiver_artifact": _has_waiver_artifact(test_delta or _as_dict(evidence_pack.get("test_delta"))),
         "advisories": advisories,
     }
+    verdict = "pass" if not unique_blockers else "fail"
+    evidence_exists = bool(claims and (trace_id or evidence_pack))
+    conclusion = resolve_conclusion(verdict, evidence_exists)
     return {
         "schema": "ProofGateResult",
-        "verdict": "pass" if not unique_blockers else "fail",
+        "verdict": verdict,
+        "conclusion": conclusion,
         "blockers": unique_blockers,
         "evidence_summary": evidence_summary,
     }
@@ -440,3 +451,249 @@ _PARSERS: dict[str, Any] = {
     "browser_trace": artifact_parsers.parse_browser_trace,
     "diff_hunk": artifact_parsers.parse_diff_hunk,
 }
+
+
+# NF4b: Lane evidence collection
+
+
+def detect_lane(
+    project_dir: str,
+    commit_messages: list[str] | None = None,
+    pr_labels: list[str] | None = None,
+    files: list[str] | None = None,
+) -> str:
+    """Auto-detect the certification lane from context.
+
+    Returns the lane ID string based on file patterns, commit messages, and PR labels.
+    """
+    messages = commit_messages or []
+    labels = pr_labels or []
+    file_list = files or []
+
+    messages_lower = [m.lower() for m in messages]
+    labels_lower = [lb.lower() for lb in labels]
+    files_lower = [f.lower() for f in file_list]
+
+    # Check for regression/revert first (specific pattern)
+    regression_keywords = {"regression", "revert"}
+    for msg in messages_lower:
+        if any(kw in msg for kw in regression_keywords):
+            return "lane-regression-recovery"
+
+    # Check for security-related files or commit messages
+    security_file_patterns = {".sarif"}
+    security_keywords = {"cve", "security", "vuln"}
+    has_security_files = any(
+        any(pattern in f for pattern in security_file_patterns) for f in files_lower
+    )
+    has_security_keywords = any(
+        any(kw in msg for kw in security_keywords) for msg in messages_lower
+    )
+    if has_security_files or has_security_keywords:
+        return "lane-security-remediation"
+
+    # Check for migration/refactor patterns
+    migration_file_patterns = {"migration", "dockerfile"}
+    migration_keywords = {"migrate", "upgrade"}
+    has_migration_files = any(
+        any(pattern in f for pattern in migration_file_patterns) for f in files_lower
+    )
+    has_migration_keywords = any(
+        any(kw in msg for kw in migration_keywords) for msg in messages_lower
+    )
+    if has_migration_files or has_migration_keywords:
+        return "lane-migration-refactor"
+
+    # Check for bug fix patterns
+    test_file_patterns = {"test_", "_test."}
+    fix_keywords = {"fix", "bug"}
+    has_test_files = any(
+        any(pattern in f for pattern in test_file_patterns) for f in files_lower
+    )
+    has_fix_keywords = any(
+        any(kw in msg for kw in fix_keywords) for msg in messages_lower
+    )
+    if has_test_files and has_fix_keywords:
+        return "lane-bug-fix"
+
+    # Check for feature label or default
+    if any("feature" in lb for lb in labels_lower):
+        return "lane-feature-ship"
+
+    # Default to feature-ship
+    return "lane-feature-ship"
+
+
+def collect_lane_evidence(project_dir: str, lane_id: str, run_id: str) -> dict[str, Any]:
+    """Collect evidence for a certification lane.
+
+    Looks up the lane's evidence requirements from CERTIFICATION_LANES,
+    checks which requirements are met, and writes evidence to
+    `.omg/evidence/lane-<lane_id>-<run_id>.json`.
+
+    Returns:
+        dict with lane, requirements, met, missing, and completeness fields.
+    """
+    from runtime.evidence_requirements import CERTIFICATION_LANES, EVIDENCE_REQUIREMENTS_BY_PROFILE
+
+    root = Path(project_dir)
+    evidence_dir = root / ".omg" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    # Get lane metadata and requirements
+    lane_metadata = CERTIFICATION_LANES.get(lane_id, {})
+    requirements = EVIDENCE_REQUIREMENTS_BY_PROFILE.get(lane_id, [])
+
+    met: list[str] = []
+    missing: list[str] = []
+
+    # Check each requirement
+    for req in requirements:
+        if _check_requirement_met(root, req, run_id):
+            met.append(req)
+        else:
+            missing.append(req)
+
+    completeness = len(met) / len(requirements) if requirements else 0.0
+
+    result = {
+        "schema": "LaneEvidence",
+        "lane": lane_id,
+        "lane_label": lane_metadata.get("label", lane_id),
+        "gate_type": lane_metadata.get("gate_type", "unknown"),
+        "run_id": run_id,
+        "requirements": list(requirements),
+        "met": met,
+        "missing": missing,
+        "completeness": completeness,
+    }
+
+    # Write evidence file
+    evidence_filename = f"lane-{lane_id}-{run_id}.json"
+    evidence_path = evidence_dir / evidence_filename
+    import json
+    evidence_path.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
+
+    return result
+
+
+def _check_requirement_met(root: Path, requirement: str, run_id: str) -> bool:
+    """Check if a single requirement is met based on evidence files."""
+    evidence_dir = root / ".omg" / "evidence"
+
+    requirement_checks: dict[str, list[str]] = {
+        "tests": ["junit.xml", f"junit-{run_id}.xml", "test-results.json"],
+        "lsp_clean": ["lsp-check.json", f"lsp-{run_id}.json", "lsp-clean.json"],
+        "build": ["build.json", f"build-{run_id}.json", "build-log.json"],
+        "provenance": ["provenance.json", f"provenance-{run_id}.json", "sbom.json"],
+        "trace_link": ["trace.json", f"trace-{run_id}.json", "tracebank.json"],
+        "security_scan": ["security-check.json", f"security-{run_id}.json", "results.sarif"],
+        "license_scan": ["license-scan.json", f"license-{run_id}.json"],
+        "sbom": ["sbom.json", f"sbom-{run_id}.json"],
+        "trust_scores": ["trust-scores.json", f"trust-{run_id}.json"],
+        "artifact_contracts": ["contracts.json", f"contracts-{run_id}.json"],
+        "signed_lineage": ["lineage.json", f"lineage-{run_id}.json"],
+        "signed_model_card": ["model-card.json", f"model-card-{run_id}.json"],
+        "signed_checkpoint": ["checkpoint.json", f"checkpoint-{run_id}.json"],
+    }
+
+    patterns = requirement_checks.get(requirement, [])
+    for pattern in patterns:
+        if (evidence_dir / pattern).exists():
+            return True
+
+    # Also check for run-specific evidence pack
+    evidence_pack = evidence_dir / f"{run_id}.json"
+    if evidence_pack.exists():
+        try:
+            import json
+            content = json.loads(evidence_pack.read_text(encoding="utf-8"))
+            if isinstance(content, dict):
+                # Check if evidence pack indicates this requirement is met
+                if requirement in content.get("met_requirements", []):
+                    return True
+                # Check artifacts field
+                artifacts = content.get("artifacts", [])
+                if isinstance(artifacts, list):
+                    artifact_kinds = [
+                        str(a.get("kind", "")).lower() for a in artifacts if isinstance(a, dict)
+                    ]
+                    if requirement in artifact_kinds:
+                        return True
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    return False
+
+
+# NF4c: Lane rendering
+
+
+def render_lane_status(project_dir: str) -> str:
+    """Render lane status as a formatted table.
+
+    Reads all lane evidence files from `.omg/evidence/lane-*.json`
+    and formats them as a table.
+
+    Returns:
+        Formatted table string showing lane status and completeness.
+    """
+    import json
+    from runtime.evidence_requirements import CERTIFICATION_LANES
+
+    root = Path(project_dir)
+    evidence_dir = root / ".omg" / "evidence"
+
+    if not evidence_dir.exists():
+        return "No lane evidence found."
+
+    lane_files = sorted(evidence_dir.glob("lane-*.json"))
+    if not lane_files:
+        return "No lane evidence found."
+
+    # Aggregate evidence by lane
+    lane_data: dict[str, dict[str, Any]] = {}
+    for lane_file in lane_files:
+        try:
+            content = json.loads(lane_file.read_text(encoding="utf-8"))
+            if not isinstance(content, dict):
+                continue
+            lane_id = str(content.get("lane", "")).strip()
+            if not lane_id:
+                continue
+
+            # Keep the most recent evidence for each lane (last file wins)
+            lane_data[lane_id] = content
+        except (OSError, json.JSONDecodeError):
+            continue
+
+    if not lane_data:
+        return "No valid lane evidence found."
+
+    # Build table
+    lines: list[str] = []
+    header = f"{'Lane':<25} | {'Status':<10} | {'Completeness':<12}"
+    separator = "-" * len(header)
+    lines.append(header)
+    lines.append(separator)
+
+    for lane_id, data in sorted(lane_data.items()):
+        label = str(data.get("lane_label", lane_id)).strip()
+        gate_type = str(data.get("gate_type", "unknown")).strip()
+
+        # Determine status based on gate_type
+        if gate_type == "active-gated":
+            status = "Active"
+        elif gate_type == "active-advisory":
+            status = "Advisory"
+        else:
+            status = "Unknown"
+
+        completeness = data.get("completeness", 0.0)
+        completeness_pct = f"{completeness * 100:.0f}%"
+
+        # Use label for display, trim if needed
+        display_label = label if len(label) <= 25 else label[:22] + "..."
+        lines.append(f"{display_label:<25} | {status:<10} | {completeness_pct:<12}")
+
+    return "\n".join(lines)

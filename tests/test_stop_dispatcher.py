@@ -494,3 +494,61 @@ def test_tdd_proof_chain_blocks_source_mutation(monkeypatch, tmp_path):
     block_obj = json.loads(blocks[0])
     assert block_obj["status"] == "blocked"
     assert block_obj["reason"].startswith("tdd_proof_chain_incomplete")
+
+
+def test_collect_unsolved_surface_empty_when_no_issues(tmp_path):
+    """_collect_unsolved_surface returns empty lists when no issues exist."""
+    context = {"ledger_entries": []}
+    result = stop_dispatcher._collect_unsolved_surface(context, str(tmp_path))
+    assert result["unsolved_items"] == []
+    assert result["reasons"] == []
+    assert result["escalation_attempts"] == []
+
+
+def test_collect_unsolved_surface_detects_failure_tracker(tmp_path):
+    """_collect_unsolved_surface reads circuit-breaker failure tracker."""
+    ledger_dir = tmp_path / ".omg" / "state" / "ledger"
+    ledger_dir.mkdir(parents=True, exist_ok=True)
+    (ledger_dir / "failure-tracker.json").write_text(json.dumps({
+        "Bash:pytest": {
+            "count": 3,
+            "errors": ["ModuleNotFoundError: foo"],
+            "last_failure": "2026-01-01T00:00:00+00:00",
+        }
+    }))
+
+    context = {"ledger_entries": []}
+    result = stop_dispatcher._collect_unsolved_surface(context, str(tmp_path))
+    assert len(result["unsolved_items"]) == 1
+    assert "Bash:pytest" in result["unsolved_items"][0]
+    assert len(result["reasons"]) == 1
+    assert "failed 3x" in result["reasons"][0]
+
+
+def test_collect_unsolved_surface_detects_escalation_attempts(tmp_path):
+    """_collect_unsolved_surface finds escalation commands in ledger."""
+    context = {
+        "ledger_entries": [
+            {"ts": "2026-01-01T00:00:00+00:00", "tool": "Bash", "command": "/OMG:escalate codex"},
+            {"ts": "2026-01-01T00:01:00+00:00", "tool": "Bash", "command": "npm test"},
+        ]
+    }
+    result = stop_dispatcher._collect_unsolved_surface(context, str(tmp_path))
+    assert len(result["escalation_attempts"]) == 1
+    assert "escalate" in result["escalation_attempts"][0]["command"]
+
+
+def test_collect_unsolved_surface_detects_blocked_session_health(tmp_path):
+    """_collect_unsolved_surface finds blocked status in session_health."""
+    health_dir = tmp_path / ".omg" / "state" / "session_health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    (health_dir / "run-1.json").write_text(json.dumps({
+        "run_id": "run-1",
+        "status": "blocked",
+        "contamination_risk": 0.8,
+    }))
+
+    context = {"ledger_entries": []}
+    result = stop_dispatcher._collect_unsolved_surface(context, str(tmp_path))
+    assert any("run-1" in item and "blocked" in item for item in result["unsolved_items"])
+    assert any("contamination" in reason for reason in result["reasons"])

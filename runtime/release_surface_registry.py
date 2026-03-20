@@ -15,7 +15,7 @@ PublicSurface = dict[str, Any]
 
 GENERATED_SECTION_MARKERS: dict[str, str] = {
     "install_fast_path": "<!-- OMG:GENERATED:install-fast-path -->",
-    "changelog_current": "<!-- OMG:GENERATED:changelog-v2.2.10 -->",
+    "changelog_current": "<!-- OMG:GENERATED:changelog-v2.2.12 -->",
     "command_surface_doc": "<!-- OMG:GENERATED:command-surface -->",
     "install_intro": "<!-- OMG:GENERATED:install-intro -->",
     "why_omg": "<!-- OMG:GENERATED:why-omg -->",
@@ -37,14 +37,14 @@ PUBLIC_SURFACES: list[PublicSurface] = [
     {
         "id": "release_notes_artifact",
         "category": "docs",
-        "path": "artifacts/release/release-notes-v2.2.10.md",
-        "description": "release notes artifact for v2.2.10",
+        "path": "artifacts/release/release-notes-v2.2.12.md",
+        "description": "release notes artifact for v2.2.12",
     },
     {
         "id": "changelog_current_block",
         "category": "docs",
         "path": "CHANGELOG.md",
-        "marker": "<!-- OMG:GENERATED:changelog-v2.2.10 -->",
+        "marker": "<!-- OMG:GENERATED:changelog-v2.2.12 -->",
         "description": "current release block in changelog",
     },
     *[
@@ -148,25 +148,13 @@ PUBLIC_SURFACES: list[PublicSurface] = [
         "id": "workflow_release",
         "category": "workflow",
         "path": ".github/workflows/release.yml",
-        "description": "release workflow entrypoint",
+        "description": "release workflow (semantic-release + npm publish)",
     },
     {
-        "id": "workflow_evidence_gate",
+        "id": "workflow_cla",
         "category": "workflow",
-        "path": ".github/workflows/evidence-gate.yml",
-        "description": "evidence gate workflow",
-    },
-    {
-        "id": "workflow_compat_gate",
-        "category": "workflow",
-        "path": ".github/workflows/omg-compat-gate.yml",
-        "description": "compat gate workflow",
-    },
-    {
-        "id": "action_yaml",
-        "category": "action",
-        "path": "action.yml",
-        "description": "GitHub Action entrypoint",
+        "path": ".github/workflows/cla.yml",
+        "description": "CLA signature verification workflow",
     },
     {
         "id": "sign_locked_prod",
@@ -206,9 +194,7 @@ _REQUIRED_IDS: frozenset[str] = frozenset({
     "npm_bin_key",
     "github_check_run_name",
     "workflow_release",
-    "workflow_evidence_gate",
-    "workflow_compat_gate",
-    "action_yaml",
+    "workflow_cla",
     "sign_locked_prod",
     "sign_fintech",
     "sign_airgapped",
@@ -226,7 +212,6 @@ _REQUIRED_CATEGORIES: frozenset[str] = frozenset({
     "workflow",
     "sign_artifact",
     "npm",
-    "action",
     "release_body",
 })
 

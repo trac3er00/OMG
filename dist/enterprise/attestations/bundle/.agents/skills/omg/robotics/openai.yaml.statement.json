@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/robotics/openai.yaml",
       "digest": {
-        "sha256": "8d6b6539867cb4080c4502d3325f9f32954290ace6bbc2bb20e9acbf619b61a5"
+        "sha256": "d6c28424bbcf9457da1fa5a0aff3952a5aca8a6e66257b633962c58e3e365f5c"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:42.048030+00:00"
+      "timestamp": "2026-03-20T15:37:42.990323+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:42.048030+00:00",
+  "issued_at": "2026-03-20T15:37:42.990323+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "2115ac9e183c571d",
-    "value": "untrusted comment: signature from omg local signing key\nkIhUqaqCalowELPJ21sgMtzXrVzz82a7eKf9qntj0s5ENnPMOyLWVI82CWyeiC4Eph5qyi3KfN+ImYccaoeaDA==\ntrusted comment: type=omg-slsa-v1 keyid=2115ac9e183c571d issued_at=2026-03-18T21:01:42.048141+00:00 artifact=bundle/.agents/skills/omg/robotics/openai.yaml sha256=8d6b6539867cb4080c4502d3325f9f32954290ace6bbc2bb20e9acbf619b61a5\nQ0qQgAR4fTMPvT6uHOPoPX9eMygZT504bpsCTPyh4ompRh29ZZcFHK6flH/DUx9OnjwtSpLg03yi37IoAULZAg==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=2115ac9e183c571d issued_at=2026-03-18T21:01:42.048141+00:00 artifact=bundle/.agents/skills/omg/robotics/openai.yaml sha256=8d6b6539867cb4080c4502d3325f9f32954290ace6bbc2bb20e9acbf619b61a5"
+    "keyid": "db60505421ed9158",
+    "value": "untrusted comment: signature from omg local signing key\nbwsApBBhGBqfWOo9zu2eH7Wm3/qCROi/oHDpx7ygYHHQu1GvGevpXv/du0xHmEk89+eJ/wDzuNGx6AZGNawWCg==\ntrusted comment: type=omg-slsa-v1 keyid=db60505421ed9158 issued_at=2026-03-20T15:37:42.990436+00:00 artifact=bundle/.agents/skills/omg/robotics/openai.yaml sha256=d6c28424bbcf9457da1fa5a0aff3952a5aca8a6e66257b633962c58e3e365f5c\ns2Gn2zCwts1dZWwxCqxEp74LPkMfWycLv0Y5BQDQ7RxxoD1juNuALmsiyUWFgyDGTn5IGecfltIwOdlK40B7CA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=db60505421ed9158 issued_at=2026-03-20T15:37:42.990436+00:00 artifact=bundle/.agents/skills/omg/robotics/openai.yaml sha256=d6c28424bbcf9457da1fa5a0aff3952a5aca8a6e66257b633962c58e3e365f5c"
   }
 }

@@ -33,7 +33,6 @@ _REQUIRED_CATEGORIES = frozenset({
     "workflow",
     "sign_artifact",
     "npm",
-    "action",
 })
 
 # ── Required surface IDs (minimum) ────────────────────────────────────────
@@ -63,10 +62,7 @@ _REQUIRED_SURFACE_IDS: list[str] = [
     "github_check_run_name",
     # Workflows
     "workflow_release",
-    "workflow_evidence_gate",
-    "workflow_compat_gate",
-    # Action
-    "action_yaml",
+    "workflow_cla",
     # Signed artifacts
     "sign_locked_prod",
     "sign_fintech",
@@ -95,7 +91,7 @@ class TestRegistryCompleteness:
 
     def test_minimum_surface_count(self) -> None:
         surfaces = get_public_surfaces()
-        assert len(surfaces) >= 26
+        assert len(surfaces) >= 25
 
 
 class TestValidateRegistry:

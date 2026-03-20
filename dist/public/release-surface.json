@@ -1,19 +1,19 @@
 {
   "generated_by": "omg release compile-surfaces",
-  "version": "2.2.10",
-  "generated_at": "2026-03-19T00:15:10.709871+00:00",
+  "version": "2.2.12",
+  "generated_at": "2026-03-20T15:37:43.063989+00:00",
   "surfaces": [
     {
       "id": "release_notes_artifact",
       "category": "docs",
-      "path": "artifacts/release/release-notes-v2.2.10.md",
-      "description": "release notes artifact for v2.2.10"
+      "path": "artifacts/release/release-notes-v2.2.12.md",
+      "description": "release notes artifact for v2.2.12"
     },
     {
       "id": "changelog_current_block",
       "category": "docs",
       "path": "CHANGELOG.md",
-      "marker": "<!-- OMG:GENERATED:changelog-v2.2.10 -->",
+      "marker": "<!-- OMG:GENERATED:changelog-v2.2.12 -->",
       "description": "current release block in changelog"
     },
     {
@@ -149,25 +149,13 @@
       "id": "workflow_release",
       "category": "workflow",
       "path": ".github/workflows/release.yml",
-      "description": "release workflow entrypoint"
+      "description": "release workflow (semantic-release + npm publish)"
     },
     {
-      "id": "workflow_evidence_gate",
+      "id": "workflow_cla",
       "category": "workflow",
-      "path": ".github/workflows/evidence-gate.yml",
-      "description": "evidence gate workflow"
-    },
-    {
-      "id": "workflow_compat_gate",
-      "category": "workflow",
-      "path": ".github/workflows/omg-compat-gate.yml",
-      "description": "compat gate workflow"
-    },
-    {
-      "id": "action_yaml",
-      "category": "action",
-      "path": "action.yml",
-      "description": "GitHub Action entrypoint"
+      "path": ".github/workflows/cla.yml",
+      "description": "CLA signature verification workflow"
     },
     {
       "id": "sign_locked_prod",

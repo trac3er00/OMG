@@ -3,6 +3,24 @@ from __future__ import annotations
 from typing import Any, Literal, TypedDict
 
 VerdictStatus = Literal["pass", "fail", "action_required", "pending"]
+ConclusionState = Literal["verified", "inferred", "uncertain", "failed"]
+
+
+def resolve_conclusion(verdict: str, evidence_exists: bool) -> ConclusionState:
+    """Map verdict + evidence presence to a 4-state user-facing conclusion.
+
+    - verdict="pass" AND evidence_exists=True -> "verified"
+    - verdict="pass" AND evidence_exists=False -> "inferred" (advisory: evidence gap)
+    - verdict in ("insufficient", "pending", "action_required") -> "uncertain"
+    - verdict in ("fail", "block") -> "failed"
+    """
+    normalized = str(verdict).strip().lower()
+    if normalized == "pass":
+        return "verified" if evidence_exists else "inferred"
+    if normalized in ("insufficient", "pending", "action_required"):
+        return "uncertain"
+    # "fail", "block", "blocked", "error", or any other unknown -> "failed"
+    return "failed"
 
 
 class VerdictReceipt(TypedDict):
@@ -189,10 +207,12 @@ def fail_verdict(blockers: list[str], *, evidence_paths: dict[str, str] | None =
 
 
 __all__ = [
+    "ConclusionState",
     "VerdictReceipt",
     "VerdictStatus",
     "action_required_verdict",
     "fail_verdict",
     "normalize_verdict",
     "pass_verdict",
+    "resolve_conclusion",
 ]

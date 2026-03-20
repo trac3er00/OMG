@@ -24,7 +24,11 @@ This document covers the release procedure and golden rules for publishing new v
 
 Open a PR that updates release-facing surfaces (for example `runtime/adoption.py`, `package.json`, and generated artifacts), then merge to `main` after CI is green.
 
-### 2. Push main to trigger the authoritative release workflow
+### 2. Verify cubic-agents/ files match the Cubic dashboard
+
+Before releasing, confirm that all agent prompts in `cubic-agents/` are synced with the Cubic dashboard. If any in-repo file was updated since the last release, update the corresponding agent in the dashboard.
+
+### 3. Push main to trigger the authoritative release workflow
 
 ```bash
 git push origin main
@@ -32,7 +36,7 @@ git push origin main
 
 `release.yml` is now the single authoritative publish path and runs semantic-release on merges to `main`. It uses full git history (`fetch-depth: 0`) and performs release-readiness checks before publishing.
 
-### 2a. Ensure policy packs are signed
+### 3a. Ensure policy packs are signed
 
 All policy packs must be signed before releasing. The CI release-readiness gate enforces this via `OMG_REQUIRE_TRUSTED_POLICY_PACKS=1`.
 
@@ -52,7 +56,7 @@ python3 scripts/omg.py policy-pack verify --all
 
 If any pack is unsigned or tampered, the release-readiness gate will fail.
 
-### 3. What semantic-release automates
+### 4. What semantic-release automates
 
 - determines next version from conventional commits
 - updates changelog + versioned files
@@ -60,7 +64,7 @@ If any pack is unsigned or tampered, the release-readiness gate will fail.
 - publishes npm package
 - publishes GitHub release and writes back `chore(release): <version> [skip ci]`
 
-### 4. Legacy manual publish workflow
+### 5. Legacy manual publish workflow
 
 `publish-npm.yml` is retired for normal releases. Use the semantic-release path via `release.yml`.
 
