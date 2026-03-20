@@ -175,6 +175,35 @@ def test_sanctioned_callsites_are_auto_waived(tmp_path):
     assert len(sanctioned) >= 5
 
 
+def test_release_artifact_audit_b603_findings_require_manual_review(tmp_path):
+    from runtime.security_check import _finalize_findings
+
+    audit_file = tmp_path / "runtime" / "release_artifact_audit.py"
+    audit_file.parent.mkdir()
+    audit_file.write_text("import subprocess\nsubprocess.run(['echo', 'hi'])\n", encoding="utf-8")
+
+    findings = [
+        {
+            "id": "B603",
+            "source": "bandit",
+            "category": "python_ast",
+            "severity": "low",
+            "message": "subprocess call - check for execution of untrusted input.",
+            "recommendation": "Review subprocess usage and keep it manually approved.",
+            "evidence": {
+                "path": str(audit_file),
+                "line": 2,
+                "snippet": "subprocess.run(['echo', 'hi'])",
+            },
+        }
+    ]
+
+    finalized = _finalize_findings(findings, {}, project_dir=str(tmp_path))
+
+    assert finalized[0]["waived"] is False
+    assert "waiver_justification" not in finalized[0]
+
+
 def test_non_sanctioned_callsites_remain_blocked(tmp_path):
     from runtime.security_check import run_security_check
     (tmp_path / "src").mkdir()

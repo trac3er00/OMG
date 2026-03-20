@@ -31,7 +31,6 @@ _SANCTIONED_CALLSITES: dict[tuple[str, str], str] = {
     ("tools/python_sandbox.py", "B307"): "Intentional eval() in sandboxed executor (contract: tools/python_sandbox.py, tests: tests/tools/test_python_sandbox.py)",
     ("tools/python_sandbox.py", "B102"): "Intentional exec() in sandboxed executor (contract: tools/python_sandbox.py, tests: tests/tools/test_python_sandbox.py)",
     ("omg_natives/shell.py", "B602"): "Intentional shell execution in native shell helper (contract: omg_natives/shell.py)",
-    ("runtime/release_artifact_audit.py", "B603"): "Subprocess via _run_tool wrapper: argv list, no shell=True, timeout enforced (tests: tests/runtime/test_release_artifact_audit.py)",
 }
 
 SEVERITY_ORDER = {
