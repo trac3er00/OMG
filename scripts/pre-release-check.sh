@@ -4,11 +4,11 @@
 set -euo pipefail
 
 VERSION="${1:-}"
-REPO="${2:-trac3er00/OMG}"
+REPO="${2:-trac3r00/OMG}"
 
 if [ -z "$VERSION" ]; then
   echo "Usage: $0 <version> [repo]"
-  echo "Example: $0 2.1.8 trac3er00/OMG"
+  echo "Example: $0 2.1.8 trac3r00/OMG"
   exit 1
 fi
 

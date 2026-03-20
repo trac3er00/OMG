@@ -99,9 +99,9 @@ def _find_text_violations(root: Path) -> list[str]:
         if ".sisyphus/" in content:
             if path not in ALLOW_PATTERN_REFERENCES:
                 violations.append(f"{rel}: stale internal path reference found (.sisyphus/)")
-        if "trac3er00/OAL" in content:
+        if "trac3r00/OAL" in content:
             if path not in ALLOW_PATTERN_REFERENCES:
-                violations.append(f"{rel}: old repo identifier found (trac3er00/OAL)")
+                violations.append(f"{rel}: old repo identifier found (trac3r00/OAL)")
         if "oh-advanced-layer" in content:
             if path not in ALLOW_DEPRECATED_MARKETPLACE:
                 violations.append(f"{rel}: deprecated marketplace identifier found (oh-advanced-layer)")

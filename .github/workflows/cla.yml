@@ -23,11 +23,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           path-to-signatures: 'signatures/cla.json'
-          path-to-document: 'https://github.com/trac3er00/OMG/blob/main/CLA.md'
+          path-to-document: 'https://github.com/trac3r00/OMG/blob/main/CLA.md'
           branch: 'main'
-          allowlist: trac3er00,oh-my-openagents,dependabot*,github-actions*,*[bot]
+          allowlist: trac3r00,oh-my-openagents,dependabot*,github-actions*,*[bot]
           custom-notsigned-prcomment: |
-            Thank you for your contribution! Before we can merge this PR, we need you to sign our [Contributor License Agreement (CLA)](https://github.com/trac3er00/OMG/blob/main/CLA.md).
+            Thank you for your contribution! Before we can merge this PR, we need you to sign our [Contributor License Agreement (CLA)](https://github.com/trac3r00/OMG/blob/main/CLA.md).
 
             **To sign the CLA**, please comment on this PR with:
             ```

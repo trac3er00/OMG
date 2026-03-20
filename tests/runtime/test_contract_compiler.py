@@ -2571,8 +2571,8 @@ def test_version_drift_blocker_on_marketplace_nested_version_fields(
         "metadata": {
             "description": "OMG",
             "version": "0.0.0-stale",
-            "homepage": "https://github.com/trac3er00/OMG",
-            "repository": "https://github.com/trac3er00/OMG",
+            "homepage": "https://github.com/trac3r00/OMG",
+            "repository": "https://github.com/trac3r00/OMG",
         },
         "plugins": [
             {
@@ -2580,7 +2580,7 @@ def test_version_drift_blocker_on_marketplace_nested_version_fields(
                 "description": "OMG plugin",
                 "version": "0.0.0-stale",
                 "source": "./",
-                "author": {"name": "trac3er00"},
+                "author": {"name": "trac3r00"},
                 "license": "MIT",
                 "category": "productivity",
                 "tags": [],

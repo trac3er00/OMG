@@ -161,7 +161,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           VERSION="${{ needs.resolve-target.outputs.version }}"
-          REPO="trac3er00/OMG"
+          REPO="trac3r00/OMG"
           TAG="v${VERSION}"
           RESPONSE=$(gh api "repos/${REPO}/releases/tags/${TAG}" 2>&1 || true)
           if echo "$RESPONSE" | grep -q '"immutable": true'; then

@@ -11,7 +11,7 @@ This document covers the release procedure and golden rules for publishing new v
    ```bash
    ./scripts/pre-release-check.sh <version> [repo]
    # Example:
-   ./scripts/pre-release-check.sh <version> trac3er00/OMG
+   ./scripts/pre-release-check.sh <version> trac3r00/OMG
    ```
 
 3. **If a tag is locked by an immutable release**, you have two options:

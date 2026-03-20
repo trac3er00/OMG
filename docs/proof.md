@@ -1,6 +1,6 @@
 # OMG Proof Surface
 
-[![Release](https://github.com/trac3er00/OMG/actions/workflows/release.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/release.yml)
+[![Release](https://github.com/trac3r00/OMG/actions/workflows/release.yml/badge.svg)](https://github.com/trac3r00/OMG/actions/workflows/release.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
 
 ## How to Read Your Proof

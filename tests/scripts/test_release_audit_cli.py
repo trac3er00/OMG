@@ -37,7 +37,7 @@ def test_cmd_release_audit_json_delegates_to_engine(monkeypatch: pytest.MonkeyPa
         "schema": "ReleaseArtifactAudit",
         "overall_status": "ok",
         "version": "2.2.10",
-        "repo": "trac3er00/OMG",
+        "repo": "trac3r00/OMG",
     }
 
     def _fake_run_release_artifact_audit(*args, **kwargs):
@@ -48,7 +48,7 @@ def test_cmd_release_audit_json_delegates_to_engine(monkeypatch: pytest.MonkeyPa
         artifact=True,
         apply=False,
         confirm="",
-        repo="trac3er00/OMG",
+        repo="trac3r00/OMG",
         version="",
         format="json",
         output_json="",

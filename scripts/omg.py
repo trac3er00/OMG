@@ -173,7 +173,7 @@ def cmd_ship(args: argparse.Namespace) -> int:
     project_dir = _ensure_project_dir()
     release_audit = run_release_artifact_audit(
         ROOT_DIR,
-        repo="trac3er00/OMG",
+        repo="trac3r00/OMG",
         version=CANONICAL_VERSION,
         github_token=resolve_github_token(),
     )
@@ -2946,7 +2946,7 @@ def _add_release_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> N
     release_audit.add_argument("--artifact", action="store_true", help="Run the release artifact audit")
     release_audit.add_argument("--apply", action="store_true", help="Apply GitHub release remediation")
     release_audit.add_argument("--confirm", default="", help="Confirmation token that must match the target version for --apply")
-    release_audit.add_argument("--repo", default="trac3er00/OMG", help="GitHub owner/name repo slug")
+    release_audit.add_argument("--repo", default="trac3r00/OMG", help="GitHub owner/name repo slug")
     release_audit.add_argument("--version", default="", help="Override target version")
     release_audit.add_argument("--format", default="text", choices=["text", "json"])
     release_audit.add_argument("--output-json", default="", help="Write JSON report to this path")

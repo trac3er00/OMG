@@ -45,16 +45,16 @@
     "codex",
     "gemini"
   ],
-  "author": "trac3er00",
+  "author": "trac3r00",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/trac3er00/OMG.git"
+    "url": "git+https://github.com/trac3r00/OMG.git"
   },
   "bugs": {
-    "url": "https://github.com/trac3er00/OMG/issues"
+    "url": "https://github.com/trac3r00/OMG/issues"
   },
-  "homepage": "https://github.com/trac3er00/OMG#readme",
+  "homepage": "https://github.com/trac3r00/OMG#readme",
   "engines": {
     "node": ">=18.0.0"
   }
