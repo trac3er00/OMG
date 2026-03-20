@@ -8,15 +8,39 @@
 - Idempotent generated-section markers in docs
 <!-- /OMG:GENERATED:changelog-v2.2.10 -->
 
-## 2.2.10 - 2026-03-18
+## 2.2.11 - 2026-03-19
 
-### Release Truth and Launcher-First Install Path
+### PR Review Migration, Hook Hardening, and Release Audit Gate
 
-- **version alignment**: bump package, contract, registry, plugin, and generated bundle surfaces to match the v2.2.10 tag
-- **launcher-first install path**: canonical quickstart/install now leads with `npx omg env doctor` -> `npx omg install --plan` -> `npx omg install --apply` -> `npx omg ship`
-- **postinstall truthfulness**: document that `npm install` only resolves dependencies and links the bin while mutations remain explicit behind `npx omg install --apply`
-- **release-surface hardening**: block stale explain-run syntax, non-runnable local-install guidance, and front-door drift in `validate-release-identity`
-- **docs alignment**: regenerate README, host guides, proof surfaces, quick reference, verification index, and release artifacts against the authoritative v2.2.10 flow
+#### CI/CD — Migrate to Cubic AI Review Agents
+- **cubic AI migration**: replace all legacy GitHub Actions review workflows (evidence-gate, artifact-self-audit, compat-gate, release-readiness) with 5 Cubic AI custom agents — Contract Integrity, Release Safety, Compat & Host Parity, Public Surface & Docs, Security Hygiene
+- **CLA workflow**: add CLA Assistant Lite for contributor license agreement signing on PRs from external contributors
+- **GitGuardian**: add automated secret scanning on push and pull request events
+- **legacy cleanup**: remove `action.yml`, `runtime/github_integration.py`, `runtime/github_review_bot.py`, `runtime/github_review_contract.py`, `runtime/github_review_formatter.py`, `scripts/github_review_helpers.py`, and all associated test suites (~2,500 lines removed)
+- **CONTRIBUTING.md**: add Cubic migration guide and "when to update Cubic agents" reference table
+
+#### Hooks — Safety Hardening and Review Coverage
+- **hook error logging**: harden error reporting in `hooks/_common.py` with structured logging and fail-safe defaults
+- **stop-hook loop tracking**: add loop detection to `hooks/stop_dispatcher.py` to prevent infinite hook re-entry
+- **credential path validation**: strengthen credential path checks against traversal and injection in hook policy engine
+- **planning gate behavior**: fix planning gate to correctly evaluate governed mutation context before blocking
+- **env masking**: fix environment variable masking and stop tracker initialization race conditions
+- **test coverage**: add ~6,400 lines of regression coverage across hook policy decisions, stop-dispatcher behavior, installer safety, and setup script validation
+
+#### Runtime — Release Artifact Audit Gate
+- **release artifact audit**: new `runtime/release_artifact_audit.py` — validates version parity, file completeness, and security properties across npm-pack, git-archive, and source-tree release surfaces
+- **subprocess safety**: extract `_run_tool()` wrapper in release audit to follow established subprocess safety patterns (no direct `subprocess.run`)
+- **path traversal fix**: replace `startswith()` with `is_relative_to()` in 2 locations to close path traversal bypass
+- **TOML error handling**: catch `tomlkit.ParseError` on malformed TOML in compat cleanup handler
+- **stale legacy detection**: add stale legacy section detection to check-only mode in surface compiler
+- **contract snapshots**: regenerate both contract snapshots with `host_surfaces` field and updated `contract_version`
+
+#### Documentation — Launcher-First and Proof Framing
+- **launcher-first docs**: make public docs and install guides launcher-first, demoting legacy clone and slash-command paths
+- **proof framing**: frame Music OMR as Certification Lane 1 flagship in proof documentation
+- **install docs**: rename misleading "air-gapped" headings to "manual setup" (documented steps require network access)
+- **front-door consistency**: tighten test assertions to catch `find() == -1` false-pass patterns
+- **version regex anchors**: add word-boundary anchors to version regexes to prevent prefix matches (e.g., 2.2.1 vs 2.2.10)
 
 ## 2.2.9 - 2026-03-18
 

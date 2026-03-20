@@ -1,6 +1,6 @@
 id: claim-judge
 kind: proof
-version: 2.2.10
+version: 2.2.11
 title: OMG Claim Judge
 description: Evidence-backed claim validator for structured release and completion claims.
 hosts:
