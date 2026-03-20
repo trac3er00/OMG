@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import errno
 import fcntl
 import site
 import time
@@ -284,11 +285,13 @@ def hook_reentry_guard(hook_name):
     try:
         try:
             fd = os.open(lock_file, os.O_RDWR | os.O_CREAT | _O_NOFOLLOW_HOOKS, 0o600)
-        except OSError:
-            # If lock file cannot be opened safely (e.g. symlink with O_NOFOLLOW),
-            # skip the hook rather than running without reentry protection
-            yield False
-            return
+        except OSError as e:
+            if e.errno == errno.ELOOP:
+                # Symlink detected via O_NOFOLLOW — skip the hook rather than
+                # running without reentry protection
+                yield False
+                return
+            raise
         for _ in range(3):
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
