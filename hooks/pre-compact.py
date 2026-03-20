@@ -457,8 +457,8 @@ def _check_auto_compact_advisory(project_dir):
     """
     state = _load_auto_compact_state(project_dir)
 
-    # Ensure lazy imports are loaded (provides fallback for standalone execution)
-    _lazy_imports()
+    # Get current counts
+    from hooks.state_migration import resolve_state_file  # lazy import
     checklist_path = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
     ledger_path = resolve_state_file(project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl")
 
@@ -504,6 +504,15 @@ def main():
 
     project_dir = _resolve_project_dir()
     compaction_limits = _host_aware_compaction_threshold(data)
+
+    # Advisory: check if auto-compact heuristics suggest compaction (feature-flagged)
+    if get_feature_flag("auto_compact", default=True):
+        try:
+            should_suggest, reason = _check_auto_compact_advisory(project_dir)
+            if should_suggest:
+                print(f"[OMG pre-compact] Auto-compact advisory: {reason}", file=sys.stderr)
+        except Exception:
+            pass  # crash isolation: advisory failure should not block compaction
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     state_dir = resolve_state_dir(project_dir, "state", "")
     snapshot_dir = os.path.join(state_dir, "snapshots", ts)
@@ -589,13 +598,7 @@ def main():
             pass
 
     try:
-        # SECURITY REVIEWED: subprocess usage is safe here because:
-        # 1. Command is hardcoded as a list (no shell injection possible)
-        # 2. No user-controlled input is passed to the command
-        # 3. project_dir comes from _resolve_project_dir() which is a trusted source
-        # 4. Alternative approaches (gitpython, reading .git internals) add complexity
-        #    without improving security for this simple read-only git query
-        import subprocess  # lazy import
+        import subprocess  # lazy import — security-reviewed: fixed argv, no user input, timeout-bounded
         diff_names = subprocess.run(
             ["git", "diff", "--name-only"],
             capture_output=True,

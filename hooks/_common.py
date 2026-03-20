@@ -278,8 +278,10 @@ def hook_reentry_guard(hook_name):
 
     fd = None
     acquired = False
+    fail_open = False
+
     try:
-        fd = os.open(lock_file, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        fd = os.open(lock_file, os.O_RDWR | os.O_CREAT | _O_NOFOLLOW_HOOKS, 0o600)
         for _ in range(3):
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -287,22 +289,31 @@ def hook_reentry_guard(hook_name):
                 break
             except BlockingIOError:
                 time.sleep(0.1)
-
-        if not acquired:
-            # Fail-open: another instance is running, signal caller to skip
-            os.close(fd)
-            fd = None
-            yield False
-            return
-
-        # Write PID + timestamp for diagnostics
-        os.ftruncate(fd, 0)
-        os.lseek(fd, 0, os.SEEK_SET)
-        os.write(fd, json.dumps({"pid": os.getpid(), "ts": time.time()}).encode("utf-8"))
-        yield True
     except Exception:
-        # Fail-open on any unexpected error
-        yield True
+        # Fail-open: couldn't open/lock the file
+        fail_open = True
+
+    if not acquired and not fail_open:
+        # Another instance is running, signal caller to skip
+        if fd is not None:
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+            fd = None
+        yield False
+        return
+
+    if acquired:
+        try:
+            os.ftruncate(fd, 0)
+            os.lseek(fd, 0, os.SEEK_SET)
+            os.write(fd, json.dumps({"pid": os.getpid(), "ts": time.time()}).encode("utf-8"))
+        except Exception:
+            pass  # Non-critical: diagnostics only
+
+    try:
+        yield True  # Either lock acquired or fail-open
     finally:
         if fd is not None:
             try:

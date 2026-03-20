@@ -5,7 +5,7 @@ Use this checklist before making OMG public or cutting a release tag.
 ## Identity
 
 - README, `package.json`, plugin manifests, and CLI version output agree on the version
-- repo URL is `https://github.com/trac3er00/OMG`
+- repo URL is `https://github.com/trac3r00/OMG`
 - plugin and marketplace id are `omg`
 
 ## Public Safety

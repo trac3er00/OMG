@@ -560,8 +560,8 @@ class TestInstallIntroContent:
 
     def test_does_not_require_global_install(self) -> None:
         content = _install_intro_content()
-        assert "npm install -g @trac3er/oh-my-god" not in content
-        assert "npm install @trac3er/oh-my-god" not in content
+        assert "npm install -g @trac3r/oh-my-god" not in content
+        assert "npm install @trac3r/oh-my-god" not in content
 
     def test_install_intro_in_readme(self, project: Path) -> None:
         compile_release_surfaces(project)

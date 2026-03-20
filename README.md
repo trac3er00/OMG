@@ -1,8 +1,8 @@
 # OMG
 
-[![Compat Gate](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3er00/OMG/actions/workflows/omg-compat-gate.yml)
-[![npm version](https://img.shields.io/npm/v/%40trac3er%2Foh-my-god)](https://www.npmjs.com/package/@trac3er/oh-my-god)
-[![License](https://img.shields.io/github/license/trac3er00/OMG)](LICENSE)
+[![Compat Gate](https://github.com/trac3r00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3r00/OMG/actions/workflows/omg-compat-gate.yml)
+[![npm version](https://img.shields.io/npm/v/%40trac3r%2Foh-my-god)](https://www.npmjs.com/package/@trac3r/oh-my-god)
+[![License](https://img.shields.io/github/license/trac3r00/OMG)](LICENSE)
 
 OMG upgrades your agent host instead of replacing it. It gives Claude Code, Codex, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
 
@@ -62,8 +62,8 @@ graph TD
 - **Host Dependent**: Capabilities are limited by what the underlying agent host supports.
 
 - Brand: `OMG`
-- Repo: `https://github.com/trac3er00/OMG`
-- npm: `@trac3er/oh-my-god`
+- Repo: `https://github.com/trac3r00/OMG`
+- npm: `@trac3r/oh-my-god`
 - Plugin id: `omg`
 - Marketplace id: `omg`
 

@@ -269,7 +269,8 @@ def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[s
                             and not _is_non_source_path(file_path)):
                         current_turn_source_write_entries.append(result)
                 if tool_name == "Bash":
-                    cmd = (result.get("tool_input") or {}).get("command", "")
+                    tool_input = result.get("tool_input")
+                    cmd = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
                     if cmd:
                         current_turn_commands.append(cmd.lower()[:300])
 
@@ -307,6 +308,8 @@ def check_verification(data, project_dir):
     all_commands = recent_commands + current_turn_commands
     has_source_writes = context["has_source_writes"] or context.get("current_turn_has_source_writes", False)
 
+    skip_verification_block = False
+
     # Cooldown: if recently blocked and current turn has test commands, skip check
     cooldown_path = os.path.join(project_dir, ".omg/state/ledger/.verification-blocked.json")
     if current_turn_commands and os.path.exists(cooldown_path):
@@ -320,8 +323,7 @@ def check_verification(data, project_dir):
                     for cmd in current_turn_commands
                 )
                 if has_test_in_turn:
-                    data["_has_test"] = True
-                    return blocks
+                    skip_verification_block = True
         except Exception:
             pass
 
@@ -354,7 +356,7 @@ def check_verification(data, project_dir):
         except Exception as e:  # security: quality gate loading
             print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
 
-    if has_source_writes and not has_any_verification:
+    if has_source_writes and not has_any_verification and not skip_verification_block:
         if expected_checks:
             blocks.append(
                 "Code was modified but NO verification commands were run.\n"
