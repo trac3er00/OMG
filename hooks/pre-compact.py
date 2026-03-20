@@ -505,13 +505,14 @@ def main():
     project_dir = _resolve_project_dir()
     compaction_limits = _host_aware_compaction_threshold(data)
 
-    # Advisory: check if auto-compact heuristics suggest compaction
-    try:
-        should_suggest, reason = _check_auto_compact_advisory(project_dir)
-        if should_suggest:
-            print(f"[OMG pre-compact] Auto-compact advisory: {reason}", file=sys.stderr)
-    except Exception:
-        pass  # crash isolation: advisory failure should not block compaction
+    # Advisory: check if auto-compact heuristics suggest compaction (feature-flagged)
+    if get_feature_flag("auto_compact", default=True):
+        try:
+            should_suggest, reason = _check_auto_compact_advisory(project_dir)
+            if should_suggest:
+                print(f"[OMG pre-compact] Auto-compact advisory: {reason}", file=sys.stderr)
+        except Exception:
+            pass  # crash isolation: advisory failure should not block compaction
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     state_dir = resolve_state_dir(project_dir, "state", "")
     snapshot_dir = os.path.join(state_dir, "snapshots", ts)
