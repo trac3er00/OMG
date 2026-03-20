@@ -738,8 +738,13 @@ def get_folder_context(project_dir: str | Path, folder_path: str) -> str | None:
 
     try:
         cache_mtime = cache_path.stat().st_mtime
-        folder_mtime = folder.stat().st_mtime
-        if folder_mtime > cache_mtime:
+        # Recursively find the latest mtime among all files inside the folder
+        # (folder mtime alone doesn't update when files inside are edited)
+        latest_mtime = max(
+            (p.stat().st_mtime for p in folder.rglob("*")),
+            default=folder.stat().st_mtime,
+        )
+        if latest_mtime > cache_mtime:
             return None  # Cache is stale
         return cache_path.read_text(encoding="utf-8")
     except OSError:
@@ -894,3 +899,232 @@ def smart_compact(
         "kept_count": len(kept),
         "dropped_count": len(dropped),
     }
+
+
+# ---------------------------------------------------------------------------
+# NF3a: One-task-per-session (task focus management)
+# ---------------------------------------------------------------------------
+
+_SESSION_REL_PATH = Path(".omg") / "state" / "session.json"
+_SNAPSHOTS_REL_PATH = Path(".omg") / "state" / "snapshots"
+
+
+def get_active_task(project_dir: str) -> dict[str, Any] | None:
+    """Get the active task focus from session.json.
+
+    Returns the task_focus dict if it exists and has a non-empty task,
+    otherwise returns None.
+    """
+    project_path = Path(project_dir)
+    session_path = project_path / _SESSION_REL_PATH
+
+    if not session_path.exists():
+        return None
+
+    try:
+        session_data = json.loads(session_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    task_focus = session_data.get("task_focus")
+    if not isinstance(task_focus, dict):
+        return None
+
+    task = str(task_focus.get("task", "")).strip()
+    if not task:
+        return None
+
+    return task_focus
+
+
+def set_task_focus(
+    project_dir: str,
+    task: str,
+    files: list[str] | None = None,
+) -> None:
+    """Set the task focus in session.json.
+
+    Creates or updates session.json with task_focus containing:
+    - task: the task description
+    - files_touched: list of files
+    - started_at: ISO timestamp
+    """
+    from datetime import datetime, timezone
+
+    project_path = Path(project_dir)
+    session_path = project_path / _SESSION_REL_PATH
+
+    # Read existing session data if present
+    session_data: dict[str, Any] = {}
+    if session_path.exists():
+        try:
+            session_data = json.loads(session_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Update task_focus
+    session_data["task_focus"] = {
+        "task": task,
+        "files_touched": files or [],
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Write back
+    session_path.parent.mkdir(parents=True, exist_ok=True)
+    session_path.write_text(json.dumps(session_data, indent=2), encoding="utf-8")
+
+
+def detect_task_drift(
+    prompt: str,
+    active_task: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Detect if a prompt represents task drift from the active task.
+
+    Args:
+        prompt: The new prompt/request
+        active_task: The active task dict from get_active_task(), or None
+
+    Returns dict with:
+    - drift: bool (True if drift detected)
+    - action: "none" | "continue" | "snapshot"
+    - suggested_action: what to do next
+    - active_task: normalized active task string
+    - confidence: float (confidence in drift detection)
+    """
+    if active_task is None:
+        return {
+            "drift": False,
+            "action": "none",
+            "suggested_action": "continue",
+            "active_task": "",
+            "confidence": 1.0,
+        }
+
+    task_text = str(active_task.get("task", "")).strip().lower()
+    prompt_lower = prompt.lower()
+
+    # Extract keywords from task (filter out common words)
+    stop_words = {"the", "a", "an", "to", "for", "of", "in", "on", "at", "is", "and", "or"}
+    task_keywords = {
+        word for word in task_text.split()
+        if len(word) > 2 and word not in stop_words
+    }
+
+    # Check keyword overlap
+    matching_keywords = sum(1 for kw in task_keywords if kw in prompt_lower)
+    overlap_ratio = matching_keywords / len(task_keywords) if task_keywords else 0.0
+
+    # Drift threshold: if less than 30% keyword overlap, consider it drift
+    drift_detected = overlap_ratio < 0.3
+
+    return {
+        "drift": drift_detected,
+        "action": "continue" if not drift_detected else "snapshot",
+        "suggested_action": "snapshot" if drift_detected else "continue",
+        "active_task": task_text,
+        "confidence": 1.0 - overlap_ratio if drift_detected else overlap_ratio,
+    }
+
+
+# ---------------------------------------------------------------------------
+# NF3b: Protected handoff snapshot
+# ---------------------------------------------------------------------------
+
+
+def create_handoff_snapshot(project_dir: str) -> str:
+    """Create a handoff snapshot of current session state.
+
+    Captures:
+    - active_task from session.json
+    - plan_state from _plan.md
+    - checklist_state from _checklist.md
+    - files_touched from task focus
+
+    Returns the path to the snapshot file.
+    """
+    from datetime import datetime, timezone
+
+    project_path = Path(project_dir)
+    snapshots_dir = project_path / _SNAPSHOTS_REL_PATH
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate timestamp-based filename
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    snapshot_path = snapshots_dir / f"{timestamp}.json"
+
+    # Get active task
+    active_task = get_active_task(project_dir)
+
+    # Read plan state
+    plan_path = project_path / ".omg" / "state" / "_plan.md"
+    plan_state: str | None = None
+    if plan_path.exists():
+        try:
+            plan_state = plan_path.read_text(encoding="utf-8")
+        except OSError:
+            pass
+
+    # Read checklist state
+    checklist_path = project_path / ".omg" / "state" / "_checklist.md"
+    checklist_state: str | None = None
+    if checklist_path.exists():
+        try:
+            checklist_state = checklist_path.read_text(encoding="utf-8")
+        except OSError:
+            pass
+
+    # Get files touched
+    files_touched: list[str] = []
+    if active_task:
+        files_touched = active_task.get("files_touched", [])
+
+    snapshot_data = {
+        "schema": "HandoffSnapshot",
+        "schema_version": "1.0.0",
+        "timestamp": timestamp,
+        "active_task": active_task,
+        "plan_state": plan_state,
+        "checklist_state": checklist_state,
+        "files_touched": files_touched,
+    }
+
+    snapshot_path.write_text(json.dumps(snapshot_data, indent=2), encoding="utf-8")
+    return str(snapshot_path)
+
+
+def list_handoff_snapshots(project_dir: str) -> list[dict[str, Any]]:
+    """List all handoff snapshots, sorted by timestamp (newest first).
+
+    Returns a list of dicts with:
+    - timestamp: snapshot timestamp
+    - task: active task description
+    - file_count: number of files touched
+    - path: path to snapshot file
+    """
+    project_path = Path(project_dir)
+    snapshots_dir = project_path / _SNAPSHOTS_REL_PATH
+
+    if not snapshots_dir.exists():
+        return []
+
+    snapshots: list[dict[str, Any]] = []
+    for snapshot_file in snapshots_dir.glob("*.json"):
+        try:
+            data = json.loads(snapshot_file.read_text(encoding="utf-8"))
+            active_task = data.get("active_task") or {}
+            files_touched = data.get("files_touched", [])
+            if not isinstance(files_touched, list):
+                files_touched = []
+
+            snapshots.append({
+                "timestamp": data.get("timestamp", snapshot_file.stem),
+                "task": active_task.get("task", "") if isinstance(active_task, dict) else "",
+                "file_count": len(files_touched),
+                "path": str(snapshot_file),
+            })
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    # Sort by timestamp descending (newest first)
+    snapshots.sort(key=lambda s: s["timestamp"], reverse=True)
+    return snapshots

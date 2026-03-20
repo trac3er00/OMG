@@ -16,6 +16,8 @@ def load_pre_compact_module():
     - The path is constructed relative to this test file, not from user input
     - This is a test utility, not production code
     """
+    # SECURITY REVIEWED: exec_module loads only project-internal hooks/pre-compact.py via
+    # hardcoded relative path. No user input influences module path. Reviewed 2026-03-20.
     spec = importlib.util.spec_from_file_location(
         "pre_compact",
         os.path.join(os.path.dirname(__file__), "..", "..", "hooks", "pre-compact.py")

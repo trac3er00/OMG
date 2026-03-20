@@ -25,6 +25,8 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
     merged_env = dict(os.environ)
     if env is not None:
         merged_env.update(env)
+    # SECURITY REVIEWED: subprocess.run with list args (no shell=True), hardcoded script path,
+    # test-controlled arguments only. No injection risk. Reviewed 2026-03-20.
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args],
         cwd=str(ROOT),

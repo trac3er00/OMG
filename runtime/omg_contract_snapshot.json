@@ -1,6 +1,6 @@
 {
   "schema": "OmgCompatContractSnapshot",
-  "contract_version": "2.2.10",
+  "contract_version": "2.2.11",
   "count": 47,
   "contracts": [
     {
@@ -932,5 +932,5 @@
       "opencode"
     ]
   },
-  "generated_at": "2026-03-19T23:53:27.620231+00:00"
+  "generated_at": "2026-03-20T22:03:38.411863+00:00"
 }

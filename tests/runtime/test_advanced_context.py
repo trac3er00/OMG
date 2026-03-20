@@ -54,12 +54,17 @@ def test_get_folder_context_returns_none_when_stale(tmp_path: Path) -> None:
     # Create folder
     Path(folder_path).mkdir(parents=True, exist_ok=True)
 
+    # Create a file inside the folder so we can modify its mtime
+    inner_file = Path(folder_path) / "file.py"
+    inner_file.write_text("# code")
+
     # Save context
     save_folder_context(str(tmp_path), folder_path, content)
 
-    # Give a small delay, then touch the folder to make it newer
-    time.sleep(0.1)
-    os.utime(folder_path, None)  # Update mtime to now
+    # Set an explicit future mtime on the inner file to trigger staleness
+    # (avoids flakiness from filesystems with 1s timestamp resolution)
+    future_time = time.time() + 10
+    os.utime(inner_file, (future_time, future_time))
 
     # Cache should now be stale
     result = get_folder_context(str(tmp_path), folder_path)

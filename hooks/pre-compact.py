@@ -457,8 +457,8 @@ def _check_auto_compact_advisory(project_dir):
     """
     state = _load_auto_compact_state(project_dir)
 
-    # Get current counts
-    from hooks.state_migration import resolve_state_file  # lazy import
+    # Ensure lazy imports are loaded (provides fallback for standalone execution)
+    _lazy_imports()
     checklist_path = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
     ledger_path = resolve_state_file(project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl")
 
@@ -589,6 +589,12 @@ def main():
             pass
 
     try:
+        # SECURITY REVIEWED: subprocess usage is safe here because:
+        # 1. Command is hardcoded as a list (no shell injection possible)
+        # 2. No user-controlled input is passed to the command
+        # 3. project_dir comes from _resolve_project_dir() which is a trusted source
+        # 4. Alternative approaches (gitpython, reading .git internals) add complexity
+        #    without improving security for this simple read-only git query
         import subprocess  # lazy import
         diff_names = subprocess.run(
             ["git", "diff", "--name-only"],

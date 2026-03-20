@@ -440,3 +440,250 @@ _PARSERS: dict[str, Any] = {
     "browser_trace": artifact_parsers.parse_browser_trace,
     "diff_hunk": artifact_parsers.parse_diff_hunk,
 }
+
+
+# ---------------------------------------------------------------------------
+# Lane evidence collection and detection (NF4b, NF4c)
+# ---------------------------------------------------------------------------
+
+_LANE_DEFINITIONS: dict[str, dict[str, Any]] = {
+    "lane-regression-recovery": {
+        "label": "Regression Recovery",
+        "gate_type": "active-gated",
+        "requirements": ["tests", "lsp_clean", "regression_proof", "git_bisect"],
+        "commit_keywords": ["regression", "revert"],
+        "file_patterns": [],
+        "pr_labels": ["regression"],
+    },
+    "lane-security-remediation": {
+        "label": "Security Remediation",
+        "gate_type": "active-gated",
+        "requirements": ["tests", "lsp_clean", "sarif_clean", "security_audit"],
+        "commit_keywords": ["security", "cve", "vuln"],
+        "file_patterns": [".sarif"],
+        "pr_labels": ["security"],
+    },
+    "lane-migration-refactor": {
+        "label": "Migration Refactor",
+        "gate_type": "active-advisory",
+        "requirements": ["tests", "lsp_clean", "migration_plan"],
+        "commit_keywords": ["migrate", "upgrade", "refactor"],
+        "file_patterns": ["migration", "dockerfile", "docker-compose"],
+        "pr_labels": ["migration", "refactor"],
+    },
+    "lane-bug-fix": {
+        "label": "Bug Fix",
+        "gate_type": "active-gated",
+        "requirements": ["tests", "lsp_clean", "regression_test", "root_cause"],
+        "commit_keywords": ["fix", "bug"],
+        "file_patterns": [],
+        "pr_labels": ["bug", "fix"],
+    },
+    "lane-feature-ship": {
+        "label": "Feature Ship",
+        "gate_type": "active-gated",
+        "requirements": ["tests", "lsp_clean", "acceptance_tests", "docs"],
+        "commit_keywords": ["feat", "feature", "add"],
+        "file_patterns": [],
+        "pr_labels": ["feature", "enhancement"],
+    },
+}
+
+_EVIDENCE_FILE_PATTERNS: dict[str, list[str]] = {
+    "tests": ["junit.xml", "pytest.xml", "test-results"],
+    "lsp_clean": ["lsp-check.json", "typecheck.json"],
+    "sarif_clean": [".sarif", "sarif.json"],
+    "coverage": ["coverage.xml", "lcov.info"],
+    "regression_proof": ["regression-proof.json"],
+    "regression_test": ["regression-test.json"],
+    "security_audit": ["security-audit.json"],
+    "migration_plan": ["migration-plan.json", "migration.md"],
+    "acceptance_tests": ["acceptance.json", "e2e-results"],
+    "docs": ["docs-check.json", "readme.md"],
+    "root_cause": ["root-cause.json"],
+    "git_bisect": ["bisect-result.json"],
+}
+
+
+def detect_lane(
+    project_dir: str,
+    *,
+    commit_messages: list[str] | None = None,
+    files: list[str] | None = None,
+    pr_labels: list[str] | None = None,
+) -> str:
+    """Auto-detect the appropriate lane based on context signals.
+
+    Priority order (highest to lowest):
+    1. Regression/revert keywords -> lane-regression-recovery
+    2. Security keywords or .sarif files -> lane-security-remediation
+    3. Migration keywords or Dockerfile -> lane-migration-refactor
+    4. Fix/bug keywords with test files -> lane-bug-fix
+    5. Default -> lane-feature-ship
+    """
+    commit_messages = commit_messages or []
+    files = files or []
+    pr_labels = pr_labels or []
+
+    commit_text = " ".join(commit_messages).lower()
+    file_text = " ".join(files).lower()
+    label_set = {label.lower() for label in pr_labels}
+
+    # Priority 1: Regression/revert
+    regression_def = _LANE_DEFINITIONS["lane-regression-recovery"]
+    if any(kw in commit_text for kw in regression_def["commit_keywords"]):
+        return "lane-regression-recovery"
+    if label_set & {label.lower() for label in regression_def["pr_labels"]}:
+        return "lane-regression-recovery"
+
+    # Priority 2: Security
+    security_def = _LANE_DEFINITIONS["lane-security-remediation"]
+    if any(kw in commit_text for kw in security_def["commit_keywords"]):
+        return "lane-security-remediation"
+    if any(pattern in file_text for pattern in security_def["file_patterns"]):
+        return "lane-security-remediation"
+    if label_set & {label.lower() for label in security_def["pr_labels"]}:
+        return "lane-security-remediation"
+
+    # Priority 3: Migration/refactor
+    migration_def = _LANE_DEFINITIONS["lane-migration-refactor"]
+    if any(kw in commit_text for kw in migration_def["commit_keywords"]):
+        return "lane-migration-refactor"
+    if any(pattern in file_text for pattern in migration_def["file_patterns"]):
+        return "lane-migration-refactor"
+    if label_set & {label.lower() for label in migration_def["pr_labels"]}:
+        return "lane-migration-refactor"
+
+    # Priority 4: Bug fix (requires test files)
+    bug_def = _LANE_DEFINITIONS["lane-bug-fix"]
+    has_test_files = any("test" in f.lower() for f in files)
+    if any(kw in commit_text for kw in bug_def["commit_keywords"]) and has_test_files:
+        return "lane-bug-fix"
+    if label_set & {label.lower() for label in bug_def["pr_labels"]}:
+        return "lane-bug-fix"
+
+    # Priority 5: Feature (check PR labels)
+    feature_def = _LANE_DEFINITIONS["lane-feature-ship"]
+    if label_set & {label.lower() for label in feature_def["pr_labels"]}:
+        return "lane-feature-ship"
+
+    # Default
+    return "lane-feature-ship"
+
+
+def collect_lane_evidence(
+    project_dir: str,
+    lane_id: str,
+    run_id: str,
+) -> dict[str, Any]:
+    """Collect evidence for a lane and write the evidence file.
+
+    Returns a LaneEvidence dict with:
+    - schema, lane, lane_label, gate_type, run_id
+    - requirements (list of requirement names)
+    - met (list of satisfied requirements)
+    - missing (list of unsatisfied requirements)
+    - completeness (float 0.0-1.0)
+    """
+    import json
+
+    lane_def = _LANE_DEFINITIONS.get(lane_id, _LANE_DEFINITIONS["lane-feature-ship"])
+    requirements = lane_def["requirements"]
+
+    project_path = Path(project_dir)
+    evidence_dir = project_path / ".omg" / "evidence"
+
+    met: list[str] = []
+    missing: list[str] = []
+
+    for req in requirements:
+        patterns = _EVIDENCE_FILE_PATTERNS.get(req, [])
+        found = False
+        for pattern in patterns:
+            # Check if any matching evidence file exists
+            for evidence_file in evidence_dir.glob("*"):
+                if pattern.lower() in evidence_file.name.lower():
+                    found = True
+                    break
+            if found:
+                break
+        if found:
+            met.append(req)
+        else:
+            missing.append(req)
+
+    completeness = len(met) / len(requirements) if requirements else 0.0
+
+    result: dict[str, Any] = {
+        "schema": "LaneEvidence",
+        "lane": lane_id,
+        "lane_label": lane_def["label"],
+        "gate_type": lane_def["gate_type"],
+        "run_id": run_id,
+        "requirements": list(requirements),
+        "met": met,
+        "missing": missing,
+        "completeness": completeness,
+    }
+
+    # Write evidence file
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    evidence_file = evidence_dir / f"lane-{lane_id}-{run_id}.json"
+    evidence_file.write_text(json.dumps(result, indent=2), encoding="utf-8")
+
+    return result
+
+
+def render_lane_status(project_dir: str) -> str:
+    """Render a table of lane evidence status.
+
+    Returns a formatted string with columns: Lane, Status, Completeness
+    If no evidence found, returns "No lane evidence found."
+    """
+    import json
+
+    project_path = Path(project_dir)
+    evidence_dir = project_path / ".omg" / "evidence"
+
+    if not evidence_dir.exists():
+        return "No lane evidence found."
+
+    # Collect lane evidence files
+    lane_files = list(evidence_dir.glob("lane-*.json"))
+    if not lane_files:
+        return "No lane evidence found."
+
+    # Parse lane evidence, keeping only the latest per lane
+    lane_data: dict[str, dict[str, Any]] = {}
+    for lane_file in lane_files:
+        try:
+            data = json.loads(lane_file.read_text(encoding="utf-8"))
+            if data.get("schema") != "LaneEvidence":
+                continue
+            lane_id = data.get("lane", "")
+            if not lane_id:
+                continue
+            # Keep latest by file modification time
+            if lane_id not in lane_data or lane_file.stat().st_mtime > lane_data[lane_id].get("_mtime", 0):
+                data["_mtime"] = lane_file.stat().st_mtime
+                lane_data[lane_id] = data
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    if not lane_data:
+        return "No lane evidence found."
+
+    # Build table
+    lines: list[str] = []
+    lines.append(f"{'Lane':<20} | {'Status':<12} | {'Completeness':<12}")
+    lines.append("-" * 50)
+
+    for lane_id, data in sorted(lane_data.items()):
+        label = data.get("lane_label", lane_id)
+        gate_type = data.get("gate_type", "unknown")
+        status = "Active" if "gated" in gate_type else "Advisory"
+        completeness = data.get("completeness", 0.0)
+        completeness_str = f"{int(completeness * 100)}%"
+        lines.append(f"{label:<20} | {status:<12} | {completeness_str:<12}")
+
+    return "\n".join(lines)

@@ -195,8 +195,8 @@ def detect_dispatch_strategy() -> str:
     if os.environ.get("CLAUDE_CODE") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
         return DISPATCH_AGENT
 
-    # Check for tmux availability
-    if _is_tmux_available():
+    # Check for tmux usability (binary available AND execution context supports it)
+    if _should_use_tmux():
         return DISPATCH_TMUX
 
     # Fallback to thread pool
