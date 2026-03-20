@@ -5,42 +5,70 @@
 2) Auto-generate handoff files in .omg/state
 3) JetBrains hybrid summarization (feature-flagged: CONTEXT_MANAGER)
 """
+# Performance-critical: minimal top-level imports for fast early-exit
 import json
-import importlib
-import math
 import os
-import re
-import shutil
-import subprocess
 import sys
-from datetime import datetime
 
-try:
-    from hooks.state_migration import resolve_state_file, resolve_state_dir
-    from hooks._common import _resolve_project_dir, get_feature_flag
-    from hooks._protected_context import collect_protected_context
-except ImportError:
-    _state_migration = importlib.import_module("state_migration")
-    _common = importlib.import_module("_common")
-    resolve_state_file = _state_migration.resolve_state_file
-    resolve_state_dir = _state_migration.resolve_state_dir
-    _resolve_project_dir = _common._resolve_project_dir
-    get_feature_flag = _common.get_feature_flag
+# Lazy imports - loaded only when needed (see _lazy_imports())
+_lazy_loaded = False
+resolve_state_file = None
+resolve_state_dir = None
+_resolve_project_dir = None
+get_feature_flag = None
+collect_protected_context = None
+get_model_limits = None
+compaction_trigger = None
+
+
+def _lazy_imports():
+    """Load heavy imports only when actually needed."""
+    global _lazy_loaded, resolve_state_file, resolve_state_dir
+    global _resolve_project_dir, get_feature_flag, collect_protected_context
+    global get_model_limits, compaction_trigger
+
+    if _lazy_loaded:
+        return
+    _lazy_loaded = True
+
+    import importlib
     try:
-        _protected_ctx = importlib.import_module("_protected_context")
-        collect_protected_context = _protected_ctx.collect_protected_context
-    except Exception:
-        collect_protected_context = None
+        from hooks.state_migration import resolve_state_file as _rsf, resolve_state_dir as _rsd
+        from hooks._common import _resolve_project_dir as _rpd, get_feature_flag as _gff
+        from hooks._protected_context import collect_protected_context as _cpc
+        resolve_state_file = _rsf
+        resolve_state_dir = _rsd
+        _resolve_project_dir = _rpd
+        get_feature_flag = _gff
+        collect_protected_context = _cpc
+    except ImportError:
+        _state_migration = importlib.import_module("state_migration")
+        _common = importlib.import_module("_common")
+        resolve_state_file = _state_migration.resolve_state_file
+        resolve_state_dir = _state_migration.resolve_state_dir
+        _resolve_project_dir = _common._resolve_project_dir
+        get_feature_flag = _common.get_feature_flag
+        try:
+            _protected_ctx = importlib.import_module("_protected_context")
+            collect_protected_context = _protected_ctx.collect_protected_context
+        except Exception:
+            collect_protected_context = None
 
-try:
-    from runtime.context_limits import get_model_limits, compaction_trigger
-except Exception:
-    get_model_limits = None
-    compaction_trigger = None
+    try:
+        from runtime.context_limits import get_model_limits as _gml, compaction_trigger as _ct
+        get_model_limits = _gml
+        compaction_trigger = _ct
+    except Exception:
+        pass  # get_model_limits and compaction_trigger remain None
 
 
 MAX_SNAPSHOT_BYTES = int(os.environ.get("OMG_PRECOMPACT_MAX_SNAPSHOT_BYTES", "262144"))
 GIT_DIFF_TIMEOUT_SEC = int(os.environ.get("OMG_PRECOMPACT_GIT_DIFF_TIMEOUT_SEC", "1"))
+
+# Auto-compact settings
+AUTO_COMPACT_STATE_FILE = ".omg/state/auto-compact-state.json"
+AUTO_COMPACT_TOOL_THRESHOLD = int(os.environ.get("OMG_AUTO_COMPACT_TOOL_THRESHOLD", "150"))
+AUTO_COMPACT_PHASE_CHECK_ENABLED = True  # Check for new phases by default
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +105,33 @@ def first_lines(text, max_lines):
     return "\n".join(text.splitlines()[:max_lines])
 
 
+def _rotate_ledger_if_needed(ledger_path, max_lines=10000):
+    """Rotate ledger file if it exceeds max_lines.
+
+    Copies current to .bak, then writes only the last max_lines.
+    """
+    if not os.path.exists(ledger_path):
+        return
+    try:
+        with open(ledger_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        if len(lines) <= max_lines:
+            return
+        import shutil
+        bak_path = ledger_path + ".bak"
+        shutil.copy2(ledger_path, bak_path)
+        with open(ledger_path, "w", encoding="utf-8") as f:
+            f.writelines(lines[-max_lines:])
+        print(
+            f"[OMG pre-compact] Rotated ledger: {len(lines)} -> {max_lines} lines (backup: .bak)",
+            file=sys.stderr,
+        )
+    except Exception:
+        pass  # crash isolation
+
+
 def snapshot_file(src_path, dst_path, max_bytes):
+    import shutil  # lazy import
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
     try:
         size = os.path.getsize(src_path)
@@ -103,18 +157,34 @@ def snapshot_file(src_path, dst_path, max_bytes):
 # JetBrains hybrid summarization (Dec 2025 empirical strategy)
 # ---------------------------------------------------------------------------
 
-# Regex for common source file extensions
-_FILE_PATH_RE = re.compile(
-    r"(?:[\w./-]+/)?[\w.-]+\."
-    r"(?:py|ts|js|tsx|jsx|json|yaml|yml|md|txt|sh|toml|cfg|ini|sql|html|css|go|rs|java|rb|c|h|cpp)"
-)
+# Lazy-compiled regex patterns (compiled on first use)
+_FILE_PATH_RE = None
+_CAUSAL_RE = None
 
-# Keywords indicating causal relationships / decisions
-_CAUSAL_RE = re.compile(
-    r"\b(?:decided|chose|because|therefore|fixed|resolved|implemented|"
-    r"created|added|removed|deleted|changed|updated|refactored)\b",
-    re.IGNORECASE,
-)
+
+def _get_file_path_re():
+    """Lazy-compile the file path regex."""
+    global _FILE_PATH_RE
+    if _FILE_PATH_RE is None:
+        import re
+        _FILE_PATH_RE = re.compile(
+            r"(?:[\w./-]+/)?[\w.-]+\."
+            r"(?:py|ts|js|tsx|jsx|json|yaml|yml|md|txt|sh|toml|cfg|ini|sql|html|css|go|rs|java|rb|c|h|cpp)"
+        )
+    return _FILE_PATH_RE
+
+
+def _get_causal_re():
+    """Lazy-compile the causal keywords regex."""
+    global _CAUSAL_RE
+    if _CAUSAL_RE is None:
+        import re
+        _CAUSAL_RE = re.compile(
+            r"\b(?:decided|chose|because|therefore|fixed|resolved|implemented|"
+            r"created|added|removed|deleted|changed|updated|refactored)\b",
+            re.IGNORECASE,
+        )
+    return _CAUSAL_RE
 
 
 def _extract_entities(text):
@@ -122,12 +192,15 @@ def _extract_entities(text):
 
     Returns (file_paths: list[str], decisions: list[str]).
     """
-    files = list(dict.fromkeys(_FILE_PATH_RE.findall(text)))  # dedupe, preserve order
+    import re  # lazy import
+    file_re = _get_file_path_re()
+    causal_re = _get_causal_re()
+    files = list(dict.fromkeys(file_re.findall(text)))  # dedupe, preserve order
     sentences = re.split(r"[.!?\n]", text)
     decisions = [
         s.strip()
         for s in sentences
-        if _CAUSAL_RE.search(s) and len(s.strip()) > 5
+        if causal_re.search(s) and len(s.strip()) > 5
     ]
     return files, decisions
 
@@ -169,6 +242,7 @@ def _apply_hybrid_summarization(turns, config):
             - summaries: List of batch summary strings
             - discarded_count: Number of turns beyond the summarization window
     """
+    import math  # lazy import
     full_n = config.get("full_turns", 10)
     summarize_n = config.get("summarize_turns", 50)
     batch_size = config.get("batch_size", 21)
@@ -262,6 +336,8 @@ def _detect_model_id(data):
 
 
 def _host_aware_compaction_threshold(data):
+    # Ensure runtime imports are loaded for direct function calls (e.g., tests)
+    _lazy_imports()
     model_id = _detect_model_id(data)
     if get_model_limits is not None and compaction_trigger is not None:
         limits = get_model_limits(model_id)
@@ -276,6 +352,132 @@ def _host_aware_compaction_threshold(data):
     }
 
 
+def _count_completed_phases(checklist_path):
+    """Count completed phases (checkmarks) in the checklist.
+
+    Returns the number of [x] or [X] markers in the checklist file.
+    """
+    if not os.path.exists(checklist_path):
+        return 0
+    try:
+        with open(checklist_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        lines = content.split("\n")
+        completed = sum(1 for l in lines if "[x]" in l.lower())
+        return completed
+    except Exception:
+        return 0
+
+
+def _count_tool_calls_since(ledger_path, since_timestamp):
+    """Count tool calls in the ledger since a given timestamp.
+
+    Args:
+        ledger_path: Path to tool-ledger.jsonl
+        since_timestamp: ISO format timestamp string
+
+    Returns:
+        Number of tool calls after since_timestamp
+    """
+    if not os.path.exists(ledger_path):
+        return 0
+    try:
+        from datetime import datetime  # lazy import
+        cutoff = datetime.fromisoformat(since_timestamp.replace("Z", "+00:00"))
+        count = 0
+        with open(ledger_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                    if not isinstance(entry, dict):
+                        continue
+                    ts_str = entry.get("ts", "")
+                    if not ts_str:
+                        continue
+                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    if ts > cutoff:
+                        count += 1
+                except (json.JSONDecodeError, ValueError):
+                    continue
+        return count
+    except Exception:
+        return 0
+
+
+def _load_auto_compact_state(project_dir):
+    """Load auto-compact state from state file.
+
+    Returns dict with keys: last_compact_ts, last_phase_count, tool_count_at_compact
+    """
+    state_path = os.path.join(project_dir, AUTO_COMPACT_STATE_FILE)
+    if not os.path.exists(state_path):
+        return {
+            "last_compact_ts": None,
+            "last_phase_count": 0,
+            "tool_count_at_compact": 0,
+        }
+    try:
+        with open(state_path, "r", encoding="utf-8") as f:
+            state = json.load(f)
+        return {
+            "last_compact_ts": state.get("last_compact_ts"),
+            "last_phase_count": state.get("last_phase_count", 0),
+            "tool_count_at_compact": state.get("tool_count_at_compact", 0),
+        }
+    except Exception:
+        return {
+            "last_compact_ts": None,
+            "last_phase_count": 0,
+            "tool_count_at_compact": 0,
+        }
+
+
+def _save_auto_compact_state(project_dir, phase_count, tool_count):
+    """Save auto-compact state after compaction."""
+    from datetime import datetime  # lazy import
+    state_path = os.path.join(project_dir, AUTO_COMPACT_STATE_FILE)
+    os.makedirs(os.path.dirname(state_path), exist_ok=True)
+    state = {
+        "last_compact_ts": datetime.now().isoformat(),
+        "last_phase_count": phase_count,
+        "tool_count_at_compact": tool_count,
+    }
+    try:
+        with open(state_path, "w", encoding="utf-8") as f:
+            json.dump(state, f, indent=2)
+    except Exception:
+        pass  # Never crash on state save
+
+
+def _check_auto_compact_advisory(project_dir):
+    """Check if auto-compact should suggest compaction.
+
+    Returns:
+        tuple: (should_suggest: bool, reason: str)
+    """
+    state = _load_auto_compact_state(project_dir)
+
+    # Get current counts
+    from hooks.state_migration import resolve_state_file  # lazy import
+    checklist_path = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
+    ledger_path = resolve_state_file(project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl")
+
+    current_phase_count = _count_completed_phases(checklist_path)
+    last_phase_count = state.get("last_phase_count", 0)
+
+    # Check 1: New phase completed
+    if AUTO_COMPACT_PHASE_CHECK_ENABLED and current_phase_count > last_phase_count:
+        return (True, f"New phase completed ({current_phase_count} vs {last_phase_count})")
+
+    # Check 2: Tool call threshold exceeded
+    if state.get("last_compact_ts"):
+        tool_calls_since = _count_tool_calls_since(ledger_path, state["last_compact_ts"])
+        if tool_calls_since >= AUTO_COMPACT_TOOL_THRESHOLD:
+            return (True, f"Tool threshold exceeded ({tool_calls_since} >= {AUTO_COMPACT_TOOL_THRESHOLD})")
+
+    return (False, "")
+
+
 # ---------------------------------------------------------------------------
 # Main hook execution (side-effects — only runs when invoked as script)
 # ---------------------------------------------------------------------------
@@ -285,6 +487,20 @@ def main():
         data = json.load(sys.stdin)
     except (json.JSONDecodeError, EOFError):
         sys.exit(0)
+
+    # Early-exit: if no .omg/ directory exists, skip all heavy work
+    project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+    omg_dir = os.path.join(project_dir, ".omg")
+    state_path = os.path.join(omg_dir, "state")
+    # Also check legacy .omc directory
+    omc_path = os.path.join(project_dir, ".omc")
+    if not os.path.isdir(state_path) and not os.path.isdir(omc_path):
+        # No state to preserve - exit immediately without loading heavy imports
+        sys.exit(0)
+
+    # Load heavy imports now that we know we need them
+    _lazy_imports()
+    from datetime import datetime  # lazy import
 
     project_dir = _resolve_project_dir()
     compaction_limits = _host_aware_compaction_threshold(data)
@@ -373,6 +589,7 @@ def main():
             pass
 
     try:
+        import subprocess  # lazy import
         diff_names = subprocess.run(
             ["git", "diff", "--name-only"],
             capture_output=True,
@@ -412,12 +629,41 @@ def main():
             entries = sorted(
                 [d for d in os.listdir(snapshots_parent) if os.path.isdir(os.path.join(snapshots_parent, d))]
             )
-            for old in entries[:-5]:
-                shutil.rmtree(os.path.join(snapshots_parent, old), ignore_errors=True)
+            if len(entries) > 5:
+                import shutil  # lazy import
+                for old in entries[:-5]:
+                    shutil.rmtree(os.path.join(snapshots_parent, old), ignore_errors=True)
     except Exception:
         pass
 
     print(f"[OMG pre-compact] Snapshotted {len(saved)} files -> {snapshot_dir}", file=sys.stderr)
+
+    # --- Auto-compact tracking (feature-flagged) ---
+    try:
+        if get_feature_flag("auto_compact", default=True):
+            # Update state after compaction (resolve_state_file loaded by _lazy_imports)
+            checklist_path = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
+            ledger_path = resolve_state_file(project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl")
+
+            current_phase_count = _count_completed_phases(checklist_path)
+            total_tool_count = sum(1 for _ in open(ledger_path, "r")) if os.path.exists(ledger_path) else 0
+
+            _save_auto_compact_state(project_dir, current_phase_count, total_tool_count)
+            print(
+                f"[OMG pre-compact] Auto-compact state saved: phase={current_phase_count}, tools={total_tool_count}",
+                file=sys.stderr,
+            )
+    except Exception:
+        pass  # crash isolation: never fail on auto-compact tracking
+
+    # --- Ledger rotation (prevent unbounded growth) ---
+    try:
+        _ledger_path = resolve_state_file(
+            project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl"
+        )
+        _rotate_ledger_if_needed(_ledger_path, max_lines=10000)
+    except Exception:
+        pass  # crash isolation: never fail on ledger rotation
 
     # --- Protected context registry (feature-flagged under CONTEXT_MANAGER) ---
     try:

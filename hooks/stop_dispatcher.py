@@ -32,6 +32,7 @@ from hooks._common import (  # noqa: E402
     json_input,
     log_hook_error,
     read_checklist_session,
+    hook_reentry_guard,
     record_stop_block,
     reset_stop_block_tracker,
     _resolve_project_dir,
@@ -95,6 +96,8 @@ NON_SOURCE_PATTERNS = [
     ".github/",
     ".vscode/",
     ".idea/",
+    "memory/",
+    ".claude/projects/",
 ]
 
 INTERNAL_CONTROL_PATH_PATTERNS = [
@@ -250,6 +253,8 @@ def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[s
     except Exception as e:  # security: run_id resolution is best-effort
         print(f"[OMG] stop_dispatcher: resolve_current_run_id: {type(e).__name__}: {e}", file=sys.stderr)
 
+    current_turn_commands: list[str] = []
+
     if stop_payload and isinstance(stop_payload, dict):
         # Claude Code stop hooks use "tool_use_results" key
         raw_tool_results = stop_payload.get("tool_use_results") or stop_payload.get("tool_results") or []
@@ -263,6 +268,10 @@ def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[s
                     if (not _is_internal_control_path(file_path)
                             and not _is_non_source_path(file_path)):
                         current_turn_source_write_entries.append(result)
+                if tool_name == "Bash":
+                    cmd = (result.get("tool_input") or {}).get("command", "")
+                    if cmd:
+                        current_turn_commands.append(cmd.lower()[:300])
 
     return {
         "ledger_path": ledger_path,
@@ -281,6 +290,7 @@ def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[s
         "current_turn_source_write_entries": current_turn_source_write_entries,
         "current_turn_has_source_writes": bool(current_turn_source_write_entries),
         "current_turn_run_id": current_turn_run_id,
+        "current_turn_commands": current_turn_commands,
     }
 
 
@@ -293,19 +303,38 @@ def check_verification(data, project_dir):
     advisories = data.setdefault("_stop_advisories", [])
 
     recent_commands = context["recent_commands"]
-    has_source_writes = context["has_source_writes"]
+    current_turn_commands = context.get("current_turn_commands", [])
+    all_commands = recent_commands + current_turn_commands
+    has_source_writes = context["has_source_writes"] or context.get("current_turn_has_source_writes", False)
+
+    # Cooldown: if recently blocked and current turn has test commands, skip check
+    cooldown_path = os.path.join(project_dir, ".omg/state/ledger/.verification-blocked.json")
+    if current_turn_commands and os.path.exists(cooldown_path):
+        try:
+            with open(cooldown_path, "r", encoding="utf-8") as f:
+                cooldown = json.load(f)
+            elapsed = time.time() - cooldown.get("ts", 0)
+            if elapsed < 60:
+                has_test_in_turn = any(
+                    any(kw in cmd for kw in ["test", "jest", "vitest", "pytest", "cargo test", "go test"])
+                    for cmd in current_turn_commands
+                )
+                if has_test_in_turn:
+                    return blocks
+        except Exception:
+            pass
 
     has_test = any(
         any(kw in cmd for kw in ["test", "jest", "vitest", "pytest", "cargo test", "go test"])
-        for cmd in recent_commands
+        for cmd in all_commands
     )
     has_lint = any(
         any(kw in cmd for kw in ["lint", "eslint", "ruff check", "golint", "clippy"])
-        for cmd in recent_commands
+        for cmd in all_commands
     )
     has_build = any(
         any(kw in cmd for kw in ["build", "compile", "tsc", "cargo build", "go build", "make"])
-        for cmd in recent_commands
+        for cmd in all_commands
     )
     has_any_verification = has_test or has_lint or has_build
 
@@ -339,6 +368,11 @@ def check_verification(data, project_dir):
                 "Run /OMG:init to configure quality gates, or explicitly state\n"
                 "what is **Unverified** and why."
             )
+        # Write cooldown marker so next invocation with test commands can skip
+        try:
+            atomic_json_write(cooldown_path, {"ts": time.time(), "reason": "verification_missing"})
+        except Exception:
+            pass
 
     policy_mode, policy_require_evidence = _read_policy_flags(project_dir)
     env_evidence_required = os.environ.get("OMG_EVIDENCE_REQUIRED")
@@ -1159,6 +1193,13 @@ def check_todo_continuation(data: dict[str, object]) -> dict[str, str] | None:
 def main():
     _watchdog_start = time.time()
 
+    with hook_reentry_guard("stop_dispatcher") as acquired:
+        if not acquired:
+            sys.exit(0)
+        _main_body(_watchdog_start)
+
+
+def _main_body(_watchdog_start):
     data = json_input()
 
     # Unified guard: stop-hook loop, context-limit, and re-entry detection
