@@ -101,7 +101,7 @@ Examples:
   ./OMG-setup.sh install --install-as-plugin
   ./OMG-setup.sh install --mode=coexist --preset=interop
   ./OMG-setup.sh update --non-interactive --merge-policy=apply
-  bunx @trac3er/oh-my-god
+  bunx @trac3r/oh-my-god
   ./OMG-setup.sh reinstall --dry-run
   ./OMG-setup.sh uninstall --dry-run
 EOF

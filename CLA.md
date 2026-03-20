@@ -1,6 +1,6 @@
 # Individual Contributor License Agreement
 
-Thank you for your interest in contributing to **OMG** (Oh My God), maintained by **trac3er00** ("We" or "Us").
+Thank you for your interest in contributing to **OMG** (Oh My God), maintained by **trac3r00** ("We" or "Us").
 
 This Contributor License Agreement ("Agreement") documents the rights granted by contributors to Us. This is a legally binding document, so please read it carefully before agreeing to it.
 
