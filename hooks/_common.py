@@ -265,11 +265,14 @@ def _locked_path(path):
 def hook_reentry_guard(hook_name):
     """Prevent concurrent execution of the same hook.
 
-    Uses LOCK_NB with 3 retries at 0.1s intervals, then fails open (yields True).
+    Uses LOCK_NB with 3 retries at 0.1s intervals.  If the lock file cannot
+    be opened safely (e.g. symlink when O_NOFOLLOW is set), yields False so
+    the hook is skipped rather than running unguarded.
     Writes PID + timestamp to lock file while held.
 
     Yields:
-        True if guard acquired (proceed), False if another instance running (skip).
+        True if guard acquired (proceed), False if another instance running
+        or lock file unsafe (skip).
     """
     project_dir = get_project_dir()
     lock_dir = os.path.join(project_dir, _HOOK_REENTRY_LOCK_DIR)
@@ -279,7 +282,13 @@ def hook_reentry_guard(hook_name):
     fd = None
     acquired = False
     try:
-        fd = os.open(lock_file, os.O_RDWR | os.O_CREAT | _O_NOFOLLOW_HOOKS, 0o600)
+        try:
+            fd = os.open(lock_file, os.O_RDWR | os.O_CREAT | _O_NOFOLLOW_HOOKS, 0o600)
+        except OSError:
+            # If lock file cannot be opened safely (e.g. symlink with O_NOFOLLOW),
+            # skip the hook rather than running without reentry protection
+            yield False
+            return
         for _ in range(3):
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
