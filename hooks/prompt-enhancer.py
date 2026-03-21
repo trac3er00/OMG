@@ -16,11 +16,40 @@ No dependency on CLAUDE.md or AGENTS.md.
 """
 from __future__ import annotations
 
-import hashlib
-import json, sys, os, re, time
-from datetime import datetime, timezone
+import json, sys, os, time
 import importlib
 from pathlib import Path
+
+# Lazy imports — defer until first use to speed up fast-path exit
+_re = None
+_hashlib = None
+_datetime = None
+_timezone = None
+
+
+def _lazy_re():
+    global _re
+    if _re is None:
+        import re as _re_mod
+        _re = _re_mod
+    return _re
+
+
+def _lazy_hashlib():
+    global _hashlib
+    if _hashlib is None:
+        import hashlib as _hashlib_mod
+        _hashlib = _hashlib_mod
+    return _hashlib
+
+
+def _lazy_datetime():
+    global _datetime, _timezone
+    if _datetime is None:
+        from datetime import datetime as _dt, timezone as _tz
+        _datetime = _dt
+        _timezone = _tz
+    return _datetime, _timezone
 
 HOOKS_DIR = str(Path(__file__).resolve().parent)
 _PROJECT_ROOT = str(Path(HOOKS_DIR).parent)
@@ -107,13 +136,14 @@ def add(text):
 
 
 def signal_matches_text(signal, text):
+    re = _lazy_re()
     if re.search(r'[\uac00-\ud7a3]', signal):
         return signal in text
     return re.search(r'\b' + re.escape(signal) + r'\b', text, re.IGNORECASE) is not None
 
 
 def _hash_prompt(value):
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+    return _lazy_hashlib().sha256(value.encode("utf-8")).hexdigest()
 
 
 def _single_line(text, max_chars=220):
@@ -154,23 +184,36 @@ def _write_intent_gate_artifact(state_root, run_id, artifact):
     os.replace(tmp_path, state_path)
 
 # ── Zero-injection optimization ──
-# Simple prompts (≤10 words, no coding/mode/routing signals) get zero overhead
-_word_count_early = len(prompt_lower.split())
-_has_any_signal = any([
-    any(signal_matches_text(sig, prompt) for sig in ["fix","bug","implement","build","create","refactor",
-                                                     "review","auth","css","layout","ui","ux","test",
-                                                     "stuck","error","crash","ralph","ulw","crazy",
-                                                     "plan","design","search","find","research","explain",
-                                                     "codex","gemini","ccg","screenshot","screen",
-                                                     "security","warning","hook error","resume","handoff",
-                                                     "continue","domain","scaffold","debug","deploy",
-                                                     "setup","credential","credentials","preference",
-                                                     "preferences","remember","settings","memory",
-                                                     "수정","구현","버그","에러","고쳐","스크린샷","보안"]),
-    _word_count_early > 10,
+# Simple prompts (≤15 words, no coding/mode/routing signals) get zero overhead.
+# Uses set intersection instead of regex for speed — avoids loading `re` on the fast path.
+_FAST_SIGNAL_WORDS = frozenset([
+    "fix","bug","implement","build","create","refactor",
+    "review","auth","css","layout","ui","ux","test",
+    "stuck","error","crash","ralph","ulw","crazy",
+    "plan","design","search","find","research","explain",
+    "codex","gemini","ccg","screenshot","screen",
+    "security","warning","resume","handoff",
+    "continue","domain","scaffold","debug","deploy",
+    "setup","credential","credentials","preference",
+    "preferences","remember","settings","memory",
 ])
-if not _has_any_signal:
-    sys.exit(0)
+_FAST_SIGNAL_KOREAN = ("수정", "구현", "버그", "에러", "고쳐", "스크린샷", "보안")
+_words_early = prompt_lower.split()
+_word_count_early = len(_words_early)
+if _word_count_early <= 15:
+    _word_set = set(_words_early)
+    # Extract subwords from compound tokens (e.g. "deep-plan" → {"deep","plan"},
+    # "/omg:deep-plan" → {"omg","deep","plan"}) to match regex \b word-boundary behavior
+    for _w in list(_word_set):
+        for _part in _w.replace('-', ' ').replace('/', ' ').replace(':', ' ').replace('.', ' ').split():
+            if len(_part) >= 2:
+                _word_set.add(_part)
+    _has_any_signal = bool(
+        (_word_set & _FAST_SIGNAL_WORDS)
+        or any(k in prompt for k in _FAST_SIGNAL_KOREAN)
+    )
+    if not _has_any_signal:
+        sys.exit(0)
 # ═══════════════════════════════════════════════════════════
 # 1. INTENT CLASSIFICATION (IntentGate)
 # ═══════════════════════════════════════════════════════════
@@ -305,7 +348,7 @@ def _build_intent_gate_state(prompt_text, payload):
         "clarification_prompt": clarification_prompt,
         "source_prompt_hash": source_prompt_hash,
         "governance": governance_payload,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": _lazy_datetime()[0].now(_lazy_datetime()[1].utc).isoformat(),
     }
 
 detected_intent = None
@@ -461,8 +504,8 @@ if not is_crazy and not is_ulw and budget_ok():
     complexity_score += sum(2 for s in ARCH_SIGNALS if signal_matches_text(s, prompt))
 
     # Enumeration signals (numbered/bullet lists)
-    numbered_items = len(re.findall(r'(?:^|\n)\s*[\d]+[.)]\s', prompt_lower))
-    bullet_items = len(re.findall(r'(?:^|\n)\s*[-*]\s', prompt_lower))
+    numbered_items = len(_lazy_re().findall(r'(?:^|\n)\s*[\d]+[.)]\s', prompt_lower))
+    bullet_items = len(_lazy_re().findall(r'(?:^|\n)\s*[-*]\s', prompt_lower))
     complexity_score += min(numbered_items + bullet_items, 5)
 
     # Word count signal
@@ -621,7 +664,7 @@ if not route_lock and get_feature_flag('agent_registry') and budget_ok():
             resolve_agent = _agent_registry.resolve_agent
             detect_available_models = _agent_registry.detect_available_models
         _maybe_kws = locals().get("kws")
-        _routing_kws = _maybe_kws if _maybe_kws else set(re.findall(r'\b[a-zA-Z]{3,}\b', prompt_lower))
+        _routing_kws = _maybe_kws if _maybe_kws else set(_lazy_re().findall(r'\b[a-zA-Z]{3,}\b', prompt_lower))
         matched_agent = resolve_agent(_routing_kws)
         if isinstance(matched_agent, dict):
             _agent_name = matched_agent.get('name', '')
@@ -751,8 +794,8 @@ kd = knowledge_dir
 _word_count = len(prompt_lower.split())
 _has_code_signal = is_coding or detected_intent is not None
 if os.path.isdir(kd) and budget_ok() and (_word_count >= 15 or _has_code_signal):
-    words = set(re.findall(r'\b[a-zA-Z]{3,}\b', prompt_lower))
-    words |= set(re.findall(r'[\uac00-\ud7a3]{2,}', prompt))
+    words = set(_lazy_re().findall(r'\b[a-zA-Z]{3,}\b', prompt_lower))
+    words |= set(_lazy_re().findall(r'[\uac00-\ud7a3]{2,}', prompt))
     stops = {"the","and","for","that","this","with","from","have","will",
              "but","not","are","was","can","could","should","about",
              "just","also","want","need","like","make","please","help","use","try"}
@@ -806,7 +849,7 @@ if os.path.isdir(kd) and budget_ok() and (_word_count >= 15 or _has_code_signal)
                     # Strip lines that look like secret assignments before caching
                     sanitized_lines = []
                     for cline in content.split("\n"):
-                        if re.search(r'(?:key|secret|token|password|credential)\s*[:=]', cline):
+                        if _lazy_re().search(r'(?:key|secret|token|password|credential)\s*[:=]', cline):
                             continue
                         sanitized_lines.append(cline)
                     content = "\n".join(sanitized_lines)

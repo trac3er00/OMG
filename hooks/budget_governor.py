@@ -21,16 +21,55 @@ def _load_module(module_name: str, filename: str):
     return module
 
 
-_common = _load_module("_common", "_common.py")
-_cost_ledger = _load_module("_cost_ledger", "_cost_ledger.py")
-_token_counter = _load_module("_token_counter", "_token_counter.py")
+# Lazy module loading — defer until first use
+_common = None
+_cost_ledger = None
+_token_counter = None
 
-get_feature_flag = _common.get_feature_flag
-get_project_dir = _common.get_project_dir
-json_input = _common.json_input
-setup_crash_handler = _common.setup_crash_handler
-read_cost_summary = _cost_ledger.read_cost_summary
-estimate_tokens = _token_counter.estimate_tokens
+
+def _get_common():
+    global _common
+    if _common is None:
+        _common = _load_module("_common", "_common.py")
+    return _common
+
+
+def _get_cost_ledger():
+    global _cost_ledger
+    if _cost_ledger is None:
+        _cost_ledger = _load_module("_cost_ledger", "_cost_ledger.py")
+    return _cost_ledger
+
+
+def _get_token_counter():
+    global _token_counter
+    if _token_counter is None:
+        _token_counter = _load_module("_token_counter", "_token_counter.py")
+    return _token_counter
+
+
+def get_feature_flag(*args, **kwargs):
+    return _get_common().get_feature_flag(*args, **kwargs)
+
+
+def get_project_dir():
+    return _get_common().get_project_dir()
+
+
+def json_input():
+    return _get_common().json_input()
+
+
+def setup_crash_handler(*args, **kwargs):
+    return _get_common().setup_crash_handler(*args, **kwargs)
+
+
+def read_cost_summary(*args, **kwargs):
+    return _get_cost_ledger().read_cost_summary(*args, **kwargs)
+
+
+def estimate_tokens(*args, **kwargs):
+    return _get_token_counter().estimate_tokens(*args, **kwargs)
 
 DEFAULT_SESSION_LIMIT_USD = 5.0
 DEFAULT_INPUT_PER_MTOK = 3.0

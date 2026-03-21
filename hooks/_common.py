@@ -28,6 +28,86 @@ PRE_TOOL_INJECT_MAX_MS = 100
 STOP_CHECK_MAX_MS = 15000
 STOP_DISPATCHER_TOTAL_MAX_MS = 90000
 
+# --- State File Cache (mtime-based, 100ms TTL) ---
+_STATE_CACHE_TTL_S = 0.1  # 100ms
+_state_cache: dict[str, tuple[float, float, object]] = {}  # path → (wall_time, mtime, data)
+
+
+def cached_read_json(path: str, default=None):
+    """Read and parse a JSON file with mtime-based caching and 100ms TTL.
+
+    Returns cached data if:
+      1. The cache entry is less than 100ms old (wall-clock), AND
+      2. The file's mtime hasn't changed since the cache was populated.
+
+    Falls back to `default` on any error (missing file, parse error, etc).
+    """
+    now = time.monotonic()
+    entry = _state_cache.get(path)
+    if entry is not None:
+        cached_time, cached_mtime, cached_data = entry
+        if (now - cached_time) < _STATE_CACHE_TTL_S:
+            try:
+                current_mtime = os.path.getmtime(path)
+                if current_mtime == cached_mtime:
+                    return cached_data
+            except OSError:
+                pass
+
+    try:
+        if not os.path.exists(path):
+            return default
+        mtime = os.path.getmtime(path)
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        _state_cache[path] = (now, mtime, data)
+        return data
+    except Exception:
+        return default
+
+
+def cached_read_text(path: str, max_bytes: int = 2000):
+    """Read a text file with mtime-based caching and 100ms TTL.
+
+    Same caching strategy as cached_read_json but returns raw text.
+    Returns None on any failure.
+    """
+    now = time.monotonic()
+    entry = _state_cache.get(path)
+    if entry is not None:
+        cached_time, cached_mtime, cached_data = entry
+        if (now - cached_time) < _STATE_CACHE_TTL_S:
+            try:
+                current_mtime = os.path.getmtime(path)
+                if current_mtime == cached_mtime:
+                    return cached_data
+            except OSError:
+                pass
+
+    try:
+        if not os.path.exists(path):
+            return None
+        mtime = os.path.getmtime(path)
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            text = f.read(max_bytes).strip()
+        result = text or None
+        _state_cache[path] = (now, mtime, result)
+        return result
+    except Exception:
+        return None
+
+
+def invalidate_state_cache(path: str | None = None):
+    """Invalidate cached state file entries.
+
+    Args:
+        path: Specific file to invalidate, or None to clear entire cache.
+    """
+    if path is None:
+        _state_cache.clear()
+    else:
+        _state_cache.pop(path, None)
+
 
 def _managed_site_packages(runtime_root: Path) -> list[Path]:
     venv_root = runtime_root / ".venv"
@@ -153,15 +233,11 @@ def setup_crash_handler(hook_name, fail_closed=False):
 
 
 def read_file_safe(path, max_bytes=2000):
-    """Read file content safely, returning None on any failure."""
-    try:
-        if not os.path.exists(path):
-            return None
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            text = f.read(max_bytes).strip()
-        return text or None
-    except Exception:
-        return None
+    """Read file content safely, returning None on any failure.
+
+    Uses cached_read_text for mtime-based caching with 100ms TTL.
+    """
+    return cached_read_text(path, max_bytes=max_bytes)
 
 
 def log_hook_error(hook_name, error, context=None):
@@ -361,6 +437,7 @@ def atomic_json_write(path, data):
 
         os.replace(tmp_path, path)
         _fsync_dir_hooks(parent or ".")
+        invalidate_state_cache(path)
     except Exception as e:
         print(f"[OMG] _common.py: {type(e).__name__}: {e}", file=sys.stderr)
 
@@ -379,14 +456,9 @@ def write_checklist_session(project_dir, session_id=None):
 def read_checklist_session(project_dir):
     """Read planning checklist session metadata."""
     sidecar = os.path.join(project_dir, ".omg", "state", "_checklist.session")
-    try:
-        if os.path.exists(sidecar):
-            with open(sidecar, "r", encoding="utf-8") as f:
-                payload = json.load(f)
-            if isinstance(payload, dict):
-                return payload
-    except Exception:
-        pass
+    payload = cached_read_json(sidecar)
+    if isinstance(payload, dict):
+        return payload
     return None
 
 
@@ -524,9 +596,8 @@ def _load_feature_settings():
     _settings_preset = None
     try:
         settings_path = os.path.join(get_project_dir(), "settings.json")
-        if os.path.exists(settings_path):
-            with open(settings_path, "r", encoding="utf-8") as f:
-                settings = json.load(f)
+        settings = cached_read_json(settings_path)
+        if settings is not None:
             omg = settings.get("_omg", {})
             if isinstance(omg, dict):
                 features = omg.get("features", {})
