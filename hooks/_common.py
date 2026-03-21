@@ -187,6 +187,38 @@ def _resolve_project_dir():
         print(f"[OMG] Warning: .omg/ not found in {path}", file=sys.stderr)
     return path
 
+
+def structured_block(reason: str, command: str = "", suggestion: str = "", hook: str = "") -> str:
+    """Return a structured block message that AI CLIs can parse.
+
+    Emits both human-readable output and a machine-parseable X-OMG-Blocked marker
+    so AI CLIs never misinterpret a block as success.
+
+    Args:
+        reason: The primary reason for blocking (required)
+        command: The blocked command (optional)
+        suggestion: What the user should do instead (optional)
+        hook: Which hook blocked the operation (optional)
+
+    Returns:
+        A formatted string with human-readable message and JSON marker
+    """
+    payload = {
+        "blocked": True,
+        "reason": reason,
+        "hook": hook,
+        "suggestion": suggestion,
+    }
+    if command:
+        payload["command"] = command
+    marker = f"X-OMG-Blocked: {json.dumps(payload)}"
+    # Human-readable message + machine-readable marker
+    human = reason
+    if suggestion:
+        human += f"\n{suggestion}"
+    return f"{human}\n\n---\n{marker}"
+
+
 def deny_decision(reason):
     """Emit a PreToolUse deny decision to stdout."""
     json.dump({
@@ -199,11 +231,14 @@ def deny_decision(reason):
 
 
 def block_decision(reason, *, block_reason="unknown", project_dir=None):
-    """Emit a Stop hook block decision to stdout.
+    """Emit a Stop hook block decision to stdout and exit with non-zero status.
 
     Also records the block for loop detection. Every stop hook that calls
     block_decision() contributes to the loop breaker counter, so deadlocks
     are detected regardless of which specific hook triggers the block.
+
+    This function exits with status 1 after emitting the block decision,
+    ensuring AI CLIs receive a clear signal that the operation was blocked.
     """
     # Record block BEFORE emitting -- ensures tracker is updated even if
     # the process is killed after emitting the decision.
@@ -212,6 +247,7 @@ def block_decision(reason, *, block_reason="unknown", project_dir=None):
     except Exception:
         pass  # never let tracker failure prevent the block decision
     json.dump({"decision": "block", "reason": reason}, sys.stdout)
+    sys.exit(1)
 
 
 def setup_crash_handler(hook_name, fail_closed=False):

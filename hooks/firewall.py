@@ -17,7 +17,7 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir  # pyright: ignore[reportImplicitRelativeImport]
+from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir, structured_block  # pyright: ignore[reportImplicitRelativeImport]
 from security_validators import sanitize_run_id  # pyright: ignore[reportImplicitRelativeImport]
 
 bootstrap_runtime_paths(__file__)
@@ -268,9 +268,17 @@ if is_mutation_capable:
 if strict_ambiguity_mode and clarification_state.get("requires_clarification") is True and (is_mutation_capable or is_external_execution):
     prompt = str(clarification_state.get("clarification_prompt", ""))
     if is_external_execution:
-        deny_decision(_clarification_external_reason(prompt))
+        reason = _clarification_external_reason(prompt)
+        suggestion = "Provide the missing intent details before running external commands."
     else:
-        deny_decision(_clarification_reason(prompt))
+        reason = _clarification_reason(prompt)
+        suggestion = "Provide the missing intent details before performing mutations."
+    deny_decision(structured_block(
+        reason=reason,
+        command=cmd,
+        suggestion=suggestion,
+        hook="firewall"
+    ))
     sys.exit(0)
 
 if is_mutation_capable and gate_result.get("status") == "blocked":
@@ -295,7 +303,13 @@ if is_mutation_capable and gate_result.get("status") == "blocked":
             }, _fw_f, indent=2)
     except Exception:
         pass  # Best-effort only
-    deny_decision(_fw_enhanced_reason)
+    _fw_suggestion = "Ensure the test intent lock is released, or provide an exemption token if this mutation is intentional."
+    deny_decision(structured_block(
+        reason=_fw_enhanced_reason,
+        command=cmd,
+        suggestion=_fw_suggestion,
+        hook="firewall"
+    ))
     sys.exit(0)
 
 decision = _enrich_risk_context(decision, data)

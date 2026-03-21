@@ -15,7 +15,7 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
+from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir, structured_block
 
 bootstrap_runtime_paths(__file__)
 
@@ -89,7 +89,13 @@ if tool in ("Write", "Edit", "MultiEdit"):
             )
         except Exception:
             pass
-        deny_decision(deny_reason)
+        _sg_suggestion = f"File access to '{file_path}' denied by test intent lock. Ensure the lock is released or provide an exemption token."
+        deny_decision(structured_block(
+            reason=deny_reason,
+            command=f"{tool} {file_path}",
+            suggestion=_sg_suggestion,
+            hook="secret-guard"
+        ))
         sys.exit(0)
 
 allowlist = load_allowlist(get_project_dir())
