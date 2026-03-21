@@ -323,7 +323,8 @@ function getRuntimeInventory() {
 
 function renderInventory(inv) {
   if (!inv) return null;
-  return `\u{1F9F0}agents:${cyan(String(inv.agents))}`;
+  // N15.1: Drop static agents count — no longer useful
+  return null;
 }
 
 function parseModeToken(mode) {
@@ -1198,9 +1199,6 @@ function renderVerificationStatus(state) {
   const latestEvidence = evidence_links.length > 0
     ? evidence_links[evidence_links.length - 1]
     : null;
-  const evidenceSuffix = latestEvidence
-    ? ` ${dim(`evidence:${basename(latestEvidence)}`)}`
-    : "";
 
   // Build progress suffix from step/total when available
   const step = progress && typeof progress.step === "number" ? progress.step : null;
@@ -1214,14 +1212,18 @@ function renderVerificationStatus(state) {
     }
   }
 
+  // N15.6: Compact verification — show just ✓ when ok, full evidence only on failure
   if (status === "ok") {
-    return green("\u2713 verification ok") + evidenceSuffix;
+    return green("\u2713");
   }
   if (status === "running") {
-    return yellow("\u27F3 verification running") + progressSuffix + evidenceSuffix;
+    const evidenceName = latestEvidence ? basename(latestEvidence) : null;
+    const evidenceSuffix = evidenceName ? ` ${dim(evidenceName)}` : "";
+    return yellow("\u27F3") + progressSuffix + evidenceSuffix;
   }
   if (status === "error" || status === "blocked") {
     const blockerSuffix = blockerCount > 0 ? ` (${blockerCount} blockers)` : "";
+    const evidenceSuffix = latestEvidence ? ` ${dim(latestEvidence)}` : "";
     return red(`\u2717 verification blocked${blockerSuffix}`) + evidenceSuffix;
   }
   return dim("verification: unknown");
@@ -1522,9 +1524,9 @@ async function main() {
       els.push(`prompt:${green(promptTime)}`);
     }
 
-    // Session duration
+    // Session duration — N15.1: renamed to avoid duplicate "session:" label
     if (cfg.elements.sessionHealth !== false && duration) {
-      els.push(`session:${green(duration)}`);
+      els.push(`uptime:${green(duration)}`);
     }
 
     // Ralph (rich format)
