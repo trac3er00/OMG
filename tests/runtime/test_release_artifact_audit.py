@@ -119,7 +119,7 @@ class _FakeSession:
 def test_apply_release_artifact_remediation_creates_release_marks_latest_and_uploads_assets(
     tmp_path: Path,
 ) -> None:
-    notes = tmp_path / "release-body-v2.2.12.md"
+    notes = tmp_path / "release-body-v2.3.0.md"
     notes.write_text("# Release body\n", encoding="utf-8")
     audit = tmp_path / "release-audit.json"
     audit.write_text('{"status":"ok"}\n', encoding="utf-8")
@@ -127,7 +127,7 @@ def test_apply_release_artifact_remediation_creates_release_marks_latest_and_upl
 
     result = apply_release_artifact_remediation(
         repo="trac3r00/OMG",
-        version="2.2.12",
+        version="2.3.0",
         release_body="# Release body\n",
         asset_paths=[notes, audit],
         release=None,
@@ -142,7 +142,7 @@ def test_apply_release_artifact_remediation_creates_release_marks_latest_and_upl
     create_call = session.calls[0]
     assert create_call[0] == "POST"
     assert create_call[1].endswith("/repos/trac3r00/OMG/releases")
-    assert create_call[2]["tag_name"] == "v2.2.12"
+    assert create_call[2]["tag_name"] == "v2.3.0"
     assert create_call[2]["make_latest"] == "true"
     upload_calls = [call for call in session.calls if call[1].startswith("https://uploads.github.com/")]
     assert len(upload_calls) == 2

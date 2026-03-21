@@ -1,18 +1,18 @@
 # Changelog
 
-<!-- OMG:GENERATED:changelog-v2.2.12 -->
-### Governed Release Surface (v2.2.12)
+<!-- OMG:GENERATED:changelog-v2.3.0 -->
+### Governed Release Surface (v2.3.0)
 
 - Canonical release surface compilation
 - Dual-channel artifact output (public + enterprise)
 - Idempotent generated-section markers in docs
-<!-- /OMG:GENERATED:changelog-v2.2.12 -->
+<!-- /OMG:GENERATED:changelog-v2.3.0 -->
 
-## 2.2.12 - 2026-03-20
+## 2.3.0 - 2026-03-20
 
 ### Consolidated Feature Release — AI Enhancement, Security Hardening, Agent Expansion, Test Coverage
 
-This release merges 6 PRs (#116–#121) into a single governed release. All surfaces bumped to v2.2.12.
+This release merges 6 PRs (#116–#121) into a single governed release. All surfaces bumped to v2.3.0.
 
 #### Identity — Username Migration (#116)
 - **username rename**: update 51 files referencing old GitHub username `trac3er00` → `trac3r00`

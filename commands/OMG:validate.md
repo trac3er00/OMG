@@ -92,7 +92,7 @@ Composes:
       "required": true | false
     }
   ],
-  "version": "2.2.12"
+  "version": "2.3.0"
 }
 ```
 

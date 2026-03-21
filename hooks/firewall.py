@@ -235,6 +235,19 @@ if not cmd:
 
 decision = evaluate_bash_command(cmd)
 
+# --- Bypass mode: skip governance gates, keep only critical safety denials ---
+# Evaluate base command policy first.  In bypass mode, only enforce hard denials
+# (rm -rf /, fork bombs, pipe-to-shell, secret reads, dynamic eval).
+# Skip governance gates (mutation gate, defense state, clarification).
+if is_bypass_mode(data):
+    if decision.action == "deny":
+        decision = _enrich_risk_context(decision, data)
+        out = to_pretool_hook_output(decision)
+        if out:
+            json.dump(out, sys.stdout)
+    sys.exit(0)
+
+# --- Normal mode: full governance gates ---
 tool_input = data.get("tool_input")
 metadata = tool_input.get("metadata") if isinstance(tool_input, dict) else None
 lock_id = tool_input.get("lock_id") if isinstance(tool_input, dict) else None
@@ -299,11 +312,6 @@ if is_mutation_capable and gate_result.get("status") == "blocked":
     sys.exit(0)
 
 decision = _enrich_risk_context(decision, data)
-
-# In bypass-permission mode, only enforce hard denials (critical safety).
-# Skip "ask" decisions so the user is not prompted for confirmation.
-if is_bypass_mode(data) and decision.action != "deny":
-    sys.exit(0)
 
 if decision.action == "allow" and is_mutation_capable:
     try:

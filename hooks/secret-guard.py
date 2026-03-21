@@ -15,7 +15,7 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
+from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, is_edit_bypass_mode, get_project_dir
 
 bootstrap_runtime_paths(__file__)
 
@@ -41,6 +41,33 @@ file_path = data.get("tool_input", {}).get("file_path", "")
 if not file_path:
     sys.exit(0)
 
+# --- Bypass / acceptEdits mode: skip governance gates, keep safety denials ---
+# In bypass mode, ALL tools skip governance.  In acceptEdits mode, only
+# Write/Edit/MultiEdit skip governance (Read still goes through normal path).
+_is_edit_tool = tool in ("Write", "Edit", "MultiEdit")
+_skip_governance = is_bypass_mode(data) or (_is_edit_tool and is_edit_bypass_mode(data))
+
+if _skip_governance:
+    allowlist = load_allowlist(get_project_dir())
+    decision = evaluate_file_access(tool, file_path, allowlist=allowlist)
+    try:
+        log_secret_access(
+            project_dir=get_project_dir(),
+            tool=tool,
+            file_path=file_path,
+            decision=decision.action,
+            reason=decision.reason,
+            allowlisted=False,
+        )
+    except Exception:
+        pass
+    if decision.action == "deny":
+        out = to_pretool_hook_output(decision)
+        if out:
+            json.dump(out, sys.stdout)
+    sys.exit(0)
+
+# --- Normal mode: full governance gates (mutation gate + file policy) ---
 if tool in ("Write", "Edit", "MultiEdit"):
     tool_input = data.get("tool_input", {})
     metadata = tool_input.get("metadata") if isinstance(tool_input, dict) else None
@@ -107,11 +134,6 @@ try:
     )
 except Exception:
     pass  # Crash isolation: audit logging must never break the hook
-
-# In bypass-permission mode, only enforce hard denials (critical safety).
-# Skip "ask" decisions so the user is not prompted for confirmation.
-if is_bypass_mode(data) and decision.action != "deny":
-    sys.exit(0)
 
 out = to_pretool_hook_output(decision)
 if out:

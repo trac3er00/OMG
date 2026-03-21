@@ -3,8 +3,13 @@
 When permission_mode is 'bypassPermissions' or 'dontAsk', hooks should:
 - Still enforce deny decisions (critical safety: rm -rf, fork bombs, secret access)
 - NOT emit 'ask' decisions (no confirmation prompts for curl, ssh, etc.)
+
+When permission_mode is 'acceptEdits', hooks should:
+- Auto-approve Write/Edit/MultiEdit tools (skip governance + ask prompts)
+- Still enforce deny decisions for secret files
+- Still prompt for non-edit tools (Bash curl, etc.)
 """
-from hooks._common import is_bypass_mode
+from hooks._common import is_bypass_mode, is_edit_bypass_mode
 from tests.hooks.helpers import run_hook_json, get_decision, make_bash_payload, make_file_payload
 
 
@@ -167,3 +172,100 @@ def test_secret_guard_bypass_allows_normal_file():
 def test_secret_guard_bypass_allows_env_example_read():
     out = run_hook_json("hooks/secret-guard.py", _file_bypass("Read", ".env.example"))
     assert get_decision(out) is None, f".env.example read should be allowed in bypass mode, got: {out}"
+
+
+# ── is_edit_bypass_mode helper ────────────────────────────────────────────
+
+
+def test_edit_bypass_mode_detects_bypassPermissions():
+    assert is_edit_bypass_mode({"permission_mode": "bypassPermissions"}) is True
+
+
+def test_edit_bypass_mode_detects_dontAsk():
+    assert is_edit_bypass_mode({"permission_mode": "dontAsk"}) is True
+
+
+def test_edit_bypass_mode_detects_acceptEdits():
+    assert is_edit_bypass_mode({"permission_mode": "acceptEdits"}) is True
+
+
+def test_edit_bypass_mode_case_insensitive():
+    assert is_edit_bypass_mode({"permission_mode": "ACCEPTEDITS"}) is True
+    assert is_edit_bypass_mode({"permission_mode": "AcceptEdits"}) is True
+
+
+def test_edit_bypass_mode_rejects_default():
+    assert is_edit_bypass_mode({"permission_mode": "default"}) is False
+
+
+def test_edit_bypass_mode_rejects_plan():
+    assert is_edit_bypass_mode({"permission_mode": "plan"}) is False
+
+
+def test_edit_bypass_mode_handles_missing_field():
+    assert is_edit_bypass_mode({}) is False
+    assert is_edit_bypass_mode({"permission_mode": None}) is False
+
+
+# ── acceptEdits mode: secret-guard ────────────────────────────────────────
+
+
+def _file_accept_edits(tool, file_path):
+    """Create a file tool payload with acceptEdits mode."""
+    payload = make_file_payload(tool, file_path)
+    payload["permission_mode"] = "acceptEdits"
+    return payload
+
+
+def test_secret_guard_accept_edits_allows_normal_write():
+    """acceptEdits should auto-approve Write to normal files."""
+    out = run_hook_json("hooks/secret-guard.py", _file_accept_edits("Write", "src/main.py"))
+    assert get_decision(out) is None, f"acceptEdits should allow Write to normal file, got: {out}"
+
+
+def test_secret_guard_accept_edits_allows_normal_edit():
+    """acceptEdits should auto-approve Edit to normal files."""
+    out = run_hook_json("hooks/secret-guard.py", _file_accept_edits("Edit", "src/utils.py"))
+    assert get_decision(out) is None, f"acceptEdits should allow Edit to normal file, got: {out}"
+
+
+def test_secret_guard_accept_edits_allows_normal_multiedit():
+    """acceptEdits should auto-approve MultiEdit to normal files."""
+    out = run_hook_json("hooks/secret-guard.py", _file_accept_edits("MultiEdit", "src/app.py"))
+    assert get_decision(out) is None, f"acceptEdits should allow MultiEdit to normal file, got: {out}"
+
+
+def test_secret_guard_accept_edits_still_denies_env_write():
+    """acceptEdits must still deny writing to .env (critical safety)."""
+    out = run_hook_json("hooks/secret-guard.py", _file_accept_edits("Write", ".env"))
+    assert get_decision(out) == "deny", ".env write must be denied even in acceptEdits mode"
+
+
+def test_secret_guard_accept_edits_still_denies_ssh_key_edit():
+    """acceptEdits must still deny editing SSH keys (critical safety)."""
+    out = run_hook_json("hooks/secret-guard.py", _file_accept_edits("Edit", "/home/user/.ssh/id_rsa"))
+    assert get_decision(out) == "deny", "SSH key edit must be denied even in acceptEdits mode"
+
+
+# ── Bypass mode skips governance gates (mutation gate) ────────────────────
+
+
+def test_firewall_bypass_skips_mutation_gate():
+    """In bypass mode, mutation-capable bash commands should not be blocked by TDD gate."""
+    out = run_hook_json("hooks/firewall.py", _bash_bypass("git commit -m 'test'"),
+                        env_overrides={"OMG_TDD_GATE_STRICT": "1"})
+    assert get_decision(out) is None, f"bypass mode should skip mutation gate for git commit, got: {out}"
+
+
+def test_secret_guard_bypass_skips_mutation_gate_for_write():
+    """In bypass mode, Write should not be blocked by TDD gate."""
+    out = run_hook_json("hooks/secret-guard.py", _file_bypass("Write", "src/new_file.py"),
+                        env_overrides={"OMG_TDD_GATE_STRICT": "1"})
+    assert get_decision(out) is None, f"bypass mode should skip mutation gate for Write, got: {out}"
+
+
+def test_secret_guard_bypass_skips_mutation_gate_for_edit():
+    """In bypass mode, Edit should not be blocked by TDD gate."""
+    out = run_hook_json("hooks/secret-guard.py", _file_bypass("Edit", "src/existing.py"),
+                        env_overrides={"OMG_TDD_GATE_STRICT": "1"})
+    assert get_decision(out) is None, f"bypass mode should skip mutation gate for Edit, got: {out}"

@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="$CLAUDE_DIR/.omg-backup-$BACKUP_TS"
-VERSION="2.2.12"
+VERSION="2.3.0"
 
 PLUGIN_NAME="omg"
 PLUGIN_MARKETPLACE="omg"
@@ -53,7 +53,7 @@ V4_COMMANDS_REMOVE=(
     health-check.md learn.md project-init.md security-review.md
 )
 
-# v2.2.12 command consolidation: 20 → 12 active surfaces.
+# v2.3.0 command consolidation: 20 → 12 active surfaces.
 # Active commands — the canonical OMG command surface.
 ACTIVE_COMMANDS=(
     "OMG:ai-commit.md" "OMG:api-twin.md" "OMG:arch.md" "OMG:browser.md"
