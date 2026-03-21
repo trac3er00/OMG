@@ -548,7 +548,7 @@ function isKnownModelHost(modelId) {
   );
 }
 
-function getHostAwareCompactionTrigger(cwd, modelId) {
+function _getHostAwareCompactionTrigger(cwd, modelId) { // eslint-disable-line no-unused-vars
   const fallback = 200_000;
   if (!isKnownModelHost(modelId)) {
     return fallback;
@@ -820,7 +820,7 @@ function readOmgState(cwd) {
   return result;
 }
 
-function readBackgroundVerificationState(stateDir) {
+function _readBackgroundVerificationState(stateDir) { // eslint-disable-line no-unused-vars
   const filePath = join(stateDir, "background-verification.json");
   const data = readJsonSafe(filePath);
   if (!data || data.schema !== "BackgroundVerificationState") return null;
@@ -1629,7 +1629,6 @@ async function main() {
     const termCols = process.stdout.columns || 120;
     if (termCols < 120) {
       // Remove inventory and running agents on narrow terminals
-      const lowPriority = new Set(["inventory", "agents", "backgroundTasks"]);
       for (let i = els.length - 1; i >= 0; i--) {
         const el = els[i];
         if (el && (el.includes("inv:") || el.includes("agents:") || el.includes("bg:"))) {
