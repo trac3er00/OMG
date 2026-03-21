@@ -31,6 +31,11 @@ _TEAM_COMMAND_ALIASES = {
     "compatibility": ["/OMG:teams"],
 }
 
+# Dispatch strategy constants (NF7e)
+DISPATCH_AGENT = "agent-tool"
+DISPATCH_TMUX = "tmux-session"
+DISPATCH_THREAD = "thread-pool"
+
 # Import providers to trigger auto-registration in provider registry
 try:
     import runtime.providers.codex_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
@@ -168,6 +173,59 @@ def _should_use_tmux() -> bool:
         return True
     except Exception:
         return False
+
+
+def _is_tmux_available() -> bool:
+    """Return True if tmux binary is available and can be used."""
+    try:
+        return _get_tmux_mgr().is_tmux_available()
+    except Exception:
+        return False
+
+
+def detect_dispatch_strategy() -> str:
+    """Detect the best dispatch strategy for current environment (NF7e).
+
+    Priority order:
+    1. agent-tool: Claude Code agent tool (when CLAUDE_CODE or CLAUDE_CODE_ENTRYPOINT set)
+    2. tmux-session: tmux parallel sessions (when tmux is available)
+    3. thread-pool: fallback to ThreadPoolExecutor
+    """
+    # Check for Claude Code environment
+    if os.environ.get("CLAUDE_CODE") or os.environ.get("CLAUDE_CODE_ENTRYPOINT"):
+        return DISPATCH_AGENT
+
+    # Check for tmux usability (binary available AND execution context supports it)
+    if _should_use_tmux():
+        return DISPATCH_TMUX
+
+    # Fallback to thread pool
+    return DISPATCH_THREAD
+
+
+def dispatch_strategy_report(strategy: str) -> dict[str, Any]:
+    """Return a report dict describing the capabilities of a dispatch strategy."""
+    if strategy == DISPATCH_AGENT:
+        return {
+            "strategy": "agent-tool",
+            "parallel": True,
+            "shared_context": True,
+            "providers": ["claude"],
+        }
+    if strategy == DISPATCH_TMUX:
+        return {
+            "strategy": "tmux-session",
+            "parallel": True,
+            "shared_context": False,
+            "providers": ["codex", "gemini", "kimi", "claude"],
+        }
+    # Default to thread-pool (fallback)
+    return {
+        "strategy": "thread-pool",
+        "parallel": True,
+        "shared_context": False,
+        "providers": ["codex", "gemini", "kimi"],
+    }
 
 
 def _auth_status_command(tool_name: str) -> list[str] | None:

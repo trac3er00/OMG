@@ -1,6 +1,6 @@
 id: hash-edit
 kind: governance
-version: 2.2.11
+version: 2.2.12
 title: OMG Hash Edit Lane
 description: Governed hash-bound edit lane with signed approvals and evidence routing.
 hosts:

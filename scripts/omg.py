@@ -2553,6 +2553,346 @@ def cmd_docs_generate(args: argparse.Namespace) -> int:
     return 1
 
 
+# ---------------------------------------------------------------------------
+# Skill CLI commands (NF6c: Human approval + promotion UX for Skill Foundry)
+# ---------------------------------------------------------------------------
+
+_SKILL_PROMOTION_THRESHOLD = 3  # Minimum passing runs required for promotion
+
+
+def cmd_skill_list(args: argparse.Namespace) -> int:
+    """List all skills (active and proposed)."""
+    project_dir = _ensure_project_dir()
+    project_path = Path(project_dir)
+
+    # Read registry
+    registry_path = project_path / ".omg" / "state" / "skill_registry" / "compact.json"
+    active_skills: list[str] = []
+    if registry_path.exists():
+        try:
+            registry_data = json.loads(registry_path.read_text(encoding="utf-8"))
+            active_skills = registry_data.get("active", [])
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Read proposals
+    proposals_dir = project_path / ".omg" / "state" / "skill-proposals"
+    proposals: list[dict[str, Any]] = []
+    if proposals_dir.exists():
+        for proposal_file in proposals_dir.glob("proposal-*.json"):
+            if "-eval.json" in proposal_file.name or "-promoted.json" in proposal_file.name:
+                continue
+            try:
+                proposal_data = json.loads(proposal_file.read_text(encoding="utf-8"))
+                if proposal_data.get("schema") == "SkillProposal":
+                    proposals.append(proposal_data)
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    if not active_skills and not proposals:
+        print("No skills found.")
+        return 0
+
+    # Print table
+    print(f"{'Name':<30} | {'Status':<12} | {'Source':<12}")
+    print("-" * 60)
+
+    for skill in active_skills:
+        print(f"{skill:<30} | {'active':<12} | {'registry':<12}")
+
+    for proposal in proposals:
+        name = proposal.get("name", "unknown")
+        status = proposal.get("status", "proposed")
+        source = proposal.get("source", "unknown")
+        print(f"{name:<30} | {status:<12} | {source:<12}")
+
+    return 0
+
+
+def cmd_skill_review(args: argparse.Namespace) -> int:
+    """Review a skill proposal with evaluation details."""
+    project_dir = _ensure_project_dir()
+    project_path = Path(project_dir)
+    proposal_id = args.proposal_id
+
+    proposals_dir = project_path / ".omg" / "state" / "skill-proposals"
+    proposal_path = proposals_dir / f"{proposal_id}.json"
+    eval_path = proposals_dir / f"{proposal_id}-eval.json"
+
+    if not proposal_path.exists():
+        print(f"Proposal not found: {proposal_id}")
+        return 1
+
+    try:
+        proposal_data = json.loads(proposal_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"Error reading proposal: {exc}")
+        return 1
+
+    # Read evaluation if exists
+    eval_data: dict[str, Any] = {}
+    if eval_path.exists():
+        try:
+            eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Display proposal details
+    print(f"Proposal ID: {proposal_id}")
+    print(f"Name: {proposal_data.get('name', 'unknown')}")
+    print(f"Status: {proposal_data.get('status', 'proposed')}")
+    print(f"Description: {proposal_data.get('description', 'N/A')}")
+    print(f"Created: {proposal_data.get('created_at', 'N/A')}")
+    print("")
+
+    # Display evaluation results
+    if eval_data:
+        proof_gate = eval_data.get("proof_gate_result", {})
+        verdict = proof_gate.get("verdict", "unknown")
+        blockers = proof_gate.get("blockers", [])
+        evidence_summary = proof_gate.get("evidence_summary", {})
+        claim_count = evidence_summary.get("claim_count", 0)
+
+        print(f"Evaluation Status: {eval_data.get('status', 'unknown')}")
+        print(f"Proof Gate Verdict: {verdict}")
+        print(f"Blockers: {len(blockers)}")
+        print(f"Passing Runs: {claim_count}")
+
+        # Check promotion eligibility
+        if claim_count < _SKILL_PROMOTION_THRESHOLD:
+            print(f"")
+            print(f"Needs more evidence: {_SKILL_PROMOTION_THRESHOLD - claim_count} more passing runs required")
+    else:
+        print("No evaluation data available.")
+
+    return 0
+
+
+def cmd_skill_promote(args: argparse.Namespace) -> int:
+    """Promote a skill proposal to active status."""
+    project_dir = _ensure_project_dir()
+    project_path = Path(project_dir)
+    proposal_id = args.proposal_id
+
+    proposals_dir = project_path / ".omg" / "state" / "skill-proposals"
+    proposal_path = proposals_dir / f"{proposal_id}.json"
+    eval_path = proposals_dir / f"{proposal_id}-eval.json"
+    promoted_path = proposals_dir / f"{proposal_id}-promoted.json"
+
+    if not proposal_path.exists():
+        print(f"Proposal not found: {proposal_id}")
+        return 1
+
+    try:
+        proposal_data = json.loads(proposal_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"Error reading proposal: {exc}")
+        return 1
+
+    # Read evaluation
+    eval_data: dict[str, Any] = {}
+    if eval_path.exists():
+        try:
+            eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Check evaluation status
+    proof_gate = eval_data.get("proof_gate_result", {})
+    verdict = proof_gate.get("verdict", "unknown")
+    evidence_summary = proof_gate.get("evidence_summary", {})
+    claim_count = evidence_summary.get("claim_count", 0)
+
+    # Check for failing verdict
+    if verdict == "fail":
+        print(f"Cannot promote: proof gate verdict is 'fail'")
+        print(f"Blockers: {proof_gate.get('blockers', [])}")
+        return 1
+
+    # Check for sufficient evidence
+    if claim_count < _SKILL_PROMOTION_THRESHOLD:
+        print(f"Insufficient evidence: need {_SKILL_PROMOTION_THRESHOLD} passing runs, have {claim_count}")
+        return 1
+
+    # Create promotion artifact
+    from datetime import datetime, timezone
+
+    promotion_data = {
+        "schema": "SkillPromotion",
+        "proposal_id": proposal_id,
+        "name": proposal_data.get("name", "unknown"),
+        "promoted_at": datetime.now(timezone.utc).isoformat(),
+        "evidence_summary": evidence_summary,
+        "proof_gate_verdict": verdict,
+    }
+
+    promoted_path.write_text(json.dumps(promotion_data, indent=2), encoding="utf-8")
+
+    print(f"Promoted skill: {proposal_data.get('name', proposal_id)}")
+    print(f"Promotion artifact: {promoted_path}")
+
+    return 0
+
+
+def _add_skill_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    """Add skill subcommands to the parser."""
+    sub = parent.add_subparsers(dest=dest, required=True)
+
+    list_cmd = sub.add_parser("list", help="List all skills (active and proposed)")
+    list_cmd.set_defaults(func=cmd_skill_list)
+
+    review_cmd = sub.add_parser("review", help="Review a skill proposal")
+    review_cmd.add_argument("proposal_id", help="Proposal ID to review")
+    review_cmd.set_defaults(func=cmd_skill_review)
+
+    promote_cmd = sub.add_parser("promote", help="Promote a skill proposal to active status")
+    promote_cmd.add_argument("proposal_id", help="Proposal ID to promote")
+    promote_cmd.set_defaults(func=cmd_skill_promote)
+
+
+# --- Memory CLI handlers ---
+
+
+def _get_memory_store() -> Any:
+    """Get a MemoryStore instance using OMG_MEMORY_STORE env var or default."""
+    from runtime.memory_store import MemoryStore
+
+    store_path = os.environ.get("OMG_MEMORY_STORE")
+    return MemoryStore(store_path=store_path) if store_path else MemoryStore()
+
+
+def cmd_memory_export(args: argparse.Namespace) -> int:
+    """Export memory items to JSON or Markdown format."""
+    store = _get_memory_store()
+    items = store.list_all(include_quarantined=True)
+
+    output_format = getattr(args, "format", "json")
+    output_path = getattr(args, "output", None)
+
+    if output_format == "markdown":
+        lines = ["# OMG Shared Memory Export", ""]
+        for item in items:
+            lines.append(f"## {item.get('key', 'unknown')}")
+            lines.append(f"- ID: {item.get('id', '')}")
+            lines.append(f"- Content: {item.get('content', '')}")
+            lines.append(f"- Source: {item.get('source_cli', '')}")
+            lines.append(f"- Created: {item.get('created_at', '')}")
+            lines.append("")
+        content = "\n".join(lines)
+    else:
+        content = json.dumps(items, indent=2)
+
+    if output_path:
+        Path(output_path).write_text(content, encoding="utf-8")
+    else:
+        print(content)
+    return 0
+
+
+def cmd_memory_import(args: argparse.Namespace) -> int:
+    """Import memory items from a JSON file."""
+    import_path = getattr(args, "file", None)
+    review = getattr(args, "review", False)
+
+    if not import_path or not Path(import_path).exists():
+        print(json.dumps({"status": "error", "message": f"File not found: {import_path}"}))
+        return 1
+
+    try:
+        items = json.loads(Path(import_path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(json.dumps({"status": "error", "message": f"Invalid JSON: {exc}"}))
+        return 1
+
+    if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+        print(json.dumps({"status": "error", "message": "Expected a JSON array of memory item objects"}))
+        return 1
+
+    store = _get_memory_store()
+    count = store.import_items(items, quarantined=not review)
+    print(json.dumps({"status": "ok", "imported": count, "quarantined": not review}))
+    return 0
+
+
+def cmd_memory_list(args: argparse.Namespace) -> int:
+    """List memory items with optional filtering."""
+    store = _get_memory_store()
+    layer = getattr(args, "layer", None)
+
+    # Note: MemoryStore uses 'namespace' internally, but tests use 'layer' terminology
+    items = store.list_all(namespace=layer, include_quarantined=True)
+
+    # Print table header
+    print("ID | Key | Layer | Confidence | Created At")
+    print("-" * 60)
+    for item in items:
+        item_id = str(item.get("id", ""))[:8]
+        key = str(item.get("key", ""))[:20]
+        layer_val = str(item.get("namespace", item.get("layer", "default")))
+        confidence = str(item.get("confidence", "1.0"))
+        created = str(item.get("created_at", ""))[:19]
+        print(f"{item_id} | {key} | {layer_val} | {confidence} | {created}")
+    return 0
+
+
+def cmd_memory_sync(args: argparse.Namespace) -> int:
+    """Sync memory items from external sources like Claude.ai web paste."""
+    from_web = getattr(args, "from_web", None)
+
+    if not from_web or not Path(from_web).exists():
+        print(json.dumps({"status": "error", "message": f"File not found: {from_web}"}))
+        return 1
+
+    try:
+        paste_content = Path(from_web).read_text(encoding="utf-8")
+    except Exception as exc:
+        print(json.dumps({"status": "error", "message": str(exc)}))
+        return 1
+
+    # Parse bullet-point style paste (- Item content)
+    lines = [line.strip() for line in paste_content.strip().split("\n")]
+    items = []
+    for line in lines:
+        if line.startswith("- "):
+            content = line[2:].strip()
+            if content:
+                items.append({
+                    "id": str(__import__("uuid").uuid4()),
+                    "key": f"web-paste-{len(items)+1}",
+                    "content": content,
+                    "source_cli": "web-paste",
+                    "tags": ["imported", "web"],
+                })
+
+    store = _get_memory_store()
+    count = store.import_items(items, quarantined=True)
+    print(json.dumps({"status": "ok", "imported": count, "source": "web-paste"}))
+    return 0
+
+
+def _add_memory_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
+    """Add memory subcommands to the parser."""
+    sub = parent.add_subparsers(dest=dest, required=True)
+
+    export_cmd = sub.add_parser("export", help="Export memory items")
+    export_cmd.add_argument("--format", default="json", choices=["json", "markdown"])
+    export_cmd.add_argument("--output", default=None, help="Output file path")
+    export_cmd.set_defaults(func=cmd_memory_export)
+
+    import_cmd = sub.add_parser("import", help="Import memory items from JSON file")
+    import_cmd.add_argument("file", help="JSON file to import")
+    import_cmd.add_argument("--review", action="store_true", help="Mark items as reviewed (not quarantined)")
+    import_cmd.set_defaults(func=cmd_memory_import)
+
+    list_cmd = sub.add_parser("list", help="List memory items")
+    list_cmd.add_argument("--layer", default=None, help="Filter by layer/namespace")
+    list_cmd.set_defaults(func=cmd_memory_list)
+
+    sync_cmd = sub.add_parser("sync", help="Sync memory from external sources")
+    sync_cmd.add_argument("--from-web", dest="from_web", help="Path to web paste file")
+    sync_cmd.set_defaults(func=cmd_memory_sync)
+
+
 def _add_docs_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None:
     sub = parent.add_subparsers(dest=dest)
 
@@ -2845,6 +3185,9 @@ def build_parser() -> argparse.ArgumentParser:
         _p.add_argument("--run-id", default="", help="Optional run id used for evidence output")
         _p.set_defaults(func=_func)
 
+    skill = sub.add_parser("skill", help="Skill foundry management")
+    _add_skill_subcommands(skill, dest="skill_command")
+
     teams = sub.add_parser("teams", help="Internal OMG team routing")
     teams.add_argument("--target", default="auto", choices=["auto", "codex", "gemini", "ccg"])
     teams.add_argument("--problem", required=True)
@@ -2928,6 +3271,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     docs = sub.add_parser("docs", help="OMG documentation generator")
     _add_docs_subcommands(docs, dest="docs_command")
+
+    memory = sub.add_parser("memory", help="Shared memory management")
+    _add_memory_subcommands(memory, dest="memory_command")
 
     install = sub.add_parser("install", help="Compute, dry-run, or apply an install plan")
     install.add_argument("--plan", action="store_true", help="Emit structured action plan without mutations")

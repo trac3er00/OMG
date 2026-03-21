@@ -268,8 +268,10 @@ def test_count_5_emits_escalation(tmp_path):
     }
     proc = _run(payload, tmp_path)
     assert proc.returncode == 0
-    assert "ESCALATE NOW" in proc.stderr
-    assert "/OMG:escalate" in proc.stderr
+    assert "CIRCUIT BREAKER:" in proc.stderr
+    assert "STOP. This approach is broken." in proc.stderr
+    assert "@@ASK_USER_OPTIONS@@" in proc.stderr
+    assert "Escalate to Codex" in proc.stderr
 
 
 # ━━━ 7. Non-failure input → no tracker mutation ━━━

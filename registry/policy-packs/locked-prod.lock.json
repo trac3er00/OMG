@@ -7,5 +7,5 @@
   "signer_public_key": "QwRr/kCSs+lJlOraFdzCDYqqB7ZY/TlU644O+4vcpd4=",
   "algorithm": "ed25519-minisign",
   "signature_path": "registry/policy-packs/locked-prod.signature.json",
-  "created_at": "2026-03-19T23:15:10.657950+00:00"
+  "created_at": "2026-03-20T22:09:36.402126+00:00"
 }

@@ -706,3 +706,425 @@ class ContextEngine:
             return handles
         except Exception:
             return []
+
+
+# ── NF3c: Folder-scoped context cache ────────────────────────────────────────
+
+_CONTEXT_CACHE_DIR = Path(".omg") / "context"
+
+
+def _folder_cache_path(project_dir: str | Path, folder_path: str) -> Path:
+    """Return the cache file path for a given folder."""
+    import hashlib
+    folder_hash = hashlib.sha256(folder_path.encode()).hexdigest()[:16]
+    return Path(project_dir) / _CONTEXT_CACHE_DIR / f"{folder_hash}.md"
+
+
+def get_folder_context(project_dir: str | Path, folder_path: str) -> str | None:
+    """Retrieve cached folder context if it exists and is still valid.
+
+    Returns None if:
+    - Cache file doesn't exist
+    - Folder has been modified since cache was created (stale)
+    """
+    cache_path = _folder_cache_path(project_dir, folder_path)
+    if not cache_path.exists():
+        return None
+
+    # Check if folder exists and compare modification times
+    folder = Path(folder_path)
+    if not folder.exists():
+        return None
+
+    try:
+        cache_mtime = cache_path.stat().st_mtime
+        # Recursively find the latest mtime among all files inside the folder
+        # (folder mtime alone doesn't update when files inside are edited)
+        latest_mtime = max(
+            (p.stat().st_mtime for p in folder.rglob("*")),
+            default=folder.stat().st_mtime,
+        )
+        if latest_mtime > cache_mtime:
+            return None  # Cache is stale
+        return cache_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def save_folder_context(project_dir: str | Path, folder_path: str, content: str) -> str:
+    """Save folder context to cache file.
+
+    Returns the path to the cache file.
+    """
+    cache_path = _folder_cache_path(project_dir, folder_path)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(content, encoding="utf-8")
+    return str(cache_path)
+
+
+# ── NF3d: Context entry scoring ──────────────────────────────────────────────
+
+import time as _time
+
+
+def score_context_entry(entry: dict[str, Any], active_task: str | None = None) -> float:
+    """Score a context entry for relevance and priority.
+
+    Scoring factors:
+    - Recency: entries decay over time (half-life ~1 hour)
+    - Type boost: plan/checklist entries get +0.3
+    - Task relevance: keyword overlap with active_task gives boost
+    - Usage boost: referenced entries score higher
+
+    Returns a float between 0.0 and 1.0.
+    """
+    score = 0.3  # Base score (lower to prevent clamping)
+
+    # Recency decay (half-life ~1 hour = 3600 seconds)
+    now = _time.time()
+    timestamp = entry.get("timestamp", now)
+    age_seconds = max(0, now - timestamp)
+    recency_factor = 0.5 ** (age_seconds / 3600)  # Half-life decay
+    score += 0.2 * recency_factor  # Max +0.2 for very recent entries
+
+    # Type boost
+    entry_type = entry.get("type", "general")
+    type_boosts = {
+        "plan": 0.3,
+        "checklist": 0.3,
+        "task_focus": 0.25,
+        "unsolved": 0.2,
+        "blocker": 0.2,
+        "error": 0.15,
+    }
+    score += type_boosts.get(entry_type, 0.0)
+
+    # Task relevance boost (keyword overlap)
+    if active_task:
+        content = entry.get("content", "")
+        task_keywords = set(active_task.lower().split())
+        content_keywords = set(content.lower().split())
+        overlap = len(task_keywords & content_keywords)
+        if overlap > 0:
+            score += min(0.15, overlap * 0.05)  # Max +0.15 for relevance
+
+    # Usage/reference boost
+    if entry.get("referenced"):
+        score += 0.1
+
+    # Clamp to [0.0, 1.0]
+    return max(0.0, min(1.0, score))
+
+
+def rank_context_entries(
+    entries: list[dict[str, Any]],
+    active_task: str | None = None,
+) -> list[dict[str, Any]]:
+    """Rank context entries by score descending.
+
+    Adds a '_score' field to each entry and returns entries sorted
+    by score (highest first).
+    """
+    scored_entries = []
+    for entry in entries:
+        entry_copy = dict(entry)
+        entry_copy["_score"] = score_context_entry(entry, active_task)
+        scored_entries.append(entry_copy)
+
+    scored_entries.sort(key=lambda e: e["_score"], reverse=True)
+    return scored_entries
+
+
+# ── NF3e: Smart compact ──────────────────────────────────────────────────────
+
+_PROTECTED_TYPES = frozenset({"plan", "checklist", "task_focus", "unsolved", "blocker", "error"})
+
+
+def smart_compact(
+    project_dir: str | Path,
+    entries: list[dict[str, Any]],
+    drop_ratio: float = 0.3,
+    active_task: str | None = None,
+) -> dict[str, Any]:
+    """Intelligently compact context entries by dropping lowest-scoring ones.
+
+    Protected entries (plan, checklist, task_focus, unsolved, blocker, error)
+    and entries with 'protected': True are never dropped.
+
+    Args:
+        project_dir: Project root directory (for potential persistence)
+        entries: List of context entries
+        drop_ratio: Fraction of droppable entries to drop (0.0-1.0)
+        active_task: Optional active task for relevance scoring
+
+    Returns:
+        Dict with 'kept', 'dropped', 'kept_count', 'dropped_count' keys.
+    """
+    if not entries:
+        return {"kept": [], "dropped": [], "kept_count": 0, "dropped_count": 0}
+
+    # Score all entries first
+    scored = rank_context_entries(entries, active_task)
+
+    # Separate protected and droppable
+    protected: list[dict[str, Any]] = []
+    droppable: list[dict[str, Any]] = []
+
+    for entry in scored:
+        entry_type = entry.get("type", "general")
+        is_protected = (
+            entry_type in _PROTECTED_TYPES
+            or entry.get("protected") is True
+        )
+        if is_protected:
+            protected.append(entry)
+        else:
+            droppable.append(entry)
+
+    # Sort droppable by score ascending (lowest first = drop candidates)
+    droppable.sort(key=lambda e: e["_score"])
+
+    # Calculate how many to drop
+    drop_count = int(len(droppable) * drop_ratio)
+
+    dropped = droppable[:drop_count]
+    kept_droppable = droppable[drop_count:]
+
+    # Combine protected + kept droppable
+    kept = protected + kept_droppable
+
+    return {
+        "kept": kept,
+        "dropped": dropped,
+        "kept_count": len(kept),
+        "dropped_count": len(dropped),
+    }
+
+
+# ---------------------------------------------------------------------------
+# NF3a: One-task-per-session (task focus management)
+# ---------------------------------------------------------------------------
+
+_SESSION_REL_PATH = Path(".omg") / "state" / "session.json"
+_SNAPSHOTS_REL_PATH = Path(".omg") / "state" / "snapshots"
+
+
+def get_active_task(project_dir: str) -> dict[str, Any] | None:
+    """Get the active task focus from session.json.
+
+    Returns the task_focus dict if it exists and has a non-empty task,
+    otherwise returns None.
+    """
+    project_path = Path(project_dir)
+    session_path = project_path / _SESSION_REL_PATH
+
+    if not session_path.exists():
+        return None
+
+    try:
+        session_data = json.loads(session_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    task_focus = session_data.get("task_focus")
+    if not isinstance(task_focus, dict):
+        return None
+
+    task = str(task_focus.get("task", "")).strip()
+    if not task:
+        return None
+
+    return task_focus
+
+
+def set_task_focus(
+    project_dir: str,
+    task: str,
+    files: list[str] | None = None,
+) -> None:
+    """Set the task focus in session.json.
+
+    Creates or updates session.json with task_focus containing:
+    - task: the task description
+    - files_touched: list of files
+    - started_at: ISO timestamp
+    """
+    from datetime import datetime, timezone
+
+    project_path = Path(project_dir)
+    session_path = project_path / _SESSION_REL_PATH
+
+    # Read existing session data if present
+    session_data: dict[str, Any] = {}
+    if session_path.exists():
+        try:
+            session_data = json.loads(session_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Update task_focus
+    session_data["task_focus"] = {
+        "task": task,
+        "files_touched": files or [],
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Write back
+    session_path.parent.mkdir(parents=True, exist_ok=True)
+    session_path.write_text(json.dumps(session_data, indent=2), encoding="utf-8")
+
+
+def detect_task_drift(
+    prompt: str,
+    active_task: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Detect if a prompt represents task drift from the active task.
+
+    Args:
+        prompt: The new prompt/request
+        active_task: The active task dict from get_active_task(), or None
+
+    Returns dict with:
+    - drift: bool (True if drift detected)
+    - action: "none" | "continue" | "snapshot"
+    - suggested_action: what to do next
+    - active_task: normalized active task string
+    - confidence: float (confidence in drift detection)
+    """
+    if active_task is None:
+        return {
+            "drift": False,
+            "action": "none",
+            "suggested_action": "continue",
+            "active_task": "",
+            "confidence": 1.0,
+        }
+
+    task_text = str(active_task.get("task", "")).strip().lower()
+    prompt_lower = prompt.lower()
+
+    # Extract keywords from task (filter out common words)
+    stop_words = {"the", "a", "an", "to", "for", "of", "in", "on", "at", "is", "and", "or"}
+    task_keywords = {
+        word for word in task_text.split()
+        if len(word) > 2 and word not in stop_words
+    }
+
+    # Check keyword overlap
+    matching_keywords = sum(1 for kw in task_keywords if kw in prompt_lower)
+    overlap_ratio = matching_keywords / len(task_keywords) if task_keywords else 0.0
+
+    # Drift threshold: if less than 30% keyword overlap, consider it drift
+    drift_detected = overlap_ratio < 0.3
+
+    return {
+        "drift": drift_detected,
+        "action": "continue" if not drift_detected else "snapshot",
+        "suggested_action": "snapshot" if drift_detected else "continue",
+        "active_task": task_text,
+        "confidence": 1.0 - overlap_ratio if drift_detected else overlap_ratio,
+    }
+
+
+# ---------------------------------------------------------------------------
+# NF3b: Protected handoff snapshot
+# ---------------------------------------------------------------------------
+
+
+def create_handoff_snapshot(project_dir: str) -> str:
+    """Create a handoff snapshot of current session state.
+
+    Captures:
+    - active_task from session.json
+    - plan_state from _plan.md
+    - checklist_state from _checklist.md
+    - files_touched from task focus
+
+    Returns the path to the snapshot file.
+    """
+    from datetime import datetime, timezone
+
+    project_path = Path(project_dir)
+    snapshots_dir = project_path / _SNAPSHOTS_REL_PATH
+    snapshots_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate timestamp-based filename
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    snapshot_path = snapshots_dir / f"{timestamp}.json"
+
+    # Get active task
+    active_task = get_active_task(project_dir)
+
+    # Read plan state
+    plan_path = project_path / ".omg" / "state" / "_plan.md"
+    plan_state: str | None = None
+    if plan_path.exists():
+        try:
+            plan_state = plan_path.read_text(encoding="utf-8")
+        except OSError:
+            pass
+
+    # Read checklist state
+    checklist_path = project_path / ".omg" / "state" / "_checklist.md"
+    checklist_state: str | None = None
+    if checklist_path.exists():
+        try:
+            checklist_state = checklist_path.read_text(encoding="utf-8")
+        except OSError:
+            pass
+
+    # Get files touched
+    files_touched: list[str] = []
+    if active_task:
+        files_touched = active_task.get("files_touched", [])
+
+    snapshot_data = {
+        "schema": "HandoffSnapshot",
+        "schema_version": "1.0.0",
+        "timestamp": timestamp,
+        "active_task": active_task,
+        "plan_state": plan_state,
+        "checklist_state": checklist_state,
+        "files_touched": files_touched,
+    }
+
+    snapshot_path.write_text(json.dumps(snapshot_data, indent=2), encoding="utf-8")
+    return str(snapshot_path)
+
+
+def list_handoff_snapshots(project_dir: str) -> list[dict[str, Any]]:
+    """List all handoff snapshots, sorted by timestamp (newest first).
+
+    Returns a list of dicts with:
+    - timestamp: snapshot timestamp
+    - task: active task description
+    - file_count: number of files touched
+    - path: path to snapshot file
+    """
+    project_path = Path(project_dir)
+    snapshots_dir = project_path / _SNAPSHOTS_REL_PATH
+
+    if not snapshots_dir.exists():
+        return []
+
+    snapshots: list[dict[str, Any]] = []
+    for snapshot_file in snapshots_dir.glob("*.json"):
+        try:
+            data = json.loads(snapshot_file.read_text(encoding="utf-8"))
+            active_task = data.get("active_task") or {}
+            files_touched = data.get("files_touched", [])
+            if not isinstance(files_touched, list):
+                files_touched = []
+
+            snapshots.append({
+                "timestamp": data.get("timestamp", snapshot_file.stem),
+                "task": active_task.get("task", "") if isinstance(active_task, dict) else "",
+                "file_count": len(files_touched),
+                "path": str(snapshot_file),
+            })
+        except (json.JSONDecodeError, OSError):
+            continue
+
+    # Sort by timestamp descending (newest first)
+    snapshots.sort(key=lambda s: s["timestamp"], reverse=True)
+    return snapshots

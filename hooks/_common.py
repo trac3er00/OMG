@@ -6,6 +6,7 @@ import os
 import sys
 import fcntl
 import site
+import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,7 +18,10 @@ _BLOCK_LOOP_WINDOW_SECS = 30
 # How many consecutive blocks before we skip
 _BLOCK_LOOP_THRESHOLD = 2
 # Block reasons that indicate a loop scenario (Guard 5 skip-eligible)
-_LOOP_BLOCK_REASONS = {"planning_gate", "ralph_loop", "quality_check", "block_decision", "unknown"}
+_LOOP_BLOCK_REASONS = {"planning_gate", "ralph_loop", "quality_check", "block_decision", "unknown", "circuit_breaker_hard_stop"}
+
+# --- Hook Reentry Guard ---
+_HOOK_REENTRY_LOCK_DIR = ".omg/state/ledger"
 
 # --- Performance Budget Constants ---
 PRE_TOOL_INJECT_MAX_MS = 100
@@ -230,14 +234,96 @@ def _fsync_dir_hooks(dirpath):
 def _locked_path(path):
     lock_path = path + ".lock"
     fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | _O_NOFOLLOW_HOOKS, 0o600)
+    lock_acquired = False
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        # Fast path: non-blocking attempts with exponential backoff (total ~70ms)
+        # Optimizes for uncontended case while avoiding long stalls
+        for delay in (0.01, 0.02, 0.04):
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                lock_acquired = True
+                break
+            except BlockingIOError:
+                time.sleep(delay)
+
+        # Slow path: if still contended after backoff, use blocking lock
+        # This guarantees acquisition and preserves correctness
+        if not lock_acquired:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            lock_acquired = True
+
         yield lock_path
     finally:
         try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+            if lock_acquired:
+                fcntl.flock(fd, fcntl.LOCK_UN)
         finally:
             os.close(fd)
+
+
+@contextmanager
+def hook_reentry_guard(hook_name):
+    """Prevent concurrent execution of the same hook.
+
+    Uses LOCK_NB with 3 retries at 0.1s intervals, then fails open (yields True).
+    Writes PID + timestamp to lock file while held.
+
+    Yields:
+        True if guard acquired (proceed), False if another instance running (skip).
+    """
+    project_dir = get_project_dir()
+    lock_dir = os.path.join(project_dir, _HOOK_REENTRY_LOCK_DIR)
+    os.makedirs(lock_dir, exist_ok=True)
+    lock_file = os.path.join(lock_dir, f".{hook_name}.reentry.lock")
+
+    fd = None
+    acquired = False
+    fail_open = False
+
+    try:
+        fd = os.open(lock_file, os.O_RDWR | os.O_CREAT | _O_NOFOLLOW_HOOKS, 0o600)
+        for _ in range(3):
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                time.sleep(0.1)
+    except Exception:
+        # Fail-open: couldn't open/lock the file
+        fail_open = True
+
+    if not acquired and not fail_open:
+        # Another instance is running, signal caller to skip
+        if fd is not None:
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+            fd = None
+        yield False
+        return
+
+    if acquired:
+        try:
+            os.ftruncate(fd, 0)
+            os.lseek(fd, 0, os.SEEK_SET)
+            os.write(fd, json.dumps({"pid": os.getpid(), "ts": time.time()}).encode("utf-8"))
+        except Exception:
+            pass  # Non-critical: diagnostics only
+
+    try:
+        yield True  # Either lock acquired or fail-open
+    finally:
+        if fd is not None:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            except Exception:
+                pass
+            try:
+                os.close(fd)
+            except Exception:
+                pass
 
 
 def atomic_json_write(path, data):
@@ -369,6 +455,7 @@ _MANAGED_PRESET_FLAGS = {
     "COUNCIL_ROUTING",
     "FORGE_ALL_DOMAINS",
     "NOTEBOOKLM",
+    "auto_compact",
 }
 _PRESET_FEATURES = {
     "safe": {flag: False for flag in _MANAGED_PRESET_FLAGS},
@@ -384,6 +471,7 @@ _PRESET_FEATURES = {
         "TEST_GENERATION": False,
         "DEP_HEALTH": False,
         "CODEBASE_VIZ": False,
+        "auto_compact": True,
     },
     "interop": {
         "SETUP": True,
@@ -397,6 +485,7 @@ _PRESET_FEATURES = {
         "TEST_GENERATION": False,
         "DEP_HEALTH": False,
         "CODEBASE_VIZ": False,
+        "auto_compact": True,
     },
     "labs": {
         "SETUP": True,
@@ -416,6 +505,7 @@ _PRESET_FEATURES = {
         "COUNCIL_ROUTING": False,
         "FORGE_ALL_DOMAINS": False,
         "NOTEBOOKLM": False,
+        "auto_compact": True,
     },
     "buffet": {flag: True for flag in _MANAGED_PRESET_FLAGS},
     "production": {flag: True for flag in _MANAGED_PRESET_FLAGS},
@@ -492,6 +582,14 @@ def get_feature_flag(flag_name, default=True):
 
 # Permission mode helpers
 BYPASS_MODES = frozenset({"bypasspermissions", "dontask"})
+EDIT_BYPASS_MODES = frozenset({"bypasspermissions", "dontask", "acceptedits"})
+
+
+def _get_permission_mode(data):
+    """Normalize and extract permission_mode from hook input."""
+    if not isinstance(data, dict):
+        return ""
+    return (data.get("permission_mode") or "").lower().strip()
 
 
 def is_bypass_mode(data):
@@ -504,8 +602,20 @@ def is_bypass_mode(data):
     """
     if not isinstance(data, dict):
         return False
-    mode = (data.get("permission_mode") or "").lower().strip()
+    mode = _get_permission_mode(data)
     return mode in BYPASS_MODES
+
+
+def is_edit_bypass_mode(data):
+    """Return True if the hook input indicates edit prompts should be skipped.
+
+    Includes ``acceptedits`` in addition to the full bypass modes — this mode
+    auto-approves file edits but still prompts for other tool uses.
+    """
+    if not isinstance(data, dict):
+        return False
+    mode = _get_permission_mode(data)
+    return mode in EDIT_BYPASS_MODES
 
 
 # --- Subagent & Context-Limit Detection ---
@@ -737,6 +847,60 @@ def reset_stop_block_tracker(project_dir=None):
             os.remove(path)
     except Exception:
         pass  # intentional: never crash on cleanup
+
+
+_SESSION_SLUG_ADJECTIVES = [
+    "swift", "calm", "bold", "keen", "warm", "deep", "bright", "clear",
+    "sharp", "steady", "quiet", "agile", "vivid", "crisp", "fresh",
+    "noble", "rapid", "fluid", "light", "wise",
+]
+_SESSION_SLUG_NOUNS = [
+    "falcon", "cedar", "river", "summit", "bridge", "beacon", "anchor",
+    "compass", "harbor", "prism", "atlas", "forge", "spark", "orbit",
+    "pulse", "nexus", "ridge", "bloom", "drift", "flame",
+]
+
+
+def generate_session_slug():
+    """Generate a human-readable session slug: '{adjective}-{noun}-{YYYYMMDD}'."""
+    import random
+    adj = random.choice(_SESSION_SLUG_ADJECTIVES)
+    noun = random.choice(_SESSION_SLUG_NOUNS)
+    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return f"{adj}-{noun}-{date_str}"
+
+
+import shutil as _shutil
+
+_codex_available: bool | None = None
+
+
+def detect_codex_available() -> bool:
+    """Detect if Codex CLI is available on this system.
+
+    Checks: 1) `codex` binary in PATH, 2) `.agents/` directory exists in project.
+    Result is cached for the process lifetime.
+    """
+    global _codex_available
+    if _codex_available is not None:
+        return _codex_available
+
+    # Check 1: codex binary in PATH
+    if _shutil.which("codex"):
+        _codex_available = True
+        return True
+
+    # Check 2: .agents/ directory in project (Codex workspace indicator)
+    try:
+        project_dir = get_project_dir()
+        if os.path.isdir(os.path.join(project_dir, ".agents")):
+            _codex_available = True
+            return True
+    except Exception:
+        pass
+
+    _codex_available = False
+    return False
 
 
 def check_performance_budget(hook_name: str, elapsed_ms: float, budget_ms: float) -> bool:

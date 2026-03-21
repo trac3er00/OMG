@@ -1,8 +1,158 @@
 from __future__ import annotations
 
-from typing import TypedDict
+import json
+import re
+from pathlib import Path
+from typing import Any, TypedDict
 
 from runtime.verdict_schema import VerdictReceipt
+
+
+# ---------------------------------------------------------------------------
+# Completion claim validation (NF1b)
+# ---------------------------------------------------------------------------
+
+COMPLETION_CLAIM_PATTERNS: list[str] = [
+    r"\bdone\b",
+    r"\bfixed\b",
+    r"\bworks\b",
+    r"\bready\b",
+    r"\bshipped\b",
+    r"\bcompleted\b",
+    r"\blgtm\b",
+    r"\btests?\s+pass(?:ed|ing)?\b",
+    r"\ball\s+tests?\s+(?:pass(?:ed|ing)?|green)\b",
+]
+
+
+def matches_completion_claim(text: str) -> bool:
+    """Check if text contains a completion claim keyword.
+
+    Returns True if any COMPLETION_CLAIM_PATTERNS match.
+    """
+    for pattern in COMPLETION_CLAIM_PATTERNS:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+    return False
+
+
+def check_completion_claim_validity(project_dir: str) -> dict[str, Any]:
+    """Check whether a completion claim is valid given current evidence state.
+
+    Logic:
+    1. If no active session (no session.json or no run_id), completion is allowed.
+    2. If active session exists, check for proof gate verdict:
+       - If proof gate verdict is "pass", allowed=True
+       - If proof gate verdict is missing or "fail", allowed=False
+    3. Check for evidence bundle to determine conclusion level (verified vs inferred).
+
+    Returns dict with:
+    - allowed: bool
+    - missing: list of missing evidence items
+    - conclusion: "verified" | "inferred" | "uncertain" | "failed"
+    - reason: explanation string
+    - advisory: optional advisory message
+    """
+    project_path = Path(project_dir)
+    session_path = project_path / ".omg" / "state" / "session.json"
+
+    # No session file means no active work
+    if not session_path.exists():
+        return {
+            "allowed": True,
+            "missing": [],
+            "conclusion": "verified",
+            "reason": "No active session found - completion allowed.",
+        }
+
+    # Try to read session
+    try:
+        session_data = json.loads(session_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {
+            "allowed": True,
+            "missing": [],
+            "conclusion": "verified",
+            "reason": "No active session found - completion allowed.",
+        }
+
+    # Check for active run_id
+    run_id = str(session_data.get("run_id", "")).strip()
+    if not run_id:
+        return {
+            "allowed": True,
+            "missing": [],
+            "conclusion": "verified",
+            "reason": "No active session found - completion allowed.",
+        }
+
+    # Active session exists - check proof gate
+    proof_dir = project_path / ".omg" / "state" / "proof_gate"
+    proof_file = proof_dir / f"{run_id}.json"
+
+    missing: list[str] = []
+    proof_verdict: str | None = None
+
+    if proof_file.exists():
+        try:
+            proof_data = json.loads(proof_file.read_text(encoding="utf-8"))
+            proof_verdict = str(proof_data.get("verdict", "")).strip().lower()
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    if proof_verdict != "pass":
+        missing.append("proof gate verdict")
+
+    # Check for evidence bundle
+    evidence_dir = project_path / ".omg" / "evidence"
+    evidence_file = evidence_dir / f"{run_id}.json"
+    has_evidence_bundle = evidence_file.exists()
+
+    if not has_evidence_bundle:
+        missing.append("evidence bundle")
+
+    # Determine result
+    if missing and "proof gate verdict" in missing:
+        return {
+            "allowed": False,
+            "missing": missing,
+            "conclusion": "uncertain" if proof_verdict is None else "failed",
+            "reason": f"Active session {run_id} requires passing proof gate verdict.",
+        }
+
+    # Proof gate passed
+    if has_evidence_bundle:
+        return {
+            "allowed": True,
+            "missing": [],
+            "conclusion": "verified",
+            "reason": f"Session {run_id} has passing proof gate and evidence bundle.",
+        }
+
+    # Proof gate passed but no evidence bundle
+    return {
+        "allowed": True,
+        "missing": ["evidence bundle"],
+        "conclusion": "inferred",
+        "reason": f"Session {run_id} has passing proof gate.",
+        "advisory": "Evidence bundle missing - recommend running verification commands to generate full evidence.",
+    }
+
+
+def narrate_missing_evidence(missing: list[str]) -> str:
+    """Narrate missing evidence items in a human-readable format.
+
+    Args:
+        missing: List of missing evidence item names.
+
+    Returns:
+        A narrative string explaining what is missing.
+    """
+    if not missing:
+        return "All required evidence is present."
+
+    items_str = ", ".join(missing)
+    return f"Cannot confirm done - missing: {items_str}"
 
 
 class NarrativeResult(TypedDict):

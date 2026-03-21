@@ -35,6 +35,27 @@ except ImportError:
     score_complexity = None
 
 try:
+    from runtime.tool_relevance import discover_relevant_tools, format_tool_suggestions
+except ImportError:
+    discover_relevant_tools = None
+    format_tool_suggestions = None
+
+try:
+    from runtime.prompt_compiler import get_compiled_preamble, select_template, record_outcome
+except ImportError:
+    get_compiled_preamble = None
+    select_template = None
+    record_outcome = None
+
+try:
+    from hooks._common import detect_codex_available
+except ImportError:
+    try:
+        detect_codex_available = importlib.import_module("_common").detect_codex_available
+    except (ImportError, AttributeError):
+        detect_codex_available = None
+
+try:
     from hooks._common import setup_crash_handler, json_input, atomic_json_write, get_feature_flag, _resolve_project_dir
     from hooks.state_migration import resolve_state_dir
     from hooks._budget import BUDGET_PROMPT_TOTAL as budget_prompt_total
@@ -261,6 +282,10 @@ def _build_intent_gate_state(prompt_text, payload):
     signal_hits = _count_signals(INTENT_MAP[intent_class]["signals"], prompt_text)
     confidence = min(0.99, 0.76 + (signal_hits * 0.07) + (0.06 if intent_class == "ambiguous_config" else 0.0))
     governance_payload = {}
+    try:
+        from runtime.complexity_scorer import score_complexity
+    except ImportError:
+        score_complexity = None
     if score_complexity is not None:
         try:
             governance_raw = score_complexity(prompt_text).get("governance")
@@ -457,7 +482,7 @@ if not is_crazy and not is_ulw and budget_ok():
         except Exception:
             pass
 
-    # HIGH complexity (≥4): auto-trigger CRAZY
+    # HIGH complexity (≥4): auto-trigger CRAZY + model hint + CoT
     if complexity_score >= 4:
         add(
             "@mode:CRAZY(auto) — Complex task detected (multi-step/multi-component). "
@@ -465,7 +490,14 @@ if not is_crazy and not is_ulw and budget_ok():
             "All agents active: Claude=orchestrator, Codex=deep-code, Gemini=UI/UX. "
             "Work through all items systematically. Verify each step."
         )
-    # MEDIUM complexity (≥2): auto-trigger PERSISTENT
+        try:
+            from runtime.opus_plan import get_tier_config
+            _tier = get_tier_config()
+            _hint_model = _tier.get("model_hint", "opus")
+        except Exception:
+            _hint_model = "opus"
+        add(f"@model-hint: {_hint_model}")
+    # MEDIUM complexity (≥2): auto-trigger PERSISTENT + model hint
     elif complexity_score >= 2:
         add(
             "@mode:PERSISTENT(auto) — Multi-step task detected. "
@@ -473,6 +505,43 @@ if not is_crazy and not is_ulw and budget_ok():
             "Work through ALL items. Skip if blocked, continue others. "
             "Don't stop until checklist complete."
         )
+        add("@model-hint: sonnet")
+
+    # CoT preamble for complex tasks (feature-flagged)
+    if get_feature_flag("cot_preamble", True) and complexity_score >= 4:
+        add(
+            "@reasoning: [STEP-BY-STEP] Break this into phases: "
+            "understand → identify approach → plan → execute. Think before acting."
+        )
+
+    # --- Item 10: Metaprompt auto-optimization (Codex-backed) ---
+    if (get_feature_flag("metaprompt_auto", True)
+            and complexity_score >= 4
+            and detect_codex_available is not None
+            and detect_codex_available()
+            and budget_ok()):
+        add(
+            "@metaprompt: Codex detected. For this complex task, consider routing "
+            "sub-problems through /OMG:escalate codex for deep analysis before "
+            "implementing. Codex excels at: root-cause debugging, security review, "
+            "algorithm optimization, and backend logic verification."
+        )
+
+    # --- Item 12: Prompt compilation (task-type-aware preamble) ---
+    if (get_feature_flag("prompt_compiler", True)
+            and get_compiled_preamble is not None
+            and budget_ok()):
+        try:
+            _task_type = detected_intent
+            if _task_type in ("fix",):
+                _task_type = "bugfix"
+            elif _task_type in ("implement", "add"):
+                _task_type = "feature"
+            _compiled = get_compiled_preamble(_task_type, project_dir=_resolve_project_dir())
+            if _compiled:
+                add(_compiled)
+        except Exception:
+            pass
 
 # ═══════════════════════════════════════════════════════════
 # 3c. COGNITIVE MODE (from .omg/state/mode.txt)
@@ -577,6 +646,11 @@ SEQUENTIAL_THINKING_SIGNALS = [
 ]
 if any(signal_matches_text(sig, prompt) for sig in SEQUENTIAL_THINKING_SIGNALS) and budget_ok():
     add("@reasoning: Use /OMG:sequential-thinking for structured hypothesis and verification flow.")
+    if get_feature_flag("cot_preamble", True):
+        add(
+            "@reasoning: [STEP-BY-STEP] Break this into phases: "
+            "understand → identify approach → plan → execute. Think before acting."
+        )
 
 # Security domain warning (keep this — it's additive, not routing)
 SECURITY_SIGNALS = [
@@ -859,6 +933,22 @@ if any(signal_matches_text(sig, prompt) for sig in WRITE_ERROR_SIGNALS) and budg
 _ctx_engine_packet_path = os.path.join(project_dir, ".omg", "state", "context_engine_packet.json")
 if os.path.isfile(_ctx_engine_packet_path) and budget_ok():
     add("@context-engine: see .omg/state/context_engine_packet.json")
+
+# ═══════════════════════════════════════════════════════════
+# 11. SEMANTIC TOOL DISCOVERY (Item 11)
+# ═══════════════════════════════════════════════════════════
+if (get_feature_flag("tool_discovery", True)
+        and discover_relevant_tools is not None
+        and format_tool_suggestions is not None
+        and budget_ok()):
+    try:
+        _relevant_tools = discover_relevant_tools(prompt, max_results=5, min_score=2.0)
+        if _relevant_tools:
+            _tool_text = format_tool_suggestions(_relevant_tools)
+            if _tool_text:
+                add(_tool_text)
+    except Exception:
+        pass
 
 # ═══════════════════════════════════════════════════════════
 # OUTPUT

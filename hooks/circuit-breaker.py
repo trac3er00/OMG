@@ -11,7 +11,7 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, _resolve_project_dir
+from _common import setup_crash_handler, json_input, _resolve_project_dir, is_stop_block_loop, record_stop_block
 from state_migration import resolve_state_dir
 
 setup_crash_handler("circuit-breaker", fail_closed=False)
@@ -176,31 +176,50 @@ if is_failure:
     recent_errs = "\n".join(f"  - {e}" for e in entry["errors"] if e)
 
     if effective_count >= 5:
+        last_err = entry['errors'][-1][:80] if entry['errors'] else 'unknown'
+        options_json = json.dumps({
+            "question": f"'{pattern_key}' failed {count}x. This approach is broken. How to proceed?",
+            "header": "Escalate",
+            "options": [
+                {"label": "Escalate to Codex", "description": f"Debug: {pattern_key} fails with {last_err}"},
+                {"label": "Escalate to Gemini", "description": f"Review: approach for {pattern_key}"},
+                {"label": "Different approach", "description": "Ask user for a completely different strategy"},
+                {"label": "Skip this step", "description": "Mark [!] in checklist and move on"}
+            ]
+        })
         print(
             f"CIRCUIT BREAKER: '{pattern_key}' failed {count}x (effective {effective_count:.1f}x).\n"
             f"STOP. This approach is broken.\n"
             f"{recent_errs}\n\n"
             f"Domain hint: {domain_hint or 'none'}\n"
-            f"ESCALATE NOW — pick one:\n"
-            f"  /OMG:escalate codex \"Debug: {pattern_key} fails with {entry['errors'][-1][:80]}\"\n"
-            f"  /OMG:escalate gemini \"Review: approach for {pattern_key}\"\n"
-            f"  Ask the user for a completely different approach\n"
-            f"  Skip this step: mark [!] in checklist and move on",
+            f"@@ASK_USER_OPTIONS@@\n{options_json}",
             file=sys.stderr
         )
+        # Record the hard-stop so loop-breaker (Guard 4) can detect repeated blocks
+        record_stop_block(project_dir=project_dir, reason="circuit_breaker_hard_stop")
         # NOTE: exit(0), not exit(2). Non-zero exits crash sibling hooks
         # ("Sibling tool call errored"). The warning is in stderr.
         sys.exit(0)
 
     elif effective_count >= 3:
+        # Break cycle: if stop hooks are already looping, skip this warning
+        if is_stop_block_loop():
+            sys.exit(0)
+        last_err = entry['errors'][-1][:150] if entry['errors'] else 'unknown'
+        options_json = json.dumps({
+            "question": f"'{pattern_key}' failed {count}x. Stop auto-retrying. What next?",
+            "header": "Stuck",
+            "options": [
+                {"label": "Different approach", "description": "Try a fundamentally different strategy"},
+                {"label": "Escalate to Codex", "description": f"Ask: Why does {pattern_key} keep failing?"},
+                {"label": "Ask user", "description": "Get user guidance on how to proceed"}
+            ]
+        })
         print(
             f"CIRCUIT BREAKER WARNING: '{pattern_key}' failed {count}x (effective {effective_count:.1f}x).\n"
-            f"Last error: {entry['errors'][-1][:150] if entry['errors'] else 'unknown'}\n\n"
+            f"Last error: {last_err}\n\n"
             f"Domain hint: {domain_hint or 'none'}\n"
-            f"STOP auto-retrying. Try:\n"
-            f"  1. Fundamentally different approach\n"
-            f"  2. /OMG:escalate codex \"Why does {pattern_key} keep failing?\"\n"
-            f"  3. Ask the user",
+            f"@@ASK_USER_OPTIONS@@\n{options_json}",
             file=sys.stderr
         )
         sys.exit(0)
