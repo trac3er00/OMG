@@ -1628,10 +1628,28 @@ async function main() {
     // N15.4: Adaptive suppression — hide low-priority indicators on narrow terminals
     const termCols = process.stdout.columns || 120;
     if (termCols < 120) {
-      // Remove inventory and running agents on narrow terminals
+      // Tier 1: Remove inventory and running agents on narrow terminals
       for (let i = els.length - 1; i >= 0; i--) {
         const el = els[i];
         if (el && (el.includes("inv:") || el.includes("agents:") || el.includes("bg:"))) {
+          els.splice(i, 1);
+        }
+      }
+    }
+    if (termCols < 80) {
+      // Tier 2: Ultra-narrow terminals — show only branch + context%
+      // Keep only: branch, context%, and critical indicators
+      for (let i = els.length - 1; i >= 0; i--) {
+        const el = els[i];
+        if (
+          el &&
+          !(
+            el.includes(git.branch) ||             // Keep branch
+            el.includes("context:") ||             // Keep context%
+            el.includes("CRITICAL") ||             // Keep critical warnings
+            el.includes("COMPRESS?")               // Keep compress suggestions
+          )
+        ) {
           els.splice(i, 1);
         }
       }
