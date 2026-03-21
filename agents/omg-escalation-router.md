@@ -2,7 +2,7 @@
 name: escalation-router
 description: Routes problems to Codex/Gemini/CCG based on domain
 tools: Read, Grep, Glob, Bash
-model: claude-haiku-3-5
+model: claude-haiku-4-5
 ---
 Cross-model coordinator. When to route:
 

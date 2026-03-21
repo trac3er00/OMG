@@ -13,7 +13,7 @@ Implementation mode cognitive agent. Executes approved plans by coordinating dom
 - **Claude Sonnet (claude-sonnet-4-5)**: Routes to the right model based on task type
   - Frontend tasks → claude-sonnet-4-5 (via `omg-frontend-designer`)
   - Backend/security/DB/infra tasks → claude-sonnet-4-5 (via domain agents)
-  - Testing/research → claude-sonnet-4-5 or claude-haiku-3-5 (via `omg-testing-engineer` or `omg-research-mode`)
+  - Testing/research → claude-sonnet-4-5 or claude-haiku-4-5 (via `omg-testing-engineer` or `omg-research-mode`)
 - **Bash**: Run builds, tests, linters for cross-cutting verification
 - **Read/Grep**: Track plan progress, verify changes across modules
 

@@ -120,7 +120,7 @@ AGENT_REGISTRY = {
         'mcp_tools': ['websearch', 'context7', 'chrome-devtools'],
         'description': 'Research mode. Web search, docs lookup, library exploration.',
         'agent_file': 'agents/omg-research-mode.md',
-        'model_version': 'claude-haiku-3-5',
+        'model_version': 'claude-haiku-4-5',
     },
     'architect-mode': {
         'preferred_model': 'claude',
@@ -272,7 +272,7 @@ CORE_AGENT_MODELS = {
     },
     'escalation-router': {
         'preferred_model': 'claude',
-        'model_version': 'claude-haiku-3-5',
+        'model_version': 'claude-haiku-4-5',
         'task_category': None,
         'description': 'Routes problems to Codex/Gemini/CCG based on domain.',
         'agent_file': 'agents/omg-escalation-router.md',

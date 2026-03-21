@@ -1,5 +1,66 @@
 # Changelog
 
+## 2.3.0 - 2026-03-20
+
+### v2.3.0 — Performance, Consolidation, Security, and Multi-Agent Orchestration
+
+#### Performance Foundation
+- **State file cache**: mtime-based cache with 100ms TTL in `_common.py` — cached reads at 0.002ms/call
+- **Lazy imports**: deferred `re`, `hashlib`, `datetime` in prompt-enhancer.py; lazy module loading in budget_governor.py
+- **Fast-path optimization**: zero-injection threshold raised from 10 to 15 words with set-based matching (no regex on fast path)
+- **Hook consolidation**: pre-tool-all.py and post-tool-all.py dispatchers reduce subprocess overhead
+
+#### Command Consolidation (20 → 12 active commands)
+- `/OMG:validate` absorbs doctor, health-check, diagnose-plugins
+- `/OMG:init` absorbs setup wizard
+- `/OMG:session` absorbs session-branch, session-fork, session-merge
+- `/OMG:ralph` absorbs ralph-start, ralph-stop
+- `/OMG:crazy` absorbs ccg, teams (as modes: ccg, team, swarm, pipeline)
+- `/OMG:stats` absorbs cost tracking
+- Removed: playwright (alias), compat (legacy), theme (non-critical)
+- All deprecated commands print redirect messages
+
+#### Security
+- **SSRF prevention**: firewall blocks curl/wget to internal/private IPs (127.x, 10.x, 192.168.x, metadata endpoints)
+- **Path traversal enforcement**: secret-guard validates resolved paths stay within project boundaries
+- **HMAC integrity**: defense state files protected against tampering with machine-specific HMAC
+- **Structured error output**: `PolicyDecision.to_structured_error()` with actionable suggestions
+
+#### Unified /OMG:issue
+- Parallel sub-agent orchestrator with 6 agents: red-team, dep-audit, secret-scan, env-scan, privacy-audit, leak-detective
+- Finding aggregator: fingerprint-based deduplication, severity ranking, trust scores
+- SARIF 2.1 output format for CI/CD integration
+
+#### Setup Simplification
+- `npx omg quickstart` one-liner with tiered install (Level 1/2/3)
+- Progress indicators in OMG-setup.sh (visual progress bar)
+- Enhanced pre-flight: 5 dependency checks (Python, venv, git, host dir, disk space)
+
+#### Deep-Plan v2
+- Item classification (NEEDED/NICE-TO-HAVE/NOT-NEEDED)
+- Per-plan folder structure (.omg/plans/<id>/)
+- File-overlap analysis and merge conflict risk flagging
+- Multi-model planning with Codex validation and Gemini UX review
+
+#### New Commands
+- `/OMG:start-work` — Plan-driven implementation with session strategy
+- `/OMG:mode tdd` — RED-GREEN-REFACTOR cycle enforcement
+
+#### Infrastructure
+- SQLite ledger (runtime/sqlite_ledger.py) as JSONL replacement
+- MCP overlap detection (runtime/mcp_dedup.py)
+- Plugin cohesion checker (runtime/plugin_cohesion.py)
+- Git-backed agent store (runtime/agent_store.py)
+- State file rotation (runtime/state_rotation.py)
+- Multi-host E2E test suite with CI matrix
+- HUD improvements: hide-when-ok, adaptive suppression, model-aware context %
+
+#### Documentation
+- Getting Started guide (zero to working in 5 min)
+- Troubleshooting guide (OS-specific)
+- Command reference with examples
+- README install decision tree
+
 <!-- OMG:GENERATED:changelog-v2.2.12 -->
 ### Governed Release Surface (v2.2.12)
 

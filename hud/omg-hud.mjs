@@ -454,13 +454,29 @@ async function readStdin() {
   }
 }
 
+// N15.3: Model-aware max context for accurate % calculation
+const MODEL_MAX_CONTEXT = {
+  "opus": 1000000,
+  "sonnet": 200000,
+  "haiku": 200000,
+};
+
+function _getModelMaxContext(stdin) {
+  const modelId = (stdin?.model ?? "").toLowerCase();
+  for (const [family, max] of Object.entries(MODEL_MAX_CONTEXT)) {
+    if (modelId.includes(family)) return max;
+  }
+  return 200000; // Default fallback
+}
+
 function getContextPercent(stdin) {
   let pct = stdin?.context_window?.used_percentage;
   if (typeof pct === "number" && !Number.isNaN(pct)) {
     if (pct > 0 && pct <= 1) pct *= 100;
     return Math.min(100, Math.max(0, Math.round(pct)));
   }
-  const size = stdin?.context_window?.context_window_size;
+  // Use reported context_window_size, falling back to model-aware max
+  const size = stdin?.context_window?.context_window_size || _getModelMaxContext(stdin);
   if (!size || size <= 0) return 0;
   const usage = stdin?.context_window?.current_usage ?? {};
   const tokens =
@@ -925,12 +941,14 @@ function renderSessionHealth(health) {
   else if (action === "warn") badge = ` ${yellow("WARN")}`;
   if (stale) badge += ` ${yellow("[STALE]")}`;
 
-  return (
-    `contam:${contColor(`${contPct}%`)} ` +
-    `overthink:${overColor(`${overPct}%`)} ` +
-    `health:${healthColor(`${healthPct}%`)}` +
-    badge
-  );
+  // N15.5: Hide-when-ok — suppress zero/perfect indicators to reduce noise
+  const parts = [];
+  if (contPct > 0) parts.push(`contam:${contColor(`${contPct}%`)}`);
+  if (overPct > 0) parts.push(`overthink:${overColor(`${overPct}%`)}`);
+  if (healthPct < 100) parts.push(`health:${healthColor(`${healthPct}%`)}`);
+  // If everything is OK, show a single compact indicator
+  if (parts.length === 0) parts.push(green("✓"));
+  return parts.join(" ") + badge;
 }
 
 function parseTranscript(transcriptPath) {
@@ -1411,10 +1429,10 @@ async function main() {
 
     const els = [];
 
-    // Git info (optional, on same line in OMG)
+    // Git info (optional, compact — N15.1: removed dir: prefix for less noise)
     if (cfg.elements.cwd) {
       const cwdText = renderCwd(cwd, cfg.elements.cwdFormat || "relative");
-      if (cwdText) els.push(`\u{1F4C1}${dim("dir:")}${dim(cwdText)}`);
+      if (cwdText) els.push(dim(cwdText));
     }
     if (cfg.elements.gitRepo && git.repo) {
       els.push(dim(git.repo));
@@ -1553,6 +1571,19 @@ async function main() {
     if (cfg.elements.todos) {
       const todosEl = renderTodos(transcript.todos);
       if (todosEl) details.push(`  ${todosEl}`);
+    }
+
+    // N15.4: Adaptive suppression — hide low-priority indicators on narrow terminals
+    const termCols = process.stdout.columns || 120;
+    if (termCols < 120) {
+      // Remove inventory and running agents on narrow terminals
+      const lowPriority = new Set(["inventory", "agents", "backgroundTasks"]);
+      for (let i = els.length - 1; i >= 0; i--) {
+        const el = els[i];
+        if (el && (el.includes("inv:") || el.includes("agents:") || el.includes("bg:"))) {
+          els.splice(i, 1);
+        }
+      }
     }
 
     const sep = dim(" | ");

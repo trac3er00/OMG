@@ -80,3 +80,4 @@ build/temp*/
 
 # Generated CI artifacts — never commit
 artifacts/release/
+docs/comparison-v2.2.12.md

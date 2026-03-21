@@ -144,6 +144,26 @@ Success looks like:
 - OpenCode: [docs/install/opencode.md](docs/install/opencode.md)
 - Gemini: [docs/install/gemini.md](docs/install/gemini.md)
 - Kimi: [docs/install/kimi.md](docs/install/kimi.md)
+
+### Install Decision Tree
+
+```
+Which host are you using?
+├── Claude Code → npx @trac3r/oh-my-god quickstart
+├── Codex → npx @trac3r/oh-my-god quickstart (auto-detects)
+├── Multiple hosts → npx @trac3r/oh-my-god quickstart --level 3
+└── Air-gapped / restricted?
+    └── git clone + ./OMG-setup.sh install
+
+Which tier?
+├── Just trying it out → --level 1 (essential, 60s)
+├── Full development → --level 2 (default)
+└── Enterprise / multi-host → --level 3
+```
+
+- [Getting Started Guide](docs/getting-started.md)
+- [Command Reference](docs/command-reference.md)
+- [Troubleshooting](docs/troubleshooting.md)
 ## Native Adoption
 
 OMG uses native setup language instead of public migration commands.

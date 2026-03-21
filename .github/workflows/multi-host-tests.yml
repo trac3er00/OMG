@@ -1,0 +1,73 @@
+name: Multi-Host E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-matrix:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-xdist pyyaml coverage
+
+      - name: Run multi-host E2E tests
+        run: |
+          python -m pytest tests/e2e/test_multi_host.py -v --tb=short
+        env:
+          CLAUDE_PROJECT_DIR: ${{ github.workspace }}
+
+      - name: Run hook consolidation tests
+        run: |
+          python -m pytest tests/perf/test_hook_consolidation.py -v --tb=short
+
+      - name: Run public surface tests
+        run: |
+          python -m pytest tests/test_public_surface.py -v --tb=short
+
+      - name: Verify all hooks compile
+        run: |
+          for f in hooks/*.py; do
+            python -c "import py_compile; py_compile.compile('$f', doraise=True)" || exit 1
+          done
+          echo "All hooks compile successfully"
+
+  install-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Benchmark install time
+        run: |
+          start=$(date +%s)
+          bash OMG-setup.sh install --non-interactive --preset safe 2>&1 || true
+          end=$(date +%s)
+          elapsed=$((end - start))
+          echo "Install time: ${elapsed}s"
+          if [ "$elapsed" -gt 60 ]; then
+            echo "WARNING: Install took more than 60 seconds"
+          fi
+        env:
+          CLAUDE_CONFIG_DIR: /tmp/test-claude
+          HOME: /tmp/test-home
