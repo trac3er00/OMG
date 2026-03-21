@@ -1,46 +1,64 @@
 # Changelog
 
-<!-- OMG:GENERATED:changelog-v2.2.10 -->
-### Governed Release Surface (v2.2.10)
+<!-- OMG:GENERATED:changelog-v2.2.12 -->
+### Governed Release Surface (v2.2.12)
 
 - Canonical release surface compilation
 - Dual-channel artifact output (public + enterprise)
 - Idempotent generated-section markers in docs
-<!-- /OMG:GENERATED:changelog-v2.2.10 -->
+<!-- /OMG:GENERATED:changelog-v2.2.12 -->
 
-## 2.2.11 - 2026-03-19
+## 2.2.12 - 2026-03-20
 
-### PR Review Migration, Hook Hardening, and Release Audit Gate
+### Consolidated Feature Release — AI Enhancement, Security Hardening, Agent Expansion, Test Coverage
 
-#### CI/CD — Migrate to Cubic AI Review Agents
-- **cubic AI migration**: replace all legacy GitHub Actions review workflows (evidence-gate, artifact-self-audit, compat-gate, release-readiness) with 5 Cubic AI custom agents — Contract Integrity, Release Safety, Compat & Host Parity, Public Surface & Docs, Security Hygiene
-- **CLA workflow**: add CLA Assistant Lite for contributor license agreement signing on PRs from external contributors
+This release merges 6 PRs (#116–#121) into a single governed release. All surfaces bumped to v2.2.12.
+
+#### Identity — Username Migration (#116)
+- **username rename**: update 51 files referencing old GitHub username `trac3er00` → `trac3r00`
+- Fixes CLA allowlist mismatch, plugin URLs, docs, registry, and tests
+
+#### AI Enhancement — CoT, Model Hints, Tool Discovery (#117)
+- **CoT preamble injection**: inject chain-of-thought preamble for complex tasks (complexity >= 4)
+- **model parameter hints**: opus for HIGH complexity, sonnet for MEDIUM
+- **metaprompt auto-trigger**: auto-trigger when Codex detected at runtime
+- **semantic tool discovery**: 22-tool keyword catalog for context-aware tool selection
+- **prompt compiler**: outcome-tracked template selection with budget awareness
+
+#### Security — Permission Tightening (#118)
+- **sensitive command migration**: move 17 sensitive command patterns from `allow` to `ask` in settings.json
+- Strengthens default security posture without breaking existing workflows
+
+#### Agents — 18 New Specialized Definitions (#119)
+- **new agents**: accessibility-auditor, api-tester, code-archeologist, concurrency-expert, config-manager, data-engineer, debugger, dependency-analyst, devops-engineer, docs-writer, error-handler, log-analyst, migration-specialist, ml-engineer, performance-engineer, prototype-builder, refactor-agent, release-engineer
+- All agents include frontmatter with name, description, model, and tools for `agent_selector.py`
+
+#### Test Coverage — Deep Plan and Runtime (#120)
+- **16 new test files** covering agents, hooks, runtime, and CLI
+- ~6,500 lines of test coverage across context engine, evidence narrator, skill foundry, task routing, coordinator state, dispatch strategy, and more
+
+#### Hooks — Cross-Hook Wiring and Reentry Guard (#121)
+- **reentry guard**: prevent concurrent hook execution with file-based locking
+- **circuit-breaker wiring**: wire circuit-breaker to stop-block loop detection
+- **ledger rotation**: cap tool-ledger.jsonl at 10K lines
+- **verification accuracy**: `check_verification()` uses current-turn commands from stop payload
+- **memory/planning exclusion**: memory and planning file writes excluded from source-write detection
+
+#### Inherited from v2.2.11
+
+##### CI/CD — Migrate to Cubic AI Review Agents
+- **cubic AI migration**: replace all legacy GitHub Actions review workflows with 5 Cubic AI custom agents
+- **CLA workflow**: add CLA Assistant Lite for contributor license agreement signing
 - **GitGuardian**: add automated secret scanning on push and pull request events
-- **legacy cleanup**: remove `action.yml`, `runtime/github_integration.py`, `runtime/github_review_bot.py`, `runtime/github_review_contract.py`, `runtime/github_review_formatter.py`, `scripts/github_review_helpers.py`, and all associated test suites (~2,500 lines removed)
-- **CONTRIBUTING.md**: add Cubic migration guide and "when to update Cubic agents" reference table
 
-#### Hooks — Safety Hardening and Review Coverage
-- **hook error logging**: harden error reporting in `hooks/_common.py` with structured logging and fail-safe defaults
-- **stop-hook loop tracking**: add loop detection to `hooks/stop_dispatcher.py` to prevent infinite hook re-entry
-- **credential path validation**: strengthen credential path checks against traversal and injection in hook policy engine
-- **planning gate behavior**: fix planning gate to correctly evaluate governed mutation context before blocking
-- **env masking**: fix environment variable masking and stop tracker initialization race conditions
-- **test coverage**: add ~6,400 lines of regression coverage across hook policy decisions, stop-dispatcher behavior, installer safety, and setup script validation
+##### Runtime — Release Artifact Audit Gate
+- **release artifact audit**: new `runtime/release_artifact_audit.py` — validates version parity, file completeness, and security properties
+- **path traversal fix**: replace `startswith()` with `is_relative_to()` to close traversal bypass
+- **contract snapshots**: regenerate both contract snapshots with `host_surfaces` field
 
-#### Runtime — Release Artifact Audit Gate
-- **release artifact audit**: new `runtime/release_artifact_audit.py` — validates version parity, file completeness, and security properties across npm-pack, git-archive, and source-tree release surfaces
-- **subprocess safety**: extract `_run_tool()` wrapper in release audit to follow established subprocess safety patterns (no direct `subprocess.run`)
-- **path traversal fix**: replace `startswith()` with `is_relative_to()` in 2 locations to close path traversal bypass
-- **TOML error handling**: catch `tomlkit.ParseError` on malformed TOML in compat cleanup handler
-- **stale legacy detection**: add stale legacy section detection to check-only mode in surface compiler
-- **contract snapshots**: regenerate both contract snapshots with `host_surfaces` field and updated `contract_version`
-
-#### Documentation — Launcher-First and Proof Framing
-- **launcher-first docs**: make public docs and install guides launcher-first, demoting legacy clone and slash-command paths
-- **proof framing**: frame Music OMR as Certification Lane 1 flagship in proof documentation
-- **install docs**: rename misleading "air-gapped" headings to "manual setup" (documented steps require network access)
-- **front-door consistency**: tighten test assertions to catch `find() == -1` false-pass patterns
-- **version regex anchors**: add word-boundary anchors to version regexes to prevent prefix matches (e.g., 2.2.1 vs 2.2.10)
+##### Documentation — Launcher-First and Proof Framing
+- **launcher-first docs**: make public docs and install guides launcher-first
+- **version regex anchors**: add word-boundary anchors to prevent prefix matches
 
 ## 2.2.9 - 2026-03-18
 

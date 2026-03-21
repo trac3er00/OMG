@@ -1,6 +1,6 @@
 id: security-check
 kind: security
-version: 2.2.11
+version: 2.2.12
 title: OMG Security Check
 description: Canonical security audit bundle with provenance, trust scoring, and deterministic evidence.
 hosts:
