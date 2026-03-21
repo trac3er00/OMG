@@ -1,10 +1,63 @@
 ---
-description: "CRAZY mode — maximum multi-agent orchestration. Claude orchestrates, Codex deep-codes, Gemini designs. Anti-hallucination + error-loop prevention."
+description: "Multi-agent orchestration — crazy (full), ccg (tri-track), team (routed). Claude orchestrates, Codex deep-codes, Gemini designs."
 allowed-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task
-argument-hint: "[task description]"
+argument-hint: "[crazy|ccg|team] [task description]"
 ---
 
-# /OMG:crazy — All-Agent Maximum Orchestration
+# /OMG:crazy — Multi-Agent Orchestration
+
+Unified orchestration surface. Subsumes `/OMG:ccg` and `/OMG:teams`.
+
+## Modes
+
+- `/OMG:crazy [task]` — Full CRAZY mode (default): all agents, parallel dispatch, maximum orchestration
+- `/OMG:crazy ccg [task]` — CCG mode: tri-track synthesis (backend + frontend + architecture)
+- `/OMG:crazy team [codex|gemini|auto] [task]` — Team routing: dispatch to specific model
+
+## CCG Mode (`/OMG:crazy ccg`)
+
+Tri-track synthesis: launches backend, frontend, and architecture analysis in parallel sub-agents, collects all tracks, runs sequential-thinking merge into one execution order.
+
+```bash
+python3 scripts/omg.py ccg --problem "[problem]"
+```
+
+## Team Mode (`/OMG:crazy team`)
+
+Internal staged team routing with explicit target selection.
+
+```bash
+python3 scripts/omg.py team --target auto --problem "[problem]"
+python3 scripts/omg.py team --target codex --problem "[problem]"
+```
+
+Staged flow: team-plan → team-exec → team-verify → team-fix
+
+## Swarm Mode (`/OMG:crazy swarm`)
+
+Launch N parallel sub-agents that independently explore the problem space, then merge results.
+
+```
+/OMG:crazy swarm implement auth across 5 microservices
+```
+
+- Each sub-agent gets an independent slice of the problem
+- Results are collected and deduplicated via sequential-thinking merge
+- Conflicts are flagged for human resolution
+
+## Pipeline Mode (`/OMG:crazy pipeline`)
+
+Sequential multi-stage pipeline: each stage's output feeds the next.
+
+```
+/OMG:crazy pipeline "plan → implement → test → review → ship"
+```
+
+Stages: plan → implement → test → review → ship. Each stage must pass before the next begins.
+
+---
+
+## CRAZY Mode (Default) — All-Agent Maximum Orchestration
 
 ## Phase 1: Intent Classification (BEFORE acting)
 

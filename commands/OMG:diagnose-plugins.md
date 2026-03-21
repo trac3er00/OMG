@@ -1,33 +1,16 @@
 ---
-description: Diagnose plugin interoperability and conflict status across OMG-supported hosts
-allowed-tools: Bash(python3:*), Read, Grep, Glob
+description: "[DEPRECATED] Use /OMG:validate plugins instead."
+allowed-tools: Read
 ---
 
-# /OMG:diagnose-plugins
+# /OMG:diagnose-plugins — DEPRECATED
 
-Run `python3 scripts/omg.py diagnose-plugins --format json` and report the diagnostics result.
+This command has been merged into `/OMG:validate`.
 
-## Output Schema
-
-- `schema`: `PluginDiagnosticsResult`
-- `status`: `ok` | `warn` | `error`
-- `records`: discovered plugin records
-- `conflicts`: classified conflict entries
-- `approval_states`: plugin approval states by plugin id
-- `summary`: totals for records, conflicts, and severity buckets
-- `next_actions`: top recommended remediations
-- `elapsed_ms`: total diagnostic runtime
-
-## Commands
+Run `/OMG:validate plugins` for plugin interoperability diagnostics.
 
 ```
-python3 scripts/omg.py diagnose-plugins --format json
-python3 scripts/omg.py diagnose-plugins --format text
-python3 scripts/omg.py diagnose-plugins approve --source mcp:filesystem --host claude --reason "trusted" --format json
+/OMG:validate plugins           # Same as old /OMG:diagnose-plugins
+/OMG:validate plugins --live    # Live probing mode
+/OMG:validate                   # Full validation (doctor + health + plugins + contracts)
 ```
-
-## Notes
-
-- Base diagnostics command is read-only.
-- Static mode is default; live probing must be explicit via `--live`.
-- `approve` currently returns a pending stub response.

@@ -184,17 +184,18 @@ def test_omg_deep_plan_root_stub_exists():
 
 
 def test_no_stale_presets_in_public_docs() -> None:
-    setup_doc = (ROOT / "commands" / "OMG:setup.md").read_text(encoding="utf-8")
+    # Presets are now documented in OMG:init.md (setup was merged into init)
+    init_doc = (ROOT / "commands" / "OMG:init.md").read_text(encoding="utf-8")
 
     mentioned_presets: set[str] = set()
 
-    hint_match = re.search(r"--preset\s+([^\]]+)", setup_doc)
+    hint_match = re.search(r"--preset\s+([^\]]+)", init_doc)
     if hint_match:
         for token in hint_match.group(1).split("|"):
             mentioned_presets.add(token.strip())
 
     in_preset_step = False
-    for raw_line in setup_doc.splitlines():
+    for raw_line in init_doc.splitlines():
         line = raw_line.strip()
         if line.lower() == "step 4: choose preset":
             in_preset_step = True
@@ -205,7 +206,98 @@ def test_no_stale_presets_in_public_docs() -> None:
             mentioned_presets.add(line[2:].strip().split(" ", 1)[0])
 
     stale = sorted(p for p in mentioned_presets if p and p not in CANONICAL_PRESETS)
-    assert stale == [], f"Stale presets in commands/OMG:setup.md: {stale}"
+    assert stale == [], f"Stale presets in commands/OMG:init.md: {stale}"
+
+
+# --- Command Consolidation Tests ---
+# Verify deprecated commands redirect and new consolidated commands are well-formed.
+
+_DEPRECATED_COMMANDS = {
+    "OMG:doctor.md": "/OMG:validate",
+    "OMG:health-check.md": "/OMG:validate",
+    "OMG:diagnose-plugins.md": "/OMG:validate",
+    "OMG:setup.md": "/OMG:init",
+    "OMG:session-branch.md": "/OMG:session",
+    "OMG:session-fork.md": "/OMG:session",
+    "OMG:session-merge.md": "/OMG:session",
+    "OMG:ralph-start.md": "/OMG:ralph",
+    "OMG:ralph-stop.md": "/OMG:ralph",
+    "OMG:ccg.md": "/OMG:crazy",
+    "OMG:teams.md": "/OMG:crazy",
+    "OMG:cost.md": "/OMG:stats",
+}
+
+_REMOVED_COMMANDS = {"OMG:playwright.md", "OMG:compat.md", "OMG:theme.md"}
+
+_CONSOLIDATED_COMMANDS = {
+    "OMG:validate.md": ["doctor", "health", "plugins"],
+    "OMG:session.md": ["branch", "fork", "merge"],
+    "OMG:ralph.md": ["start", "stop", "status"],
+    "OMG:crazy.md": ["ccg", "team"],
+    "OMG:stats.md": ["cost"],
+}
+
+
+def test_deprecated_commands_have_redirect_message() -> None:
+    """Every deprecated command must mention DEPRECATED and point to canonical replacement."""
+    for filename, canonical in _DEPRECATED_COMMANDS.items():
+        path = ROOT / "commands" / filename
+        assert path.exists(), f"Deprecated stub missing: {filename}"
+        content = path.read_text(encoding="utf-8")
+        assert "DEPRECATED" in content, f"{filename} missing DEPRECATED marker"
+        assert canonical in content, f"{filename} missing redirect to {canonical}"
+
+
+def test_removed_commands_have_removed_message() -> None:
+    """Every removed command must mention REMOVED."""
+    for filename in _REMOVED_COMMANDS:
+        path = ROOT / "commands" / filename
+        assert path.exists(), f"Removed stub missing: {filename}"
+        content = path.read_text(encoding="utf-8")
+        assert "REMOVED" in content, f"{filename} missing REMOVED marker"
+
+
+def test_deprecated_commands_have_minimal_tools() -> None:
+    """Deprecated commands should not grant broad tool access — only Read."""
+    for filename in _DEPRECATED_COMMANDS:
+        path = ROOT / "commands" / filename
+        content = path.read_text(encoding="utf-8")
+        # Extract allowed-tools from frontmatter
+        for line in content.splitlines():
+            if line.startswith("allowed-tools:"):
+                tools = line.split(":", 1)[1].strip()
+                assert tools == "Read", (
+                    f"{filename} grants tools beyond Read: {tools}"
+                )
+                break
+
+
+def test_consolidated_commands_exist_and_have_subcommands() -> None:
+    """Each consolidated command file must exist and document its sub-commands."""
+    for filename, subcommands in _CONSOLIDATED_COMMANDS.items():
+        path = ROOT / "commands" / filename
+        assert path.exists(), f"Consolidated command missing: {filename}"
+        content = path.read_text(encoding="utf-8").lower()
+        for sub in subcommands:
+            assert sub in content, (
+                f"{filename} missing subcommand documentation for '{sub}'"
+            )
+
+
+def test_consolidated_commands_have_frontmatter() -> None:
+    """Consolidated commands must have valid YAML frontmatter with description and allowed-tools."""
+    for filename in _CONSOLIDATED_COMMANDS:
+        path = ROOT / "commands" / filename
+        content = path.read_text(encoding="utf-8")
+        assert content.startswith("---"), f"{filename} missing frontmatter"
+        parts = content.split("---", 2)
+        assert len(parts) >= 3, f"{filename} has malformed frontmatter"
+        fm = yaml.safe_load(parts[1])
+        assert "description" in fm, f"{filename} frontmatter missing description"
+        assert "allowed-tools" in fm, f"{filename} frontmatter missing allowed-tools"
+        assert "[DEPRECATED]" not in fm["description"], (
+            f"{filename} is consolidated but has DEPRECATED in description"
+        )
 
 
 def test_no_hardcoded_version_drift() -> None:

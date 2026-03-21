@@ -1,10 +1,12 @@
 ---
-description: "Display session analytics, tool usage trends, file heatmaps, and failure patterns."
+description: "Session analytics, tool usage, file heatmaps, failure patterns, and cost tracking."
 allowed-tools: Read, Bash(python*:*), Grep
-argument-hint: "[weekly|files|failures|dashboard]"
+argument-hint: "[weekly|files|failures|dashboard|cost] [--cost]"
 ---
 
-# /OMG:stats — Session Analytics
+# /OMG:stats — Session Analytics & Cost Tracking
+
+Subsumes `/OMG:cost`. Use `/OMG:stats cost` or `/OMG:stats --cost` for cost tracking.
 
 Display session analytics, tool usage trends, file heatmaps, and failure patterns.
 
@@ -191,10 +193,37 @@ Or set in `settings.json`:
 ============================================================
 ```
 
+### `/OMG:stats cost` — Cost Tracking (formerly `/OMG:cost`)
+
+Feature-gated: `OMG_COST_TRACKING_ENABLED`.
+
+```
+/OMG:stats cost             # Current session cost summary
+/OMG:stats cost history     # Cost breakdown by tool and session
+/OMG:stats cost budget      # Budget config and threshold status
+/OMG:stats cost reset       # Clear cost ledger and threshold state
+```
+
+```python
+from hooks._cost_ledger import read_cost_summary
+summary = read_cost_summary(".")
+print(f"Total cost: ${summary['total_cost_usd']:.4f}")
+print(f"Entries: {summary['entry_count']}")
+```
+
+Budget configuration in `settings.json` under `_omg.cost_budget`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `session_limit_usd` | `5.0` | Max spend per session (USD) |
+| `thresholds` | `[50, 80, 95]` | Budget % thresholds for alerts |
+| `pricing.input_per_mtok` | `3.0` | Cost per M input tokens |
+| `pricing.output_per_mtok` | `15.0` | Cost per M output tokens |
+
 ## Safety
 
-- **Read-only**: All sub-commands only read from existing ledger/tracker files
-- **Feature-gated**: Requires `SESSION_ANALYTICS` flag enabled
+- **Read-only**: All sub-commands only read from existing ledger/tracker files (except `cost reset`)
+- **Feature-gated**: Analytics requires `SESSION_ANALYTICS`, cost requires `COST_TRACKING`
 - **No mutations**: Never modifies ledger data, failure tracker, or working memory
 - **Crash-isolated**: All query operations exit 0 on failure (via query.py internals)
 - **Dashboard**: Writes only to `.omg/state/dashboard.html` (inside managed state directory)
@@ -209,6 +238,7 @@ from hooks.query import (
     get_escalation_effectiveness,
     get_file_heatmap,
 )
+from hooks._cost_ledger import read_cost_summary
 
 # Current session summary
 summary = get_session_summary(".")
@@ -222,4 +252,7 @@ escalations = get_escalation_effectiveness(".")
 
 # File interaction heatmap
 heatmap = get_file_heatmap(".")
+
+# Cost tracking
+cost = read_cost_summary(".")
 ```

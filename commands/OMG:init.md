@@ -1,15 +1,19 @@
 ---
-description: "Unified initializer — auto-detects: project setup (if no .omg/state), domain scaffolding (if argument given), or health check."
+description: "Unified initializer — auto-detects: project setup, domain scaffolding, setup wizard, or health check."
 allowed-tools: Read, Write, Edit, MultiEdit, Bash(mkdir:*), Bash(cat:*), Bash(find:*), Bash(ls:*), Bash(head:*), Bash(grep:*), Bash(tree:*), Bash(node:*), Bash(python*:*), Bash(tee:*), Grep, Glob
-argument-hint: "[optional: domain name like 'payment', or 'check' for health check]"
+argument-hint: "[domain-name|check|setup] [--non-interactive] [--mode omg-only|coexist] [--preset safe|balanced|interop|labs|buffet|production]"
 ---
 
-# /OMG:init — Unified Project & Domain Initializer
+# /OMG:init — Unified Project, Domain & Setup Initializer
+
+Subsumes the former `/OMG:setup` command. Use `/OMG:init setup` for the adoption wizard.
 
 ## Auto-Detection Logic
 
 ```
-if argument is a domain name (e.g. "payment", "user-profile"):
+if argument == "setup":
+  → SETUP WIZARD (CLI detection, preset selection, MCP configuration)
+elif argument is a domain name (e.g. "payment", "user-profile"):
   → DOMAIN INIT (create new domain from existing patterns)
 elif .omg/state directory does not exist:
   → PROJECT INIT (first-time project setup)
@@ -117,10 +121,44 @@ Save to `.omg/knowledge/patterns/[domain]-pattern.md`
 
 ## MODE C: HEALTH CHECK (already initialized)
 
-Run `/OMG:health-check` and additionally:
+Run `/OMG:validate health` and additionally:
 - Verify profile.yaml is up-to-date with current project state
 - Check if new contextual rules should be added
 - Offer to update quality-gate.json if tools changed
+
+---
+
+## MODE D: SETUP WIZARD (`/OMG:init setup`)
+
+Feature-gated: requires `OMG_SETUP_ENABLED=1` or `settings.json._omg.features.SETUP: true`.
+
+Native OMG adoption flow for Claude Code, Codex, and other supported CLIs.
+
+### Wizard Flow
+
+```
+Step 1: Detect CLIs (codex, gemini, kimi)
+Step 2: Detect adoption context (OMC/OMX/Superpowers markers)
+Step 3: Choose mode (omg-only | coexist)
+Step 4: Choose preset (safe | balanced | interop | labs | buffet | production)
+Step 5: Configure MCP and persist preferences
+  - writes .mcp.json
+  - writes .omg/state/cli-config.yaml
+  - writes .omg/state/adoption-report.json
+```
+
+### Options
+
+- `--non-interactive` — Skip prompts, use defaults
+- `--mode omg-only|coexist` — Set adoption mode directly
+- `--preset <name>` — Set preset directly
+
+### Execution
+
+```bash
+python3 scripts/omg.py install          # Full wizard
+python3 scripts/omg.py install --non-interactive --preset balanced
+```
 
 ---
 

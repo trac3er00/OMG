@@ -1,17 +1,12 @@
 ---
-description: "Compatibility alias for /OMG:browser."
-allowed-tools: Read, Grep, Glob
-argument-hint: "<goal or browser task>"
+description: "[REMOVED] Use /OMG:browser instead."
+allowed-tools: Read
 ---
 
-# /OMG:playwright
+# /OMG:playwright — REMOVED
 
-`/OMG:playwright` is an alias for `/OMG:browser`.
+This alias has been removed. Use the canonical `/OMG:browser` command.
 
-Use the canonical `/OMG:browser` command for public docs, setup guidance, and future OMG browser workflows.
-
-## Compatibility Notes
-
-- This alias exists so Playwright-oriented users can find the browser surface quickly.
-- Runtime behavior should resolve to the same OMG browser path as `/OMG:browser`.
-- OMG still uses upstream `playwright-cli` under the hood.
+```
+/OMG:browser [goal or browser task]
+```
