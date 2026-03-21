@@ -44,6 +44,16 @@ class ContextLimitEntry(TypedDict):
     compaction_trigger_default: int
     """Default recommended compaction trigger (tokens used), tuned for the class."""
 
+    hud_compress_suggest_percent: int
+    """Context usage percentage at which the HUD shows the 'COMPRESS?' badge.
+
+    Decoupled from compaction_trigger_default: the compaction trigger controls
+    when the host *operationally* starts compacting (token-based), while this
+    field controls when the *user-facing* HUD badge appears (percentage-based).
+    Without this separation, 1M-class models show COMPRESS? at ~15% which is
+    pure noise.
+    """
+
     notes: str
     """Free-text rationale for this entry."""
 
@@ -65,6 +75,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,   # POST /v1/messages/count_tokens
         "native_compaction": True,    # anthropic-beta: compact-2026-01-12
         "compaction_trigger_default": 150_000,
+        "hud_compress_suggest_percent": 75,
         "notes": (
             "Native 1M context window. No beta header required for 1M on opus-4-6. "
             "Long-context pricing above 200k. Compaction via compact-2026-01-12 beta header."
@@ -77,6 +88,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": True,
         "compaction_trigger_default": 150_000,
+        "hud_compress_suggest_percent": 75,
         "notes": (
             "Native 1M context window. No beta header required for 1M on sonnet-4-6. "
             "Long-context pricing above 200k."
@@ -90,6 +102,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": False,   # compact-2026-01-12 not supported on Haiku
         "compaction_trigger_default": 120_000,
+        "hud_compress_suggest_percent": 65,
         "notes": "200k only. No 1M option. Compaction beta not supported.",
     },
     # claude-sonnet-4-5 and claude-sonnet-4: 200k by default, 1M with Tier 4 + beta header
@@ -100,6 +113,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": False,
         "compaction_trigger_default": 120_000,
+        "hud_compress_suggest_percent": 65,
         "notes": (
             "200k default. 1M available with context-1m-2025-08-07 beta header + Usage Tier 4. "
             "Treated as 200k here unless gated tier is confirmed."
@@ -114,6 +128,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,   # POST /v1/responses/input_tokens
         "native_compaction": True,    # context_management inline + /v1/responses/compact
         "compaction_trigger_default": 200_000,
+        "hud_compress_suggest_percent": 75,
         "notes": (
             "1,050,000 tokens (not exactly 1M). Long-context price cliff at 272k input tokens. "
             "Compaction item is opaque (encrypted). Do not prune the returned compaction item."
@@ -126,6 +141,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": True,
         "compaction_trigger_default": 200_000,
+        "hud_compress_suggest_percent": 75,
         "notes": "Max-accuracy variant of gpt-5.4. Same context limits.",
     },
     "gpt-5.2": {
@@ -135,6 +151,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": True,
         "compaction_trigger_default": 250_000,
+        "hud_compress_suggest_percent": 70,
         "notes": "400k context window.",
     },
     "gpt-5": {
@@ -144,6 +161,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": True,
         "compaction_trigger_default": 250_000,
+        "hud_compress_suggest_percent": 70,
         "notes": "400k context window.",
     },
     "gpt-4.1": {
@@ -153,6 +171,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": True,
         "compaction_trigger_default": 200_000,
+        "hud_compress_suggest_percent": 75,
         "notes": "1,047,576 token window. 32,768 max output.",
     },
     "o4-mini": {
@@ -162,6 +181,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": True,
         "compaction_trigger_default": 120_000,
+        "hud_compress_suggest_percent": 65,
         "notes": "Reasoning model. 200k context.",
     },
     "o3": {
@@ -171,6 +191,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": True,
         "compaction_trigger_default": 120_000,
+        "hud_compress_suggest_percent": 65,
         "notes": "Reasoning model. 200k context.",
     },
     "gpt-4o": {
@@ -180,6 +201,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": True,
         "compaction_trigger_default": 80_000,
+        "hud_compress_suggest_percent": 60,
         "notes": "Legacy. 128k context.",
     },
     # ── Google Gemini ─────────────────────────────────────────────────────
@@ -193,6 +215,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,   # countTokens() SDK method
         "native_compaction": False,   # No server-side compaction API
         "compaction_trigger_default": 150_000,
+        "hud_compress_suggest_percent": 75,
         "notes": (
             "1,048,576 token context. The 65,536 output limit is shared with the context. "
             "No native compaction. Gemini 3 Pro deprecated March 9, 2026."
@@ -205,6 +228,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": False,
         "compaction_trigger_default": 150_000,
+        "hud_compress_suggest_percent": 75,
         "notes": "Still available. 1M context. No native compaction.",
     },
     "gemini-3-flash": {
@@ -214,6 +238,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": True,
         "native_compaction": False,
         "compaction_trigger_default": 120_000,
+        "hud_compress_suggest_percent": 65,
         "notes": "Speed-optimized Gemini variant. 200k context.",
     },
     # ── Moonshot Kimi ─────────────────────────────────────────────────────
@@ -228,6 +253,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": False,  # No dedicated token-counting endpoint documented
         "native_compaction": False,   # No server-side compaction
         "compaction_trigger_default": 160_000,
+        "hud_compress_suggest_percent": 65,
         "notes": (
             "256k context (K2.5 series). OpenAI-compatible API format. "
             "No pre-flight token count endpoint documented. "
@@ -241,6 +267,7 @@ _REGISTRY: dict[str, ContextLimitEntry] = {
         "preflight_counting": False,
         "native_compaction": False,
         "compaction_trigger_default": 160_000,
+        "hud_compress_suggest_percent": 65,
         "notes": "Reasoning-mode Kimi. 256k context.",
     },
 }
@@ -289,6 +316,7 @@ _FALLBACK: ContextLimitEntry = {
     "preflight_counting": False,
     "native_compaction": False,
     "compaction_trigger_default": 80_000,
+    "hud_compress_suggest_percent": 60,
     "notes": (
         "Unknown model fallback. Conservative 128k limit used to avoid exceeding actual window. "
         "Identify the model ID and add an explicit entry to runtime/context_limits.py."
@@ -339,6 +367,7 @@ def _clone_entry(entry: ContextLimitEntry) -> ContextLimitEntry:
         "preflight_counting": bool(entry["preflight_counting"]),
         "native_compaction": bool(entry["native_compaction"]),
         "compaction_trigger_default": int(entry["compaction_trigger_default"]),
+        "hud_compress_suggest_percent": int(entry["hud_compress_suggest_percent"]),
         "notes": str(entry["notes"]),
     }
 
@@ -361,3 +390,20 @@ def supports_preflight_counting(model_id: str) -> bool:
 def supports_native_compaction(model_id: str) -> bool:
     """Return True if the provider offers server-side context compaction."""
     return get_model_limits(model_id)["native_compaction"]
+
+
+def hud_compress_percent(model_id: str) -> int:
+    """Return the HUD 'COMPRESS?' badge threshold as a context-usage percentage.
+
+    This is intentionally decoupled from :func:`compaction_trigger`: the
+    compaction trigger is an operational token count (when to start compacting),
+    while this value controls the user-facing HUD badge (when to *show* the
+    suggestion).  For 1M-class models the compaction trigger is ~150k tokens
+    (15%), but the HUD badge should not appear until ~75%.
+    """
+    return get_model_limits(model_id)["hud_compress_suggest_percent"]
+
+
+def context_window_size(model_id: str) -> int:
+    """Return the effective input context window size in tokens for a model."""
+    return get_model_limits(model_id)["context_tokens"]

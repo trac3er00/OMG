@@ -454,19 +454,35 @@ async function readStdin() {
   }
 }
 
-// N15.3: Model-aware max context for accurate % calculation
-const MODEL_MAX_CONTEXT = {
-  "opus": 1000000,
-  "sonnet": 200000,
-  "haiku": 200000,
-};
-
+// N15.3: Model-aware max context via runtime/context_limits.py registry
 function _getModelMaxContext(stdin) {
-  const modelId = (stdin?.model ?? "").toLowerCase();
-  for (const [family, max] of Object.entries(MODEL_MAX_CONTEXT)) {
-    if (modelId.includes(family)) return max;
+  const modelId = getModelId(stdin);
+  if (!isKnownModelHost(modelId)) return 200_000;
+
+  const projectDir = process.cwd();
+  try {
+    const output = execFileSync(
+      "python3",
+      [
+        "-c",
+        "import os; from runtime.context_limits import context_window_size; m=(os.environ.get('OMG_MODEL_ID') or '').strip(); print(int(context_window_size(m)))",
+      ],
+      {
+        cwd: projectDir,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        env: {
+          ...process.env,
+          OMG_MODEL_ID: String(modelId || "").trim(),
+        },
+      },
+    ).trim();
+    const parsed = Number(output);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  } catch {
+    // fallback below
   }
-  return 200000; // Default fallback
+  return 200_000;
 }
 
 function getContextPercent(stdin) {
@@ -565,17 +581,51 @@ function getHostAwareCompactionTrigger(cwd, modelId) {
   return fallback;
 }
 
+function getHudCompressPercent(cwd, modelId) {
+  const fallback = 0; // 0 = not resolved; caller falls back to config
+  if (!isKnownModelHost(modelId)) return fallback;
+
+  const projectDir = cwd || process.cwd();
+  try {
+    const output = execFileSync(
+      "python3",
+      [
+        "-c",
+        "import os; from runtime.context_limits import hud_compress_percent; m=(os.environ.get('OMG_MODEL_ID') or '').strip(); print(int(hud_compress_percent(m)))",
+      ],
+      {
+        cwd: projectDir,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        env: {
+          ...process.env,
+          OMG_MODEL_ID: String(modelId || "").trim(),
+        },
+      },
+    ).trim();
+    const parsed = Number(output);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.round(parsed);
+    }
+  } catch {
+    // fallback below
+  }
+  return fallback;
+}
+
 function getCompactWarningThreshold(stdin, cfg, cwd) {
   const configuredPercent = Number(
     cfg.contextLimitWarning.threshold ?? cfg.thresholds.contextCompactSuggestion ?? 80,
   );
-  const contextWindowSize = Number(stdin?.context_window?.context_window_size ?? 0);
   const modelId = getModelId(stdin);
-  const triggerTokens = getHostAwareCompactionTrigger(cwd, modelId);
-  if (contextWindowSize > 0 && Number.isFinite(contextWindowSize)) {
-    const derivedPercent = Math.round((triggerTokens / contextWindowSize) * 100);
-    return Math.max(1, Math.min(100, derivedPercent));
+
+  // Prefer model-aware HUD percent from the registry (decoupled from compaction trigger)
+  const registryPercent = getHudCompressPercent(cwd, modelId);
+  if (registryPercent > 0) {
+    return Math.max(1, Math.min(100, registryPercent));
   }
+
+  // Fallback to configured percent if registry lookup fails
   return configuredPercent;
 }
 
