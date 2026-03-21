@@ -161,6 +161,29 @@ Show the plan to the user. Ask:
 
 Update the plan based on feedback BEFORE starting implementation.
 
+## Step 4.1: Classification Boundary User Override (N8.4)
+
+At classification boundaries, use AskUserQuestion to let the user override NEEDED/NICE/NOT-NEEDED classifications before proceeding.
+
+When you've classified plan items, present the classification to the user with:
+```
+I've classified the plan items as:
+
+NEEDED:
+- [item 1] — [rationale]
+- [item 2] — [rationale]
+
+NICE-TO-HAVE:
+- [item 3] — [rationale]
+
+NOT-NEEDED:
+- [item 4] — [rationale]
+
+Do you want to override any classifications? (yes/no)
+```
+
+If user says yes, ask which items to reclassify and update the plan accordingly.
+
 ## Step 4.5: Codex Plan Validation (MANDATORY)
 
 Before implementation, run a dedicated Codex validation pass on the final plan.
@@ -210,7 +233,164 @@ Then merge outputs into a single execution checklist before implementation.
 Convert the plan into `.omg/state/_checklist.md` with concrete steps.
 Each step should be completable in ONE tool interaction (not "implement the feature").
 
-## Step 5.5: Business Workflow Contract (MANDATORY)
+After generating the checklist, proceed to Step 5.1 (Post-Plan Flow).
+
+## Step 5.1: Post-Plan Flow — User Choice (N8.6)
+
+After deep-plan completes (all artifacts generated, classification approved, checklist ready), use AskUserQuestion with 3 options:
+
+```
+The deep plan is ready. What would you like to do next?
+
+1. Start implementing — Begin execution via /OMG:start-work
+2. Add more items to this plan — Extend the plan with new items (incremental merge)
+3. Validate plan with another model — Send to Codex/Gemini for review (if detected)
+
+Please choose 1, 2, or 3.
+```
+
+Handle each choice:
+- **Choice 1**: Invoke `/OMG:start-work` to begin implementation.
+- **Choice 2**: Trigger the "Add More" loop (see Step 5.2).
+- **Choice 3**: Trigger external validation (see Step 5.3).
+
+## Step 5.2: Add More Items Loop (N8.7)
+
+When the user selects "Add more items to this plan":
+
+1. Ask the user: "What new items would you like to add to the plan?"
+2. Run deep-plan ONLY on the NEW items:
+   - Apply direction discovery to the new items
+   - Map domain context for the new items
+   - Classify the new items (NEEDED/NICE/NOT-NEEDED)
+   - Ask user to confirm/override classifications
+3. Merge the new items into the existing plan:
+   - Insert into appropriate phases (Foundation, Core Logic, Integration, Verification)
+   - Update file counts and line estimates
+   - Renumber checklist items
+   - Append to dissent.json if new objections arise
+   - Update plan-council.json with merge evidence
+4. Present the updated plan to the user
+5. Ask the post-plan flow question again (Step 5.1)
+
+**Critical**: Do NOT regenerate the entire plan. Only process new items and merge them into existing phases/checklist.
+
+## Step 5.3: External Validation (N8.8)
+
+When the user selects "Validate plan with another model":
+
+1. Detect available AI CLIs:
+   ```bash
+   which codex 2>/dev/null && echo "Codex detected"
+   which gemini 2>/dev/null && echo "Gemini detected"
+   which gpt 2>/dev/null && echo "GPT detected"
+   ```
+
+2. If Codex CLI is detected, offer to send the plan for validation:
+   ```
+   I can send this plan to Codex for validation. Codex will review for:
+   - Backend/security feasibility
+   - Risk gaps and missing edge cases
+   - Implementation order correctness
+   - Rollback plan completeness
+
+   Send plan to Codex? (yes/no)
+   ```
+
+3. If yes, dispatch the plan to Codex:
+   ```bash
+   codex "Review this deep plan for feasibility, risks, and gaps. Focus on backend logic, security implications, and edge cases. Provide a verdict with specific recommendations." < .omg/plans/deep-plan.md
+   ```
+
+4. Capture Codex's response and append to the plan as a new section:
+   ```markdown
+   ## External Validation — Codex Review
+   Date: [timestamp]
+
+   [Codex response]
+
+   ### Verdict
+   [Approved | Approved with changes | Needs rework]
+
+   ### Action Items from Validation
+   - [Item 1]
+   - [Item 2]
+   ```
+
+5. Update `.omg/evidence/plan-council.json` with validation evidence.
+
+6. If Gemini CLI is detected, offer similar validation for UX/docs items.
+
+7. After validation is complete, ask the post-plan flow question again (Step 5.1).
+
+## Step 5.4: Multi-Model Deep Plan (N8.9)
+
+When multiple AI CLIs are detected during initial planning, offer multi-model planning:
+
+```
+I've detected multiple AI CLIs available:
+- Codex (backend/security validation)
+- Gemini (UX/visual review)
+
+Would you like to use multi-model planning? (yes/no)
+
+Multi-model planning means:
+- Claude orchestrates the plan structure and direction
+- Codex validates backend logic, security, and feasibility
+- Gemini reviews UX implications and documentation clarity
+```
+
+If yes, coordinate multi-model planning:
+
+1. **Claude** (orchestrator):
+   - Direction discovery
+   - Domain mapping
+   - Plan structure generation
+   - Classification and merge
+
+2. **Codex** (backend/security validator):
+   - Send backend-related plan items to Codex
+   - Request validation for security implications, edge cases, rollback plans
+   - Capture feedback and integrate into plan
+
+3. **Gemini** (UX/docs reviewer):
+   - Send UX/docs-related plan items to Gemini
+   - Request review for visual consistency, accessibility, documentation clarity
+   - Capture feedback and integrate into plan
+
+4. Merge all feedback into the final plan artifacts.
+
+5. Record multi-model evidence in `.omg/evidence/plan-council.json`.
+
+## Step 5.5: Multi-Model Research (N8.10)
+
+During direction discovery (Step 1), if multiple AI CLIs are detected, dispatch research in parallel:
+
+1. Identify research questions from the user's prompt and repo exploration:
+   - "How does the existing auth pattern work?"
+   - "What's the current data flow for payments?"
+   - "Are there existing UX patterns for modals in this codebase?"
+
+2. Dispatch research to detected CLIs in parallel:
+   ```bash
+   # Example: parallel research dispatch
+   codex "Analyze the auth pattern in src/auth/. How does JWT handling work? What security assumptions are made?" &
+   gemini "Review the modal components in src/components/. What UX patterns are established? Are they accessible?" &
+   wait
+   ```
+
+3. Collect research outputs from each CLI.
+
+4. Synthesize findings into the "Domain Context" and "Architecture Decisions" sections of the plan.
+
+5. Record research evidence in `.omg/evidence/plan-council.json`.
+
+**Trigger condition**: Only dispatch multi-model research if:
+- Multiple CLIs are detected
+- User has not explicitly requested single-model planning
+- The planning task involves both backend AND frontend concerns
+
+## Step 5.6: Business Workflow Contract (MANDATORY)
 
 Deep-plan owns the business-style delivery workflow and task-plan contract.
 
@@ -240,7 +420,7 @@ Persist this contract into planning artifacts:
 - `.omg/plans/deep-plan.json` (machine-readable plan)
 - include structured task metadata in the plan output (`stage`, `title`, `detail`, `source`).
 
-## Integration with DDD
+## Step 6: Integration with DDD
 
 If this is a new domain:
 1. Ask the user to write (or help write) the first domain reference
@@ -248,7 +428,7 @@ If this is a new domain:
 3. Document the pattern in .omg/knowledge/domain-patterns/[name].md
 4. Use the pattern for ALL subsequent domains
 
-## Idea-as-Code Contract (required)
+## Step 7: Idea-as-Code Contract (required)
 
 Before leaving planning, ensure `.omg/idea.yml` exists with:
 - `goal`

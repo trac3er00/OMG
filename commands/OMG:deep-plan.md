@@ -38,19 +38,47 @@ Each feature/category gets a suggested PR-ready branch name.
 
 Plans analyze which branches touch overlapping files and flag merge conflict risk.
 
-### Post-Plan Actions
+## Deep-Plan v2 Post-Plan Flow
 
-After plan generation, the user is asked:
-1. **Start implementing** — begins execution via `/OMG:ralph start`
-2. **Add more** — re-runs deep-plan on NEW items only, merges into existing plan
+After plan generation completes, deep-plan enters an interactive post-plan flow:
+
+### Classification Boundary Override (N8.4)
+Before proceeding, AskUserQuestion allows user to override NEEDED/NICE/NOT-NEEDED classifications.
+
+### Post-Plan Actions (N8.6)
+User is asked to choose:
+1. **Start implementing** — begins execution via `/OMG:start-work`
+2. **Add more items** — re-runs deep-plan on NEW items only, merges into existing plan
 3. **Validate with another model** — sends plan to Codex/Gemini if detected
 
-### Multi-Model Planning
+### Add More Items Loop (N8.7)
+When "Add more" is selected, deep-plan:
+- Runs ONLY on new items (direction discovery, classification)
+- Merges new items into existing phases and checklist
+- Does NOT regenerate the entire plan
+- Presents updated plan and returns to post-plan flow
 
-When multiple AI CLIs are detected (Codex, Gemini, etc.):
-- Claude orchestrates plan structure
-- Codex validates for gaps and edge cases
-- Gemini reviews UX/visual implications
+### External Validation (N8.8)
+When "Validate with another model" is selected:
+- Detects available AI CLIs (Codex, Gemini, GPT)
+- Sends plan to Codex for backend/security feasibility review
+- Sends plan to Gemini for UX/docs clarity review
+- Appends validation verdicts to plan
+- Records validation evidence in plan-council.json
+
+### Multi-Model Deep Plan (N8.9)
+When multiple AI CLIs are detected at planning start:
+- Claude orchestrates plan structure and direction
+- Codex validates backend logic, security, and feasibility
+- Gemini reviews UX implications and documentation clarity
+- All feedback merged into final plan artifacts
+
+### Multi-Model Research (N8.10)
+During direction discovery, if multiple CLIs detected:
+- Dispatch research questions in parallel to available CLIs
+- Codex researches backend/security patterns
+- Gemini researches UX/visual patterns
+- Synthesize findings into plan's Domain Context and Architecture Decisions
 
 ## Compatibility Notes
 
