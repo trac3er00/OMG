@@ -24,12 +24,25 @@ class PolicyDecision:
     risk_level: RiskLevel  # low | med | high | critical
     reason: str = ""
     controls: list[str] | None = None
+    suggestion: str = ""  # N10.4: actionable suggestion for blocked actions
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         if data.get("controls") is None:
             data["controls"] = []
         return data
+
+    def to_structured_error(self) -> dict[str, Any]:
+        """N10.1: Structured error output for AI CLI comprehension."""
+        return {
+            "blocked": self.action == "deny",
+            "action": self.action,
+            "reason": self.reason,
+            "risk_level": self.risk_level,
+            "controls": self.controls or [],
+            "suggestion": self.suggestion,
+            "x_omg_blocked": self.action == "deny",  # N10.6: programmatic header
+        }
 
 
 def allow(reason: str = "", controls: list[str] | None = None) -> PolicyDecision:
@@ -40,8 +53,8 @@ def ask(reason: str, risk_level: RiskLevel = "med", controls: list[str] | None =
     return PolicyDecision("ask", risk_level, reason, controls or [])
 
 
-def deny(reason: str, risk_level: RiskLevel = "high", controls: list[str] | None = None) -> PolicyDecision:
-    return PolicyDecision("deny", risk_level, reason, controls or [])
+def deny(reason: str, risk_level: RiskLevel = "high", controls: list[str] | None = None, suggestion: str = "") -> PolicyDecision:
+    return PolicyDecision("deny", risk_level, reason, controls or [], suggestion=suggestion)
 
 
 # === BASH POLICY ============================================================
@@ -294,7 +307,8 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
 
     for pat, label in DESTRUCT_PATTERNS:
         if re.search(pat, cmd):
-            return deny(f"Blocked: {label}", "critical", ["destructive-op"])
+            return deny(f"Blocked: {label}", "critical", ["destructive-op"],
+                        suggestion="Use a safer alternative or ask the user for explicit approval.")
 
     for pat in PIPE_SHELL_PATTERNS:
         if re.search(pat, cmd):
@@ -325,6 +339,24 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
 
         if re.search(r"\bgrep\b", cmd):
             return ask("Searching inside potential secret file — confirm this is safe", "high", ["secret-search"])
+
+    # SSRF prevention: block curl/wget to internal/private IP ranges
+    if re.search(r"(^|\s)(curl|wget)\s", cmd):
+        ssrf_match = re.search(
+            r"(https?://)"
+            r"(127\.\d+\.\d+\.\d+|localhost|0\.0\.0\.0"
+            r"|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+"
+            r"|\[?::1\]?|\[?fe80:|\[?fd[0-9a-f]{2}:"
+            r"|169\.254\.\d+\.\d+"
+            r"|metadata\.google\.internal|instance-data)",
+            cmd, re.IGNORECASE,
+        )
+        if ssrf_match:
+            return deny(
+                f"Blocked: SSRF — request to internal/private IP ({ssrf_match.group(2)})",
+                "critical", ["ssrf-prevention"],
+                suggestion="Use an external/public URL instead, or validate the URL against an allowlist.",
+            )
 
     for pat, label in ASK_PATTERNS:
         if re.search(pat, cmd):
@@ -656,6 +688,29 @@ def evaluate_file_access(
         normalized = os.path.realpath(normalized)
     except (OSError, ValueError):
         pass
+
+    # Path traversal enforcement: block access outside project directory
+    # for mutation tools. Reads are allowed outside project for context.
+    if tool in ("Write", "Edit", "MultiEdit"):
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
+        if project_dir:
+            try:
+                project_real = os.path.realpath(project_dir)
+                home_dir = os.path.expanduser("~")
+                # Allow writes within project dir or home config dirs (~/.claude, ~/.omg)
+                in_project = normalized.startswith(project_real + os.sep) or normalized == project_real
+                in_home_config = any(
+                    normalized.startswith(os.path.join(home_dir, d) + os.sep)
+                    for d in (".claude", ".omg", ".config")
+                )
+                if not in_project and not in_home_config:
+                    return deny(
+                        f"Path traversal blocked: {file_path} resolves outside project and config directories",
+                        "critical", ["path-traversal"],
+                    )
+            except (OSError, ValueError):
+                pass  # Fail open on resolution errors
+
     basename = os.path.basename(normalized).lower()
     lowpath = normalized.lower()
 

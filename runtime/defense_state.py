@@ -1,10 +1,29 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
 from typing import Any
+
+# HMAC key derivation: machine-specific to prevent cross-machine tampering.
+# Uses hostname + username as key material (not cryptographic secret, but
+# prevents trivial file editing to bypass defense gates).
+def _hmac_key() -> bytes:
+    import socket
+    material = f"omg-defense-{socket.gethostname()}-{os.getenv('USER', 'unknown')}"
+    return hashlib.sha256(material.encode()).digest()
+
+
+def _compute_hmac(payload_bytes: bytes) -> str:
+    return hmac.new(_hmac_key(), payload_bytes, hashlib.sha256).hexdigest()
+
+
+def _verify_hmac(payload_bytes: bytes, expected_hmac: str) -> bool:
+    computed = _compute_hmac(payload_bytes)
+    return hmac.compare_digest(computed, expected_hmac)
 
 
 _DEFENSE_STATE_REL_PATH = Path(".omg") / "state" / "defense_state" / "current.json"
@@ -221,15 +240,42 @@ class DefenseState:
         if not path.exists():
             return {}
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            raw = path.read_text(encoding="utf-8")
+            payload = json.loads(raw)
         except (OSError, json.JSONDecodeError):
             return {}
-        return payload if isinstance(payload, dict) else {}
+        if not isinstance(payload, dict):
+            return {}
+
+        # HMAC integrity check for defense_state files
+        if path == self.state_path:
+            stored_hmac = payload.pop("_hmac", None)
+            if stored_hmac is not None:
+                # Re-serialize without _hmac to verify
+                verify_bytes = json.dumps(payload, indent=2, ensure_ascii=True, sort_keys=True).encode()
+                if not _verify_hmac(verify_bytes, stored_hmac):
+                    # Tampered file — reset to safe state
+                    import sys
+                    print(
+                        "[OMG] Defense state HMAC mismatch — file may have been tampered. Resetting to safe state.",
+                        file=sys.stderr,
+                    )
+                    return dict(_SAFE_STATE)
+
+        return payload
 
     def _write_atomic(self, path: Path, payload: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Add HMAC for defense_state files
+        write_payload = dict(payload)
+        if path == self.state_path:
+            write_payload.pop("_hmac", None)
+            content_bytes = json.dumps(write_payload, indent=2, ensure_ascii=True, sort_keys=True).encode()
+            write_payload["_hmac"] = _compute_hmac(content_bytes)
+
         tmp_path = path.with_name(f"{path.name}.tmp")
-        tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        tmp_path.write_text(json.dumps(write_payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
         os.rename(tmp_path, path)
 
     def _clamp_score(self, value: Any) -> float:
