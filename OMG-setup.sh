@@ -284,8 +284,26 @@ parse_args() {
     esac
 }
 
+# --- Progress Indicator ---
+# Usage: show_progress <current> <total> <label>
+show_progress() {
+    local current=$1 total=$2 label=$3
+    local pct=$((current * 100 / total))
+    local filled=$((pct / 5))
+    local empty=$((20 - filled))
+    local bar=""
+    for ((i=0; i<filled; i++)); do bar+="█"; done
+    for ((i=0; i<empty; i++)); do bar+="░"; done
+    printf "\r  [%s] %3d%% %s" "$bar" "$pct" "$label"
+    if [ "$current" -eq "$total" ]; then echo ""; fi
+}
+
 preflight() {
-    echo "Pre-flight checks..."
+    echo "Pre-flight dependency checks..."
+    local checks_passed=0
+    local checks_total=5
+
+    # 1. Python
     if ! command -v python3 &>/dev/null; then
         echo "  ❌ python3 not found. Install: https://www.python.org/downloads/"
         exit 1
@@ -301,7 +319,54 @@ preflight() {
         echo "     Upgrade at: https://www.python.org/downloads/"
         exit 1
     fi
-    echo "  ✓ Python $py_ver"
+    checks_passed=$((checks_passed + 1))
+    show_progress $checks_passed $checks_total "Python $py_ver"
+
+    # 2. pip / venv availability
+    if python3 -c "import venv" 2>/dev/null; then
+        checks_passed=$((checks_passed + 1))
+        show_progress $checks_passed $checks_total "venv module"
+    else
+        echo ""
+        echo "  ⚠ python3 venv module not available (install python3-venv)"
+        checks_passed=$((checks_passed + 1))
+        show_progress $checks_passed $checks_total "venv (missing)"
+    fi
+
+    # 3. Git
+    if command -v git &>/dev/null; then
+        local git_ver
+        git_ver=$(git --version 2>/dev/null | head -1 | sed 's/git version //')
+        checks_passed=$((checks_passed + 1))
+        show_progress $checks_passed $checks_total "git $git_ver"
+    else
+        echo ""
+        echo "  ⚠ git not found (some features require git)"
+        checks_passed=$((checks_passed + 1))
+        show_progress $checks_passed $checks_total "git (missing)"
+    fi
+
+    # 4. Host CLI directory
+    if [ -d "$CLAUDE_DIR" ]; then
+        checks_passed=$((checks_passed + 1))
+        show_progress $checks_passed $checks_total "host dir exists"
+    else
+        checks_passed=$((checks_passed + 1))
+        show_progress $checks_passed $checks_total "host dir (will create)"
+    fi
+
+    # 5. Disk space (need at least 50MB)
+    local avail_kb=""
+    avail_kb=$(df -k "$HOME" 2>/dev/null | tail -1 | awk '{print $4}') || true
+    if [ -n "$avail_kb" ] && [ "$avail_kb" -gt 51200 ] 2>/dev/null; then
+        checks_passed=$((checks_passed + 1))
+        show_progress $checks_passed $checks_total "disk space OK"
+    else
+        checks_passed=$((checks_passed + 1))
+        show_progress $checks_passed $checks_total "disk space (unchecked)"
+    fi
+
+    echo "  ✓ All pre-flight checks passed ($checks_passed/$checks_total)"
 }
 
 
@@ -2135,6 +2200,7 @@ run_install_like() {
     fi
 
     echo ""
+    show_progress 0 7 "Starting..."
     echo "Step 1/7: Remove deprecated files..."
 
     for rule in "${V3_RULES[@]}"; do
@@ -2199,6 +2265,7 @@ run_install_like() {
     ! $DRY_RUN && find "$CLAUDE_DIR/hooks/" -name "*.pyc" -delete 2>/dev/null || true
     [ $removed -eq 0 ] && echo "  (nothing to remove)" || echo "  ✓ Removed $removed deprecated files"
 
+    show_progress 1 7 "Cleanup done"
     echo ""
     echo "Step 2/7: Core Rules → $CLAUDE_DIR/rules/"
     ! $DRY_RUN && mkdir -p "$CLAUDE_DIR/rules"
@@ -2211,6 +2278,7 @@ run_install_like() {
     done
     echo "  ✓ $installed_rules core rules"
 
+    show_progress 2 7 "Rules installed"
     echo ""
     echo "Step 3/7: Hooks → $CLAUDE_DIR/hooks/"
     ! $DRY_RUN && mkdir -p "$CLAUDE_DIR/hooks"
@@ -2237,6 +2305,7 @@ run_install_like() {
     apply_adoption_mode_marker
     echo "  ✓ $installed_hooks hooks ($hook_errors errors)"
 
+    show_progress 3 7 "Hooks installed"
     echo ""
     echo "Step 4/7: Agents → $CLAUDE_DIR/agents/"
     ! $DRY_RUN && mkdir -p "$CLAUDE_DIR/agents"
@@ -2253,6 +2322,7 @@ run_install_like() {
     done
     echo "  ✓ $installed_agents agents"
 
+    show_progress 4 7 "Agents installed"
     echo ""
     echo "Step 5/7: Commands → $CLAUDE_DIR/commands/"
     ! $DRY_RUN && mkdir -p "$CLAUDE_DIR/commands"
@@ -2277,6 +2347,7 @@ run_install_like() {
         installed_cmds=$((installed_cmds + 1))
         track_file "commands/$name"
     done
+    show_progress 5 7 "Commands installed"
     echo ""
     echo "Step 6/7: Settings + Templates..."
     MERGE="$SCRIPT_DIR/scripts/settings-merge.py"
@@ -2454,11 +2525,13 @@ run_install_like() {
     fi
 
 
+    show_progress 6 7 "Settings configured"
     echo ""
     echo "Step 7/7: Reconcile stale files..."
     reconcile_stale_files
     write_omg_manifest
 
+    show_progress 7 7 "Complete"
     echo ""
     echo "═══════════════════════════════════════════════════════════════"
     if [ $ERRORS -eq 0 ]; then

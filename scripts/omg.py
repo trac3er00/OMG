@@ -2255,6 +2255,122 @@ def _format_preflight_text(preflight: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def cmd_quickstart(args: argparse.Namespace) -> int:
+    """One-shot quickstart: preflight → install → doctor in a single command.
+
+    Levels:
+      1 (essential) — hooks, commands, rules only (~60s)
+      2 (full)      — Level 1 + MCP servers, agents, venv
+      3 (enterprise)— Level 2 + all presets, multi-host config
+    """
+    import time as _time
+
+    fmt = getattr(args, "format", "text")
+    preset = getattr(args, "preset", "balanced")
+    level = getattr(args, "level", 1)
+    start = _time.monotonic()
+
+    level_label = {1: "Essential", 2: "Full", 3: "Enterprise"}[level]
+
+    if fmt != "json":
+        print(f"\n  OMG Quickstart — Level {level} ({level_label})")
+        print(f"  {'=' * 42}\n")
+
+    # Step 1: Pre-flight dependency check
+    if fmt != "json":
+        print("  [1/3] Pre-flight checks...", end=" ", flush=True)
+    preflight = _run_install_preflight(fmt)
+    blockers = [c for c in preflight.get("checks", [])
+                if c.get("status") == "blocker" and c.get("required")]
+    if blockers:
+        if fmt == "json":
+            print(json.dumps({"schema": "QuickstartResult", "status": "blocked",
+                              "preflight": preflight, "blockers": blockers}, indent=2))
+        else:
+            print("BLOCKED")
+            for c in blockers:
+                print(f"    {c['name']}: {c['message']}")
+                if c.get("remediation"):
+                    print(f"    Fix: {c['remediation']}")
+        return 1
+    if fmt != "json":
+        ok_count = sum(1 for c in preflight.get("checks", []) if c.get("status") == "ok")
+        print(f"OK ({ok_count} checks passed)")
+
+    # Step 2: Install (level-aware)
+    if fmt != "json":
+        print(f"  [2/3] Installing (Level {level})...", end=" ", flush=True)
+    detected_clis = _detect_clis()
+
+    # Level 1: balanced preset, omg-only mode
+    # Level 2: user-chosen preset, detect all hosts
+    # Level 3: production preset, all hosts
+    install_preset = preset
+    install_mode = "omg-only"
+    if level >= 3:
+        install_preset = "production"
+        install_mode = "coexist" if len(detected_clis) > 1 else "omg-only"
+
+    plan = compute_install_plan(
+        project_dir=str(ROOT_DIR),
+        detected_clis=detected_clis,
+        preset=install_preset,
+        mode=install_mode,
+        selected_ids=None,
+    )
+
+    from runtime.install_planner import execute_plan
+    result = execute_plan(plan)
+    if not result.executed:
+        if fmt == "json":
+            print(json.dumps({"schema": "QuickstartResult", "status": "install_failed",
+                              "errors": result.errors}, indent=2))
+        else:
+            print("FAILED")
+            for e in result.errors:
+                print(f"    {e}")
+        return 1
+    if fmt != "json":
+        print(f"OK ({result.actions_completed} actions)")
+
+    # Step 3: Doctor verification
+    if fmt != "json":
+        print("  [3/3] Verifying installation...", end=" ", flush=True)
+    try:
+        from runtime.compat import run_doctor
+        doctor_result = run_doctor(str(ROOT_DIR), fmt="json")
+        checks = doctor_result.get("checks", [])
+        doc_blockers = [c for c in checks if c.get("status") == "blocker"]
+        doc_ok = sum(1 for c in checks if c.get("status") == "ok")
+        doc_warn = sum(1 for c in checks if c.get("status") == "warning")
+        if fmt != "json":
+            if doc_blockers:
+                print(f"WARN ({len(doc_blockers)} blockers)")
+            else:
+                print(f"OK ({doc_ok} pass, {doc_warn} warn)")
+    except Exception as e:
+        if fmt != "json":
+            print(f"SKIP ({e})")
+        doctor_result = {"skipped": True, "error": str(e)}
+
+    elapsed_s = _time.monotonic() - start
+    if fmt == "json":
+        print(json.dumps({
+            "schema": "QuickstartResult",
+            "status": "ok",
+            "level": level,
+            "preset": install_preset,
+            "mode": install_mode,
+            "actions_completed": result.actions_completed,
+            "elapsed_s": round(elapsed_s, 1),
+            "preflight": preflight,
+            "doctor": doctor_result,
+        }, indent=2))
+    else:
+        print(f"\n  Done in {elapsed_s:.1f}s. Run /OMG:validate for full verification.\n")
+    return 0
+
+
 def cmd_install(args: argparse.Namespace) -> int:
     fmt = getattr(args, "format", "text")
     preset = getattr(args, "preset", "balanced")
@@ -3286,6 +3402,13 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS))
     install.add_argument("--mode", default="omg-only", choices=["omg-only", "coexist"])
     install.set_defaults(func=cmd_install)
+
+    quickstart = sub.add_parser("quickstart", help="One-shot setup: preflight + install + doctor in 60 seconds")
+    quickstart.add_argument("--level", type=int, default=1, choices=[1, 2, 3],
+                            help="Install tier: 1=essential (60s), 2=full, 3=enterprise")
+    quickstart.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS))
+    quickstart.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    quickstart.set_defaults(func=cmd_quickstart)
 
     env_cmd = sub.add_parser("env", help="Environment preflight and doctor alias")
     env_sub = env_cmd.add_subparsers(dest="env_command", required=True)
