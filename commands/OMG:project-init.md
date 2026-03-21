@@ -1,7 +1,6 @@
 ---
-description: "Alias for /OMG:init (project setup mode). Use /OMG:init instead."
-allowed-tools: Read, Write, Edit, MultiEdit, Bash(mkdir:*), Bash(cat:*), Bash(find:*), Bash(ls:*), Bash(head:*), Bash(grep:*), Bash(tree:*), Bash(node:*), Bash(python*:*), Bash(tee:*), Grep, Glob
-argument-hint: "[optional: project description]"
+description: "[DEPRECATED] Use /OMG:init instead."
+allowed-tools: Read
 ---
 
 # /OMG:project-init → Redirects to /OMG:init

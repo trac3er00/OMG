@@ -338,16 +338,17 @@ def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
 
 
 def test_setup_script_interactive_merge_shows_prompt(tmp_path: Path):
+    """Auto-merge is the default — no interactive prompt should appear."""
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir(parents=True)
     _ = (claude_dir / "settings.json").write_text('{"enabledPlugins":{"existing@demo":true}}\n', encoding="utf-8")
 
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
-    proc = _run_script_with_tty_input(SETUP, ["install"], "n\n", env=env)
+    proc = _run_script_with_tty_input(SETUP, ["install"], "\n", env=env)
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
-    assert "Merging settings.json..." in out
-    assert "Apply merge? [Y/n]" in out
+    assert "Settings merged (auto)" in out
+    assert "Apply merge?" not in out
 
 
 def test_setup_script_install_dry_run_non_interactive(tmp_path: Path):
@@ -2218,16 +2219,17 @@ def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
 
 
 def test_setup_script_interactive_merge_shows_prompt(tmp_path: Path):
+    """Auto-merge is the default — no interactive prompt should appear."""
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir(parents=True)
     _ = (claude_dir / "settings.json").write_text('{"enabledPlugins":{"existing@demo":true}}\n', encoding="utf-8")
 
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
-    proc = _run_script_with_tty_input(SETUP, ["install"], "n\n", env=env)
+    proc = _run_script_with_tty_input(SETUP, ["install"], "\n", env=env)
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
-    assert "Merging settings.json..." in out
-    assert "Apply merge? [Y/n]" in out
+    assert "Settings merged (auto)" in out
+    assert "Apply merge?" not in out
 
 
 def test_setup_script_install_dry_run_non_interactive(tmp_path: Path):
@@ -4095,16 +4097,17 @@ def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
 
 
 def test_setup_script_interactive_merge_shows_prompt(tmp_path: Path):
+    """Auto-merge is the default — no interactive prompt should appear."""
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir(parents=True)
     _ = (claude_dir / "settings.json").write_text('{"enabledPlugins":{"existing@demo":true}}\n', encoding="utf-8")
 
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
-    proc = _run_script_with_tty_input(SETUP, ["install"], "n\n", env=env)
+    proc = _run_script_with_tty_input(SETUP, ["install"], "\n", env=env)
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
-    assert "Merging settings.json..." in out
-    assert "Apply merge? [Y/n]" in out
+    assert "Settings merged (auto)" in out
+    assert "Apply merge?" not in out
 
 
 def test_setup_script_install_dry_run_non_interactive(tmp_path: Path):
@@ -5977,16 +5980,17 @@ def test_setup_script_menu_shows_update_options_when_installed(tmp_path: Path):
 
 
 def test_setup_script_interactive_merge_shows_prompt(tmp_path: Path):
+    """Auto-merge is the default — no interactive prompt should appear."""
     claude_dir = tmp_path / ".claude"
     claude_dir.mkdir(parents=True)
     _ = (claude_dir / "settings.json").write_text('{"enabledPlugins":{"existing@demo":true}}\n', encoding="utf-8")
 
     env = {"CLAUDE_CONFIG_DIR": str(claude_dir)}
-    proc = _run_script_with_tty_input(SETUP, ["install"], "n\n", env=env)
+    proc = _run_script_with_tty_input(SETUP, ["install"], "\n", env=env)
     assert proc.returncode == 0
     out = proc.stdout + proc.stderr
-    assert "Merging settings.json..." in out
-    assert "Apply merge? [Y/n]" in out
+    assert "Settings merged (auto)" in out
+    assert "Apply merge?" not in out
 
 
 def test_setup_script_install_dry_run_non_interactive(tmp_path: Path):

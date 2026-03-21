@@ -21,7 +21,7 @@ ACTION="install"
 ACTION_EXPLICIT=false
 DRY_RUN=false
 NON_INTERACTIVE=false
-MERGE_POLICY="ask"
+MERGE_POLICY="apply"
 FRESH_INSTALL=false
 INSTALL_AS_PLUGIN=false
 USE_SYMLINK=false
@@ -51,6 +51,40 @@ V3_COMMANDS_REMOVE=(cross-review.md simplify.md)
 V4_COMMANDS_REMOVE=(
     code-review.md deep-plan.md domain-init.md escalate.md handoff.md
     health-check.md learn.md project-init.md security-review.md
+)
+
+# v2.2.12 command consolidation: 20 → 12 active surfaces.
+# Active commands — the canonical OMG command surface.
+ACTIVE_COMMANDS=(
+    "OMG:ai-commit.md" "OMG:api-twin.md" "OMG:arch.md" "OMG:browser.md"
+    "OMG:crazy.md" "OMG:create-agent.md" "OMG:deep-plan.md" "OMG:deps.md"
+    "OMG:escalate.md" "OMG:forge.md" "OMG:init.md" "OMG:issue.md"
+    "OMG:mode.md" "OMG:preflight.md" "OMG:preset.md" "OMG:profile-review.md"
+    "OMG:ralph.md" "OMG:security-check.md" "OMG:session.md" "OMG:ship.md"
+    "OMG:start-work.md" "OMG:stats.md" "OMG:validate.md"
+)
+# Deprecated stubs — redirect to consolidated active commands.
+DEPRECATED_COMMANDS=(
+    "OMG:ccg.md"              # → /OMG:crazy ccg
+    "OMG:cost.md"             # → /OMG:stats cost
+    "OMG:diagnose-plugins.md" # → /OMG:validate plugins
+    "OMG:doctor.md"           # → /OMG:validate doctor
+    "OMG:domain-init.md"      # → /OMG:init [domain]
+    "OMG:health-check.md"     # → /OMG:validate health
+    "OMG:project-init.md"     # → /OMG:init
+    "OMG:ralph-start.md"      # → /OMG:ralph start
+    "OMG:ralph-stop.md"       # → /OMG:ralph stop
+    "OMG:session-branch.md"   # → /OMG:session branch
+    "OMG:session-fork.md"     # → /OMG:session fork
+    "OMG:session-merge.md"    # → /OMG:session merge
+    "OMG:setup.md"            # → /OMG:init setup
+    "OMG:teams.md"            # → /OMG:crazy team
+)
+# Removed stubs — command/feature deleted, stub explains why.
+REMOVED_COMMANDS=(
+    "OMG:compat.md"           # Legacy compat dispatcher — no longer needed
+    "OMG:playwright.md"       # Renamed → /OMG:browser
+    "OMG:theme.md"            # Theme selector removed
 )
 
 # Dynamic hook discovery — no hardcoded list.
@@ -84,7 +118,7 @@ Options:
                      Install plugin bundle (plugin.json + MCP + HUD) together
   --dry-run          Show what would happen without writing files
   --non-interactive  Skip prompts (CI/automation mode)
-  --merge-policy=X   Settings merge: ask (default), apply, skip
+  --merge-policy=X   Settings merge: apply (default), skip
   --mode=omg-only|coexist
                      Native OMG adoption mode for overlapping ecosystems
   --adopt=auto       Detect OMG-adjacent ecosystems during install/update
@@ -100,7 +134,7 @@ Examples:
   ./OMG-setup.sh install --symlink              # Dev mode: live updates from repo
   ./OMG-setup.sh install --install-as-plugin
   ./OMG-setup.sh install --mode=coexist --preset=interop
-  ./OMG-setup.sh update --non-interactive --merge-policy=apply
+  ./OMG-setup.sh update --merge-policy=skip   # Only skip if you want manual merge
   bunx @trac3r/oh-my-god
   ./OMG-setup.sh reinstall --dry-run
   ./OMG-setup.sh uninstall --dry-run
@@ -279,6 +313,18 @@ parse_args() {
         safe|balanced|interop|labs|buffet|production) ;;
         *)
             echo "Unknown OMG preset: $OMG_PRESET"
+            exit 1
+            ;;
+    esac
+
+    case "$MERGE_POLICY" in
+        apply|skip) ;;
+        ask)
+            # Legacy alias — auto-merge is the default now.
+            MERGE_POLICY="apply"
+            ;;
+        *)
+            echo "Unknown merge policy: $MERGE_POLICY (valid: apply, skip)"
             exit 1
             ;;
     esac
@@ -2065,6 +2111,8 @@ run_install_like() {
     local hook_errors=0
     local installed_agents=0
     local installed_cmds=0
+    local deprecated_cmds=0
+    local removed_cmds=0
 
     echo "═══════════════════════════════════════════════════════════════"
     echo "  OMG Setup Manager — $ACTION"
@@ -2092,7 +2140,7 @@ run_install_like() {
     else
         echo "  ✓ Fresh install"
     fi
-    echo "  ✓ Command surface: /OMG:setup and /OMG:crazy are the primary native front door"
+    echo "  ✓ Command surface: /OMG:init and /OMG:crazy are the primary native front doors"
     echo "  ✓ Adoption mode: $ADOPTION_MODE"
     echo "  ✓ Preset: $OMG_PRESET"
 
@@ -2273,7 +2321,15 @@ run_install_like() {
                 mark_omg_managed_command_file "$target"
             fi
         fi
-        echo "  ✓ /$(basename "$name" .md)"
+        if head -5 "$f" | grep -q '\[DEPRECATED\]'; then
+            echo "  ~ /$(basename "$name" .md) (deprecated stub)"
+            deprecated_cmds=$((deprecated_cmds + 1))
+        elif head -5 "$f" | grep -q '\[REMOVED\]'; then
+            echo "  - /$(basename "$name" .md) (removed stub)"
+            removed_cmds=$((removed_cmds + 1))
+        else
+            echo "  ✓ /$(basename "$name" .md)"
+        fi
         installed_cmds=$((installed_cmds + 1))
         track_file "commands/$name"
     done
@@ -2291,36 +2347,10 @@ run_install_like() {
             if [ "$MERGE_POLICY" = "skip" ]; then
                 apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
                 echo "  ⊘ Skipped settings merge (--merge-policy=skip)"
-            elif [ "$MERGE_POLICY" = "apply" ] || $NON_INTERACTIVE; then
+            else
                 python3 "$MERGE" "$TARGET" "$SOURCE"
                 apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
                 echo "  ✓ Settings merged (auto)"
-            else
-                echo "  Merging settings.json..."
-                dry_run_preview="$(python3 "$MERGE" "$TARGET" "$SOURCE" --dry-run 2>&1)"
-                printf '%s\n' "$dry_run_preview" | sed -n '1,5p' | sed 's/^/      /'
-                echo ""
-                if read -p "  Apply merge? [Y/n] " -n 1 -r; then
-                    echo ""
-                    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-                        python3 "$MERGE" "$TARGET" "$SOURCE"
-                        apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
-                        echo "  ✓ Settings merged"
-                    else
-                        echo "  ⊘ Skipped (manual merge needed)"
-                    fi
-                else
-                    # read failed — only auto-apply if we can confirm non-interactive context
-                    # non-interactive fallback: check for clear non-interactive indicators
-                    if [ ! -t 0 ] || [ -n "${npm_lifecycle_event:-}" ] || [ -n "${npm_execpath:-}" ]; then
-                        python3 "$MERGE" "$TARGET" "$SOURCE"
-                        apply_omg_preset_to_settings "$TARGET" "$OMG_PRESET"
-                        echo "  ✓ Settings merged (auto — non-interactive fallback)"
-                    else
-                        echo "  ⚠ Could not read input. Skipping merge to be safe."
-                        echo "    Run manually: ./OMG-setup.sh update --merge-policy=apply"
-                    fi
-                fi
             fi
         fi
 
@@ -2468,7 +2498,9 @@ run_install_like() {
     fi
     echo "═══════════════════════════════════════════════════════════════"
     echo ""
-    echo "  Files: $installed_rules rules, $installed_hooks hooks, $installed_agents agents, $installed_cmds commands"
+    local active_cmds=$((installed_cmds - deprecated_cmds - removed_cmds))
+    echo "  Files: $installed_rules rules, $installed_hooks hooks, $installed_agents agents"
+    echo "         $installed_cmds commands ($active_cmds active, $deprecated_cmds deprecated, $removed_cmds removed)"
     echo "  Version: $VERSION"
     if $USE_SYMLINK; then
         echo "  Mode: Symlink (live updates from $SCRIPT_DIR)"

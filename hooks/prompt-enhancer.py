@@ -89,6 +89,11 @@ project_dir = _resolve_project_dir()
 omg_root = os.path.join(project_dir, ".omg")
 state_dir = resolve_state_dir(project_dir, "state", "")
 knowledge_dir = resolve_state_dir(project_dir, "knowledge", "knowledge")
+
+# Plan mode detection: when Claude Code is in plan mode, auto-trigger deep-plan.
+_permission_mode = (data.get("permission_mode") or "").lower().strip()
+_is_plan_mode = _permission_mode == "plan"
+
 injections = []
 
 # ── Context budget ──
@@ -570,7 +575,12 @@ CCG_SIGNALS = [
     "architecture review", "review everything", "cross-functional", "end-to-end", "e2e",
     "풀스택", "아키텍처 리뷰", "전체 리뷰",
 ]
-DEEP_PLAN_SIGNALS = ["deep-plan", "deep plan", "/omg:deep-plan"]
+DEEP_PLAN_SIGNALS = [
+    "deep-plan", "deep plan", "/omg:deep-plan",
+    "/plan", "plan this", "let's plan", "lets plan", "make a plan",
+    "plan mode", "planning mode", "create a plan", "write a plan",
+    "계획", "플랜",
+]
 EXPLICIT_GEMINI = ["gemini", "제미니"]
 EXPLICIT_CODEX = ["codex", "코덱스"]
 
@@ -581,7 +591,7 @@ has_gemini_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_GEM
 has_codex_signal = any(signal_matches_text(sig, prompt) for sig in EXPLICIT_CODEX)
 
 route_lock = ""
-if has_deep_plan_signal:
+if has_deep_plan_signal or _is_plan_mode:
     route_lock = "deep-plan"
 elif has_ccg_signal or (has_gemini_signal and has_codex_signal):
     route_lock = "ccg"

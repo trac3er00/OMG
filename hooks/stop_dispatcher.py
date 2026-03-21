@@ -29,6 +29,7 @@ from hooks._common import (  # noqa: E402
     get_feature_flag,
     get_project_dir,
     has_recent_tool_activity,
+    is_bypass_mode,
     json_input,
     log_hook_error,
     read_checklist_session,
@@ -1258,6 +1259,13 @@ def _main_body(_watchdog_start):
     if _watchdog_check(_watchdog_start):
         print("[OMG] stop_dispatcher: wall-clock watchdog expired", file=sys.stderr)
         sys.exit(0)
+
+    # Bypass mode: skip quality-check blocks (advisories still emitted).
+    if is_bypass_mode(data):
+        advisories = data.get("_stop_advisories", [])
+        if advisories:
+            print("\n".join(advisories), file=sys.stderr)
+        return
 
     blocks = []
     for check_fn in [
