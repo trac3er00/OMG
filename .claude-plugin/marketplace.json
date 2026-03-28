@@ -32,5 +32,16 @@
       ]
     }
   ],
-  "version": "2.2.12"
+  "version": "2.3.0",
+  "skills": [
+    "./skills/universal",
+    "./skills/claude",
+    "./skills/codex",
+    "./skills/opencode",
+    "./skills/gemini"
+  ],
+  "hooks": [
+    "./hooks/universal",
+    "./.claude-plugin/hooks/universal"
+  ]
 }

@@ -1,0 +1,47 @@
+{
+  "name": "omg-universal-hooks",
+  "description": "Universal hooks for all agent providers",
+  "version": "2.3.0",
+  "hooks": [
+    {
+      "event": "Start",
+      "matcher": ".*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${OMG_ROOT}/hooks/universal/start.py"
+        }
+      ]
+    },
+    {
+      "event": "Stop",
+      "matcher": ".*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${OMG_ROOT}/hooks/universal/stop.py"
+        }
+      ]
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": ".*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${OMG_ROOT}/hooks/universal/pre-tool.py"
+        }
+      ]
+    },
+    {
+      "event": "PostToolUse",
+      "matcher": ".*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${OMG_ROOT}/hooks/universal/post-tool.py"
+        }
+      ]
+    }
+  ]
+}
