@@ -14,6 +14,8 @@ from typing import Any
 
 from runtime.profile_io import classify_preference_section, is_destructive_preference
 
+import warnings
+
 try:
     from cryptography.fernet import Fernet, InvalidToken
 
@@ -22,6 +24,23 @@ except ModuleNotFoundError:
     Fernet = None  # type: ignore[assignment]
     InvalidToken = Exception  # type: ignore[assignment]
     _has_fernet = False
+
+
+def check_encryption_available() -> bool:
+    """Check if cryptography library is installed. Returns True if available, False otherwise."""
+    return _has_fernet
+
+
+def ensure_encryption_warnings() -> None:
+    """Emit warnings if encryption is not available (fail-fast for production)."""
+    if not _has_fernet:
+        warnings.warn(
+            "OMG_MEMORY_ENCRYPTION_DISABLED: cryptography library not installed. "
+            "MemoryStore will use weak XOR-based encryption fallback. "
+            "For production, install: pip install cryptography",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
 
 class MemoryStoreFullError(Exception):
@@ -60,6 +79,7 @@ class MemoryStore:
         self._store_path = ""
         self._backend = "json"
 
+        ensure_encryption_warnings()
         self.store_path = store_path
 
     @property
@@ -1179,4 +1199,4 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-__all__ = ["MemoryStore", "MemoryStoreFullError", "project_preference_signals"]
+__all__ = ["MemoryStore", "MemoryStoreFullError", "project_preference_signals", "check_encryption_available", "ensure_encryption_warnings"]

@@ -90,7 +90,7 @@ from runtime.compat import (
 )
 from runtime.validate import run_validate, format_text as validate_format_text
 from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
-from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
+from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS, VALID_PRESETS_ALL, PRESET_HOOK_COUNT, PRESET_HOOK_MAPPING
 from runtime.install_planner import compute_install_plan, execute_plan, InstallAction
 from runtime.canonical_surface import get_canonical_hosts
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
@@ -3283,7 +3283,7 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--non-interactive", action="store_true", dest="non_interactive", help="Non-interactive mode")
     install.add_argument("--skip-preflight", action="store_true", dest="skip_preflight", help="Skip env preflight checks")
     install.add_argument("--format", default="text", choices=["text", "json"], dest="format")
-    install.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS))
+    install.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS_ALL))
     install.add_argument("--mode", default="omg-only", choices=["omg-only", "coexist"])
     install.set_defaults(func=cmd_install)
 

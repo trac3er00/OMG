@@ -1,10 +1,71 @@
-# OMG
+# OMG (Oh My God)
 
 [![Compat Gate](https://github.com/trac3r00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3r00/OMG/actions/workflows/omg-compat-gate.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3r%2Foh-my-god)](https://www.npmjs.com/package/@trac3r/oh-my-god)
 [![License](https://img.shields.io/github/license/trac3r00/OMG)](LICENSE)
 
-OMG upgrades your agent host instead of replacing it. It gives Claude Code, Codex, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
+**OMG upgrades your agent host instead of replacing it.** It gives Claude Code, Codex, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
+
+---
+
+## 🚀 Killer Features
+
+### 🛡️ MutationGate
+**Stop risky mutations before they happen.**
+MutationGate provides a hard gate for file system changes. It intercepts, warns, and blocks unauthorized or risky mutations, especially during release orchestration. No more accidental deletions or unauthorized config changes.
+(릴리즈 오케스트레이션 시 변조를 차단하거나 허용하는 강력한 게이트웨이입니다. 위험한 파일 시스템 변경을 사전에 방지합니다.)
+
+### ⚖️ ProofGate
+**Evidence-backed verification, claim judge.**
+ProofGate requires machine-generated evidence (test results, build logs, etc.) for every claim an agent makes. It acts as a judge to verify that a task was actually completed correctly, not just "claimed" to be done.
+(에이전트의 주장을 증거 기반으로 검증합니다. 테스트 결과, 빌드 로그 등 객체적 증거를 통해 작업 완료 여부를 심판합니다.)
+
+---
+
+## 👔 5분 안에 팀 CEO가 되는 법 (Team CEO in 5 Minutes)
+
+개발팀 리더가 OMG를 설치하고 설정하는 데 단 5분이면 충분합니다. 첫 번째 자동화 작업을 실행하자마자 팀 생산성이 5배로 뛰는 것을 경험하세요. OMG는 단순한 도구가 아니라, 당신의 에이전트 팀을 지휘하는 강력한 컨트롤 플레인입니다.
+
+1. **Install**: `npx omg init` (1분)
+2. **Configure**: `npx omg install --plan` (2분)
+3. **Execute**: 첫 번째 자동화 작업 실행 (2분)
+
+**"OMG는 당신의 에이전트들을 단순한 봇에서 신뢰할 수 있는 팀원으로 바꿉니다."**
+
+---
+
+## ⚔️ Comparison: Why OMG?
+
+| Feature | oh-my-openagent (44k⭐) | oh-my-claudecode (14k⭐) | **OMG** |
+| :--- | :---: | :---: | :---: |
+| **Architecture** | Plugin-based | Host-specific | **Native Control Plane** |
+| **Governance** | ❌ None | ⚠️ Limited | ✅ **Hard Gates (MutationGate)** |
+| **Verification** | ❌ Manual | ⚠️ Basic | ✅ **Evidence-Backed (ProofGate)** |
+| **Memory** | ❌ Volatile | ⚠️ Local Files | ✅ **Encrypted & Namespaced** |
+| **Interoperability** | ⚠️ Plugin-only | ❌ Single Host | ✅ **Universal MCP + Registry** |
+
+**OMG만의 고유 강점:**
+- **Native Control Plane**: 호스트에 종속되지 않는 독립적인 제어 계층.
+- **Hard Gates**: 단순 경고를 넘어선 실제 차단 능력.
+- **Encrypted Memory**: 보안이 강화된 네임스페이스 기반 메모리 저장소.
+
+---
+
+## ⚡ 1-Click Installation UX
+
+설치부터 실행까지 1분이면 충분합니다.
+
+```bash
+# 1-Click Init
+npx omg init
+
+# OR Step-by-Step
+npx omg env doctor && npx omg install --apply
+```
+
+설치 후 즉시 사용 가능한 기본 설정이 제공됩니다.
+
+---
 
 ## The Problem
 
@@ -42,17 +103,6 @@ graph TD
     Tool -->|Result| Hooks
     Hooks -->|Evidence| Proof
 ```
-
-## Comparison
-
-| Feature | Raw Claude Code | Superpowers | OMG |
-| :--- | :---: | :---: | :---: |
-| **Governance** | Minimal | Plugin-based | Native Control Plane |
-| **Mutation Safety** | Basic | None | Hard Gates + Warnings |
-| **Verification** | Manual | None | Evidence-Backed Proof |
-| **Interoperability** | Single Host | Multi-Host | Universal MCP + Registry |
-| **State Management** | Volatile | Local Files | Encrypted + Namespaced |
-| **Orchestration** | Linear | Scripted | Modular Forge |
 
 ## Limitations
 
@@ -144,6 +194,7 @@ Success looks like:
 - OpenCode: [docs/install/opencode.md](docs/install/opencode.md)
 - Gemini: [docs/install/gemini.md](docs/install/gemini.md)
 - Kimi: [docs/install/kimi.md](docs/install/kimi.md)
+
 ## Native Adoption
 
 OMG uses native setup language instead of public migration commands.
