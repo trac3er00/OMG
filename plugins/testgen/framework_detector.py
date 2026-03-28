@@ -9,9 +9,12 @@ Feature flag: TEST_GENERATION (default False) — detection works regardless.
 Stdlib only: json, pathlib, re, dataclasses.
 """
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -266,6 +269,6 @@ def detect_test_framework(project_dir: str) -> FrameworkInfo:
                 return result
     except Exception:
         # Crash isolation: return unknown on any unexpected error
-        pass
+        _logger.debug("Failed while detecting test framework", exc_info=True)
 
     return FrameworkInfo()

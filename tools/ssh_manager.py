@@ -39,7 +39,9 @@ def _ensure_imports():
         _get_feature_flag = _gff
         _atomic_json_write = _ajw
     except ImportError:
-        pass
+        # Optional: hooks._common not available
+        _get_feature_flag = None
+        _atomic_json_write = None
 
 
 # --- Feature flag ---

@@ -16,7 +16,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+logger = _logger
 
 # Try to load YAML, fall back to JSON
 try:
@@ -182,7 +183,7 @@ def _is_enabled() -> bool:
                 if "LSP_TOOLS" in features:
                     return features["LSP_TOOLS"]
     except Exception:
-        pass
+        _logger.debug("Failed to read LSP settings from settings.json", exc_info=True)
     
     # Default: disabled (opt-in)
     return False

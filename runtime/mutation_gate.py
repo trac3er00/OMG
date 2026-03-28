@@ -1,3 +1,12 @@
+"""Mutation safety gate for runtime tool and command execution.
+
+This module classifies tool requests by mutation capability and enforces OMG
+policy preconditions before write-capable operations are allowed. It verifies
+governance context, active test-intent locks, tool-plan presence, and done-when
+compliance, then emits deterministic allow/blocked/exempt decisions with
+warning/block artifacts under ``.omg/state/mutation_gate``.
+"""
+
 from __future__ import annotations
 
 import json
@@ -51,6 +60,28 @@ def check_mutation_allowed(
     run_id: str | None = None,
     metadata: dict[str, object] | None = None,
 ) -> dict[str, str | None]:
+    """Evaluate whether a tool invocation is permitted to mutate state.
+
+    The gate first resolves exemptions and mutation capability, then enforces
+    release bypass, governance context, test-intent lock verification,
+    run-scoped tool plan presence, and done-when constraints. In permissive mode
+    it warns and allows; in strict mode it blocks and writes a block artifact.
+
+    Args:
+        tool: Tool name being invoked (for example ``Edit`` or ``Bash``).
+        file_path: Target file path associated with the operation.
+        project_dir: Project root used for state and artifact paths.
+        lock_id: Optional test-intent lock identifier supplied by the caller.
+        exemption: Optional exemption token (docs/config/generated/test).
+        command: Optional command payload used for Bash mutation detection.
+        run_id: Optional run identifier used to resolve lock and plan state.
+        metadata: Optional governance metadata, including explicit exemption and
+            done-when payload.
+
+    Returns:
+        Decision payload containing ``status``, ``reason``, and resolved
+        ``lock_id``.
+    """
     normalized_tool = str(tool or "").strip()
     normalized_file_path = str(file_path or "").strip()
     normalized_lock_id = str(lock_id or "").strip() or None

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import importlib
 import json
+import logging
 import os
 from pathlib import Path
 import shlex
@@ -20,6 +21,9 @@ from runtime.rollback_manifest import (
     record_side_effect,
     write_rollback_manifest,
 )
+
+
+_logger = logging.getLogger(__name__)
 
 
 _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit"})
@@ -279,7 +283,8 @@ class InteractionJournal:
             )
             manifest_path = self.project_dir / ".omg" / "shadow" / run_id / "manifest.json"
             return str(manifest_path)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to capture shadow metadata for step %s: %s", self._pending_step_id, exc, exc_info=True)
             return ""
 
     def _restore_shadow_entry(self, step_id: str, shadow_manifest_path: str) -> dict[str, object]:
@@ -290,7 +295,8 @@ class InteractionJournal:
 
         try:
             module = importlib.import_module("hooks.shadow_manager")
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to import shadow manager for restore: %s", exc, exc_info=True)
             return {"restored": [], "failed": [], "reason": "shadow module unavailable"}
 
         restore_fn = getattr(module, "restore_shadow_entry", None)
@@ -299,7 +305,8 @@ class InteractionJournal:
 
         try:
             result = restore_fn(str(self.project_dir), run_id, step_id)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to restore shadow entry for step %s: %s", step_id, exc, exc_info=True)
             return {"restored": [], "failed": [], "reason": "shadow restore unavailable"}
 
         if not isinstance(result, dict):
@@ -328,7 +335,8 @@ class InteractionJournal:
     def _checkpoint_reference(self, step_id: str) -> dict[str, object] | None:
         try:
             module = importlib.import_module("tools.session_snapshot")
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to create checkpoint reference for step %s: %s", step_id, exc, exc_info=True)
             return None
 
         create_snapshot = getattr(module, "create_snapshot", None)
@@ -356,7 +364,8 @@ class InteractionJournal:
         fallback = f".omg/evidence/repro-pack-{normalized_run_id}.json"
         try:
             result = build_repro_pack(str(self.project_dir), normalized_run_id)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to build repro pack for run %s: %s", normalized_run_id, exc, exc_info=True)
             evidence_path = self.project_dir / ".omg" / "evidence" / f"{normalized_run_id}.json"
             return fallback if evidence_path.exists() else None
         if result.get("status") != "ok":
@@ -453,7 +462,8 @@ class InteractionJournal:
 
         try:
             module = importlib.import_module("tools.session_snapshot")
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to import session snapshot module: %s", exc, exc_info=True)
             return {"status": "failed", "reason": "snapshot module unavailable", "snapshot_id": snapshot_id}
 
         restore_snapshot = getattr(module, "restore_snapshot", None)
@@ -462,7 +472,8 @@ class InteractionJournal:
 
         try:
             restored = bool(restore_snapshot(snapshot_id, state_dir=str(self.project_dir / ".omg" / "state")))
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to restore snapshot %s: %s", snapshot_id, exc, exc_info=True)
             return {"status": "failed", "reason": "snapshot restore unavailable", "snapshot_id": snapshot_id}
         if restored:
             return {"status": "restored", "reason": "snapshot restore applied", "snapshot_id": snapshot_id}

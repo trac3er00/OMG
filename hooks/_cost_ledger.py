@@ -14,6 +14,8 @@ import fcntl
 import json
 import os
 import shutil
+import sys
+from typing import Any
 
 # ── Constants ──
 _LEDGER_SUBDIR = os.path.join(".omg", "state", "ledger")
@@ -26,7 +28,7 @@ def _ledger_path(project_dir: str) -> str:
     return os.path.join(project_dir, _LEDGER_SUBDIR, _LEDGER_FILENAME)
 
 
-def append_cost_entry(project_dir: str, entry: dict) -> None:
+def append_cost_entry(project_dir: str, entry: dict[str, object]) -> None:
     """Append a cost entry to the cost ledger JSONL file.
 
     Creates .omg/state/ledger/ if missing. Uses fcntl file locking
@@ -55,12 +57,18 @@ def append_cost_entry(project_dir: str, entry: dict) -> None:
             with open(path, "a") as f:
                 f.write(line)
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] failed to append cost ledger entry without lock fallback: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     except Exception:
-        pass  # Non-blocking: crash isolation invariant
+        try:
+            print(f"[omg:warn] failed to append cost ledger entry: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
-def read_cost_summary(project_dir: str, time_range=None) -> dict:
+def read_cost_summary(project_dir: str, time_range=None) -> dict[str, Any]:
     """Read and aggregate cost entries from the ledger.
 
     Args:
@@ -90,8 +98,8 @@ def read_cost_summary(project_dir: str, time_range=None) -> dict:
 
     total_tokens = 0
     total_cost = 0.0
-    by_tool: dict = {}
-    by_session: dict = {}
+    by_tool: dict[str, dict[str, float | int]] = {}
+    by_session: dict[str, dict[str, float | int]] = {}
     entry_count = 0
 
     try:
@@ -132,7 +140,10 @@ def read_cost_summary(project_dir: str, time_range=None) -> dict:
                 by_session[session_id]["count"] += 1
 
     except Exception:
-        pass  # Crash isolation: return what we have
+        try:
+            print(f"[omg:warn] failed while reading cost ledger summary: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     return {
         "total_tokens": total_tokens,
@@ -170,7 +181,13 @@ def rotate_cost_ledger(project_dir: str) -> None:
             try:
                 os.remove(archive)
             except OSError:
-                pass
+                try:
+                    print(f"[omg:warn] failed to remove prior cost ledger archive: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
         shutil.move(path, archive)
     except Exception:
-        pass  # Non-blocking: crash isolation invariant
+        try:
+            print(f"[omg:warn] failed to rotate cost ledger: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass

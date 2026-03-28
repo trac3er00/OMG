@@ -24,6 +24,19 @@ json_input = _common.json_input
 _resolve_project_dir = _common._resolve_project_dir
 is_bypass_mode = _common.is_bypass_mode
 
+_file_cache: dict[str, Any] = {}
+
+
+def _cached_json_load(path, *, force: bool = False):
+    path_str = str(path)
+    if force:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    if path_str not in _file_cache:
+        with open(path, "r", encoding="utf-8") as f:
+            _file_cache[path_str] = json.load(f)
+    return _file_cache[path_str]
+
 
 def _is_bypass_all_mode(payload: Any) -> bool:
     if not isinstance(payload, dict):
@@ -99,20 +112,21 @@ def _is_watched_settings_path(path):
 
 
 def _is_setup_in_progress():
-    """Check if setup wizard is in progress by reading settings.json."""
     try:
         project_dir = _resolve_project_dir()
         settings_path = os.path.join(project_dir, "settings.json")
         if not os.path.exists(settings_path):
             return False
-        with open(settings_path, "r", encoding="utf-8") as f:
-            settings = json.load(f)
-            if isinstance(settings, dict):
-                omg_config = settings.get("_omg", {})
-                if isinstance(omg_config, dict):
-                    return omg_config.get("setup_in_progress", False)
+        settings = _cached_json_load(settings_path)
+        if isinstance(settings, dict):
+            omg_config = settings.get("_omg", {})
+            if isinstance(omg_config, dict):
+                return omg_config.get("setup_in_progress", False)
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] [config_guard] failed to detect setup-in-progress: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return False
 
 
@@ -139,10 +153,9 @@ if not os.path.exists(new_path):
     sys.exit(0)
 
 try:
-    with open(new_path, "r", encoding="utf-8") as f:
-        new_config = json.load(f)
-        if not isinstance(new_config, dict):
-            sys.exit(0)
+    new_config = _cached_json_load(new_path)
+    if not isinstance(new_config, dict):
+        sys.exit(0)
 except Exception as e:
     print(f"[OMG] config-guard: config read failed: {type(e).__name__}: {e}", file=sys.stderr)
     sys.exit(0)

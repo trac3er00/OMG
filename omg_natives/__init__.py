@@ -11,11 +11,15 @@ Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 from __future__ import annotations
 
 import fnmatch as _fnmatch
+import logging
 import os as _os
 import re as _re
 import sys as _sys
 from pathlib import Path as _Path
 from typing import List, Optional
+
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Feature flag — follows the hooks/_common.get_feature_flag pattern
@@ -77,8 +81,8 @@ if not RUST_AVAILABLE:
                 for line in fh:
                     if compiled.search(line):
                         matches.append(line.rstrip("\n"))
-        except (OSError, _re.error):
-            pass
+        except (OSError, _re.error) as exc:
+            _logger.debug("Native grep fallback failed for %s: %s", path, exc, exc_info=True)
         return matches
 
     def glob_match(pattern: str, base: str = ".") -> List[str]:
@@ -95,8 +99,8 @@ if not RUST_AVAILABLE:
                     rel = _os.path.relpath(full, base_path)
                     if _fnmatch.fnmatch(rel, pattern):
                         results.append(rel)
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Native glob fallback walk failed for %s: %s", base_path, exc, exc_info=True)
         return results
 
     def normalize(text: str) -> str:

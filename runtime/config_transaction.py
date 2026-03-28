@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import logging
 import os
 from pathlib import Path
 import time
@@ -16,6 +17,7 @@ _ATOMIC_WRITE_TEXT_SAFE = cast(
     getattr(_mcp_config_writers, "_atomic_write_text_safe"),
 )
 _FSYNC_DIR = cast("_FsyncDirFn", getattr(_mcp_config_writers, "_fsync_dir"))
+_logger = logging.getLogger(__name__)
 
 
 class _AtomicWriteFn:
@@ -274,8 +276,8 @@ class ConfigTransaction:
             try:
                 self._lock_path.unlink(missing_ok=True)
                 _FSYNC_DIR(self._lock_path.parent)
-            except OSError:
-                pass
+            except OSError as exc:
+                _logger.debug("Failed to clean up invalid config transaction lock file: %s", exc, exc_info=True)
             return
 
         age_ms = int(time.time() * 1000) - ts_ms
@@ -287,8 +289,8 @@ class ConfigTransaction:
         try:
             self._lock_path.unlink(missing_ok=True)
             _FSYNC_DIR(self._lock_path.parent)
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to remove stale config transaction lock file: %s", exc, exc_info=True)
 
     def _pid_is_alive(self, pid: int) -> bool:
         if pid <= 0:

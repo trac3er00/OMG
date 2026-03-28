@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import logging
 import os
 import shlex
 from pathlib import Path
@@ -20,6 +21,9 @@ from runtime.claim_judge import evaluate_claims_for_release
 from runtime.exec_kernel import get_exec_kernel
 from runtime.worker_watchdog import get_worker_watchdog
 from runtime.merge_writer import get_merge_writer, create_write_lease, is_lease_valid, WriteLease
+
+
+_logger = logging.getLogger(__name__)
 
 
 class RunIdConflictError(ValueError):
@@ -76,15 +80,15 @@ class ReleaseRunCoordinator:
                 run_id, status="alive",
                 metadata={"phase": "begin", "source": resolved.source},
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to record worker heartbeat at begin for run %s: %s", run_id, exc, exc_info=True)
         merge_writer_token = None
         try:
             mw = get_merge_writer(self.project_dir)
             token = mw.acquire(run_id, reason=f"release_run:{resolved.source}")
             merge_writer_token = token.lock_path
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to acquire merge-writer lock for run %s: %s", run_id, exc, exc_info=True)
         # Create a run-scoped write lease bound to this release run
         evidence_path = str(
             Path(".omg") / "evidence" / f"merge-writer-{run_id}.json"
@@ -200,8 +204,8 @@ class ReleaseRunCoordinator:
                     event="stall_detected_during_verify",
                     heartbeat=stall.get("heartbeat"),
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to evaluate watchdog stall during verify for run %s: %s", canonical_run_id, exc, exc_info=True)
         return {
             "status": str(verification_state.get("status", "running")),
             "run_id": canonical_run_id,
@@ -323,8 +327,8 @@ class ReleaseRunCoordinator:
                     provenance_path=str(mw._provenance_path(canonical_run_id).relative_to(mw.project_dir)).replace("\\", "/"),
                 )
                 mw.release(token)
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to release merge-writer lock for run %s: %s", canonical_run_id, exc, exc_info=True)
         # Invalidate the write lease — leases do not survive across runs
         self._active_lease = None
         return {

@@ -12,10 +12,14 @@ Workflow:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import Any
+
+
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +148,7 @@ def record_outcome(
     path = _outcomes_path(project_dir)
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
-    entry = {
+    entry: dict[str, Any] = {
         "ts": time.time(),
         "task_type": task_type,
         "template_id": template_id,
@@ -156,8 +160,8 @@ def record_outcome(
     try:
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, separators=(",", ":")) + "\n")
-    except Exception:
-        pass  # never crash on tracking
+    except Exception as exc:
+        _logger.debug("Failed to append prompt outcome at %s: %s", path, exc, exc_info=True)
 
 
 def _load_outcomes(project_dir: str | Path, max_age_days: int = 30) -> list[dict[str, Any]]:
@@ -180,8 +184,8 @@ def _load_outcomes(project_dir: str | Path, max_age_days: int = 30) -> list[dict
                         outcomes.append(entry)
                 except json.JSONDecodeError:
                     continue
-    except Exception:
-        pass
+    except Exception as exc:
+        _logger.debug("Failed to load prompt outcomes from %s: %s", path, exc, exc_info=True)
     return outcomes
 
 

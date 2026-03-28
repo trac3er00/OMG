@@ -78,6 +78,8 @@ EVAL_PATTERNS = [
 ]
 
 SAFE_ENV_REFERENCE = re.compile(r"\.env\.(example|sample|template)\b", re.IGNORECASE)
+_GREP_COMMAND_RE = re.compile(r"\bgrep\b")
+_DOTENV_FILENAME_RE = re.compile(r"^\.env(\..+)?$")
 
 SECRET_FILE_PATTERNS = [
     r"\.(env|pem|key|p12|pfx|jks|keystore|netrc|npmrc|pypirc)\b",
@@ -323,7 +325,7 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
             if re.search(exfil, cmd):
                 return deny("Blocked: copying secret file", "critical", ["secret-exfiltration"])
 
-        if re.search(r"\bgrep\b", cmd):
+        if _GREP_COMMAND_RE.search(cmd):
             return ask("Searching inside potential secret file — confirm this is safe", "high", ["secret-search"])
 
     for pat, label in ASK_PATTERNS:
@@ -634,7 +636,10 @@ def _log_allowlist_bypass(path: str, tool: str, reason: str) -> None:
             allowlisted=True,
         )
     except Exception:
-        pass  # Crash isolation: audit logging must never break policy evaluation
+        try:
+            import sys; print(f"[omg:warn] [policy_engine] allowlist bypass audit logging failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def evaluate_file_access(
@@ -655,7 +660,10 @@ def evaluate_file_access(
     try:
         normalized = os.path.realpath(normalized)
     except (OSError, ValueError):
-        pass
+        try:
+            import sys; print(f"[omg:warn] [policy_engine] failed to resolve real path for policy evaluation: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     basename = os.path.basename(normalized).lower()
     lowpath = normalized.lower()
 
@@ -666,7 +674,7 @@ def evaluate_file_access(
             ["immutable-env-template"],
         )
 
-    if re.match(r"^\.env(\..+)?$", basename) and basename not in EXAMPLE_FILES:
+    if _DOTENV_FILENAME_RE.match(basename) and basename not in EXAMPLE_FILES:
         if tool in ("Write", "Edit", "MultiEdit"):
             return deny(
                 f"Secret file write blocked: {file_path}",

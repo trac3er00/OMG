@@ -9,10 +9,14 @@ Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Dict, List, Optional
 
 from omg_natives._bindings import bind_function
+
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Minimal HTML entity unescaping (avoids importing stdlib html module)
@@ -43,8 +47,8 @@ def _unescape(text: str) -> str:
                 return chr(int(hex_val, 16))
             if dec_val:
                 return chr(int(dec_val))
-        except (ValueError, OverflowError):
-            pass
+        except (ValueError, OverflowError) as exc:
+            _logger.debug("Failed to decode numeric HTML entity '%s': %s", m.group(0), exc, exc_info=True)
         return m.group(0)
 
     return _NUMERIC_ENTITY_RE.sub(_replace_numeric, text)

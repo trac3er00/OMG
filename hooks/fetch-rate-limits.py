@@ -46,7 +46,10 @@ def read_credentials_from_keychain():
                 return data["claudeAiOauth"]
             return data
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] [fetch-rate-limits] keychain credential read failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return None
 
 
@@ -61,7 +64,10 @@ def read_credentials_from_file():
                 return data["claudeAiOauth"]
             return data
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] [fetch-rate-limits] credential file read failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return None
 
 
@@ -136,7 +142,10 @@ def fetch_usage(credentials):
     except urllib.error.HTTPError as e:
         if e.code == 401:
             # Token expired or invalid
-            pass
+            try:
+                print(f"[omg:warn] [fetch-rate-limits] oauth token unauthorized: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
         return None
     except Exception:
         return None
@@ -173,7 +182,10 @@ def read_existing_cache():
         if cache_path.exists():
             return json.loads(cache_path.read_text())
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] [fetch-rate-limits] cache read failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return None
 
 
@@ -189,7 +201,10 @@ def main():
                 # Cache is fresh, nothing to do
                 sys.exit(0)
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] [fetch-rate-limits] cache timestamp parse failed: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     
     # Read credentials
     credentials = read_credentials()

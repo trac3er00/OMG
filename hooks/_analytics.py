@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from datetime import datetime
 from typing import TypeAlias
 
@@ -250,7 +251,10 @@ def analyze_patterns(project_dir: str, days: int = 7) -> JsonMap:
                 "summary_md": "",
             }
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to evaluate SESSION_ANALYTICS feature gate: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     
     analysis_days = max(_safe_int(days, 7), 1)
 

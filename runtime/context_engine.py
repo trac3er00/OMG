@@ -1,15 +1,16 @@
-"""Bounded context engine — composes per-run context packets.
+"""Context profile and packet management for OMG runtime orchestration.
 
-Reads architecture signals, defense state, verification pointers, and
-context pressure into a compact packet with artifact pointers (never raw
-content), delta-only refresh support, and explicit budget limits.
-
-Crash-isolated: ``build_packet`` never raises.
+This module derives profile digests from project state, composes bounded
+run-scoped context packets, tracks provenance/artifact pointers, and exposes
+session context helpers (scoring, compaction, task focus, and handoff
+snapshots). The packet builder is crash-isolated and returns fallback packets on
+errors instead of propagating exceptions.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -20,6 +21,8 @@ import yaml
 from runtime.forge_run_id import build_deterministic_contract
 from runtime.memory_store import MemoryStore
 from runtime.profile_io import profile_version_from_map
+
+_logger = logging.getLogger(__name__)
 
 _MAX_SUMMARY_CHARS = 1000
 _MAX_CLARIFICATION_PROMPT_CHARS = 180
@@ -47,6 +50,15 @@ _INTENT_GATE_REL_BASE = Path(".omg") / "state" / "intent_gate"
 
 
 def load_profile_digest(project_dir: str | Path) -> dict[str, Any]:
+    """Load and normalize the profile digest used by runtime components.
+
+    Args:
+        project_dir: Project root containing ``.omg/state/profile.yaml``.
+
+    Returns:
+        Normalized digest with architecture requests, constraints, tags,
+        summary, confidence, and profile version pointer.
+    """
     root = Path(project_dir)
     profile_path = root / _PROFILE_REL_PATH
     if not profile_path.exists():
@@ -61,7 +73,8 @@ def load_profile_digest(project_dir: str | Path) -> dict[str, Any]:
 
     try:
         payload = yaml.safe_load(raw_profile)
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to parse profile YAML from %s: %s", profile_path, exc, exc_info=True)
         payload = None
     if isinstance(payload, dict):
         parsed = payload
@@ -71,6 +84,15 @@ def load_profile_digest(project_dir: str | Path) -> dict[str, Any]:
 
 
 def render_profile_digest_text(project_dir: str | Path, *, max_chars: int) -> str:
+    """Render a bounded single-line textual summary for profile digest context.
+
+    Args:
+        project_dir: Project root used to load profile digest data.
+        max_chars: Maximum number of characters in the rendered summary.
+
+    Returns:
+        Compact digest string truncated to ``max_chars``.
+    """
     digest = load_profile_digest(project_dir)
     arch_items = digest.get("architecture_requests")
     arch_list = arch_items if isinstance(arch_items, list) else []
@@ -285,7 +307,7 @@ def _resolve_profile_version_pointer(profile: dict[str, Any], provenance: dict[s
 
 
 class ContextEngine:
-    """Composes bounded context packets for downstream consumers."""
+    """Compose run-scoped context packets with provenance-safe summaries."""
 
     def __init__(self, project_dir: str) -> None:
         self.project_dir = Path(project_dir)
@@ -301,18 +323,22 @@ class ContextEngine:
         *,
         delta_only: bool = False,
     ) -> dict[str, Any]:
-        """Build a compact context packet.
+        """Build a bounded context packet for a run.
 
-        Returns a dict with keys:
-          - ``summary``: bounded text (<=1000 chars)
-          - ``artifact_pointers``: list of relative paths to state artifacts
-          - ``budget``: ``{max_chars: int, used_chars: int}``
-          - ``delta_only``: bool
-          - ``run_id``: str
+        Args:
+            run_id: Run identifier for packet scoping.
+            delta_only: Whether to emit only changed summary context since the
+                previous packet snapshot.
+
+        Returns:
+            Context packet containing summary text, provenance/artifact pointers,
+            clarification/governance metadata, budget usage, and deterministic
+            contract metadata.
         """
         try:
             return self._build(run_id, delta_only=delta_only)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to build context packet for run %s: %s", run_id, exc, exc_info=True)
             return self._fallback(run_id)
 
     # ------------------------------------------------------------------
@@ -448,8 +474,8 @@ class ContextEngine:
                 active_run_id = resolver(str(self.project_dir))
                 if isinstance(active_run_id, str) and active_run_id.strip():
                     return active_run_id.strip()
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to resolve coordinator run id for %s: %s", run_id, exc, exc_info=True)
         return run_id
 
     def _compose_release_metadata(self, run_id: str) -> tuple[dict[str, Any], list[str]]:
@@ -569,8 +595,8 @@ class ContextEngine:
                 metadata=metadata,
             )
             store.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to index context packet for run %s: %s", run_token, exc, exc_info=True)
 
     def _compose_clarification_status(self, raw: dict[str, Any]) -> dict[str, Any]:
         clarification = _extract_clarification(raw)
@@ -656,8 +682,8 @@ class ContextEngine:
                 encoding="utf-8",
             )
             os.rename(tmp, path)
-        except Exception:
-            pass  # crash isolation
+        except Exception as exc:
+            _logger.debug("Failed to persist context packet to %s: %s", path, exc, exc_info=True)
 
     def _fallback(self, run_id: str, *, coordinator_run_id: str = "") -> dict[str, Any]:
         return {
@@ -704,7 +730,8 @@ class ContextEngine:
             handles = store.query_artifacts(run_id=run_token, profile_id=scoped_profile_id)
             store.close()
             return handles
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to load artifact handles for run %s: %s", run_token, exc, exc_info=True)
             return []
 
 
@@ -721,11 +748,14 @@ def _folder_cache_path(project_dir: str | Path, folder_path: str) -> Path:
 
 
 def get_folder_context(project_dir: str | Path, folder_path: str) -> str | None:
-    """Retrieve cached folder context if it exists and is still valid.
+    """Return cached folder context when cache exists and is still fresh.
 
-    Returns None if:
-    - Cache file doesn't exist
-    - Folder has been modified since cache was created (stale)
+    Args:
+        project_dir: Project root used for cache location.
+        folder_path: Folder whose cache should be resolved.
+
+    Returns:
+        Cached Markdown context, or ``None`` when missing/stale/unreadable.
     """
     cache_path = _folder_cache_path(project_dir, folder_path)
     if not cache_path.exists():
@@ -752,9 +782,15 @@ def get_folder_context(project_dir: str | Path, folder_path: str) -> str | None:
 
 
 def save_folder_context(project_dir: str | Path, folder_path: str, content: str) -> str:
-    """Save folder context to cache file.
+    """Persist folder context content to the folder-scoped cache.
 
-    Returns the path to the cache file.
+    Args:
+        project_dir: Project root used for cache location.
+        folder_path: Folder identifier used to derive cache key.
+        content: Markdown context to cache.
+
+    Returns:
+        Absolute/relative path to the written cache file.
     """
     cache_path = _folder_cache_path(project_dir, folder_path)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -776,7 +812,12 @@ def score_context_entry(entry: dict[str, Any], active_task: str | None = None) -
     - Task relevance: keyword overlap with active_task gives boost
     - Usage boost: referenced entries score higher
 
-    Returns a float between 0.0 and 1.0.
+    Args:
+        entry: Context entry payload to score.
+        active_task: Optional active task string for keyword relevance.
+
+    Returns:
+        Relevance score in the ``[0.0, 1.0]`` range.
     """
     score = 0.3  # Base score (lower to prevent clamping)
 
@@ -820,10 +861,14 @@ def rank_context_entries(
     entries: list[dict[str, Any]],
     active_task: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Rank context entries by score descending.
+    """Rank context entries by descending relevance score.
 
-    Adds a '_score' field to each entry and returns entries sorted
-    by score (highest first).
+    Args:
+        entries: Context entries to score and rank.
+        active_task: Optional active task string for relevance weighting.
+
+    Returns:
+        Ranked entries, each augmented with a ``_score`` field.
     """
     scored_entries = []
     for entry in entries:
@@ -910,10 +955,13 @@ _SNAPSHOTS_REL_PATH = Path(".omg") / "state" / "snapshots"
 
 
 def get_active_task(project_dir: str) -> dict[str, Any] | None:
-    """Get the active task focus from session.json.
+    """Load active task focus from session state.
 
-    Returns the task_focus dict if it exists and has a non-empty task,
-    otherwise returns None.
+    Args:
+        project_dir: Project root containing ``.omg/state/session.json``.
+
+    Returns:
+        ``task_focus`` payload when present and non-empty, else ``None``.
     """
     project_path = Path(project_dir)
     session_path = project_path / _SESSION_REL_PATH
@@ -942,12 +990,12 @@ def set_task_focus(
     task: str,
     files: list[str] | None = None,
 ) -> None:
-    """Set the task focus in session.json.
+    """Create or update the active task focus in session state.
 
-    Creates or updates session.json with task_focus containing:
-    - task: the task description
-    - files_touched: list of files
-    - started_at: ISO timestamp
+    Args:
+        project_dir: Project root containing ``.omg/state/session.json``.
+        task: Task description to persist as current focus.
+        files: Optional list of touched files associated with the task.
     """
     from datetime import datetime, timezone
 
@@ -959,8 +1007,8 @@ def set_task_focus(
     if session_path.exists():
         try:
             session_data = json.loads(session_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to read existing task focus session data from %s: %s", session_path, exc, exc_info=True)
 
     # Update task_focus
     session_data["task_focus"] = {
@@ -981,15 +1029,12 @@ def detect_task_drift(
     """Detect if a prompt represents task drift from the active task.
 
     Args:
-        prompt: The new prompt/request
-        active_task: The active task dict from get_active_task(), or None
+        prompt: Newly received request text.
+        active_task: Active task payload from ``get_active_task``.
 
-    Returns dict with:
-    - drift: bool (True if drift detected)
-    - action: "none" | "continue" | "snapshot"
-    - suggested_action: what to do next
-    - active_task: normalized active task string
-    - confidence: float (confidence in drift detection)
+    Returns:
+        Drift-analysis payload containing drift flag, suggested action,
+        normalized active task token, and confidence score.
     """
     if active_task is None:
         return {
@@ -1040,7 +1085,11 @@ def create_handoff_snapshot(project_dir: str) -> str:
     - checklist_state from _checklist.md
     - files_touched from task focus
 
-    Returns the path to the snapshot file.
+    Args:
+        project_dir: Project root where snapshot artifacts are written.
+
+    Returns:
+        Path to the created snapshot JSON file.
     """
     from datetime import datetime, timezone
 
@@ -1061,8 +1110,8 @@ def create_handoff_snapshot(project_dir: str) -> str:
     if plan_path.exists():
         try:
             plan_state = plan_path.read_text(encoding="utf-8")
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to read handoff plan state from %s: %s", plan_path, exc, exc_info=True)
 
     # Read checklist state
     checklist_path = project_path / ".omg" / "state" / "_checklist.md"
@@ -1070,8 +1119,8 @@ def create_handoff_snapshot(project_dir: str) -> str:
     if checklist_path.exists():
         try:
             checklist_state = checklist_path.read_text(encoding="utf-8")
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to read handoff checklist state from %s: %s", checklist_path, exc, exc_info=True)
 
     # Get files touched
     files_touched: list[str] = []
@@ -1093,13 +1142,13 @@ def create_handoff_snapshot(project_dir: str) -> str:
 
 
 def list_handoff_snapshots(project_dir: str) -> list[dict[str, Any]]:
-    """List all handoff snapshots, sorted by timestamp (newest first).
+    """List handoff snapshots ordered by newest timestamp first.
 
-    Returns a list of dicts with:
-    - timestamp: snapshot timestamp
-    - task: active task description
-    - file_count: number of files touched
-    - path: path to snapshot file
+    Args:
+        project_dir: Project root containing snapshot artifacts.
+
+    Returns:
+        Snapshot summaries with timestamp, task text, file count, and path.
     """
     project_path = Path(project_dir)
     snapshots_dir = project_path / _SNAPSHOTS_REL_PATH

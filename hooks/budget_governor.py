@@ -38,6 +38,18 @@ DEFAULT_OUTPUT_PER_MTOK = 15.0
 DEFAULT_PROJECTED_TOOL_CALLS = 50
 DEFAULT_THRESHOLDS = [50, 80, 95]
 THRESHOLD_STATE_FILE = ".omg/state/.cost-threshold-state.json"
+_file_cache: dict[str, Any] = {}
+
+
+def _cached_json_load(path, *, force: bool = False):
+    path_str = str(path)
+    if force:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    if path_str not in _file_cache:
+        with open(path, "r", encoding="utf-8") as f:
+            _file_cache[path_str] = json.load(f)
+    return _file_cache[path_str]
 
 
 def _safe_float(value, default: float) -> float:
@@ -80,19 +92,24 @@ def _read_budget_config(project_dir: str) -> tuple[float, float, float, dict[str
             "tier_provenance": tier_result.get("provenance", "default"),
         }
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to detect subscription tier for budget governor: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     settings_path = os.path.join(project_dir, "settings.json")
     try:
-        with open(settings_path, "r", encoding="utf-8") as f:
-            settings = json.load(f)
+        settings = _cached_json_load(settings_path)
         budget_cfg = settings.get("_omg", {}).get("cost_budget", {})
         pricing = budget_cfg.get("pricing", {})
         session_limit = _safe_float(budget_cfg.get("session_limit_usd"), session_limit)
         input_per_mtok = _safe_float(pricing.get("input_per_mtok"), DEFAULT_INPUT_PER_MTOK)
         output_per_mtok = _safe_float(pricing.get("output_per_mtok"), DEFAULT_OUTPUT_PER_MTOK)
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to read cost budget settings; using defaults: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     return session_limit, input_per_mtok, output_per_mtok, tier_info
 
@@ -161,13 +178,15 @@ def _get_threshold_message(pct: int) -> str:
 def _read_thresholds_config(project_dir: str) -> list[int]:
     try:
         settings_path = os.path.join(project_dir, "settings.json")
-        with open(settings_path, "r", encoding="utf-8") as f:
-            settings = json.load(f)
+        settings = _cached_json_load(settings_path)
         raw = settings.get("_omg", {}).get("cost_budget", {}).get("thresholds")
         if isinstance(raw, list) and all(isinstance(t, (int, float)) for t in raw):
             return sorted(int(t) for t in raw)
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to load budget thresholds config; using defaults: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return list(DEFAULT_THRESHOLDS)
 
 
@@ -187,7 +206,10 @@ def _write_threshold_state(project_dir: str, state: dict[str, Any]) -> None:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(state, f, separators=(",", ":"))
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to persist budget threshold state: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def _check_thresholds(

@@ -66,6 +66,22 @@ class LSPClient:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
+            initial_returncode = self._process.poll()
+            if initial_returncode is not None and initial_returncode != 0:
+                stderr_text = ""
+                try:
+                    stderr_data = self._process.stderr.read() if self._process.stderr is not None else b""
+                    stderr_text = stderr_data.decode("utf-8", errors="replace").strip()[:200]
+                except Exception:  # noqa: BLE001
+                    stderr_text = ""
+                logger.warning(
+                    "LSP server exited immediately (rc=%d): %s",
+                    initial_returncode,
+                    stderr_text,
+                )
+                self._connected = False
+                self._process = None
+                return False
             self._connected = True
             logger.info("LSP server started: %s (pid=%d)", self._server_cmd, self._process.pid)
             return True
@@ -260,7 +276,7 @@ class LSPClient:
             self._process.kill()
             self._process.wait(timeout=1)
         except Exception:  # noqa: BLE001
-            pass
+            logger.debug("Failed to terminate or kill LSP server process cleanly", exc_info=True)
         finally:
             self._process = None
 

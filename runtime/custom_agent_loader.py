@@ -8,6 +8,7 @@ Feature flag: OMG_CUSTOM_AGENTS_ENABLED (default: False)
 from __future__ import annotations
 
 import os
+import logging
 import re
 import sys
 import time
@@ -16,6 +17,7 @@ from typing import Any, Callable
 
 # --- Lazy import helpers ---
 _OMG_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_logger = logging.getLogger(__name__)
 
 
 def _get_feature_flag() -> Any:
@@ -259,8 +261,8 @@ def _get_dir_state(agents_dir: str) -> dict[str, float]:
                 state[filepath] = os.stat(filepath).st_mtime
             except OSError:
                 continue
-    except OSError:
-        pass
+    except OSError as exc:
+        _logger.debug("Failed to list custom agent directory state: %s", exc, exc_info=True)
     return state
 
 
@@ -338,8 +340,9 @@ def get_all_agents(project_dir: str = ".") -> dict[str, dict[str, Any]]:
         for name, config in AGENT_REGISTRY.items():
             merged[name] = dict(config)
             merged[name]["source"] = "builtin"
-    except ImportError:
-        pass
+    except ImportError as exc:
+        # Optional: _agent_registry not available
+        _logger.debug("Failed to load built-in agent registry: %s", exc, exc_info=True)
 
     # Overlay custom agents
     custom_agents = load_custom_agents(project_dir)

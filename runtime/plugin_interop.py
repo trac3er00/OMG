@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -12,6 +13,8 @@ from enum import Enum
 from pathlib import Path
 from typing import cast
 import yaml
+
+_logger = logging.getLogger(__name__)
 
 from runtime.canonical_surface import (
     get_all_supported_hosts,
@@ -979,7 +982,7 @@ def probe_mcp_server_live(
         }
 
     try:
-        stdout_bytes, _ = process.communicate(
+        stdout_bytes, stderr_bytes = process.communicate(
             input=initialize_request.encode("utf-8"),
             timeout=timeout_ms / 1000.0,
         )
@@ -987,8 +990,8 @@ def probe_mcp_server_live(
         process.kill()
         try:
             process.communicate(timeout=2)
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to clean up timed-out MCP probe process: %s", exc, exc_info=True)
         elapsed = (time.monotonic() - started) * 1000.0
         return {
             "server": server_name,
@@ -1000,12 +1003,22 @@ def probe_mcp_server_live(
         try:
             process.kill()
             process.communicate(timeout=2)
-        except Exception:
-            pass
+        except Exception as cleanup_exc:
+            _logger.debug("Failed to clean up failed MCP probe process: %s", cleanup_exc, exc_info=True)
         return {
             "server": server_name,
             "status": "error",
             "error": str(exc),
+            "elapsed_ms": elapsed,
+        }
+
+    if process.returncode != 0:
+        elapsed = (time.monotonic() - started) * 1000.0
+        stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace").strip()[:200]
+        return {
+            "server": server_name,
+            "status": "error",
+            "error": f"process exited with code {process.returncode}: {stderr_text}",
             "elapsed_ms": elapsed,
         }
 
@@ -1023,8 +1036,8 @@ def probe_mcp_server_live(
                         t.get("name", "") for t in tool_list
                         if isinstance(t, dict) and isinstance(t.get("name"), str)
                     ]
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        pass
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        _logger.debug("Failed to parse MCP initialize response: %s", exc, exc_info=True)
 
     return {
         "server": server_name,

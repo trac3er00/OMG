@@ -40,10 +40,16 @@ try:
                 try:
                     os.remove(archive)
                 except OSError:
-                    pass
+                    try:
+                        import sys; print(f"[omg:warn] [tool-ledger] failed to remove archive: {sys.exc_info()[1]}", file=sys.stderr)
+                    except Exception:
+                        pass
             shutil.move(ledger_path, archive)
 except Exception:
-    pass
+    try:
+        import sys; print(f"[omg:warn] [tool-ledger] ledger rotation failed: {sys.exc_info()[1]}", file=sys.stderr)
+    except Exception:
+        pass
 
 tool_name = data.get("tool_name", "")
 tool_input = data.get("tool_input", {})
@@ -158,8 +164,14 @@ except (ImportError, BlockingIOError):
         with open(ledger_path, "a") as f:
             f.write(json.dumps(entry, separators=(",", ":")) + "\n")
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [tool-ledger] fallback append failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 except Exception:
-    pass  # Non-blocking: don't fail the tool call
+    try:
+        import sys; print(f"[omg:warn] [tool-ledger] append failed: {sys.exc_info()[1]}", file=sys.stderr)
+    except Exception:
+        pass
 
 sys.exit(0)

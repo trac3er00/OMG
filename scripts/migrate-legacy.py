@@ -23,12 +23,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+_logger = logging.getLogger(__name__)
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 OMG_ROOT = Path(__file__).resolve().parents[1]
@@ -262,8 +266,8 @@ def step_fix_plugin_manifests(dry_run: bool) -> list[str]:
                             for k in bad_keys:
                                 del data[k]
                             plugin_json.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-                except (json.JSONDecodeError, OSError):
-                    pass
+                except (json.JSONDecodeError, OSError) as exc:
+                    _logger.debug("Failed to update plugin manifest %s: %s", plugin_json, exc, exc_info=True)
 
     return changes
 

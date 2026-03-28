@@ -11,6 +11,13 @@ from control_plane.service import ControlPlaneService
 
 
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
+    """Send a JSON response to the client.
+
+    Args:
+        handler: The HTTP request handler.
+        status: HTTP status code.
+        payload: Dictionary to be sent as JSON.
+    """
     body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
@@ -20,6 +27,14 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[s
 
 
 def _read_json(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
+    """Read and parse JSON from the request body.
+
+    Args:
+        handler: The HTTP request handler.
+
+    Returns:
+        Parsed JSON dictionary or empty dict if parsing fails.
+    """
     length = int(handler.headers.get("Content-Length", "0"))
     if length <= 0:
         return {}
@@ -67,6 +82,15 @@ _GET_ROUTE_TABLE = {
 
 
 def _decorate_payload(payload: dict[str, Any], *, deprecated: bool) -> dict[str, Any]:
+    """Add metadata to the response payload.
+
+    Args:
+        payload: The original response payload.
+        deprecated: Whether the endpoint is deprecated.
+
+    Returns:
+        Decorated payload with API version and optional deprecation info.
+    """
     decorated = dict(payload)
     decorated["api_version"] = "v2"
     if deprecated:
@@ -76,8 +100,17 @@ def _decorate_payload(payload: dict[str, Any], *, deprecated: bool) -> dict[str,
 
 
 def make_handler(service: ControlPlaneService):
+    """Create a request handler class bound to a service instance.
+
+    Args:
+        service: The control plane service instance.
+
+    Returns:
+        A BaseHTTPRequestHandler subclass.
+    """
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
+            """Handle GET requests by routing to the appropriate service method."""
             route = _GET_ROUTE_TABLE.get(self.path)
             if route is not None:
                 method_name, deprecated = route
@@ -87,6 +120,7 @@ def make_handler(service: ControlPlaneService):
             _json_response(self, 404, {"status": "error", "message": "Not found"})
 
         def do_POST(self) -> None:  # noqa: N802
+            """Handle POST requests by reading JSON and routing to the service."""
             payload = _read_json(self)
             route = _POST_ROUTE_TABLE.get(self.path)
             if route is not None:
@@ -98,6 +132,7 @@ def make_handler(service: ControlPlaneService):
             _json_response(self, 404, {"status": "error", "message": "Not found"})
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
+            """Override to suppress default request logging."""
             # Quiet default request logs; keep response JSON clean for local usage.
             return
 
@@ -105,6 +140,13 @@ def make_handler(service: ControlPlaneService):
 
 
 def run_server(host: str = "127.0.0.1", port: int = 8787, project_dir: str | None = None) -> None:
+    """Run the HTTP server.
+
+    Args:
+        host: Host address to bind to.
+        port: Port number to listen on.
+        project_dir: Optional project directory for the service.
+    """
     service = ControlPlaneService(project_dir=project_dir)
     handler = make_handler(service)
     server = HTTPServer((host, port), handler)
@@ -118,6 +160,11 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
 def _main() -> int:
+    """Main entry point for the server CLI.
+
+    Returns:
+        Exit code (0 for success, 1 for error).
+    """
     parser = argparse.ArgumentParser(description="Run OMG control-plane API server")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)

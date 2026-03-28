@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from runtime.runtime_contracts import read_session_health, write_run_state
+
+
+_logger = logging.getLogger(__name__)
 
 
 _SESSION_HEALTH_REL = Path(".omg") / "state" / "session_health"
@@ -250,10 +254,10 @@ def _read_worker_stall_state(root: Path, run_id: str) -> dict[str, Any]:
                     last_ts = last_ts.replace(tzinfo=timezone.utc)
                 if (now - last_ts).total_seconds() > 60:
                     stalled.append(record)
-            except (ValueError, TypeError):
-                pass
-    except OSError:
-        pass
+            except (ValueError, TypeError) as exc:
+                _logger.debug("Failed to parse worker heartbeat timestamp '%s': %s", last_hb, exc, exc_info=True)
+    except OSError as exc:
+        _logger.debug("Failed to scan worker heartbeat directory %s: %s", hb_dir, exc, exc_info=True)
 
     return {"stalled_count": len(stalled), "stalled_workers": stalled}
 
@@ -276,7 +280,8 @@ def _read_envelope_pressure(project_dir: str, run_id: str) -> dict[str, float]:
         from runtime.budget_envelopes import get_budget_envelope_manager
         mgr = get_budget_envelope_manager(project_dir)
         return mgr.get_envelope_pressure(run_id)
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to read budget envelope pressure for run %s: %s", run_id, exc, exc_info=True)
         return {}
 
 

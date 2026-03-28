@@ -183,7 +183,10 @@ if __name__ == "__main__":
                 print("[OMG quality-runner] Skipping subprocess checks: context pressure high", file=sys.stderr)
                 sys.exit(0)
     except Exception:
-        pass  # fail open — run checks if pressure file unreadable
+        try:
+            import sys; print(f"[omg:warn] [quality-runner] failed to read context pressure file: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     blocks = check_quality_runner(data, project_dir)
     if blocks:

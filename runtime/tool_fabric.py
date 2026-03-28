@@ -1,7 +1,16 @@
+"""Governed tool dispatch and execution lane enforcement.
+
+Tool Fabric loads lane policy bundles, validates approvals and evidence for a
+requested tool operation, applies compliance checks, executes the bound tool
+executor, and records immutable execution ledger entries. It is the runtime
+bridge between declarative governance policy and concrete tool invocation.
+"""
+
 from __future__ import annotations
 # pyright: reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -16,9 +25,13 @@ from runtime.compliance_governor import evaluate_governed_tool_request
 from runtime.release_run_coordinator import get_active_coordinator_run_id
 from runtime.tool_plan_gate import has_tool_plan_for_run
 
+
+_logger = logging.getLogger(__name__)
+
 try:
     import yaml
-except Exception:
+except Exception as exc:
+    _logger.debug("PyYAML unavailable in tool_fabric; JSON-only bundle parsing active: %s", exc, exc_info=True)
     yaml = None
 
 
@@ -27,6 +40,15 @@ _MODULE_DIR = Path(__file__).resolve().parent.parent
 
 @dataclass(frozen=True)
 class ToolFabricResult:
+    """Outcome returned after evaluating and dispatching a tool request.
+
+    Attributes:
+        allowed: Whether the request passed all lane gates.
+        reason: Human-readable decision reason.
+        evidence_path: Relative evidence artifact path used to authorize request.
+        ledger_entry: Recorded ledger payload for successful execution.
+    """
+
     allowed: bool
     reason: str
     evidence_path: str | None
@@ -55,11 +77,30 @@ class _LanePolicy:
 
 
 class ToolFabric:
+    """Evaluate governed lane policy and orchestrate tool execution."""
+
     def __init__(self, project_dir: str | None = None) -> None:
+        """Initialize Tool Fabric with the project root and empty lane registry.
+
+        Args:
+            project_dir: Optional project root. Defaults to environment/project
+                working directory resolution.
+        """
         self.project_dir: str = project_dir or os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
         self._lanes: dict[str, _LanePolicy] = {}
 
     def register_lane(self, lane_name: str, bundle_path: str) -> None:
+        """Register a policy lane from a YAML/JSON bundle manifest.
+
+        Args:
+            lane_name: Logical lane name used by callers.
+            bundle_path: Bundle manifest path (absolute or project/module
+                relative).
+
+        Raises:
+            ValueError: If required lane or bundle fields are missing.
+            FileNotFoundError: If the bundle manifest cannot be resolved.
+        """
         lane_key = str(lane_name).strip().lower()
         if not lane_key:
             raise ValueError("lane_name_required")
@@ -129,6 +170,23 @@ class ToolFabric:
         run_id: str,
         context: dict[str, object] | None,
     ) -> ToolFabricResult:
+        """Authorize and execute a tool request inside a configured lane.
+
+        The request flow validates lane membership, semantic operation mapping,
+        approval artifacts, optional hash-bound and attestation gates, required
+        evidence payloads, and governed compliance checks before invoking the
+        bound executor.
+
+        Args:
+            lane_name: Registered lane to evaluate.
+            tool_name: Tool requested for execution.
+            run_id: Governing run identifier.
+            context: Optional execution and governance metadata.
+
+        Returns:
+            ``ToolFabricResult`` describing allow/block outcome and recorded
+            evidence/ledger pointers.
+        """
         lane = self._get_lane(lane_name)
         clean_tool = str(tool_name).strip()
         clean_run_id = str(run_id).strip()
@@ -220,6 +278,18 @@ class ToolFabric:
         context: dict[str, object] | None = None,
         require_signed: bool | None = None,
     ) -> dict[str, object]:
+        """Validate signed approval requirements for a lane/tool request.
+
+        Args:
+            lane_name: Lane being evaluated.
+            tool_name: Tool under approval review.
+            run_id: Optional run identifier required for signed approvals.
+            context: Optional context containing inline/path approval artifacts.
+            require_signed: Explicit override for signed-approval requirement.
+
+        Returns:
+            Decision payload with ``allowed`` and ``reason`` keys.
+        """
         lane = self._get_lane(lane_name)
         signed_required = lane.requires_signed_approval if require_signed is None else bool(require_signed)
         if not signed_required:
@@ -262,6 +332,19 @@ class ToolFabric:
         operation: str,
         mutation_capable: bool,
     ) -> dict[str, object]:
+        """Validate that required lane evidence exists and matches metadata.
+
+        Args:
+            lane_name: Lane being evaluated.
+            tool_name: Requested tool name.
+            run_id: Governing run identifier.
+            operation: Resolved semantic operation token.
+            mutation_capable: Whether the request is mutating in this context.
+
+        Returns:
+            Decision payload containing ``allowed``, ``reason``, and optional
+            ``evidence_path`` when evidence is satisfied.
+        """
         lane = self._get_lane(lane_name)
         active_run_id = get_active_coordinator_run_id(self.project_dir)
         if active_run_id and active_run_id != run_id:
@@ -321,6 +404,18 @@ class ToolFabric:
         run_id: str,
         result: dict[str, object],
     ) -> dict[str, object] | None:
+        """Append a tool execution ledger entry for auditability.
+
+        Args:
+            lane_name: Lane under which the tool executed.
+            tool_name: Executed tool name.
+            run_id: Governing run identifier.
+            result: Tool execution result payload.
+
+        Returns:
+            Serialized ledger entry on success, otherwise ``None`` when ledger
+            persistence fails.
+        """
         ledger_dir = Path(self.project_dir) / ".omg" / "state" / "ledger"
         ledger_dir.mkdir(parents=True, exist_ok=True)
         ledger_path = ledger_dir / "tool-ledger.jsonl"
@@ -340,7 +435,8 @@ class ToolFabric:
             with ledger_path.open("a", encoding="utf-8") as handle:
                 _ = handle.write(json.dumps(entry, separators=(",", ":"), ensure_ascii=True) + "\n")
             return entry
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to append tool ledger entry for run %s: %s", run_id, exc, exc_info=True)
             return None
 
     def _execute_tool(
@@ -508,7 +604,8 @@ class ToolFabric:
             return {"allowed": True, "reason": "evidence accepted"}
         try:
             payload = json.loads(candidate.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as exc:
+            _logger.warning("Failed to parse evidence payload %s: %s", candidate, exc, exc_info=True)
             return {"allowed": False, "reason": f"evidence must be valid JSON: {candidate.name}"}
         if not isinstance(payload, dict):
             return {"allowed": False, "reason": f"evidence must be a JSON object: {candidate.name}"}

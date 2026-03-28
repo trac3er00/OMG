@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from runtime import artifact_parsers
 from runtime.evidence_requirements import FULL_REQUIREMENTS, requirements_for_profile
+
+
+_logger = logging.getLogger(__name__)
 
 
 _REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
@@ -41,7 +45,8 @@ def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
     if not proof_result:
         try:
             proof_result = evaluate_proof_gate(payload)
-        except Exception:
+        except Exception as exc:
+            _logger.warning("Proof gate evaluation failed; returning internal error blocker: %s", exc, exc_info=True)
             proof_result = {"verdict": "fail", "blockers": ["proof_gate_internal_error"]}
 
     if not proof_result:

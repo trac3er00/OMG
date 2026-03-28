@@ -1,3 +1,12 @@
+"""Evidence-backed claim validation for OMG runtime and release gates.
+
+This module evaluates completion/release claims against required evidence,
+including artifact references, trace links, security scan outcomes, and
+causal-chain metadata. It emits deterministic verdicts (pass/fail/block),
+persists per-claim result artifacts, and can merge additional council-level
+evidence-completeness findings into the final decision.
+"""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +22,21 @@ from runtime.evidence_requirements import FULL_REQUIREMENTS, normalize_profile, 
 
 
 def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, Any]:
+    """Evaluate a batch of claims and persist claim-judge result artifacts.
+
+    For each claim, this function optionally resolves run-scoped evidence pack
+    metadata, evaluates the claim, merges council evidence findings, writes a
+    per-claim artifact under ``.omg/evidence/``, and computes an aggregate
+    verdict for the full batch.
+
+    Args:
+        project_dir: Project root that contains ``.omg`` state/evidence paths.
+        claims: Claim payloads to evaluate.
+
+    Returns:
+        Aggregate claim-judge result payload with per-claim verdicts and
+        advisory profile digest context.
+    """
     root = Path(project_dir)
     evidence_dir = root / ".omg" / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -95,6 +119,18 @@ def evaluate_claims_for_release(
     run_id: str,
     claims: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    """Evaluate release claims and map verdicts to allow/block status.
+
+    Args:
+        project_dir: Project root used for claim evaluation.
+        run_id: Run identifier used when default release claims are generated.
+        claims: Optional explicit claims. When omitted, a default
+            ``release_ready`` claim is evaluated.
+
+    Returns:
+        Decision payload with ``status`` set to ``allowed`` or ``blocked`` and
+        the underlying claim-judge result attached.
+    """
     candidate_claims = claims if isinstance(claims, list) and claims else [
         {
             "claim_type": "release_ready",
@@ -122,6 +158,21 @@ def evaluate_claims_for_release(
 
 
 def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
+    """Evaluate a single claim against evidence and policy requirements.
+
+    The evaluation pipeline normalizes claim shape, resolves evidence-profile
+    requirements, checks mandatory artifacts/trace links, validates security and
+    browser evidence, parses structured artifact content, enforces excluded
+    failure waiver policy, and validates lock->delta->verification causal chain
+    fields. Verdict priority is fail > block > pass.
+
+    Args:
+        claim: Claim payload to validate.
+
+    Returns:
+        Claim-level verdict payload including failure/block reasons and
+        normalized evidence context.
+    """
     normalized_claim = _normalize_claim(claim)
     claim_type = str(normalized_claim.get("claim_type", "")).strip()
     subject = str(normalized_claim.get("subject", "")).strip()
@@ -525,6 +576,16 @@ def _normalize_artifact_records(value: Any) -> list[str]:
 
 
 def parse_artifact_content(artifact: dict[str, Any], project_dir: str) -> dict[str, Any]:
+    """Parse a typed evidence artifact via the registered parser map.
+
+    Args:
+        artifact: Artifact descriptor containing ``kind`` and ``path``.
+        project_dir: Base directory used to resolve relative artifact paths.
+
+    Returns:
+        Parse status payload with ``parsed`` flag, normalized ``kind``, parsed
+        summary, and parser error when parsing fails.
+    """
     kind = str(artifact.get("kind", "")).strip().lower()
     path_value = str(artifact.get("path", "")).strip()
     if not kind or not path_value:

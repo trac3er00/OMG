@@ -88,7 +88,10 @@ def _save_offsets(project_dir: str, offsets: dict) -> None:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(offsets, f, separators=(",", ":"))
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [query] failed to persist offsets: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
 
 def _consume_jsonl(
@@ -241,7 +244,10 @@ def get_tool_stats(project_dir: str, hours: int | None = None) -> dict:
         if not get_feature_flag("SESSION_ANALYTICS", default=False):
             return {"tools": {}}
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [query] feature flag lookup failed in get_tool_stats: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     def consume_tool(state: dict, entry: dict) -> None:
         tool = str(entry.get("tool", "unknown"))
@@ -303,7 +309,10 @@ def get_failure_hotspots(project_dir: str) -> dict:
         if not get_feature_flag("SESSION_ANALYTICS", default=False):
             return {}
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [query] feature flag lookup failed in get_failure_hotspots: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     
     data = _load_json(_join(project_dir, _FAILURE_TRACKER), {})
     if not isinstance(data, dict):
@@ -340,7 +349,10 @@ def get_session_summary(project_dir: str) -> dict:
                 "cost_usd": 0.0,
             }
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [query] feature flag lookup failed in get_session_summary: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     def consume_tool(state: dict, entry: dict) -> None:
         state["tool_calls"] = _safe_int(state.get("tool_calls", 0), 0) + 1
@@ -437,7 +449,10 @@ def get_escalation_effectiveness(project_dir: str) -> dict:
                 "unresolved": 0,
             }
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [query] feature flag lookup failed in get_escalation_effectiveness: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     
     hotspots = get_failure_hotspots(project_dir)
     escalated_patterns = [name for name, entry in hotspots.items() if bool(entry.get("escalated"))]
@@ -474,7 +489,10 @@ def get_file_heatmap(project_dir: str) -> dict:
         if not get_feature_flag("SESSION_ANALYTICS", default=False):
             return {}
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [query] feature flag lookup failed in get_file_heatmap: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     def consume_entry(state: dict, entry: dict) -> None:
         tool = str(entry.get("tool", ""))
