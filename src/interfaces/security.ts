@@ -43,3 +43,5 @@ export interface InjectionDetectionResult {
   readonly sanitizedContent: string;
   readonly quarantined: readonly string[];
 }
+
+
