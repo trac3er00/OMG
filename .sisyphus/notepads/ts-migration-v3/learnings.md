@@ -276,3 +276,8 @@ All lsp_diagnostics: 0 errors across 25 files
 - Uncapped dimensions (limit=0 or not set) return Infinity remaining and never breach
 - BudgetEnvelope.toSnapshot() bridges to the BudgetEnvelope interface from interfaces/orchestration.ts
 - Test count: 47 passing (29 decision + 18 budget), 100% function+line coverage
+
+## [2026-03-29] Task 33: Team Router + Selector + Critics + Executor
+- Auto-target routing should prioritize explicit provider mentions, then domain hints (code/infra→codex, research→gemini), then fallback cost ranking.
+- With `exactOptionalPropertyTypes`, worker result fields must omit undefined keys via conditional object spreads.
+- `Promise.all` is a clean mirror of Python thread-pool fan-out for parallel worker dispatch in router execution.
