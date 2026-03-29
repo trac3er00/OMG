@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import os
+import logging
 import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 
 def get_pid_file_path() -> str:
@@ -91,14 +94,23 @@ def start_memory_server() -> dict[str, Any]:
         if _wait_for_health(health_url):
             pid_path.write_text(str(proc.pid))
             return {"status": "started", "pid": proc.pid, "url": get_server_url()}
+        rc = proc.poll()
+        if rc is not None and rc != 0:
+            if pid_path.exists():
+                pid_path.unlink()
+            return {
+                "status": "error",
+                "message": f"Server exited early with return code {rc}",
+            }
         try:
             proc.terminate()
             proc.wait(timeout=2)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to terminate unresponsive memory server process: %s", exc, exc_info=True)
             try:
                 proc.kill()
-            except Exception:
-                pass
+            except Exception as kill_exc:
+                _logger.debug("Failed to kill unresponsive memory server process: %s", kill_exc, exc_info=True)
         if pid_path.exists():
             pid_path.unlink()
         return {

@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from typing import Any
 
 import yaml
+
+
+_logger = logging.getLogger(__name__)
 
 
 def load_profile(path: str) -> dict[str, Any]:
@@ -26,7 +30,8 @@ def load_profile(path: str) -> dict[str, Any]:
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             payload = yaml.safe_load(fh)
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to load profile from %s: %s", path, exc, exc_info=True)
         return {}
     if isinstance(payload, dict):
         return payload

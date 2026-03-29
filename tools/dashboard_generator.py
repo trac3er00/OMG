@@ -20,7 +20,8 @@ from typing import Any, Dict, List, Optional, Tuple
 # Lazy import for feature flag helper
 _get_feature_flag = None
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+logger = _logger
 
 
 def _ensure_imports():
@@ -58,7 +59,7 @@ def _read_jsonl(path: str) -> List[Dict[str, Any]]:
                 except (json.JSONDecodeError, ValueError):
                     continue
     except Exception:
-        pass  # Crash isolation: return what we have
+        _logger.debug("Failed to read JSONL dashboard source", exc_info=True)
 
     return entries
 

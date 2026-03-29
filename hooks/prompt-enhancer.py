@@ -94,6 +94,13 @@ injections = []
 # ── Context budget ──
 MAX_CHARS = BUDGET_PROMPT_TOTAL
 
+_KOREAN_CHAR_RE = re.compile(r"[\uac00-\ud7a3]")
+_NUMBERED_ITEM_RE = re.compile(r"(?:^|\n)\s*[\d]+[.)]\s")
+_BULLET_ITEM_RE = re.compile(r"(?:^|\n)\s*[-*]\s")
+_ASCII_WORD_RE = re.compile(r"\b[a-zA-Z]{3,}\b")
+_KOREAN_WORD_RE = re.compile(r"[\uac00-\ud7a3]{2,}")
+_SECRET_ASSIGNMENT_RE = re.compile(r"(?:key|secret|token|password|credential)\s*[:=]")
+
 def budget_ok():
     return sum(len(i) for i in injections) < MAX_CHARS
 
@@ -107,7 +114,7 @@ def add(text):
 
 
 def signal_matches_text(signal, text):
-    if re.search(r'[\uac00-\ud7a3]', signal):
+    if _KOREAN_CHAR_RE.search(signal):
         return signal in text
     return re.search(r'\b' + re.escape(signal) + r'\b', text, re.IGNORECASE) is not None
 
@@ -319,7 +326,10 @@ if intent_gate_state is not None:
     try:
         _write_intent_gate_artifact(state_dir, intent_gate_state["run_id"], intent_gate_state)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [prompt-enhancer] failed to write intent gate artifact: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 # ═══════════════════════════════════════════════════════════
 # 2. DISCIPLINE SYSTEM (Sisyphus-grade)
@@ -361,7 +371,10 @@ if score_complexity is not None and detected_intent in (
         if isinstance(_gov_raw, dict):
             _gov_payload = _gov_raw
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [prompt-enhancer] failed to compute governance payload: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 if _gov_payload and budget_ok():
     parts.append(
         f"@governance: read_first={_gov_payload.get('read_first', False)} "
@@ -425,7 +438,10 @@ if is_ulw and get_feature_flag('ralph_loop'):
             os.makedirs(os.path.dirname(ralph_path), exist_ok=True)
             atomic_json_write(ralph_path, state)
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [prompt-enhancer] failed to persist ralph state: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
 # ═══════════════════════════════════════════════════════════
 # 3b. AUTO-COMPLEXITY DETECTION (auto-trigger modes for complex tasks)
@@ -461,8 +477,8 @@ if not is_crazy and not is_ulw and budget_ok():
     complexity_score += sum(2 for s in ARCH_SIGNALS if signal_matches_text(s, prompt))
 
     # Enumeration signals (numbered/bullet lists)
-    numbered_items = len(re.findall(r'(?:^|\n)\s*[\d]+[.)]\s', prompt_lower))
-    bullet_items = len(re.findall(r'(?:^|\n)\s*[-*]\s', prompt_lower))
+    numbered_items = len(_NUMBERED_ITEM_RE.findall(prompt_lower))
+    bullet_items = len(_BULLET_ITEM_RE.findall(prompt_lower))
     complexity_score += min(numbered_items + bullet_items, 5)
 
     # Word count signal
@@ -480,7 +496,10 @@ if not is_crazy and not is_ulw and budget_ok():
             if scored_category in {"trivial", "low", "medium", "high"}:
                 complexity_category = scored_category
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [prompt-enhancer] complexity scoring failed: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     # HIGH complexity (≥4): auto-trigger CRAZY + model hint + CoT
     if complexity_score >= 4:
@@ -532,7 +551,7 @@ if not is_crazy and not is_ulw and budget_ok():
             and get_compiled_preamble is not None
             and budget_ok()):
         try:
-            _task_type = detected_intent
+            _task_type = detected_intent if isinstance(detected_intent, str) else ""
             if _task_type in ("fix",):
                 _task_type = "bugfix"
             elif _task_type in ("implement", "add"):
@@ -541,7 +560,10 @@ if not is_crazy and not is_ulw and budget_ok():
             if _compiled:
                 add(_compiled)
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [prompt-enhancer] prompt compiler preamble failed: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
 # ═══════════════════════════════════════════════════════════
 # 3c. COGNITIVE MODE (from .omg/state/mode.txt)
@@ -559,7 +581,10 @@ if os.path.exists(_mode_path) and budget_ok():
             }
             add(f'@mode:{_mode_hints[_mode]}')
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [prompt-enhancer] failed to read cognitive mode: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 # ═══════════════════════════════════════════════════════════
@@ -621,7 +646,7 @@ if not route_lock and get_feature_flag('agent_registry') and budget_ok():
             resolve_agent = _agent_registry.resolve_agent
             detect_available_models = _agent_registry.detect_available_models
         _maybe_kws = locals().get("kws")
-        _routing_kws = _maybe_kws if _maybe_kws else set(re.findall(r'\b[a-zA-Z]{3,}\b', prompt_lower))
+        _routing_kws = _maybe_kws if _maybe_kws else set(_ASCII_WORD_RE.findall(prompt_lower))
         matched_agent = resolve_agent(_routing_kws)
         if isinstance(matched_agent, dict):
             _agent_name = matched_agent.get('name', '')
@@ -635,7 +660,10 @@ if not route_lock and get_feature_flag('agent_registry') and budget_ok():
                 if _desc:
                     add(f'@agent: {_agent_name} — {_desc}')
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [prompt-enhancer] agent registry routing failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 SEQUENTIAL_THINKING_SIGNALS = [
     "sequential thinking",
@@ -703,7 +731,10 @@ if any(signal_matches_text(sig, prompt) for sig in RESUME_SIGNALS) and budget_ok
                 else:
                     add("@handoff: Read .omg/state/handoff.md for context")
             except Exception:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [prompt-enhancer] handoff extraction failed: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
             break
 
 # ═══════════════════════════════════════════════════════════
@@ -730,7 +761,10 @@ if is_coding and budget_ok():
             if total > 0:
                 add(f"@progress: {done}/{total} | next: {' → '.join(pending)}")
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [prompt-enhancer] checklist progress read failed: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
 # DDD
 DDD_SIGNALS = ["new domain", "new module", "scaffold", "domain", "새 도메인", "새 모듈"]
@@ -751,8 +785,8 @@ kd = knowledge_dir
 _word_count = len(prompt_lower.split())
 _has_code_signal = is_coding or detected_intent is not None
 if os.path.isdir(kd) and budget_ok() and (_word_count >= 15 or _has_code_signal):
-    words = set(re.findall(r'\b[a-zA-Z]{3,}\b', prompt_lower))
-    words |= set(re.findall(r'[\uac00-\ud7a3]{2,}', prompt))
+    words = set(_ASCII_WORD_RE.findall(prompt_lower))
+    words |= set(_KOREAN_WORD_RE.findall(prompt))
     stops = {"the","and","for","that","this","with","from","have","will",
              "but","not","are","was","can","could","should","about",
              "just","also","want","need","like","make","please","help","use","try"}
@@ -770,14 +804,20 @@ if os.path.isdir(kd) and budget_ok() and (_word_count >= 15 or _has_code_signal)
                     try:
                         os.remove(index_path)
                     except OSError:
-                        pass
+                        try:
+                            import sys; print(f"[omg:warn] [prompt-enhancer] failed to remove invalid knowledge index: {sys.exc_info()[1]}", file=sys.stderr)
+                        except Exception:
+                            pass
                     index = {}
         except (json.JSONDecodeError, ValueError):
             # Corrupted index — delete and rebuild
             try:
                 os.remove(index_path)
             except OSError:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [prompt-enhancer] failed to delete corrupted knowledge index: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
             index = {}
         except FileNotFoundError:
             index = {}
@@ -806,14 +846,17 @@ if os.path.isdir(kd) and budget_ok() and (_word_count >= 15 or _has_code_signal)
                     # Strip lines that look like secret assignments before caching
                     sanitized_lines = []
                     for cline in content.split("\n"):
-                        if re.search(r'(?:key|secret|token|password|credential)\s*[:=]', cline):
+                        if _SECRET_ASSIGNMENT_RE.search(cline):
                             continue
                         sanitized_lines.append(cline)
                     content = "\n".join(sanitized_lines)
                     index[fp] = {"mtime": mtime, "content": content}
                     rebuild = True
                 except Exception:
-                    pass
+                    try:
+                        import sys; print(f"[omg:warn] [prompt-enhancer] failed to index knowledge file: {sys.exc_info()[1]}", file=sys.stderr)
+                    except Exception:
+                        pass
             if file_count > 30:
                 break
 
@@ -864,7 +907,10 @@ if get_feature_flag('memory') and budget_ok():
             if mem_context:
                 add(f'@memory: {mem_context}')
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [prompt-enhancer] memory retrieval failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 # ═══════════════════════════════════════════════════════════
 # 8. ERROR LOOP PREVENTION
@@ -885,7 +931,10 @@ if any(signal_matches_text(sig, prompt) for sig in STUCK_SIGNALS) and budget_ok(
                 top = sorted(active.items(), key=lambda x: -x[1])[:2]
                 ctx = f" ({', '.join(f'{k[:25]}×{c}' for k,c in top)})"
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [prompt-enhancer] failure tracker read failed: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     # Only inject if there are ≥2 tracked failures (not just keyword match)
     if active:
         # Dedup: skip if @stuck was injected within last 60 seconds
@@ -899,14 +948,20 @@ if any(signal_matches_text(sig, prompt) for sig in STUCK_SIGNALS) and budget_ok(
                 if now - last_ts < 60:
                     should_inject = False
         except (ValueError, OSError):
-            pass  # Corrupt file → allow injection
+            try:
+                import sys; print(f"[omg:warn] [prompt-enhancer] failed to parse stuck timestamp: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
         if should_inject:
             try:
                 os.makedirs(os.path.dirname(ts_path) or ".", exist_ok=True)
                 with open(ts_path, "w") as f:
                     f.write(str(now))
             except OSError:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [prompt-enhancer] failed to persist stuck timestamp: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
             add(f"@stuck{ctx}: STOP retrying. /OMG:escalate codex | different approach | ask user")
 
 # ═══════════════════════════════════════════════════════════
@@ -948,7 +1003,10 @@ if (get_feature_flag("tool_discovery", True)
             if _tool_text:
                 add(_tool_text)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [prompt-enhancer] semantic tool discovery failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 # ═══════════════════════════════════════════════════════════
 # OUTPUT
@@ -958,7 +1016,10 @@ try:
     if is_high_pressure:
         add(f"@context-pressure: High context usage detected ({tool_count} tool calls). Auto-saving state...")
 except Exception:
-    pass
+    try:
+        import sys; print(f"[omg:warn] [prompt-enhancer] context pressure estimation failed: {sys.exc_info()[1]}", file=sys.stderr)
+    except Exception:
+        pass
 
 if injections:
     output = "\n".join(injections)

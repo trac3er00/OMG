@@ -42,6 +42,13 @@ def _has_git(project_dir: str) -> bool:
             ["git", "-C", project_dir, "rev-parse", "--git-dir"],
             capture_output=True, text=True, timeout=5,
         )
+        if result.returncode != 0:
+            snippet = (result.stderr or result.stdout or "").strip()[:200]
+            print(
+                f"[OMG branch-manager] git rev-parse --git-dir failed "
+                f"(rc={result.returncode}): {snippet}",
+                file=sys.stderr,
+            )
         return result.returncode == 0
     except Exception:
         return False
@@ -56,8 +63,17 @@ def _current_branch(project_dir: str) -> str | None:
         )
         if result.returncode == 0:
             return result.stdout.strip()
-    except Exception:
-        pass
+        snippet = (result.stderr or result.stdout or "").strip()[:200]
+        print(
+            f"[OMG branch-manager] git rev-parse --abbrev-ref failed "
+            f"(rc={result.returncode}): {snippet}",
+            file=sys.stderr,
+        )
+    except Exception as exc:
+        print(
+            f"[omg:warn] [branch_manager] failed to read current branch: {exc}",
+            file=sys.stderr,
+        )
     return None
 
 
@@ -115,7 +131,10 @@ def _extract_task_description(project_dir: str) -> str | None:
                         if title:
                             return title
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [branch_manager] failed to read plan title: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     # (b) Checklist first item
     checklist_path = os.path.join(state_dir, "_checklist.md")
@@ -131,7 +150,10 @@ def _extract_task_description(project_dir: str) -> str | None:
                         if item:
                             return item
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [branch_manager] failed to read checklist item: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     # (c) Working memory last entry
     wm_path = os.path.join(state_dir, "working-memory.md")
@@ -160,7 +182,10 @@ def _extract_task_description(project_dir: str) -> str | None:
                     if line and not line.startswith("#"):
                         return line
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [branch_manager] failed to read working memory: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     # (d) No state files found
     return None
@@ -190,6 +215,13 @@ def _create_branch(project_dir: str, branch_name: str) -> bool:
             ["git", "-C", project_dir, "checkout", "-b", branch_name],
             capture_output=True, text=True, timeout=10,
         )
+        if result.returncode != 0:
+            snippet = (result.stderr or result.stdout or "").strip()[:200]
+            print(
+                f"[OMG branch-manager] git checkout -b failed "
+                f"(rc={result.returncode}): {snippet}",
+                file=sys.stderr,
+            )
         return result.returncode == 0
     except Exception:
         return False

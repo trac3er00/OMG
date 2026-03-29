@@ -21,7 +21,7 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import (
+from hooks._common import (
     setup_crash_handler,
     json_input,
     get_feature_flag,
@@ -59,7 +59,7 @@ def _line_hash_id(line: str) -> str:
     return HASH_CHARSET[high_nibble] + HASH_CHARSET[low_nibble]
 
 
-def inject_hashlines(content: str, file_path: str = None) -> str:
+def inject_hashlines(content: str, file_path: str | None = None) -> str:
     """Add hash anchors to each line of content.
 
     Format: `{line_num}#{hash_id}|{original_line}` (1-indexed)
@@ -116,7 +116,7 @@ def strip_hashlines(content: str) -> str:
     return "\n".join(result)
 
 
-def _apply_cached_hashes(content: str, line_hashes: dict) -> str:
+def _apply_cached_hashes(content: str, line_hashes: dict[str, str]) -> str:
     """Apply cached hash IDs to content lines."""
     lines = content.split("\n")
     result = []
@@ -137,7 +137,7 @@ def _get_cache_path() -> str:
     return os.path.join(get_project_dir(), _CACHE_REL_PATH)
 
 
-def _load_cache() -> dict:
+def _load_cache() -> dict[str, dict[str, object]]:
     """Load the entire hashline cache from disk. Returns empty dict on failure."""
     cache_path = _get_cache_path()
     try:
@@ -149,7 +149,7 @@ def _load_cache() -> dict:
         return {}
 
 
-def _get_cached_hashes(file_path: str):
+def _get_cached_hashes(file_path: str) -> dict[str, str] | None:
     """Get cached line hashes for a file, if still valid.
 
     Args:
@@ -171,16 +171,20 @@ def _get_cached_hashes(file_path: str):
 
         # Check mtime for invalidation
         current_mtime = os.path.getmtime(abs_path)
-        cached_mtime = entry.get("mtime", 0)
+        cached_mtime_raw = entry.get("mtime", 0)
+        cached_mtime = float(cached_mtime_raw) if isinstance(cached_mtime_raw, (int, float)) else 0.0
         if abs(current_mtime - cached_mtime) > 0.001:
             return None
 
-        return entry.get("line_hashes")
+        line_hashes = entry.get("line_hashes")
+        if isinstance(line_hashes, dict):
+            return {str(k): str(v) for k, v in line_hashes.items()}
+        return None
     except Exception:
         return None
 
 
-def _cache_hashes(file_path: str, line_hashes: dict) -> None:
+def _cache_hashes(file_path: str, line_hashes: dict[str, str]) -> None:
     """Save line hashes to sidecar cache with mtime for invalidation.
 
     Args:
@@ -202,7 +206,10 @@ def _cache_hashes(file_path: str, line_hashes: dict) -> None:
 
         atomic_json_write(_get_cache_path(), cache)
     except Exception:
-        pass  # Never crash on cache write failure
+        try:
+            print(f"[omg:warn] [hashline-injector] failed to cache line hashes: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 # --- Feature Flag ---
@@ -264,7 +271,10 @@ def main():
         data["tool_input"] = tool_input
         json.dump(data, sys.stdout)
     except Exception:
-        pass  # Graceful degradation — never crash
+        try:
+            print(f"[omg:warn] [hashline-injector] failed to inject hashlines: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     sys.exit(0)
 

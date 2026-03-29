@@ -62,7 +62,10 @@ def _read_json(path: str) -> dict[str, Any] | None:
             if isinstance(data, dict):
                 return data
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [compression_feedback] failed to read json: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return None
 
 
@@ -127,10 +130,16 @@ def _rotate_jsonl_if_needed(path: str) -> None:
                 try:
                     os.remove(archive)
                 except OSError:
-                    pass
+                    try:
+                        import sys; print(f"[omg:warn] [compression_feedback] failed to remove archive: {sys.exc_info()[1]}", file=sys.stderr)
+                    except Exception:
+                        pass
             shutil.move(path, archive)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [compression_feedback] failed to rotate jsonl: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def _read_feedback_entries(path: str) -> list[dict[str, Any]]:
@@ -150,7 +159,10 @@ def _read_feedback_entries(path: str) -> list[dict[str, Any]]:
                 except Exception:
                     continue
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] [compression_feedback] failed to read feedback entries: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return rows
 
 
@@ -168,9 +180,15 @@ def _append_jsonl(path: str, entry: dict[str, Any]) -> None:
             with open(path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, separators=(",", ":")) + "\n")
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] [compression_feedback] failed to append fallback jsonl: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] [compression_feedback] failed to append jsonl: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def _promotions(entries: list[dict[str, Any]], matched_items: list[str]) -> list[str]:
@@ -250,5 +268,8 @@ if __name__ == "__main__":
     try:
         main()
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [compression_feedback] main failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     sys.exit(0)

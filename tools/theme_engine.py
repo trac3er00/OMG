@@ -11,14 +11,19 @@ Feature flag: OMG_THEMES_ENABLED (default: False)
 import argparse
 import datetime
 import json
+import logging
 import os
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+_logger = logging.getLogger(__name__)
+
 try:
     import yaml
 except ImportError:
+    # Optional: yaml not available
+    _logger.debug("Failed to import yaml module", exc_info=True)
     yaml = None
 
 # --- Lazy imports for hooks/_common.py ---
@@ -43,7 +48,8 @@ def _ensure_imports():
         if _atomic_json_write is None:
             _atomic_json_write = _ajw
     except ImportError:
-        pass
+        # Optional: hooks._common not available
+        _logger.debug("Failed to import hooks._common helpers", exc_info=True)
 
 
 def is_themes_enabled() -> bool:
@@ -109,7 +115,7 @@ class ThemeEngine:
                     if bg >= 8:
                         dark_mode = False
                 except ValueError:
-                    pass
+                    _logger.debug("Failed to parse COLORFGBG background value", exc_info=True)
         
         if term_program == "iterm.app":
             # iTerm2 specific detection could go here, but default to dark
@@ -137,7 +143,7 @@ class ThemeEngine:
                 if data:
                     return Theme.from_dict(data)
         except Exception:
-            pass
+            _logger.debug("Failed to load theme file", exc_info=True)
         return None
 
     def _hex_to_rgb(self, hex_color: str) -> tuple:
@@ -204,7 +210,7 @@ class ThemeEngine:
                 if filename.endswith(".yaml") or filename.endswith(".yml"):
                     themes.append(os.path.splitext(filename)[0])
         except OSError:
-            pass
+            _logger.debug("Failed to list available theme files", exc_info=True)
         return sorted(themes)
 
     def save_preference(self, theme_name: str) -> bool:

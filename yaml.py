@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 from typing import Any
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _read_text(stream_or_text: Any) -> str:
@@ -157,8 +161,8 @@ def _parse_scalar(text: str) -> Any:
         if text.startswith("0") and text not in {"0", "0.0"} and not text.startswith("0."):
             raise ValueError
         return int(text)
-    except ValueError:
-        pass
+    except ValueError as exc:
+        _logger.debug("Failed integer parse for scalar %r: %s", text, exc, exc_info=True)
     try:
         return float(text)
     except ValueError:
@@ -250,8 +254,8 @@ def safe_load(stream: Any) -> Any:
     if stripped[0] in {"{", "["}:
         try:
             return json.loads(stripped)
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as exc:
+            _logger.debug("Failed JSON parse in safe_load for payload prefix %r: %s", stripped[:40], exc, exc_info=True)
     return _Parser(_prepare_lines(text)).parse()
 
 

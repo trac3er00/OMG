@@ -591,7 +591,10 @@ def get_active_key(provider: str, project_dir: str | None = None) -> str | None:
     try:
         _warn_if_expired(provider, key_entry)
     except Exception:
-        pass  # Never let expiry check crash key retrieval
+        try:
+            print(f"[omg:warn] failed to evaluate credential expiry warning: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     return key_entry.get("key")
 
@@ -639,7 +642,10 @@ def advance_key(provider: str, project_dir: str | None = None) -> None:
     try:
         save_store(store, passphrase, project_dir)
     except (ValueError, OSError, RuntimeError):
-        pass  # Best-effort; don't crash the API call
+        try:
+            print(f"[omg:warn] failed to persist rotated credential state: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 # =============================================================================
@@ -666,7 +672,10 @@ def get_rotation_schedule_days() -> int:
             cred_cfg = settings.get("_omg", {}).get("credentials", {})
             return int(cred_cfg.get("rotation_schedule_days", _DEFAULT_ROTATION_SCHEDULE_DAYS))
     except (json.JSONDecodeError, OSError, TypeError, ValueError):
-        pass
+        try:
+            print(f"[omg:warn] failed to read rotation schedule from settings.json: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return _DEFAULT_ROTATION_SCHEDULE_DAYS
 
 
@@ -680,7 +689,10 @@ def _get_expiry_warning_days() -> int:
             cred_cfg = settings.get("_omg", {}).get("credentials", {})
             return int(cred_cfg.get("expiry_warning_days", _DEFAULT_EXPIRY_WARNING_DAYS))
     except (json.JSONDecodeError, OSError, TypeError, ValueError):
-        pass
+        try:
+            print(f"[omg:warn] failed to read expiry warning threshold from settings.json: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return _DEFAULT_EXPIRY_WARNING_DAYS
 
 
@@ -729,7 +741,10 @@ def check_expiry(project_dir: str) -> list[dict]:
     try:
         warning_days = _get_expiry_warning_days()
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to resolve expiry warning days; using default: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     results = []
     for provider_name, pdata in sorted(providers.items()):

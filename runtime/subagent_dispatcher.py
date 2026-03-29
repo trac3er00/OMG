@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import json
+import logging
 import shlex
 import subprocess
 import sys
@@ -29,6 +30,7 @@ MAX_JOBS = 100
 _executor: ThreadPoolExecutor | None = None
 _jobs: dict[str, dict[str, Any]] = {}
 _lock = threading.Lock()
+_logger = logging.getLogger(__name__)
 
 
 def _get_feature_flag() -> Any:
@@ -360,7 +362,7 @@ def _cleanup_worktree(worktree_dir: str) -> None:
 
     project_dir = _get_project_dir()
     try:
-        subprocess.run(
+        cleanup_proc = subprocess.run(
             ["git", "worktree", "remove", "--force", worktree_dir],
             capture_output=True,
             text=True,
@@ -368,21 +370,29 @@ def _cleanup_worktree(worktree_dir: str) -> None:
             timeout=15,
             cwd=project_dir,
         )
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+        if cleanup_proc.returncode != 0:
+            snippet = (cleanup_proc.stderr or cleanup_proc.stdout or "").strip()[:200]
+            _logger.warning(
+                "git worktree remove failed (rc=%d): %s",
+                cleanup_proc.returncode,
+                snippet,
+            )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        _logger.debug("Failed to remove git worktree during cleanup: %s", exc, exc_info=True)
 
     # Fallback: remove directory if still exists
     try:
         if os.path.isdir(worktree_dir):
             shutil.rmtree(worktree_dir, ignore_errors=True)
-    except OSError:
-        pass
+    except OSError as exc:
+        _logger.debug("Failed to remove worktree directory during cleanup: %s", exc, exc_info=True)
 
 
 def _enforce_merge_writer_gate(run_id: str, record: dict[str, Any], project_dir: str) -> None:
     try:
         from runtime.merge_writer import get_merge_writer, MergeWriterAuthorizationError
     except ImportError:
+        # Optional: runtime.merge_writer not available
         return
     try:
         get_merge_writer(project_dir).require_authorization(
@@ -392,8 +402,8 @@ def _enforce_merge_writer_gate(run_id: str, record: dict[str, Any], project_dir:
         )
     except MergeWriterAuthorizationError:
         raise
-    except Exception:
-        pass
+    except Exception as exc:
+        _logger.debug("Failed to enforce merge writer gate: %s", exc, exc_info=True)
 
 
 def _run_job(job_id: str) -> None:
@@ -419,8 +429,8 @@ def _run_job(job_id: str) -> None:
         get_worker_watchdog(_get_project_dir()).record_heartbeat(
             run_id, worker_pid=os.getpid(),
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        _logger.debug("Failed to record worker heartbeat: %s", exc, exc_info=True)
 
     worktree_dir: str | None = None
     project_dir = _get_project_dir()
@@ -570,8 +580,8 @@ def cancel_job(job_id: str) -> bool:
             "cleanup": cleanup,
         }
         _write_job_evidence(job_id, cancel_evidence, project_dir=project_dir)
-    except Exception:
-        pass
+    except Exception as exc:
+        _logger.debug("Failed to emit cancel evidence for subagent job: %s", exc, exc_info=True)
 
     _persist_job(job_id, record)
     return True

@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import importlib
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Language extension mapping
@@ -355,7 +358,7 @@ def _persist(project_dir: Path, payload: dict[str, object]) -> None:
             encoding="utf-8",
         )
     except Exception:
-        pass  # Crash isolation: never raise to caller
+        _logger.debug("Failed to persist dependency graph payload", exc_info=True)
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import (
+from hooks._common import (
     setup_crash_handler,
     json_input,
     get_feature_flag,
@@ -113,7 +113,7 @@ def refresh_cache_after_format(file_path: str, formatted_content: str) -> bool:
         return False
 
 
-def reconcile_post_format(file_path: str) -> dict:
+def reconcile_post_format(file_path: str) -> dict[str, object]:
     """Reconcile hash cache with the current file on disk.
 
     Reads the file, checks whether the cached mtime is stale
@@ -215,7 +215,10 @@ def main():
         result = reconcile_post_format(file_path)
         json.dump(result, sys.stdout)
     except Exception:
-        pass  # Graceful degradation — never crash
+        try:
+            print(f"[omg:warn] [hashline-formatter-bridge] reconcile failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     sys.exit(0)
 

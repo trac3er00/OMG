@@ -6,9 +6,12 @@ written to compiled output.
 """
 from __future__ import annotations
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 _PACKET_REL_PATH = Path(".omg") / "state" / "context_engine_packet.json"
 _ALLOWED_PACKET_KEYS = frozenset({
@@ -39,8 +42,8 @@ def _load_packet(root: Path) -> dict[str, Any]:
             raw = json.loads(packet_path.read_text(encoding="utf-8"))
             if isinstance(raw, dict):
                 return {k: v for k, v in raw.items() if k in _ALLOWED_PACKET_KEYS}
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to load context packet from %s: %s", packet_path, exc, exc_info=True)
     return {
         "packet_version": "1.0",
         "summary": "no active context signals",
@@ -93,7 +96,8 @@ def compile_context_packets(
         if gemini_src.exists():
             try:
                 gemini_data = json.loads(gemini_src.read_text(encoding="utf-8"))
-            except Exception:
+            except Exception as exc:
+                _logger.debug("Failed to parse Gemini settings from %s: %s", gemini_src, exc, exc_info=True)
                 gemini_data = {}
         else:
             gemini_data = {}
@@ -111,7 +115,8 @@ def compile_context_packets(
         if kimi_src.exists():
             try:
                 kimi_data = json.loads(kimi_src.read_text(encoding="utf-8"))
-            except Exception:
+            except Exception as exc:
+                _logger.debug("Failed to parse Kimi MCP settings from %s: %s", kimi_src, exc, exc_info=True)
                 kimi_data = {}
         else:
             kimi_data = {}

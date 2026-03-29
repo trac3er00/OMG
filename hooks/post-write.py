@@ -106,9 +106,20 @@ def _main():
         import shutil
         if shutil.which(fmt_cmd[0]):
             try:
-                subprocess.run(fmt_cmd + [file_path], capture_output=True, timeout=15, cwd=project_dir)
-            except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-                pass
+                fmt_result = subprocess.run(
+                    fmt_cmd + [file_path],
+                    capture_output=True,
+                    timeout=15,
+                    cwd=project_dir,
+                )
+                if fmt_result.returncode != 0:
+                    snippet = (fmt_result.stderr or fmt_result.stdout or "").strip()[:200]
+                    print(
+                        f"[OMG] post-write.py: formatter failed (rc={fmt_result.returncode}): {snippet}",
+                        file=sys.stderr,
+                    )
+            except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+                print(f"[omg:warn] [post-write] formatter subprocess failed: {exc}", file=sys.stderr)
 
     try:
         file_size = os.path.getsize(file_path)

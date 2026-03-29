@@ -9,11 +9,15 @@ Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from typing import List
 
 from omg_natives._bindings import bind_function
+
+
+_logger = logging.getLogger(__name__)
 
 
 def ps() -> list[dict]:
@@ -35,8 +39,8 @@ def ps() -> list[dict]:
                 name = _read_proc_name(pid)
                 status = _read_proc_status(pid)
                 processes.append({"pid": pid, "name": name, "status": status})
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to scan /proc for process list: %s", exc, exc_info=True)
 
     # Always include at least the current and parent process
     if not processes:
@@ -72,8 +76,8 @@ def _read_proc_status(pid: int) -> str:
             for line in f:
                 if line.startswith("State:"):
                     return line.split(":", 1)[1].strip().split()[0]
-    except OSError:
-        pass
+    except OSError as exc:
+        _logger.debug("Failed to read /proc/%s/status: %s", pid, exc, exc_info=True)
     return "unknown"
 
 

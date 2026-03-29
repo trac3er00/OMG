@@ -28,6 +28,19 @@ PRE_TOOL_INJECT_MAX_MS = 100
 STOP_CHECK_MAX_MS = 15000
 STOP_DISPATCHER_TOTAL_MAX_MS = 90000
 
+_file_cache: dict[str, object] = {}
+
+
+def _cached_json_load(path, *, force: bool = False):
+    path_str = str(path)
+    if force:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    if path_str not in _file_cache:
+        with open(path, "r", encoding="utf-8") as f:
+            _file_cache[path_str] = json.load(f)
+    return _file_cache[path_str]
+
 
 def _managed_site_packages(runtime_root: Path) -> list[Path]:
     venv_root = runtime_root / ".venv"
@@ -130,7 +143,10 @@ def block_decision(reason, *, block_reason="unknown", project_dir=None):
     try:
         record_stop_block(project_dir=project_dir, reason=block_reason)
     except Exception:
-        pass  # never let tracker failure prevent the block decision
+        try:
+            print(f"[omg:warn] failed to record stop block before decision: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     json.dump({"decision": "block", "reason": reason}, sys.stdout)
 
 
@@ -147,7 +163,10 @@ def setup_crash_handler(hook_name, fail_closed=False):
             try:
                 deny_decision(f"OMG {hook_name} crash: {exc_val}. Denying for safety.")
             except Exception:
-                pass
+                try:
+                    print(f"[omg:warn] failed to emit deny decision from crash handler: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
         os._exit(0)
     sys.excepthook = _excepthook
 
@@ -197,11 +216,17 @@ def log_hook_error(hook_name, error, context=None):
                         try:
                             os.remove(archive)
                         except OSError:
-                            pass
+                            try:
+                                print(f"[omg:warn] failed to remove archived hook error ledger: {sys.exc_info()[1]}", file=sys.stderr)
+                            except Exception:
+                                pass
                     try:
                         os.rename(ledger_path, archive)
                     except OSError:
-                        pass
+                        try:
+                            print(f"[omg:warn] failed to rotate hook error ledger archive: {sys.exc_info()[1]}", file=sys.stderr)
+                        except Exception:
+                            pass
 
                 fd = os.open(
                     ledger_path,
@@ -299,18 +324,25 @@ def hook_reentry_guard(hook_name):
             try:
                 os.close(fd)
             except Exception:
-                pass
+                try:
+                    print(f"[omg:warn] failed to close reentry guard lock fd on skip: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
             fd = None
         yield False
         return
 
     if acquired:
+        assert fd is not None
         try:
             os.ftruncate(fd, 0)
             os.lseek(fd, 0, os.SEEK_SET)
             os.write(fd, json.dumps({"pid": os.getpid(), "ts": time.time()}).encode("utf-8"))
         except Exception:
-            pass  # Non-critical: diagnostics only
+            try:
+                print(f"[omg:warn] failed to write reentry guard diagnostics: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     try:
         yield True  # Either lock acquired or fail-open
@@ -319,11 +351,17 @@ def hook_reentry_guard(hook_name):
             try:
                 fcntl.flock(fd, fcntl.LOCK_UN)
             except Exception:
-                pass
+                try:
+                    print(f"[omg:warn] failed to unlock reentry guard lock: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
             try:
                 os.close(fd)
             except Exception:
-                pass
+                try:
+                    print(f"[omg:warn] failed to close reentry guard lock fd: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
 
 
 def atomic_json_write(path, data):
@@ -354,7 +392,10 @@ def atomic_json_write(path, data):
             try:
                 os.unlink(tmp_path)
             except OSError:
-                pass
+                try:
+                    print(f"[omg:warn] failed to clean up atomic write temp file: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
             raise
         else:
             os.close(fd)
@@ -386,7 +427,10 @@ def read_checklist_session(project_dir):
             if isinstance(payload, dict):
                 return payload
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to read checklist session sidecar: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return None
 
 
@@ -430,13 +474,19 @@ def has_recent_tool_activity(project_dir, since_minutes=60):
                 if any(kw in command for kw in ("test", "lint", "check", "build", "pytest", "jest", "vitest")):
                     result["has_tests"] = True
     except OSError:
-        pass
+        try:
+            print(f"[omg:warn] failed to scan recent tool activity ledger: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return result
 
 
 # Feature flags cache — read settings.json once per hook invocation
 _FEATURE_CACHE = {}
 _settings_preset = None
+_feature_settings_loaded = False
+_settings_cache: dict[str, object] | None = None
+_settings_cache_loaded = False
 _MANAGED_PRESET_FLAGS = {
     "SETUP",
     "SETUP_WIZARD",
@@ -518,15 +568,14 @@ _FEATURE_ALIASES = {
 
 def _load_feature_settings():
     """Populate feature cache from settings.json and return the configured preset."""
-    global _settings_preset
+    global _settings_preset, _feature_settings_loaded
 
     _FEATURE_CACHE.clear()
     _settings_preset = None
+    _feature_settings_loaded = False
     try:
-        settings_path = os.path.join(get_project_dir(), "settings.json")
-        if os.path.exists(settings_path):
-            with open(settings_path, "r", encoding="utf-8") as f:
-                settings = json.load(f)
+        settings = get_settings()
+        if isinstance(settings, dict):
             omg = settings.get("_omg", {})
             if isinstance(omg, dict):
                 features = omg.get("features", {})
@@ -536,7 +585,33 @@ def _load_feature_settings():
                 if isinstance(preset, str) and preset in _PRESET_FEATURES:
                     _settings_preset = preset
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to load feature settings from settings.json: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
+    finally:
+        _feature_settings_loaded = True
+
+
+def get_settings(force: bool = False):
+    global _settings_cache, _settings_cache_loaded
+
+    if force:
+        _settings_cache_loaded = False
+
+    if not _settings_cache_loaded:
+        settings_path = os.path.join(get_project_dir(), "settings.json")
+        loaded: dict[str, object] = {}
+        if os.path.exists(settings_path):
+            data = _cached_json_load(settings_path, force=force)
+            if isinstance(data, dict):
+                loaded = data
+        _settings_cache = loaded
+        _settings_cache_loaded = True
+
+    if isinstance(_settings_cache, dict):
+        return _settings_cache
+    return {}
 
 
 def get_feature_flag(flag_name, default=True):
@@ -556,7 +631,7 @@ def get_feature_flag(flag_name, default=True):
         return True
 
     # Check settings.json (cached)
-    if not _FEATURE_CACHE:
+    if not _feature_settings_loaded:
         _load_feature_settings()
 
     env_preset = os.environ.get("OMG_PRESET", "").lower().strip()
@@ -707,7 +782,10 @@ def should_skip_stop_hooks(data):
                 print("[OMG] Guard 2 triggered: stop-hook feedback loop", file=sys.stderr)
                 return True
         except Exception:
-            pass  # Fail open — don't skip hooks on read errors
+            try:
+                print(f"[omg:warn] failed to inspect transcript for stop-hook feedback loop: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     # Guard 4: File-based loop breaker (safety net)
     #   If stop hooks have blocked multiple times in quick succession,
@@ -747,7 +825,10 @@ def should_skip_stop_hooks(data):
                             )
                             return True
         except Exception:
-            pass  # fail open
+            try:
+                print(f"[omg:warn] failed to evaluate guard 5 stop-block tracker state: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     return False
 
 
@@ -797,10 +878,16 @@ def record_stop_block(project_dir=None, reason: str = "unknown", session_id: str
                         if reason == "unknown":
                             state["reason"] = old.get("reason", "unknown")
                 except Exception:
-                    pass  # intentional: corrupt file, start fresh
+                    try:
+                        print(f"[omg:warn] failed to parse existing stop-block tracker; starting fresh: {sys.exc_info()[1]}", file=sys.stderr)
+                    except Exception:
+                        pass
             atomic_json_write(path, state)
     except Exception:
-        pass  # intentional: never crash on tracking
+        try:
+            print(f"[omg:warn] failed to persist stop-block tracker state: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def is_stop_block_loop(project_dir=None, session_id: str = ""):
@@ -846,7 +933,10 @@ def reset_stop_block_tracker(project_dir=None):
         if os.path.exists(path):
             os.remove(path)
     except Exception:
-        pass  # intentional: never crash on cleanup
+        try:
+            print(f"[omg:warn] failed to reset stop-block tracker: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 _SESSION_SLUG_ADJECTIVES = [
@@ -897,7 +987,10 @@ def detect_codex_available() -> bool:
             _codex_available = True
             return True
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to probe .agents directory for codex availability: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     _codex_available = False
     return False

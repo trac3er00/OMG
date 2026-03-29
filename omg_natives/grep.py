@@ -8,11 +8,15 @@ Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import List
 
 from omg_natives._bindings import bind_function
+
+
+_logger = logging.getLogger(__name__)
 
 
 def grep(pattern: str, path: str, recursive: bool = False) -> list[dict]:
@@ -39,8 +43,8 @@ def grep(pattern: str, path: str, recursive: bool = False) -> list[dict]:
                             "line": lineno,
                             "text": line.rstrip("\n"),
                         })
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to read file during grep fallback %s: %s", filepath, exc, exc_info=True)
 
     if recursive and os.path.isdir(path):
         for root, _dirs, files in os.walk(path):

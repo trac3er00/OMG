@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -11,6 +12,9 @@ import tempfile
 from typing import Any
 
 from omg_natives._bindings import bind_function
+
+
+_logger = logging.getLogger(__name__)
 
 try:
     from PIL import Image, ImageChops, ImageOps
@@ -27,8 +31,8 @@ def _base_info(path: str) -> dict[str, Any]:
     if exists:
         try:
             size_bytes = os.path.getsize(path)
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to stat image path %s: %s", path, exc, exc_info=True)
     return {
         "path": str(p),
         "size_bytes": size_bytes,

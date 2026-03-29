@@ -29,9 +29,22 @@ from runtime.tool_fabric import ToolFabric
 
 class ControlPlaneService:
     def __init__(self, project_dir: str | None = None):
+        """Initialize the control plane service.
+
+        Args:
+            project_dir: Path to the project directory. Defaults to CLAUDE_PROJECT_DIR or current working directory.
+        """
         self.project_dir = project_dir or os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
 
     def vision_jobs(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Submit a vision job for processing.
+
+        Args:
+            payload: Job configuration including mode and input file paths.
+
+        Returns:
+            A tuple containing the HTTP status code and response payload.
+        """
         if not isinstance(payload, dict):
             return 400, {
                 "status": "error",
@@ -72,6 +85,14 @@ class ControlPlaneService:
         }
 
     def policy_evaluate(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Evaluate a tool call against the current security policy.
+
+        Args:
+            payload: Tool name and input data to evaluate.
+
+        Returns:
+            A tuple containing the HTTP status code and policy decision.
+        """
         tool = str(payload.get("tool", ""))
         input_data = payload.get("input", {})
 
@@ -98,6 +119,14 @@ class ControlPlaneService:
         }
 
     def trust_review(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Review configuration changes for trust and safety.
+
+        Args:
+            payload: File path and old/new configuration objects.
+
+        Returns:
+            A tuple containing the HTTP status code and review results.
+        """
         file_path = str(payload.get("file_path", "settings.json"))
         old_config = payload.get("old_config", {})
         new_config = payload.get("new_config", {})
@@ -111,6 +140,14 @@ class ControlPlaneService:
         return 200, review
 
     def evidence_ingest(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Ingest evidence artifacts for a specific run.
+
+        Args:
+            payload: Run ID and evidence data (tests, scans, diffs, etc.).
+
+        Returns:
+            A tuple containing the HTTP status code and ingestion status.
+        """
         run_id = str(payload.get("run_id", "")).strip()
         required = ["tests", "security_scans", "diff_summary", "reproducibility", "unresolved_risks"]
         missing = [key for key in required if key not in payload]
@@ -162,6 +199,14 @@ class ControlPlaneService:
         }
 
     def security_check(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Run a security audit on the project or a specific scope.
+
+        Args:
+            payload: Audit scope, enrichment flags, external inputs, and waivers.
+
+        Returns:
+            A tuple containing the HTTP status code and security check results.
+        """
         scope = str(payload.get("scope", "."))
         include_live_enrichment = bool(payload.get("include_live_enrichment", False))
         external_inputs = payload.get("external_inputs")
@@ -209,6 +254,14 @@ class ControlPlaneService:
         return 200, result
 
     def guide_assert(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Assert that a candidate string matches specified guidance rules.
+
+        Args:
+            payload: Candidate string and rules object.
+
+        Returns:
+            A tuple containing the HTTP status code and assertion results.
+        """
         candidate = str(payload.get("candidate", ""))
         rules = payload.get("rules", {})
         if not isinstance(rules, dict):
@@ -220,6 +273,14 @@ class ControlPlaneService:
         return 200, guide_assert(candidate, rules)
 
     def runtime_dispatch(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Dispatch a task to a specific runtime environment.
+
+        Args:
+            payload: Runtime identifier and task idea.
+
+        Returns:
+            A tuple containing the HTTP status code and dispatch results.
+        """
         runtime = str(payload.get("runtime", "")).strip()
         idea = payload.get("idea", {})
         if not runtime:
@@ -240,6 +301,14 @@ class ControlPlaneService:
         return 200, result
 
     def registry_verify(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Verify an artifact against the registry.
+
+        Args:
+            payload: Artifact metadata and verification mode.
+
+        Returns:
+            A tuple containing the HTTP status code and verification decision.
+        """
         artifact = payload.get("artifact", {})
         mode = str(payload.get("mode", "warn_and_run"))
         if not isinstance(artifact, dict):
@@ -252,6 +321,14 @@ class ControlPlaneService:
         return (403 if decision.get("action") == "deny" else 200), decision
 
     def lab_jobs(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Submit a lab pipeline job.
+
+        Args:
+            payload: Pipeline configuration and inputs.
+
+        Returns:
+            A tuple containing the HTTP status code and job status.
+        """
         if not isinstance(payload, dict):
             return 400, {
                 "status": "error",
@@ -262,6 +339,14 @@ class ControlPlaneService:
         return 201 if result.get("status") in {"ready", "failed_evaluation"} else 400, result
 
     def claim_judge(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Judge claims based on available evidence.
+
+        Args:
+            payload: List of claims to evaluate.
+
+        Returns:
+            A tuple containing the HTTP status code and judgment results.
+        """
         claims = payload.get("claims")
         if not isinstance(claims, list):
             return 400, {
@@ -273,6 +358,14 @@ class ControlPlaneService:
         return 200, result
 
     def test_intent_lock(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Manage test intent locks (lock or verify).
+
+        Args:
+            payload: Action (lock/verify) and associated intent or results.
+
+        Returns:
+            A tuple containing the HTTP status code and lock/verification results.
+        """
         action = str(payload.get("action", "")).strip()
 
         if action == "lock":
@@ -311,6 +404,17 @@ class ControlPlaneService:
         }
 
     def mutation_gate_check(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Check if a file mutation is allowed by the mutation gate.
+
+        Args:
+            payload: Tool, file path, and optional context (lock_id, run_id, etc.).
+
+        Returns:
+            A tuple containing the HTTP status code and gate decision.
+
+        Raises:
+            ValueError: When required fields are missing or invalid.
+        """
         if not isinstance(payload, dict):
             raise ValueError("payload must be an object")
 
@@ -350,6 +454,14 @@ class ControlPlaneService:
         return 200, result
 
     def tool_fabric_request(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Request a tool from the governed tool fabric.
+
+        Args:
+            payload: Lane name, tool name, run ID, and optional context.
+
+        Returns:
+            A tuple containing the HTTP status code and fabric decision.
+        """
         if not isinstance(payload, dict):
             return 400, {
                 "status": "error",
@@ -420,6 +532,14 @@ class ControlPlaneService:
         return (200 if result.allowed else 403), payload_out
 
     def session_health(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+        """Retrieve health status for a session or the latest run.
+
+        Args:
+            payload: Optional run ID to query.
+
+        Returns:
+            A tuple containing the HTTP status code and health state.
+        """
         run_id = payload.get("run_id")
         if isinstance(run_id, str) and run_id.strip():
             state = read_run_state(self.project_dir, "session_health", run_id.strip())
@@ -445,6 +565,11 @@ class ControlPlaneService:
         return 200, dict(state)
 
     def scoreboard_baseline(self) -> tuple[int, dict[str, Any]]:
+        """Retrieve the baseline scoreboard metrics.
+
+        Returns:
+            A tuple containing the HTTP status code and baseline metrics.
+        """
         return 200, {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "baseline": {

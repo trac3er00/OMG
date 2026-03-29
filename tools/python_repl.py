@@ -13,6 +13,7 @@ import code
 import contextlib
 import io
 import json
+import logging
 import os
 import sys
 import traceback
@@ -27,6 +28,7 @@ _get_feature_flag = None
 _atomic_json_write = None
 _validate_opaque_identifier = None
 _ensure_path_within_dir = None
+_logger = logging.getLogger(__name__)
 
 
 def _ensure_imports():
@@ -47,7 +49,8 @@ def _ensure_imports():
         _validate_opaque_identifier = _voi
         _ensure_path_within_dir = _epwd
     except ImportError:
-        pass
+        # Optional: hooks._common not available
+        _logger.debug("Failed to import hooks helpers for Python REPL", exc_info=True)
 
 
 # --- Optional jupyter_client ---
@@ -170,7 +173,7 @@ def _build_prelude_namespace() -> dict[str, Any]:
                     except Exception:
                         continue
         except Exception:
-            pass
+            _logger.debug("Failed to search code with helper regex", exc_info=True)
         return results
 
     def grep(pattern: str, text: str) -> list[str]:
@@ -278,7 +281,7 @@ def _persist_session(session_id: str) -> None:
         path = _resolve_session_path(safe_session_id)
         _atomic_json_write(path, meta)
     except (OSError, ValueError):
-        pass  # best-effort
+        _logger.debug("Failed to persist REPL session metadata", exc_info=True)
 
 
 def _session_info(session: Dict[str, Any]) -> Dict[str, Any]:
@@ -370,11 +373,11 @@ class _IPythonSession:
         try:
             self.kernel_client.stop_channels()
         except Exception:
-            pass
+            _logger.debug("Failed to stop IPython kernel channels", exc_info=True)
         try:
             self.kernel_manager.shutdown_kernel(now=True)
         except Exception:
-            pass
+            _logger.debug("Failed to shutdown IPython kernel", exc_info=True)
 
 
 # --- Stdlib Fallback Backend ---
@@ -603,7 +606,7 @@ def close_session(session_id: str) -> Union[bool, Dict[str, Any]]:
         try:
             backend.close()
         except Exception:
-            pass
+            _logger.debug("Failed to close REPL backend", exc_info=True)
 
     return True
 

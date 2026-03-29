@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import TypedDict, cast
 
 DEFAULT_FEATURE_REGISTRY_PATH = Path(".omg") / "state" / "feature-registry.json"
+_logger = logging.getLogger(__name__)
 
 
 class FeatureConfig(TypedDict):
@@ -99,7 +101,8 @@ def load_registry(project_dir: str) -> dict[str, FeatureConfig]:
     if registry_path.exists():
         try:
             raw_payload: object = cast(object, json.loads(registry_path.read_text(encoding="utf-8")))
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to parse feature registry at %s: %s", registry_path, exc, exc_info=True)
             raw_payload = {}
     else:
         raw_payload = {}

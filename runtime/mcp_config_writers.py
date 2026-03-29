@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -29,6 +30,7 @@ _O_NOFOLLOW: int = getattr(os, "O_NOFOLLOW", 0)
 _active_transaction: ConfigTransaction | None = None
 _planned_content: dict[str, str] = {}
 _last_receipt: dict[str, Any] | None = None
+_logger = logging.getLogger(__name__)
 
 
 def _require_tomlkit() -> None:
@@ -89,8 +91,8 @@ def _atomic_write_text_safe(
         os.close(fd)
         try:
             tmp_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to remove temporary config file after write failure: %s", exc, exc_info=True)
         raise
     else:
         os.close(fd)
@@ -128,8 +130,8 @@ def transactional() -> Generator[ConfigTransaction, None, None]:
         _planned_content.clear()
         try:
             shutil.rmtree(tx_lock_dir, ignore_errors=True)
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to remove temporary transaction lock directory: %s", exc, exc_info=True)
 
 
 def _get_current_content(path: Path) -> str:

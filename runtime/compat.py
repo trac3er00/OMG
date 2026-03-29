@@ -8,6 +8,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from importlib import import_module
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -23,6 +24,8 @@ from runtime.dispatcher import dispatch_runtime
 from runtime.plugin_diagnostics import run_plugin_diagnostics
 from runtime.security_check import run_security_check
 from runtime.team_router import TeamDispatchRequest, dispatch_team
+
+_logger = logging.getLogger(__name__)
 
 CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
 LEGACY_CONTRACT_SNAPSHOT_SCHEMA = "OmgCompatContractSnapshot"
@@ -531,8 +534,8 @@ def _update_session_state(project_dir: str, message: str) -> str:
                 data = json.load(f)
             if isinstance(data, dict):
                 payload = data
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to read existing session state: %s", exc, exc_info=True)
     payload.setdefault("entries", [])
     if not isinstance(payload["entries"], list):
         payload["entries"] = []
@@ -776,8 +779,8 @@ def _collect_orphaned_runtime_refs(claude_dir: str, *, home_dir: str | None = No
                         or not os.path.isfile(os.path.join(managed_runtime_dir, ".venv", "bin", "python"))
                     ):
                         refs.append(f"settings.json:hooks:{cmd}")
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to parse claude settings while checking orphaned runtime refs: %s", exc, exc_info=True)
 
     mcp_json_path = os.path.join(claude_dir, ".mcp.json")
     if os.path.isfile(mcp_json_path):
@@ -791,8 +794,8 @@ def _collect_orphaned_runtime_refs(claude_dir: str, *, home_dir: str | None = No
                 or not os.path.isfile(os.path.join(managed_runtime_dir, ".venv", "bin", "python"))
             ):
                 refs.append(f".mcp.json:mcpServers.omg-control:{cmd}")
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to parse claude mcp config while checking orphaned runtime refs: %s", exc, exc_info=True)
 
     for cfg_path, key_path, mcp_top_key in [
         (os.path.join(_home, ".codex", "config.toml"), "mcp_servers.omg-control", None),
@@ -827,8 +830,8 @@ def _collect_orphaned_runtime_refs(claude_dir: str, *, home_dir: str | None = No
                     or not os.path.isfile(os.path.join(managed_runtime_dir, ".venv", "bin", "python"))
                 ):
                     refs.append(f"{cfg_path}:{key_path}:{cmd}")
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to parse host config while checking orphaned runtime refs: %s", exc, exc_info=True)
 
     return refs
 
@@ -946,8 +949,8 @@ def run_doctor(*, root_dir: Path | None = None) -> dict[str, Any]:
             mem_cfg = mcp_data.get("mcpServers", {}).get("omg-memory", {})
             if mem_cfg.get("type") == "http" and mem_cfg.get("url"):
                 memory_msg = f"omg-memory configured at {mem_cfg['url']} (optional, not probed)"
-        except (json.JSONDecodeError, KeyError):
-            pass
+        except (json.JSONDecodeError, KeyError) as exc:
+            _logger.debug("Failed to parse .mcp.json while evaluating optional memory config: %s", exc, exc_info=True)
     checks.append(_doctor_check("memory_reachable", ok=True, message=memory_msg, required=False))
 
     # 9. Managed runtime venv (optional)
@@ -1251,8 +1254,8 @@ def _fix_omg_control_reachable(root_dir: Path, _check: dict[str, Any]) -> dict[s
         try:
             with open(mcp_json_path, "r", encoding="utf-8") as f:
                 mcp_data = json.load(f)
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to parse existing .mcp.json while applying omg-control fix: %s", exc, exc_info=True)
     servers = mcp_data.setdefault("mcpServers", {})
     servers["omg-control"] = {
         "command": "python3",
@@ -1345,8 +1348,8 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
                 settings_data["hooks"] = hooks
                 content = json.dumps(settings_data, indent=2, ensure_ascii=True) + "\n"
                 _atomic_write_json_str(settings_path, content)
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to update orphaned runtime settings hooks: %s", exc, exc_info=True)
 
     mcp_json_path = os.path.join(claude_dir, ".mcp.json")
     if not dry_run and os.path.isfile(mcp_json_path) and any(".mcp.json" in r for r in refs):
@@ -1359,8 +1362,8 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
                 content = json.dumps(mcp_data, indent=2, ensure_ascii=True) + "\n"
                 _atomic_write_json_str(mcp_json_path, content)
                 removed_paths.append(f"{mcp_json_path}:mcpServers.omg-control")
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to update orphaned runtime mcp config: %s", exc, exc_info=True)
 
     codex_cfg = os.path.join(_home, ".codex", "config.toml")
     if not dry_run and os.path.isfile(codex_cfg) and any(codex_cfg in r for r in refs):
@@ -1381,8 +1384,8 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
                     with open(codex_cfg, "w", encoding="utf-8") as f:
                         f.write(tomlkit.dumps(doc))
                     removed_paths.append(f"{codex_cfg}:mcp_servers.omg-control")
-            except (OSError, KeyError, tomlkit.exceptions.ParseError):
-                pass
+            except (OSError, KeyError, tomlkit.exceptions.ParseError) as exc:
+                _logger.debug("Failed to update orphaned runtime Codex config: %s", exc, exc_info=True)
 
     if not dry_run:
         for cfg_path, key_path, mcp_top_key in [
@@ -1401,8 +1404,8 @@ def _fix_orphaned_runtime(root_dir: Path, _check: dict[str, Any]) -> dict[str, A
                     content = json.dumps(data, indent=2, ensure_ascii=True) + "\n"
                     _atomic_write_json_str(cfg_path, content)
                     removed_paths.append(f"{cfg_path}:{key_path}")
-            except (json.JSONDecodeError, OSError):
-                pass
+            except (json.JSONDecodeError, OSError) as exc:
+                _logger.debug("Failed to update orphaned runtime host JSON config: %s", exc, exc_info=True)
 
     return {
         "planned_path": settings_path,
@@ -1600,8 +1603,8 @@ def _write_persistent_state(
                 current = json.load(f)
             if isinstance(current, dict):
                 payload.update(current)
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to load persistent mode state before update: %s", exc, exc_info=True)
     payload.setdefault("history", [])
     if not isinstance(payload["history"], list):
         payload["history"] = []
@@ -2152,8 +2155,8 @@ def dispatch_compat_skill(
                     persistent["last_updated"] = _now()
                     with open(persistent_path, "w", encoding="utf-8") as f:
                         json.dump(persistent, f, indent=2, ensure_ascii=True)
-            except (json.JSONDecodeError, OSError):
-                pass
+            except (json.JSONDecodeError, OSError) as exc:
+                _logger.debug("Failed to mark persistent mode state as cancelled: %s", exc, exc_info=True)
         return _res(
             skill=normalized,
             route=route,

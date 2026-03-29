@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -8,6 +9,7 @@ from typing import Any, Callable
 BACKGROUND_VERIFICATION_REL_PATH = Path(".omg") / "state" / "background-verification.json"
 
 _VALID_STATUSES = frozenset({"running", "ok", "error", "blocked"})
+_logger = logging.getLogger(__name__)
 
 
 def publish_verification_state(
@@ -54,8 +56,8 @@ def read_verification_state(project_dir: str, run_id: str | None = None) -> dict
         if expected_run_id and str(payload.get("run_id", "")).strip() != expected_run_id:
             return None
         return payload
-    except (json.JSONDecodeError, OSError):
-        pass
+    except (json.JSONDecodeError, OSError) as exc:
+        _logger.debug("Failed to read background verification state: %s", exc, exc_info=True)
     return None
 
 

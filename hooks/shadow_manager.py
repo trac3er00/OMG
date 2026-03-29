@@ -392,7 +392,10 @@ def drop_shadow(project_dir: str, run_id: str) -> dict[str, Any]:
         try:
             os.remove(_active_run_path(project_dir))
         except OSError:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [shadow_manager] failed to clear active-run marker: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     return {"run_id": run_id, "dropped": True}
 
@@ -450,7 +453,10 @@ def _handle_post_tool_use(payload: dict[str, Any]) -> None:
     try:
         auto_journal_mutation(project_dir, tool, file_path, run_id)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [shadow_manager] failed to journal mutation: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def _main() -> int:
@@ -468,7 +474,10 @@ def _main() -> int:
     try:
         _handle_post_tool_use(payload)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [shadow_manager] post-tool handler failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return 0
 
 

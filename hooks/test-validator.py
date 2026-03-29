@@ -50,6 +50,34 @@ _MUTATION_TOOLS = frozenset({"write", "edit", "multiedit", "bash"})
 _SKIP_DIR_SEGMENTS = frozenset({"build", "dist", "node_modules", ".git"})
 _TEST_DIR_NAMES = frozenset({"tests", "test", "__tests__"})
 
+_TYPE_CHECKS_RE = re.compile(r"(typeof\s+\w+|instanceof\s+\w+|toBeDefined|toBeInstanceOf|\.type\b)")
+_BEHAVIOR_CHECKS_RE = re.compile(
+    r"(toEqual|toContain|toMatch|toThrow|rejects|resolves|toHaveBeenCalledWith|"
+    r"toHaveProperty|toHaveLength|toBeGreaterThan|toBeLessThan|assert.*==|"
+    r"assertEqual|assertIn|assertRaises|assert_called_with)"
+)
+_ERROR_TESTS_RE = re.compile(
+    r"(toThrow|rejects|assertRaises|error|invalid|empty|null|undefined|"
+    r"edge.case|boundary|overflow|timeout|unauthorized|forbidden|not.found|"
+    r"bad.request|missing|malformed)",
+    re.IGNORECASE,
+)
+_TEST_COUNT_RE = re.compile(r"(test|it|describe)\s*\(")
+_TEST_BODIES_RE = re.compile(
+    r"(?:test|it)\s*\([^)]+,\s*(?:async\s*)?\(\)\s*=>\s*\{([^}]*)\}",
+    re.DOTALL,
+)
+_TEST_BODY_ASSERTION_RE = re.compile(
+    r"(expect|assert|should|verify|check|toBe|toEqual|toThrow|toHave)",
+    re.IGNORECASE,
+)
+_MOCK_COUNT_RE = re.compile(r"(jest\.mock|mock\(|patch\(|MagicMock|stub\(|sinon\.stub)")
+_ASSERTION_COUNT_RE = re.compile(r"(\bassert\b|\bexpect\s*\(|\.should\b|\bverify\s*\()")
+_PY_ASSERTION_CHECK_RE = re.compile(r"(\bassert\b|\bexpect\s*\(|\.should\b|\bverify\s*\()", re.IGNORECASE)
+_PARAM_CALLS_RE = re.compile(r"\b(\w+)\s*\(\s*(\d+(?:\.\d+)?|\"[^\"]*\"|'[^']*')\s*(?:\)|,)")
+_PY_TEST_DEF_RE = re.compile(r"def\s+test_\w+\s*\(")
+_JS_TEST_DEF_RE = re.compile(r"(test|it)\s*\(")
+
 
 def analyze_test_content(content, filename="test.py"):
     """
@@ -73,41 +101,29 @@ def analyze_test_content(content, filename="test.py"):
             issues.append(f"FAKE: {label}")
 
     # === BOILERPLATE-ONLY (v4, kept) ===
-    type_checks = len(re.findall(
-        r"(typeof\s+\w+|instanceof\s+\w+|toBeDefined|toBeInstanceOf|\.type\b)", content))
-    behavior_checks = len(re.findall(
-        r"(toEqual|toContain|toMatch|toThrow|rejects|resolves|toHaveBeenCalledWith|"
-        r"toHaveProperty|toHaveLength|toBeGreaterThan|toBeLessThan|assert.*==|"
-        r"assertEqual|assertIn|assertRaises|assert_called_with)", content))
+    type_checks = len(_TYPE_CHECKS_RE.findall(content))
+    behavior_checks = len(_BEHAVIOR_CHECKS_RE.findall(content))
 
     if type_checks > 3 and behavior_checks == 0:
         issues.append("BOILERPLATE: Only checks types/existence, never tests actual behavior")
 
     # === HAPPY PATH ONLY (v4, kept) ===
-    has_error_tests = bool(re.search(
-        r"(toThrow|rejects|assertRaises|error|invalid|empty|null|undefined|"
-        r"edge.case|boundary|overflow|timeout|unauthorized|forbidden|not.found|"
-        r"bad.request|missing|malformed)", content, re.IGNORECASE))
-    test_count = len(re.findall(r"(test|it|describe)\s*\(", content))
+    has_error_tests = bool(_ERROR_TESTS_RE.search(content))
+    test_count = len(_TEST_COUNT_RE.findall(content))
 
     if test_count >= 3 and not has_error_tests:
         issues.append("HAPPY PATH ONLY: No error/edge case tests. "
                       "What happens with bad input? Unauthorized? Empty data?")
 
     # === NO ASSERTIONS — JS style (v3, kept) ===
-    test_bodies = re.findall(
-        r"(?:test|it)\s*\([^)]+,\s*(?:async\s*)?\(\)\s*=>\s*\{([^}]*)\}",
-        content, re.DOTALL)
+    test_bodies = _TEST_BODIES_RE.findall(content)
     for body in test_bodies:
-        if body.strip() and not re.search(
-            r"(expect|assert|should|verify|check|toBe|toEqual|toThrow|toHave)",
-            body, re.IGNORECASE):
+        if body.strip() and not _TEST_BODY_ASSERTION_RE.search(body):
             issues.append("EMPTY: Test body has no assertions")
             break
 
     # === OVER-MOCKED (v3, kept) ===
-    mock_count = len(re.findall(
-        r"(jest\.mock|mock\(|patch\(|MagicMock|stub\(|sinon\.stub)", content))
+    mock_count = len(_MOCK_COUNT_RE.findall(content))
     if mock_count > 5 and behavior_checks <= 1:
         issues.append("OVER-MOCKED: Heavy mocking but barely tests real behavior")
 
@@ -137,8 +153,7 @@ def analyze_test_content(content, filename="test.py"):
 
     # === MOCK-HEAVY (v5, ratio-based refinement) ===
     # Different from OVER-MOCKED: catches moderate mock counts with poor assertion ratio
-    assertion_count = len(re.findall(
-        r"(\bassert\b|\bexpect\s*\(|\.should\b|\bverify\s*\()", content))
+    assertion_count = len(_ASSERTION_COUNT_RE.findall(content))
     if mock_count >= 3 and mock_count <= 5 and assertion_count < mock_count / 2:
         issues.append(
             f"MOCK-HEAVY: {mock_count} mocks but only {assertion_count} assertions "
@@ -190,10 +205,7 @@ def _detect_assertion_free_python(content, issues):
         if not body_lines:
             continue  # Empty bodies caught by _detect_empty_python_test_body
         body_text = ' '.join(body_lines)
-        if not re.search(
-            r'(\bassert\b|\bexpect\s*\(|\.should\b|\bverify\s*\()',
-            body_text, re.IGNORECASE
-        ):
+        if not _PY_ASSERTION_CHECK_RE.search(body_text):
             # Skip bodies that are just pass/ellipsis (caught by empty body detector)
             non_trivial = [l for l in body_lines
                            if l not in ('pass', '...') and not l.startswith('#')]
@@ -217,9 +229,7 @@ def _detect_parameterized_gap(content, issues):
     suggesting @pytest.mark.parametrize would be more appropriate.
     """
     # Find function calls with literal arguments (numbers or strings)
-    calls = re.findall(
-        r'\b(\w+)\s*\(\s*(\d+(?:\.\d+)?|"[^"]*"|\'[^\']*\')\s*(?:\)|,)',
-        content)
+    calls = _PARAM_CALLS_RE.findall(content)
 
     # Group by function name, collect unique literal args
     call_groups = {}
@@ -276,7 +286,10 @@ def persist_metrics(project_dir, analysis):
         with open(metrics_path, "w", encoding="utf-8") as f:
             json.dump(metrics, f, separators=(",", ":"))
     except Exception:
-        pass  # Crash isolation: never fail the hook
+        try:
+            import sys; print(f"[omg:warn] [test-validator] failed to persist test metrics: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def _is_test_file(rel_path):
@@ -315,13 +328,23 @@ def check_test_quality(data, project_dir):
             ["git", "diff", "--name-only", "--diff-filter=AM"],
             capture_output=True, text=True, timeout=10, cwd=project_dir
         )
+        if result.returncode != 0:
+            snippet = (result.stderr or result.stdout or "").strip()[:200]
+            print(
+                f"[OMG] test-validator: git diff failed (rc={result.returncode}): {snippet}",
+                file=sys.stderr,
+            )
+            return []
         for f in result.stdout.strip().split("\n"):
             if f and _is_test_file(f):
                 full = os.path.join(project_dir, f)
                 if os.path.exists(full):
                     test_files.append(full)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [test-validator] failed to inspect changed test files: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     if not test_files:
         return []
@@ -344,8 +367,8 @@ def check_test_quality(data, project_dir):
         issues = analyze_test_content(content, filename)
 
         # Count tests in this file
-        py_tests = len(re.findall(r'def\s+test_\w+\s*\(', content))
-        js_tests = len(re.findall(r'(test|it)\s*\(', content))
+        py_tests = len(_PY_TEST_DEF_RE.findall(content))
+        js_tests = len(_JS_TEST_DEF_RE.findall(content))
         agg["total_tests"] += py_tests + js_tests
 
         # Count issue categories
@@ -368,7 +391,10 @@ def check_test_quality(data, project_dir):
     try:
         persist_metrics(project_dir, agg)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [test-validator] failed to persist aggregated metrics: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     if warnings:
         msg = "TEST QUALITY ISSUES:\n" + "\n".join(f"  {w}" for w in warnings)

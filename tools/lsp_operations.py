@@ -17,7 +17,8 @@ from typing import Any
 
 from tools.lsp_client import LSPClient
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+logger = _logger
 
 # ---------------------------------------------------------------------------
 # Module-level singleton
@@ -75,6 +76,7 @@ def _is_enabled() -> bool:
 
         return get_feature_flag("LSP_TOOLS", default=False)
     except Exception:
+        _logger.debug("Failed to resolve LSP feature flag", exc_info=True)
         return False
 
 
@@ -153,6 +155,7 @@ def lsp_diagnostics(file_path: str) -> list[dict]:
             if isinstance(d, dict)
         ]
     except Exception:
+        _logger.debug("Failed to fetch LSP diagnostics", exc_info=True)
         return []
 
 
@@ -170,6 +173,7 @@ def lsp_definition(file_path: str, line: int, character: int) -> list[dict]:
         )
         return _normalize_locations(result)
     except Exception:
+        _logger.debug("Failed to resolve LSP definition", exc_info=True)
         return []
 
 
@@ -188,6 +192,7 @@ def lsp_type_definition(file_path: str, line: int, character: int) -> list[dict]
         )
         return _normalize_locations(result)
     except Exception:
+        _logger.debug("Failed to resolve LSP type definition", exc_info=True)
         return []
 
 
@@ -206,6 +211,7 @@ def lsp_implementation(file_path: str, line: int, character: int) -> list[dict]:
         )
         return _normalize_locations(result)
     except Exception:
+        _logger.debug("Failed to resolve LSP implementations", exc_info=True)
         return []
 
 
@@ -228,6 +234,7 @@ def lsp_references(
         result = client.send_request("textDocument/references", params)
         return _normalize_locations(result)
     except Exception:
+        _logger.debug("Failed to resolve LSP references", exc_info=True)
         return []
 
 
@@ -260,6 +267,7 @@ def lsp_hover(file_path: str, line: int, character: int) -> str | None:
             return "\n".join(parts)
         return str(contents)
     except Exception:
+        _logger.debug("Failed to fetch LSP hover data", exc_info=True)
         return None
 
 
@@ -290,6 +298,7 @@ def lsp_symbols(file_path: str) -> list[dict]:
             if isinstance(sym, dict)
         ]
     except Exception:
+        _logger.debug("Failed to fetch LSP document symbols", exc_info=True)
         return []
 
 
@@ -311,6 +320,7 @@ def lsp_rename(
             return {}
         return result
     except Exception:
+        _logger.debug("Failed to execute LSP rename", exc_info=True)
         return {}
 
 
@@ -345,6 +355,7 @@ def lsp_code_actions(file_path: str, line: int, character: int) -> list[dict]:
             if isinstance(action, dict)
         ]
     except Exception:
+        _logger.debug("Failed to fetch LSP code actions", exc_info=True)
         return []
 
 
@@ -366,6 +377,7 @@ def lsp_status() -> dict:
             "capabilities": getattr(_client, "_capabilities", {}),
         }
     except Exception:
+        _logger.debug("Failed to read LSP status", exc_info=True)
         return {"connected": False, "server_name": None, "capabilities": {}}
 
 
@@ -385,8 +397,9 @@ def lsp_reload() -> bool:
             try:
                 _client.shutdown()
             except Exception:
-                pass
+                _logger.debug("Failed to shutdown existing LSP client", exc_info=True)
         _client = LSPClient()
         return True
     except Exception:
+        _logger.debug("Failed to reload LSP client", exc_info=True)
         return False

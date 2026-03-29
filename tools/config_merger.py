@@ -15,6 +15,7 @@ Feature flag: OMG_CONFIG_DISCOVERY_ENABLED (default: off)
 """
 
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -32,6 +33,8 @@ SOURCE_OMG = "omg_config"
 SOURCE_PROJECT = "project"
 SOURCE_USER = "user"
 SOURCE_DEFAULT = "default"
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_feature_flag_enabled() -> bool:
@@ -136,6 +139,7 @@ def _parse_yaml(content: str) -> Dict[str, Any]:
     except ImportError:
         return {}
     except Exception:
+        _logger.debug("Failed to parse YAML config", exc_info=True)
         return {}
 
 
@@ -147,8 +151,10 @@ def _parse_toml(content: str) -> Dict[str, Any]:
         data = tomllib.loads(content)
         return data if isinstance(data, dict) else {}
     except ImportError:
-        pass
+        # Optional: tomllib not available
+        _logger.debug("Failed to import tomllib parser", exc_info=True)
     except Exception:
+        _logger.debug("Failed to parse TOML with tomllib", exc_info=True)
         return {}
 
     try:
@@ -159,6 +165,7 @@ def _parse_toml(content: str) -> Dict[str, Any]:
     except ImportError:
         return {}
     except Exception:
+        _logger.debug("Failed to parse TOML with tomli", exc_info=True)
         return {}
 
 
@@ -384,7 +391,7 @@ def _persist_merged_config(result: Dict[str, Any]) -> None:
         merged_path = os.path.join(".omg", "state", "merged_config.json")
         writer(merged_path, result)
     except Exception:
-        pass  # Never crash on persistence
+        _logger.debug("Failed to persist merged config", exc_info=True)
 
 
 def _persist_conflicts(conflicts: List[Dict[str, Any]]) -> None:
@@ -396,7 +403,7 @@ def _persist_conflicts(conflicts: List[Dict[str, Any]]) -> None:
         conflicts_path = os.path.join(".omg", "state", "config_conflicts.json")
         writer(conflicts_path, conflicts)
     except Exception:
-        pass  # Never crash on persistence
+        _logger.debug("Failed to persist config conflicts", exc_info=True)
 
 
 def get_merged_config() -> Dict[str, Any]:

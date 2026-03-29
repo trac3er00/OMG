@@ -11,6 +11,7 @@ Feature flag: OMG_WEB_SEARCH_ENABLED (default: False)
 
 import abc
 import importlib
+import logging
 import time
 import json
 import os
@@ -25,6 +26,7 @@ from typing import Any, Dict, List, Optional
 
 _get_feature_flag = None
 _atomic_json_write = None
+_logger = logging.getLogger(__name__)
 
 
 def _ensure_imports():
@@ -41,7 +43,8 @@ def _ensure_imports():
         _get_feature_flag = _gff
         _atomic_json_write = _ajw
     except ImportError:
-        pass
+        # Optional: hooks._common not available
+        _logger.debug("Failed to import hooks._common helpers", exc_info=True)
 
 
 # --- Lazy import for credential_store (OPTIONAL) ---
@@ -222,7 +225,7 @@ def get_api_key(provider_name: str) -> Optional[str]:
             if key:
                 return key
         except (RuntimeError, ValueError, OSError):
-            pass  # Fall through to env var
+            _logger.debug("Failed to read API key from credential store", exc_info=True)
 
     # Fallback to environment variable
     env_key = f"{provider_name.upper()}_API_KEY"
@@ -601,7 +604,7 @@ try:
     _providers_mod.register_all(manager=manager)
 except Exception:
     # Keep module import non-fatal if provider modules are unavailable.
-    pass
+    _logger.debug("Failed to auto-register web search providers", exc_info=True)
 
 # =============================================================================
 # CLI Interface

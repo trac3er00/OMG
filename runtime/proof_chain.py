@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from runtime.forge_run_id import build_deterministic_contract
+
+
+_logger = logging.getLogger(__name__)
 
 
 _REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
@@ -226,7 +230,8 @@ def _latest_evidence_pack(output_root: Path) -> tuple[str, dict[str, Any]]:
     for path in evidence_files:
         try:
             payload = _load_json(path)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to load evidence pack candidate %s: %s", path, exc, exc_info=True)
             continue
         if payload.get("schema") == "EvidencePack":
             evidence_payloads.append((path, payload))
@@ -333,8 +338,8 @@ def assemble_proof_chain(project_dir: str, *, evidence_path: str | None = None) 
             evidence_links=evidence_links,
             progress={"phase": "proof_chain_assembled"},
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        _logger.debug("Failed to publish background verification state for proof chain: %s", exc, exc_info=True)
 
     return chain
 

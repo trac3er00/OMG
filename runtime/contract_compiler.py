@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 import importlib
 import importlib.util
 import json
+import logging
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -44,6 +45,9 @@ from runtime.canonical_taxonomy import CANONICAL_PRESETS, POLICY_PACK_IDS, RELEA
 from registry.approval_artifact import verify_approval_artifact
 from runtime.canonical_surface import get_canonical_hosts, get_compat_hosts
 from registry.verify_artifact import sign_artifact_statement, verify_artifact_statement, _load_trusted_signers
+
+
+_logger = logging.getLogger(__name__)
 
 
 CONTRACT_DOC_PATH = Path("OMG_COMPAT_CONTRACT.md")
@@ -658,8 +662,8 @@ def _copy_contract_inputs(root: Path, output_root: Path) -> list[Path]:
         dst = output_root / advanced_plugin_json
         _write_text(dst, src.read_text(encoding="utf-8"))
         copied.append(dst)
-    except FileNotFoundError:
-        pass
+    except FileNotFoundError as exc:
+        _logger.debug("Advanced plugin manifest not found at %s: %s", advanced_plugin_json, exc, exc_info=True)
 
     advanced_commands = resolve_assets(Path("plugins") / "advanced" / "commands", suffix=".md")
     for src in advanced_commands:
@@ -1661,7 +1665,8 @@ def compile_method_artifacts(
                 subject_digest=digest,
                 trusted_comment=f"omg-method:{phase}:{CANONICAL_VERSION}",
             )
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to sign method phase statement for %s: %s", phase, exc, exc_info=True)
             statement = {
                 "schema": "OmgMethodPhaseStatement",
                 "phase": phase,
@@ -2269,7 +2274,8 @@ def _check_policy_pack_signatures(root: Path) -> dict[str, Any]:
         try:
             lock_data = json.loads(lock_path.read_text(encoding="utf-8"))
             sig_data = json.loads(sig_path.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as exc:
+            _logger.warning("Failed to parse policy pack signature artifacts for %s: %s", pack_id, exc, exc_info=True)
             blockers.append(f"policy_pack_signature: {pack_id} unsigned: lock or sig file missing")
             continue
 
@@ -2293,8 +2299,8 @@ def _check_policy_pack_signatures(root: Path) -> dict[str, Any]:
                             f"policy_pack_signature: {pack_id} tampered: pack content changed since signing"
                         )
                         continue
-            except Exception:
-                pass
+            except Exception as exc:
+                _logger.debug("Failed to validate policy pack digest for %s: %s", pack_id, exc, exc_info=True)
 
         # Lockfile signer_public_key vs trust root mismatch check
         lockfile_signer_pk = str(lock_data.get("signer_public_key", "")).strip()
@@ -2309,8 +2315,8 @@ def _check_policy_pack_signatures(root: Path) -> dict[str, Any]:
                             f"policy_pack_signature: {pack_id} lockfile_mismatch: signer_public_key doesn't match trust root"
                         )
                         continue
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _logger.debug("Failed to verify trusted signer mapping for %s: %s", pack_id, exc, exc_info=True)
 
         result = verify_approval_artifact(sig_data, expected_digest)
         if not result.get("valid"):
@@ -2638,7 +2644,8 @@ def _latest_evidence_pack(output_root: Path) -> tuple[Path, dict[str, Any]] | No
     for path in evidence_files:
         try:
             payload = _load_json(path)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to load evidence pack %s: %s", path, exc, exc_info=True)
             continue
         if payload.get("schema") != "EvidencePack":
             continue
@@ -2736,7 +2743,8 @@ def _resolve_relative_path(*, output_root: Path, rel_path: str) -> Path | None:
 def _load_json_or_none(path: Path) -> dict[str, Any] | None:
     try:
         payload = _load_json(path)
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to load JSON payload from %s: %s", path, exc, exc_info=True)
         return None
     return payload if isinstance(payload, dict) else None
 
@@ -3050,7 +3058,8 @@ def _check_execution_primitives(*, output_root: Path, evidence_profile: str | No
         evidence_paths["profile_digest"] = str(profile_path.relative_to(output_root)).replace("\\", "/")
         try:
             profile_payload = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to parse profile payload from %s: %s", profile_path, exc, exc_info=True)
             profile_payload = None
         profile_version = ""
         if isinstance(profile_payload, dict):
@@ -3289,7 +3298,8 @@ def _find_state_for_run(
     if run_id and preferred.exists():
         try:
             payload = _load_json(preferred)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to load preferred state payload from %s: %s", preferred, exc, exc_info=True)
             payload = {}
         if isinstance(payload, dict):
             return preferred, payload
@@ -3297,7 +3307,8 @@ def _find_state_for_run(
     for path in sorted(state_dir.glob("*.json")):
         try:
             payload = _load_json(path)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to load state payload from %s: %s", path, exc, exc_info=True)
             continue
         if not isinstance(payload, dict):
             continue
@@ -3325,7 +3336,8 @@ def _find_test_intent_lock(
     for path in sorted(lock_dir.glob("*.json")):
         try:
             payload = _load_json(path)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to load test-intent lock payload from %s: %s", path, exc, exc_info=True)
             continue
         if not isinstance(payload, dict):
             continue
@@ -3350,7 +3362,8 @@ def _find_forge_starter_proof(*, output_root: Path, run_id: str) -> tuple[Path |
     for path in sorted(evidence_dir.glob("forge-specialists-*.json")):
         try:
             payload = _load_json(path)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to load forge starter evidence from %s: %s", path, exc, exc_info=True)
             continue
         if not isinstance(payload, dict):
             continue

@@ -278,7 +278,10 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
                 from runtime.profile_io import save_profile
                 save_profile(profile_path, profile)
             except Exception:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [session-end-capture] failed to save baseline profile: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
         return
 
     updated_at = datetime.utcnow().isoformat() + "Z"
@@ -326,7 +329,10 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
             )
             changed = True
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [session-end-capture] failed to upsert governed preference: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
         if confirmation_state == "pending_confirmation":
             continue
@@ -379,7 +385,10 @@ def _promote_preference_learning(project_dir: str, run_id: str) -> None:
                 from runtime.profile_io import save_profile
                 save_profile(profile_path, profile)
             except Exception:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [session-end-capture] failed to save unchanged profile baseline: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
         return
 
     try:
@@ -417,12 +426,18 @@ if get_feature_flag('memory'):
                         elif tool:
                             tools_used.append(f"  - {tool}")
                     except (json.JSONDecodeError, KeyError):
-                        pass
+                        try:
+                            import sys; print(f"[omg:warn] [session-end-capture] failed to parse ledger entry: {sys.exc_info()[1]}", file=sys.stderr)
+                        except Exception:
+                            pass
                 if tools_used:
                     summary_parts.append("## What Was Done")
                     summary_parts.extend(tools_used[:5])
             except OSError:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [session-end-capture] failed to read tool ledger tail: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
 
         checklist_path = os.path.join(cwd, '.omg', 'state', '_checklist.md')
         if os.path.exists(checklist_path):
@@ -434,7 +449,10 @@ if get_feature_flag('memory'):
                 if total > 0:
                     summary_parts.append(f"## Outcome\n- Checklist: {done}/{total} complete")
             except OSError:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [session-end-capture] failed to read checklist: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
 
         summary = '\n'.join(summary_parts)
         _ = save_memory(cwd, session_id, summary)
@@ -457,7 +475,10 @@ if get_feature_flag('compound_learning'):
                     try:
                         entries.append(json.loads(line.strip()))
                     except Exception:
-                        pass
+                        try:
+                            import sys; print(f"[omg:warn] [session-end-capture] failed to parse learning ledger entry: {sys.exc_info()[1]}", file=sys.stderr)
+                        except Exception:
+                            pass
             entries = entries[-100:]
 
             if not entries:

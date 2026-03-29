@@ -108,6 +108,12 @@ INTERNAL_CONTROL_PATH_PATTERNS = [
     "AGENTS.md",
 ]
 
+_COMMENT_LINE_RE = re.compile(r"^\s*(#|//|/\*|\*)")
+_CHECKLIST_DONE_MARK_RE = re.compile(r"\[x\]", re.IGNORECASE)
+_CHECKLIST_ITEM_MARK_RE = re.compile(r"^\s*-\s*\[[ x!]\]")
+_CHECKLIST_DONE_ITEM_RE = re.compile(r"^\s*-\s*\[x\]", re.IGNORECASE)
+_CHECKLIST_BLOCKED_ITEM_RE = re.compile(r"^\s*-\s*\[!\]")
+
 
 def _to_bool(value: str | None, default: bool) -> bool:
     if value is None:
@@ -177,7 +183,7 @@ try:
         _tv_spec.loader.exec_module(_tv_mod)
         _test_validator_check = getattr(_tv_mod, "check_test_quality", None)
 except Exception:  # intentional: crash isolation for optional module
-    pass
+    _test_validator_check = None  # Optional: test-validator module not available
 try:
     _qr_spec = importlib.util.spec_from_file_location(
         "quality_runner", os.path.join(os.path.dirname(__file__), "quality-runner.py"))
@@ -186,9 +192,9 @@ try:
         _qr_spec.loader.exec_module(_qr_mod)
         _quality_runner_check = getattr(_qr_mod, "check_quality_runner", None)
 except Exception:  # intentional: crash isolation for optional module
-    pass
+    _quality_runner_check = None  # Optional: quality-runner module not available
 
-def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[str, object]:
+def _build_context(project_dir: str, stop_payload: dict[str, object] | None = None) -> dict[str, object]:
     ledger_path = resolve_state_file(
         project_dir,
         "state/ledger/tool-ledger.jsonl",
@@ -206,7 +212,10 @@ def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[s
                         entry = json.loads(line)
                         ledger_entries.append(entry)
                     except json.JSONDecodeError:
-                        pass  # intentional: skip malformed ledger lines
+                        try:
+                            import sys; print(f"[omg:warn] [stop_dispatcher] skipped malformed ledger line: {sys.exc_info()[1]}", file=sys.stderr)
+                        except Exception:
+                            pass
         except Exception as e:  # security: dispatch context building
             print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
 
@@ -245,7 +254,7 @@ def _build_context(project_dir: str, stop_payload: dict | None = None) -> dict[s
     # representing the CURRENT TURN's tool calls. We extract Write/Edit/MultiEdit
     # entries from the payload to determine current-turn source writes independently
     # of the 2-hour ledger window.
-    current_turn_source_write_entries: list[dict] = []
+    current_turn_source_write_entries: list[dict[str, object]] = []
     current_turn_run_id: str | None = None
 
     try:
@@ -325,7 +334,10 @@ def check_verification(data, project_dir):
                 if has_test_in_turn:
                     skip_verification_block = True
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] [stop_dispatcher] failed to read verification cooldown: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     has_test = any(
         any(kw in cmd for kw in ["test", "jest", "vitest", "pytest", "cargo test", "go test"])
@@ -375,7 +387,10 @@ def check_verification(data, project_dir):
         try:
             atomic_json_write(cooldown_path, {"ts": time.time(), "reason": "verification_missing"})
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] [stop_dispatcher] failed to write verification cooldown: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     policy_mode, policy_require_evidence = _read_policy_flags(project_dir)
     env_evidence_required = os.environ.get("OMG_EVIDENCE_REQUIRED")
@@ -439,6 +454,14 @@ def check_diff_budget(data, project_dir):
             timeout=10,
             cwd=project_dir,
         )
+        if result.returncode != 0:
+            snippet = (result.stderr or result.stdout or "").strip()[:200]
+            print(
+                f"[OMG] stop_dispatcher: git diff --name-only failed "
+                f"(rc={result.returncode}): {snippet}",
+                file=sys.stderr,
+            )
+            return blocks
         changed_files = [line for line in result.stdout.strip().split("\n") if line]
         files_changed = len(changed_files)
 
@@ -449,6 +472,14 @@ def check_diff_budget(data, project_dir):
             timeout=10,
             cwd=project_dir,
         )
+        if result2.returncode != 0:
+            snippet = (result2.stderr or result2.stdout or "").strip()[:200]
+            print(
+                f"[OMG] stop_dispatcher: git diff --numstat failed "
+                f"(rc={result2.returncode}): {snippet}",
+                file=sys.stderr,
+            )
+            return blocks
         total_loc = 0
         for line in result2.stdout.strip().split("\n"):
             parts = line.split("\t")
@@ -458,7 +489,10 @@ def check_diff_budget(data, project_dir):
                     removed = int(parts[1]) if parts[1] != "-" else 0
                     total_loc += added + removed
                 except ValueError:
-                    pass  # intentional: skip unparseable numstat lines
+                    try:
+                        import sys; print(f"[omg:warn] [stop_dispatcher] skipped unparseable git numstat line: {sys.exc_info()[1]}", file=sys.stderr)
+                    except Exception:
+                        pass
 
         if files_changed > max_files or total_loc > max_loc:
             blocks.append(
@@ -840,7 +874,10 @@ def check_tdd_proof_chain(data, project_dir):
                     "timestamp": _tdd_dt.now(_tdd_tz.utc).isoformat(),
                 }, _tdd_f, indent=2)
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] [stop_dispatcher] failed to persist tdd block explanation: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
         return [json.dumps({"status": "blocked", "reason": _tdd_enhanced_reason}, sort_keys=True)]
 
     warnings.warn(
@@ -903,7 +940,7 @@ def check_simplifier(data, project_dir):
         total = len(lines)
         comment_count = sum(
             1 for line in lines
-            if line.strip() and re.match(r'^\s*(#|//|/\*|\*)', line)
+            if line.strip() and _COMMENT_LINE_RE.match(line)
         )
 
         if total > 0 and comment_count / total > 0.40:
@@ -947,11 +984,14 @@ def format_ralph_block_reason(state, project_dir):
             try:
                 with open(full) as f:
                     lines = f.readlines()
-                    done = sum(1 for l in lines if re.search(r'\[x\]', l, re.IGNORECASE))
-                    total = sum(1 for l in lines if re.search(r'^\s*-\s*\[[ x!]\]', l))
+                    done = sum(1 for l in lines if _CHECKLIST_DONE_MARK_RE.search(l))
+                    total = sum(1 for l in lines if _CHECKLIST_ITEM_MARK_RE.search(l))
                     progress = f' | Progress: {done}/{total}'
             except OSError:
-                pass  # intentional: progress display is optional
+                try:
+                    print(f"[omg:warn] [stop_dispatcher] failed to read checklist progress: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
 
     return (
         f"Ralph loop iteration {iteration}/{max_iter}{progress}. "
@@ -1027,7 +1067,10 @@ def check_ralph_loop(project_dir, data):
                 atomic_json_write(ralph_path, state)
                 return [], [f"Ralph loop expired after {timeout_minutes} minutes. Stopping."], False
         except (ValueError, TypeError):
-            pass
+            try:
+                import sys; print(f"[omg:warn] [stop_dispatcher] failed to parse Ralph loop start timestamp: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     
     iteration = state.get("iteration", 0)
     max_iter = state.get("max_iterations", 50)
@@ -1055,9 +1098,9 @@ def check_planning_gate(project_dir, data=None):
             lines = f.readlines()
     except OSError:
         return [], []
-    total = sum(1 for l in lines if re.search(r"^\s*-\s*\[[ x!]\]", l))
-    done = sum(1 for l in lines if re.search(r"^\s*-\s*\[x\]", l, re.IGNORECASE))
-    blocked = sum(1 for l in lines if re.search(r"^\s*-\s*\[!\]", l))
+    total = sum(1 for l in lines if _CHECKLIST_ITEM_MARK_RE.search(l))
+    done = sum(1 for l in lines if _CHECKLIST_DONE_ITEM_RE.search(l))
+    blocked = sum(1 for l in lines if _CHECKLIST_BLOCKED_ITEM_RE.search(l))
     pending = total - done - blocked
     if pending > 0:
         sidecar_path = os.path.join(project_dir, ".omg", "state", "_checklist.session")
@@ -1085,14 +1128,20 @@ def check_planning_gate(project_dir, data=None):
                     if age.total_seconds() > 2 * 3600:
                         stale_reason = f"{age.total_seconds() / 3600:.1f}h old"
                 except (ValueError, TypeError):
-                    pass
+                    try:
+                        print(f"[omg:warn] [stop_dispatcher] failed to parse checklist session age: {sys.exc_info()[1]}", file=sys.stderr)
+                    except Exception:
+                        pass
         else:
             try:
                 age_hours = (time.time() - os.path.getmtime(checklist)) / 3600
                 if age_hours > 2:
                     stale_reason = f"{age_hours:.1f}h old (mtime fallback)"
             except OSError:
-                pass
+                try:
+                    print(f"[omg:warn] [stop_dispatcher] failed to compute checklist mtime age: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
 
         if stale_reason:
             return [], [
@@ -1110,7 +1159,10 @@ def check_planning_gate(project_dir, data=None):
                     _pressure = json.load(_f)
                 _is_high_pressure = _pressure.get("is_high", False)
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] [stop_dispatcher] failed to read context pressure sidecar: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
         
         if _is_high_pressure:
             # Demote to advisory — don't block when context is exhausted
@@ -1139,6 +1191,14 @@ def check_scope_drift(project_dir):
             timeout=5,
             cwd=project_dir,
         )
+        if result.returncode != 0:
+            snippet = (result.stderr or result.stdout or "").strip()[:200]
+            print(
+                f"[OMG] stop_dispatcher: git diff --name-only HEAD failed "
+                f"(rc={result.returncode}): {snippet}",
+                file=sys.stderr,
+            )
+            return []
         changed_files = [f.strip() for f in result.stdout.splitlines() if f.strip()]
         if not changed_files:
             return []

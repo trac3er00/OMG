@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass
@@ -8,6 +9,9 @@ from pathlib import Path
 from typing import NotRequired, TypedDict, cast
 
 from runtime.canonical_taxonomy import SUBSCRIPTION_TIERS
+
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -150,7 +154,8 @@ def _read_settings_tier(project_root: Path) -> str | None:
         return None
     try:
         raw_obj = json.loads(settings_path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to parse settings tier from %s: %s", settings_path, exc, exc_info=True)
         return None
 
     if not isinstance(raw_obj, dict):
@@ -171,7 +176,8 @@ def _read_cli_config_tier(project_root: Path, provider: str) -> str | None:
 
     try:
         lines = config_path.read_text(encoding="utf-8").splitlines()
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to read CLI tier config from %s: %s", config_path, exc, exc_info=True)
         return None
 
     in_provider_block = False
@@ -208,7 +214,8 @@ def _read_cached_tier(provider: str) -> str | None:
 
     try:
         payload_obj = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to read tier cache from %s: %s", path, exc, exc_info=True)
         return None
 
     if not isinstance(payload_obj, dict):
@@ -241,7 +248,8 @@ def _write_tier_cache(provider: str, tier: str) -> None:
     }
     try:
         _ = path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to write tier cache to %s: %s", path, exc, exc_info=True)
         return
 
 
