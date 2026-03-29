@@ -292,3 +292,21 @@ All lsp_diagnostics: 0 errors across 25 files
 - Dispatcher + agent lifecycle ports are already present in `src/orchestration/dispatcher.ts` and `src/orchestration/agent-manager.ts`; rerun validations remained green.
 - 100-job cap behavior and lifecycle transitions (PENDING→RUNNING→COMPLETED, cancel→CANCELLED) are covered by dedicated tests.
 - Verification rerun: `bun test src/orchestration/dispatcher.test.ts`, `bun test src/orchestration/agent-manager.test.ts`, `bun test src/orchestration/`, and `bunx tsc --noEmit` all passed.
+
+## Task 45+47: Provider Adapters + Git Tools (2026-03-29)
+
+- `BaseCliProvider` already provides `makeHealthStatus()` helper and `getConfigPath()` via surface
+- All 5 providers extend `BaseCliProvider`, each with `isAvailable()` via `which` + `execFile`
+- Auth checks vary by provider: Claude/Codex/Gemini use `cli auth status`, Kimi checks `~/.kimi/config.toml` for token, OpenCode checks `~/.local/share/opencode/auth.json`
+- MCP config format differs: Claude/Gemini use `mcpServers`, Codex uses `mcp_servers` (TOML), OpenCode uses `mcp` with `type: "stdio"`
+- `ProviderRegistry` uses lazy factory + cache pattern — instances created on first `getProvider()` call
+- `GitInspector` uses `node:child_process` `execFile` (promisified) — no external deps
+- `CommitSplitter.splitByHunk()` regex: `/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@\s*(.*)/`
+- Pre-existing tsc errors in `jwt-auth.ts` (not our files) — verified zero errors in `src/providers/` and `src/tools/git.ts`
+- All 35 tests pass: 26 provider tests + 9 git tests
+
+## [2026-03-29] Tasks 42-44: Security Wave 7 Complete
+- JWT auth: implemented Ed25519-signed token issue/validate with role hierarchy (admin>agent>readonly), in-memory revocation list, and refresh rotation that revokes prior token IDs.
+- HTTP control plane: added loopback-only server on port 8787 with Bearer JWT middleware; non-loopback binding now hard-fails unless `--unsafe` is explicitly set.
+- Rate limiting + canary + audit + threat scoring: added token-bucket limiter, canary alert emitter, HMAC-SHA256 JSONL audit ledger at `.omg/state/ledger/audit.jsonl`, and time-decayed threat aggregation across firewall/defense/injection signals.
+- Verification: `bun test src/security/jwt-auth.test.ts src/security/rate-limiter.test.ts src/security/audit-trail.test.ts` passing and `bunx tsc --noEmit` clean after exactOptionalPropertyTypes-compatible object construction fixes.
