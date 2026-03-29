@@ -30,6 +30,20 @@ describe("ForgeSystem", () => {
     expect(dispatched.agent).toBe("forge-code");
   });
 
+  test("routes vision-agent alias to forge-vision canonical domain", () => {
+    const forge = ForgeSystem.create();
+    const job: ForgeJob = {
+      id: "job-2b",
+      domain: "vision-agent",
+      task: "analyze image",
+      status: "pending",
+    };
+
+    const dispatched = forge.submit(job);
+    expect(dispatched.domain).toBe("vision");
+    expect(dispatched.agent).toBe("forge-vision");
+  });
+
   test("throws for invalid domain with valid domain list", () => {
     const forge = ForgeSystem.create();
     const job: ForgeJob = {

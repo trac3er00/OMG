@@ -5,8 +5,11 @@ const DOMAIN_AGENT_MAP = {
   health: "forge-health",
   robotics: "forge-robotics",
   vision: "forge-vision",
-  "vision-agent": "forge-vision",
 } as const;
+
+const DOMAIN_ALIASES: Readonly<Record<string, keyof typeof DOMAIN_AGENT_MAP>> = {
+  "vision-agent": "vision",
+};
 
 export type ForgeJobStatus = "pending" | "queued" | "running" | "completed" | "failed";
 
@@ -25,7 +28,8 @@ export class ForgeSystem {
 
   submit(job: ForgeJob): ForgeJob {
     const normalizedDomain = normalizeDomain(job.domain);
-    const specialist = DOMAIN_AGENT_MAP[normalizedDomain as keyof typeof DOMAIN_AGENT_MAP];
+    const canonicalDomain = DOMAIN_ALIASES[normalizedDomain] ?? normalizedDomain;
+    const specialist = DOMAIN_AGENT_MAP[canonicalDomain as keyof typeof DOMAIN_AGENT_MAP];
     if (specialist === undefined) {
       const validDomains = this.validDomains();
       throw new Error(`Unknown domain: ${job.domain}. Valid domains: ${validDomains.join(", ")}`);
@@ -33,7 +37,7 @@ export class ForgeSystem {
 
     return {
       ...job,
-      domain: normalizedDomain,
+      domain: canonicalDomain,
       agent: specialist,
       status: "queued",
     };

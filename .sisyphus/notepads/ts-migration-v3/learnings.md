@@ -281,3 +281,9 @@ All lsp_diagnostics: 0 errors across 25 files
 - Auto-target routing should prioritize explicit provider mentions, then domain hints (code/infra→codex, research→gemini), then fallback cost ranking.
 - With `exactOptionalPropertyTypes`, worker result fields must omit undefined keys via conditional object spreads.
 - `Promise.all` is a clean mirror of Python thread-pool fan-out for parallel worker dispatch in router execution.
+
+## [2026-03-29] Tasks 36+37: Exec Kernel + Worker Watchdog + Forge System
+- ExecKernel captures `executionResult` per run so each `run(task)` persists both run-scoped namespace state and executor output.
+- WorkerWatchdog stall detection now clamps negative thresholds to `0ms` before comparison, keeping heartbeat-based stall checks deterministic.
+- ForgeSystem keeps canonical domain routing for specialist selection while supporting alias normalization (`vision-agent` → `vision`).
+- Invalid forge domains still throw with a valid-domain list, while successful submissions always produce a queued specialist dispatch.

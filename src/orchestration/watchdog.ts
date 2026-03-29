@@ -21,12 +21,13 @@ export class WorkerWatchdog {
 
   detectStall(workerId: string, thresholdMs: number): boolean {
     const normalized = normalizeWorkerId(workerId);
+    const effectiveThresholdMs = Math.max(0, thresholdMs);
     const lastHeartbeatAt = this.heartbeats.get(normalized);
     if (lastHeartbeatAt === undefined) {
       return true;
     }
     const elapsedMs = this.now() - lastHeartbeatAt;
-    return elapsedMs > thresholdMs;
+    return elapsedMs > effectiveThresholdMs;
   }
 }
 

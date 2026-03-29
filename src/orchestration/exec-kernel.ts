@@ -4,6 +4,7 @@ import type { WorkerTask } from "../interfaces/orchestration.js";
 export interface ExecKernelRunState {
   readonly runId: string;
   readonly task: WorkerTask;
+  readonly executionResult: unknown;
   readonly startedAt: string;
   readonly finishedAt: string;
   readonly stateNamespace: Readonly<Record<string, unknown>>;
@@ -71,11 +72,12 @@ export class ExecKernel {
       },
     };
 
-    await this.executor.execute(task, context);
+    const executionResult = await this.executor.execute(task, context);
 
     const state: ExecKernelRunState = {
       runId,
       task,
+      executionResult,
       startedAt,
       finishedAt: this.now().toISOString(),
       stateNamespace: context.snapshot(),
