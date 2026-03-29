@@ -316,3 +316,9 @@ All lsp_diagnostics: 0 errors across 25 files
 - Reflection steps are easiest to test when the engine clones state up front, swaps in a mutable working copy during execution, and snapshots checkpoints before every step.
 - Adaptive routing stays deterministic when weights normalize from task-local success rates plus a small experience bonus, then tie-break by seeded agent order.
 - A lightweight `RoutingMetaAgent` can stay pure: turn per-agent success/failure counts into normalized weights and let `SelfImprovingRouter.route()` simply pick the highest-ranked agent for that task type.
+
+## [2026-03-29] Task 38: DAG Executor + Streaming
+- DAG scheduler pattern: maintain `ready` queue + `inFlight` map and drain with `Promise.race` to stream completion order while preserving topological constraints.
+- Backpressure is enforced by only launching while `inFlight.size < concurrency`; additional ready tasks wait until one completion is observed.
+- Failure propagation is safest when dependency resolution tracks both `unresolvedDeps` and `blockedByFailure`; blocked tasks are never launched.
+- With `exactOptionalPropertyTypes`, optional fields like `reason?` must be omitted when undefined (conditional object construction, not `reason: undefined`).
