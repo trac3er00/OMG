@@ -48,6 +48,19 @@ node_modules/
 npm-debug.log*
 package-lock.json
 
+# Bun
+bun.lockb
+node_modules/
+
+# TypeScript build
+dist/
+
+# OMG state (not committed)
+.omg/state/
+
+# Spike artifacts
+spike/results.json
+
 # OS files
 Thumbs.db
 desktop.ini
