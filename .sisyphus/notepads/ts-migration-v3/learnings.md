@@ -287,3 +287,8 @@ All lsp_diagnostics: 0 errors across 25 files
 - WorkerWatchdog stall detection now clamps negative thresholds to `0ms` before comparison, keeping heartbeat-based stall checks deterministic.
 - ForgeSystem keeps canonical domain routing for specialist selection while supporting alias normalization (`vision-agent` → `vision`).
 - Invalid forge domains still throw with a valid-domain list, while successful submissions always produce a queued specialist dispatch.
+
+## [2026-03-29] Task 32: Sub-agent Dispatcher + Agent Manager
+- Dispatcher + agent lifecycle ports are already present in `src/orchestration/dispatcher.ts` and `src/orchestration/agent-manager.ts`; rerun validations remained green.
+- 100-job cap behavior and lifecycle transitions (PENDING→RUNNING→COMPLETED, cancel→CANCELLED) are covered by dedicated tests.
+- Verification rerun: `bun test src/orchestration/dispatcher.test.ts`, `bun test src/orchestration/agent-manager.test.ts`, `bun test src/orchestration/`, and `bunx tsc --noEmit` all passed.

@@ -169,9 +169,12 @@ export class SubagentDispatcher {
   private readonly idGenerator: () => string;
 
   constructor(options: SubagentDispatcherOptions = {}) {
-    this.maxJobs = options.maxJobs ?? MAX_JOBS;
+    const requestedMaxJobs = options.maxJobs ?? MAX_JOBS;
+    this.maxJobs = Math.min(MAX_JOBS, Math.max(1, requestedMaxJobs));
     this.isolation = options.isolation ?? "none";
-    this.queue = new PQueue({ concurrency: options.concurrency ?? this.maxJobs });
+    const requestedConcurrency = options.concurrency ?? this.maxJobs;
+    const concurrency = Math.min(this.maxJobs, Math.max(1, requestedConcurrency));
+    this.queue = new PQueue({ concurrency });
     this.runner = options.runner ?? defaultRunner;
     this.idGenerator = options.idGenerator ?? defaultIdGenerator;
   }

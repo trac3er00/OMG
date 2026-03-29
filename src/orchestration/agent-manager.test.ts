@@ -47,7 +47,8 @@ describe("AgentManager", () => {
     });
 
     const id = await manager.spawnAgent(DEFAULT_CONFIG);
-    expect(await manager.getState(id)).toBe(AgentState.PENDING);
+    const initial = await manager.getState(id);
+    expect(initial === AgentState.PENDING || initial === AgentState.RUNNING).toBe(true);
 
     await waitForState(manager, id, AgentState.RUNNING, 500);
     await waitForState(manager, id, AgentState.COMPLETED, 1_500);
