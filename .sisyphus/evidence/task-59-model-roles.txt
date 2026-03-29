@@ -1,0 +1,21 @@
+Model roles verification
+
+Command:
+PATH=/home/claw/.bun/bin:$PATH bun test src/agents/
+
+Output:
+bun test v1.3.11 (af24e281)
+---------------------------|---------|---------|-------------------
+File                       | % Funcs | % Lines | Uncovered Line #s
+---------------------------|---------|---------|-------------------
+All files                  |  100.00 |   96.15 |
+ src/agents/model-roles.ts |  100.00 |   92.31 | 31,66-68
+ src/index.ts              |  100.00 |  100.00 |
+
+ 2 pass
+ 0 fail
+ 5 expect() calls
+Ran 2 tests across 1 file. [98.00ms]
+
+Default role:
+{"model":"claude-opus-4-5","temperature":1,"description":"Default balanced model for general tasks"}

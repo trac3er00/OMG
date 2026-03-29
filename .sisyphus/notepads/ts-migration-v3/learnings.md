@@ -111,3 +111,15 @@
 - `.sisyphus/` directory is gitignored — evidence files need `git add -f`
 - Pre-existing tsc errors in `orchestrator.ts` and `compat.ts` are unrelated to this work
 - Core plugin has 22 commands (>= 20 requirement), Advanced has exactly 9
+
+## Tasks 58-60: Release Config + Model Roles + Package Distribution (2026-03-29)
+
+### Patterns
+- Bun-first CI works cleanly with `oven-sh/setup-bun` plus explicit `PATH=/home/claw/.bun/bin:$PATH` command prefixes for local parity.
+- YAML-backed role loaders should normalize to a tiny typed surface (`model`, `temperature`, optional `description`) and ignore extra config fields safely.
+- Package metadata already matched the requested release shape, so verification could be evidence-based without forcing a noisy package rewrite.
+
+### Verification
+- `bun test src/agents/` passes with the new `src/agents/model-roles.ts` loader and tests.
+- `bunx tsc --noEmit` passes after keeping the loader strict and avoiding unused locals/parameters.
+- Evidence artifacts were saved under `.sisyphus/evidence/task-58-ci.txt`, `task-59-model-roles.txt`, and `task-60-package.txt`.

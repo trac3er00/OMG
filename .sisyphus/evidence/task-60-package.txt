@@ -1,0 +1,7 @@
+Package distribution check
+
+Command:
+PATH=/home/claw/.bun/bin:$PATH bun -e 'const pkg = await Bun.file("package.json").json(); console.log(JSON.stringify({version: pkg.version, omg: pkg.bin.omg, omgControl: pkg.bin["omg-control"], bun: pkg.engines.bun}));'
+
+Output:
+{"version":"3.0.0","omg":"src/cli/index.ts","omgControl":"src/mcp/server.ts","bun":">=1.1.0"}

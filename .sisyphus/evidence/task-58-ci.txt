@@ -1,0 +1,7 @@
+CI workflow check
+
+Command:
+PATH=/home/claw/.bun/bin:$PATH bun -e 'const text = await Bun.file(".github/workflows/ci.yml").text(); console.log(JSON.stringify({python3: /python3/i.test(text), pytest: /pytest/i.test(text), bunTest: /bun test/i.test(text), tsc: /bunx tsc --noEmit/i.test(text)}));'
+
+Output:
+{"python3":false,"pytest":false,"bunTest":true,"tsc":true}
