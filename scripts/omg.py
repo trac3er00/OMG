@@ -2124,6 +2124,107 @@ def cmd_env_doctor(args: argparse.Namespace) -> int:
     return 0 if result["status"] == "pass" else 1
 
 
+def cmd_init(args: argparse.Namespace) -> int:
+    """Fully automated OMG initialization - detect agents, select preset, configure."""
+    auto_mode = getattr(args, "auto", False)
+    preset = getattr(args, "preset", None)
+    fmt = getattr(args, "format", "text")
+
+    import shutil
+
+    detected = {}
+    for name, cmd in [("claude", "claude"), ("codex", "codex"), ("gemini", "gemini"),
+                      ("kimi", "kimi"), ("opencode", "opencode")]:
+        detected[name] = shutil.which(cmd) is not None
+
+    if auto_mode and preset is None:
+        if detected.get("codex") or detected.get("gemini"):
+            preset = "production"
+        elif detected.get("kimi") or detected.get("claude"):
+            preset = "balanced"
+        else:
+            preset = "safe"
+    elif preset is None:
+        preset = "safe"
+
+    if fmt == "json":
+        print(json.dumps({
+            "detected": detected,
+            "selected_preset": preset,
+            "auto": auto_mode
+        }, indent=2))
+    else:
+        print("OMG Initialization")
+        print(f"  Detected agents:")
+        for name, present in detected.items():
+            status = "✓" if present else "✗"
+            print(f"    {status} {name}")
+        print(f"  Selected preset: {preset}")
+        print(f"  Auto mode: {auto_mode}")
+
+    return 0
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    """Check OMG installation status - agents, MCP, runtime."""
+    fmt = getattr(args, "format", "text")
+    import shutil
+    import os
+
+    claude_dir = os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude"))
+
+    status = {
+        "version": CANONICAL_VERSION,
+        "agents": {},
+        "mcp_servers": {},
+        "installation": {},
+        "runtime": {}
+    }
+
+    for name, cmd in [("claude", "claude"), ("codex", "codex"), ("gemini", "gemini"),
+                      ("kimi", "kimi"), ("opencode", "opencode"), ("cursor", "cursor")]:
+        status["agents"][name] = shutil.which(cmd) is not None
+
+    omg_version_path = os.path.join(claude_dir, "hooks", ".omg-version")
+    omg_runtime_path = os.path.join(claude_dir, "omg-runtime")
+    status["installation"]["hooks_installed"] = os.path.exists(omg_version_path)
+    status["installation"]["runtime_installed"] = os.path.exists(omg_runtime_path)
+
+    mcp_path = os.path.join(claude_dir, ".mcp.json")
+    if os.path.exists(mcp_path):
+        try:
+            with open(mcp_path) as f:
+                mcp_data = json.load(f)
+                status["mcp_servers"] = list(mcp_data.get("mcpServers", {}).keys())
+        except Exception:
+            pass
+
+    if fmt == "json":
+        print(json.dumps(status, indent=2))
+    else:
+        print("=" * 50)
+        print(f"OMG Status - v{CANONICAL_VERSION}")
+        print("=" * 50)
+        print("\nAgents:")
+        for name, present in status["agents"].items():
+            marker = "✓" if present else "✗"
+            print(f"  {marker} {name}")
+
+        print(f"\nInstallation:")
+        inst = status["installation"]
+        print(f"  {'✓' if inst['hooks_installed'] else '✗'} Hooks installed")
+        print(f"  {'✓' if inst['runtime_installed'] else '✗'} Runtime installed")
+
+        if status["mcp_servers"]:
+            print(f"\nMCP Servers:")
+            for server in status["mcp_servers"]:
+                print(f"  • {server}")
+        else:
+            print(f"\nMCP Servers: none configured")
+
+    return 0
+
+
 
 def _detect_clis() -> dict[str, Any]:
     """Detect which host CLIs are available on PATH."""
@@ -3302,6 +3403,16 @@ def build_parser() -> argparse.ArgumentParser:
     env_doctor_cmd.add_argument("--fix", action="store_true", default=False, help="Attempt to fix failing checks")
     env_doctor_cmd.add_argument("--dry-run", action="store_true", default=False, dest="dry_run")
     env_doctor_cmd.set_defaults(func=cmd_env_doctor)
+
+    init_cmd = sub.add_parser("init", help="Fully automated OMG initialization")
+    init_cmd.add_argument("--auto", action="store_true", help="Fully automatic mode (no prompts)")
+    init_cmd.add_argument("--preset", default=None, choices=list(VALID_PRESETS), help="Force preset selection")
+    init_cmd.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    init_cmd.set_defaults(func=cmd_init)
+
+    status_cmd = sub.add_parser("status", help="Check OMG installation status")
+    status_cmd.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    status_cmd.set_defaults(func=cmd_status)
 
     return parser
 

@@ -195,6 +195,27 @@ Success looks like:
 - Gemini: [docs/install/gemini.md](docs/install/gemini.md)
 - Kimi: [docs/install/kimi.md](docs/install/kimi.md)
 
+## Claude Marketplace Install
+
+Install OMG via Claude Code's plugin marketplace:
+
+```bash
+# Add OMG marketplace
+/plugin marketplace add https://github.com/trac3r00/OMG
+
+# Install OMG core
+/plugin install omg@omg
+
+# Or use claude mcp add for direct MCP installation
+claude mcp add omg npx @trac3r/oh-my-god
+```
+
+After installation, OMG's governance, orchestration, and skill system are available:
+
+- **Universal skills**: `@governance`, `@orchestrate`, `@memory`, `@proof`, `@forge`
+- **Provider skills**: Claude (`@claude/*`), Codex (`@codex/*`), OpenCode (`@opencode/*`), Gemini (`@gemini/*`)
+- **Registry**: `registry/skills.json` lists all available skills
+
 ## Native Adoption
 
 OMG uses native setup language instead of public migration commands.
