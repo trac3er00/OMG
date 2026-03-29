@@ -146,7 +146,8 @@ def _get_anthropic_api_key() -> str | None:
         if key:
             return key
     except (ImportError, RuntimeError, ValueError, OSError, AttributeError):
-        pass
+        # Optional: credential_store not available
+        return os.environ.get("ANTHROPIC_API_KEY")
     return os.environ.get("ANTHROPIC_API_KEY")
 
 

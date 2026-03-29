@@ -458,7 +458,10 @@ def _validate_config_security(config_path: str, content: str) -> Dict[str, Any]:
         if size > _MAX_CONFIG_SIZE_BYTES:
             warnings.append(f"Config file is large ({size} bytes): {config_path}")
     except OSError:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [trust_review] failed to read config size: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     return {
         "safe": len(issues) == 0,

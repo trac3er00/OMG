@@ -7,6 +7,7 @@ from importlib import import_module
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import logging
 from pathlib import Path
 import re
 import shutil
@@ -21,6 +22,8 @@ from plugins.dephealth.vuln_analyzer import analyze_reachability
 from runtime.adoption import CANONICAL_VERSION
 from runtime.delta_classifier import classify_project_changes
 from runtime.tracebank import record_trace
+
+_logger = logging.getLogger(__name__)
 
 
 _SCAN_EXCLUDED_DIRS: frozenset[str] = frozenset({'.git', '.omg', '.sisyphus', 'build', 'dist', 'node_modules', 'tests'})
@@ -793,8 +796,8 @@ def _finalize_findings(findings: list[dict[str, Any]], waiver_map: dict[str, str
             if project_root is not None:
                 try:
                     rel_path = str(Path(evidence_path).resolve().relative_to(project_root))
-                except ValueError:
-                    pass
+                except ValueError as exc:
+                    _logger.debug("Failed to normalize security finding path relative to project root: %s", exc, exc_info=True)
             rel_path = rel_path.replace("\\", "/")
             sanctioned_justification = _SANCTIONED_CALLSITES.get((rel_path, rule_id))
         justification = sanctioned_justification or waiver_map.get(item["finding_id"]) or waiver_map.get(str(item.get("id", "")))

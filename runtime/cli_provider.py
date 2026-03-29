@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import os
+import logging
 import subprocess
 from abc import ABC, abstractmethod
 from typing import Any
 from typing import Mapping
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _run_tool(
@@ -20,7 +24,7 @@ def _run_tool(
     proc_env = os.environ.copy()
     if env:
         proc_env.update({key: str(value) for key, value in env.items()})
-    return subprocess.run(
+    result = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
@@ -29,6 +33,15 @@ def _run_tool(
         cwd=cwd,
         env=proc_env,
     )
+    if result.returncode != 0:
+        snippet = (result.stderr or result.stdout or "").strip()[:200]
+        _logger.warning(
+            "Command failed (rc=%d): %s | %s",
+            result.returncode,
+            " ".join(cmd),
+            snippet,
+        )
+    return result
 
 
 class CLIProvider(ABC):

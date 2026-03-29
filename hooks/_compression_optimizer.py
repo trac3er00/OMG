@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from collections import Counter
 from datetime import datetime, timezone
 
@@ -111,7 +112,10 @@ def optimize_guidelines(feedback_path: str, output_path: str) -> dict[str, objec
             with open(output_path, "w", encoding="utf-8") as handle:
                 json.dump(guidelines, handle, indent=2)
         except OSError:
-            pass
+            try:
+                print(f"[omg:warn] failed to write compression guidelines output: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     return guidelines
 

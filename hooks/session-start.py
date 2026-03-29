@@ -125,7 +125,10 @@ for mcp_loc in [
                 servers = json.load(f).get("mcpServers", {})
             tools.extend(f"mcp:{n}" for n in list(servers.keys())[:5])
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [session-start] failed to read MCP config: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
 if tools:
     sections.append("@tools: " + ", ".join(tools))
@@ -207,7 +210,10 @@ if handoff_fresh and os.path.exists(handoff_path):
 
         except Exception:
 
-            pass  # If rename fails, continue anyway (injection already happened)
+            try:
+                import sys; print(f"[omg:warn] [session-start] failed to mark handoff consumed: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
 
 # 5) Active failures
@@ -221,7 +227,10 @@ if os.path.exists(tracker_path):
             warns = [f"  !! {k}: {v['count']}x failed" for k, v in active[:3]]
             sections.append("[ACTIVE FAILURES — consider /OMG:escalate or different approach]\n" + "\n".join(warns))
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [session-start] failed to read failure tracker: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 # 6) Recent memory (on-demand)
@@ -232,7 +241,10 @@ if get_feature_flag('memory'):
         if recent:
             sections.append(f'@recent-memory: {recent}')
     except Exception:
-        pass  # Memory is optional — never block session start
+        try:
+            import sys; print(f"[omg:warn] [session-start] optional memory load failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 # ── Idle detection: minimal output when no active work ──

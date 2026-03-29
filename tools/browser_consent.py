@@ -16,6 +16,7 @@ IMPORTANT:
 """
 
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -55,6 +56,7 @@ _WARNING_TEXT = """\
 # --- Lazy imports for hooks/_common.py ---
 
 _atomic_json_write = None
+_logger = logging.getLogger(__name__)
 
 
 def _ensure_imports():
@@ -70,7 +72,8 @@ def _ensure_imports():
         from _common import atomic_json_write as _ajw
         _atomic_json_write = _ajw
     except ImportError:
-        pass
+        # Optional: _common not available
+        _logger.debug("Failed to import atomic_json_write from _common", exc_info=True)
 
 
 def _write_consent_file(path: str, data: Dict[str, Any]) -> bool:
@@ -84,6 +87,7 @@ def _write_consent_file(path: str, data: Dict[str, Any]) -> bool:
             _atomic_json_write(path, data)
             return True
         except Exception:
+            _logger.debug("Failed to write browser consent atomically", exc_info=True)
             return False
     # Fallback: direct write with makedirs
     try:
@@ -94,6 +98,7 @@ def _write_consent_file(path: str, data: Dict[str, Any]) -> bool:
             json.dump(data, f, separators=(",", ":"))
         return True
     except Exception:
+        _logger.debug("Failed to write browser consent via fallback", exc_info=True)
         return False
 
 

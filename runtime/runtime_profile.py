@@ -1,12 +1,16 @@
 """Runtime profile loading and parallelism budgets."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TypedDict, cast
 
 import yaml
 
 from .adoption import CANONICAL_MODE_NAMES
+
+
+_logger = logging.getLogger(__name__)
 
 
 class RuntimeProfile(TypedDict):
@@ -69,7 +73,8 @@ def load_runtime_profile(project_dir: str) -> RuntimeProfile:
     if runtime_path.exists():
         try:
             raw_payload: object = yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to parse runtime profile from %s: %s", runtime_path, exc, exc_info=True)
             raw_payload = {}
         if isinstance(raw_payload, dict):
             payload_map = cast(dict[object, object], raw_payload)
@@ -106,7 +111,8 @@ def _load_cli_parallel_cap(project_dir: str) -> int | None:
         return None
     try:
         raw_payload: object = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to parse CLI parallel cap from %s: %s", config_path, exc, exc_info=True)
         return None
     if not isinstance(raw_payload, dict):
         return None

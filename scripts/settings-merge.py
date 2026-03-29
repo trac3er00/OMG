@@ -12,6 +12,7 @@ Strategy:
 - Everything else: PRESERVE as-is
 """
 import json
+import logging
 import sys
 import os
 import re
@@ -23,6 +24,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from runtime.config_transaction import ConfigTransaction
 from runtime.mcp_config_writers import _atomic_write_text_safe
+
+
+_logger = logging.getLogger(__name__)
 
 def load_json(path):
     if not os.path.exists(path):
@@ -271,8 +275,8 @@ def main():
     try:
         (tx_lock_dir / "tx.lock").unlink(missing_ok=True)
         tx_lock_dir.rmdir()
-    except OSError:
-        pass
+    except OSError as exc:
+        _logger.debug("Failed to clean temporary merge lock directory %s: %s", tx_lock_dir, exc, exc_info=True)
     print(f"📦 Backed up: {receipt['backup_path']}")
 
     print(f"✅ Merged into: {existing_path}")

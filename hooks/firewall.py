@@ -294,7 +294,10 @@ if is_mutation_capable and gate_result.get("status") == "blocked":
                 "timestamp": _fw_dt.now(_fw_tz.utc).isoformat(),
             }, _fw_f, indent=2)
     except Exception:
-        pass  # Best-effort only
+        try:
+            import sys; print(f"[omg:warn] [firewall] failed to persist last block explanation: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     deny_decision(_fw_enhanced_reason)
     sys.exit(0)
 
@@ -314,7 +317,10 @@ if decision.action == "allow" and is_mutation_capable:
             metadata=metadata if isinstance(metadata, dict) else None,
         )
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [firewall] failed to journal mutation-capable allow decision: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 out = to_pretool_hook_output(decision)
 if out:

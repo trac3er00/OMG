@@ -3,10 +3,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
 import re
 from typing import Any
 from uuid import uuid4
+
+_logger = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -300,8 +303,8 @@ def collect_incident_signals(project_dir: str, run_id: str) -> dict[str, object]
                                 "approval_reason": "",
                             }
                         )
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to read tool ledger for incident replay extraction: %s", exc, exc_info=True)
 
     return {
         "incident_count": incident_count,

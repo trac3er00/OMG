@@ -42,7 +42,8 @@ try:
     import runtime.providers.gemini_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
     import runtime.providers.kimi_provider  # noqa: F401  # pyright: ignore[reportUnusedImport]
 except ImportError:
-    pass
+    # Optional: runtime provider modules not available
+    _logger.debug("Failed to import one or more optional runtime provider modules", exc_info=True)
 
 from runtime.runtime_profile import resolve_parallel_workers
 from runtime.runtime_contracts import write_run_state
@@ -110,7 +111,7 @@ def _run_tool(
     proc_env = os.environ.copy()
     if env:
         proc_env.update({key: str(value) for key, value in env.items()})
-    return subprocess.run(
+    proc = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
@@ -119,6 +120,15 @@ def _run_tool(
         cwd=cwd,
         env=proc_env,
     )
+    if proc.returncode != 0:
+        snippet = (proc.stderr or proc.stdout or "").strip()[:200]
+        _logger.warning(
+            "Command failed (rc=%d): %s | %s",
+            proc.returncode,
+            " ".join(cmd),
+            snippet,
+        )
+    return proc
 
 
 _TOOL_MAP: dict[str, str] = {
@@ -1298,8 +1308,8 @@ def get_active_credential(provider: str, session_id: str | None = None) -> str |
     # Persist updated stats (best-effort)
     try:
         cred_mod.save_store(store, passphrase)
-    except (ValueError, OSError, RuntimeError):
-        pass
+    except (ValueError, OSError, RuntimeError) as exc:
+        _logger.debug("Failed to persist credential usage rotation state: %s", exc, exc_info=True)
 
     return keys[idx].get("key")
 
@@ -1350,8 +1360,8 @@ def on_rate_limit(provider: str, session_id: str | None = None) -> str | None:
     # Persist (best-effort)
     try:
         cred_mod.save_store(store, passphrase)
-    except (ValueError, OSError, RuntimeError):
-        pass
+    except (ValueError, OSError, RuntimeError) as exc:
+        _logger.debug("Failed to persist credential rotation state after rate limit: %s", exc, exc_info=True)
 
     return keys[new_idx].get("key")
 
@@ -1429,8 +1439,9 @@ def route_with_role(task_text: str, role: str | None = None) -> dict[str, Any]:
         try:
             from model_roles import parse_role_args  # pyright: ignore[reportMissingImports]
             resolved_role = parse_role_args(_sys.argv[1:])
-        except ImportError:
-            pass
+        except ImportError as exc:
+            # Optional: model_roles.parse_role_args not available
+            _logger.debug("Failed to import optional role parser: %s", exc, exc_info=True)
 
     # No role resolved → return baseline
     if resolved_role is None:

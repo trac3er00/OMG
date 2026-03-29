@@ -19,6 +19,21 @@ setup_crash_handler("terms-guard", fail_closed=True)
 
 MODEL_TOKENS = ("claude", "codex", "gemini", "kimi", "gpt", "openai", "anthropic")
 
+_STAR_PROMOTION_RE = re.compile(r"\b(star|starring|upvote)\b")
+_SHARE_FORWARD_RE = re.compile(r"\b(share|forward|broadcast|cross-model|cross model|copy this prompt|paste this prompt)\b")
+_ROUTE_SWITCH_RE = re.compile(r"\b(route|switch|proxy|forward|delegate)\b")
+_IDENTITY_CLAIM_RE = re.compile(
+    r"\b(tell\s+the\s+user|claim|pretend|masquerade|say\s+this\s+came\s+from|present\s+as)\b"
+)
+_HIDDEN_DISCLOSURE_RE = re.compile(
+    r"\b(hidden|hide\s+this|secretly|without\s+disclos(?:ing|ure)|do\s+not\s+disclose|don['’]?t\s+disclose|undisclosed)\b"
+)
+_THIRD_PARTY_RE = re.compile(r"\b(third[- ]party|external\s+(?:api|service|vendor)|analytics\s+(?:api|service))\b")
+_DATA_EXFIL_RE = re.compile(r"\b(logs?|conversation|prompt|chat\s*history|transcript|user\s*data)\b")
+_NO_DISCLOSURE_RE = re.compile(
+    r"\b(without\s+(?:user\s+)?disclos(?:ing|ure)|without\s+consent|undisclosed|do\s+not\s+disclose|don['’]?t\s+disclose)\b"
+)
+
 
 def _collect_mutation_text(tool_name: str, tool_input: object) -> str:
     if tool_name not in {"Write", "Edit", "MultiEdit"}:
@@ -52,29 +67,20 @@ def _model_mentions(text: str) -> int:
 
 def _detect_violation_reason(text: str) -> str | None:
     lowered = text.lower()
-    has_star = re.search(r"\b(star|starring|upvote)\b", lowered) is not None
-    has_share = re.search(r"\b(share|forward|broadcast|cross-model|cross model|copy this prompt|paste this prompt)\b", lowered) is not None
+    has_star = _STAR_PROMOTION_RE.search(lowered) is not None
+    has_share = _SHARE_FORWARD_RE.search(lowered) is not None
     if has_star and has_share and _model_mentions(lowered) >= 2:
         return "promotion_star_cross_model"
 
-    has_switching = re.search(r"\b(route|switch|proxy|forward|delegate)\b", lowered) is not None
-    has_identity_claim = re.search(
-        r"\b(tell\s+the\s+user|claim|pretend|masquerade|say\s+this\s+came\s+from|present\s+as)\b",
-        lowered,
-    ) is not None
-    has_hidden = re.search(
-        r"\b(hidden|hide\s+this|secretly|without\s+disclos(?:ing|ure)|do\s+not\s+disclose|don['’]?t\s+disclose|undisclosed)\b",
-        lowered,
-    ) is not None
+    has_switching = _ROUTE_SWITCH_RE.search(lowered) is not None
+    has_identity_claim = _IDENTITY_CLAIM_RE.search(lowered) is not None
+    has_hidden = _HIDDEN_DISCLOSURE_RE.search(lowered) is not None
     if has_switching and has_identity_claim and has_hidden and _model_mentions(lowered) >= 2:
         return "hidden_model_identity_switch"
 
-    has_third_party = re.search(r"\b(third[- ]party|external\s+(?:api|service|vendor)|analytics\s+(?:api|service))\b", lowered) is not None
-    has_data = re.search(r"\b(logs?|conversation|prompt|chat\s*history|transcript|user\s*data)\b", lowered) is not None
-    has_no_disclosure = re.search(
-        r"\b(without\s+(?:user\s+)?disclos(?:ing|ure)|without\s+consent|undisclosed|do\s+not\s+disclose|don['’]?t\s+disclose)\b",
-        lowered,
-    ) is not None
+    has_third_party = _THIRD_PARTY_RE.search(lowered) is not None
+    has_data = _DATA_EXFIL_RE.search(lowered) is not None
+    has_no_disclosure = _NO_DISCLOSURE_RE.search(lowered) is not None
     if has_third_party and has_data and has_no_disclosure:
         return "undisclosed_third_party_sharing"
 

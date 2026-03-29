@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from collections.abc import Mapping
@@ -19,6 +20,9 @@ from runtime.release_run_coordinator import (
 )
 from runtime.runtime_contracts import read_run_state
 from runtime.test_intent_lock import verify_done_when, verify_lock
+
+
+_logger = logging.getLogger(__name__)
 
 
 _TOOL_KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -80,8 +84,8 @@ def build_tool_plan(
         governance_raw = score_complexity(normalized_goal).get("governance")
         if isinstance(governance_raw, Mapping):
             _governance = {str(key): value for key, value in governance_raw.items()}
-    except Exception:
-        pass
+    except Exception as exc:
+        _logger.debug("Failed to compute governance payload for tool plan %s: %s", plan_id, exc, exc_info=True)
     payload: dict[str, object] = {
         "plan_id": plan_id,
         "goal": normalized_goal,

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any, TypedDict
 
 from runtime.verdict_schema import VerdictReceipt
+
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -97,8 +100,8 @@ def check_completion_claim_validity(project_dir: str) -> dict[str, Any]:
         try:
             proof_data = json.loads(proof_file.read_text(encoding="utf-8"))
             proof_verdict = str(proof_data.get("verdict", "")).strip().lower()
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _logger.debug("Failed to read proof gate data for completion claim: %s", exc, exc_info=True)
 
     if proof_verdict != "pass":
         missing.append("proof gate verdict")

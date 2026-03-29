@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Mapping
 from typing import Any
@@ -10,6 +11,9 @@ from runtime.claim_judge import evaluate_claims_for_release
 from runtime.proof_gate import production_gate as evaluate_production_gate
 from runtime.proof_gate import required_production_primitives
 from runtime.runtime_contracts import read_run_state
+
+
+_logger = logging.getLogger(__name__)
 
 
 _READ_ONLY_TOOL_HINTS = (
@@ -192,7 +196,8 @@ def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
     payload = evidence if isinstance(evidence, dict) else {}
     try:
         gate_result = evaluate_production_gate(payload)
-    except Exception:
+    except Exception as exc:
+        _logger.warning("Production gate evaluation failed; blocking by default: %s", exc, exc_info=True)
         return {
             "status": "blocked",
             "blockers": ["production_gate_internal_error"],

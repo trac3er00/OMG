@@ -18,10 +18,13 @@ Stdlib only: subprocess, json, pathlib, re.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 from dataclasses import asdict
 from pathlib import Path
+
+_logger = logging.getLogger(__name__)
 
 # Lazy imports for crash isolation — these modules live in the same package
 # and in hooks/.  Import errors are caught at call sites.
@@ -114,6 +117,9 @@ def _run_pytest_coverage(project_dir: str, rel_source: str) -> dict:
         timeout=_SUBPROCESS_TIMEOUT,
         cwd=project_dir,
     )
+    if result.returncode != 0:
+        snippet = (result.stderr or result.stdout or "").strip()[:200]
+        raise RuntimeError(f"pytest coverage failed (rc={result.returncode}): {snippet}")
 
     return _parse_coverage_json(str(cov_json_path), rel_source)
 
@@ -152,13 +158,16 @@ def _run_jest_coverage(project_dir: str, rel_source: str) -> dict:
     """Run jest/vitest --coverage and parse coverage-summary.json."""
     argv = ["npx", "--no-install", "jest", "--coverage", "--coverageReporters=json-summary", "--silent"]
 
-    subprocess.run(
+    result = subprocess.run(
         argv,
         capture_output=True,
         text=True,
         timeout=_SUBPROCESS_TIMEOUT,
         cwd=project_dir,
     )
+    if result.returncode != 0:
+        snippet = (result.stderr or result.stdout or "").strip()[:200]
+        raise RuntimeError(f"jest coverage failed (rc={result.returncode}): {snippet}")
 
     summary_path = Path(project_dir) / "coverage" / "coverage-summary.json"
     if not summary_path.is_file():
@@ -176,13 +185,16 @@ def _run_go_coverage(project_dir: str, rel_source: str) -> dict:
     cover_path = Path(project_dir) / "cover.out"
     argv = ["go", "test", "-coverprofile", str(cover_path), "./..."]
 
-    subprocess.run(
+    result = subprocess.run(
         argv,
         capture_output=True,
         text=True,
         timeout=_SUBPROCESS_TIMEOUT,
         cwd=project_dir,
     )
+    if result.returncode != 0:
+        snippet = (result.stderr or result.stdout or "").strip()[:200]
+        raise RuntimeError(f"go coverage failed (rc={result.returncode}): {snippet}")
 
     if not cover_path.is_file():
         raise FileNotFoundError("Go coverage profile not found")
@@ -329,7 +341,8 @@ def run_codamosa(
             "mock_library": fw_info.mock_library,
         }
     except ImportError:
-        pass
+        # Optional: plugins.testgen.framework_detector not available
+        _logger.debug("Failed to import framework detector", exc_info=True)
 
     # Determine test output path
     test_dir = Path(project_dir) / detected_test_dir

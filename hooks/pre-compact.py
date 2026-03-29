@@ -59,7 +59,8 @@ def _lazy_imports():
         get_model_limits = _gml
         compaction_trigger = _ct
     except Exception:
-        pass  # get_model_limits and compaction_trigger remain None
+        get_model_limits = None  # Optional: runtime.context_limits not available
+        compaction_trigger = None
 
 
 MAX_SNAPSHOT_BYTES = int(os.environ.get("OMG_PRECOMPACT_MAX_SNAPSHOT_BYTES", "262144"))
@@ -127,7 +128,10 @@ def _rotate_ledger_if_needed(ledger_path, max_lines=10000):
             file=sys.stderr,
         )
     except Exception:
-        pass  # crash isolation
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] failed to rotate ledger: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def snapshot_file(src_path, dst_path, max_bytes):
@@ -301,7 +305,10 @@ def _load_context_budget_config(project_dir):
                 "batch_size": budget.get("batch_size", defaults["batch_size"]),
             }
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] failed to load context budget config: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
     return defaults
 
 
@@ -366,6 +373,10 @@ def _count_completed_phases(checklist_path):
         completed = sum(1 for l in lines if "[x]" in l.lower())
         return completed
     except Exception:
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] failed to count completed phases: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
         return 0
 
 
@@ -401,6 +412,10 @@ def _count_tool_calls_since(ledger_path, since_timestamp):
                     continue
         return count
     except Exception:
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] failed to count tool calls since timestamp: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
         return 0
 
 
@@ -425,6 +440,10 @@ def _load_auto_compact_state(project_dir):
             "tool_count_at_compact": state.get("tool_count_at_compact", 0),
         }
     except Exception:
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] failed to load auto-compact state: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
         return {
             "last_compact_ts": None,
             "last_phase_count": 0,
@@ -446,7 +465,10 @@ def _save_auto_compact_state(project_dir, phase_count, tool_count):
         with open(state_path, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
     except Exception:
-        pass  # Never crash on state save
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] failed to save auto-compact state: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def _check_auto_compact_advisory(project_dir):
@@ -512,7 +534,10 @@ def main():
             if should_suggest:
                 print(f"[OMG pre-compact] Auto-compact advisory: {reason}", file=sys.stderr)
         except Exception:
-            pass  # crash isolation: advisory failure should not block compaction
+            try:
+                import sys; print(f"[omg:warn] [pre-compact] auto-compact advisory check failed: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     state_dir = resolve_state_dir(project_dir, "state", "")
     snapshot_dir = os.path.join(state_dir, "snapshots", ts)
@@ -585,7 +610,10 @@ def main():
                 warns = [f"- {k}: {v['count']}x" for k, v in list(active.items())[:5]]
                 parts.append("## Failed Approaches\n" + "\n".join(warns))
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [pre-compact] failed to parse failure tracker: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     if ralph_loop:
         try:
             rl = json.loads(ralph_loop)
@@ -595,7 +623,10 @@ def main():
                 rl_goal = rl.get("original_prompt", "")[:80]
                 parts.append(f"## Ralph Loop\nIteration: {rl_iter}/{rl_max} | Goal: {rl_goal}")
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [pre-compact] failed to parse Ralph loop state: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     try:
         import subprocess  # lazy import — security-reviewed: fixed argv, no user input, timeout-bounded
@@ -606,11 +637,23 @@ def main():
             timeout=GIT_DIFF_TIMEOUT_SEC,
             cwd=project_dir,
         )
-        changed = [l for l in diff_names.stdout.strip().split("\n") if l]
+        if diff_names.returncode != 0:
+            snippet = (diff_names.stderr or diff_names.stdout or "").strip()[:200]
+            print(
+                f"[OMG pre-compact] git diff --name-only failed "
+                f"(rc={diff_names.returncode}): {snippet}",
+                file=sys.stderr,
+            )
+            changed = []
+        else:
+            changed = [l for l in diff_names.stdout.strip().split("\n") if l]
         if changed:
             parts.append("## Uncommitted\n" + "\n".join(f"- {x}" for x in changed[:5]))
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] failed to collect git diff names: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     parts.append("## Resume Instructions")
     parts.append("Read .omg/state/profile.yaml + this file.")
@@ -643,7 +686,10 @@ def main():
                 for old in entries[:-5]:
                     shutil.rmtree(os.path.join(snapshots_parent, old), ignore_errors=True)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] failed to prune old snapshots: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     print(f"[OMG pre-compact] Snapshotted {len(saved)} files -> {snapshot_dir}", file=sys.stderr)
 
@@ -663,7 +709,10 @@ def main():
                 file=sys.stderr,
             )
     except Exception:
-        pass  # crash isolation: never fail on auto-compact tracking
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] auto-compact tracking failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     # --- Ledger rotation (prevent unbounded growth) ---
     try:
@@ -672,7 +721,10 @@ def main():
         )
         _rotate_ledger_if_needed(_ledger_path, max_lines=10000)
     except Exception:
-        pass  # crash isolation: never fail on ledger rotation
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] ledger rotation block failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     # --- Protected context registry (feature-flagged under CONTEXT_MANAGER) ---
     try:
@@ -682,7 +734,10 @@ def main():
                 json.dump({"additionalContext": protected}, sys.stdout)
                 print(f"[OMG pre-compact] Protected context injected ({len(protected)} chars)", file=sys.stderr)
     except Exception:
-        pass  # crash isolation: never fail on protected context
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] protected context collection failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     # --- Hybrid summarization (feature-flagged under CONTEXT_MANAGER) ---
     try:
@@ -716,7 +771,10 @@ def main():
                         file=sys.stderr,
                     )
     except Exception:
-        pass  # crash isolation: never fail on hybrid summarization
+        try:
+            import sys; print(f"[omg:warn] [pre-compact] hybrid summarization failed: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     sys.exit(0)
 

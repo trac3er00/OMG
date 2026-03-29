@@ -3,6 +3,7 @@
 import os
 import glob
 import re
+import sys
 
 
 def read_file_safe(path, max_bytes=4096):
@@ -58,7 +59,7 @@ def aggregate_learnings(project_dir: str, max_patterns: int = 10) -> str:
     return format_critical_patterns(all_tools, all_files, max_patterns)
 
 
-def format_critical_patterns(tools: dict, files: dict, max_patterns: int = 10) -> str:
+def format_critical_patterns(tools: dict[str, int], files: dict[str, int], max_patterns: int = 10) -> str:
     """Format tool and file patterns into critical-patterns summary.
 
     Returns string ≤500 chars.
@@ -101,7 +102,10 @@ def rotate_learnings(project_dir: str, max_files: int = 30) -> int:
         try:
             os.remove(f)
         except OSError:
-            pass
+            try:
+                print(f"[omg:warn] failed to remove old learning file during rotation: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     return excess
 
 

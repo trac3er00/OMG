@@ -9,12 +9,15 @@ Feature flag: OMG_SNAPSHOT_ENABLED (default: False)
 """
 
 import json
+import logging
 import os
 import sys
 import tarfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+_logger = logging.getLogger(__name__)
 
 # Lazy import from hooks
 def _get_feature_flag_enabled() -> bool:
@@ -161,9 +164,9 @@ def list_snapshots(state_dir: str = ".omg/state") -> List[Dict[str, Any]]:
                         metadata = json.load(f)
                         snapshots.append(metadata)
                 except (json.JSONDecodeError, OSError):
-                    pass  # Skip invalid metadata files
+                    _logger.debug("Failed to read snapshot metadata file", exc_info=True)
     except OSError:
-        pass
+        _logger.debug("Failed to list snapshot metadata directory", exc_info=True)
 
     # Sort by created_at descending (newest first)
     snapshots.sort(key=lambda x: x.get("created_at", ""), reverse=True)
@@ -318,7 +321,7 @@ def create_branch(
                 cb = json.load(f)
                 parent_branch = cb.get("name")
         except (json.JSONDecodeError, OSError):
-            pass
+            _logger.debug("Failed to read current branch metadata", exc_info=True)
 
     # Build branch metadata
     metadata: Dict[str, Any] = {
@@ -375,9 +378,9 @@ def list_branches(state_dir: str = ".omg/state") -> List[Dict[str, Any]]:
                         metadata = json.load(f)
                         branches.append(metadata)
                 except (json.JSONDecodeError, OSError):
-                    pass  # Skip invalid metadata files
+                    _logger.debug("Failed to read branch metadata file", exc_info=True)
     except OSError:
-        pass
+        _logger.debug("Failed to list branches directory", exc_info=True)
 
     # Sort by created_at descending (newest first)
     branches.sort(key=lambda x: x.get("created_at", ""), reverse=True)
@@ -705,7 +708,7 @@ def get_status(state_dir: str = ".omg/state") -> Dict[str, Any]:
                 cb = json.load(f)
                 current_branch = cb.get("name")
         except (json.JSONDecodeError, OSError):
-            pass
+            _logger.debug("Failed to read current branch status", exc_info=True)
 
     # Get snapshot count
     snapshots = list_snapshots(state_dir=state_dir)

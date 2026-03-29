@@ -10,6 +10,7 @@ State paths:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import signal
 import time
@@ -18,6 +19,8 @@ from pathlib import Path
 from typing import Any
 
 from hooks.security_validators import sanitize_run_id
+
+_logger = logging.getLogger(__name__)
 
 
 _DEFAULT_STALL_THRESHOLD_SECONDS = 60
@@ -170,8 +173,8 @@ class WorkerWatchdog:
                 record = _read_json(path)
                 if record:
                     results.append(record)
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to enumerate heartbeat records: %s", exc, exc_info=True)
         return results
 
     def cleanup_terminal_heartbeats(self, max_age_seconds: float) -> list[str]:
@@ -369,7 +372,7 @@ class WorkerWatchdog:
 
         # Try git worktree remove first
         try:
-            subprocess.run(
+            cleanup_proc = subprocess.run(
                 ["git", "worktree", "remove", "--force", str(worktree)],
                 capture_output=True,
                 text=True,
@@ -377,12 +380,20 @@ class WorkerWatchdog:
                 timeout=15,
                 cwd=str(self.project_dir),
             )
+            if cleanup_proc.returncode != 0:
+                snippet = (cleanup_proc.stderr or cleanup_proc.stdout or "").strip()[:200]
+                _logger.warning(
+                    "git worktree remove failed for %s (rc=%d): %s",
+                    run_id,
+                    cleanup_proc.returncode,
+                    snippet,
+                )
             if not worktree.is_dir():
                 result["cleaned"] = True
                 result["method"] = "git_worktree_remove"
                 return result
-        except (subprocess.TimeoutExpired, OSError):
-            pass
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            _logger.debug("Failed to remove stale git worktree via git command: %s", exc, exc_info=True)
 
         # Fallback: rmtree
         try:
