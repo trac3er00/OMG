@@ -310,3 +310,9 @@ All lsp_diagnostics: 0 errors across 25 files
 - HTTP control plane: added loopback-only server on port 8787 with Bearer JWT middleware; non-loopback binding now hard-fails unless `--unsafe` is explicitly set.
 - Rate limiting + canary + audit + threat scoring: added token-bucket limiter, canary alert emitter, HMAC-SHA256 JSONL audit ledger at `.omg/state/ledger/audit.jsonl`, and time-decayed threat aggregation across firewall/defense/injection signals.
 - Verification: `bun test src/security/jwt-auth.test.ts src/security/rate-limiter.test.ts src/security/audit-trail.test.ts` passing and `bunx tsc --noEmit` clean after exactOptionalPropertyTypes-compatible object construction fixes.
+
+## [2026-03-29] Tasks 40+41: Reflection + Self-Improving Routing
+- `ReflectionEngine` keeps state rollback explicit at the step layer and automatic at the plan layer, so a failed step can be inspected before `rollback()` while `runPlan()` still restores the last checkpoint automatically.
+- Reflection steps are easiest to test when the engine clones state up front, swaps in a mutable working copy during execution, and snapshots checkpoints before every step.
+- Adaptive routing stays deterministic when weights normalize from task-local success rates plus a small experience bonus, then tie-break by seeded agent order.
+- A lightweight `RoutingMetaAgent` can stay pure: turn per-agent success/failure counts into normalized weights and let `SelfImprovingRouter.route()` simply pick the highest-ranked agent for that task type.
