@@ -79,9 +79,9 @@ function defaultIdGenerator(): string {
 }
 
 function defaultSpawnProcess(config: AgentConfigInput, cwd: string): ChildProcess {
-  const python = process.env.OMG_PYTHON ?? "python3";
-  const omgScript = resolve(REPO_ROOT, "scripts/omg.py");
-  const args = [omgScript, "task", "--category", config.category, "--prompt", config.prompt];
+  const bun = process.env.OMG_BUN ?? "bun";
+  const omgScript = resolve(REPO_ROOT, "src/cli/index.ts");
+  const args = ["run", omgScript, "task", "--category", config.category, "--prompt", config.prompt];
 
   if (config.skills.length > 0) {
     args.push("--skills", config.skills.join(","));
@@ -91,7 +91,7 @@ function defaultSpawnProcess(config: AgentConfigInput, cwd: string): ChildProces
     args.push("--subagent-type", config.subagentType);
   }
 
-  return spawn(python, args, {
+  return spawn(bun, args, {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
   });
