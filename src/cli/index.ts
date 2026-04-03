@@ -6,10 +6,12 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { blockedCommand } from "./commands/blocked.js";
 import { envDoctorCommand } from "./commands/env.js";
+import { initCommand } from "./commands/init.js";
 import { installCommand } from "./commands/install.js";
 import { proofCommand } from "./commands/proof.js";
 import { shipCommand } from "./commands/ship.js";
 import { validateCommand } from "./commands/validate.js";
+import { formatCliError, printCliError } from "./error-formatter.js";
 
 const CLI_VERSION = "3.0.0";
 
@@ -32,6 +34,7 @@ async function runCli(): Promise<void> {
     .version("version", CLI_VERSION, CLI_VERSION)
     .alias("v", "version")
     .command(envDoctorCommand)
+    .command(initCommand)
     .command(installCommand)
     .command(shipCommand)
     .command(proofCommand)
@@ -49,8 +52,9 @@ if (import.meta.main) {
       }
     })
     .catch((error: unknown) => {
-      console.error(error);
-      process.exit(1);
+      const formatted = formatCliError(error);
+      printCliError(error);
+      process.exit(formatted.exitCode);
     });
 }
 

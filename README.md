@@ -155,16 +155,17 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
-npx omg env doctor
-npx omg install --plan
-# confirm preview output before applying
+# interactive first-time setup (doctor → plan → confirm → apply)
+npx omg init
+
+# CI/automation path (non-interactive)
 npx omg install --apply
 npx omg ship
 ```
 
 Local package-manager installs only link `omg` into `node_modules/.bin/`; they do not mutate configuration.
 
-The package postinstall runs `npx omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
+For CI/automation, use `npx omg install --apply` directly.
 <!-- /OMG:GENERATED:install-intro -->
 
 On non-Claude hosts, verify native MCP registration after `npx omg install --apply`:
