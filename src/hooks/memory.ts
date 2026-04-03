@@ -13,6 +13,8 @@ export interface LearningPattern {
   readonly count: number;
 }
 
+const MAX_CHARS = Number(process.env["OMG_MEMORY_MAX_CHARS"] ?? 2000);
+
 export class MemoryHook {
   private readonly deps: MemoryDeps;
   private readonly memoryDir: string;
@@ -22,6 +24,21 @@ export class MemoryHook {
     this.memoryDir = `${projectDir}/.omg/state/memory`;
   }
 
+  private compressContent(content: string): {
+    compressed: string;
+    wasCompressed: boolean;
+  } {
+    if (content.length <= MAX_CHARS) {
+      return { compressed: content, wasCompressed: false };
+    }
+
+    const keepChars = Math.floor(MAX_CHARS * 0.8);
+    const head = content.slice(0, Math.floor(keepChars * 0.6));
+    const tail = content.slice(content.length - Math.floor(keepChars * 0.4));
+    const compressed = `${head}\n[...compressed: ${content.length - keepChars} chars removed...]\n${tail}`;
+    return { compressed, wasCompressed: true };
+  }
+
   async recordLearning(key: string, value: string): Promise<string> {
     await this.deps.mkdirp(this.memoryDir);
     const dateStr = formatDate(new Date());
@@ -29,12 +46,18 @@ export class MemoryHook {
     const filename = `${dateStr}-${keyShort}.md`;
     const filepath = `${this.memoryDir}/${filename}`;
 
-    const content = value.slice(0, 500);
+    const originalContent = value;
+    const { compressed, wasCompressed } = this.compressContent(originalContent);
+    if (wasCompressed) {
+      console.info(
+        `[memory] content compressed from ${originalContent.length} to ${compressed.length} chars`,
+      );
+    }
     const fileExists = await this.deps.exists(filepath);
     if (fileExists) {
-      await this.deps.appendFile(filepath, "\n" + content);
+      await this.deps.appendFile(filepath, "\n" + compressed);
     } else {
-      await this.deps.writeFile(filepath, content);
+      await this.deps.writeFile(filepath, compressed);
     }
     return filepath;
   }
@@ -43,10 +66,7 @@ export class MemoryHook {
     return this.searchMemories([key]);
   }
 
-  async getRecentMemories(
-    maxFiles = 5,
-    maxCharsTotal = 300,
-  ): Promise<string> {
+  async getRecentMemories(maxFiles = 5, maxCharsTotal = 300): Promise<string> {
     const dirExists = await this.deps.exists(this.memoryDir);
     if (!dirExists) return "";
 
