@@ -1,8 +1,30 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { withRetry } from "./retry.js";
 
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 10_000;
+
+async function gitExec(
+  args: string[],
+  opts: { cwd?: string; timeout?: number } = {},
+): Promise<{ stdout: string; stderr: string }> {
+  return withRetry(
+    () =>
+      execFileAsync("git", args, {
+        ...opts,
+        encoding: "utf8" as const,
+      }) as Promise<{ stdout: string; stderr: string }>,
+    {
+      maxAttempts: 3,
+      baseDelayMs: 100,
+      retryOn: (error) => {
+        const code = (error as NodeJS.ErrnoException).code;
+        return code === "EAGAIN" || code === "EBUSY" || code === "ECONNRESET";
+      },
+    },
+  );
+}
 
 export interface GitStatusResult {
   readonly staged: string[];
@@ -37,7 +59,7 @@ export class GitInspector {
   constructor(private readonly cwd: string = ".") {}
 
   async getStatus(): Promise<GitStatusResult> {
-    const { stdout } = await execFileAsync("git", ["status", "--porcelain"], {
+    const { stdout } = await gitExec(["status", "--porcelain"], {
       cwd: this.cwd,
       timeout: GIT_TIMEOUT_MS,
     });
@@ -71,7 +93,7 @@ export class GitInspector {
 
   async getDiff(staged = false): Promise<string> {
     const args = staged ? ["diff", "--cached"] : ["diff"];
-    const { stdout } = await execFileAsync("git", args, {
+    const { stdout } = await gitExec(args, {
       cwd: this.cwd,
       timeout: GIT_TIMEOUT_MS,
     });
@@ -79,8 +101,7 @@ export class GitInspector {
   }
 
   async getLog(n = 10): Promise<GitCommitEntry[]> {
-    const { stdout } = await execFileAsync(
-      "git",
+    const { stdout } = await gitExec(
       ["log", `--max-count=${String(n)}`, "--format=%H|%s|%an|%ai"],
       { cwd: this.cwd, timeout: GIT_TIMEOUT_MS },
     );
@@ -103,11 +124,10 @@ export class GitInspector {
 
   async getBranch(): Promise<string> {
     try {
-      const { stdout } = await execFileAsync(
-        "git",
-        ["rev-parse", "--abbrev-ref", "HEAD"],
-        { cwd: this.cwd, timeout: GIT_TIMEOUT_MS },
-      );
+      const { stdout } = await gitExec(["rev-parse", "--abbrev-ref", "HEAD"], {
+        cwd: this.cwd,
+        timeout: GIT_TIMEOUT_MS,
+      });
       return stdout.trim();
     } catch {
       return "unknown";
@@ -184,7 +204,11 @@ export class CommitSplitter {
       }
 
       if (currentHunk !== null) {
-        if (line.startsWith("+") || line.startsWith("-") || line.startsWith(" ")) {
+        if (
+          line.startsWith("+") ||
+          line.startsWith("-") ||
+          line.startsWith(" ")
+        ) {
           hunkLines.push(line);
         }
       }
