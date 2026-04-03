@@ -59,6 +59,7 @@ export interface CostLedgerDeps {
 }
 
 const MAX_LEDGER_BYTES = 5 * 1024 * 1024;
+const MAX_ROTATED_FILES = 10;
 
 export class CostLedger {
   private readonly deps: CostLedgerDeps;
@@ -101,8 +102,14 @@ export class CostLedger {
 
     let totalTokens = 0;
     let totalCostUsd = 0;
-    const byTool: Record<string, { tokens: number; costUsd: number; count: number }> = {};
-    const bySession: Record<string, { tokens: number; costUsd: number; count: number }> = {};
+    const byTool: Record<
+      string,
+      { tokens: number; costUsd: number; count: number }
+    > = {};
+    const bySession: Record<
+      string,
+      { tokens: number; costUsd: number; count: number }
+    > = {};
     let entryCount = 0;
 
     for (const raw of lines) {
@@ -152,12 +159,21 @@ export class CostLedger {
     const size = await this.deps.fileSize(this.ledgerPath);
     if (size <= MAX_LEDGER_BYTES) return;
 
-    const archive = this.ledgerPath + ".1";
-    const archiveExists = await this.deps.exists(archive);
-    if (archiveExists) {
-      await this.deps.remove(archive);
+    const oldestArchive = this.ledgerPath + `.${MAX_ROTATED_FILES}`;
+    if (await this.deps.exists(oldestArchive)) {
+      await this.deps.remove(oldestArchive);
     }
-    await this.deps.rename(this.ledgerPath, archive);
+
+    for (let i = MAX_ROTATED_FILES - 1; i >= 1; i--) {
+      const src = this.ledgerPath + `.${i}`;
+      const dest = this.ledgerPath + `.${i + 1}`;
+      if (await this.deps.exists(src)) {
+        await this.deps.rename(src, dest);
+      }
+    }
+
+    await this.deps.rename(this.ledgerPath, this.ledgerPath + ".1");
+    console.info("[budget] rotated ledger, keeping last 10 archives");
   }
 }
 
@@ -193,10 +209,7 @@ export class BudgetGovernor {
   private readonly thresholds: readonly number[];
   private readonly firedThresholds = new Set<number>();
 
-  constructor(
-    config?: Partial<BudgetConfig>,
-    thresholds?: readonly number[],
-  ) {
+  constructor(config?: Partial<BudgetConfig>, thresholds?: readonly number[]) {
     this.config = {
       sessionLimitUsd: config?.sessionLimitUsd ?? DEFAULT_SESSION_LIMIT_USD,
       inputPerMtok: config?.inputPerMtok ?? DEFAULT_INPUT_PER_MTOK,
@@ -230,9 +243,8 @@ export class BudgetGovernor {
 
   checkBudget(usedCostUsd: number, usedCalls: number): BudgetCheckResult {
     const sessionLimit = this.config.sessionLimitUsd;
-    const remainingRatio = sessionLimit > 0
-      ? 1.0 - usedCostUsd / sessionLimit
-      : 1.0;
+    const remainingRatio =
+      sessionLimit > 0 ? 1.0 - usedCostUsd / sessionLimit : 1.0;
     const remainingPct = Math.round(
       Math.max(0.0, Math.min(1.0, remainingRatio)) * 100,
     );
@@ -249,9 +261,7 @@ export class BudgetGovernor {
       projectedCalls,
     );
 
-    const usedPct = sessionLimit > 0
-      ? (usedCostUsd / sessionLimit) * 100
-      : 0;
+    const usedPct = sessionLimit > 0 ? (usedCostUsd / sessionLimit) * 100 : 0;
 
     const alerts: string[] = [];
     for (const threshold of this.thresholds) {

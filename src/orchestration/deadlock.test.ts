@@ -2,8 +2,8 @@ import { describe, test, expect } from "bun:test";
 import { DEADLOCK_TIMEOUT_MS, ResourceLockManager } from "./deadlock.js";
 
 describe("orchestration/deadlock", () => {
-  test("DEADLOCK_TIMEOUT_MS is 30000", () => {
-    expect(DEADLOCK_TIMEOUT_MS).toBe(30_000);
+  test("DEADLOCK_TIMEOUT_MS defaults to 10000", () => {
+    expect(DEADLOCK_TIMEOUT_MS).toBe(10_000);
   });
 
   describe("ResourceLockManager", () => {

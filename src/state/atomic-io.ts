@@ -1,6 +1,55 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
+
+const retryableErrorCodes = new Set(["EBUSY", "EPERM", "EACCES"]);
+
+function sleepSync(ms: number): void {
+  const start = Date.now();
+  while (Date.now() - start < ms) {
+    void 0;
+  }
+}
+
+function retrySync(fn: () => void, maxAttempts = 3): void {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      fn();
+      return;
+    } catch (error) {
+      const code =
+        error instanceof Error ? (error as { code?: unknown }).code : undefined;
+      const shouldRetry =
+        typeof code === "string" &&
+        retryableErrorCodes.has(code) &&
+        attempt < maxAttempts;
+      if (!shouldRetry) {
+        throw error;
+      }
+      sleepSync(50 * 2 ** (attempt - 1));
+    }
+  }
+}
+
+function createUniqueTmpPath(dir: string): string {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const tmpPath = join(dir, `${randomBytes(8).toString("hex")}.tmp`);
+    if (!existsSync(tmpPath)) {
+      return tmpPath;
+    }
+  }
+
+  throw new Error(`Unable to generate a unique temp path in ${dir}`);
+}
 
 export function atomicWrite(filePath: string, content: string | Buffer): void {
   const dir = dirname(filePath);
@@ -8,14 +57,38 @@ export function atomicWrite(filePath: string, content: string | Buffer): void {
     mkdirSync(dir, { recursive: true });
   }
 
-  const tmpPath = join(dir, `${randomBytes(8).toString("hex")}.tmp`);
+  retrySync(() => {
+    const tmpPath = createUniqueTmpPath(dir);
+
+    try {
+      writeFileSync(tmpPath, content, { flush: true });
+      renameSync(tmpPath, filePath);
+    } catch (error) {
+      try {
+        unlinkSync(tmpPath);
+      } catch {
+        void 0;
+      }
+      throw error;
+    }
+  });
+}
+
+export async function writeFileAtomic(
+  filePath: string,
+  content: string | Buffer,
+): Promise<void> {
+  const dir = dirname(filePath);
+  await mkdir(dir, { recursive: true });
+
+  const tmpPath = createUniqueTmpPath(dir);
 
   try {
-    writeFileSync(tmpPath, content, { flush: true });
-    renameSync(tmpPath, filePath);
+    await writeFile(tmpPath, content);
+    await rename(tmpPath, filePath);
   } catch (error) {
     try {
-      unlinkSync(tmpPath);
+      await unlink(tmpPath);
     } catch {
       void 0;
     }

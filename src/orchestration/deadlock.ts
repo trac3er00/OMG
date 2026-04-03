@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const DEADLOCK_TIMEOUT_MS = 30_000;
+export const DEADLOCK_TIMEOUT_MS = Number(
+  process.env["OMG_DEADLOCK_TIMEOUT_MS"] ?? 10_000,
+);
 export const ORPHAN_HEARTBEAT_INTERVAL_MS = 5_000;
 
 export type ResourceLockPriority = "high" | "medium" | "low";
