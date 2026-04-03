@@ -188,6 +188,50 @@
       "keywords": ["gemini", "reasoning", "logic", "mathematics"],
       "version": "2.3.0",
       "enabled": false
+    },
+    {
+      "id": "@kimi/long-context",
+      "name": "Long Context",
+      "description": "Use Kimi's 128K token context window for large inputs",
+      "category": "provider",
+      "provider": "kimi",
+      "path": "skills/kimi/long-context",
+      "keywords": ["kimi", "context", "long-context", "analysis"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@kimi/web-search",
+      "name": "Web Search",
+      "description": "Use Kimi's built-in web search capability",
+      "category": "provider",
+      "provider": "kimi",
+      "path": "skills/kimi/web-search",
+      "keywords": ["kimi", "web", "search", "research"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@kimi/code-generation",
+      "name": "Code Generation",
+      "description": "Optimize Kimi for code generation tasks",
+      "category": "provider",
+      "provider": "kimi",
+      "path": "skills/kimi/code-generation",
+      "keywords": ["kimi", "code", "generation", "refactor"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@kimi/moonshot",
+      "name": "Moonshot",
+      "description": "Access Moonshot AI capabilities through Kimi",
+      "category": "provider",
+      "provider": "kimi",
+      "path": "skills/kimi/moonshot",
+      "keywords": ["kimi", "moonshot", "provider", "model"],
+      "version": "2.3.0",
+      "enabled": false
     }
   ]
 }
