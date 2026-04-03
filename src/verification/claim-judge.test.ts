@@ -18,6 +18,20 @@ describe("judgeSingleClaim", () => {
     expect(r.verdict).toBe("accept");
   });
 
+  test("claim rejected when compensator pipeline rejects", () => {
+    const r = judgeSingleClaim({
+      text: "I fixed the bug",
+      evidence: [{ type: "junit", path: "test-results.xml", valid: true }],
+      compensatorInput: {
+        claim: { taskId: "task-1", claimed: true, evidenceFiles: [] },
+      },
+    });
+    expect(r.verdict).toBe("reject");
+    expect(
+      r.reasons.some((reason) => reason.includes("Compensator pipeline")),
+    ).toBe(true);
+  });
+
   test("claim with invalid evidence → reject", () => {
     const r = judgeSingleClaim({
       text: "Tests all pass",
@@ -41,8 +55,14 @@ describe("judgeClaimBatch", () => {
 
   test("all accept → aggregate accept", () => {
     const claims = [
-      { text: "bug fixed", evidence: [{ type: "junit" as const, path: "r.xml", valid: true }] },
-      { text: "tests pass", evidence: [{ type: "junit" as const, path: "r.xml", valid: true }] },
+      {
+        text: "bug fixed",
+        evidence: [{ type: "junit" as const, path: "r.xml", valid: true }],
+      },
+      {
+        text: "tests pass",
+        evidence: [{ type: "junit" as const, path: "r.xml", valid: true }],
+      },
     ];
     const r = judgeClaimBatch(claims);
     expect(r.aggregateVerdict).toBe("accept");
@@ -50,7 +70,10 @@ describe("judgeClaimBatch", () => {
 
   test("any reject → aggregate reject", () => {
     const claims = [
-      { text: "fixed", evidence: [{ type: "junit" as const, path: "r.xml", valid: true }] },
+      {
+        text: "fixed",
+        evidence: [{ type: "junit" as const, path: "r.xml", valid: true }],
+      },
       { text: "done", evidence: [] },
     ];
     const r = judgeClaimBatch(claims);

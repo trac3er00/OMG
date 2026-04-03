@@ -74,6 +74,10 @@ export function atomicWrite(filePath: string, content: string | Buffer): void {
   });
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function writeFileAtomic(
   filePath: string,
   content: string | Buffer,
@@ -81,18 +85,30 @@ export async function writeFileAtomic(
   const dir = dirname(filePath);
   await mkdir(dir, { recursive: true });
 
-  const tmpPath = createUniqueTmpPath(dir);
-
-  try {
-    await writeFile(tmpPath, content);
-    await rename(tmpPath, filePath);
-  } catch (error) {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const tmpPath = createUniqueTmpPath(dir);
     try {
-      await unlink(tmpPath);
-    } catch {
-      void 0;
+      await writeFile(tmpPath, content, { flush: true });
+      await rename(tmpPath, filePath);
+      return;
+    } catch (error) {
+      try {
+        await unlink(tmpPath);
+      } catch {
+        void 0;
+      }
+      const code =
+        error instanceof Error ? (error as { code?: unknown }).code : undefined;
+      const shouldRetry =
+        typeof code === "string" &&
+        retryableErrorCodes.has(code) &&
+        attempt < maxAttempts;
+      if (!shouldRetry) {
+        throw error;
+      }
+      await sleep(50 * 2 ** (attempt - 1));
     }
-    throw error;
   }
 }
 

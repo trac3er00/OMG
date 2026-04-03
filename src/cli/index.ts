@@ -145,6 +145,12 @@ async function runCli(): Promise<void> {
     .command({
       command: "validate",
       describe: "Run validation checks",
+      builder: (command) =>
+        command.option("json", {
+          type: "boolean",
+          description: "Output validation report as JSON",
+          default: false,
+        }),
       handler: async (argv) => {
         const { validateCommand } = await import("./commands/validate.js");
         await validateCommand.handler?.(argv as never);

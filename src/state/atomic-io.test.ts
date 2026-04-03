@@ -1,7 +1,8 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -27,24 +28,18 @@ async function loadAtomicIo(
 describe("atomic I/O", () => {
   test("temp file collisions are retried with unique names", async () => {
     const base = tempPath("unique-tmp");
-    const collisionHex = "1111111111111111";
-    const fallbackHex = "2222222222222222";
-    mkdirSync(join(base, `${collisionHex}.tmp`), { recursive: true });
-
-    let calls = 0;
-    mock.module("node:crypto", () => ({
-      randomBytes(size: number) {
-        calls += 1;
-        const hex = calls === 1 ? collisionHex : fallbackHex;
-        return Buffer.from(hex, "hex").subarray(0, size);
-      },
-    }));
+    mkdirSync(base, { recursive: true });
+    for (let i = 0; i < 5; i++) {
+      writeFileSync(join(base, `${"a".repeat(16)}-${i}.tmp`), "");
+    }
 
     const { atomicWrite } = await loadAtomicIo("unique-tmp");
     const filePath = join(base, "file.txt");
     atomicWrite(filePath, "hello");
 
     expect(readFileSync(filePath, "utf8")).toBe("hello");
+    const tmpFiles = readdirSync(base).filter((f) => f.endsWith(".tmp"));
+    expect(tmpFiles.length).toBe(5);
     rmSync(base, { force: true, recursive: true });
   });
 

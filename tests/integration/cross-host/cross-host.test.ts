@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   checkMutationGate,
@@ -116,13 +116,77 @@ describe("Cross-Host: Compensator Pipeline Integration", () => {
   });
 });
 
+describe("Cross-Host: Real project verification", () => {
+  it("host config files exist and contain omg-control registration", () => {
+    const configPaths = [
+      ".mcp.json",
+      ".gemini/settings.json",
+      ".kimi/mcp.json",
+    ];
+    for (const relPath of configPaths) {
+      const fullPath = join(process.cwd(), relPath);
+      expect(existsSync(fullPath)).toBe(true);
+      const content = readFileSync(fullPath, "utf8");
+      expect(content.includes("omg-control")).toBe(true);
+    }
+  });
+
+  it("env doctor json includes all expected host tools", () => {
+    const result = Bun.spawnSync({
+      cmd: ["bun", "run", "src/cli/index.ts", "env", "doctor", "--json"],
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(result.exitCode).toBe(0);
+
+    const stdout = new TextDecoder().decode(result.stdout);
+    const payload = JSON.parse(stdout) as {
+      checks: Array<{ name: string; status: string }>;
+    };
+    const names = payload.checks.map((check) => check.name);
+    expect(names).toContain("claude");
+    expect(names).toContain("codex");
+    expect(names).toContain("gemini");
+    expect(names).toContain("kimi");
+  });
+});
+
 afterAll(() => {
+  const configFiles = [".mcp.json", ".gemini/settings.json", ".kimi/mcp.json"];
+  const hostConfigs = Object.fromEntries(
+    configFiles.map((file) => {
+      const fullPath = join(process.cwd(), file);
+      const ok =
+        existsSync(fullPath) &&
+        readFileSync(fullPath, "utf8").includes("omg-control");
+      return [file, ok];
+    }),
+  );
+
+  const envDoctor = Bun.spawnSync({
+    cmd: ["bun", "run", "src/cli/index.ts", "env", "doctor", "--json"],
+    cwd: process.cwd(),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  let envDoctorChecks: string[] = [];
+  if (envDoctor.exitCode === 0) {
+    const payload = JSON.parse(new TextDecoder().decode(envDoctor.stdout)) as {
+      checks: Array<{ name: string }>;
+    };
+    envDoctorChecks = payload.checks.map((check) => check.name);
+  }
+
   const report = {
     timestamp: new Date().toISOString(),
     testSuite: "cross-host integration",
     hosts: ["claude", "codex", "gemini", "kimi", "opencode"],
     hookEmulationStatus: "FUNCTIONAL",
     compensatorPipelineStatus: "FUNCTIONAL",
+    hostConfigVerification: hostConfigs,
+    envDoctorChecks,
     notes:
       "Hook emulation provides governance for non-Claude hosts via MCP. Compensators enforce completion quality.",
   };

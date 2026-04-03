@@ -21,8 +21,8 @@ function runBunTests(): ShipCheckResult {
   });
 
   const text = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
-  const passMatch = text.match(/(\d+)\s+pass/);
-  const failMatch = text.match(/(\d+)\s+fail/);
+  const passMatch = text.match(/^\s*(\d+)\s+pass\b/m);
+  const failMatch = text.match(/^\s*(\d+)\s+fail\b/m);
 
   return {
     name: "bun test",
@@ -47,17 +47,14 @@ function checkEvidenceDir(): ShipCheckResult {
 }
 
 function runContractValidate(): ShipCheckResult {
-  const probe = spawnSync(
-    "bun",
-    ["run", "src/cli/index.ts", "contract", "validate", "--help"],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 10_000,
-    },
-  );
+  const cliHelp = spawnSync("bun", ["run", "src/cli/index.ts", "--help"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 10_000,
+  });
 
-  if (probe.status !== 0) {
+  const helpText = `${cliHelp.stdout ?? ""}\n${cliHelp.stderr ?? ""}`;
+  if (!helpText.includes("omg contract")) {
     return {
       name: "contract validate",
       status: "skip",

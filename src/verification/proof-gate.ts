@@ -1,4 +1,9 @@
-import type { ProofGateResult, EvidenceType, ProofVerdict } from "../interfaces/evidence.js";
+import type {
+  ProofGateResult,
+  EvidenceType,
+  ProofVerdict,
+} from "../interfaces/evidence.js";
+import { judgeSingleClaim, type Claim } from "./claim-judge.js";
 
 export interface EvidenceBundle {
   readonly junit?: { tests: number; failures: number; errors: number };
@@ -58,13 +63,23 @@ export function productionGate(evidence: EvidenceBundle): ProductionGateResult {
 export interface ProofGateInput {
   readonly evidence: EvidenceBundle;
   readonly runId?: string;
+  readonly claim?: Claim;
 }
 
 export function evaluateProofGate(input: ProofGateInput): ProofGateResult {
   const result = productionGate(input.evidence);
+
+  const blockers = [...result.blockers];
+  if (input.claim) {
+    const claimVerdict = judgeSingleClaim(input.claim);
+    if (claimVerdict.verdict !== "accept") {
+      blockers.push(...claimVerdict.reasons);
+    }
+  }
+
   return {
-    status: result.status,
-    blockers: result.blockers,
+    status: blockers.length === 0 ? "pass" : "blocked",
+    blockers,
     requiredPrimitives: result.requiredPrimitives,
     evidenceSummary: result.evidenceSummary,
   };

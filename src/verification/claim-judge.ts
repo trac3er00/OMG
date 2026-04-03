@@ -1,4 +1,8 @@
 import type { ClaimVerdict } from "../interfaces/evidence.js";
+import {
+  evaluateWithCompensators,
+  type CompensatorInput,
+} from "../compensators/pipeline.js";
 
 export interface EvidenceRef {
   readonly type: "junit" | "coverage" | "sarif" | "browser_trace" | string;
@@ -10,6 +14,7 @@ export interface Claim {
   readonly text: string;
   readonly evidence: readonly EvidenceRef[];
   readonly category?: string;
+  readonly compensatorInput?: CompensatorInput;
 }
 
 export interface BatchResult {
@@ -34,13 +39,34 @@ export function judgeSingleClaim(claim: Claim): ClaimVerdict {
   if (invalidEvidence.length > 0) {
     return {
       verdict: "reject",
-      reasons: [`Invalid evidence: ${invalidEvidence.map((e) => e.type).join(", ")}`],
+      reasons: [
+        `Invalid evidence: ${invalidEvidence.map((e) => e.type).join(", ")}`,
+      ],
       evidenceSummary: { invalid: invalidEvidence.map((e) => e.type) },
       confidence: 0.2,
     };
   }
 
   const validEvidence = claim.evidence.filter((e) => e.valid !== false);
+
+  if (claim.compensatorInput) {
+    const compensatorResult = evaluateWithCompensators(claim.compensatorInput);
+    if (compensatorResult.verdict === "REJECT") {
+      return {
+        verdict: "reject",
+        reasons: [
+          "Compensator pipeline rejected claim",
+          ...compensatorResult.reasons,
+        ],
+        evidenceSummary: {
+          types: validEvidence.map((e) => e.type),
+          compensators: compensatorResult.checks,
+        },
+        confidence: 0.2,
+      };
+    }
+  }
+
   return {
     verdict: "accept",
     reasons: [`Supported by ${validEvidence.length} evidence item(s)`],
@@ -73,5 +99,11 @@ export function judgeClaimBatch(claims: readonly Claim[]): BatchResult {
     aggregateVerdict = "warn";
   }
 
-  return { results, aggregateVerdict, totalClaims: claims.length, acceptedCount, rejectedCount };
+  return {
+    results,
+    aggregateVerdict,
+    totalClaims: claims.length,
+    acceptedCount,
+    rejectedCount,
+  };
 }
