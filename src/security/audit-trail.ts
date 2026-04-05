@@ -1,4 +1,12 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { appendJsonLine } from "../state/atomic-io.js";
 import { StateResolver } from "../state/state-resolver.js";
@@ -23,13 +31,42 @@ export interface AuditTrailOptions {
   readonly secret?: string;
 }
 
+export const HMAC_KEY_FILENAME = "audit-hmac.key";
+const HMAC_KEY_BYTES = 32;
+
+/**
+ * Load an existing HMAC key from disk or generate and persist a new one.
+ * Key file is written with mode 0600 (owner read/write only).
+ */
+function loadOrCreateHmacKey(stateDir: string): string {
+  const keyPath = join(stateDir, HMAC_KEY_FILENAME);
+
+  if (existsSync(keyPath)) {
+    return readFileSync(keyPath, "utf8").trim();
+  }
+
+  const key = randomBytes(HMAC_KEY_BYTES).toString("hex");
+
+  if (!existsSync(stateDir)) {
+    mkdirSync(stateDir, { recursive: true });
+  }
+
+  writeFileSync(keyPath, key, { mode: 0o600 });
+  // Ensure permissions even if umask weakened them
+  chmodSync(keyPath, 0o600);
+
+  return key;
+}
+
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map((item) => stableJson(item)).join(",")}]`;
   }
 
   if (typeof value === "object" && value !== null) {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+    const entries = Object.entries(value as Record<string, unknown>).sort(
+      ([a], [b]) => a.localeCompare(b),
+    );
     return `{${entries.map(([key, child]) => `${JSON.stringify(key)}:${stableJson(child)}`).join(",")}}`;
   }
 
@@ -43,11 +80,39 @@ export class AuditTrail {
   private constructor(options: AuditTrailOptions = {}) {
     const resolver = new StateResolver(options.projectDir);
     this.auditFilePath = join(resolver.layout().ledger, "audit.jsonl");
-    this.secret = options.secret ?? process.env.OMG_AUDIT_HMAC_SECRET ?? randomBytes(32).toString("hex");
+    this.secret =
+      options.secret ??
+      process.env.OMG_AUDIT_HMAC_SECRET ??
+      loadOrCreateHmacKey(resolver.stateDir);
   }
 
   static create(options: AuditTrailOptions = {}): AuditTrail {
     return new AuditTrail(options);
+  }
+
+  static rotateKey(options: { projectDir?: string } = {}): {
+    keyPath: string;
+    backupPath: string | null;
+  } {
+    const resolver = new StateResolver(options.projectDir);
+    const keyPath = join(resolver.stateDir, HMAC_KEY_FILENAME);
+    let backupPath: string | null = null;
+
+    if (existsSync(keyPath)) {
+      backupPath = `${keyPath}.${Date.now()}.bak`;
+      renameSync(keyPath, backupPath);
+    }
+
+    const key = randomBytes(HMAC_KEY_BYTES).toString("hex");
+
+    if (!existsSync(resolver.stateDir)) {
+      mkdirSync(resolver.stateDir, { recursive: true });
+    }
+
+    writeFileSync(keyPath, key, { mode: 0o600 });
+    chmodSync(keyPath, 0o600);
+
+    return { keyPath, backupPath };
   }
 
   record(entry: AuditEntryInput): AuditLogEntry {
@@ -94,6 +159,8 @@ export class AuditTrail {
   }
 
   private sign(unsignedEntry: Omit<AuditLogEntry, "signature">): string {
-    return createHmac("sha256", this.secret).update(stableJson(unsignedEntry), "utf8").digest("hex");
+    return createHmac("sha256", this.secret)
+      .update(stableJson(unsignedEntry), "utf8")
+      .digest("hex");
   }
 }
