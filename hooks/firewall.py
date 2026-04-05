@@ -4,6 +4,7 @@
 Delegates policy logic to policy_engine.py so all command decisions are driven by
 one centralized decision model.
 """
+
 import json
 import os
 import sys
@@ -17,8 +18,15 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir  # pyright: ignore[reportImplicitRelativeImport]
-from security_validators import sanitize_run_id  # pyright: ignore[reportImplicitRelativeImport]
+from hooks._common import (
+    bootstrap_runtime_paths,
+    setup_crash_handler,
+    json_input,
+    deny_decision,
+    is_bypass_mode,
+    get_project_dir,
+)
+from hooks.security_validators import sanitize_run_id
 
 bootstrap_runtime_paths(__file__)
 
@@ -26,7 +34,13 @@ bootstrap_runtime_paths(__file__)
 setup_crash_handler("firewall", fail_closed=True)
 
 try:
-    from policy_engine import evaluate_bash_command, to_pretool_hook_output, scan_mutation_command, ask, deny  # pyright: ignore[reportImplicitRelativeImport]
+    from hooks.policy_engine import (
+        evaluate_bash_command,
+        to_pretool_hook_output,
+        scan_mutation_command,
+        ask,
+        deny,
+    )
     from runtime.compliance_governor import classify_bash_command_mode
     from runtime.context_engine import _extract_clarification
     from runtime.defense_state import DefenseState
@@ -35,7 +49,9 @@ try:
     from runtime.tool_plan_gate import journal_mutation_bash
 except Exception as _import_err:
     print(f"OMG firewall: policy_engine import failed: {_import_err}", file=sys.stderr)
-    deny_decision(f"OMG firewall crash: policy_engine import failed: {_import_err}. Denying for safety.")
+    deny_decision(
+        f"OMG firewall crash: policy_engine import failed: {_import_err}. Denying for safety."
+    )
     sys.exit(0)
 
 
@@ -184,20 +200,60 @@ def _mutating_defense_decision(
     resolved_run_id = run_id.strip() or _resolve_active_run_id(project_dir) or "default"
     session_health = compute_session_health(project_dir, run_id=resolved_run_id)
 
-    contamination = _to_float(session_health.get("contamination_risk"), _to_float(defense_state.get("contamination_score"), 0.0))
-    overthinking = _to_float(session_health.get("overthinking_score"), _to_float(defense_state.get("overthinking_score"), 0.0))
+    contamination = _to_float(
+        session_health.get("contamination_risk"),
+        _to_float(defense_state.get("contamination_score"), 0.0),
+    )
+    overthinking = _to_float(
+        session_health.get("overthinking_score"),
+        _to_float(defense_state.get("overthinking_score"), 0.0),
+    )
     premature_fixer = _to_float(defense_state.get("premature_fixer_score"), 0.0)
     health_action = str(session_health.get("recommended_action", "continue"))
-    thresholds = session_health.get("thresholds") if isinstance(session_health, dict) else {}
-    contamination_thresholds = thresholds.get("contamination_risk") if isinstance(thresholds, dict) else {}
-    overthinking_thresholds = thresholds.get("overthinking_score") if isinstance(thresholds, dict) else {}
-    reflect_contamination = _to_float(contamination_thresholds.get("reflect") if isinstance(contamination_thresholds, dict) else None, 0.05)
-    reflect_overthinking = _to_float(overthinking_thresholds.get("reflect") if isinstance(overthinking_thresholds, dict) else None, 0.15)
-    reflect_triggers = session_health.get("reflect_triggers") if isinstance(session_health, dict) else {}
-    contamination_trigger = bool(reflect_triggers.get("contamination")) if isinstance(reflect_triggers, dict) else contamination > reflect_contamination
-    overthinking_trigger = bool(reflect_triggers.get("overthinking")) if isinstance(reflect_triggers, dict) else overthinking > reflect_overthinking
-    pause_required = bool(session_health.get("defense_pause_required") is True) if isinstance(session_health, dict) else (contamination_trigger or overthinking_trigger)
-    signal_text = ", ".join(str(item) for item in scan.get("signals", []) if str(item)) or "none"
+    thresholds = (
+        session_health.get("thresholds") if isinstance(session_health, dict) else {}
+    )
+    contamination_thresholds = (
+        thresholds.get("contamination_risk") if isinstance(thresholds, dict) else {}
+    )
+    overthinking_thresholds = (
+        thresholds.get("overthinking_score") if isinstance(thresholds, dict) else {}
+    )
+    reflect_contamination = _to_float(
+        contamination_thresholds.get("reflect")
+        if isinstance(contamination_thresholds, dict)
+        else None,
+        0.05,
+    )
+    reflect_overthinking = _to_float(
+        overthinking_thresholds.get("reflect")
+        if isinstance(overthinking_thresholds, dict)
+        else None,
+        0.15,
+    )
+    reflect_triggers = (
+        session_health.get("reflect_triggers")
+        if isinstance(session_health, dict)
+        else {}
+    )
+    contamination_trigger = (
+        bool(reflect_triggers.get("contamination"))
+        if isinstance(reflect_triggers, dict)
+        else contamination > reflect_contamination
+    )
+    overthinking_trigger = (
+        bool(reflect_triggers.get("overthinking"))
+        if isinstance(reflect_triggers, dict)
+        else overthinking > reflect_overthinking
+    )
+    pause_required = (
+        bool(session_health.get("defense_pause_required") is True)
+        if isinstance(session_health, dict)
+        else (contamination_trigger or overthinking_trigger)
+    )
+    signal_text = (
+        ", ".join(str(item) for item in scan.get("signals", []) if str(item)) or "none"
+    )
     context = (
         f"defense hits={int(_to_float(defense_state.get('injection_hits'), 0.0))} "
         f"contamination={contamination:.4f} overthinking={overthinking:.4f} "
@@ -223,6 +279,7 @@ def _mutating_defense_decision(
 
     return None
 
+
 data = json_input()
 
 tool = data.get("tool_name", "")
@@ -234,6 +291,7 @@ if not cmd:
     sys.exit(0)
 
 decision = evaluate_bash_command(cmd)
+project_dir = get_project_dir()
 
 tool_input = data.get("tool_input")
 metadata = tool_input.get("metadata") if isinstance(tool_input, dict) else None
@@ -245,7 +303,7 @@ run_id = _resolve_run_id(data)
 gate_result = check_mutation_allowed(
     tool="Bash",
     file_path=cmd,
-    project_dir=get_project_dir(),
+    project_dir=project_dir,
     lock_id=lock_id if isinstance(lock_id, str) else None,
     command=cmd,
     run_id=run_id or None,
@@ -254,18 +312,22 @@ gate_result = check_mutation_allowed(
 bash_mode = classify_bash_command_mode(cmd)
 is_mutation_capable = bash_mode == "mutation"
 is_external_execution = bash_mode == "external"
-clarification_state = _read_clarification_state(get_project_dir(), run_id)
+clarification_state = _read_clarification_state(project_dir, run_id)
 strict_ambiguity_mode = _strict_ambiguity_mode_enabled()
 if is_mutation_capable:
     defense_decision = _mutating_defense_decision(
-        project_dir=get_project_dir(),
+        project_dir=project_dir,
         cmd=cmd,
         run_id=run_id,
     )
     if defense_decision is not None:
         decision = defense_decision
 
-if strict_ambiguity_mode and clarification_state.get("requires_clarification") is True and (is_mutation_capable or is_external_execution):
+if (
+    strict_ambiguity_mode
+    and clarification_state.get("requires_clarification") is True
+    and (is_mutation_capable or is_external_execution)
+):
     prompt = str(clarification_state.get("clarification_prompt", ""))
     if is_external_execution:
         deny_decision(_clarification_external_reason(prompt))
@@ -274,9 +336,12 @@ if strict_ambiguity_mode and clarification_state.get("requires_clarification") i
     sys.exit(0)
 
 if is_mutation_capable and gate_result.get("status") == "blocked":
-    _fw_reason_code = str(gate_result.get("reason", "mutation denied by test intent lock gate"))
+    _fw_reason_code = str(
+        gate_result.get("reason", "mutation denied by test intent lock gate")
+    )
     try:
         from runtime.evidence_narrator import format_block_explanation
+
         _fw_explanation = format_block_explanation(_fw_reason_code, {"tool": tool})
         _fw_enhanced_reason = f"{_fw_reason_code}: {_fw_explanation}"
     except Exception:
@@ -284,18 +349,32 @@ if is_mutation_capable and gate_result.get("status") == "blocked":
     try:
         import json as _fw_json
         from datetime import datetime as _fw_dt, timezone as _fw_tz
-        _fw_artifact_dir = os.path.join(get_project_dir(), ".omg", "state")
+
+        _fw_artifact_dir = os.path.join(project_dir, ".omg", "state")
         os.makedirs(_fw_artifact_dir, exist_ok=True)
-        with open(os.path.join(_fw_artifact_dir, "last-block-explanation.json"), "w", encoding="utf-8") as _fw_f:
-            _fw_json.dump({
-                "reason_code": _fw_reason_code,
-                "explanation": _fw_enhanced_reason,
-                "tool": tool,
-                "timestamp": _fw_dt.now(_fw_tz.utc).isoformat(),
-            }, _fw_f, indent=2)
+        with open(
+            os.path.join(_fw_artifact_dir, "last-block-explanation.json"),
+            "w",
+            encoding="utf-8",
+        ) as _fw_f:
+            _fw_json.dump(
+                {
+                    "reason_code": _fw_reason_code,
+                    "explanation": _fw_enhanced_reason,
+                    "tool": tool,
+                    "timestamp": _fw_dt.now(_fw_tz.utc).isoformat(),
+                },
+                _fw_f,
+                indent=2,
+            )
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [firewall] failed to persist last block explanation: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [firewall] failed to persist last block explanation: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
     deny_decision(_fw_enhanced_reason)
@@ -311,14 +390,19 @@ if is_bypass_mode(data) and decision.action != "deny":
 if decision.action == "allow" and is_mutation_capable:
     try:
         journal_mutation_bash(
-            project_dir=get_project_dir(),
+            project_dir=project_dir,
             command=cmd,
             run_id=run_id or None,
             metadata=metadata if isinstance(metadata, dict) else None,
         )
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [firewall] failed to journal mutation-capable allow decision: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [firewall] failed to journal mutation-capable allow decision: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 

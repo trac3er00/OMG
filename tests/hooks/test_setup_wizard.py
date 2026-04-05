@@ -1,4 +1,5 @@
 """Tests for hooks/setup_wizard.py — OMG setup wizard skeleton + CLI detection."""
+
 from __future__ import annotations
 
 import os
@@ -6,6 +7,7 @@ import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
+import builtins
 
 from runtime.adoption import CANONICAL_VERSION
 
@@ -24,10 +26,27 @@ class TestIsSetupEnabled:
             env = {"CLAUDE_PROJECT_DIR": tmpdir}
             with patch.dict(os.environ, env, clear=True):
                 from hooks import _common
+
                 _common._FEATURE_CACHE.clear()
 
                 result = setup_wizard.is_setup_enabled()
                 assert result is False
+
+
+def test_setup_wizard_runs_without_pyyaml(monkeypatch):
+    from hooks import setup_wizard
+
+    original_import = builtins.__import__
+
+    def _import(name, *args, **kwargs):
+        if name == "yaml":
+            raise ImportError("PyYAML not installed")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _import)
+    serialized = setup_wizard._serialize_yaml_or_json({"ok": True, "count": 1})
+    assert '"ok": true' in serialized
+    assert '"count": 1' in serialized
 
     def test_enabled_via_env_var(self):
         """Setup wizard should be enabled when OMG_SETUP_ENABLED=1."""
@@ -118,7 +137,6 @@ class TestRunSetupWizard:
 
 
 class TestCanonicalModes:
-
     def test_setup_wizard_offers_canonical_mode_choices(self):
         from hooks import setup_wizard
 
@@ -157,10 +175,7 @@ class TestWizardStubs:
         """configure_mcp() should return status=ok."""
         from hooks import setup_wizard
 
-        result = setup_wizard.configure_mcp(
-            project_dir="/tmp/test",
-            detected_clis={}
-        )
+        result = setup_wizard.configure_mcp(project_dir="/tmp/test", detected_clis={})
         assert isinstance(result, dict)
         assert result["status"] == "ok"
 
@@ -213,7 +228,12 @@ class TestDetectClis:
     """Tests for detect_clis() real CLI detection using provider registry."""
 
     @staticmethod
-    def _mock_provider(name: str, detected: bool = True, auth_ok: bool | None = True, auth_msg: str = "ok") -> Mock:
+    def _mock_provider(
+        name: str,
+        detected: bool = True,
+        auth_ok: bool | None = True,
+        auth_msg: str = "ok",
+    ) -> Mock:
         """Create a mock CLIProvider with given detect/auth behavior."""
         p = Mock()
         p.get_name.return_value = name
@@ -229,8 +249,11 @@ class TestDetectClis:
         mock_a = self._mock_provider("alpha")
         mock_b = self._mock_provider("beta")
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"alpha": mock_a, "beta": mock_b}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY,
+            {"alpha": mock_a, "beta": mock_b},
+            clear=True,
+        ):
             result = setup_wizard.detect_clis()
 
         assert "alpha" in result
@@ -242,11 +265,19 @@ class TestDetectClis:
         from hooks import setup_wizard
         import runtime.cli_provider
 
-        mock_p = self._mock_provider("codex", detected=True, auth_ok=True, auth_msg="authenticated")
+        mock_p = self._mock_provider(
+            "codex", detected=True, auth_ok=True, auth_msg="authenticated"
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.dict(os.environ, {"HOME": tmpdir}), \
-                 patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {"codex": mock_p}, clear=True):
+            with (
+                patch.dict(os.environ, {"HOME": tmpdir}),
+                patch.dict(
+                    runtime.cli_provider._PROVIDER_REGISTRY,
+                    {"codex": mock_p},
+                    clear=True,
+                ),
+            ):
                 result = setup_wizard.detect_clis()
 
         assert result["codex"]["detected"] is True
@@ -266,8 +297,14 @@ class TestDetectClis:
             gemini_settings.parent.mkdir(parents=True)
             gemini_settings.write_text("{}\n", encoding="utf-8")
 
-            with patch.dict(os.environ, {"HOME": str(home)}), \
-                 patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {"gemini": mock_p}, clear=True):
+            with (
+                patch.dict(os.environ, {"HOME": str(home)}),
+                patch.dict(
+                    runtime.cli_provider._PROVIDER_REGISTRY,
+                    {"gemini": mock_p},
+                    clear=True,
+                ),
+            ):
                 result = setup_wizard.detect_clis()
 
         assert result["gemini"]["detected"] is False
@@ -279,10 +316,13 @@ class TestDetectClis:
         from hooks import setup_wizard
         import runtime.cli_provider
 
-        mock_p = self._mock_provider("gemini", detected=True, auth_ok=False, auth_msg="not logged in")
+        mock_p = self._mock_provider(
+            "gemini", detected=True, auth_ok=False, auth_msg="not logged in"
+        )
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"gemini": mock_p}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY, {"gemini": mock_p}, clear=True
+        ):
             result = setup_wizard.detect_clis()
 
         assert result["gemini"]["detected"] is True
@@ -296,8 +336,9 @@ class TestDetectClis:
 
         mock_p = self._mock_provider("codex", detected=False)
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"codex": mock_p}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY, {"codex": mock_p}, clear=True
+        ):
             result = setup_wizard.detect_clis()
 
         assert result["codex"]["detected"] is False
@@ -310,8 +351,9 @@ class TestDetectClis:
 
         mock_p = self._mock_provider("gemini", detected=False)
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"gemini": mock_p}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY, {"gemini": mock_p}, clear=True
+        ):
             result = setup_wizard.detect_clis()
 
         assert result["gemini"]["detected"] is False
@@ -324,8 +366,9 @@ class TestDetectClis:
 
         mock_p = self._mock_provider("codex", detected=False)
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"codex": mock_p}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY, {"codex": mock_p}, clear=True
+        ):
             result = setup_wizard.detect_clis()
 
         assert "opencode" not in result
@@ -338,8 +381,9 @@ class TestDetectClis:
 
         mock_p = self._mock_provider("kimi", detected=False)
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"kimi": mock_p}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY, {"kimi": mock_p}, clear=True
+        ):
             result = setup_wizard.detect_clis()
 
         assert result["kimi"]["detected"] is False
@@ -350,10 +394,13 @@ class TestDetectClis:
         from hooks import setup_wizard
         import runtime.cli_provider
 
-        mock_p = self._mock_provider("kimi", detected=True, auth_ok=None, auth_msg="check failed")
+        mock_p = self._mock_provider(
+            "kimi", detected=True, auth_ok=None, auth_msg="check failed"
+        )
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"kimi": mock_p}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY, {"kimi": mock_p}, clear=True
+        ):
             result = setup_wizard.detect_clis()
 
         assert result["kimi"]["detected"] is True
@@ -367,8 +414,9 @@ class TestDetectClis:
         mock_p = Mock()
         mock_p.detect.side_effect = RuntimeError("binary crashed")
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"bad": mock_p}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY, {"bad": mock_p}, clear=True
+        ):
             result = setup_wizard.detect_clis()
 
         assert result["bad"]["detected"] is False
@@ -382,8 +430,9 @@ class TestDetectClis:
         mock_p.detect.return_value = True
         mock_p.check_auth.side_effect = RuntimeError("auth broken")
 
-        with patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"broken": mock_p}, clear=True):
+        with patch.dict(
+            runtime.cli_provider._PROVIDER_REGISTRY, {"broken": mock_p}, clear=True
+        ):
             result = setup_wizard.detect_clis()
 
         assert result["broken"]["detected"] is True
@@ -405,13 +454,18 @@ class TestDetectClis:
         import runtime.cli_provider
         from hooks import _common
 
-        mock_p = self._mock_provider("codex", detected=True, auth_ok=True, auth_msg="ready")
+        mock_p = self._mock_provider(
+            "codex", detected=True, auth_ok=True, auth_msg="ready"
+        )
 
         _common._FEATURE_CACHE.clear()
 
-        with patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}), \
-             patch.dict(runtime.cli_provider._PROVIDER_REGISTRY,
-                        {"codex": mock_p}, clear=True):
+        with (
+            patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}),
+            patch.dict(
+                runtime.cli_provider._PROVIDER_REGISTRY, {"codex": mock_p}, clear=True
+            ),
+        ):
             with tempfile.TemporaryDirectory() as tmpdir:
                 result = setup_wizard.run_setup_wizard(tmpdir)
 
@@ -551,7 +605,9 @@ class TestSetPreferences:
                 data = yaml.safe_load(f)
 
             for cli_name, config in data["cli_configs"].items():
-                assert config["subscription"] == "free", f"{cli_name} should have free subscription"
+                assert config["subscription"] == "free", (
+                    f"{cli_name} should have free subscription"
+                )
 
     def test_set_preferences_default_max_parallel_agents_is_one(self):
         """Default max_parallel_agents should be 1 for all CLIs."""
@@ -566,7 +622,9 @@ class TestSetPreferences:
                 data = yaml.safe_load(f)
 
             for cli_name, config in data["cli_configs"].items():
-                assert config["max_parallel_agents"] == 1, f"{cli_name} should have max_parallel_agents=1"
+                assert config["max_parallel_agents"] == 1, (
+                    f"{cli_name} should have max_parallel_agents=1"
+                )
 
     def test_set_preferences_accepts_custom_preferences(self):
         """set_preferences() should accept custom preferences dict."""
@@ -642,7 +700,9 @@ class TestSetPreferences:
         import yaml
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            setup_wizard.set_preferences(tmpdir, {"browser_capability": {"enabled": True}})
+            setup_wizard.set_preferences(
+                tmpdir, {"browser_capability": {"enabled": True}}
+            )
 
             config_path = os.path.join(tmpdir, ".omg", "state", "cli-config.yaml")
             with open(config_path) as f:
@@ -659,10 +719,7 @@ class TestConfigureMcp:
         from hooks import setup_wizard
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            result = setup_wizard.configure_mcp(
-                project_dir=tmpdir,
-                detected_clis={}
-            )
+            result = setup_wizard.configure_mcp(project_dir=tmpdir, detected_clis={})
         assert isinstance(result, dict)
         assert result["status"] == "ok"
 
@@ -672,10 +729,7 @@ class TestConfigureMcp:
         import json
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            setup_wizard.configure_mcp(
-                project_dir=tmpdir,
-                detected_clis={}
-            )
+            setup_wizard.configure_mcp(project_dir=tmpdir, detected_clis={})
 
             config_path = Path(tmpdir) / ".mcp.json"
             assert config_path.exists()
@@ -691,8 +745,7 @@ class TestConfigureMcp:
             home = os.path.join(tmpdir, "home")
             with patch.dict(os.environ, {"HOME": home}):
                 setup_wizard.configure_mcp(
-                    project_dir=tmpdir,
-                    detected_clis={"codex": {"detected": True}}
+                    project_dir=tmpdir, detected_clis={"codex": {"detected": True}}
                 )
             codex_path = Path(home) / ".codex" / "config.toml"
             content = codex_path.read_text(encoding="utf-8")
@@ -728,8 +781,7 @@ class TestConfigureMcp:
             home = os.path.join(tmpdir, "home")
             with patch.dict(os.environ, {"HOME": home}):
                 setup_wizard.configure_mcp(
-                    project_dir=tmpdir,
-                    detected_clis={"gemini": {"detected": False}}
+                    project_dir=tmpdir, detected_clis={"gemini": {"detected": False}}
                 )
             gemini_path = Path(home) / ".gemini" / "settings.json"
             assert gemini_path.exists() is False
@@ -746,8 +798,8 @@ class TestConfigureMcp:
                     project_dir=tmpdir,
                     detected_clis={
                         "codex": {"detected": True},
-                        "gemini": {"detected": False}
-                    }
+                        "gemini": {"detected": False},
+                    },
                 )
         assert "configured" in result
         assert isinstance(result["configured"], list)
@@ -761,7 +813,9 @@ class TestConfigureMcp:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             fake_module = Mock()
-            fake_module.compute_install_plan.return_value = Mock(actions=[Mock(host="codex")])
+            fake_module.compute_install_plan.return_value = Mock(
+                actions=[Mock(host="codex")]
+            )
             fake_module.execute_plan.return_value = {
                 "executed": False,
                 "actions_completed": [],
@@ -815,7 +869,9 @@ class TestConfigureMcp:
                     preset="interop",
                 )
             codex_path = Path(home) / ".codex" / "config.toml"
-            assert "[mcp_servers.custom-server]" in codex_path.read_text(encoding="utf-8")
+            assert "[mcp_servers.custom-server]" in codex_path.read_text(
+                encoding="utf-8"
+            )
 
     def test_configure_mcp_writes_preset_default_servers(self):
         """Preset defaults should be written into Claude .mcp.json."""
@@ -866,10 +922,17 @@ def test_setup_interop_discovers_foreign_plugins() -> None:
         "version": CANONICAL_VERSION,
     }
 
-    with patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}), \
-         patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
-         patch("hooks.setup_wizard.discover_host_plugin_state", return_value=mock_discovery) as mock_discover, \
-         patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_validation):
+    with (
+        patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}),
+        patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True),
+        patch(
+            "hooks.setup_wizard.discover_host_plugin_state", return_value=mock_discovery
+        ) as mock_discover,
+        patch(
+            "hooks.setup_wizard._run_post_install_validate",
+            return_value=mock_validation,
+        ),
+    ):
         with tempfile.TemporaryDirectory() as tmpdir:
             result = setup_wizard.run_setup_wizard(
                 project_dir=tmpdir,
@@ -896,10 +959,17 @@ def test_setup_coexist_mode_reports_foreign_plugins() -> None:
         "version": CANONICAL_VERSION,
     }
 
-    with patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}), \
-         patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True), \
-         patch("hooks.setup_wizard.discover_host_plugin_state", return_value=mock_discovery) as mock_discover, \
-         patch("hooks.setup_wizard._run_post_install_validate", return_value=mock_validation):
+    with (
+        patch.dict(os.environ, {"OMG_SETUP_ENABLED": "1"}),
+        patch.dict(runtime.cli_provider._PROVIDER_REGISTRY, {}, clear=True),
+        patch(
+            "hooks.setup_wizard.discover_host_plugin_state", return_value=mock_discovery
+        ) as mock_discover,
+        patch(
+            "hooks.setup_wizard._run_post_install_validate",
+            return_value=mock_validation,
+        ),
+    ):
         with tempfile.TemporaryDirectory() as tmpdir:
             result = setup_wizard.run_setup_wizard(
                 project_dir=tmpdir,

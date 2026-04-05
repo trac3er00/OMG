@@ -3,6 +3,7 @@
 
 Delegates file policy decisions to policy_engine.py.
 """
+
 import json
 import os
 import sys
@@ -15,7 +16,14 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from hooks._common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
+from hooks._common import (
+    bootstrap_runtime_paths,
+    setup_crash_handler,
+    json_input,
+    deny_decision,
+    is_bypass_mode,
+    get_project_dir,
+)
 
 bootstrap_runtime_paths(__file__)
 
@@ -23,12 +31,20 @@ bootstrap_runtime_paths(__file__)
 setup_crash_handler("secret-guard", fail_closed=True)
 
 try:
-    from hooks.policy_engine import evaluate_file_access, load_allowlist, to_pretool_hook_output
+    from hooks.policy_engine import (
+        evaluate_file_access,
+        load_allowlist,
+        to_pretool_hook_output,
+    )
     from hooks.secret_audit import log_secret_access
     from runtime.mutation_gate import check_mutation_allowed
 except Exception as _import_err:
-    print(f"OMG secret-guard: policy_engine import failed: {_import_err}", file=sys.stderr)
-    deny_decision(f"OMG secret-guard crash: policy_engine import failed: {_import_err}. Denying for safety.")
+    print(
+        f"OMG secret-guard: policy_engine import failed: {_import_err}", file=sys.stderr
+    )
+    deny_decision(
+        f"OMG secret-guard crash: policy_engine import failed: {_import_err}. Denying for safety."
+    )
     sys.exit(0)
 
 data = json_input()
@@ -57,31 +73,53 @@ if tool in ("Write", "Edit", "MultiEdit"):
         exemption=exemption if isinstance(exemption, str) else None,
     )
     if gate_result.get("status") == "blocked":
-        deny_reason = str(gate_result.get("reason", "mutation denied by test intent lock gate"))
+        deny_reason = str(
+            gate_result.get("reason", "mutation denied by test intent lock gate")
+        )
         try:
             from runtime.evidence_narrator import format_block_explanation
+
             _sg_explanation = format_block_explanation(deny_reason, {"tool": tool})
             deny_reason = f"{deny_reason}: {_sg_explanation}"
         except Exception:
             try:
-                print(f"[omg:warn] failed to format mutation block explanation: {sys.exc_info()[1]}", file=sys.stderr)
+                print(
+                    f"[omg:warn] failed to format mutation block explanation: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
         try:
             import json as _sg_json
             from datetime import datetime as _sg_dt, timezone as _sg_tz
+
             _sg_artifact_dir = os.path.join(get_project_dir(), ".omg", "state")
             os.makedirs(_sg_artifact_dir, exist_ok=True)
-            with open(os.path.join(_sg_artifact_dir, "last-block-explanation.json"), "w", encoding="utf-8") as _sg_f:
-                _sg_json.dump({
-                    "reason_code": str(gate_result.get("reason", "mutation denied by test intent lock gate")),
-                    "explanation": deny_reason,
-                    "tool": tool,
-                    "timestamp": _sg_dt.now(_sg_tz.utc).isoformat(),
-                }, _sg_f, indent=2)
+            with open(
+                os.path.join(_sg_artifact_dir, "last-block-explanation.json"),
+                "w",
+                encoding="utf-8",
+            ) as _sg_f:
+                _sg_json.dump(
+                    {
+                        "reason_code": str(
+                            gate_result.get(
+                                "reason", "mutation denied by test intent lock gate"
+                            )
+                        ),
+                        "explanation": deny_reason,
+                        "tool": tool,
+                        "timestamp": _sg_dt.now(_sg_tz.utc).isoformat(),
+                    },
+                    _sg_f,
+                    indent=2,
+                )
         except Exception:
             try:
-                print(f"[omg:warn] failed to write last block explanation artifact: {sys.exc_info()[1]}", file=sys.stderr)
+                print(
+                    f"[omg:warn] failed to write last block explanation artifact: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
         try:
@@ -95,7 +133,10 @@ if tool in ("Write", "Edit", "MultiEdit"):
             )
         except Exception:
             try:
-                print(f"[omg:warn] failed to log denied secret access decision: {sys.exc_info()[1]}", file=sys.stderr)
+                print(
+                    f"[omg:warn] failed to log denied secret access decision: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
         deny_decision(deny_reason)
@@ -106,17 +147,21 @@ decision = evaluate_file_access(tool, file_path, allowlist=allowlist)
 
 # Audit log: record every secret access decision
 try:
+    allowlisted = decision.reason.startswith("Allowlisted:")
     log_secret_access(
         project_dir=get_project_dir(),
         tool=tool,
         file_path=file_path,
         decision=decision.action,
         reason=decision.reason,
-        allowlisted=False,
+        allowlisted=allowlisted,
     )
 except Exception:
     try:
-        print(f"[omg:warn] failed to write secret access audit log: {sys.exc_info()[1]}", file=sys.stderr)
+        print(
+            f"[omg:warn] failed to write secret access audit log: {sys.exc_info()[1]}",
+            file=sys.stderr,
+        )
     except Exception:
         pass
 

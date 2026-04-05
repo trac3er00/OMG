@@ -16,6 +16,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import warnings
 
+try:
+    import yaml
+except Exception:
+    yaml = None
+
 HOOKS_DIR = str(Path(__file__).resolve().parent)
 PROJECT_ROOT = str(Path(HOOKS_DIR).parent)
 PORTABLE_RUNTIME_ROOT = str(Path(PROJECT_ROOT) / "omg-runtime")
@@ -149,9 +154,46 @@ def _read_policy_flags(project_root: str) -> tuple[str, bool]:
     if not os.path.exists(policy_path):
         return mode, require_evidence_pack
 
+    def _extract_flags(payload: object) -> tuple[str, bool]:
+        if not isinstance(payload, dict):
+            return mode, require_evidence_pack
+
+        local_mode = mode
+        local_require = require_evidence_pack
+
+        direct_mode = payload.get("mode")
+        if isinstance(direct_mode, str) and direct_mode.strip():
+            local_mode = direct_mode.strip().strip("'\"")
+
+        direct_require = payload.get("require_evidence_pack")
+        if isinstance(direct_require, bool):
+            local_require = direct_require
+        elif isinstance(direct_require, (str, int, float)):
+            local_require = _to_bool(str(direct_require), local_require)
+
+        policy_block = payload.get("policy")
+        if isinstance(policy_block, dict):
+            nested_mode = policy_block.get("mode")
+            if isinstance(nested_mode, str) and nested_mode.strip():
+                local_mode = nested_mode.strip().strip("'\"")
+
+            nested_require = policy_block.get("require_evidence_pack")
+            if isinstance(nested_require, bool):
+                local_require = nested_require
+            elif isinstance(nested_require, (str, int, float)):
+                local_require = _to_bool(str(nested_require), local_require)
+
+        return local_mode, local_require
+
     try:
         with open(policy_path, "r", encoding="utf-8", errors="ignore") as f:
-            for raw in f:
+            raw_policy = f.read()
+
+        if yaml is not None:
+            parsed = yaml.safe_load(raw_policy)
+            mode, require_evidence_pack = _extract_flags(parsed)
+        else:
+            for raw in raw_policy.splitlines():
                 line = raw.strip()
                 if not line or line.startswith("#"):
                     continue

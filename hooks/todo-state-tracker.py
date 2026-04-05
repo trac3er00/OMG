@@ -7,6 +7,7 @@ Persists state to .omg/state/todo_progress.json for cross-turn tracking.
 
 Feature flag: OMG_TODO_TRACKING_ENABLED (default: False)
 """
+
 import json
 import sys
 import os
@@ -14,10 +15,13 @@ import re
 from datetime import datetime, timezone
 
 HOOKS_DIR = os.path.dirname(__file__)
+PROJECT_ROOT = os.path.dirname(HOOKS_DIR)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
-from _common import (
+from hooks._common import (
     setup_crash_handler,
     json_input,
     get_project_dir,
@@ -33,6 +37,28 @@ if not get_feature_flag("TODO_TRACKING", default=False):
 
 data = json_input()
 
+
+def _flatten_content_blocks(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            normalized = _flatten_content_blocks(item)
+            if normalized:
+                parts.append(normalized)
+        return "\n".join(parts)
+    if isinstance(value, dict):
+        text_value = value.get("text")
+        if isinstance(text_value, str):
+            return text_value
+        content_value = value.get("content")
+        if content_value is not None:
+            return _flatten_content_blocks(content_value)
+        return ""
+    return str(value) if value is not None else ""
+
+
 # Extract response text from various possible fields
 response_text = ""
 if isinstance(data, dict):
@@ -46,12 +72,14 @@ if isinstance(data, dict):
     if isinstance(response_text, dict):
         response_text = response_text.get("content", "")
 
+response_text = _flatten_content_blocks(response_text)
+
 if not isinstance(response_text, str):
     response_text = str(response_text) if response_text else ""
 
 # Parse todo items: regex pattern for markdown todo format
 # Matches: - [ ] task text or - [x] task text
-TODO_PATTERN = r'- \[([ x])\] (.+)'
+TODO_PATTERN = r"- \[([ x])\] (.+)"
 matches = re.findall(TODO_PATTERN, response_text, re.IGNORECASE)
 
 if not matches:
@@ -64,7 +92,7 @@ complete_items = []
 
 for status, task_text in matches:
     task_text = task_text.strip()
-    if status.lower() == 'x':
+    if status.lower() == "x":
         complete_items.append(task_text)
     else:
         incomplete_items.append(task_text)
@@ -106,7 +134,9 @@ new_state = {
 if "session_id" in existing_state:
     new_state["session_id"] = existing_state["session_id"]
 elif "session_id" in data:
-    new_state["session_id"] = data.get("session_id")
+    session_id = data.get("session_id")
+    if isinstance(session_id, str):
+        new_state["session_id"] = session_id
 
 # Atomically write state
 atomic_json_write(state_path, new_state)

@@ -4,6 +4,7 @@
 Centralized policy decision layer for tool access, file access, and supply-chain
 artifact verification.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
@@ -36,11 +37,15 @@ def allow(reason: str = "", controls: list[str] | None = None) -> PolicyDecision
     return PolicyDecision("allow", "low", reason, controls or [])
 
 
-def ask(reason: str, risk_level: RiskLevel = "med", controls: list[str] | None = None) -> PolicyDecision:
+def ask(
+    reason: str, risk_level: RiskLevel = "med", controls: list[str] | None = None
+) -> PolicyDecision:
     return PolicyDecision("ask", risk_level, reason, controls or [])
 
 
-def deny(reason: str, risk_level: RiskLevel = "high", controls: list[str] | None = None) -> PolicyDecision:
+def deny(
+    reason: str, risk_level: RiskLevel = "high", controls: list[str] | None = None
+) -> PolicyDecision:
     return PolicyDecision("deny", risk_level, reason, controls or [])
 
 
@@ -94,12 +99,38 @@ SECRET_FILE_PATTERNS = [
 ]
 
 READ_COMMANDS = [
-    "cat", "less", "more", "head", "tail", "strings", "xxd", "od",
-    "hexdump", "base64", "vim", "vi", "nano", "emacs", "view",
-    "bat", "pygmentize", "highlight", "source", "\\.",
-    "awk", "gawk", "mawk", "perl", "ruby", "python", "python3", "node",
+    "cat",
+    "less",
+    "more",
+    "head",
+    "tail",
+    "strings",
+    "xxd",
+    "od",
+    "hexdump",
+    "base64",
+    "vim",
+    "vi",
+    "nano",
+    "emacs",
+    "view",
+    "bat",
+    "pygmentize",
+    "highlight",
+    "source",
+    "\\.",
+    "awk",
+    "gawk",
+    "mawk",
+    "perl",
+    "ruby",
+    "python",
+    "python3",
+    "node",
 ]
-READ_PATTERN = r"(?:^|\s|;|&&|\|\|)(?:" + "|".join(re.escape(c) for c in READ_COMMANDS) + r")\s+"
+READ_PATTERN = (
+    r"(?:^|\s|;|&&|\|\|)(?:" + "|".join(re.escape(c) for c in READ_COMMANDS) + r")\s+"
+)
 
 EXFIL_COMMANDS = [
     r"\b(cp|mv|ln\s+-s)\s+",
@@ -125,11 +156,44 @@ UNTRUSTED_MUTATION_PATTERNS = [
     r"\b(mv|cp|tee|sed\s+-i|touch|mkdir)\b",
 ]
 
+DESTRUCT_PATTERNS_COMPILED: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(pattern), label) for pattern, label in DESTRUCT_PATTERNS
+)
+PIPE_SHELL_PATTERNS_COMPILED: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern) for pattern in PIPE_SHELL_PATTERNS
+)
+EVAL_PATTERNS_COMPILED: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern) for pattern in EVAL_PATTERNS
+)
+SECRET_FILE_PATTERNS_COMPILED: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern, re.IGNORECASE) for pattern in SECRET_FILE_PATTERNS
+)
+SECRET_REDIRECT_PATTERNS_COMPILED: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(r"<\s*\S*(" + pattern + r")", re.IGNORECASE)
+    for pattern in SECRET_FILE_PATTERNS
+)
+EXFIL_COMMANDS_COMPILED: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern) for pattern in EXFIL_COMMANDS
+)
+ASK_PATTERNS_COMPILED: tuple[tuple[re.Pattern[str], str], ...] = tuple(
+    (re.compile(pattern), label) for pattern, label in ASK_PATTERNS
+)
+UNTRUSTED_MUTATION_PATTERNS_COMPILED: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern) for pattern in UNTRUSTED_MUTATION_PATTERNS
+)
+READ_PATTERN_COMPILED = re.compile(READ_PATTERN, re.IGNORECASE)
+
 TRUSTED_CONTENT_TIERS = frozenset({"local", "balanced"})
 UNTRUSTED_EXTERNAL_TIERS = frozenset({"research", "browser"})
 
 INJECTION_MARKER_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
-    (re.compile(r"\bIGNORE\s+(?:ALL\s+)?PREVIOUS(?:\s+INSTRUCTIONS?)?\b", re.IGNORECASE), 0.03, "ignore-previous-instructions"),
+    (
+        re.compile(
+            r"\bIGNORE\s+(?:ALL\s+)?PREVIOUS(?:\s+INSTRUCTIONS?)?\b", re.IGNORECASE
+        ),
+        0.03,
+        "ignore-previous-instructions",
+    ),
     (re.compile(r"<\|im_start\|>", re.IGNORECASE), 0.03, "im-start-token"),
     (re.compile(r"<\|im_end\|>", re.IGNORECASE), 0.03, "im-end-token"),
     (re.compile(r"\[INST\]", re.IGNORECASE), 0.03, "inst-token"),
@@ -139,20 +203,65 @@ INJECTION_MARKER_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
 HIDDEN_INSTRUCTION_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
     (re.compile(r"(?:^|\s)SYSTEM\s*:", re.IGNORECASE), 0.02, "system-role-token"),
     (re.compile(r"(?:^|\s)ASSISTANT\s*:", re.IGNORECASE), 0.02, "assistant-role-token"),
-    (re.compile(r"(?:(?:#|//|/\*|<!--).{0,80})\b(?:ignore|override|jailbreak|bypass)\b", re.IGNORECASE), 0.01, "comment-hidden-instruction"),
-    (re.compile(r"\bbase64\s+(?:-d|--decode)\b", re.IGNORECASE), 0.01, "base64-decoder-token"),
+    (
+        re.compile(
+            r"(?:(?:#|//|/\*|<!--).{0,80})\b(?:ignore|override|jailbreak|bypass)\b",
+            re.IGNORECASE,
+        ),
+        0.01,
+        "comment-hidden-instruction",
+    ),
+    (
+        re.compile(r"\bbase64\s+(?:-d|--decode)\b", re.IGNORECASE),
+        0.01,
+        "base64-decoder-token",
+    ),
     (re.compile(r"\b[A-Za-z0-9+/]{48,}={0,2}\b"), 0.01, "opaque-base64-payload"),
 )
 
 CACHE_POISONING_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
-    (re.compile(r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}(?:/)?\.omg/state/", re.IGNORECASE), 0.04, "state-path-overwrite-attempt"),
-    (re.compile(r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}(?:/)?\.omg/shadow/active-run", re.IGNORECASE), 0.04, "active-run-overwrite-attempt"),
-    (re.compile(r"\b(?:cache|state)\s*(?:poison|override|overwrite|tamper)\b", re.IGNORECASE), 0.02, "cache-poisoning-language"),
+    (
+        re.compile(
+            r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}(?:/)?\.omg/state/",
+            re.IGNORECASE,
+        ),
+        0.04,
+        "state-path-overwrite-attempt",
+    ),
+    (
+        re.compile(
+            r"(?:>|>>|tee\b|cp\b|mv\b|rm\b|sed\s+-i\b).{0,120}(?:/)?\.omg/shadow/active-run",
+            re.IGNORECASE,
+        ),
+        0.04,
+        "active-run-overwrite-attempt",
+    ),
+    (
+        re.compile(
+            r"\b(?:cache|state)\s*(?:poison|override|overwrite|tamper)\b", re.IGNORECASE
+        ),
+        0.02,
+        "cache-poisoning-language",
+    ),
 )
 
 CLARIFICATION_AMBIGUITY_PATTERNS: tuple[tuple[re.Pattern[str], float, str], ...] = (
-    (re.compile(r"\b(?:without\s+asking|no\s+questions\s+asked|skip\s+clarif(?:y|ication))\b", re.IGNORECASE), 0.08, "clarification-bypass-language"),
-    (re.compile(r"\b(?:just\s+fix\s+it|fix\s+everything|do\s+whatever\s+it\s+takes)\b", re.IGNORECASE), 0.08, "ambiguous-mutation-intent"),
+    (
+        re.compile(
+            r"\b(?:without\s+asking|no\s+questions\s+asked|skip\s+clarif(?:y|ication))\b",
+            re.IGNORECASE,
+        ),
+        0.08,
+        "clarification-bypass-language",
+    ),
+    (
+        re.compile(
+            r"\b(?:just\s+fix\s+it|fix\s+everything|do\s+whatever\s+it\s+takes)\b",
+            re.IGNORECASE,
+        ),
+        0.08,
+        "ambiguous-mutation-intent",
+    ),
 )
 
 
@@ -294,46 +403,59 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
     if not cmd:
         return allow("empty command")
 
-    for pat, label in DESTRUCT_PATTERNS:
-        if re.search(pat, cmd):
+    for compiled_pattern, label in DESTRUCT_PATTERNS_COMPILED:
+        if compiled_pattern.search(cmd):
             return deny(f"Blocked: {label}", "critical", ["destructive-op"])
 
-    for pat in PIPE_SHELL_PATTERNS:
-        if re.search(pat, cmd):
+    for compiled_pattern in PIPE_SHELL_PATTERNS_COMPILED:
+        if compiled_pattern.search(cmd):
             return deny("Blocked: pipe-to-shell", "critical", ["remote-code-exec"])
 
-    for pat in EVAL_PATTERNS:
-        if re.search(pat, cmd):
+    for compiled_pattern in EVAL_PATTERNS_COMPILED:
+        if compiled_pattern.search(cmd):
             return deny("Blocked: dynamic eval", "high", ["dynamic-eval"])
 
-    for secret_pat in SECRET_FILE_PATTERNS:
-        if not re.search(secret_pat, cmd, re.IGNORECASE):
+    for secret_pat, redirect_pattern in zip(
+        SECRET_FILE_PATTERNS_COMPILED,
+        SECRET_REDIRECT_PATTERNS_COMPILED,
+    ):
+        if not secret_pat.search(cmd):
             continue
 
         if SAFE_ENV_REFERENCE.search(cmd):
             cleaned = SAFE_ENV_REFERENCE.sub("__SAFE_REF__", cmd)
-            if not re.search(secret_pat, cleaned, re.IGNORECASE):
+            if not secret_pat.search(cleaned):
                 continue
 
-        if re.search(READ_PATTERN, cmd, re.IGNORECASE):
+        if READ_PATTERN_COMPILED.search(cmd):
             return deny("Blocked: reading secret file", "critical", ["secret-access"])
 
-        if re.search(r"<\s*\S*(" + secret_pat + r")", cmd, re.IGNORECASE):
-            return deny("Blocked: reading secret file via redirect", "critical", ["secret-access"])
+        if redirect_pattern.search(cmd):
+            return deny(
+                "Blocked: reading secret file via redirect",
+                "critical",
+                ["secret-access"],
+            )
 
-        for exfil in EXFIL_COMMANDS:
-            if re.search(exfil, cmd):
-                return deny("Blocked: copying secret file", "critical", ["secret-exfiltration"])
+        for exfil_pattern in EXFIL_COMMANDS_COMPILED:
+            if exfil_pattern.search(cmd):
+                return deny(
+                    "Blocked: copying secret file", "critical", ["secret-exfiltration"]
+                )
 
         if _GREP_COMMAND_RE.search(cmd):
-            return ask("Searching inside potential secret file — confirm this is safe", "high", ["secret-search"])
+            return ask(
+                "Searching inside potential secret file — confirm this is safe",
+                "high",
+                ["secret-search"],
+            )
 
-    for pat, label in ASK_PATTERNS:
-        if re.search(pat, cmd):
+    for compiled_pattern, label in ASK_PATTERNS_COMPILED:
+        if compiled_pattern.search(cmd):
             return ask(f"{label}: {cmd[:120]}", "med", ["human-approval"])
 
-    for pat in UNTRUSTED_MUTATION_PATTERNS:
-        if not re.search(pat, cmd):
+    for compiled_pattern in UNTRUSTED_MUTATION_PATTERNS_COMPILED:
+        if not compiled_pattern.search(cmd):
             continue
         provenance_entries = _load_untrusted_provenance_entries()
         if provenance_entries:
@@ -358,19 +480,38 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
 # === FILE POLICY ============================================================
 
 BLOCKED_FILES = {
-    ".env", ".env.local", ".env.development", ".env.production",
-    ".env.staging", ".env.test", ".npmrc", ".pypirc", ".netrc",
-    "id_rsa", "id_ed25519", "id_ecdsa", "id_rsa.pub", "id_ed25519.pub", "id_ecdsa.pub",
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.production",
+    ".env.staging",
+    ".env.test",
+    ".npmrc",
+    ".pypirc",
+    ".netrc",
+    "id_rsa",
+    "id_ed25519",
+    "id_ecdsa",
+    "id_rsa.pub",
+    "id_ed25519.pub",
+    "id_ecdsa.pub",
 }
 
 EXAMPLE_FILES = {".env.example", ".env.sample", ".env.template"}
 
-_SECRET_VALUE_RE = re.compile(
-    r"^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$"
-)
+_SECRET_VALUE_RE = re.compile(r"^(\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*)(.+)$")
 _SAFE_VALUES = {
-    "true", "false", "0", "1", "yes", "no",
-    "development", "production", "staging", "test", "localhost",
+    "true",
+    "false",
+    "0",
+    "1",
+    "yes",
+    "no",
+    "development",
+    "production",
+    "staging",
+    "test",
+    "localhost",
 }
 _MASKED_UNPARSEABLE_ENV_LINE = "[masked unparseable line]"
 
@@ -392,10 +533,12 @@ BLOCKED_PATH_PATTERNS = [
 
 # OMG internal credential store paths (exempted from secret-file blocking)
 # Only these exact filenames inside .omg/state/ are allowed.
-_OMG_CREDENTIAL_STORE_ALLOWLIST = frozenset({
-    "credentials.enc",
-    "credentials.meta",
-})
+_OMG_CREDENTIAL_STORE_ALLOWLIST = frozenset(
+    {
+        "credentials.enc",
+        "credentials.meta",
+    }
+)
 
 
 def _is_omg_credential_path(normalized_path: str) -> bool:
@@ -410,9 +553,13 @@ def _is_omg_credential_path(normalized_path: str) -> bool:
     """
     # Import here to avoid circular dependency at module level
     try:
-        get_feature_flag = getattr(importlib.import_module("hooks._common"), "get_feature_flag")
+        get_feature_flag = getattr(
+            importlib.import_module("hooks._common"), "get_feature_flag"
+        )
     except Exception:
-        get_feature_flag = getattr(importlib.import_module("_common"), "get_feature_flag")
+        get_feature_flag = getattr(
+            importlib.import_module("_common"), "get_feature_flag"
+        )
 
     if not get_feature_flag("MULTI_CREDENTIAL", default=False):
         return False
@@ -459,9 +606,16 @@ def mask_env_content(file_path: str) -> str:
 # === ALLOWLIST SUPPORT =======================================================
 
 # Globs that are too broad to be safe — reject these in allowlist entries.
-OVERLY_BROAD_GLOBS = frozenset({
-    "*", "**", "**/*", "**/**", "*/*", "*/**",
-})
+OVERLY_BROAD_GLOBS = frozenset(
+    {
+        "*",
+        "**",
+        "**/*",
+        "**/**",
+        "*/*",
+        "*/**",
+    }
+)
 
 
 def validate_allowlist_entry(entry: dict[str, Any]) -> None:
@@ -513,9 +667,7 @@ def is_allowlisted(file_path: str, tool: str, allowlist: list[dict[str, Any]]) -
         # Match against basename or full normalized path
         if fnmatch(basename, pattern) or fnmatch(normalized, pattern):
             if tool in entry_tools:
-                _log_allowlist_bypass(
-                    file_path, tool, entry.get("reason", "")
-                )
+                _log_allowlist_bypass(file_path, tool, entry.get("reason", ""))
                 return True
 
     return False
@@ -535,6 +687,7 @@ def load_allowlist(project_dir: str = ".") -> list[dict[str, Any]]:
 
     try:
         import yaml
+
         with open(policy_path, "r") as f:
             data = yaml.safe_load(f)
     except ImportError:
@@ -587,7 +740,11 @@ def _parse_policy_yaml_fallback(path: str) -> dict[str, Any]:
 
         if in_allowlist:
             # Detect end of allowlist section (new top-level key)
-            if stripped and not stripped.startswith(" ") and not stripped.startswith("\t"):
+            if (
+                stripped
+                and not stripped.startswith(" ")
+                and not stripped.startswith("\t")
+            ):
                 in_allowlist = False
                 continue
 
@@ -600,7 +757,9 @@ def _parse_policy_yaml_fallback(path: str) -> dict[str, Any]:
             elif current_entry is not None:
                 clean = stripped.strip()
                 if clean.startswith("reason:"):
-                    current_entry["reason"] = clean.split(":", 1)[1].strip().strip("'\"")
+                    current_entry["reason"] = (
+                        clean.split(":", 1)[1].strip().strip("'\"")
+                    )
                 elif clean.startswith("- ") and "tools" not in clean:
                     current_entry["tools"].append(clean[2:].strip().strip("'\""))
 
@@ -622,9 +781,13 @@ def _log_allowlist_bypass(path: str, tool: str, reason: str) -> None:
     """
     try:
         try:
-            log_secret_access = getattr(importlib.import_module("hooks.secret_audit"), "log_secret_access")
+            log_secret_access = getattr(
+                importlib.import_module("hooks.secret_audit"), "log_secret_access"
+            )
         except Exception:
-            log_secret_access = getattr(importlib.import_module("secret_audit"), "log_secret_access")
+            log_secret_access = getattr(
+                importlib.import_module("secret_audit"), "log_secret_access"
+            )
 
         project_dir = os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
         log_secret_access(
@@ -637,7 +800,12 @@ def _log_allowlist_bypass(path: str, tool: str, reason: str) -> None:
         )
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [policy_engine] allowlist bypass audit logging failed: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [policy_engine] allowlist bypass audit logging failed: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
@@ -661,7 +829,12 @@ def evaluate_file_access(
         normalized = os.path.realpath(normalized)
     except (OSError, ValueError):
         try:
-            import sys; print(f"[omg:warn] [policy_engine] failed to resolve real path for policy evaluation: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [policy_engine] failed to resolve real path for policy evaluation: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
     basename = os.path.basename(normalized).lower()
@@ -699,7 +872,9 @@ def evaluate_file_access(
 
     for pat in BLOCKED_PATH_PATTERNS:
         if re.search(pat, lowpath):
-            return deny(f"Sensitive path blocked: {file_path}", "critical", ["secret-access"])
+            return deny(
+                f"Sensitive path blocked: {file_path}", "critical", ["secret-access"]
+            )
 
     if tool in {"Write", "Edit", "MultiEdit"}:
         provenance_entries = _load_untrusted_provenance_entries()
@@ -727,7 +902,9 @@ def evaluate_file_access(
 # === SUPPLY CHAIN POLICY ====================================================
 
 
-def evaluate_supply_artifact(artifact: dict[str, Any], mode: str = "warn_and_run") -> PolicyDecision:
+def evaluate_supply_artifact(
+    artifact: dict[str, Any], mode: str = "warn_and_run"
+) -> PolicyDecision:
     """Verify artifact trust with Warn-And-Run semantics.
 
     mode=warn_and_run: missing trust metadata returns ASK
@@ -741,11 +918,22 @@ def evaluate_supply_artifact(artifact: dict[str, Any], mode: str = "warn_and_run
     for finding in findings:
         sev = str((finding or {}).get("severity", "")).lower()
         if sev == "critical":
-            return deny("Critical static-scan finding detected", "critical", ["supply-critical-block"])
+            return deny(
+                "Critical static-scan finding detected",
+                "critical",
+                ["supply-critical-block"],
+            )
 
     joined_perms = " ".join(str(p) for p in permissions)
-    if any(token in joined_perms for token in ["sudo", "rm -rf", "--privileged", "curl |", "wget |"]):
-        return deny("Critical permission profile detected in artifact", "critical", ["dangerous-permissions"])
+    if any(
+        token in joined_perms
+        for token in ["sudo", "rm -rf", "--privileged", "curl |", "wget |"]
+    ):
+        return deny(
+            "Critical permission profile detected in artifact",
+            "critical",
+            ["dangerous-permissions"],
+        )
 
     if not signer or not checksum:
         if mode == "warn_and_run":
@@ -754,11 +942,20 @@ def evaluate_supply_artifact(artifact: dict[str, Any], mode: str = "warn_and_run
                 "high",
                 ["isolate-network", "read-only-fs", "manual-approval"],
             )
-        return deny("Artifact missing signer/checksum metadata", "high", ["unsigned-artifact"])
+        return deny(
+            "Artifact missing signer/checksum metadata", "high", ["unsigned-artifact"]
+        )
 
-    has_high = any(str((finding or {}).get("severity", "")).lower() == "high" for finding in findings)
+    has_high = any(
+        str((finding or {}).get("severity", "")).lower() == "high"
+        for finding in findings
+    )
     if has_high:
-        return ask("High-risk findings present. Explicit approval required.", "high", ["manual-approval"])
+        return ask(
+            "High-risk findings present. Explicit approval required.",
+            "high",
+            ["manual-approval"],
+        )
 
     return allow("artifact trusted")
 

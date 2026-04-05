@@ -2,6 +2,7 @@
 
 Feature-gated: requires OMG_SETUP_ENABLED=1 (default off).
 """
+
 from __future__ import annotations
 
 import json
@@ -12,8 +13,6 @@ import re
 import sys
 from pathlib import Path
 from typing import Any, cast
-
-import yaml
 
 _HOOKS_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _HOOKS_DIR.parent
@@ -60,6 +59,19 @@ from runtime.adoption import (  # noqa: E402
 )
 
 _logger = logging.getLogger(__name__)
+
+
+def _serialize_yaml_or_json(data: dict[str, Any]) -> str:
+    try:
+        import yaml as _yaml
+
+        rendered = _yaml.dump(data, default_flow_style=False, sort_keys=False)
+        if isinstance(rendered, str):
+            return rendered
+    except Exception:
+        pass
+    return json.dumps(data, indent=2, ensure_ascii=False)
+
 
 OMG_CONTROL_COMMAND = "python3"
 OMG_CONTROL_ARGS = ["-m", "runtime.omg_mcp_server"]
@@ -285,9 +297,7 @@ def _normalize_mcp_ids(selected_ids: list[str]) -> list[str]:
         normalized_ids.append(normalized)
 
     if unknown_ids:
-        raise ValueError(
-            "Unsupported MCP server IDs: " + ", ".join(unknown_ids)
-        )
+        raise ValueError("Unsupported MCP server IDs: " + ", ".join(unknown_ids))
 
     return normalized_ids
 
@@ -346,7 +356,9 @@ def configure_plan_type(plan_type: str) -> dict[str, Any]:
     return result
 
 
-def select_mcps(selected_ids: list[str] | None = None, preset: str = "safe") -> dict[str, Any]:
+def select_mcps(
+    selected_ids: list[str] | None = None, preset: str = "safe"
+) -> dict[str, Any]:
     """Build MCP config from selected IDs.
 
     Args:
@@ -481,12 +493,15 @@ def get_cli_auth_instructions(provider: str) -> dict[str, str]:
         },
     }
 
-    return instructions.get(provider, {
-        "install": "Unknown provider",
-        "auth": "Unknown provider",
-        "verify": "Unknown provider",
-        "subscription": "Unknown",
-    })
+    return instructions.get(
+        provider,
+        {
+            "install": "Unknown provider",
+            "auth": "Unknown provider",
+            "verify": "Unknown provider",
+            "subscription": "Unknown",
+        },
+    )
 
 
 def check_auth() -> dict[str, Any]:
@@ -653,7 +668,9 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
         )
         if callable(normalize_detected):
             raw_detected_clis = preferences.get("detected_clis")
-            normalized_detected_clis = cast(dict[str, Any], normalize_detected(raw_detected_clis))
+            normalized_detected_clis = cast(
+                dict[str, Any], normalize_detected(raw_detected_clis)
+            )
             persisted_detected: dict[str, Any] = {}
             for host, host_state in normalized_detected_clis.items():
                 if not isinstance(host_state, dict):
@@ -674,8 +691,8 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
 
     # Write config to YAML file
     config_path = os.path.join(state_dir, "cli-config.yaml")
-    with open(config_path, "w") as f:
-        yaml.dump(default_config, f, default_flow_style=False, sort_keys=False)
+    with open(config_path, "w", encoding="utf-8") as f:
+        f.write(_serialize_yaml_or_json(default_config))
 
     _logger.info("Saved CLI config to %s", config_path)
 
@@ -686,17 +703,28 @@ def set_preferences(project_dir: str, preferences: dict[str, Any]) -> dict[str, 
     }
 
 
-def _write_profile_learning_sections(state_dir: str, preferences: dict[str, Any]) -> None:
+def _write_profile_learning_sections(
+    state_dir: str, preferences: dict[str, Any]
+) -> None:
     profile_path = os.path.join(state_dir, "profile.yaml")
     profile_data = _load_profile_yaml(profile_path)
     _ensure_profile_baseline(profile_data)
 
-    profile_data["preferences"] = _normalize_preferences_block(preferences.get("preferences"))
-    profile_data["user_vector"] = _normalize_user_vector_block(preferences.get("user_vector"))
-    profile_data["profile_provenance"] = _normalize_provenance_block(preferences.get("profile_provenance"))
-    profile_data["governed_preferences"] = _normalize_governed_preferences_block(preferences.get("governed_preferences"))
+    profile_data["preferences"] = _normalize_preferences_block(
+        preferences.get("preferences")
+    )
+    profile_data["user_vector"] = _normalize_user_vector_block(
+        preferences.get("user_vector")
+    )
+    profile_data["profile_provenance"] = _normalize_provenance_block(
+        preferences.get("profile_provenance")
+    )
+    profile_data["governed_preferences"] = _normalize_governed_preferences_block(
+        preferences.get("governed_preferences")
+    )
 
     from runtime.profile_io import save_profile
+
     save_profile(profile_path, profile_data)
 
 
@@ -716,22 +744,34 @@ def _render_explicit_empty_collections(dumped: str) -> str:
         if stripped == "stack:" and (not next_line or not next_line.startswith("- ")):
             output.append("stack: []")
             continue
-        if stripped == "conventions:" and (not next_line or not next_line.startswith("  ")):
+        if stripped == "conventions:" and (
+            not next_line or not next_line.startswith("  ")
+        ):
             output.append("conventions: {}")
             continue
-        if stripped == "ai_behavior:" and (not next_line or not next_line.startswith("  ")):
+        if stripped == "ai_behavior:" and (
+            not next_line or not next_line.startswith("  ")
+        ):
             output.append("ai_behavior: {}")
             continue
-        if stripped == "architecture_requests:" and (not next_line or not next_line.startswith("    - ")):
+        if stripped == "architecture_requests:" and (
+            not next_line or not next_line.startswith("    - ")
+        ):
             output.append("  architecture_requests: []")
             continue
-        if stripped == "constraints:" and (not next_line or not next_line.startswith("    ")):
+        if stripped == "constraints:" and (
+            not next_line or not next_line.startswith("    ")
+        ):
             output.append("  constraints: {}")
             continue
-        if stripped == "tags:" and (not next_line or not next_line.startswith("    - ")):
+        if stripped == "tags:" and (
+            not next_line or not next_line.startswith("    - ")
+        ):
             output.append("  tags: []")
             continue
-        if stripped == "recent_updates:" and (not next_line or not next_line.startswith("    - ")):
+        if stripped == "recent_updates:" and (
+            not next_line or not next_line.startswith("    - ")
+        ):
             output.append("  recent_updates: []")
             continue
 
@@ -742,12 +782,15 @@ def _render_explicit_empty_collections(dumped: str) -> str:
 
 def _load_profile_yaml(profile_path: str) -> dict[str, Any]:
     from runtime.profile_io import load_profile
+
     return load_profile(profile_path)
 
 
 def _ensure_profile_baseline(profile_data: dict[str, Any]) -> None:
     profile_data.setdefault("name", "omg-project")
-    profile_data.setdefault("description", "initialized by OMG standalone compat bootstrap")
+    profile_data.setdefault(
+        "description", "initialized by OMG standalone compat bootstrap"
+    )
     profile_data.setdefault("language", "unknown")
     profile_data.setdefault("framework", "unknown")
     profile_data.setdefault("stack", [])
@@ -889,7 +932,9 @@ def _normalize_governed_preferences_block(raw: Any) -> dict[str, list[dict[str, 
     }
 
 
-def _normalize_governed_section_entries(raw: Any, *, section: str) -> list[dict[str, Any]]:
+def _normalize_governed_section_entries(
+    raw: Any, *, section: str
+) -> list[dict[str, Any]]:
     if not isinstance(raw, list):
         return []
     entries: list[dict[str, Any]] = []
@@ -930,8 +975,12 @@ def _normalize_governed_section_entries(raw: Any, *, section: str) -> list[dict[
                 score = 0.0
             entry["decay_metadata"] = {
                 "decay_score": max(0.0, min(1.0, score)),
-                "last_seen_at": str(decay.get("last_seen_at", updated_at)).strip() or updated_at,
-                "decay_reason": str(decay.get("decay_reason", "inferred_signal")).strip() or "inferred_signal",
+                "last_seen_at": str(decay.get("last_seen_at", updated_at)).strip()
+                or updated_at,
+                "decay_reason": str(
+                    decay.get("decay_reason", "inferred_signal")
+                ).strip()
+                or "inferred_signal",
             }
 
         entries.append(entry)
@@ -1003,7 +1052,9 @@ def run_setup_wizard(
             "message": "Setup wizard disabled. Set OMG_SETUP_ENABLED=1 to enable.",
         }
 
-    selected_preset = resolve_preset(preset or ("balanced" if non_interactive else "safe"))
+    selected_preset = resolve_preset(
+        preset or ("balanced" if non_interactive else "safe")
+    )
     selected_setup_mode = select_setup_mode(setup_mode)
     requested_mode = mode
     if requested_mode is None and non_interactive:
@@ -1025,7 +1076,9 @@ def run_setup_wizard(
 
     clis = detect_clis()
     auth = check_auth()
-    mcp = configure_mcp(project_dir, clis, preset=selected_preset, selected_ids=selected_mcps)
+    mcp = configure_mcp(
+        project_dir, clis, preset=selected_preset, selected_ids=selected_mcps
+    )
     prefs = set_preferences(
         project_dir,
         {
@@ -1083,9 +1136,7 @@ def run_setup_wizard(
 
     checks = validation_result.get("checks", [])
     blockers = [
-        c
-        for c in checks
-        if isinstance(c, dict) and c.get("status") == "blocker"
+        c for c in checks if isinstance(c, dict) and c.get("status") == "blocker"
     ]
 
     result["post_install_validation"] = {
@@ -1094,7 +1145,9 @@ def run_setup_wizard(
         "blockers": [{"name": c["name"], "message": c["message"]} for c in blockers],
     }
 
-    has_detected_cli = any(bool(v.get("detected", False)) for v in clis.values() if isinstance(v, dict))
+    has_detected_cli = any(
+        bool(v.get("detected", False)) for v in clis.values() if isinstance(v, dict)
+    )
     if blockers and not non_interactive and not has_detected_cli:
         result["status"] = "validation_failed"
 

@@ -5,6 +5,7 @@
 2) Auto-generate handoff files in .omg/state
 3) JetBrains hybrid summarization (feature-flagged: CONTEXT_MANAGER)
 """
+
 # Performance-critical: minimal top-level imports for fast early-exit
 import json
 import os
@@ -32,10 +33,15 @@ def _lazy_imports():
     _lazy_loaded = True
 
     import importlib
+
     try:
-        from hooks.state_migration import resolve_state_file as _rsf, resolve_state_dir as _rsd
+        from hooks.state_migration import (
+            resolve_state_file as _rsf,
+            resolve_state_dir as _rsd,
+        )
         from hooks._common import _resolve_project_dir as _rpd, get_feature_flag as _gff
         from hooks._protected_context import collect_protected_context as _cpc
+
         resolve_state_file = _rsf
         resolve_state_dir = _rsd
         _resolve_project_dir = _rpd
@@ -55,7 +61,11 @@ def _lazy_imports():
             collect_protected_context = None
 
     try:
-        from runtime.context_limits import get_model_limits as _gml, compaction_trigger as _ct
+        from runtime.context_limits import (
+            get_model_limits as _gml,
+            compaction_trigger as _ct,
+        )
+
         get_model_limits = _gml
         compaction_trigger = _ct
     except Exception:
@@ -68,13 +78,16 @@ GIT_DIFF_TIMEOUT_SEC = int(os.environ.get("OMG_PRECOMPACT_GIT_DIFF_TIMEOUT_SEC",
 
 # Auto-compact settings
 AUTO_COMPACT_STATE_FILE = ".omg/state/auto-compact-state.json"
-AUTO_COMPACT_TOOL_THRESHOLD = int(os.environ.get("OMG_AUTO_COMPACT_TOOL_THRESHOLD", "150"))
+AUTO_COMPACT_TOOL_THRESHOLD = int(
+    os.environ.get("OMG_AUTO_COMPACT_TOOL_THRESHOLD", "150")
+)
 AUTO_COMPACT_PHASE_CHECK_ENABLED = True  # Check for new phases by default
 
 
 # ---------------------------------------------------------------------------
 # Pure utility functions (importable for testing)
 # ---------------------------------------------------------------------------
+
 
 def read_file(path, max_lines=None):
     try:
@@ -119,6 +132,7 @@ def _rotate_ledger_if_needed(ledger_path, max_lines=10000):
         if len(lines) <= max_lines:
             return
         import shutil
+
         bak_path = ledger_path + ".bak"
         shutil.copy2(ledger_path, bak_path)
         with open(ledger_path, "w", encoding="utf-8") as f:
@@ -129,13 +143,19 @@ def _rotate_ledger_if_needed(ledger_path, max_lines=10000):
         )
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] failed to rotate ledger: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] failed to rotate ledger: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
 
 def snapshot_file(src_path, dst_path, max_bytes):
     import shutil  # lazy import
+
     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
     try:
         size = os.path.getsize(src_path)
@@ -171,6 +191,7 @@ def _get_file_path_re():
     global _FILE_PATH_RE
     if _FILE_PATH_RE is None:
         import re
+
         _FILE_PATH_RE = re.compile(
             r"(?:[\w./-]+/)?[\w.-]+\."
             r"(?:py|ts|js|tsx|jsx|json|yaml|yml|md|txt|sh|toml|cfg|ini|sql|html|css|go|rs|java|rb|c|h|cpp)"
@@ -183,6 +204,7 @@ def _get_causal_re():
     global _CAUSAL_RE
     if _CAUSAL_RE is None:
         import re
+
         _CAUSAL_RE = re.compile(
             r"\b(?:decided|chose|because|therefore|fixed|resolved|implemented|"
             r"created|added|removed|deleted|changed|updated|refactored)\b",
@@ -197,14 +219,13 @@ def _extract_entities(text):
     Returns (file_paths: list[str], decisions: list[str]).
     """
     import re  # lazy import
+
     file_re = _get_file_path_re()
     causal_re = _get_causal_re()
     files = list(dict.fromkeys(file_re.findall(text)))  # dedupe, preserve order
     sentences = re.split(r"[.!?\n]", text)
     decisions = [
-        s.strip()
-        for s in sentences
-        if causal_re.search(s) and len(s.strip()) > 5
+        s.strip() for s in sentences if causal_re.search(s) and len(s.strip()) > 5
     ]
     return files, decisions
 
@@ -247,6 +268,7 @@ def _apply_hybrid_summarization(turns, config):
             - discarded_count: Number of turns beyond the summarization window
     """
     import math  # lazy import
+
     full_n = config.get("full_turns", 10)
     summarize_n = config.get("summarize_turns", 50)
     batch_size = config.get("batch_size", 21)
@@ -301,12 +323,19 @@ def _load_context_budget_config(project_dir):
             budget = settings.get("_omg", {}).get("context_budget", {})
             return {
                 "full_turns": budget.get("full_turns", defaults["full_turns"]),
-                "summarize_turns": budget.get("summarize_turns", defaults["summarize_turns"]),
+                "summarize_turns": budget.get(
+                    "summarize_turns", defaults["summarize_turns"]
+                ),
                 "batch_size": budget.get("batch_size", defaults["batch_size"]),
             }
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] failed to load context budget config: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] failed to load context budget config: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
     return defaults
@@ -374,7 +403,12 @@ def _count_completed_phases(checklist_path):
         return completed
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] failed to count completed phases: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] failed to count completed phases: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
         return 0
@@ -394,6 +428,7 @@ def _count_tool_calls_since(ledger_path, since_timestamp):
         return 0
     try:
         from datetime import datetime  # lazy import
+
         cutoff = datetime.fromisoformat(since_timestamp.replace("Z", "+00:00"))
         count = 0
         with open(ledger_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -413,7 +448,12 @@ def _count_tool_calls_since(ledger_path, since_timestamp):
         return count
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] failed to count tool calls since timestamp: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] failed to count tool calls since timestamp: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
         return 0
@@ -441,7 +481,12 @@ def _load_auto_compact_state(project_dir):
         }
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] failed to load auto-compact state: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] failed to load auto-compact state: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
         return {
@@ -454,6 +499,7 @@ def _load_auto_compact_state(project_dir):
 def _save_auto_compact_state(project_dir, phase_count, tool_count):
     """Save auto-compact state after compaction."""
     from datetime import datetime, timezone  # lazy import
+
     state_path = os.path.join(project_dir, AUTO_COMPACT_STATE_FILE)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     state = {
@@ -466,7 +512,12 @@ def _save_auto_compact_state(project_dir, phase_count, tool_count):
             json.dump(state, f, indent=2)
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] failed to save auto-compact state: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] failed to save auto-compact state: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
@@ -481,21 +532,34 @@ def _check_auto_compact_advisory(project_dir):
 
     # Get current counts
     from hooks.state_migration import resolve_state_file  # lazy import
-    checklist_path = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
-    ledger_path = resolve_state_file(project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl")
+
+    checklist_path = resolve_state_file(
+        project_dir, "state/_checklist.md", "_checklist.md"
+    )
+    ledger_path = resolve_state_file(
+        project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl"
+    )
 
     current_phase_count = _count_completed_phases(checklist_path)
     last_phase_count = state.get("last_phase_count", 0)
 
     # Check 1: New phase completed
     if AUTO_COMPACT_PHASE_CHECK_ENABLED and current_phase_count > last_phase_count:
-        return (True, f"New phase completed ({current_phase_count} vs {last_phase_count})")
+        return (
+            True,
+            f"New phase completed ({current_phase_count} vs {last_phase_count})",
+        )
 
     # Check 2: Tool call threshold exceeded
     if state.get("last_compact_ts"):
-        tool_calls_since = _count_tool_calls_since(ledger_path, state["last_compact_ts"])
+        tool_calls_since = _count_tool_calls_since(
+            ledger_path, state["last_compact_ts"]
+        )
         if tool_calls_since >= AUTO_COMPACT_TOOL_THRESHOLD:
-            return (True, f"Tool threshold exceeded ({tool_calls_since} >= {AUTO_COMPACT_TOOL_THRESHOLD})")
+            return (
+                True,
+                f"Tool threshold exceeded ({tool_calls_since} >= {AUTO_COMPACT_TOOL_THRESHOLD})",
+            )
 
     return (False, "")
 
@@ -503,6 +567,7 @@ def _check_auto_compact_advisory(project_dir):
 # ---------------------------------------------------------------------------
 # Main hook execution (side-effects — only runs when invoked as script)
 # ---------------------------------------------------------------------------
+
 
 def main():
     try:
@@ -532,10 +597,18 @@ def main():
         try:
             should_suggest, reason = _check_auto_compact_advisory(project_dir)
             if should_suggest:
-                print(f"[OMG pre-compact] Auto-compact advisory: {reason}", file=sys.stderr)
+                print(
+                    f"[OMG pre-compact] Auto-compact advisory: {reason}",
+                    file=sys.stderr,
+                )
         except Exception:
             try:
-                import sys; print(f"[omg:warn] [pre-compact] auto-compact advisory check failed: {sys.exc_info()[1]}", file=sys.stderr)
+                import sys
+
+                print(
+                    f"[omg:warn] [pre-compact] auto-compact advisory check failed: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -548,8 +621,14 @@ def main():
         resolve_state_file(project_dir, "state/_plan.md", "_plan.md"),
         resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md"),
         resolve_state_file(project_dir, "state/quality-gate.json", "quality-gate.json"),
-        resolve_state_file(project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl"),
-        resolve_state_file(project_dir, "state/ledger/failure-tracker.json", "ledger/failure-tracker.json"),
+        resolve_state_file(
+            project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl"
+        ),
+        resolve_state_file(
+            project_dir,
+            "state/ledger/failure-tracker.json",
+            "ledger/failure-tracker.json",
+        ),
         resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"),
     ]
     saved = []
@@ -560,12 +639,24 @@ def main():
                 saved.append(os.path.basename(src))
 
     summary_files = {
-        "profile": resolve_state_file(project_dir, "state/profile.yaml", "profile.yaml"),
-        "working_memory": resolve_state_file(project_dir, "state/working-memory.md", "working-memory.md"),
+        "profile": resolve_state_file(
+            project_dir, "state/profile.yaml", "profile.yaml"
+        ),
+        "working_memory": resolve_state_file(
+            project_dir, "state/working-memory.md", "working-memory.md"
+        ),
         "plan": resolve_state_file(project_dir, "state/_plan.md", "_plan.md"),
-        "checklist": resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md"),
-        "tracker": resolve_state_file(project_dir, "state/ledger/failure-tracker.json", "ledger/failure-tracker.json"),
-        "ralph_loop": resolve_state_file(project_dir, "state/ralph-loop.json", "ralph-loop.json"),
+        "checklist": resolve_state_file(
+            project_dir, "state/_checklist.md", "_checklist.md"
+        ),
+        "tracker": resolve_state_file(
+            project_dir,
+            "state/ledger/failure-tracker.json",
+            "ledger/failure-tracker.json",
+        ),
+        "ralph_loop": resolve_state_file(
+            project_dir, "state/ralph-loop.json", "ralph-loop.json"
+        ),
     }
     cached = read_cache(list(summary_files.values()))
 
@@ -605,13 +696,22 @@ def main():
     if tracker:
         try:
             t = json.loads(tracker)
-            active = {k: v for k, v in t.items() if isinstance(v, dict) and v.get("count", 0) >= 2}
+            active = {
+                k: v
+                for k, v in t.items()
+                if isinstance(v, dict) and v.get("count", 0) >= 2
+            }
             if active:
                 warns = [f"- {k}: {v['count']}x" for k, v in list(active.items())[:5]]
                 parts.append("## Failed Approaches\n" + "\n".join(warns))
         except Exception:
             try:
-                import sys; print(f"[omg:warn] [pre-compact] failed to parse failure tracker: {sys.exc_info()[1]}", file=sys.stderr)
+                import sys
+
+                print(
+                    f"[omg:warn] [pre-compact] failed to parse failure tracker: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
     if ralph_loop:
@@ -621,15 +721,23 @@ def main():
                 rl_iter = rl.get("iteration", 0)
                 rl_max = rl.get("max_iterations", 50)
                 rl_goal = rl.get("original_prompt", "")[:80]
-                parts.append(f"## Ralph Loop\nIteration: {rl_iter}/{rl_max} | Goal: {rl_goal}")
+                parts.append(
+                    f"## Ralph Loop\nIteration: {rl_iter}/{rl_max} | Goal: {rl_goal}"
+                )
         except Exception:
             try:
-                import sys; print(f"[omg:warn] [pre-compact] failed to parse Ralph loop state: {sys.exc_info()[1]}", file=sys.stderr)
+                import sys
+
+                print(
+                    f"[omg:warn] [pre-compact] failed to parse Ralph loop state: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
 
     try:
         import subprocess  # lazy import — security-reviewed: fixed argv, no user input, timeout-bounded
+
         diff_names = subprocess.run(
             ["git", "diff", "--name-only"],
             capture_output=True,
@@ -651,7 +759,12 @@ def main():
             parts.append("## Uncommitted\n" + "\n".join(f"- {x}" for x in changed[:5]))
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] failed to collect git diff names: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] failed to collect git diff names: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
@@ -671,7 +784,9 @@ def main():
     portable_lines = portable.split("\n")
     if len(portable_lines) > 150:
         portable = "\n".join(portable_lines[:150]) + "\n\n(truncated)"
-    with open(os.path.join(state_dir, "handoff-portable.md"), "w", encoding="utf-8") as f:
+    with open(
+        os.path.join(state_dir, "handoff-portable.md"), "w", encoding="utf-8"
+    ) as f:
         f.write(portable)
 
     # Keep latest 5 snapshots
@@ -679,29 +794,55 @@ def main():
     try:
         if os.path.isdir(snapshots_parent):
             entries = sorted(
-                [d for d in os.listdir(snapshots_parent) if os.path.isdir(os.path.join(snapshots_parent, d))]
+                [
+                    d
+                    for d in os.listdir(snapshots_parent)
+                    if os.path.isdir(os.path.join(snapshots_parent, d))
+                ]
             )
             if len(entries) > 5:
                 import shutil  # lazy import
+
                 for old in entries[:-5]:
-                    shutil.rmtree(os.path.join(snapshots_parent, old), ignore_errors=True)
+                    shutil.rmtree(
+                        os.path.join(snapshots_parent, old), ignore_errors=True
+                    )
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] failed to prune old snapshots: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] failed to prune old snapshots: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
-    print(f"[OMG pre-compact] Snapshotted {len(saved)} files -> {snapshot_dir}", file=sys.stderr)
+    print(
+        f"[OMG pre-compact] Snapshotted {len(saved)} files -> {snapshot_dir}",
+        file=sys.stderr,
+    )
 
     # --- Auto-compact tracking (feature-flagged) ---
     try:
         if get_feature_flag("auto_compact", default=True):
             # Update state after compaction (resolve_state_file loaded by _lazy_imports)
-            checklist_path = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
-            ledger_path = resolve_state_file(project_dir, "state/ledger/tool-ledger.jsonl", "ledger/tool-ledger.jsonl")
+            checklist_path = resolve_state_file(
+                project_dir, "state/_checklist.md", "_checklist.md"
+            )
+            ledger_path = resolve_state_file(
+                project_dir,
+                "state/ledger/tool-ledger.jsonl",
+                "ledger/tool-ledger.jsonl",
+            )
 
             current_phase_count = _count_completed_phases(checklist_path)
-            total_tool_count = sum(1 for _ in open(ledger_path, "r")) if os.path.exists(ledger_path) else 0
+            total_tool_count = 0
+            if os.path.exists(ledger_path):
+                with open(
+                    ledger_path, "r", encoding="utf-8", errors="ignore"
+                ) as _ledger_fh:
+                    total_tool_count = sum(1 for _ in _ledger_fh)
 
             _save_auto_compact_state(project_dir, current_phase_count, total_tool_count)
             print(
@@ -710,7 +851,12 @@ def main():
             )
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] auto-compact tracking failed: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] auto-compact tracking failed: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
@@ -722,20 +868,35 @@ def main():
         _rotate_ledger_if_needed(_ledger_path, max_lines=10000)
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] ledger rotation block failed: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] ledger rotation block failed: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
     # --- Protected context registry (feature-flagged under CONTEXT_MANAGER) ---
     try:
-        if collect_protected_context is not None and get_feature_flag("CONTEXT_MANAGER", default=False):
+        if collect_protected_context is not None and get_feature_flag(
+            "CONTEXT_MANAGER", default=False
+        ):
             protected = collect_protected_context(project_dir, context_text=handoff)
             if protected:
                 json.dump({"additionalContext": protected}, sys.stdout)
-                print(f"[OMG pre-compact] Protected context injected ({len(protected)} chars)", file=sys.stderr)
+                print(
+                    f"[OMG pre-compact] Protected context injected ({len(protected)} chars)",
+                    file=sys.stderr,
+                )
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] protected context collection failed: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] protected context collection failed: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
@@ -772,7 +933,12 @@ def main():
                     )
     except Exception:
         try:
-            import sys; print(f"[omg:warn] [pre-compact] hybrid summarization failed: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [pre-compact] hybrid summarization failed: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 

@@ -29,17 +29,23 @@ def _set_untrusted_mode(project_dir: Path, *, active: bool = True) -> None:
 
 
 def test_secret_guard_ignores_non_file_tool() -> None:
-    out = run_hook_json("hooks/secret-guard.py", {"tool_name": "Bash", "tool_input": {"command": "ls"}})
+    out = run_hook_json(
+        "hooks/secret-guard.py", {"tool_name": "Bash", "tool_input": {"command": "ls"}}
+    )
     assert out is None
 
 
 def test_secret_guard_ignores_missing_file_path() -> None:
-    out = run_hook_json("hooks/secret-guard.py", {"tool_name": "Read", "tool_input": {}})
+    out = run_hook_json(
+        "hooks/secret-guard.py", {"tool_name": "Read", "tool_input": {}}
+    )
     assert out is None
 
 
 def test_secret_guard_detects_env_file_read() -> None:
-    out = run_hook_json("hooks/secret-guard.py", make_file_payload("Read", "/project/.env"))
+    out = run_hook_json(
+        "hooks/secret-guard.py", make_file_payload("Read", "/project/.env")
+    )
     assert _decision(out) == "deny"
     assert "direct .env read blocked" in _reason(out).lower()
 
@@ -55,19 +61,25 @@ def test_secret_guard_blocks_env_write() -> None:
 
 
 def test_secret_guard_blocks_sensitive_dotfile_access() -> None:
-    out = run_hook_json("hooks/secret-guard.py", make_file_payload("Read", "/project/.npmrc"))
+    out = run_hook_json(
+        "hooks/secret-guard.py", make_file_payload("Read", "/project/.npmrc")
+    )
     assert _decision(out) == "deny"
     assert "secret file blocked" in _reason(out).lower()
 
 
 def test_secret_guard_blocks_sensitive_path_pattern() -> None:
-    out = run_hook_json("hooks/secret-guard.py", make_file_payload("Read", "/home/user/.ssh/id_ed25519"))
+    out = run_hook_json(
+        "hooks/secret-guard.py", make_file_payload("Read", "/home/user/.ssh/id_ed25519")
+    )
     assert _decision(out) == "deny"
     assert "sensitive path blocked" in _reason(out).lower()
 
 
 def test_secret_guard_allows_normal_read() -> None:
-    out = run_hook_json("hooks/secret-guard.py", make_file_payload("Read", "/project/src/app.py"))
+    out = run_hook_json(
+        "hooks/secret-guard.py", make_file_payload("Read", "/project/src/app.py")
+    )
     assert _decision(out) is None
 
 
@@ -80,12 +92,18 @@ def test_secret_guard_allows_normal_write_when_gate_permissive(tmp_path: Path) -
     assert _decision(out) is None
 
 
-def test_secret_guard_blocks_write_without_lock_when_gate_strict(tmp_path: Path) -> None:
+def test_secret_guard_blocks_write_without_lock_when_gate_strict(
+    tmp_path: Path,
+) -> None:
     payload = make_file_payload("Write", str(tmp_path / "src" / "unsafe.txt"))
     out = run_hook_json(
         "hooks/secret-guard.py",
         payload,
-        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_TDD_GATE_STRICT": "1", "OMG_RUN_ID": "run-sg-block"},
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_TDD_GATE_STRICT": "1",
+            "OMG_RUN_ID": "run-sg-block",
+        },
     )
 
     assert _decision(out) == "deny"
@@ -106,7 +124,11 @@ def test_secret_guard_uses_metadata_lock_id_for_gate_context(tmp_path: Path) -> 
     out = run_hook_json(
         "hooks/secret-guard.py",
         payload,
-        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_TDD_GATE_STRICT": "0", "OMG_RUN_ID": "run-meta-lock"},
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_TDD_GATE_STRICT": "0",
+            "OMG_RUN_ID": "run-meta-lock",
+        },
     )
     assert _decision(out) is None
 
@@ -122,7 +144,11 @@ def test_secret_guard_respects_direct_lock_id_over_metadata(tmp_path: Path) -> N
     out = run_hook_json(
         "hooks/secret-guard.py",
         payload,
-        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_TDD_GATE_STRICT": "0", "OMG_RUN_ID": "run-lock-priority"},
+        env_overrides={
+            "CLAUDE_PROJECT_DIR": str(tmp_path),
+            "OMG_TDD_GATE_STRICT": "0",
+            "OMG_RUN_ID": "run-lock-priority",
+        },
     )
     assert _decision(out) is None
 
@@ -168,7 +194,11 @@ def test_secret_guard_writes_secret_access_audit_log_on_deny(tmp_path: Path) -> 
     assert _decision(out) == "deny"
     log_path = tmp_path / ".omg" / "state" / "ledger" / "secret-access.jsonl"
     assert log_path.exists()
-    lines = [line for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    lines = [
+        line
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert lines
     entry = json.loads(lines[-1])
     assert entry["decision"] == "deny"
@@ -184,8 +214,45 @@ def test_secret_guard_writes_secret_access_audit_log_on_allow(tmp_path: Path) ->
     assert _decision(out) is None
     log_path = tmp_path / ".omg" / "state" / "ledger" / "secret-access.jsonl"
     assert log_path.exists()
-    lines = [line for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    lines = [
+        line
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert lines
     entry = json.loads(lines[-1])
     assert entry["decision"] == "allow"
     assert entry["tool"] == "Read"
+
+
+def test_secret_guard_logs_allowlisted_true_on_allowlist_bypass(tmp_path: Path) -> None:
+    policy_dir = tmp_path / ".omg"
+    policy_dir.mkdir(parents=True, exist_ok=True)
+    (policy_dir / "policy.yaml").write_text(
+        """
+allowlist:
+  - path: "*.allow.txt"
+    tools: ["Read"]
+    reason: "test allowlist"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    out = run_hook_json(
+        "hooks/secret-guard.py",
+        make_file_payload("Read", str(tmp_path / "notes.allow.txt")),
+        env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path)},
+    )
+    assert _decision(out) is None
+
+    log_path = tmp_path / ".omg" / "state" / "ledger" / "secret-access.jsonl"
+    assert log_path.exists()
+    lines = [
+        line
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert lines
+    entry = json.loads(lines[-1])
+    assert entry["allowlisted"] is True

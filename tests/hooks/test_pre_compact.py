@@ -91,3 +91,9 @@ def test_host_aware_threshold_prefers_event_model_over_stale_env(monkeypatch):
     assert switched["model_id"] == "gemini-3-flash"
     assert switched["class_label"] == "200k-class"
     assert switched["trigger_tokens"] == 120000
+
+
+def test_auto_compact_tool_count_closes_file_handle() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert "with open(ledger_path" in source
+    assert "sum(1 for _ in _ledger_fh)" in source

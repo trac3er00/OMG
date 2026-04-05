@@ -202,3 +202,12 @@
 - `tokens_per_iteration` and `budget_token_limit` are configurable via `ralph-config.json`
 - Budget advisories flow through the `check_ralph_loop` return tuple as the advisories list element
 - `_stop_ralph_loop` helper already handles state persistence + lock release — reused cleanly for budget stops
+
+## [T21] Hook Self-Improvement
+- Top-10 audit fixes are safest when treated as behavior-preserving micro-refactors: keep hook file names/signatures identical and target only brittle internals (timestamp API, parser, hot-path regex, handle hygiene, logging fidelity, platform gating, structured parsing).
+- `stop_dispatcher._read_policy_flags` is more robust with `yaml.safe_load` + nested extraction fallback than line parsing; this prevents quoted/nested policy drift while preserving default mode fallback.
+- `policy_engine` hot-path checks should use precompiled regex tuples and `.search()` methods to avoid repeated runtime compilation in per-command evaluation.
+- For `secret-guard`, allowlist forensics quality depends on deriving `allowlisted` from policy decision reason (`Allowlisted:` prefix) and persisting that bit in audit logs.
+- `fetch-rate-limits` should remain fail-open (`fail_closed=False`) but must avoid unnecessary keychain probing outside Darwin and run under crash-handler guard.
+- Structured assistant content in `todo-state-tracker` needs normalization of list/dict blocks into plain text before TODO regex matching, otherwise cross-turn pending items can be dropped.
+- Added 10 targeted tests (1 per improved hook) to pin these regressions; targeted suite passes even though the broader hooks suite still contains the known pre-existing 16 failing tests.
