@@ -131,3 +131,21 @@
 - Snapshot strategy uses git file inventory + SHA-256 hashes to classify `created/modified/deleted`; rollback commands are generated as `git checkout -- <path>` for tracked files and `rm -f <path>` for untracked creates.
 - Side-effect taxonomy emitted for Ralph manifests: `file_created`, `file_modified`, `file_deleted`, `config_changed`, `command_executed`; command/config effects are inferred from new tool-ledger entries per iteration.
 - Validation: `python3 -m pytest tests/test_stop_dispatcher.py -v` passed (40 passed), with new tests covering manifest creation, schema fields, and executable rollback restoration for tracked files.
+
+## [T15] Plan Adherence
+- Planning gate demotion under high context pressure was removed from `check_planning_gate`; pending checklist items now remain blocking regardless of pressure state.
+- Added `plan_adherence_check(project_dir, data)` and wired it into `check_ralph_loop` so each Ralph iteration can fail-closed on actions that drift outside the active plan when `plan_adherence_enforcement` is enabled.
+- Added session segmentation checkpoints in Ralph loop under high context pressure with bounded phases and mandatory checkpoint blocks.
+- Segmentation tuning is config-driven via `ralph-config.json` keys: `session_segmentation_threshold_tokens` and `session_segmentation_phase_iterations`.
+- `plan_adherence_enforcement` remains default-false (already present in `.omg/state/feature-flags.json`), keeping behavior opt-in until explicitly enabled.
+- Verification: `python3 -m pytest tests/test_stop_dispatcher.py -v` → `43 passed`.
+
+## [T13] Fernet Migration
+- T8's on-read migration path (`_decrypt_text` with `migrate_item_id`) works correctly: Fernet `InvalidToken` → try XOR `_try_decrypt_legacy_payload` → re-encrypt with Fernet → commit.
+- Added `migrate_all(batch_size, dry_run)` to `MemoryStore` for bulk migration with batched commits (default 100 rows/batch) to avoid long-held transactions on large DBs.
+- Classification logic: entries starting with `enc:v1:` are tried with Fernet first (skip if valid), then XOR legacy; entries without prefix are plaintext (encrypt to Fernet); undecodable entries are logged and skipped.
+- JSON backend migration is a no-op — content is stored plaintext in JSON files; only SQLite backend has encrypted content columns.
+- CLI entry point: `python3 -m runtime.memory_migrate [--store-path] [--batch-size] [--dry-run] [--json]` — returns exit code 1 when corrupted entries exist.
+- MCP tool: `memory_migrate(dry_run, batch_size)` added to `runtime/mcp_memory_server.py` for agent-accessible migration.
+- Edge case coverage: empty DB, already-Fernet, corrupted/undecryptable, batch commit boundaries, mixed DB, dry-run, JSON noop, unicode data integrity, CLI subprocess.
+- All 50 tests pass (41 from T8 + 9 new migration tests).

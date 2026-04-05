@@ -38,7 +38,9 @@ except ModuleNotFoundError as exc:
         resource = staticmethod(_passthrough_decorator)
 
         def run(self, *_args: Any, **_kwargs: Any) -> None:
-            raise RuntimeError("fastmcp and starlette are required to run the OMG memory server") from self._import_error
+            raise RuntimeError(
+                "fastmcp and starlette are required to run the OMG memory server"
+            ) from self._import_error
 
     FastMCPFallback.__module__ = "fastmcp"
     FastMCPImpl = FastMCPFallback
@@ -46,7 +48,9 @@ except ModuleNotFoundError as exc:
 
 from runtime.memory_store import MemoryStore, MemoryStoreFullError
 
-_store = MemoryStore(store_path=str(Path.home() / ".omg" / "shared-memory" / "store.json"))
+_store = MemoryStore(
+    store_path=str(Path.home() / ".omg" / "shared-memory" / "store.json")
+)
 
 
 class _HybridExportBundle(list[dict[str, Any]]):
@@ -93,7 +97,9 @@ async def health(_: Any) -> Any:
     return JSONResponseImpl({"status": "ok", "version": "2.0.8"})
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Store a durable memory entry with source, tags, namespace, and optional retention window. Use after key decisions so later planning can recover context without re-reading full transcripts."
+)
 def memory_store(
     key: str,
     content: str,
@@ -117,7 +123,9 @@ def memory_store(
         return {"error": str(exc)}
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Search memory entries by query text, optionally filtered by source CLI or namespace. Use in planning to quickly retrieve prior fixes, decisions, and known constraints for the same domain."
+)
 def memory_search(
     query: str,
     source_cli: str | None = None,
@@ -126,7 +134,9 @@ def memory_search(
     return _store.search(query=query, source_cli=source_cli, namespace=namespace)
 
 
-@mcp.tool()
+@mcp.tool(
+    description="List memory entries with optional source and namespace filters. Use for memory inventory, quality review, or selecting records to export, delete, or promote during maintenance workflows."
+)
 def memory_list(
     source_cli: str | None = None,
     namespace: str | None = None,
@@ -134,19 +144,25 @@ def memory_list(
     return _store.list_all(source_cli=source_cli, namespace=namespace)
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Delete a memory item by ID and report whether removal succeeded. Use to clean stale, incorrect, or sensitive entries that should no longer influence future planning and retrieval."
+)
 def memory_delete(item_id: str) -> dict[str, Any]:
     deleted = _store.delete(item_id)
     return {"deleted": deleted, "id": item_id}
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Import trusted plain memory items in bulk without quarantine. Use for controlled migrations where entries are already validated and should become immediately searchable and usable."
+)
 def memory_import(items: list[dict[str, Any]]) -> dict[str, int]:
     count = _store.import_items(items, quarantined=False)
     return {"imported": count}
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Import an encrypted omg.memory.export.v1 bundle with integrity verification, decrypt, and quarantine. Use when moving memory across environments and you need tamper checks before activation."
+)
 def memory_import_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     if str(bundle.get("format", "")) != "omg.memory.export.v1":
         return {"imported": 0, "error": "bundle format is invalid"}
@@ -155,7 +171,10 @@ def memory_import_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     expected_sha = ""
     if isinstance(integrity, dict):
         expected_sha = str(integrity.get("sha256", ""))
-    if not payload or hashlib.sha256(payload.encode("utf-8")).hexdigest() != expected_sha:
+    if (
+        not payload
+        or hashlib.sha256(payload.encode("utf-8")).hexdigest() != expected_sha
+    ):
         return {"imported": 0, "error": "bundle integrity check failed"}
     if not payload.startswith("enc:v1:"):
         return {"imported": 0, "error": "bundle payload must be encrypted"}
@@ -172,8 +191,12 @@ def memory_import_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     return {"imported": count, "quarantined": count}
 
 
-@mcp.tool()
-def memory_export(namespace: str | None = None) -> list[dict[str, Any]] | dict[str, Any]:
+@mcp.tool(
+    description="Export namespace memory into an encrypted omg.memory.export.v1 bundle with SHA-256 integrity metadata. Use for backup, transfer, and auditable handoff between sessions or hosts."
+)
+def memory_export(
+    namespace: str | None = None,
+) -> list[dict[str, Any]] | dict[str, Any]:
     items = _store.list_all(namespace=namespace)
     serialized = json.dumps(items, separators=(",", ":"), ensure_ascii=True)
     encrypted_payload = _store._encrypt_text(serialized, purpose="export-bundle")  # noqa: SLF001
@@ -193,7 +216,16 @@ def memory_export(namespace: str | None = None) -> list[dict[str, Any]] | dict[s
     return _HybridExportBundle(items, bundle)
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Migrate legacy memory records to current storage/security format, with dry-run support for safe previews. Use before upgrades to estimate impact and execute bounded conversion batches."
+)
+def memory_migrate(dry_run: bool = True, batch_size: int = 100) -> dict[str, Any]:
+    return _store.migrate_all(batch_size=batch_size, dry_run=dry_run)
+
+
+@mcp.tool(
+    description="Promote a quarantined memory item into active searchable memory after manual review. Use after validating imported entries so only trusted records influence downstream planning."
+)
 def memory_promote(item_id: str) -> dict[str, Any]:
     promoted = _store.promote_item(item_id)
     return {"promoted": promoted, "id": item_id}

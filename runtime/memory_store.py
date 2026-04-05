@@ -1150,6 +1150,110 @@ class MemoryStore:
         except (UnicodeDecodeError, ValueError):
             return ""
 
+    def migrate_all(
+        self, *, batch_size: int = 100, dry_run: bool = False
+    ) -> dict[str, Any]:
+        """Bulk-migrate all legacy XOR-encrypted entries to Fernet.
+
+        Scans every stored entry, detects XOR-encrypted content, and
+        re-encrypts it with Fernet. Already-Fernet entries are skipped.
+        Corrupted entries that cannot be decrypted are logged and skipped.
+
+        Args:
+            batch_size: Number of rows to commit per batch (SQLite only).
+            dry_run: When True, scan and report without writing changes.
+
+        Returns:
+            Migration report dict with counts and error details.
+        """
+        import logging
+
+        logger = logging.getLogger("omg.memory.migrate")
+        report: dict[str, Any] = {
+            "total": 0,
+            "already_fernet": 0,
+            "migrated": 0,
+            "corrupted": 0,
+            "errors": [],
+            "dry_run": dry_run,
+        }
+
+        if self._backend == "json":
+            # JSON backend stores plaintext in-memory; nothing to migrate
+            report["total"] = len(self._items)
+            report["already_fernet"] = len(self._items)
+            return report
+
+        conn = self._sqlite_conn()
+        rows = conn.execute("SELECT id, content FROM memories").fetchall()
+        report["total"] = len(rows)
+
+        if not rows:
+            return report
+
+        pending_updates: list[tuple[str, str, str]] = []
+        now = _utc_now_iso()
+
+        for row in rows:
+            item_id = str(row["id"])
+            raw_content = str(row["content"])
+
+            if not raw_content.startswith(_ENCRYPTED_PREFIX):
+                # Plaintext entry — encrypt it with Fernet
+                if not dry_run:
+                    encrypted = self._encrypt_text(
+                        raw_content, purpose="sqlite-content"
+                    )
+                    pending_updates.append((encrypted, now, item_id))
+                report["migrated"] += 1
+                continue
+
+            payload = raw_content[len(_ENCRYPTED_PREFIX) :]
+            key_bytes = self._derive_key_bytes(purpose="sqlite-content")
+
+            # Try Fernet first
+            try:
+                fernet_key = base64.urlsafe_b64encode(key_bytes)
+                Fernet(fernet_key).decrypt(payload.encode("utf-8"))
+                report["already_fernet"] += 1
+                continue
+            except Exception:
+                pass
+
+            # Try legacy XOR
+            plain = self._try_decrypt_legacy_payload(payload, key_bytes)
+            if plain:
+                if not dry_run:
+                    migrated_ciphertext = self._encrypt_text(
+                        plain, purpose="sqlite-content"
+                    )
+                    pending_updates.append((migrated_ciphertext, now, item_id))
+                report["migrated"] += 1
+            else:
+                error_msg = f"Item {item_id}: cannot decrypt with Fernet or XOR"
+                report["corrupted"] += 1
+                report["errors"].append(error_msg)
+                logger.warning(error_msg)
+
+            # Batch commit
+            if not dry_run and len(pending_updates) >= batch_size:
+                conn.executemany(
+                    "UPDATE memories SET content = ?, updated_at = ? WHERE id = ?",
+                    pending_updates,
+                )
+                conn.commit()
+                pending_updates.clear()
+
+        # Final batch
+        if not dry_run and pending_updates:
+            conn.executemany(
+                "UPDATE memories SET content = ?, updated_at = ? WHERE id = ?",
+                pending_updates,
+            )
+            conn.commit()
+
+        return report
+
     def _try_decrypt_legacy_payload(self, payload: str, key_bytes: bytes) -> str:
         try:
             cipher = base64.urlsafe_b64decode(payload.encode("ascii"))

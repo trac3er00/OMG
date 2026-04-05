@@ -677,6 +677,200 @@ class TestEncryptionHardening:
             == "needs migration"
         )
 
+    def test_migration_empty_database(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "empty.sqlite3"))
+        report = store.migrate_all()
+        assert report["total"] == 0
+        assert report["migrated"] == 0
+        assert report["already_fernet"] == 0
+        assert report["corrupted"] == 0
+        assert report["errors"] == []
+
+    def test_migration_already_fernet_skipped(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "fernet.sqlite3"))
+        store.add(key="a", content="already fernet", source_cli="claude")
+        store.add(key="b", content="also fernet", source_cli="codex")
+
+        report = store.migrate_all()
+        assert report["total"] == 2
+        assert report["already_fernet"] == 2
+        assert report["migrated"] == 0
+        assert report["corrupted"] == 0
+
+    def test_migration_corrupted_entry_skipped(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "corrupt.sqlite3"))
+        item = store.add(key="bad", content="will corrupt", source_cli="claude")
+
+        garbage = base64.urlsafe_b64encode(b"\xff\xfe\xfd\x00\x01").decode("ascii")
+        store._sqlite_conn().execute(
+            "UPDATE memories SET content = ? WHERE id = ?",
+            (f"enc:v1:{garbage}", item["id"]),
+        )
+        store._sqlite_conn().commit()
+
+        report = store.migrate_all()
+        assert report["total"] == 1
+        assert report["corrupted"] == 1
+        assert report["migrated"] == 0
+        assert len(report["errors"]) == 1
+        assert item["id"] in report["errors"][0]
+
+    def test_migration_batch_commit(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "batch.sqlite3"))
+        key_bytes = store._derive_key_bytes(purpose="sqlite-content")
+        ids = []
+        for i in range(5):
+            item = store.add(key=f"k{i}", content=f"val{i}", source_cli="claude")
+            plaintext = f"val{i}".encode("utf-8")
+            legacy_cipher = bytes(
+                byte ^ key_bytes[idx % len(key_bytes)]
+                for idx, byte in enumerate(plaintext)
+            )
+            legacy_payload = base64.urlsafe_b64encode(legacy_cipher).decode("ascii")
+            store._sqlite_conn().execute(
+                "UPDATE memories SET content = ? WHERE id = ?",
+                (f"enc:v1:{legacy_payload}", item["id"]),
+            )
+            ids.append(item["id"])
+        store._sqlite_conn().commit()
+
+        report = store.migrate_all(batch_size=2)
+        assert report["total"] == 5
+        assert report["migrated"] == 5
+        assert report["corrupted"] == 0
+
+        for item_id in ids:
+            fetched = store.get(item_id)
+            assert fetched is not None
+            assert fetched["content"].startswith("val")
+
+    def test_migration_mixed_entries(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "mixed.sqlite3"))
+        key_bytes = store._derive_key_bytes(purpose="sqlite-content")
+
+        fernet_item = store.add(
+            key="fernet", content="already secure", source_cli="claude"
+        )
+
+        xor_item = store.add(key="xor", content="needs migration", source_cli="claude")
+        plaintext = "needs migration".encode("utf-8")
+        legacy_cipher = bytes(
+            byte ^ key_bytes[idx % len(key_bytes)] for idx, byte in enumerate(plaintext)
+        )
+        legacy_payload = base64.urlsafe_b64encode(legacy_cipher).decode("ascii")
+        store._sqlite_conn().execute(
+            "UPDATE memories SET content = ? WHERE id = ?",
+            (f"enc:v1:{legacy_payload}", xor_item["id"]),
+        )
+
+        corrupt_item = store.add(
+            key="corrupt", content="will corrupt", source_cli="claude"
+        )
+        garbage = base64.urlsafe_b64encode(b"\xff\xfe\xfd").decode("ascii")
+        store._sqlite_conn().execute(
+            "UPDATE memories SET content = ? WHERE id = ?",
+            (f"enc:v1:{garbage}", corrupt_item["id"]),
+        )
+        store._sqlite_conn().commit()
+
+        report = store.migrate_all()
+        assert report["total"] == 3
+        assert report["already_fernet"] == 1
+        assert report["migrated"] == 1
+        assert report["corrupted"] == 1
+
+        fernet_fetched = store.get(fernet_item["id"])
+        assert fernet_fetched is not None
+        assert fernet_fetched["content"] == "already secure"
+        xor_fetched = store.get(xor_item["id"])
+        assert xor_fetched is not None
+        assert xor_fetched["content"] == "needs migration"
+
+    def test_migration_dry_run_no_changes(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "dryrun.sqlite3"))
+        key_bytes = store._derive_key_bytes(purpose="sqlite-content")
+        item = store.add(key="xor", content="original", source_cli="claude")
+
+        plaintext = "original".encode("utf-8")
+        legacy_cipher = bytes(
+            byte ^ key_bytes[idx % len(key_bytes)] for idx, byte in enumerate(plaintext)
+        )
+        legacy_payload = base64.urlsafe_b64encode(legacy_cipher).decode("ascii")
+        legacy_encrypted = f"enc:v1:{legacy_payload}"
+        store._sqlite_conn().execute(
+            "UPDATE memories SET content = ? WHERE id = ?",
+            (legacy_encrypted, item["id"]),
+        )
+        store._sqlite_conn().commit()
+
+        report = store.migrate_all(dry_run=True)
+        assert report["dry_run"] is True
+        assert report["migrated"] == 1
+
+        row = (
+            store._sqlite_conn()
+            .execute("SELECT content FROM memories WHERE id = ?", (item["id"],))
+            .fetchone()
+        )
+        assert str(row["content"]) == legacy_encrypted
+
+    def test_migration_json_backend_noop(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "store.json"))
+        store.add(key="a", content="hello", source_cli="claude")
+        report = store.migrate_all()
+        assert report["total"] == 1
+        assert report["already_fernet"] == 1
+        assert report["migrated"] == 0
+
+    def test_migration_data_readable_after(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "readable.sqlite3"))
+        key_bytes = store._derive_key_bytes(purpose="sqlite-content")
+        test_values = ["hello world", "日本語テスト", "special chars: <>&\"'"]
+        ids = []
+        for val in test_values:
+            item = store.add(key="test", content=val, source_cli="claude")
+            plaintext = val.encode("utf-8")
+            legacy_cipher = bytes(
+                byte ^ key_bytes[idx % len(key_bytes)]
+                for idx, byte in enumerate(plaintext)
+            )
+            legacy_payload = base64.urlsafe_b64encode(legacy_cipher).decode("ascii")
+            store._sqlite_conn().execute(
+                "UPDATE memories SET content = ? WHERE id = ?",
+                (f"enc:v1:{legacy_payload}", item["id"]),
+            )
+            ids.append(item["id"])
+        store._sqlite_conn().commit()
+
+        store.migrate_all()
+
+        for item_id, expected in zip(ids, test_values):
+            fetched = store.get(item_id)
+            assert fetched is not None
+            assert fetched["content"] == expected
+
+    def test_migration_cli_entrypoint(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "cli.sqlite3"))
+        store.add(key="cli-test", content="via cli", source_cli="claude")
+        store.close()
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "runtime.memory_migrate",
+                "--store-path",
+                str(tmp_path / "cli.sqlite3"),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        report = json.loads(result.stdout)
+        assert report["total"] == 1
+        assert report["already_fernet"] == 1
+
     def test_importerror_on_missing_cryptography(self) -> None:
         module_path = (
             Path(__file__).resolve().parents[2] / "runtime" / "memory_store.py"

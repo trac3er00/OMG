@@ -16,6 +16,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import warnings
 
+try:
+    import yaml
+except Exception:
+    yaml = None
+
 HOOKS_DIR = str(Path(__file__).resolve().parent)
 PROJECT_ROOT = str(Path(HOOKS_DIR).parent)
 PORTABLE_RUNTIME_ROOT = str(Path(PROJECT_ROOT) / "omg-runtime")
@@ -149,9 +154,46 @@ def _read_policy_flags(project_root: str) -> tuple[str, bool]:
     if not os.path.exists(policy_path):
         return mode, require_evidence_pack
 
+    def _extract_flags(payload: object) -> tuple[str, bool]:
+        if not isinstance(payload, dict):
+            return mode, require_evidence_pack
+
+        local_mode = mode
+        local_require = require_evidence_pack
+
+        direct_mode = payload.get("mode")
+        if isinstance(direct_mode, str) and direct_mode.strip():
+            local_mode = direct_mode.strip().strip("'\"")
+
+        direct_require = payload.get("require_evidence_pack")
+        if isinstance(direct_require, bool):
+            local_require = direct_require
+        elif isinstance(direct_require, (str, int, float)):
+            local_require = _to_bool(str(direct_require), local_require)
+
+        policy_block = payload.get("policy")
+        if isinstance(policy_block, dict):
+            nested_mode = policy_block.get("mode")
+            if isinstance(nested_mode, str) and nested_mode.strip():
+                local_mode = nested_mode.strip().strip("'\"")
+
+            nested_require = policy_block.get("require_evidence_pack")
+            if isinstance(nested_require, bool):
+                local_require = nested_require
+            elif isinstance(nested_require, (str, int, float)):
+                local_require = _to_bool(str(nested_require), local_require)
+
+        return local_mode, local_require
+
     try:
         with open(policy_path, "r", encoding="utf-8", errors="ignore") as f:
-            for raw in f:
+            raw_policy = f.read()
+
+        if yaml is not None:
+            parsed = yaml.safe_load(raw_policy)
+            mode, require_evidence_pack = _extract_flags(parsed)
+        else:
+            for raw in raw_policy.splitlines():
                 line = raw.strip()
                 if not line or line.startswith("#"):
                     continue
@@ -179,6 +221,7 @@ _RALPH_DEFAULT_TIMEOUT_MINUTES = 10
 _RALPH_DEFAULT_MAX_ITERATIONS = 50
 _RALPH_DEFAULT_CONVERGENCE_STREAK = 3
 _RALPH_DEFAULT_DELTA_THRESHOLD = 1
+_RALPH_SEGMENTATION_PHASE_ITERATIONS = 3
 _RALPH_APPROVALS_PATH = os.path.join(".omg", "state", "ralph-approvals.json")
 _RALPH_APPROVAL_AUDIT_PATH = os.path.join(
     ".omg", "state", "ledger", "ralph-approval-audit.jsonl"
@@ -1870,6 +1913,146 @@ def _stop_ralph_loop(
     return [], [advisory], False
 
 
+def _load_context_pressure_snapshot(project_dir: str) -> dict[str, object]:
+    pressure_path = os.path.join(project_dir, ".omg", "state", ".context-pressure.json")
+    if not os.path.exists(pressure_path):
+        return {}
+    try:
+        with open(pressure_path, "r", encoding="utf-8") as pressure_file:
+            payload = json.load(pressure_file)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def plan_adherence_check(
+    project_dir: str, data: dict[str, object] | None
+) -> str | None:
+    plan_path = resolve_state_file(project_dir, "state/_plan.md", "_plan.md")
+    if not os.path.exists(plan_path):
+        return None
+
+    try:
+        with open(plan_path, "r", encoding="utf-8", errors="ignore") as plan_file:
+            plan_text = plan_file.read().lower()
+    except OSError:
+        return None
+
+    planned_markers = {
+        marker.strip()
+        for marker in re.findall(r"`([^`]+)`", plan_text)
+        if marker.strip()
+    }
+
+    candidate_paths: list[str] = []
+    if isinstance(data, dict):
+        raw_tool_results = (
+            data.get("tool_use_results") or data.get("tool_results") or []
+        )
+        if isinstance(raw_tool_results, list):
+            for row in raw_tool_results:
+                if not isinstance(row, dict):
+                    continue
+                tool_name = str(row.get("tool_name") or row.get("tool") or "").lower()
+                if tool_name not in {"write", "edit", "multiedit", "delete", "remove"}:
+                    continue
+                target = _normalize_path_for_match(
+                    row.get("file") or row.get("path") or ""
+                )
+                if target:
+                    candidate_paths.append(target.lower())
+
+    if not candidate_paths:
+        try:
+            diff_result = subprocess.run(
+                ["git", "diff", "--name-only", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                cwd=project_dir,
+                check=False,
+            )
+            if diff_result.returncode == 0:
+                candidate_paths.extend(
+                    _normalize_path_for_match(line).lower()
+                    for line in diff_result.stdout.splitlines()
+                    if line.strip()
+                )
+        except Exception:
+            return None
+
+    if not candidate_paths:
+        return None
+
+    non_plan_paths: list[str] = []
+    for rel_path in candidate_paths:
+        basename = os.path.basename(rel_path)
+        if rel_path in plan_text or basename in plan_text:
+            continue
+        if rel_path in planned_markers or basename in planned_markers:
+            continue
+        non_plan_paths.append(rel_path)
+
+    if non_plan_paths:
+        sample = ", ".join(non_plan_paths[:3])
+        return (
+            "Plan adherence checkpoint required: current actions diverge from active plan "
+            f"({sample}). Update plan/checklist alignment before continuing Ralph loop."
+        )
+    return None
+
+
+def _session_segmentation_checkpoint(
+    project_dir: str,
+    ralph_path: str,
+    state: dict[str, object],
+    config: dict[str, object],
+) -> str | None:
+    pressure = _load_context_pressure_snapshot(project_dir)
+    if not pressure:
+        return None
+
+    estimated_tokens = _safe_int(pressure.get("estimated_tokens"), 0, minimum=0)
+    observed_threshold = _safe_int(
+        pressure.get("threshold_tokens") or pressure.get("threshold"),
+        0,
+        minimum=0,
+    )
+    threshold_tokens = _safe_int(
+        config.get("session_segmentation_threshold_tokens"),
+        observed_threshold,
+        minimum=1,
+    )
+    if threshold_tokens <= 0 or estimated_tokens < threshold_tokens:
+        return None
+
+    phase_size = _safe_int(
+        config.get("session_segmentation_phase_iterations"),
+        _RALPH_SEGMENTATION_PHASE_ITERATIONS,
+        minimum=1,
+    )
+    iteration = _safe_int(state.get("iteration"), 0, minimum=0)
+    phase_index = iteration // phase_size
+    last_checkpoint_phase = _safe_int(
+        state.get("segmentation_checkpoint_phase"), -1, minimum=-1
+    )
+    if last_checkpoint_phase == phase_index:
+        return None
+
+    state["segmentation_checkpoint_phase"] = phase_index
+    state["segmentation_checkpoint_at"] = datetime.now(timezone.utc).isoformat()
+    state["segmentation_phase_size"] = phase_size
+    state["segmentation_threshold_tokens"] = threshold_tokens
+    state["segmentation_estimated_tokens"] = estimated_tokens
+    atomic_json_write(ralph_path, state)
+
+    return (
+        "Session segmentation checkpoint required: "
+        f"phase {phase_index + 1} (size={phase_size}) under context pressure "
+        f"{estimated_tokens}/{threshold_tokens} tokens. Review plan alignment and continue."
+    )
+
+
 def check_ralph_loop(project_dir, data):
     """Check Ralph loop state and return (block_reasons, advisories, is_question).
 
@@ -1920,6 +2103,19 @@ def check_ralph_loop(project_dir, data):
         config.get("max_iterations"), _RALPH_DEFAULT_MAX_ITERATIONS, minimum=1
     )
     state["max_iterations"] = configured_max_iterations
+
+    if get_feature_flag("plan_adherence_enforcement", default=False):
+        adherence_block = plan_adherence_check(
+            project_dir, data if isinstance(data, dict) else None
+        )
+        if adherence_block:
+            return [adherence_block], [], False
+
+        segmentation_block = _session_segmentation_checkpoint(
+            project_dir, ralph_path, state, config
+        )
+        if segmentation_block:
+            return [segmentation_block], [], False
 
     if is_bypass_mode(data):
         raise RuntimeError(
@@ -2119,31 +2315,6 @@ def check_planning_gate(project_dir, data=None):
                 f"[OMG advisory] Planning gate: stale checklist ({stale_reason}). "
                 f"{done}/{total} complete, {pending} pending. "
                 f"Clear with: rm .omg/state/_checklist.md"
-            ]
-
-        # Check context pressure — demote to advisory if high
-        _pressure_path = os.path.join(
-            project_dir, ".omg", "state", ".context-pressure.json"
-        )
-        _is_high_pressure = False
-        try:
-            if os.path.exists(_pressure_path):
-                with open(_pressure_path, "r") as _f:
-                    _pressure = json.load(_f)
-                _is_high_pressure = _pressure.get("is_high", False)
-        except Exception:
-            try:
-                print(
-                    f"[omg:warn] [stop_dispatcher] failed to read context pressure sidecar: {sys.exc_info()[1]}",
-                    file=sys.stderr,
-                )
-            except Exception:
-                pass
-
-        if _is_high_pressure:
-            # Demote to advisory — don't block when context is exhausted
-            return [], [
-                f"[OMG advisory] Planning gate: {done}/{total} complete, {pending} pending. (demoted: context pressure high)"
             ]
 
         return [

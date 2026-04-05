@@ -682,6 +682,73 @@ def test_planning_gate_warns_when_checklist_complete_without_recent_activity(
     assert "no code changes or test runs found" in advisories[0]
 
 
+def test_planning_gate_not_demoted_under_pressure(tmp_path, monkeypatch):
+    checklist = tmp_path / ".omg" / "state" / "_checklist.md"
+    checklist.parent.mkdir(parents=True, exist_ok=True)
+    checklist.write_text("- [x] Done\n- [ ] Pending\n", encoding="utf-8")
+
+    pressure_path = tmp_path / ".omg" / "state" / ".context-pressure.json"
+    pressure_path.write_text(
+        json.dumps({"is_high": True, "estimated_tokens": 1200, "threshold": 1000}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True
+    )
+    monkeypatch.setattr(
+        stop_dispatcher, "resolve_state_file", lambda *_args, **_kwargs: str(checklist)
+    )
+
+    block_reasons, advisories = stop_dispatcher.check_planning_gate(
+        str(tmp_path), data=_base_data()
+    )
+
+    assert len(block_reasons) == 1
+    assert "Planning gate:" in block_reasons[0]
+    assert advisories == []
+
+
+def test_session_segmentation_triggers(tmp_path, monkeypatch):
+    state_dir = tmp_path / ".omg" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    ralph_path = state_dir / "ralph-loop.json"
+    ralph_path.write_text(
+        json.dumps(
+            {
+                "active": True,
+                "iteration": 0,
+                "max_iterations": 10,
+                "original_prompt": "segmentation test",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (state_dir / ".context-pressure.json").write_text(
+        json.dumps({"estimated_tokens": 1200, "threshold_tokens": 1000}),
+        encoding="utf-8",
+    )
+
+    def _flags(name, default=False):
+        if name in {"ralph_loop", "plan_adherence_enforcement"}:
+            return True
+        return default
+
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", _flags)
+
+    block_reasons, advisories, is_question = stop_dispatcher.check_ralph_loop(
+        str(tmp_path), {"_stop_ctx": {"ledger_entries": []}}
+    )
+
+    assert len(block_reasons) == 1
+    assert "Session segmentation checkpoint required" in block_reasons[0]
+    assert advisories == []
+    assert is_question is False
+
+    state = json.loads(ralph_path.read_text(encoding="utf-8"))
+    assert state["segmentation_checkpoint_phase"] == 0
+
+
 def test_tdd_proof_chain_skips_read_only_turn(monkeypatch, tmp_path):
     monkeypatch.setattr(
         stop_dispatcher, "get_feature_flag", lambda *_args, **_kwargs: True

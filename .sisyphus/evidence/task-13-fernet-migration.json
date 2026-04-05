@@ -1,0 +1,37 @@
+{
+  "task": "T13",
+  "title": "XOR to Fernet Memory Migration Path Hardening",
+  "timestamp": "2026-04-05T00:00:00Z",
+  "status": "pass",
+  "files_modified": [
+    "runtime/memory_store.py",
+    "runtime/memory_migrate.py",
+    "runtime/mcp_memory_server.py",
+    "tests/runtime/test_memory_store.py"
+  ],
+  "verification": {
+    "test_command": "python3 -m pytest tests/runtime/test_memory_store.py -k migration -v",
+    "migration_tests_passed": 10,
+    "total_tests_passed": 50,
+    "total_tests_failed": 0,
+    "lsp_errors_introduced": 0
+  },
+  "migration_path": {
+    "on_read_migration": "T8 added _decrypt_text with migrate_item_id param — on Fernet InvalidToken, tries XOR legacy, re-encrypts if successful",
+    "bulk_migration": "migrate_all() method added with batch_size and dry_run support",
+    "cli_entry": "python3 -m runtime.memory_migrate [--store-path] [--batch-size] [--dry-run] [--json]",
+    "mcp_tool": "memory_migrate(dry_run, batch_size) added to mcp_memory_server.py"
+  },
+  "edge_cases_covered": [
+    "empty_database: 0 entries → report total=0, no crash",
+    "already_fernet: entries encrypted with Fernet are skipped, not re-encrypted",
+    "corrupted_entries: undecryptable entries are logged with item_id, skipped, counted",
+    "batch_commit: migration commits every N rows (configurable batch_size)",
+    "mixed_entries: Fernet + XOR + corrupted in same DB handled correctly",
+    "dry_run: scan reports counts but writes zero changes",
+    "json_backend_noop: JSON backend returns total=already_fernet (no encryption at rest)",
+    "data_readable_after: all migrated entries readable with correct content including unicode",
+    "cli_entrypoint: subprocess invocation via python3 -m runtime.memory_migrate works"
+  ],
+  "no_data_loss_guarantee": "All readable entries remain readable after migration. Corrupted entries are reported but not deleted."
+}
