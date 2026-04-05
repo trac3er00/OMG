@@ -2,8 +2,8 @@
 
 This module provides a dual-backend (SQLite or JSON) memory layer used by OMG
 runtime components to persist run/profile-scoped notes, searchable memory
-entries, and artifact handles. Stored content is PII-redacted on write and can
-be encrypted at rest using Fernet (or deterministic fallback encryption).
+entries, and artifact handles. Stored content is PII-redacted on write and is
+encrypted at rest with Fernet.
 """
 
 from __future__ import annotations
@@ -20,35 +20,17 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from cryptography.fernet import Fernet, InvalidToken
+
 from runtime.profile_io import classify_preference_section, is_destructive_preference
-
-import warnings
-
-try:
-    from cryptography.fernet import Fernet, InvalidToken
-
-    _has_fernet = True
-except ModuleNotFoundError:
-    Fernet = None  # type: ignore[assignment]
-    InvalidToken = Exception  # type: ignore[assignment]
-    _has_fernet = False
 
 
 def check_encryption_available() -> bool:
-    """Check if cryptography library is installed. Returns True if available, False otherwise."""
-    return _has_fernet
+    return True
 
 
 def ensure_encryption_warnings() -> None:
-    """Emit warnings if encryption is not available (fail-fast for production)."""
-    if not _has_fernet:
-        warnings.warn(
-            "OMG_MEMORY_ENCRYPTION_DISABLED: cryptography library not installed. "
-            "MemoryStore will use weak XOR-based encryption fallback. "
-            "For production, install: pip install cryptography",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+    return
 
 
 class MemoryStoreFullError(Exception):
@@ -71,8 +53,14 @@ _DEFAULT_MEMORY_HOST = "127.0.0.1"
 _ENCRYPTED_PREFIX = "enc:v1:"
 _JSON_ENVELOPE_FORMAT = "omg.memory.json.v1"
 _PII_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED:EMAIL]"),
-    (re.compile(r"\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b"), "[REDACTED:PHONE]"),
+    (
+        re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
+        "[REDACTED:EMAIL]",
+    ),
+    (
+        re.compile(r"\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b"),
+        "[REDACTED:PHONE]",
+    ),
     (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[REDACTED:SSN]"),
 )
 _Item = dict[str, Any]  # pyright: ignore[reportExplicitAny]
@@ -95,7 +83,10 @@ class MemoryStore:
         """
         if store_path is None:
             store_path = str(Path.home() / ".omg" / "shared-memory" / "store.sqlite3")
-        self._memory_host = (os.environ.get("OMG_MEMORY_HOST", _DEFAULT_MEMORY_HOST).strip() or _DEFAULT_MEMORY_HOST)
+        self._memory_host = (
+            os.environ.get("OMG_MEMORY_HOST", _DEFAULT_MEMORY_HOST).strip()
+            or _DEFAULT_MEMORY_HOST
+        )
         self._conn: sqlite3.Connection | None = None
         self._fts_enabled = False
         self._items: list[_Item] = []
@@ -123,7 +114,9 @@ class MemoryStore:
 
         self.close()
         self._store_path = normalized_path
-        self._backend = "json" if Path(normalized_path).suffix.lower() == ".json" else "sqlite"
+        self._backend = (
+            "json" if Path(normalized_path).suffix.lower() == ".json" else "sqlite"
+        )
         self._items = []
         self._fts_enabled = False
 
@@ -247,10 +240,14 @@ class MemoryStore:
                     return item
             return None
 
-        row = self._sqlite_conn().execute(
-            "SELECT * FROM memories WHERE id = ?",
-            (item_id,),
-        ).fetchone()
+        row = (
+            self._sqlite_conn()
+            .execute(
+                "SELECT * FROM memories WHERE id = ?",
+                (item_id,),
+            )
+            .fetchone()
+        )
         return self._row_to_item(row) if row is not None else None
 
     def update(
@@ -290,7 +287,12 @@ class MemoryStore:
         updated_at = _utc_now_iso()
         self._sqlite_conn().execute(
             "UPDATE memories SET content = ?, tags_json = ?, updated_at = ? WHERE id = ?",
-            (self._encrypt_text(new_content, purpose="sqlite-content"), json.dumps(new_tags, ensure_ascii=True), updated_at, item_id),
+            (
+                self._encrypt_text(new_content, purpose="sqlite-content"),
+                json.dumps(new_tags, ensure_ascii=True),
+                updated_at,
+                item_id,
+            ),
         )
         updated = {
             **item,
@@ -319,7 +321,9 @@ class MemoryStore:
                     return True
             return False
 
-        cur = self._sqlite_conn().execute("DELETE FROM memories WHERE id = ?", (item_id,))
+        cur = self._sqlite_conn().execute(
+            "DELETE FROM memories WHERE id = ?", (item_id,)
+        )
         self._delete_fts(item_id)
         self._sqlite_conn().commit()
         return cur.rowcount > 0
@@ -346,21 +350,32 @@ class MemoryStore:
         if self._backend == "json":
             q = query.lower()
             results: list[_Item] = []
-            canonical_namespace = _qualify_namespace(namespace) if namespace is not None else None
+            canonical_namespace = (
+                _qualify_namespace(namespace) if namespace is not None else None
+            )
             for item in self._items:
                 normalized_item = _normalize_item(item)
                 if _is_expired(normalized_item):
                     continue
                 if source_cli is not None and item["source_cli"] != source_cli:
                     continue
-                if canonical_namespace is not None and normalized_item.get("namespace") != canonical_namespace:
+                if (
+                    canonical_namespace is not None
+                    and normalized_item.get("namespace") != canonical_namespace
+                ):
                     continue
-                if not include_quarantined and bool(normalized_item.get("quarantined", False)):
+                if not include_quarantined and bool(
+                    normalized_item.get("quarantined", False)
+                ):
                     continue
                 key_str = str(item.get("key", "")).lower()
                 content_str = str(item.get("content", "")).lower()
                 tags_raw = item.get("tags", [])
-                tags_str = " ".join(str(t).lower() for t in tags_raw) if isinstance(tags_raw, list) else ""
+                tags_str = (
+                    " ".join(str(t).lower() for t in tags_raw)
+                    if isinstance(tags_raw, list)
+                    else ""
+                )
                 if q in key_str or q in content_str or q in tags_str:
                     results.append(normalized_item)
             return results
@@ -376,7 +391,11 @@ class MemoryStore:
             key_str = str(item.get("key", "")).lower()
             content_str = str(item.get("content", "")).lower()
             tags_raw = item.get("tags", [])
-            tags_str = " ".join(str(t).lower() for t in tags_raw) if isinstance(tags_raw, list) else ""
+            tags_str = (
+                " ".join(str(t).lower() for t in tags_raw)
+                if isinstance(tags_raw, list)
+                else ""
+            )
             if q in key_str or q in content_str or q in tags_str:
                 matches.append(item)
         return matches
@@ -403,7 +422,9 @@ class MemoryStore:
             Filtered list of memory items ordered by recency for SQLite.
         """
         if self._backend == "json":
-            out = [_normalize_item(item) for item in self._items if not _is_expired(item)]
+            out = [
+                _normalize_item(item) for item in self._items if not _is_expired(item)
+            ]
             if source_cli is not None:
                 out = [i for i in out if i.get("source_cli") == source_cli]
             if run_id is not None:
@@ -412,7 +433,9 @@ class MemoryStore:
                 out = [i for i in out if str(i.get("profile_id", "")) == profile_id]
             if namespace is not None:
                 canonical_namespace = _qualify_namespace(namespace)
-                out = [i for i in out if str(i.get("namespace", "")) == canonical_namespace]
+                out = [
+                    i for i in out if str(i.get("namespace", "")) == canonical_namespace
+                ]
             if not include_quarantined:
                 out = [i for i in out if not bool(i.get("quarantined", False))]
             return out
@@ -485,7 +508,9 @@ class MemoryStore:
             item_id = str(item.get("id", "")).strip()
             if not item_id:
                 continue
-            existing = conn.execute("SELECT 1 FROM memories WHERE id = ?", (item_id,)).fetchone()
+            existing = conn.execute(
+                "SELECT 1 FROM memories WHERE id = ?", (item_id,)
+            ).fetchone()
             if existing is not None:
                 continue
             key = str(item.get("key", ""))
@@ -496,7 +521,9 @@ class MemoryStore:
             updated_at = str(item.get("updated_at", "")) or created_at
             namespace = _qualify_namespace(item.get("namespace", _DEFAULT_NAMESPACE))
             retention_days = _normalize_retention_days(item.get("retention_days"))
-            expires_at = str(item.get("expires_at", "")).strip() or _compute_expires_at(created_at, retention_days)
+            expires_at = str(item.get("expires_at", "")).strip() or _compute_expires_at(
+                created_at, retention_days
+            )
             redacted_content = _redact_pii(content)
             run_id = str(item.get("run_id", ""))
             profile_id = str(item.get("profile_id", ""))
@@ -541,7 +568,9 @@ class MemoryStore:
         """Return the number of stored memory items."""
         if self._backend == "json":
             return len(self._items)
-        row = self._sqlite_conn().execute("SELECT COUNT(*) AS n FROM memories").fetchone()
+        row = (
+            self._sqlite_conn().execute("SELECT COUNT(*) AS n FROM memories").fetchone()
+        )
         if row is None:
             return 0
         return int(row["n"])
@@ -624,8 +653,10 @@ class MemoryStore:
             return scoped[:bounded_limit]
 
         q = f"%{query.lower()}%"
-        rows = self._sqlite_conn().execute(
-            """
+        rows = (
+            self._sqlite_conn()
+            .execute(
+                """
             SELECT * FROM memories
             WHERE run_id = ?
               AND profile_id = ?
@@ -634,8 +665,10 @@ class MemoryStore:
             ORDER BY updated_at DESC
             LIMIT ?
             """,
-            (run_id, profile_id, q, q, q, bounded_limit),
-        ).fetchall()
+                (run_id, profile_id, q, q, q, bounded_limit),
+            )
+            .fetchall()
+        )
         return [self._row_to_item(row) for row in rows]
 
     def hybrid_retrieve(
@@ -659,7 +692,9 @@ class MemoryStore:
         """
         bounded_limit = max(1, min(int(limit), 100))
         if self._backend == "json":
-            rows = self.query_scoped(query, run_id=run_id, profile_id=profile_id, limit=bounded_limit)
+            rows = self.query_scoped(
+                query, run_id=run_id, profile_id=profile_id, limit=bounded_limit
+            )
             return [
                 {
                     **row,
@@ -689,14 +724,21 @@ class MemoryStore:
                 rank = row["rank"] if isinstance(row["rank"], (int, float)) else 0.0
                 keyword_score = 1.0 / (1.0 + max(float(rank), 0.0))
                 semantic_score = _token_overlap_score(query, item)
-                candidates.append((item, (0.7 * keyword_score) + (0.3 * semantic_score)))
+                candidates.append(
+                    (item, (0.7 * keyword_score) + (0.3 * semantic_score))
+                )
 
         if not candidates:
-            for item in self.query_scoped(query, run_id=run_id, profile_id=profile_id, limit=bounded_limit):
+            for item in self.query_scoped(
+                query, run_id=run_id, profile_id=profile_id, limit=bounded_limit
+            ):
                 candidates.append((item, _token_overlap_score(query, item)))
 
         candidates.sort(key=lambda pair: pair[1], reverse=True)
-        return [{**item, "score": round(score, 6)} for item, score in candidates[:bounded_limit]]
+        return [
+            {**item, "score": round(score, 6)}
+            for item, score in candidates[:bounded_limit]
+        ]
 
     def index_artifact(
         self,
@@ -818,7 +860,10 @@ class MemoryStore:
                     continue
                 if not isinstance(handle, dict):
                     continue
-                if profile_id is not None and str(handle.get("profile_id", "")) != profile_id:
+                if (
+                    profile_id is not None
+                    and str(handle.get("profile_id", "")) != profile_id
+                ):
                     continue
                 if kind is not None and str(handle.get("kind", "")) != kind:
                     continue
@@ -834,16 +879,20 @@ class MemoryStore:
             where.append("kind = ?")
             params.append(kind)
         params.append(bounded_limit)
-        rows = self._sqlite_conn().execute(
-            f"""
+        rows = (
+            self._sqlite_conn()
+            .execute(
+                f"""
             SELECT artifact_id, run_id, profile_id, kind, path, summary, size_bytes, metadata_json, created_at
             FROM artifacts
-            WHERE {' AND '.join(where)}
+            WHERE {" AND ".join(where)}
             ORDER BY created_at DESC
             LIMIT ?
             """,
-            tuple(params),
-        ).fetchall()
+                tuple(params),
+            )
+            .fetchall()
+        )
         handles: list[dict[str, Any]] = []
         for row in rows:
             metadata = _parse_json_object(row["metadata_json"])
@@ -870,15 +919,24 @@ class MemoryStore:
             raw = json.loads(path.read_text())
             if isinstance(raw, list):
                 return raw  # type: ignore[return-value]
-            if isinstance(raw, dict) and str(raw.get("format", "")) == _JSON_ENVELOPE_FORMAT:
+            if (
+                isinstance(raw, dict)
+                and str(raw.get("format", "")) == _JSON_ENVELOPE_FORMAT
+            ):
                 encrypted_payload = str(raw.get("payload", ""))
                 integrity = raw.get("integrity", {})
                 expected_sha = ""
                 if isinstance(integrity, dict):
                     expected_sha = str(integrity.get("sha256", ""))
-                if not encrypted_payload or hashlib.sha256(encrypted_payload.encode("utf-8")).hexdigest() != expected_sha:
+                if (
+                    not encrypted_payload
+                    or hashlib.sha256(encrypted_payload.encode("utf-8")).hexdigest()
+                    != expected_sha
+                ):
                     return []
-                decrypted = self._decrypt_text(encrypted_payload, purpose="json-at-rest")
+                decrypted = self._decrypt_text(
+                    encrypted_payload, purpose="json-at-rest"
+                )
                 if not decrypted:
                     return []
                 payload = json.loads(decrypted)
@@ -892,7 +950,9 @@ class MemoryStore:
         path = Path(self.store_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_name(f"{path.name}.tmp")
-        _ = tmp_path.write_text(json.dumps(self._items, indent=2, ensure_ascii=True) + "\n")
+        _ = tmp_path.write_text(
+            json.dumps(self._items, indent=2, ensure_ascii=True) + "\n"
+        )
         _ = os.replace(tmp_path, path)
 
     def _sqlite_conn(self) -> sqlite3.Connection:
@@ -927,7 +987,9 @@ class MemoryStore:
             """
         )
         _ensure_memory_columns(conn)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(run_id, profile_id, updated_at)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_memories_scope ON memories(run_id, profile_id, updated_at)"
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS artifacts (
@@ -943,7 +1005,9 @@ class MemoryStore:
             )
             """
         )
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_artifacts_scope ON artifacts(run_id, profile_id, created_at)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_artifacts_scope ON artifacts(run_id, profile_id, created_at)"
+        )
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS lineage_edges (
@@ -985,7 +1049,9 @@ class MemoryStore:
             return
         conn = self._sqlite_conn()
         conn.execute("DELETE FROM memories_fts")
-        rows = conn.execute("SELECT id, key, content, tags_json FROM memories").fetchall()
+        rows = conn.execute(
+            "SELECT id, key, content, tags_json FROM memories"
+        ).fetchall()
         for row in rows:
             tags = _parse_json_array(row["tags_json"])
             conn.execute(
@@ -1002,7 +1068,12 @@ class MemoryStore:
         tags_text = " ".join(str(tag) for tag in tags) if isinstance(tags, list) else ""
         conn.execute(
             "INSERT INTO memories_fts(id, key, content, tags) VALUES (?, ?, ?, ?)",
-            (item["id"], str(item.get("key", "")), str(item.get("content", "")), tags_text),
+            (
+                item["id"],
+                str(item.get("key", "")),
+                str(item.get("content", "")),
+                tags_text,
+            ),
         )
 
     def _delete_fts(self, item_id: str) -> None:
@@ -1016,23 +1087,35 @@ class MemoryStore:
         return {
             "id": row["id"],
             "key": row["key"],
-            "content": self._decrypt_text(str(row["content"]), purpose="sqlite-content"),
+            "content": self._decrypt_text(
+                str(row["content"]),
+                purpose="sqlite-content",
+                migrate_item_id=str(row["id"]),
+            ),
             "source_cli": row["source_cli"],
             "tags": _parse_json_array(row["tags_json"]),
             "run_id": row["run_id"],
             "profile_id": row["profile_id"],
-            "namespace": _qualify_namespace(row["namespace"] if "namespace" in row.keys() else _DEFAULT_NAMESPACE),
-            "retention_days": _normalize_retention_days(row["retention_days"] if "retention_days" in row.keys() else None),
+            "namespace": _qualify_namespace(
+                row["namespace"] if "namespace" in row.keys() else _DEFAULT_NAMESPACE
+            ),
+            "retention_days": _normalize_retention_days(
+                row["retention_days"] if "retention_days" in row.keys() else None
+            ),
             "expires_at": expires_at,
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
-            "quarantined": bool(row["quarantined"] if "quarantined" in row.keys() else 0),
+            "quarantined": bool(
+                row["quarantined"] if "quarantined" in row.keys() else 0
+            ),
         }
 
     def _derive_key_bytes(self, *, purpose: str) -> bytes:
         secret_seed = os.environ.get("OMG_MEMORY_SECRET", "").strip()
         if not secret_seed:
-            secret_seed = f"{os.path.expanduser('~')}|{self._memory_host}|{socket.gethostname()}"
+            secret_seed = (
+                f"{os.path.expanduser('~')}|{self._memory_host}|{socket.gethostname()}"
+            )
         material = f"{secret_seed}|{self._memory_host}|{purpose}".encode("utf-8")
         return hashlib.sha256(material).digest()
 
@@ -1040,30 +1123,41 @@ class MemoryStore:
         if text.startswith(_ENCRYPTED_PREFIX):
             return text
         key_bytes = self._derive_key_bytes(purpose=purpose)
-        if _has_fernet and Fernet is not None:
-            fernet_key = base64.urlsafe_b64encode(key_bytes)
-            token = Fernet(fernet_key).encrypt(text.encode("utf-8")).decode("utf-8")
-            return f"{_ENCRYPTED_PREFIX}{token}"
-        encoded = text.encode("utf-8")
-        cipher = bytes(byte ^ key_bytes[idx % len(key_bytes)] for idx, byte in enumerate(encoded))
-        return f"{_ENCRYPTED_PREFIX}{base64.urlsafe_b64encode(cipher).decode('ascii')}"
+        fernet_key = base64.urlsafe_b64encode(key_bytes)
+        token = Fernet(fernet_key).encrypt(text.encode("utf-8")).decode("utf-8")
+        return f"{_ENCRYPTED_PREFIX}{token}"
 
-    def _decrypt_text(self, text: str, *, purpose: str) -> str:
+    def _decrypt_text(
+        self, text: str, *, purpose: str, migrate_item_id: str | None = None
+    ) -> str:
         if not text.startswith(_ENCRYPTED_PREFIX):
             return text
         payload = text[len(_ENCRYPTED_PREFIX) :]
         key_bytes = self._derive_key_bytes(purpose=purpose)
-        if _has_fernet and Fernet is not None:
-            try:
-                fernet_key = base64.urlsafe_b64encode(key_bytes)
-                return Fernet(fernet_key).decrypt(payload.encode("utf-8")).decode("utf-8")
-            except InvalidToken:
-                return ""
+        try:
+            fernet_key = base64.urlsafe_b64encode(key_bytes)
+            return Fernet(fernet_key).decrypt(payload.encode("utf-8")).decode("utf-8")
+        except InvalidToken:
+            plain = self._try_decrypt_legacy_payload(payload, key_bytes)
+            if plain and migrate_item_id and self._backend == "sqlite":
+                migrated_ciphertext = self._encrypt_text(plain, purpose=purpose)
+                self._sqlite_conn().execute(
+                    "UPDATE memories SET content = ?, updated_at = ? WHERE id = ?",
+                    (migrated_ciphertext, _utc_now_iso(), migrate_item_id),
+                )
+                self._sqlite_conn().commit()
+            return plain
+        except (UnicodeDecodeError, ValueError):
+            return ""
+
+    def _try_decrypt_legacy_payload(self, payload: str, key_bytes: bytes) -> str:
         try:
             cipher = base64.urlsafe_b64decode(payload.encode("ascii"))
-        except ValueError:
+        except (ValueError, UnicodeError):
             return ""
-        plain = bytes(byte ^ key_bytes[idx % len(key_bytes)] for idx, byte in enumerate(cipher))
+        plain = bytes(
+            byte ^ key_bytes[idx % len(key_bytes)] for idx, byte in enumerate(cipher)
+        )
         try:
             return plain.decode("utf-8")
         except UnicodeDecodeError:
@@ -1123,7 +1217,9 @@ def project_preference_signals(
     return results
 
 
-def _extract_project_signal(item: _Item, canonical_project: str) -> dict[str, Any] | None:
+def _extract_project_signal(
+    item: _Item, canonical_project: str
+) -> dict[str, Any] | None:
     raw_content = item.get("content")
     if not isinstance(raw_content, str):
         return None
@@ -1147,7 +1243,10 @@ def _extract_project_signal(item: _Item, canonical_project: str) -> dict[str, An
     if not value:
         return None
 
-    source = str(payload.get("source", "inferred_observation")).strip().lower() or "inferred_observation"
+    source = (
+        str(payload.get("source", "inferred_observation")).strip().lower()
+        or "inferred_observation"
+    )
     confidence = _clamp_confidence(payload.get("confidence"))
     contradicted = bool(payload.get("contradicted") is True)
 
@@ -1161,7 +1260,9 @@ def _extract_project_signal(item: _Item, canonical_project: str) -> dict[str, An
         "confidence": confidence,
         "project_scope": canonical_project,
         "run_id": str(payload.get("run_id", "")).strip(),
-        "updated_at": str(payload.get("updated_at", item.get("updated_at", ""))).strip(),
+        "updated_at": str(
+            payload.get("updated_at", item.get("updated_at", ""))
+        ).strip(),
         "contradicted": contradicted,
         "section": section,
         "destructive": destructive,
@@ -1214,8 +1315,12 @@ def _token_overlap_score(query: str, item: dict[str, Any]) -> float:
     if not query_tokens:
         return 0.0
     tags_value = item.get("tags", [])
-    tags_text = " ".join(str(tag) for tag in tags_value) if isinstance(tags_value, list) else ""
-    corpus = " ".join([str(item.get("key", "")), str(item.get("content", "")), tags_text]).lower()
+    tags_text = (
+        " ".join(str(tag) for tag in tags_value) if isinstance(tags_value, list) else ""
+    )
+    corpus = " ".join(
+        [str(item.get("key", "")), str(item.get("content", "")), tags_text]
+    ).lower()
     corpus_tokens = {token for token in corpus.split() if token}
     if not corpus_tokens:
         return 0.0
@@ -1283,11 +1388,15 @@ def _sanitize_artifact_handle(handle: dict[str, Any]) -> dict[str, Any]:
 def _normalize_item(item: _Item) -> _Item:
     normalized = dict(item)
     normalized["content"] = _redact_pii(str(item.get("content", "")))
-    normalized["namespace"] = _qualify_namespace(item.get("namespace", _DEFAULT_NAMESPACE))
+    normalized["namespace"] = _qualify_namespace(
+        item.get("namespace", _DEFAULT_NAMESPACE)
+    )
     normalized["retention_days"] = _normalize_retention_days(item.get("retention_days"))
     created_at = str(item.get("created_at", "")).strip() or _utc_now_iso()
     normalized_expires_at = _normalize_expires_at(item.get("expires_at"))
-    normalized["expires_at"] = normalized_expires_at or _compute_expires_at(created_at, normalized["retention_days"])
+    normalized["expires_at"] = normalized_expires_at or _compute_expires_at(
+        created_at, normalized["retention_days"]
+    )
     normalized["quarantined"] = bool(item.get("quarantined", False))
     return normalized
 
@@ -1307,7 +1416,10 @@ def _qualify_namespace(namespace: object) -> str:
         host, local = text.split(":", 1)
         if host.strip() and local.strip():
             return f"{host.strip()}:{local.strip()}"
-    host = os.environ.get("OMG_MEMORY_HOST", _DEFAULT_MEMORY_HOST).strip() or _DEFAULT_MEMORY_HOST
+    host = (
+        os.environ.get("OMG_MEMORY_HOST", _DEFAULT_MEMORY_HOST).strip()
+        or _DEFAULT_MEMORY_HOST
+    )
     return f"{host}:{text}"
 
 
@@ -1365,11 +1477,16 @@ def _ensure_memory_columns(conn: sqlite3.Connection) -> None:
             "ALTER TABLE memories ADD COLUMN namespace TEXT NOT NULL DEFAULT '127.0.0.1:default'",
         )
     if "retention_days" not in columns:
-        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN retention_days INTEGER")
+        _safe_add_memory_column(
+            conn, "ALTER TABLE memories ADD COLUMN retention_days INTEGER"
+        )
     if "expires_at" not in columns:
         _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN expires_at TEXT")
     if "quarantined" not in columns:
-        _safe_add_memory_column(conn, "ALTER TABLE memories ADD COLUMN quarantined INTEGER NOT NULL DEFAULT 0")
+        _safe_add_memory_column(
+            conn,
+            "ALTER TABLE memories ADD COLUMN quarantined INTEGER NOT NULL DEFAULT 0",
+        )
 
 
 def _safe_add_memory_column(conn: sqlite3.Connection, ddl: str) -> None:
@@ -1384,4 +1501,10 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-__all__ = ["MemoryStore", "MemoryStoreFullError", "project_preference_signals", "check_encryption_available", "ensure_encryption_warnings"]
+__all__ = [
+    "MemoryStore",
+    "MemoryStoreFullError",
+    "project_preference_signals",
+    "check_encryption_available",
+    "ensure_encryption_warnings",
+]

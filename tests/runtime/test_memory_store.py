@@ -4,13 +4,24 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import time
+import inspect
+import runtime.memory_store as memory_store_module
+import base64
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from runtime.memory_store import MemoryStore, MemoryStoreFullError, project_preference_signals
+from cryptography.fernet import Fernet
+
+from runtime.memory_store import (
+    MemoryStore,
+    MemoryStoreFullError,
+    project_preference_signals,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -77,8 +88,16 @@ class TestAdd:
         # Should parse without error
         created = datetime.fromisoformat(item["created_at"])
         updated = datetime.fromisoformat(item["updated_at"])
-        assert created.tzinfo is not None or "Z" in item["created_at"] or "+" in item["created_at"]
-        assert updated.tzinfo is not None or "Z" in item["updated_at"] or "+" in item["updated_at"]
+        assert (
+            created.tzinfo is not None
+            or "Z" in item["created_at"]
+            or "+" in item["created_at"]
+        )
+        assert (
+            updated.tzinfo is not None
+            or "Z" in item["updated_at"]
+            or "+" in item["updated_at"]
+        )
 
     def test_default_tags_empty_list(self, tmp_path: Path) -> None:
         store = MemoryStore(store_path=str(tmp_path / "s.json"))
@@ -174,9 +193,24 @@ class TestSearch:
     @pytest.fixture()
     def populated_store(self, tmp_path: Path) -> MemoryStore:
         store = MemoryStore(store_path=str(tmp_path / "s.json"))
-        store.add(key="project-context", content="Python web application", source_cli="codex", tags=["python", "web"])
-        store.add(key="api-notes", content="REST API design patterns", source_cli="gemini", tags=["api", "design"])
-        store.add(key="debug-log", content="Fixed authentication bug", source_cli="claude", tags=["bug", "auth"])
+        store.add(
+            key="project-context",
+            content="Python web application",
+            source_cli="codex",
+            tags=["python", "web"],
+        )
+        store.add(
+            key="api-notes",
+            content="REST API design patterns",
+            source_cli="gemini",
+            tags=["api", "design"],
+        )
+        store.add(
+            key="debug-log",
+            content="Fixed authentication bug",
+            source_cli="claude",
+            tags=["bug", "auth"],
+        )
         return store
 
     def test_finds_by_content_keyword(self, populated_store: MemoryStore) -> None:
@@ -261,8 +295,24 @@ class TestImportItems:
     def test_adds_items_returns_count(self, tmp_path: Path) -> None:
         store = MemoryStore(store_path=str(tmp_path / "s.json"))
         items_to_import = [
-            {"id": "id-1", "key": "k1", "content": "c1", "source_cli": "codex", "tags": [], "created_at": "2025-01-01T00:00:00+00:00", "updated_at": "2025-01-01T00:00:00+00:00"},
-            {"id": "id-2", "key": "k2", "content": "c2", "source_cli": "gemini", "tags": [], "created_at": "2025-01-01T00:00:00+00:00", "updated_at": "2025-01-01T00:00:00+00:00"},
+            {
+                "id": "id-1",
+                "key": "k1",
+                "content": "c1",
+                "source_cli": "codex",
+                "tags": [],
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "updated_at": "2025-01-01T00:00:00+00:00",
+            },
+            {
+                "id": "id-2",
+                "key": "k2",
+                "content": "c2",
+                "source_cli": "gemini",
+                "tags": [],
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "updated_at": "2025-01-01T00:00:00+00:00",
+            },
         ]
         count = store.import_items(items_to_import)
         assert count == 2
@@ -272,8 +322,24 @@ class TestImportItems:
         store = MemoryStore(store_path=str(tmp_path / "s.json"))
         existing = store.add(key="existing", content="c", source_cli="claude")
         items_to_import = [
-            {"id": existing["id"], "key": "dup", "content": "dup", "source_cli": "codex", "tags": [], "created_at": "2025-01-01T00:00:00+00:00", "updated_at": "2025-01-01T00:00:00+00:00"},
-            {"id": "new-id", "key": "new", "content": "new", "source_cli": "gemini", "tags": [], "created_at": "2025-01-01T00:00:00+00:00", "updated_at": "2025-01-01T00:00:00+00:00"},
+            {
+                "id": existing["id"],
+                "key": "dup",
+                "content": "dup",
+                "source_cli": "codex",
+                "tags": [],
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "updated_at": "2025-01-01T00:00:00+00:00",
+            },
+            {
+                "id": "new-id",
+                "key": "new",
+                "content": "new",
+                "source_cli": "gemini",
+                "tags": [],
+                "created_at": "2025-01-01T00:00:00+00:00",
+                "updated_at": "2025-01-01T00:00:00+00:00",
+            },
         ]
         count = store.import_items(items_to_import)
         assert count == 1  # only new-id added
@@ -320,7 +386,12 @@ class TestPersistence:
     def test_data_survives_across_instances(self, tmp_path: Path) -> None:
         path = str(tmp_path / "s.json")
         store1 = MemoryStore(store_path=path)
-        item = store1.add(key="persist-key", content="persist-value", source_cli="codex", tags=["persist"])
+        item = store1.add(
+            key="persist-key",
+            content="persist-value",
+            source_cli="codex",
+            tags=["persist"],
+        )
 
         # Create a new instance pointing to same file
         store2 = MemoryStore(store_path=path)
@@ -362,7 +433,9 @@ class TestAtomicWrite:
 
 
 class TestProjectPreferenceSignals:
-    def test_returns_only_project_scoped_signals_and_bounds_results(self, tmp_path: Path) -> None:
+    def test_returns_only_project_scoped_signals_and_bounds_results(
+        self, tmp_path: Path
+    ) -> None:
         store_path = tmp_path / "shared" / "store.json"
         store = MemoryStore(store_path=str(store_path))
         project_a = str(tmp_path / "project-a")
@@ -400,13 +473,19 @@ class TestProjectPreferenceSignals:
             tags=[f"project_scope:{project_b}"],
         )
 
-        signals = project_preference_signals(project_a, store_path=str(store_path), max_signals=50)
+        signals = project_preference_signals(
+            project_a, store_path=str(store_path), max_signals=50
+        )
 
         assert len(signals) == 12
-        assert all(signal["project_scope"] == os.path.realpath(project_a) for signal in signals)
+        assert all(
+            signal["project_scope"] == os.path.realpath(project_a) for signal in signals
+        )
         assert all(signal["value"] != "wrong-project" for signal in signals)
 
-    def test_ignores_non_whitelisted_and_non_json_payloads(self, tmp_path: Path) -> None:
+    def test_ignores_non_whitelisted_and_non_json_payloads(
+        self, tmp_path: Path
+    ) -> None:
         store_path = tmp_path / "shared" / "store.json"
         store = MemoryStore(store_path=str(store_path))
         project_dir = str(tmp_path / "project")
@@ -446,7 +525,9 @@ class TestProjectPreferenceSignals:
             tags=[f"project_scope:{project_dir}"],
         )
 
-        signals = project_preference_signals(project_dir, store_path=str(store_path), max_signals=10)
+        signals = project_preference_signals(
+            project_dir, store_path=str(store_path), max_signals=10
+        )
 
         assert len(signals) == 1
         assert signals[0]["field"] == "preferences.constraints.api_cost"
@@ -474,7 +555,9 @@ class TestSQLiteScopedStorage:
             profile_id="profile-a",
         )
 
-        rows = store.query_scoped(query="design", run_id="run-a", profile_id="profile-a")
+        rows = store.query_scoped(
+            query="design", run_id="run-a", profile_id="profile-a"
+        )
 
         assert len(rows) == 1
         assert rows[0]["run_id"] == "run-a"
@@ -499,7 +582,9 @@ class TestSQLiteScopedStorage:
             profile_id="profile-main",
         )
 
-        rows = store.hybrid_retrieve("sqlite retrieval", run_id="run-hybrid", profile_id="profile-main")
+        rows = store.hybrid_retrieve(
+            "sqlite retrieval", run_id="run-hybrid", profile_id="profile-main"
+        )
 
         assert len(rows) == 1
         assert rows[0]["run_id"] == "run-hybrid"
@@ -526,3 +611,92 @@ class TestSQLiteScopedStorage:
         assert "payload" not in rows[0]
         assert rows[0]["metadata"]["suite"] == "browser"
         assert rows[0]["metadata"]["omitted_payload"] is True
+
+
+class TestEncryptionHardening:
+    def test_xor_path_unreachable(self) -> None:
+        assert not hasattr(MemoryStore, "_xor_cipher")
+        source = inspect.getsource(memory_store_module)
+        assert "OMG_MEMORY_ENCRYPTION_DISABLED" not in source
+        assert "XOR-based encryption fallback" not in source
+
+    def test_fernet_only_encryption(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "memory.sqlite3"))
+        item = store.add(key="fernet", content="secret payload", source_cli="claude")
+
+        raw = (
+            store._sqlite_conn()
+            .execute("SELECT content FROM memories WHERE id = ?", (item["id"],))
+            .fetchone()
+        )
+        assert raw is not None
+        encrypted_text = str(raw["content"])
+        assert encrypted_text.startswith("enc:v1:")
+
+        payload = encrypted_text[len("enc:v1:") :]
+        key_bytes = store._derive_key_bytes(purpose="sqlite-content")
+        fernet_key = base64.urlsafe_b64encode(key_bytes)
+        decrypted = Fernet(fernet_key).decrypt(payload.encode("utf-8")).decode("utf-8")
+        assert decrypted == "secret payload"
+
+    def test_xor_to_fernet_migration(self, tmp_path: Path) -> None:
+        store = MemoryStore(store_path=str(tmp_path / "memory.sqlite3"))
+        item = store.add(key="legacy", content="needs migration", source_cli="claude")
+
+        key_bytes = store._derive_key_bytes(purpose="sqlite-content")
+        plaintext = "needs migration".encode("utf-8")
+        legacy_cipher = bytes(
+            byte ^ key_bytes[idx % len(key_bytes)] for idx, byte in enumerate(plaintext)
+        )
+        legacy_payload = base64.urlsafe_b64encode(legacy_cipher).decode("ascii")
+        legacy_encrypted = f"enc:v1:{legacy_payload}"
+        store._sqlite_conn().execute(
+            "UPDATE memories SET content = ? WHERE id = ?",
+            (legacy_encrypted, item["id"]),
+        )
+        store._sqlite_conn().commit()
+
+        fetched = store.get(item["id"])
+        assert fetched is not None
+        assert fetched["content"] == "needs migration"
+
+        row = (
+            store._sqlite_conn()
+            .execute("SELECT content FROM memories WHERE id = ?", (item["id"],))
+            .fetchone()
+        )
+        assert row is not None
+        migrated_encrypted = str(row["content"])
+        assert migrated_encrypted.startswith("enc:v1:")
+        assert migrated_encrypted != legacy_encrypted
+
+        migrated_payload = migrated_encrypted[len("enc:v1:") :]
+        fernet_key = base64.urlsafe_b64encode(key_bytes)
+        assert (
+            Fernet(fernet_key).decrypt(migrated_payload.encode("utf-8")).decode("utf-8")
+            == "needs migration"
+        )
+
+    def test_importerror_on_missing_cryptography(self) -> None:
+        module_path = (
+            Path(__file__).resolve().parents[2] / "runtime" / "memory_store.py"
+        )
+        script = "\n".join(
+            [
+                "import builtins",
+                "import runpy",
+                "_orig_import = builtins.__import__",
+                "def _blocked_import(name, globals=None, locals=None, fromlist=(), level=0):",
+                "    if name.startswith('cryptography'):",
+                "        raise ModuleNotFoundError(\"No module named 'cryptography'\")",
+                "    return _orig_import(name, globals, locals, fromlist, level)",
+                "builtins.__import__ = _blocked_import",
+                f"runpy.run_path({str(module_path)!r})",
+            ]
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True
+        )
+        assert proc.returncode != 0
+        assert "ModuleNotFoundError" in proc.stderr
+        assert "cryptography" in proc.stderr
