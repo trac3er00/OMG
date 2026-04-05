@@ -108,3 +108,25 @@
 - Test pattern: subprocess tests use `CLAUDE_PROJECT_DIR` env var to point at tmp_path
 - Dead PID 2147483647 (max int32) reliably doesn't exist for stale lock tests
 - Iteration check: `iteration >= max_iter` uses pre-increment value, so test needs iteration=max to trigger
+
+## [T10] Convergence Detection
+- Ralph convergence can be implemented safely in `check_ralph_loop` by persisting per-iteration metrics (`last_delta_metrics`, `last_delta_score`, `no_delta_streak`) directly in `.omg/state/ralph-loop.json`.
+- Meaningful-delta computation is stable when using: changed file count (`git diff --name-only HEAD`), tracked tool invocation count (`Bash`/`Write`/`Edit`/`MultiEdit`), and trailing test-result signature from tool-ledger bash test commands.
+- Convergence gating should remain behind `get_feature_flag("ralph_convergence_detection", default=False)` so default behavior is unchanged unless explicitly enabled.
+- `max_iterations` override should be loaded from `resolve_state_file(project_dir, "state/ralph-config.json", "ralph-config.json")` each loop iteration to allow runtime tuning without prompt-enhancer changes.
+- Stop reasons are easiest to keep consistent via a single stop helper that deactivates state, writes `stop_reason`, and releases the Ralph lock (`completed`, `converged_no_delta`, `max_iterations`, `timeout`, `user_stop`).
+
+## [T12] Approval Gate
+- Ralph loop now hard-refuses bypass permission mode before iteration progression: `is_bypass_mode(data)` raises runtime error with explicit disable guidance.
+- Added `ralph_approval_gate` enforcement path in `check_ralph_loop()` that inspects current turn tool results for destructive actions (delete commands, protected-path mutations, config overwrites).
+- Approval resolution order: pre-approval file (`.omg/state/ralph-approvals.json`) → CLI prompt when interactive → auto-deny when non-interactive.
+- Every destructive-action decision is audit-trailed to `.omg/state/ledger/ralph-approval-audit.jsonl` with mode (`preapproved`/`cli_prompt`/`auto_deny`) and action metadata.
+- Regression coverage added for bypass refusal, gate firing on destructive action, and pre-approval honoring.
+
+
+## [T11] Rollback Manifests
+- Wired `runtime.rollback_manifest` into Ralph loop via `create_rollback_manifest`, `classify_side_effect`, and `record_side_effect` so iteration manifests carry rollback-aware side-effect metadata without rewriting runtime schema code.
+- Added per-iteration capture in `check_ralph_loop`: snapshot diffing + ledger delta extraction, then persisted `.omg/state/ralph-rollbacks/iteration-{N}.json` with `{iteration, files_changed, side_effects, rollback_commands}`.
+- Snapshot strategy uses git file inventory + SHA-256 hashes to classify `created/modified/deleted`; rollback commands are generated as `git checkout -- <path>` for tracked files and `rm -f <path>` for untracked creates.
+- Side-effect taxonomy emitted for Ralph manifests: `file_created`, `file_modified`, `file_deleted`, `config_changed`, `command_executed`; command/config effects are inferred from new tool-ledger entries per iteration.
+- Validation: `python3 -m pytest tests/test_stop_dispatcher.py -v` passed (40 passed), with new tests covering manifest creation, schema fields, and executable rollback restoration for tracked files.

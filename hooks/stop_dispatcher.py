@@ -1430,7 +1430,7 @@ def format_ralph_block_reason(state, project_dir):
     """Build the rich reason string that Claude sees as its next prompt."""
     original = state.get("original_prompt", "")
     iteration = state.get("iteration", 0)
-    max_iter = state.get("max_iterations", 50)
+    max_iter = state.get("max_iterations", _RALPH_DEFAULT_MAX_ITERATIONS)
     checklist_path = state.get("checklist_path", "")
 
     progress = ""
