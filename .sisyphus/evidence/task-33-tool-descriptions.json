@@ -1,0 +1,278 @@
+{
+  "total_tools": 19,
+  "passing": 19,
+  "fixed": 0,
+  "tools": [
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_policy_evaluate",
+      "description": "Evaluate whether a proposed tool call is allowed under OMG policy and mutation gates. Use before running Write/Edit/Bash operations to catch blocked actions with structured reasons and remediation guidance.",
+      "length": 206,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_trust_review",
+      "description": "Review a configuration change for trust and safety regressions by comparing old and new config objects. Use when editing settings, CI policy, or host integration files to surface high-risk drift.",
+      "length": 195,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_evidence_ingest",
+      "description": "Ingest run evidence (tests, security scans, reproducibility, unresolved risks) into a signed evidence pack. Call this after execution or verification so claim-judge and release checks have machine-readable proof.",
+      "length": 212,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_runtime_dispatch",
+      "description": "Route a task idea to a target runtime adapter and return normalized dispatch metadata. Use when an agent must select or validate the execution runtime before launching governed work.",
+      "length": 182,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_security_check",
+      "description": "Run OMG security auditing for a project scope with optional live enrichment and waiver input. Use during verification to detect secrets, risky patterns, and policy violations before completion claims.",
+      "length": 200,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_claim_judge",
+      "description": "Judge structured completion claims against available evidence and return pass/fail verdicts with reasons. Use as the final quality gate before reporting success or preparing release readiness outputs.",
+      "length": 200,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_test_intent_lock",
+      "description": "Create or verify a test-intent lock that prevents silent weakening of tests. Use action=create before risky edits and action=verify after tests run to ensure expected intent and delta constraints hold.",
+      "length": 201,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_guide_assert",
+      "description": "Assert that generated text or config snippets conform to required guide rules. Use when prompts, policies, or generated artifacts must satisfy deterministic formatting and guardrail constraints.",
+      "length": 194,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_get_session_health",
+      "description": "Fetch session health for a specific run or the latest run snapshot. Use in planning and verification to confirm whether the session is in a safe state before continuing mutations or finalizing output.",
+      "length": 200,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/omg_mcp_server.py",
+      "tool": "omg_tool_fabric_request",
+      "description": "Request governed execution of a tool through a registered fabric lane with approval and evidence checks. Use for high-risk operations that require lane policy enforcement and immutable ledger records.",
+      "length": 200,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_store",
+      "description": "Store a durable memory entry with source, tags, namespace, and optional retention window. Use after key decisions so later planning can recover context without re-reading full transcripts.",
+      "length": 188,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_search",
+      "description": "Search memory entries by query text, optionally filtered by source CLI or namespace. Use in planning to quickly retrieve prior fixes, decisions, and known constraints for the same domain.",
+      "length": 187,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_list",
+      "description": "List memory entries with optional source and namespace filters. Use for memory inventory, quality review, or selecting records to export, delete, or promote during maintenance workflows.",
+      "length": 186,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_delete",
+      "description": "Delete a memory item by ID and report whether removal succeeded. Use to clean stale, incorrect, or sensitive entries that should no longer influence future planning and retrieval.",
+      "length": 179,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_import",
+      "description": "Import trusted plain memory items in bulk without quarantine. Use for controlled migrations where entries are already validated and should become immediately searchable and usable.",
+      "length": 180,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_import_bundle",
+      "description": "Import an encrypted omg.memory.export.v1 bundle with integrity verification, decrypt, and quarantine. Use when moving memory across environments and you need tamper checks before activation.",
+      "length": 190,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_export",
+      "description": "Export namespace memory into an encrypted omg.memory.export.v1 bundle with SHA-256 integrity metadata. Use for backup, transfer, and auditable handoff between sessions or hosts.",
+      "length": 177,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_migrate",
+      "description": "Migrate legacy memory records to current storage/security format, with dry-run support for safe previews. Use before upgrades to estimate impact and execute bounded conversion batches.",
+      "length": 184,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    },
+    {
+      "file": "runtime/mcp_memory_server.py",
+      "tool": "memory_promote",
+      "description": "Promote a quarantined memory item into active searchable memory after manual review. Use after validating imported entries so only trusted records influence downstream planning.",
+      "length": 177,
+      "checks": {
+        "not_misleading": true,
+        "not_schema_only": true,
+        "length_50_300": true,
+        "has_usage_context_or_example": true
+      },
+      "pass": true,
+      "notes": []
+    }
+  ],
+  "new_overhaul_tools_check": {
+    "approval_ui": "not an MCP @mcp.tool definition in runtime/*_server.py; out of scope for this audit surface",
+    "autorun": "not present in runtime MCP server tool definitions in this repository snapshot",
+    "evidence_prune_query_audit_export_memory_migrate": "memory_migrate included and passing; evidence query/prune and audit export are runtime/CLI functions, not @mcp.tool entries in audited servers"
+  }
+}

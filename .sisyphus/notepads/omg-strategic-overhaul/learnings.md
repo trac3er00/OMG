@@ -258,8 +258,28 @@
 ## [T26] Security Fixes
 
 - Bypass-mode suppression is now policy-driven: firewall/secret-guard only auto-skip low-risk asks and hard-block `deny-on-bypass` or high-risk ask decisions.
+
+## [T30] Orchestration Tests
+- End-to-end orchestration coverage is stable when integration tests compose real runtime modules (`opus_plan`, `subagent_dispatcher`, `router_selector`, `tool_plan_gate`, `proof_gate`) and only stub external worker execution boundaries.
+- `subagent_dispatcher` can be made deterministic in integration tests by monkeypatching `get_executor()` to an immediate executor; this preserves real submit/run status transitions while removing async flakiness.
+- Cross-agent conflict detection is easiest to exercise by stubbing `_dispatch_job_task` to return identical `modified_files` for two different jobs and asserting `conflict_gate.status == fired` with deny policy.
+- Plan adherence verification should assert both sides of the gate: mutation blocked without test-intent lock, then allowed with lock + done_when metadata under the same run-scoped tool plan.
+- Budget/routing assertions are more robust when validating downgrade intent (`budget<20%` reason + not-heavy model tier) rather than pinning one exact tier for all complexity-scoring outcomes.
 - Bash command enforcement now evaluates normalized command views (Unicode NFKC + empty-quote deobfuscation + shell tokenization), closing regex-evasion gaps like `c''url`.
 - Secret-file grep/search against secret-like paths now returns `deny` (not `ask`), removing bypass-assisted secret inspection paths.
 - Config governance moved to fail-closed behavior (`config-guard` crash/import/config-parse failures now block) and bypass mode no longer skips trust review for hooks/permissions/MCP/policy surfaces.
 - `runtime/defense_state.py` thresholds are no longer hardcoded-only: defaults are overridable from `settings.json` (`_omg.defense_state.thresholds`) and `.omg/policy.yaml` (`defense_state.thresholds`) with persisted `threshold_source` in state artifacts.
 - Added security regression coverage in `tests/security/test_security_posture_hardening.py` plus hook test updates for new deny-on-bypass semantics and config fail-closed behavior.
+
+## [T34] Documentation
+- v3.0.0 upgrade guide created at `docs/upgrade-v3.md` covering XOR removal, HMAC persistence, and security hardening.
+- README comparison table updated to reflect v3.0.0 capabilities (Rollback, Multi-Model Routing, Deep Planning, Multi-Agent) against competitors.
+- Migration path documented using `npx omg migrate` CLI.
+- Feature flags for all new v3.0.0 capabilities are documented as default-off to preserve stability.
+
+## [T33] Tool Descriptions
+- Audited all MCP tool definitions exposed by `runtime/omg_mcp_server.py` (10 `omg_*` tools) and `runtime/mcp_memory_server.py` (9 `memory_*` tools), for a total of 19 tools.
+- All 19 descriptions pass the quality gate: behavior-aligned (non-misleading), natural-language (not schema-only), 50-300 character length, and explicit usage context (`Use ...`/`Call this ...`).
+- No source description edits were required in this pass (`fixed=0`), confirming T16 metadata improvements are holding.
+- Evidence artifact written: `.sisyphus/evidence/task-33-tool-descriptions.json` with per-tool checks and aggregate counts.
+- Overhaul-adjacent note: `memory_migrate` is in MCP scope and passes; `approval_ui`/`autorun` are not `@mcp.tool` entries in the audited server surfaces for this repository snapshot.
