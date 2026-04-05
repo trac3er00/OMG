@@ -1304,3 +1304,99 @@ def test_ralph_stops_on_budget_exceeded(monkeypatch, tmp_path):
     assert final_state["stop_reason"] == "budget_exceeded"
     assert final_state["budget_used"] == 30000
     assert final_state["budget_remaining"] == 0
+
+
+def test_per_iteration_cost_breakdown(monkeypatch, tmp_path):
+    ralph_dir = tmp_path / ".omg" / "state"
+    ralph_dir.mkdir(parents=True, exist_ok=True)
+    ralph_path = ralph_dir / "ralph-loop.json"
+    ralph_path.write_text(
+        json.dumps(
+            {
+                "active": True,
+                "iteration": 0,
+                "max_iterations": 50,
+                "original_prompt": "cost breakdown test",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (ralph_dir / "ralph-config.json").write_text(
+        json.dumps(
+            {
+                "budget_token_limit": 100000,
+                "budget_tokens_per_iteration": 10000,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", _ralph_budget_flags)
+
+    data = {"_stop_ctx": {"ledger_entries": []}}
+    stop_dispatcher.check_ralph_loop(str(tmp_path), data)
+    stop_dispatcher.check_ralph_loop(str(tmp_path), data)
+
+    final_state = json.loads(ralph_path.read_text(encoding="utf-8"))
+
+    assert "iterations" in final_state
+    iterations = final_state["iterations"]
+    assert len(iterations) == 2
+
+    for record in iterations:
+        assert "tokens_input" in record
+        assert "tokens_output" in record
+        assert "api_cost_usd" in record
+        assert "tool_invocations" in record
+        assert "wall_time_seconds" in record
+        assert record["tokens_input"] + record["tokens_output"] == 10000
+        assert record["api_cost_usd"] > 0
+        assert isinstance(record["tool_invocations"], int)
+        assert isinstance(record["wall_time_seconds"], (int, float))
+
+    assert "total_cost_usd" in final_state
+    assert final_state["total_cost_usd"] > 0
+    total = round(sum(r["api_cost_usd"] for r in iterations), 6)
+    assert final_state["total_cost_usd"] == total
+
+
+def test_budget_cost_enforcement_halts_ralph(monkeypatch, tmp_path):
+    ralph_dir = tmp_path / ".omg" / "state"
+    ralph_dir.mkdir(parents=True, exist_ok=True)
+    ralph_path = ralph_dir / "ralph-loop.json"
+    ralph_path.write_text(
+        json.dumps(
+            {
+                "active": True,
+                "iteration": 0,
+                "max_iterations": 50,
+                "original_prompt": "cost enforcement test",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (ralph_dir / "ralph-config.json").write_text(
+        json.dumps(
+            {
+                "budget_token_limit": 500000,
+                "budget_tokens_per_iteration": 10000,
+                "budget_cost_usd_limit": 0.10,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", _ralph_budget_flags)
+
+    data = {"_stop_ctx": {"ledger_entries": []}}
+    for _ in range(3):
+        stop_dispatcher.check_ralph_loop(str(tmp_path), data)
+
+    final_state = json.loads(ralph_path.read_text(encoding="utf-8"))
+    assert final_state["active"] is False
+    assert final_state["stop_reason"] == "budget_cost_exceeded"
+    assert final_state["total_cost_usd"] > 0
+    assert "completion_report" in final_state
+    report = final_state["completion_report"]
+    assert report["total_cost_usd"] == final_state["total_cost_usd"]
+    assert report["total_iterations"] == len(final_state["iterations"])

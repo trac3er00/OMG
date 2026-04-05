@@ -226,6 +226,10 @@ _RALPH_DEFAULT_BUDGET_TOKEN_LIMIT = 500000
 _RALPH_BUDGET_WARN_RATIO = 0.70
 _RALPH_BUDGET_REFLECT_RATIO = 0.85
 _RALPH_DEFAULT_TOKENS_PER_ITERATION = 10000
+_RALPH_DEFAULT_BUDGET_COST_USD_LIMIT = 0.0  # 0 = uncapped
+_RALPH_DEFAULT_COST_PER_1K_INPUT = 0.003  # $3/M input tokens
+_RALPH_DEFAULT_COST_PER_1K_OUTPUT = 0.015  # $15/M output tokens
+_RALPH_DEFAULT_INPUT_OUTPUT_RATIO = 0.7
 _RALPH_APPROVALS_PATH = os.path.join(".omg", "state", "ralph-approvals.json")
 _RALPH_APPROVAL_AUDIT_PATH = os.path.join(
     ".omg", "state", "ledger", "ralph-approval-audit.jsonl"
@@ -1912,9 +1916,96 @@ def _stop_ralph_loop(
 ) -> tuple[list[str], list[str], bool]:
     state["active"] = False
     state["stop_reason"] = stop_reason
+
+    iterations = state.get("iterations")
+    if isinstance(iterations, list) and iterations:
+        state["completion_report"] = {
+            "total_cost_usd": state.get("total_cost_usd", 0.0),
+            "total_iterations": len(iterations),
+            "per_iteration_costs": iterations,
+            "budget_limit_tokens": state.get("budget_limit"),
+            "budget_used_tokens": state.get("budget_used"),
+        }
+
     atomic_json_write(ralph_path, state)
     _release_ralph_session_lock(project_dir)
     return [], [advisory], False
+
+
+def _build_iteration_cost_record(
+    state: dict[str, object],
+    data: dict[str, object] | None,
+    iteration: int,
+    config: dict[str, object],
+    tokens_per_iter: int,
+) -> dict[str, object]:
+    now = time.time()
+    last_ts = state.get("_last_iteration_ts")
+    wall_time = (
+        round(now - last_ts, 2)
+        if isinstance(last_ts, (int, float)) and last_ts > 0
+        else 0.0
+    )
+
+    context = data.get("_stop_ctx", {}) if isinstance(data, dict) else {}
+    ledger_entries = (
+        context.get("ledger_entries", []) if isinstance(context, dict) else []
+    )
+    if not isinstance(ledger_entries, list):
+        ledger_entries = []
+    last_mark = _safe_int(state.get("_ledger_entry_mark"), 0)
+    current_entries = ledger_entries[last_mark:]
+    tool_invocations = sum(
+        1
+        for e in current_entries
+        if isinstance(e, dict)
+        and e.get("tool") in {"Bash", "Write", "Edit", "MultiEdit", "Read"}
+    )
+
+    input_ratio = _RALPH_DEFAULT_INPUT_OUTPUT_RATIO
+    try:
+        raw_ratio = config.get("input_output_ratio")
+        if raw_ratio is not None:
+            input_ratio = max(0.1, min(0.99, float(str(raw_ratio))))
+    except (TypeError, ValueError):
+        pass
+    tokens_input = int(tokens_per_iter * input_ratio)
+    tokens_output = tokens_per_iter - tokens_input
+
+    try:
+        cost_per_1k_input = float(
+            str(
+                config.get("cost_per_1k_input_tokens", _RALPH_DEFAULT_COST_PER_1K_INPUT)
+            )
+        )
+    except (TypeError, ValueError):
+        cost_per_1k_input = _RALPH_DEFAULT_COST_PER_1K_INPUT
+    try:
+        cost_per_1k_output = float(
+            str(
+                config.get(
+                    "cost_per_1k_output_tokens", _RALPH_DEFAULT_COST_PER_1K_OUTPUT
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        cost_per_1k_output = _RALPH_DEFAULT_COST_PER_1K_OUTPUT
+
+    api_cost_usd = round(
+        (tokens_input / 1000.0 * cost_per_1k_input)
+        + (tokens_output / 1000.0 * cost_per_1k_output),
+        6,
+    )
+
+    return {
+        "iteration": iteration,
+        "tokens_input": tokens_input,
+        "tokens_output": tokens_output,
+        "api_cost_usd": api_cost_usd,
+        "tool_invocations": tool_invocations,
+        "wall_time_seconds": wall_time,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def _ralph_budget_tracking(
@@ -1926,7 +2017,7 @@ def _ralph_budget_tracking(
 
     Returns ``(stop_reason | None, advisory | None)``.
     Modifies *state* in-place to add ``budget_used``, ``budget_remaining``,
-    ``budget_limit``.
+    ``budget_limit``, and per-iteration cost records.
     """
     if not get_feature_flag("ralph_budget_tracking", default=False):
         return None, None
@@ -1970,6 +2061,49 @@ def _ralph_budget_tracking(
     state["budget_used"] = tokens_used
     state["budget_limit"] = budget_limit
     state["budget_remaining"] = max(0, budget_limit - tokens_used)
+
+    iteration = _safe_int(state.get("iteration"), 0) + 1
+    cost_record = _build_iteration_cost_record(
+        state,
+        data,
+        iteration,
+        config,
+        tokens_per_iter,
+    )
+
+    iterations = state.get("iterations")
+    if not isinstance(iterations, list):
+        iterations = []
+    iterations.append(cost_record)
+    state["iterations"] = iterations
+
+    total_cost_usd = round(
+        sum(r.get("api_cost_usd", 0.0) for r in iterations if isinstance(r, dict)),
+        6,
+    )
+    state["total_cost_usd"] = total_cost_usd
+
+    context = data.get("_stop_ctx", {}) if isinstance(data, dict) else {}
+    ledger_entries = (
+        context.get("ledger_entries", []) if isinstance(context, dict) else []
+    )
+    state["_ledger_entry_mark"] = (
+        len(ledger_entries) if isinstance(ledger_entries, list) else 0
+    )
+    state["_last_iteration_ts"] = time.time()
+
+    try:
+        cost_limit = float(
+            str(
+                config.get(
+                    "budget_cost_usd_limit", _RALPH_DEFAULT_BUDGET_COST_USD_LIMIT
+                )
+            )
+        )
+    except (TypeError, ValueError):
+        cost_limit = _RALPH_DEFAULT_BUDGET_COST_USD_LIMIT
+    if cost_limit > 0 and total_cost_usd >= cost_limit:
+        return "budget_cost_exceeded", None
 
     ratio = tokens_used / budget_limit if budget_limit > 0 else 0.0
 

@@ -1,0 +1,52 @@
+{
+  "task_id": "T27",
+  "title": "Per-iteration cost tracking and budget enforcement",
+  "timestamp": "2026-04-05T00:00:00Z",
+  "status": "complete",
+  "files_changed": [
+    "hooks/stop_dispatcher.py",
+    "tests/test_stop_dispatcher.py"
+  ],
+  "changes_summary": {
+    "stop_dispatcher.py": [
+      "Added _RALPH_DEFAULT_BUDGET_COST_USD_LIMIT, _RALPH_DEFAULT_COST_PER_1K_INPUT, _RALPH_DEFAULT_COST_PER_1K_OUTPUT, _RALPH_DEFAULT_INPUT_OUTPUT_RATIO constants",
+      "Added _build_iteration_cost_record() function: builds per-iteration cost record with tokens_input, tokens_output, api_cost_usd, tool_invocations, wall_time_seconds",
+      "Extended _ralph_budget_tracking() to record per-iteration costs in state['iterations'] list, track total_cost_usd, enforce budget_cost_usd_limit",
+      "Extended _stop_ralph_loop() to include completion_report with total_cost_usd, total_iterations, per_iteration_costs, budget_limit_tokens, budget_used_tokens"
+    ],
+    "tests/test_stop_dispatcher.py": [
+      "Added test_per_iteration_cost_breakdown: verifies iterations list with cost fields, token split, and total_cost_usd accumulation",
+      "Added test_budget_cost_enforcement_halts_ralph: verifies Ralph stops when api_cost_usd exceeds budget_cost_usd_limit, completion_report included"
+    ]
+  },
+  "test_results": {
+    "command": "python3 -m pytest tests/test_stop_dispatcher.py -v",
+    "total": 47,
+    "passed": 47,
+    "failed": 0,
+    "new_tests": [
+      "test_per_iteration_cost_breakdown",
+      "test_budget_cost_enforcement_halts_ralph"
+    ]
+  },
+  "per_iteration_cost_schema": {
+    "iteration": "int",
+    "tokens_input": "int",
+    "tokens_output": "int",
+    "api_cost_usd": "float",
+    "tool_invocations": "int",
+    "wall_time_seconds": "float",
+    "timestamp": "ISO8601"
+  },
+  "budget_enforcement": {
+    "token_based": "budget_token_limit via budget envelopes (T20 existing)",
+    "cost_based": "budget_cost_usd_limit in ralph-config.json (new T27)",
+    "stop_reasons": ["budget_exceeded", "budget_cost_exceeded"]
+  },
+  "config_keys": {
+    "budget_cost_usd_limit": "USD threshold to halt Ralph (0 = uncapped)",
+    "cost_per_1k_input_tokens": "Override input token pricing (default $0.003/1K)",
+    "cost_per_1k_output_tokens": "Override output token pricing (default $0.015/1K)",
+    "input_output_ratio": "Estimated input/output split (default 0.7)"
+  }
+}

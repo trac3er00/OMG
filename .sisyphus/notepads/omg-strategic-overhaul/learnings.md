@@ -241,3 +241,16 @@
 - Verification snapshot:
   - `python3 -m pytest tests/runtime/test_subagent_dispatcher.py -v` passed
   - `python3 -m pytest tests/runtime/ -k "agent" -v` still reports unrelated pre-existing collection errors in non-T24 modules (`agent_selector`, `router_selector`, coordinator-state shim, Python 3.11 `typing.override`).
+
+## [T27] Cost Tracking
+
+- T20's budget tracking uses flat `tokens_per_iter` estimate via `BudgetEnvelopeManager` — effective for token-based limits but lacks cost granularity
+- Per-iteration cost records stored in `state["iterations"]` list; each record: `tokens_input`, `tokens_output`, `api_cost_usd`, `tool_invocations`, `wall_time_seconds`
+- Token split uses configurable `input_output_ratio` (default 0.7 input / 0.3 output) — matches typical Claude conversation patterns
+- Cost estimation uses `cost_per_1k_input_tokens` and `cost_per_1k_output_tokens` config keys — defaults to Claude Sonnet pricing ($3/M input, $15/M output)
+- USD-based budget enforcement via `budget_cost_usd_limit` in ralph-config.json — complements existing token-based limit
+- Completion report attached to state on Ralph stop via `state["completion_report"]` — includes total_cost, iteration count, per-iteration breakdown
+- Wall time tracking uses `_last_iteration_ts` marker in state — first iteration gets 0.0 since no prior timestamp exists
+- Tool invocations tracked via ledger entry mark (`_ledger_entry_mark`) — counts entries since last iteration
+- Both existing budget tests (T20) pass unchanged — new fields are additive, existing assertions unaffected
+- pyright type errors on `config.get()` → `float()` resolved with `str()` coercion wrapper
