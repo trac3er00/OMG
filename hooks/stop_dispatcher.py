@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Stop Hook Dispatcher — Priority-based multiplexer for stop checks."""
+
 from __future__ import annotations
 
 import json
 import importlib.util
+import hashlib
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -29,6 +32,7 @@ from hooks._common import (  # noqa: E402
     get_feature_flag,
     get_project_dir,
     has_recent_tool_activity,
+    is_bypass_mode,
     json_input,
     log_hook_error,
     read_checklist_session,
@@ -48,6 +52,18 @@ bootstrap_runtime_paths(__file__)
 
 from runtime.release_run_coordinator import resolve_current_run_id  # noqa: E402
 from runtime import test_intent_lock  # noqa: E402
+from runtime.rollback_manifest import (  # noqa: E402
+    classify_side_effect,
+    create_rollback_manifest,
+    record_side_effect,
+)
+
+try:
+    from hooks.policy_engine import DESTRUCT_PATTERNS as _policy_destruct_patterns  # noqa: E402
+except Exception:
+    _policy_destruct_patterns = []
+
+DESTRUCT_PATTERNS = _policy_destruct_patterns
 
 
 setup_crash_handler("stop_dispatcher")
@@ -160,11 +176,365 @@ def _is_internal_control_path(file_path: str) -> bool:
 
 
 _RALPH_DEFAULT_TIMEOUT_MINUTES = 10
+_RALPH_DEFAULT_MAX_ITERATIONS = 50
+_RALPH_DEFAULT_CONVERGENCE_STREAK = 3
+_RALPH_DEFAULT_DELTA_THRESHOLD = 1
+_RALPH_APPROVALS_PATH = os.path.join(".omg", "state", "ralph-approvals.json")
+_RALPH_APPROVAL_AUDIT_PATH = os.path.join(
+    ".omg", "state", "ledger", "ralph-approval-audit.jsonl"
+)
+_RALPH_PROTECTED_PATH_PATTERNS = (
+    ".omg/",
+    ".omc/",
+    "hooks/",
+    "settings.json",
+)
+_RALPH_CONFIG_PATH_RE = re.compile(
+    r"(?:^|[\\/])(?:config|settings|feature-flags)(?:\..+)?$", re.IGNORECASE
+)
 
 
 def _watchdog_check(start_time):
     """Return True if the dispatcher has exceeded its wall-clock budget."""
     return (time.time() - start_time) >= (STOP_DISPATCHER_TOTAL_MAX_MS / 1000)
+
+
+def _read_json_dict(path: str) -> dict[str, object]:
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        return payload if isinstance(payload, dict) else {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _file_sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while True:
+            chunk = f.read(8192)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _capture_workspace_snapshot(project_dir: str) -> dict[str, dict[str, object]]:
+    tracked_proc = subprocess.run(
+        ["git", "ls-files", "--cached"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    tracked = {
+        line.strip() for line in tracked_proc.stdout.splitlines() if line.strip()
+    }
+
+    files_proc = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    if files_proc.returncode != 0:
+        return {}
+
+    snapshot: dict[str, dict[str, object]] = {}
+    for rel_path in [
+        line.strip() for line in files_proc.stdout.splitlines() if line.strip()
+    ]:
+        abs_path = os.path.join(project_dir, rel_path)
+        if not os.path.isfile(abs_path):
+            continue
+        try:
+            snapshot[rel_path] = {
+                "hash": _file_sha256(abs_path),
+                "tracked": rel_path in tracked,
+            }
+        except OSError:
+            continue
+    return snapshot
+
+
+def _diff_workspace_snapshots(
+    before: dict[str, dict[str, object]],
+    after: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
+    files_changed: list[dict[str, object]] = []
+    before_paths = set(before.keys())
+    after_paths = set(after.keys())
+
+    for rel_path in sorted(after_paths - before_paths):
+        info = after.get(rel_path, {})
+        files_changed.append(
+            {
+                "path": rel_path,
+                "change_type": "created",
+                "tracked": bool(info.get("tracked", False)),
+            }
+        )
+
+    for rel_path in sorted(before_paths - after_paths):
+        info = before.get(rel_path, {})
+        files_changed.append(
+            {
+                "path": rel_path,
+                "change_type": "deleted",
+                "tracked": bool(info.get("tracked", False)),
+            }
+        )
+
+    for rel_path in sorted(before_paths & after_paths):
+        old_hash = str(before.get(rel_path, {}).get("hash", ""))
+        new_hash = str(after.get(rel_path, {}).get("hash", ""))
+        if old_hash != new_hash:
+            info = after.get(rel_path, before.get(rel_path, {}))
+            files_changed.append(
+                {
+                    "path": rel_path,
+                    "change_type": "modified",
+                    "tracked": bool(info.get("tracked", False)),
+                }
+            )
+
+    return files_changed
+
+
+def _collect_new_ledger_entries(
+    project_dir: str, marker_path: str
+) -> list[dict[str, object]]:
+    ledger_path = resolve_state_file(
+        project_dir,
+        "state/ledger/tool-ledger.jsonl",
+        "ledger/tool-ledger.jsonl",
+    )
+    if not os.path.exists(ledger_path):
+        return []
+    marker = _read_json_dict(marker_path)
+    marker_line = marker.get("line")
+    last_line = marker_line if isinstance(marker_line, int) else 0
+
+    try:
+        with open(ledger_path, "r", encoding="utf-8", errors="ignore") as f:
+            lines = f.readlines()
+    except OSError:
+        return []
+
+    new_entries: list[dict[str, object]] = []
+    for raw in lines[last_line:]:
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(entry, dict):
+            new_entries.append(entry)
+
+    atomic_json_write(
+        marker_path,
+        {"line": len(lines), "updated_at": datetime.now(timezone.utc).isoformat()},
+    )
+    return new_entries
+
+
+def _side_effects_from_changes(
+    files_changed: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    effects: list[dict[str, object]] = []
+    for row in files_changed:
+        change_type = str(row.get("change_type", "modified"))
+        side_effect_type = {
+            "created": "file_created",
+            "modified": "file_modified",
+            "deleted": "file_deleted",
+        }.get(change_type, "file_modified")
+        effects.append(
+            {
+                "type": side_effect_type,
+                "path": str(row.get("path", "")),
+                "change_type": change_type,
+            }
+        )
+    return effects
+
+
+def _side_effects_from_ledger(
+    entries: list[dict[str, object]],
+    files_changed: list[dict[str, object]],
+    runtime_manifest: dict[str, object],
+) -> list[dict[str, object]]:
+    effects: list[dict[str, object]] = []
+    change_lookup = {
+        str(row.get("path", "")): str(row.get("change_type", "modified"))
+        for row in files_changed
+        if row.get("path")
+    }
+
+    for entry in entries:
+        tool = str(entry.get("tool", "")).strip()
+        lower_tool = tool.lower()
+        metadata: dict[str, object] = {}
+        if lower_tool == "bash":
+            metadata["command"] = str(entry.get("command", ""))
+        classification = classify_side_effect(lower_tool, metadata)
+        record_side_effect(runtime_manifest, classification)
+
+        if lower_tool in {"write", "edit", "multiedit"}:
+            file_path = str(entry.get("file", "")).strip()
+            if not file_path:
+                continue
+            change_type = change_lookup.get(file_path, "modified")
+            side_effect_type = {
+                "created": "file_created",
+                "deleted": "file_deleted",
+            }.get(change_type, "file_modified")
+            effects.append(
+                {
+                    "type": side_effect_type,
+                    "path": file_path,
+                    "tool": tool,
+                    "rollback": classification,
+                }
+            )
+        elif lower_tool == "bash":
+            command = str(entry.get("command", "")).strip()
+            if command:
+                effects.append(
+                    {
+                        "type": "command_executed",
+                        "tool": tool,
+                        "command": command,
+                        "rollback": classification,
+                    }
+                )
+                lowered = command.lower()
+                if any(
+                    token in lowered
+                    for token in (
+                        "settings.json",
+                        "feature-flags.json",
+                        ".omg/state",
+                        "config",
+                    )
+                ):
+                    effects.append(
+                        {
+                            "type": "config_changed",
+                            "tool": tool,
+                            "command": command,
+                            "rollback": classification,
+                        }
+                    )
+    return effects
+
+
+def _rollback_commands_for_changes(files_changed: list[dict[str, object]]) -> list[str]:
+    commands: list[str] = []
+    for row in files_changed:
+        rel_path = str(row.get("path", "")).strip()
+        if not rel_path:
+            continue
+        change_type = str(row.get("change_type", "modified"))
+        tracked = bool(row.get("tracked", False))
+        qpath = shlex.quote(rel_path)
+        if change_type == "created" and not tracked:
+            commands.append(f"rm -f {qpath}")
+        elif change_type in {"modified", "deleted"} and tracked:
+            commands.append(f"git checkout -- {qpath}")
+        elif change_type == "deleted" and not tracked:
+            commands.append(
+                f"# manual restore required for deleted untracked file: {rel_path}"
+            )
+    return commands
+
+
+def _record_ralph_iteration_rollback_manifest(
+    project_dir: str,
+    data: dict[str, object] | None,
+    state: dict[str, object],
+    iteration: int,
+) -> None:
+    if not get_feature_flag("ralph_rollback_manifests", default=False):
+        return
+
+    rollbacks_dir = os.path.join(project_dir, ".omg", "state", "ralph-rollbacks")
+    os.makedirs(rollbacks_dir, exist_ok=True)
+    snapshot_path = os.path.join(rollbacks_dir, ".snapshot.json")
+    marker_path = os.path.join(rollbacks_dir, ".ledger-marker.json")
+    manifest_path = os.path.join(rollbacks_dir, f"iteration-{iteration}.json")
+
+    prev_snapshot_payload = _read_json_dict(snapshot_path)
+    prev_snapshot = (
+        prev_snapshot_payload.get("files")
+        if isinstance(prev_snapshot_payload.get("files"), dict)
+        else {}
+    )
+    current_snapshot = _capture_workspace_snapshot(project_dir)
+    files_changed: list[dict[str, object]] = _diff_workspace_snapshots(
+        prev_snapshot if isinstance(prev_snapshot, dict) else {},
+        current_snapshot,
+    )
+
+    if not files_changed and isinstance(data, dict):
+        context = (
+            data.get("_stop_ctx") if isinstance(data.get("_stop_ctx"), dict) else {}
+        )
+        source_entries = (
+            context.get("current_turn_source_write_entries")
+            if isinstance(context, dict)
+            else []
+        )
+        if isinstance(source_entries, list):
+            files_changed = [
+                {
+                    "path": str(row.get("file", "")),
+                    "change_type": "modified",
+                    "tracked": False,
+                }
+                for row in source_entries
+                if isinstance(row, dict) and row.get("file")
+            ]
+
+    run_id = "ralph-loop"
+    if isinstance(data, dict):
+        context = (
+            data.get("_stop_ctx") if isinstance(data.get("_stop_ctx"), dict) else {}
+        )
+        if isinstance(context, dict):
+            run_id = str(context.get("current_turn_run_id") or "").strip() or run_id
+    runtime_manifest = create_rollback_manifest(run_id, f"ralph-iteration-{iteration}")
+
+    ledger_effects = _side_effects_from_ledger(
+        _collect_new_ledger_entries(project_dir, marker_path),
+        files_changed,
+        runtime_manifest,
+    )
+    side_effects = _side_effects_from_changes(files_changed) + ledger_effects
+    rollback_commands = _rollback_commands_for_changes(files_changed)
+
+    payload = {
+        "iteration": iteration,
+        "files_changed": files_changed,
+        "side_effects": side_effects,
+        "rollback_commands": rollback_commands,
+    }
+    atomic_json_write(manifest_path, payload)
+    atomic_json_write(
+        snapshot_path,
+        {
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "files": current_snapshot,
+            "state_iteration": state.get("iteration"),
+        },
+    )
 
 
 try:
@@ -177,7 +547,8 @@ _test_validator_check = None
 _quality_runner_check = None
 try:
     _tv_spec = importlib.util.spec_from_file_location(
-        "test_validator", os.path.join(os.path.dirname(__file__), "test-validator.py"))
+        "test_validator", os.path.join(os.path.dirname(__file__), "test-validator.py")
+    )
     if _tv_spec and _tv_spec.loader:
         _tv_mod = importlib.util.module_from_spec(_tv_spec)
         _tv_spec.loader.exec_module(_tv_mod)
@@ -186,7 +557,8 @@ except Exception:  # intentional: crash isolation for optional module
     _test_validator_check = None  # Optional: test-validator module not available
 try:
     _qr_spec = importlib.util.spec_from_file_location(
-        "quality_runner", os.path.join(os.path.dirname(__file__), "quality-runner.py"))
+        "quality_runner", os.path.join(os.path.dirname(__file__), "quality-runner.py")
+    )
     if _qr_spec and _qr_spec.loader:
         _qr_mod = importlib.util.module_from_spec(_qr_spec)
         _qr_spec.loader.exec_module(_qr_mod)
@@ -194,7 +566,10 @@ try:
 except Exception:  # intentional: crash isolation for optional module
     _quality_runner_check = None  # Optional: quality-runner module not available
 
-def _build_context(project_dir: str, stop_payload: dict[str, object] | None = None) -> dict[str, object]:
+
+def _build_context(
+    project_dir: str, stop_payload: dict[str, object] | None = None
+) -> dict[str, object]:
     ledger_path = resolve_state_file(
         project_dir,
         "state/ledger/tool-ledger.jsonl",
@@ -213,7 +588,10 @@ def _build_context(project_dir: str, stop_payload: dict[str, object] | None = No
                         ledger_entries.append(entry)
                     except json.JSONDecodeError:
                         try:
-                            import sys; print(f"[omg:warn] [stop_dispatcher] skipped malformed ledger line: {sys.exc_info()[1]}", file=sys.stderr)
+                            print(
+                                f"[omg:warn] [stop_dispatcher] skipped malformed ledger line: {sys.exc_info()[1]}",
+                                file=sys.stderr,
+                            )
                         except Exception:
                             pass
         except Exception as e:  # security: dispatch context building
@@ -227,9 +605,7 @@ def _build_context(project_dir: str, stop_payload: dict[str, object] | None = No
             recent_entries.append(entry)
 
     recent_commands = [
-        e.get("command", "").lower()[:300]
-        for e in recent_entries
-        if e.get("command")
+        e.get("command", "").lower()[:300] for e in recent_entries if e.get("command")
     ]
     recent_tools = {e.get("tool", "") for e in recent_entries}
     recent_exit_codes = [
@@ -238,15 +614,17 @@ def _build_context(project_dir: str, stop_payload: dict[str, object] | None = No
         if e.get("exit_code") is not None
     ]
     write_entries = [
-        e
-        for e in recent_entries
-        if e.get("tool") in ("Write", "Edit", "MultiEdit")
+        e for e in recent_entries if e.get("tool") in ("Write", "Edit", "MultiEdit")
     ]
     material_write_entries = [
-        e for e in write_entries if not _is_internal_control_path(str(e.get("file", "")))
+        e
+        for e in write_entries
+        if not _is_internal_control_path(str(e.get("file", "")))
     ]
     source_write_entries = [
-        e for e in material_write_entries if not _is_non_source_path(str(e.get("file", "")))
+        e
+        for e in material_write_entries
+        if not _is_non_source_path(str(e.get("file", "")))
     ]
 
     # --- Current-turn provenance from stop-hook payload ---
@@ -260,13 +638,20 @@ def _build_context(project_dir: str, stop_payload: dict[str, object] | None = No
     try:
         current_turn_run_id = resolve_current_run_id(project_dir)
     except Exception as e:  # security: run_id resolution is best-effort
-        print(f"[OMG] stop_dispatcher: resolve_current_run_id: {type(e).__name__}: {e}", file=sys.stderr)
+        print(
+            f"[OMG] stop_dispatcher: resolve_current_run_id: {type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
 
     current_turn_commands: list[str] = []
 
     if stop_payload and isinstance(stop_payload, dict):
         # Claude Code stop hooks use "tool_use_results" key
-        raw_tool_results = stop_payload.get("tool_use_results") or stop_payload.get("tool_results") or []
+        raw_tool_results = (
+            stop_payload.get("tool_use_results")
+            or stop_payload.get("tool_results")
+            or []
+        )
         if isinstance(raw_tool_results, list):
             for result in raw_tool_results:
                 if not isinstance(result, dict):
@@ -274,12 +659,17 @@ def _build_context(project_dir: str, stop_payload: dict[str, object] | None = No
                 tool_name = result.get("tool_name") or result.get("tool") or ""
                 file_path = str(result.get("file") or result.get("path") or "")
                 if tool_name in ("Write", "Edit", "MultiEdit") and file_path:
-                    if (not _is_internal_control_path(file_path)
-                            and not _is_non_source_path(file_path)):
+                    if not _is_internal_control_path(
+                        file_path
+                    ) and not _is_non_source_path(file_path):
                         current_turn_source_write_entries.append(result)
                 if tool_name == "Bash":
                     tool_input = result.get("tool_input")
-                    cmd = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+                    cmd = (
+                        tool_input.get("command", "")
+                        if isinstance(tool_input, dict)
+                        else ""
+                    )
                     if cmd:
                         current_turn_commands.append(cmd.lower()[:300])
 
@@ -315,12 +705,16 @@ def check_verification(data, project_dir):
     recent_commands = context["recent_commands"]
     current_turn_commands = context.get("current_turn_commands", [])
     all_commands = recent_commands + current_turn_commands
-    has_source_writes = context["has_source_writes"] or context.get("current_turn_has_source_writes", False)
+    has_source_writes = context["has_source_writes"] or context.get(
+        "current_turn_has_source_writes", False
+    )
 
     skip_verification_block = False
 
     # Cooldown: if recently blocked and current turn has test commands, skip check
-    cooldown_path = os.path.join(project_dir, ".omg/state/ledger/.verification-blocked.json")
+    cooldown_path = os.path.join(
+        project_dir, ".omg/state/ledger/.verification-blocked.json"
+    )
     if current_turn_commands and os.path.exists(cooldown_path):
         try:
             with open(cooldown_path, "r", encoding="utf-8") as f:
@@ -328,19 +722,35 @@ def check_verification(data, project_dir):
             elapsed = time.time() - cooldown.get("ts", 0)
             if elapsed < 60:
                 has_test_in_turn = any(
-                    any(kw in cmd for kw in ["test", "jest", "vitest", "pytest", "cargo test", "go test"])
+                    any(
+                        kw in cmd
+                        for kw in [
+                            "test",
+                            "jest",
+                            "vitest",
+                            "pytest",
+                            "cargo test",
+                            "go test",
+                        ]
+                    )
                     for cmd in current_turn_commands
                 )
                 if has_test_in_turn:
                     skip_verification_block = True
         except Exception:
             try:
-                print(f"[omg:warn] [stop_dispatcher] failed to read verification cooldown: {sys.exc_info()[1]}", file=sys.stderr)
+                print(
+                    f"[omg:warn] [stop_dispatcher] failed to read verification cooldown: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
 
     has_test = any(
-        any(kw in cmd for kw in ["test", "jest", "vitest", "pytest", "cargo test", "go test"])
+        any(
+            kw in cmd
+            for kw in ["test", "jest", "vitest", "pytest", "cargo test", "go test"]
+        )
         for cmd in all_commands
     )
     has_lint = any(
@@ -348,14 +758,19 @@ def check_verification(data, project_dir):
         for cmd in all_commands
     )
     has_build = any(
-        any(kw in cmd for kw in ["build", "compile", "tsc", "cargo build", "go build", "make"])
+        any(
+            kw in cmd
+            for kw in ["build", "compile", "tsc", "cargo build", "go build", "make"]
+        )
         for cmd in all_commands
     )
     has_any_verification = has_test or has_lint or has_build
 
     data["_has_test"] = has_test
 
-    qg_path = resolve_state_file(project_dir, "state/quality-gate.json", "quality-gate.json")
+    qg_path = resolve_state_file(
+        project_dir, "state/quality-gate.json", "quality-gate.json"
+    )
     expected_checks = []
     if os.path.exists(qg_path):
         try:
@@ -385,10 +800,15 @@ def check_verification(data, project_dir):
             )
         # Write cooldown marker so next invocation with test commands can skip
         try:
-            atomic_json_write(cooldown_path, {"ts": time.time(), "reason": "verification_missing"})
+            atomic_json_write(
+                cooldown_path, {"ts": time.time(), "reason": "verification_missing"}
+            )
         except Exception:
             try:
-                print(f"[omg:warn] [stop_dispatcher] failed to write verification cooldown: {sys.exc_info()[1]}", file=sys.stderr)
+                print(
+                    f"[omg:warn] [stop_dispatcher] failed to write verification cooldown: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
 
@@ -408,11 +828,15 @@ def check_verification(data, project_dir):
             try:
                 has_ev = bool(has_recent_evidence(project_dir, hours=24))
             except Exception as e:  # security: evidence verification
-                print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
+                print(
+                    f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr
+                )
                 has_ev = False
         else:
             ev_dir = os.path.join(project_dir, ".omg", "evidence")
-            has_ev = os.path.isdir(ev_dir) and any(n.endswith(".json") for n in os.listdir(ev_dir))
+            has_ev = os.path.isdir(ev_dir) and any(
+                n.endswith(".json") for n in os.listdir(ev_dir)
+            )
 
         if not has_ev:
             message = (
@@ -490,7 +914,10 @@ def check_diff_budget(data, project_dir):
                     total_loc += added + removed
                 except ValueError:
                     try:
-                        import sys; print(f"[omg:warn] [stop_dispatcher] skipped unparseable git numstat line: {sys.exc_info()[1]}", file=sys.stderr)
+                        print(
+                            f"[omg:warn] [stop_dispatcher] skipped unparseable git numstat line: {sys.exc_info()[1]}",
+                            file=sys.stderr,
+                        )
                     except Exception:
                         pass
 
@@ -773,7 +1200,9 @@ def _proof_chain_strict_enabled() -> bool:
     return os.environ.get("OMG_PROOF_CHAIN_STRICT", "1").strip() != "0"
 
 
-def _load_test_delta_from_evidence(project_dir: str, run_id: str | None) -> dict[str, object]:
+def _load_test_delta_from_evidence(
+    project_dir: str, run_id: str | None
+) -> dict[str, object]:
     evidence_dir = os.path.join(project_dir, ".omg", "evidence")
     if not os.path.isdir(evidence_dir):
         return {}
@@ -837,18 +1266,26 @@ def check_tdd_proof_chain(data, project_dir):
 
     context = data["_stop_ctx"]
     has_current_turn_writes = context.get("current_turn_has_source_writes")
-    has_writes = has_current_turn_writes if has_current_turn_writes is not None else context.get("has_source_writes", False)
+    has_writes = (
+        has_current_turn_writes
+        if has_current_turn_writes is not None
+        else context.get("has_source_writes", False)
+    )
     if not has_writes:
         return []
 
     run_id = resolve_current_run_id(project_dir=project_dir)
     lock_verdict = test_intent_lock.verify_lock(project_dir, run_id=run_id)
-    delta_summary = data.get("_test_delta") if isinstance(data.get("_test_delta"), dict) else {}
+    delta_summary = (
+        data.get("_test_delta") if isinstance(data.get("_test_delta"), dict) else {}
+    )
     if not delta_summary:
         delta_summary = _load_test_delta_from_evidence(project_dir, run_id)
 
     lock_missing = str(lock_verdict.get("status", "")).strip() != "ok"
-    weakened_without_waiver = _has_weakened_or_drift(delta_summary) and not _has_waiver_artifact(delta_summary)
+    weakened_without_waiver = _has_weakened_or_drift(
+        delta_summary
+    ) and not _has_waiver_artifact(delta_summary)
     if not lock_missing and not weakened_without_waiver:
         return []
 
@@ -857,28 +1294,47 @@ def check_tdd_proof_chain(data, project_dir):
         _tdd_reason_code = "tdd_proof_chain_incomplete"
         try:
             from runtime.evidence_narrator import format_block_explanation
-            _tdd_explanation = format_block_explanation(_tdd_reason_code, {"tool": "stop_dispatcher"})
+
+            _tdd_explanation = format_block_explanation(
+                _tdd_reason_code, {"tool": "stop_dispatcher"}
+            )
             _tdd_enhanced_reason = f"{_tdd_reason_code}: {_tdd_explanation}"
         except Exception:
             _tdd_enhanced_reason = _tdd_reason_code
         try:
             import os as _tdd_os
             from datetime import datetime as _tdd_dt, timezone as _tdd_tz
+
             _tdd_artifact_dir = _tdd_os.path.join(project_dir, ".omg", "state")
             _tdd_os.makedirs(_tdd_artifact_dir, exist_ok=True)
-            with open(_tdd_os.path.join(_tdd_artifact_dir, "last-block-explanation.json"), "w", encoding="utf-8") as _tdd_f:
-                json.dump({
-                    "reason_code": _tdd_reason_code,
-                    "explanation": _tdd_enhanced_reason,
-                    "tool": "stop_dispatcher",
-                    "timestamp": _tdd_dt.now(_tdd_tz.utc).isoformat(),
-                }, _tdd_f, indent=2)
+            with open(
+                _tdd_os.path.join(_tdd_artifact_dir, "last-block-explanation.json"),
+                "w",
+                encoding="utf-8",
+            ) as _tdd_f:
+                json.dump(
+                    {
+                        "reason_code": _tdd_reason_code,
+                        "explanation": _tdd_enhanced_reason,
+                        "tool": "stop_dispatcher",
+                        "timestamp": _tdd_dt.now(_tdd_tz.utc).isoformat(),
+                    },
+                    _tdd_f,
+                    indent=2,
+                )
         except Exception:
             try:
-                print(f"[omg:warn] [stop_dispatcher] failed to persist tdd block explanation: {sys.exc_info()[1]}", file=sys.stderr)
+                print(
+                    f"[omg:warn] [stop_dispatcher] failed to persist tdd block explanation: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
-        return [json.dumps({"status": "blocked", "reason": _tdd_enhanced_reason}, sort_keys=True)]
+        return [
+            json.dumps(
+                {"status": "blocked", "reason": _tdd_enhanced_reason}, sort_keys=True
+            )
+        ]
 
     warnings.warn(
         "tdd_proof_chain_incomplete_permissive",
@@ -892,6 +1348,7 @@ def check_tdd_proof_chain(data, project_dir):
     )
     return []
 
+
 def check_simplifier(data, project_dir):
     """CHECK 7: Code simplifier — advisory only, never blocks."""
     if not get_feature_flag("simplifier", True):
@@ -903,12 +1360,12 @@ def check_simplifier(data, project_dir):
         return []
 
     generic_name_re = re.compile(
-        r'\b(data|result|item|temp|val|obj|info|stuff|thing)\b'
+        r"\b(data|result|item|temp|val|obj|info|stuff|thing)\b"
     )
     noise_comment_re = re.compile(
-        r'^\s*(#|//) (get|set|return|check|create|update|delete) '
+        r"^\s*(#|//) (get|set|return|check|create|update|delete) "
     )
-    def_line_re = re.compile(r'^\s*(def |let |const |var )')
+    def_line_re = re.compile(r"^\s*(def |let |const |var )")
 
     advisories = []
     seen = set()
@@ -939,8 +1396,7 @@ def check_simplifier(data, project_dir):
 
         total = len(lines)
         comment_count = sum(
-            1 for line in lines
-            if line.strip() and _COMMENT_LINE_RE.match(line)
+            1 for line in lines if line.strip() and _COMMENT_LINE_RE.match(line)
         )
 
         if total > 0 and comment_count / total > 0.40:
@@ -972,12 +1428,12 @@ def check_simplifier(data, project_dir):
 
 def format_ralph_block_reason(state, project_dir):
     """Build the rich reason string that Claude sees as its next prompt."""
-    original = state.get('original_prompt', '')
-    iteration = state.get('iteration', 0)
-    max_iter = state.get('max_iterations', 50)
-    checklist_path = state.get('checklist_path', '')
+    original = state.get("original_prompt", "")
+    iteration = state.get("iteration", 0)
+    max_iter = state.get("max_iterations", 50)
+    checklist_path = state.get("checklist_path", "")
 
-    progress = ''
+    progress = ""
     if checklist_path:
         full = os.path.join(project_dir, checklist_path)
         if os.path.exists(full):
@@ -986,10 +1442,13 @@ def format_ralph_block_reason(state, project_dir):
                     lines = f.readlines()
                     done = sum(1 for l in lines if _CHECKLIST_DONE_MARK_RE.search(l))
                     total = sum(1 for l in lines if _CHECKLIST_ITEM_MARK_RE.search(l))
-                    progress = f' | Progress: {done}/{total}'
+                    progress = f" | Progress: {done}/{total}"
             except OSError:
                 try:
-                    print(f"[omg:warn] [stop_dispatcher] failed to read checklist progress: {sys.exc_info()[1]}", file=sys.stderr)
+                    print(
+                        f"[omg:warn] [stop_dispatcher] failed to read checklist progress: {sys.exc_info()[1]}",
+                        file=sys.stderr,
+                    )
                 except Exception:
                     pass
 
@@ -998,6 +1457,290 @@ def format_ralph_block_reason(state, project_dir):
         f"Continue working on: {original}\n"
         f"If truly done, run: /OMG:ralph-stop"
     )
+
+
+def _acquire_ralph_session_lock(project_dir):
+    """Acquire session lock for Ralph loop, with stale-lock detection.
+
+    Returns True if lock acquired or already owned by this process.
+    Raises RuntimeError if another live process holds the lock.
+    """
+    lock_path = os.path.join(project_dir, ".omg", "state", "ralph-loop.lock")
+    my_pid = os.getpid()
+
+    if os.path.exists(lock_path):
+        try:
+            with open(lock_path, "r", encoding="utf-8") as f:
+                lock_data = json.load(f)
+            owner_pid = lock_data.get("pid")
+            if owner_pid is not None and owner_pid == my_pid:
+                return True  # We already own the lock
+            if owner_pid is not None:
+                try:
+                    os.kill(int(owner_pid), 0)
+                    # PID is alive — another session owns the lock
+                    raise RuntimeError(
+                        f"Ralph loop already active in another session (PID: {owner_pid})"
+                    )
+                except (OSError, ProcessLookupError):
+                    # PID is dead — stale lock, fall through to acquire
+                    try:
+                        print(
+                            f"[omg:info] Breaking stale Ralph lock (dead PID: {owner_pid})",
+                            file=sys.stderr,
+                        )
+                    except Exception:
+                        pass
+        except (json.JSONDecodeError, OSError, ValueError):
+            pass  # Corrupt lock file — overwrite it
+
+    os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+    atomic_json_write(
+        lock_path,
+        {
+            "pid": my_pid,
+            "acquired_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    return True
+
+
+def _release_ralph_session_lock(project_dir):
+    """Release session lock for Ralph loop."""
+    lock_path = os.path.join(project_dir, ".omg", "state", "ralph-loop.lock")
+    try:
+        if os.path.exists(lock_path):
+            os.remove(lock_path)
+    except OSError:
+        try:
+            print(
+                f"[omg:warn] failed to release Ralph session lock: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
+        except Exception:
+            pass
+
+
+def _normalize_path_for_match(value: object) -> str:
+    text = str(value or "").strip().replace("\\", "/")
+    return text.lstrip("./")
+
+
+def _is_protected_mutation_path(path_value: object) -> bool:
+    normalized = _normalize_path_for_match(path_value).lower()
+    return any(pattern in normalized for pattern in _RALPH_PROTECTED_PATH_PATTERNS)
+
+
+def _is_config_mutation_path(path_value: object) -> bool:
+    normalized = _normalize_path_for_match(path_value)
+    if not normalized:
+        return False
+    basename = os.path.basename(normalized)
+    return bool(
+        _RALPH_CONFIG_PATH_RE.search(basename)
+        or _RALPH_CONFIG_PATH_RE.search(normalized)
+    )
+
+
+def _load_ralph_preapprovals(project_dir: str) -> dict[str, object]:
+    path = os.path.join(project_dir, _RALPH_APPROVALS_PATH)
+    if not os.path.exists(path):
+        return {"allow_all": False, "approved_actions": set()}
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        return {"allow_all": False, "approved_actions": set()}
+    if not isinstance(payload, dict):
+        return {"allow_all": False, "approved_actions": set()}
+
+    approved_actions: set[str] = set()
+    for key in ("approved_actions", "approvals"):
+        raw_values = payload.get(key)
+        if isinstance(raw_values, list):
+            for item in raw_values:
+                if isinstance(item, str) and item.strip():
+                    approved_actions.add(item.strip())
+                elif isinstance(item, dict):
+                    action_key = str(
+                        item.get("action_key") or item.get("key") or ""
+                    ).strip()
+                    if action_key:
+                        approved_actions.add(action_key)
+
+    allow_all = bool(
+        payload.get("allow_all_destructive") is True or payload.get("allow_all") is True
+    )
+    return {"allow_all": allow_all, "approved_actions": approved_actions}
+
+
+def _is_interactive_session() -> bool:
+    return bool(sys.stdin.isatty() and sys.stdout.isatty())
+
+
+def _log_ralph_approval_decision(project_dir: str, event: dict[str, object]) -> None:
+    ledger_path = os.path.join(project_dir, _RALPH_APPROVAL_AUDIT_PATH)
+    os.makedirs(os.path.dirname(ledger_path), exist_ok=True)
+    record = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        **event,
+    }
+    with open(ledger_path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, separators=(",", ":")) + "\n")
+
+
+def _ralph_detect_destructive_actions(data: dict[str, object]) -> list[dict[str, str]]:
+    raw_tool_results = []
+    if isinstance(data, dict):
+        raw_tool_results = (
+            data.get("tool_use_results") or data.get("tool_results") or []
+        )
+    if not isinstance(raw_tool_results, list):
+        return []
+
+    findings: list[dict[str, str]] = []
+    for result in raw_tool_results:
+        if not isinstance(result, dict):
+            continue
+        tool_name = str(result.get("tool_name") or result.get("tool") or "").strip()
+        if not tool_name:
+            continue
+        normalized_tool = tool_name.lower()
+
+        if normalized_tool == "bash":
+            tool_input = result.get("tool_input")
+            command = str(
+                tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+            ).strip()
+            if not command:
+                continue
+            if any(re.search(pattern, command) for pattern, _ in DESTRUCT_PATTERNS):
+                findings.append(
+                    {
+                        "category": "file_delete",
+                        "tool": "Bash",
+                        "target": command,
+                        "summary": "Destructive bash command detected",
+                        "action_key": f"Bash:{command}",
+                    }
+                )
+                continue
+            if re.search(r"\b(rm|rmdir|unlink)\b", command):
+                findings.append(
+                    {
+                        "category": "file_delete",
+                        "tool": "Bash",
+                        "target": command,
+                        "summary": "File delete command detected",
+                        "action_key": f"Bash:{command}",
+                    }
+                )
+            continue
+
+        if normalized_tool in {"delete", "remove"}:
+            target_path = _normalize_path_for_match(
+                result.get("file") or result.get("path") or ""
+            )
+            findings.append(
+                {
+                    "category": "file_delete",
+                    "tool": tool_name,
+                    "target": target_path or "(unknown)",
+                    "summary": "File deletion tool detected",
+                    "action_key": f"{tool_name}:{target_path or '(unknown)'}",
+                }
+            )
+            continue
+
+        if normalized_tool in {"write", "edit", "multiedit"}:
+            target_path = _normalize_path_for_match(
+                result.get("file") or result.get("path") or ""
+            )
+            if not target_path:
+                continue
+            if _is_protected_mutation_path(target_path):
+                findings.append(
+                    {
+                        "category": "protected_path_mutation",
+                        "tool": tool_name,
+                        "target": target_path,
+                        "summary": "Protected path mutation detected",
+                        "action_key": f"{tool_name}:{target_path}:protected",
+                    }
+                )
+                continue
+            if _is_config_mutation_path(target_path):
+                findings.append(
+                    {
+                        "category": "config_overwrite",
+                        "tool": tool_name,
+                        "target": target_path,
+                        "summary": "Configuration overwrite detected",
+                        "action_key": f"{tool_name}:{target_path}:config",
+                    }
+                )
+
+    return findings
+
+
+def _evaluate_ralph_approval_gate(
+    project_dir: str, data: dict[str, object]
+) -> str | None:
+    destructive_actions = _ralph_detect_destructive_actions(data)
+    if not destructive_actions:
+        return None
+
+    approvals = _load_ralph_preapprovals(project_dir)
+    allow_all = bool(approvals.get("allow_all"))
+    approved_actions = approvals.get("approved_actions")
+    approved_set = approved_actions if isinstance(approved_actions, set) else set()
+
+    for action in destructive_actions:
+        action_key = str(action.get("action_key", "")).strip()
+        summary = str(action.get("summary", "Destructive action detected"))
+        target = str(action.get("target", "")).strip()
+
+        if allow_all or (action_key and action_key in approved_set):
+            _log_ralph_approval_decision(
+                project_dir,
+                {
+                    "decision": "approved",
+                    "mode": "preapproved",
+                    "action": action,
+                },
+            )
+            continue
+
+        approved = False
+        decision_mode = "auto_deny"
+        if _is_interactive_session():
+            decision_mode = "cli_prompt"
+            prompt = (
+                f"[OMG Ralph] Approval required for destructive action ({summary}: {target}). "
+                "Proceed? [y/N]: "
+            )
+            try:
+                response = input(prompt).strip().lower()
+            except EOFError:
+                response = ""
+            approved = response in {"y", "yes"}
+
+        _log_ralph_approval_decision(
+            project_dir,
+            {
+                "decision": "approved" if approved else "denied",
+                "mode": decision_mode,
+                "action": action,
+            },
+        )
+        if not approved:
+            return (
+                f"Ralph approval gate denied destructive action ({summary}: {target}). "
+                f"Add pre-approval in {_RALPH_APPROVALS_PATH} or run interactively to approve."
+            )
+
+    return None
+
 
 def persist_ralph_question(project_dir, question_text):
     """Persist a pending clarification question in the Ralph loop state.
@@ -1020,6 +1763,113 @@ def persist_ralph_question(project_dir, question_text):
     atomic_json_write(ralph_path, state)
 
 
+def _safe_int(value: object, default: int, minimum: int = 0) -> int:
+    if not isinstance(value, (int, float, str)):
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    if parsed < minimum:
+        return default
+    return parsed
+
+
+def _load_ralph_config(project_dir: str) -> dict[str, object]:
+    config_path = resolve_state_file(
+        project_dir,
+        "state/ralph-config.json",
+        "ralph-config.json",
+    )
+    if not os.path.exists(config_path):
+        return {}
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _collect_ralph_delta_metrics(
+    project_dir: str,
+    data: dict[str, object] | None,
+) -> dict[str, object]:
+    changed_file_count = 0
+    try:
+        diff_result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=project_dir,
+            check=False,
+        )
+        if diff_result.returncode == 0:
+            changed_file_count = len(
+                [line for line in diff_result.stdout.splitlines() if line.strip()]
+            )
+    except Exception:
+        changed_file_count = 0
+
+    context = {}
+    if isinstance(data, dict) and isinstance(data.get("_stop_ctx"), dict):
+        context = data.get("_stop_ctx", {})
+    ledger_entries = context.get("ledger_entries") if isinstance(context, dict) else []
+    if not isinstance(ledger_entries, list):
+        ledger_entries = []
+
+    tracked_invocations = 0
+    test_result_signature: list[str] = []
+    for entry in ledger_entries:
+        if not isinstance(entry, dict):
+            continue
+        tool_name = str(entry.get("tool", ""))
+        if tool_name in {"Bash", "Write", "Edit", "MultiEdit"}:
+            tracked_invocations += 1
+        if tool_name != "Bash":
+            continue
+        command = str(entry.get("command", "")).lower()
+        if any(
+            token in command
+            for token in ("pytest", " test", "jest", "vitest", "cargo test", "go test")
+        ):
+            test_result_signature.append(f"{command[:120]}::{entry.get('exit_code')}")
+
+    return {
+        "changed_file_count": changed_file_count,
+        "tracked_tool_invocations": tracked_invocations,
+        "test_result_signature": test_result_signature[-3:],
+    }
+
+
+def _ralph_delta_score(previous: dict[str, object], current: dict[str, object]) -> int:
+    prev_files = _safe_int(previous.get("changed_file_count"), 0)
+    curr_files = _safe_int(current.get("changed_file_count"), 0)
+    prev_tools = _safe_int(previous.get("tracked_tool_invocations"), 0)
+    curr_tools = _safe_int(current.get("tracked_tool_invocations"), 0)
+    tests_changed = (
+        0
+        if previous.get("test_result_signature") == current.get("test_result_signature")
+        else 1
+    )
+    return abs(curr_files - prev_files) + abs(curr_tools - prev_tools) + tests_changed
+
+
+def _stop_ralph_loop(
+    project_dir: str,
+    ralph_path: str,
+    state: dict[str, object],
+    stop_reason: str,
+    advisory: str,
+) -> tuple[list[str], list[str], bool]:
+    state["active"] = False
+    state["stop_reason"] = stop_reason
+    atomic_json_write(ralph_path, state)
+    _release_ralph_session_lock(project_dir)
+    return [], [advisory], False
+
+
 def check_ralph_loop(project_dir, data):
     """Check Ralph loop state and return (block_reasons, advisories, is_question).
 
@@ -1027,8 +1877,6 @@ def check_ralph_loop(project_dir, data):
     caller MUST use block_reason="clarification_required" so that the turn
     ends without any further tool action.
     """
-    del data
-
     if not get_feature_flag("ralph_loop"):
         return [], [], False
     ralph_path = os.path.join(project_dir, ".omg", "state", "ralph-loop.json")
@@ -1042,6 +1890,47 @@ def check_ralph_loop(project_dir, data):
     if not state.get("active"):
         return [], [], False
 
+    if state.get("completed") is True:
+        return _stop_ralph_loop(
+            project_dir,
+            ralph_path,
+            state,
+            "completed",
+            "Ralph loop marked completed. Stopping.",
+        )
+
+    if state.get("user_stop") is True or state.get("stop_requested") is True:
+        return _stop_ralph_loop(
+            project_dir,
+            ralph_path,
+            state,
+            "user_stop",
+            "Ralph loop stopped by user request.",
+        )
+
+    config = _load_ralph_config(project_dir)
+    configured_max_iterations = _safe_int(
+        config.get("max_iterations"), _RALPH_DEFAULT_MAX_ITERATIONS, minimum=1
+    )
+    state["max_iterations"] = configured_max_iterations
+
+    if is_bypass_mode(data):
+        raise RuntimeError(
+            "Ralph loop cannot run with bypass mode active. Disable bypassPermissions first."
+        )
+
+    if get_feature_flag("ralph_approval_gate", default=False):
+        approval_block = _evaluate_ralph_approval_gate(
+            project_dir, data if isinstance(data, dict) else {}
+        )
+        if approval_block:
+            return [approval_block], [], False
+
+    try:
+        _acquire_ralph_session_lock(project_dir)
+    except RuntimeError as exc:
+        return [str(exc)], [], False
+
     # --- Pending clarification question: block and end turn immediately ---
     if state.get("question_pending"):
         question_text = str(state.get("question_text", "")).strip()
@@ -1053,7 +1942,11 @@ def check_ralph_loop(project_dir, data):
     # Check if Ralph loop has expired
     _raw_timeout = os.environ.get("OMG_RALPH_TIMEOUT_MINUTES", "")
     try:
-        timeout_minutes = int(_raw_timeout) if _raw_timeout.strip() else _RALPH_DEFAULT_TIMEOUT_MINUTES
+        timeout_minutes = (
+            int(_raw_timeout)
+            if _raw_timeout.strip()
+            else _RALPH_DEFAULT_TIMEOUT_MINUTES
+        )
     except (ValueError, TypeError):
         timeout_minutes = _RALPH_DEFAULT_TIMEOUT_MINUTES
     started_at_str = state.get("started_at")
@@ -1063,22 +1956,81 @@ def check_ralph_loop(project_dir, data):
             now = datetime.now(timezone.utc)
             elapsed = now - started_at
             if elapsed.total_seconds() > timeout_minutes * 60:
-                state["active"] = False
-                atomic_json_write(ralph_path, state)
-                return [], [f"Ralph loop expired after {timeout_minutes} minutes. Stopping."], False
+                return _stop_ralph_loop(
+                    project_dir,
+                    ralph_path,
+                    state,
+                    "timeout",
+                    f"Ralph loop expired after {timeout_minutes} minutes. Stopping.",
+                )
         except (ValueError, TypeError):
             try:
-                import sys; print(f"[omg:warn] [stop_dispatcher] failed to parse Ralph loop start timestamp: {sys.exc_info()[1]}", file=sys.stderr)
+                import sys
+
+                print(
+                    f"[omg:warn] [stop_dispatcher] failed to parse Ralph loop start timestamp: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
-    
-    iteration = state.get("iteration", 0)
-    max_iter = state.get("max_iterations", 50)
+
+    if get_feature_flag("ralph_convergence_detection", default=False):
+        no_delta_iterations = _safe_int(
+            config.get("convergence_no_delta_iterations"),
+            _RALPH_DEFAULT_CONVERGENCE_STREAK,
+            minimum=1,
+        )
+        delta_threshold = _safe_int(
+            config.get("convergence_delta_threshold"),
+            _RALPH_DEFAULT_DELTA_THRESHOLD,
+            minimum=1,
+        )
+        previous_metrics = state.get("last_delta_metrics")
+        if not isinstance(previous_metrics, dict):
+            previous_metrics = {}
+        current_metrics = _collect_ralph_delta_metrics(project_dir, data)
+        delta_score = (
+            _ralph_delta_score(previous_metrics, current_metrics)
+            if previous_metrics
+            else delta_threshold
+        )
+        no_delta_streak = _safe_int(state.get("no_delta_streak"), 0)
+        if previous_metrics and delta_score < delta_threshold:
+            no_delta_streak += 1
+        else:
+            no_delta_streak = 0
+        state["last_delta_metrics"] = current_metrics
+        state["last_delta_score"] = delta_score
+        state["no_delta_streak"] = no_delta_streak
+        if no_delta_streak >= no_delta_iterations:
+            return _stop_ralph_loop(
+                project_dir,
+                ralph_path,
+                state,
+                "converged_no_delta",
+                (
+                    "Ralph loop converged with no meaningful delta "
+                    f"for {no_delta_iterations} consecutive iterations. Stopping."
+                ),
+            )
+
+    iteration = _safe_int(state.get("iteration"), 0)
+    max_iter = _safe_int(
+        state.get("max_iterations"), _RALPH_DEFAULT_MAX_ITERATIONS, minimum=1
+    )
     if iteration >= max_iter:
-        state["active"] = False
-        atomic_json_write(ralph_path, state)
-        return [], ["Ralph loop reached max iterations. Stopping."], False
-    state["iteration"] = iteration + 1
+        return _stop_ralph_loop(
+            project_dir,
+            ralph_path,
+            state,
+            "max_iterations",
+            "Ralph loop reached max iterations. Stopping.",
+        )
+
+    next_iteration = iteration + 1
+    _record_ralph_iteration_rollback_manifest(project_dir, data, state, next_iteration)
+    state["iteration"] = next_iteration
+    state.pop("stop_reason", None)
     atomic_json_write(ralph_path, state)
     reason = format_ralph_block_reason(state, project_dir)
     return [reason], [], False
@@ -1087,7 +2039,9 @@ def check_ralph_loop(project_dir, data):
 def check_planning_gate(project_dir, data=None):
     if not get_feature_flag("planning_enforcement"):
         return [], []
-    current_turn_has_writes = (data or {}).get("_stop_ctx", {}).get("current_turn_has_source_writes", True)
+    current_turn_has_writes = (
+        (data or {}).get("_stop_ctx", {}).get("current_turn_has_source_writes", True)
+    )
     if not current_turn_has_writes:
         return [], []
     checklist = resolve_state_file(project_dir, "state/_checklist.md", "_checklist.md")
@@ -1121,15 +2075,22 @@ def check_planning_gate(project_dir, data=None):
             created_at = str(session_data.get("created_at", "")).strip()
             if not stale_reason and created_at:
                 try:
-                    created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    created_dt = datetime.fromisoformat(
+                        created_at.replace("Z", "+00:00")
+                    )
                     if created_dt.tzinfo is None:
                         created_dt = created_dt.replace(tzinfo=timezone.utc)
-                    age = datetime.now(timezone.utc) - created_dt.astimezone(timezone.utc)
+                    age = datetime.now(timezone.utc) - created_dt.astimezone(
+                        timezone.utc
+                    )
                     if age.total_seconds() > 2 * 3600:
                         stale_reason = f"{age.total_seconds() / 3600:.1f}h old"
                 except (ValueError, TypeError):
                     try:
-                        print(f"[omg:warn] [stop_dispatcher] failed to parse checklist session age: {sys.exc_info()[1]}", file=sys.stderr)
+                        print(
+                            f"[omg:warn] [stop_dispatcher] failed to parse checklist session age: {sys.exc_info()[1]}",
+                            file=sys.stderr,
+                        )
                     except Exception:
                         pass
         else:
@@ -1139,7 +2100,10 @@ def check_planning_gate(project_dir, data=None):
                     stale_reason = f"{age_hours:.1f}h old (mtime fallback)"
             except OSError:
                 try:
-                    print(f"[omg:warn] [stop_dispatcher] failed to compute checklist mtime age: {sys.exc_info()[1]}", file=sys.stderr)
+                    print(
+                        f"[omg:warn] [stop_dispatcher] failed to compute checklist mtime age: {sys.exc_info()[1]}",
+                        file=sys.stderr,
+                    )
                 except Exception:
                     pass
 
@@ -1151,7 +2115,9 @@ def check_planning_gate(project_dir, data=None):
             ]
 
         # Check context pressure — demote to advisory if high
-        _pressure_path = os.path.join(project_dir, ".omg", "state", ".context-pressure.json")
+        _pressure_path = os.path.join(
+            project_dir, ".omg", "state", ".context-pressure.json"
+        )
         _is_high_pressure = False
         try:
             if os.path.exists(_pressure_path):
@@ -1160,14 +2126,19 @@ def check_planning_gate(project_dir, data=None):
                 _is_high_pressure = _pressure.get("is_high", False)
         except Exception:
             try:
-                print(f"[omg:warn] [stop_dispatcher] failed to read context pressure sidecar: {sys.exc_info()[1]}", file=sys.stderr)
+                print(
+                    f"[omg:warn] [stop_dispatcher] failed to read context pressure sidecar: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
             except Exception:
                 pass
-        
+
         if _is_high_pressure:
             # Demote to advisory — don't block when context is exhausted
-            return [], [f"[OMG advisory] Planning gate: {done}/{total} complete, {pending} pending. (demoted: context pressure high)"]
-        
+            return [], [
+                f"[OMG advisory] Planning gate: {done}/{total} complete, {pending} pending. (demoted: context pressure high)"
+            ]
+
         return [
             f"Planning gate: {done}/{total} complete, {pending} pending. Complete checklist before finishing."
         ], []
@@ -1210,11 +2181,12 @@ def check_scope_drift(project_dir):
         mentioned = sum(1 for f in changed_files if os.path.basename(f) in plan_content)
         outside = len(changed_files) - mentioned
         if changed_files and (outside / len(changed_files)) > 0.3:
-            return [f"Scope drift: {outside}/{len(changed_files)} changed files not in plan."]
+            return [
+                f"Scope drift: {outside}/{len(changed_files)} changed files not in plan."
+            ]
     except Exception as e:  # security: scope drift detection
         print(f"[OMG] stop_dispatcher: {type(e).__name__}: {e}", file=sys.stderr)
     return []
-
 
 
 def check_todo_continuation(data: dict[str, object]) -> dict[str, str] | None:
@@ -1249,7 +2221,7 @@ def check_todo_continuation(data: dict[str, object]) -> dict[str, str] | None:
 
     return {
         "decision": "block",
-        "reason": f"Incomplete todos detected ({incomplete_count} items). Please complete: {', '.join(incomplete_items[:3])}"
+        "reason": f"Incomplete todos detected ({incomplete_count} items). Please complete: {', '.join(incomplete_items[:3])}",
     }
 
 
@@ -1296,7 +2268,9 @@ def _main_body(_watchdog_start):
     # P2: Planning enforcement (implemented in Task 22)
     block_reasons, advisories = check_planning_gate(project_dir, data=data)
     if block_reasons:
-        block_decision(block_reasons[0], block_reason="planning_gate", project_dir=project_dir)
+        block_decision(
+            block_reasons[0], block_reason="planning_gate", project_dir=project_dir
+        )
         return
     advisories.extend(check_scope_drift(project_dir))
     if advisories:
@@ -1312,7 +2286,11 @@ def _main_body(_watchdog_start):
     _p3_elapsed = (time.monotonic() - _p3_start) * 1000
     check_performance_budget("check_todo_continuation", _p3_elapsed, STOP_CHECK_MAX_MS)
     if todo_result and todo_result.get("decision") == "block":
-        block_decision(todo_result["reason"], block_reason="todo_continuation", project_dir=project_dir)
+        block_decision(
+            todo_result["reason"],
+            block_reason="todo_continuation",
+            project_dir=project_dir,
+        )
         return
 
     if _watchdog_check(_watchdog_start):
@@ -1334,7 +2312,10 @@ def _main_body(_watchdog_start):
         _quality_runner_check,
     ]:
         if _watchdog_check(_watchdog_start):
-            print("[OMG] stop_dispatcher: wall-clock watchdog expired during quality checks", file=sys.stderr)
+            print(
+                "[OMG] stop_dispatcher: wall-clock watchdog expired during quality checks",
+                file=sys.stderr,
+            )
             sys.exit(0)
         if check_fn is None:
             continue
@@ -1351,7 +2332,11 @@ def _main_body(_watchdog_start):
         print("\n".join(advisories), file=sys.stderr)
 
     if blocks:
-        block_decision("\n\n---\n\n".join(blocks), block_reason="quality_check", project_dir=project_dir)
+        block_decision(
+            "\n\n---\n\n".join(blocks),
+            block_reason="quality_check",
+            project_dir=project_dir,
+        )
         return
 
     check_simplifier(data, project_dir)

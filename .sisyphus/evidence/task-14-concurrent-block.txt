@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.2, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/claw/src/OMG
+configfile: pyproject.toml
+plugins: anyio-4.13.0, cov-7.1.0, xdist-3.8.0, timeout-2.4.0
+timeout: 30.0s
+timeout method: signal
+timeout func_only: False
+created: 16/16 workers
+16 workers [3 items]
+
+scheduling tests via LoadGroupScheduling
+
+tests/test_stop_dispatcher.py::test_lock_released_on_completion 
+tests/test_stop_dispatcher.py::test_stale_lock_auto_broken 
+tests/test_stop_dispatcher.py::test_concurrent_ralph_blocked 
+[gw0] [ 33%] PASSED tests/test_stop_dispatcher.py::test_concurrent_ralph_blocked 
+[gw2] [ 66%] PASSED tests/test_stop_dispatcher.py::test_lock_released_on_completion 
+[gw1] [100%] PASSED tests/test_stop_dispatcher.py::test_stale_lock_auto_broken 
+
+============================== 3 passed in 2.69s ===============================
