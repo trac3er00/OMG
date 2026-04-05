@@ -106,6 +106,38 @@ async function runCli(): Promise<void> {
       },
     })
     .command({
+      command: "autorun <goal...>",
+      describe:
+        "Run governed pipeline (plan → review → execute → verify) for a goal",
+      builder: (command) =>
+        command
+          .positional("goal", {
+            type: "string",
+            array: true,
+            demandOption: true,
+            describe: "Goal text to execute in autorun pipeline",
+          })
+          .option("tier", {
+            type: "string",
+            default: "max",
+            describe: "Planning tier hint",
+          })
+          .option("single-agent", {
+            type: "boolean",
+            default: false,
+            describe: "Force single-agent execution mode",
+          })
+          .option("json", {
+            type: "boolean",
+            default: false,
+            describe: "Output full pipeline payload as JSON",
+          }),
+      handler: async (argv) => {
+        const { autorunCommand } = await import("./commands/autorun.js");
+        await autorunCommand.handler?.(argv as never);
+      },
+    })
+    .command({
       command: "proof",
       describe: "Inspect latest proof artifacts",
       builder: (command) =>

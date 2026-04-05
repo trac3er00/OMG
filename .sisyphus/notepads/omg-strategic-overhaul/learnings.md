@@ -299,3 +299,12 @@
 - Bun can execute `src/security/audit-trail.ts` directly from Python integration tests (`subprocess.run(["bun", "-e", ...])`), enabling restart/persisted-HMAC verification from the pytest lane without creating JS wrapper files.
 - Ralph lock contention tests must use a different live PID than the test process; `_acquire_ralph_session_lock()` treats same-PID ownership as a valid re-entry and will not emit concurrency blocks.
 - Current repo state has unrelated pre-existing integration failures in `tests/integration/test_cross_gap.py`; T29 module passes fully in isolation (`10 passed`).
+
+## [T25] Autorun Pipeline
+
+- Added `runtime/autorun_pipeline.py` implementing a governed 4-stage orchestration flow (`plan`, `review`, `execute`, `verify`) with stage-local governance checkpoint payloads on every stage result.
+- Plan stage reuses T23 primitives (`generate_governed_deep_plan`, `persist_governed_plan`), and review stage promotes task checkpoint actions into an explicit `allow|ask|deny` policy verdict before execution can proceed.
+- Execute stage consumes T24 dispatch (`submit_job`, `get_job_status`) when multi-agent mode is viable, and falls back to governed single-agent execution when dispatcher feature flags are unavailable.
+- Verify stage composes `evaluate_claims_for_release` (claim judge), `evaluate_proof_gate`, and `production_gate`; final payload now exposes `proof_gate_verdict` at both verify-stage and top-level result.
+- Added CLI command `npx omg autorun <goal...>` via `src/cli/commands/autorun.ts` + `src/cli/index.ts` wiring, with human summary output and JSON output mode.
+- Added tests `tests/runtime/test_autorun_pipeline.py` covering required checks: stage completion contract, governance checkpoints at each stage, and final proof gate verdict presence.

@@ -1,0 +1,48 @@
+{
+  "task": "T25 Autorun Pipeline",
+  "timestamp_utc": "2026-04-05T06:50:09Z",
+  "goal": "Integrate T23+T24 into governed Plan→Review→Execute→Verify pipeline and expose npx omg autorun",
+  "artifacts": {
+    "runtime_pipeline": "runtime/autorun_pipeline.py",
+    "cli_command": "src/cli/commands/autorun.ts",
+    "cli_index": "src/cli/index.ts",
+    "tests": "tests/runtime/test_autorun_pipeline.py"
+  },
+  "verification": {
+    "lsp_diagnostics": {
+      "runtime/autorun_pipeline.py": "clean(errors)",
+      "tests/runtime/test_autorun_pipeline.py": "clean(errors)",
+      "src/cli/commands/autorun.ts": "clean(errors)",
+      "src/cli/index.ts": "clean(errors)"
+    },
+    "pytest_targeted": {
+      "command": "python3 -m pytest tests/runtime/test_autorun_pipeline.py -v",
+      "result": "pass",
+      "summary": "3 passed"
+    },
+    "pytest_requested": {
+      "command": "python3 -m pytest tests/runtime/ -k \"autorun\" -v",
+      "result": "blocked_by_preexisting_collection_errors",
+      "summary": "3 passed, 20 errors",
+      "known_failures": [
+        "tests/runtime/test_agent_selector.py (runtime.agent_selector missing)",
+        "tests/runtime/test_cli_provider.py (typing.override import on Python 3.11)",
+        "tests/runtime/test_coordinator_state.py (team_router shim attribute missing)",
+        "tests/runtime/test_selective_dispatch.py (router_selector symbol missing)",
+        "tests/runtime/test_task_routing.py (router_selector symbol missing)"
+      ]
+    },
+    "cli_e2e": {
+      "command": "bun run src/cli/index.ts autorun \"create a REST API endpoint\" --single-agent --json",
+      "result": "pass",
+      "pipeline_status": "completed",
+      "proof_gate_verdict": "pass",
+      "production_gate_status": "ok",
+      "run_id": "autorun-1f70a05c45f5",
+      "evidence": [
+        ".omg/evidence/autorun-1f70a05c45f5.json",
+        ".omg/evidence/autorun-autorun-1f70a05c45f5.json"
+      ]
+    }
+  }
+}
