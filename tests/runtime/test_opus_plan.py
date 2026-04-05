@@ -7,6 +7,7 @@ Tests are organized around USER SCENARIOS:
 - Setup wizard needs correct capabilities to display to the user
 - Budget governor needs correct thresholds to enforce limits
 """
+
 from __future__ import annotations
 
 import json
@@ -23,12 +24,15 @@ if ROOT not in sys.path:
 
 from runtime.opus_plan import (
     OPUS_PLAN_CONFIGS,
+    diff_plans,
+    generate_governed_deep_plan,
     get_model_routing,
     get_opus_plan,
     get_provider_plan,
     get_provider_plans,
     format_opus_plan_summary,
     format_provider_capabilities,
+    persist_governed_plan,
     resolve_effective_tier,
     should_prefer_escalate,
 )
@@ -38,6 +42,7 @@ from runtime.opus_plan import (
 # A Claude Pro user ($20/mo) expects OMG to conserve tokens aggressively.
 # They should get fewer parallel agents, earlier warnings, and cheaper
 # model routing so they don't burn through their session budget.
+
 
 class TestProUserTokenConservation:
     """Pro user expects aggressive token conservation."""
@@ -80,6 +85,7 @@ class TestProUserTokenConservation:
 # ── Scenario: Free tier user ────────────────────────────────────────────────
 # Even more constrained than Pro. Single agent, aggressive compression.
 
+
 class TestFreeUserMaxConservation:
     """Free user expects maximum conservation — single agent, earliest warnings."""
 
@@ -103,6 +109,7 @@ class TestFreeUserMaxConservation:
 # ── Scenario: Max user expects full capabilities ────────────────────────────
 # A Max user ($100-200/mo) with 1M context and high throughput expects no
 # artificial restrictions — all agents, all models, no early warnings.
+
 
 class TestMaxUserFullCapabilities:
     """Max user expects no restrictions."""
@@ -152,6 +159,7 @@ class TestHighTiersNoRestrictions:
 # A user has Claude Pro + Codex Team. OMG should detect the highest tier
 # (team) so they get the best capabilities from their most capable provider.
 
+
 class TestMultiProviderTierResolution:
     """User with multiple providers gets the highest effective tier."""
 
@@ -180,6 +188,7 @@ class TestMultiProviderTierResolution:
 # User provides bad input during setup, or env var has a typo.
 # System should never crash — always fall back to the safest config.
 
+
 class TestEdgeCases:
     def test_unknown_tier_gets_safe_defaults(self):
         config = get_opus_plan("nonexistent_tier")
@@ -205,6 +214,7 @@ class TestEdgeCases:
 # ── Scenario: Setup wizard needs provider info to display ────────────────────
 # The /OMG:setup command shows users what each provider+plan offers.
 # The data must be correct so users can make informed decisions.
+
 
 class TestProviderCapabilitiesForSetup:
     def test_claude_pro_shows_200k_context(self):
@@ -256,6 +266,7 @@ class TestProviderCapabilitiesForSetup:
 # Budget governor reads settings.json for opus_plan config. The to_dict()
 # output must serialize cleanly and contain all fields the governor expects.
 
+
 class TestBudgetGovernorIntegration:
     def test_to_dict_serializes_to_valid_json(self):
         config = get_opus_plan("pro")
@@ -270,8 +281,12 @@ class TestBudgetGovernorIntegration:
         config = get_opus_plan("pro")
         d = config.to_dict()
         required_keys = {
-            "enabled", "max_parallel_agents", "context_compression",
-            "warning_threshold_pct", "prefer_escalate_over_ccg", "budget_multiplier",
+            "enabled",
+            "max_parallel_agents",
+            "context_compression",
+            "warning_threshold_pct",
+            "prefer_escalate_over_ccg",
+            "budget_multiplier",
         }
         assert required_keys.issubset(d.keys())
 
@@ -291,6 +306,7 @@ class TestBudgetGovernorIntegration:
     def test_effective_budget_with_multiplier(self):
         """Pro session limit of $20 * 0.8 multiplier = $16 effective."""
         from runtime.subscription_tiers import TIER_REGISTRY
+
         tier_budget = TIER_REGISTRY["pro"].budget_usd_per_session
         config = get_opus_plan("pro")
         effective = tier_budget * config.budget_multiplier
@@ -298,6 +314,7 @@ class TestBudgetGovernorIntegration:
 
 
 # ── Scenario: Format summary for user display ───────────────────────────────
+
 
 class TestFormatSummary:
     def test_active_plan_clearly_says_active(self):
@@ -319,9 +336,11 @@ class TestFormatSummary:
 
 # ── Consistency: every canonical tier is covered ─────────────────────────────
 
+
 class TestConfigCompleteness:
     def test_all_tiers_have_configs(self):
         from runtime.canonical_taxonomy import SUBSCRIPTION_TIERS
+
         assert set(OPUS_PLAN_CONFIGS.keys()) == set(SUBSCRIPTION_TIERS)
 
     def test_all_budget_multipliers_positive(self):
@@ -332,3 +351,102 @@ class TestConfigCompleteness:
     def test_warning_thresholds_in_valid_range(self, tier):
         config = OPUS_PLAN_CONFIGS[tier]
         assert 0 < config.warning_threshold_pct <= 100
+
+
+def test_deep_plan_produces_governed_plan(tmp_path: Path):
+    plan = generate_governed_deep_plan(
+        "Ship governed planning pipeline",
+        tasks=[
+            {
+                "id": "task-1",
+                "description": "Draft architecture and dependencies",
+                "dependencies": [],
+            },
+            {
+                "id": "task-2",
+                "description": "Edit runtime planner and write tests",
+                "dependencies": ["task-1"],
+            },
+        ],
+        tier="pro",
+        project_dir=str(tmp_path),
+    )
+
+    assert plan["objective"] == "Ship governed planning pipeline"
+    assert plan["tasks"]
+    for task in plan["tasks"]:
+        checkpoint = task.get("governance_checkpoint")
+        assert isinstance(checkpoint, dict)
+        assert checkpoint.get("decision") in {"allow", "ask", "deny"}
+        assert checkpoint.get("risk_level") in {"low", "med", "high", "critical"}
+
+
+def test_plan_is_persisted_and_versioned(tmp_path: Path):
+    first = generate_governed_deep_plan(
+        "Persist governed plans",
+        tasks=[
+            {"id": "task-1", "description": "Write initial plan", "dependencies": []}
+        ],
+        project_dir=str(tmp_path),
+        plan_id="plan-persist",
+    )
+    saved_v1 = persist_governed_plan(first, project_dir=str(tmp_path))
+
+    second = generate_governed_deep_plan(
+        "Persist governed plans",
+        tasks=[
+            {"id": "task-1", "description": "Write initial plan", "dependencies": []},
+            {
+                "id": "task-2",
+                "description": "Edit plan and add governance review",
+                "dependencies": ["task-1"],
+            },
+        ],
+        project_dir=str(tmp_path),
+        plan_id="plan-persist",
+    )
+    saved_v2 = persist_governed_plan(second, project_dir=str(tmp_path))
+
+    plan_path = tmp_path / ".omg" / "plans" / "plan-persist.json"
+    assert plan_path.exists()
+    assert saved_v1["version"] == 1
+    assert saved_v2["version"] == 2
+    assert isinstance(saved_v2.get("history"), list)
+    assert len(saved_v2["history"]) == 1
+
+
+def test_plan_diff_computable(tmp_path: Path):
+    plan_v1 = generate_governed_deep_plan(
+        "Compute plan diff",
+        tasks=[
+            {"id": "task-1", "description": "Analyze objective", "dependencies": []}
+        ],
+        project_dir=str(tmp_path),
+        plan_id="plan-diff",
+    )
+    persisted_v1 = persist_governed_plan(plan_v1, project_dir=str(tmp_path))
+
+    plan_v2 = generate_governed_deep_plan(
+        "Compute plan diff",
+        tasks=[
+            {
+                "id": "task-1",
+                "description": "Analyze objective deeply",
+                "dependencies": [],
+            },
+            {
+                "id": "task-2",
+                "description": "Implement changes",
+                "dependencies": ["task-1"],
+            },
+        ],
+        project_dir=str(tmp_path),
+        plan_id="plan-diff",
+    )
+    persisted_v2 = persist_governed_plan(plan_v2, project_dir=str(tmp_path))
+    diff = diff_plans(persisted_v1, persisted_v2)
+
+    assert diff["from_version"] == 1
+    assert diff["to_version"] == 2
+    assert diff["added"]
+    assert diff["modified"]

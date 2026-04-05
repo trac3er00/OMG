@@ -211,3 +211,11 @@
 - `fetch-rate-limits` should remain fail-open (`fail_closed=False`) but must avoid unnecessary keychain probing outside Darwin and run under crash-handler guard.
 - Structured assistant content in `todo-state-tracker` needs normalization of list/dict blocks into plain text before TODO regex matching, otherwise cross-turn pending items can be dropped.
 - Added 10 targeted tests (1 per improved hook) to pin these regressions; targeted suite passes even though the broader hooks suite still contains the known pre-existing 16 failing tests.
+
+## [T23] Deep Planning
+- Extended `runtime/opus_plan.py` with a governed deep planning pipeline that emits a structured plan payload (`id`, `version`, `objective`, `tasks`, `governance_checkpoints`, timestamps, routing metadata).
+- Added per-task governance evaluation using `hooks.policy_engine.PolicyDecision` semantics (`allow|ask|deny`, risk level, controls) so each task carries a checkpoint before execution.
+- Added persistence/versioning to `.omg/plans/{plan-id}.json` via `persist_governed_plan()`, including monotonic version increments and embedded history snapshots of prior versions.
+- Added `diff_plans(plan_v1, plan_v2)` to compute added/removed/modified task deltas for version-to-version review.
+- Integrated multi-model planning selection through `runtime.router_selector.select_target()` and retained tier-aware fallback routing.
+- New tests in `tests/runtime/test_opus_plan.py` validate governed checkpoints, persistence+versioning, and plan diff computation.
