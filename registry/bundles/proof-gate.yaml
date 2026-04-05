@@ -2,7 +2,7 @@ id: proof-gate
 kind: proof
 version: 2.3.0
 title: OMG Proof Gate
-description: Structured release proof gate that binds claims to required evidence artifacts and trace links.
+description: Release proof gate enforcing hard blockers for missing artifacts, lock evidence gaps, and trace-link mismatches.
 hosts:
   - claude
   - codex

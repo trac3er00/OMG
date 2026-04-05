@@ -2,7 +2,7 @@ id: claim-judge
 kind: proof
 version: 2.3.0
 title: OMG Claim Judge
-description: Evidence-backed claim validator for structured release and completion claims.
+description: Claim adjudication lane that evaluates individual claims first, then aggregates release verdicts with strict unsupported reason codes.
 hosts:
   - claude
   - codex

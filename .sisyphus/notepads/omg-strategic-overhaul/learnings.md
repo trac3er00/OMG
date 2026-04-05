@@ -124,6 +124,12 @@
 - Every destructive-action decision is audit-trailed to `.omg/state/ledger/ralph-approval-audit.jsonl` with mode (`preapproved`/`cli_prompt`/`auto_deny`) and action metadata.
 - Regression coverage added for bypass refusal, gate firing on destructive action, and pre-approval honoring.
 
+## [T18] Multi-Model Routing
+- `runtime/router_selector.py::select_target()` now supports feature-gated (`get_feature_flag("multi_model_routing")`) complexity-aware model tiering while preserving legacy target routing when disabled.
+- Complexity is sourced from `runtime.complexity_scorer.score_complexity()` and mapped to configurable tiers (`light|balanced|heavy`) with family coverage for Claude, GPT-5.4, and Kimi.
+- Budget pressure rule is deterministic: when remaining budget ratio is below 20%, routing downgrades one tier to reduce cost; latency-sensitive context also downgrades one tier toward faster models.
+- Added targeted regression tests in `tests/runtime/test_router.py` covering simple-task light routing, high-complexity heavy routing, and low-budget downgrade behavior.
+
 
 ## [T11] Rollback Manifests
 - Wired `runtime.rollback_manifest` into Ralph loop via `create_rollback_manifest`, `classify_side_effect`, and `record_side_effect` so iteration manifests carry rollback-aware side-effect metadata without rewriting runtime schema code.
@@ -170,3 +176,17 @@
 - Pre-approval supports three modes: `allow_all`, `approved_risk_levels` (list), `approved_actions` (list of action strings).
 - ANSI color respects `NO_COLOR`/`FORCE_COLOR` env vars per terminal color spec.
 - 36 new tests (test_approval_ui.py) + 8 existing trust_review tests pass with no regression.
+
+## [T22] Skill Self-Improvement
+- Applied all top-10 T6 rewrites directly into the corresponding `SKILL.md` prompts, replacing schema-only stubs with executable procedures that include concrete `file:function` runtime references.
+- Added explicit failure handling paths per skill (deny/abort/fail-closed/stop conditions) so high-risk lanes do not silently downgrade to advisory behavior.
+- Upgraded each top-10 skill frontmatter description to substantive, non-misleading operator summaries (all lengths validated in the 50-300 char range).
+- Updated matching bundle manifest descriptions (`registry/bundles/{terminal-lane,hash-edit,ast-pack,proof-gate,security-check,secure-worktree-pipeline,remote-supervisor,preflight,hook-governor,claim-judge}.yaml`) to align with the rewritten procedural semantics.
+- Ran deterministic quality verification script: all top-10 skills passed description-length, error-guidance, file:function-reference, and bundle/skill reference integrity checks.
+- Evidence artifact written to `.sisyphus/evidence/task-22-skill-quality.json` with `improved_skills` list and `quality_checks.all_pass=true`.
+
+## [T16] Tool Consolidation
+- Added descriptive `@mcp.tool(description=...)` text for all `omg_*` and `memory_*` tools in runtime MCP servers so tool metadata describes behavior and usage context rather than schema fields.
+- Implemented phase exposure map in `runtime/tool_fabric.py` with aliases (`plan/execute/verify`) and explicit subsets for planning, execution, and verification phases.
+- `ToolFabric.request_tool()` now honors optional `context["phase"]` and blocks requests for tools hidden in that phase, enabling lane-based exposure without changing lane registration count.
+- Current tool inventory remains at 32 from T4 audit (<=45 threshold) while per-phase active sets stay compact (planning=10, execution=11, verification=9).

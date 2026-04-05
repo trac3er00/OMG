@@ -1,0 +1,25 @@
+{
+  "improved_skills": [
+    "omg-terminal-lane",
+    "omg-hash-edit",
+    "omg-ast-pack",
+    "omg-proof-gate",
+    "omg-security-check",
+    "omg-secure-worktree-pipeline",
+    "omg-remote-supervisor",
+    "omg-preflight",
+    "omg-hook-governor",
+    "omg-claim-judge"
+  ],
+  "quality_checks": {
+    "all_pass": true,
+    "checks": {
+      "descriptions_50_300_chars": true,
+      "not_schema_only": true,
+      "not_misleading": true,
+      "error_handling_guidance_explicit": true,
+      "file_function_references_present": true,
+      "no_broken_skill_references": true
+    }
+  }
+}
