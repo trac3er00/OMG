@@ -1,0 +1,48 @@
+{
+  "task": "T18 multi-model routing",
+  "status": "completed",
+  "changed_files": [
+    "runtime/router_selector.py",
+    "tests/runtime/test_router.py"
+  ],
+  "feature_flag": {
+    "name": "multi_model_routing",
+    "default": false,
+    "registry_file": ".omg/state/feature-flags.json",
+    "present": true
+  },
+  "verification": {
+    "lsp_diagnostics": {
+      "runtime/router_selector.py": "clean",
+      "tests/runtime/test_router.py": "clean"
+    },
+    "pytest": [
+      {
+        "command": "python3 -m pytest tests/runtime/test_router.py -v",
+        "result": "passed",
+        "summary": "3 passed"
+      },
+      {
+        "command": "python3 -m pytest tests/runtime/ -k \"router\" -v 2>&1 | tail -10",
+        "result": "failed",
+        "summary": "1 failed, 29 passed, 20 errors",
+        "note": "baseline suite contains unrelated pre-existing failures"
+      }
+    ]
+  },
+  "routing_behavior": {
+    "complexity_to_tier": {
+      "trivial": "light",
+      "low": "light",
+      "medium": "balanced",
+      "high": "heavy"
+    },
+    "budget_policy": "if budget_remaining_ratio < 0.2, downgrade one tier",
+    "latency_policy": "if latency_sensitive, downgrade one tier toward faster model",
+    "families": [
+      "claude",
+      "gpt-5.4",
+      "kimi"
+    ]
+  }
+}

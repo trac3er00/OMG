@@ -190,3 +190,15 @@
 - Implemented phase exposure map in `runtime/tool_fabric.py` with aliases (`plan/execute/verify`) and explicit subsets for planning, execution, and verification phases.
 - `ToolFabric.request_tool()` now honors optional `context["phase"]` and blocks requests for tools hidden in that phase, enabling lane-based exposure without changing lane registration count.
 - Current tool inventory remains at 32 from T4 audit (<=45 threshold) while per-phase active sets stay compact (planning=10, execution=11, verification=9).
+
+## [T20] Budget Tracking
+
+- `runtime/budget_envelopes.py` provides `BudgetEnvelopeManager` with `create_envelope()`, `record_usage()`, `get_envelope_state()`, `get_envelope_pressure()` — fully functional multi-dimensional budget tracking
+- Feature flag `ralph_budget_tracking` already existed in feature-flags.json with default: false
+- Wired into `check_ralph_loop()` via `_ralph_budget_tracking()` — called between convergence detection and max_iterations check
+- Budget envelope uses a per-session run_id stored in ralph state as `_budget_run_id` for isolation
+- Ralph state gets three new fields: `budget_used`, `budget_remaining`, `budget_limit`
+- Thresholds: 70% warn (advisory), 85% reflect (stronger advisory), 100% block (stop_reason="budget_exceeded")
+- `tokens_per_iteration` and `budget_token_limit` are configurable via `ralph-config.json`
+- Budget advisories flow through the `check_ralph_loop` return tuple as the advisories list element
+- `_stop_ralph_loop` helper already handles state persistence + lock release — reused cleanly for budget stops
