@@ -60,7 +60,10 @@ def estimate_context_pressure(project_dir, context_packet=None):
             )
             threshold_tokens = int(configured)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [context_pressure] failed to read threshold config: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     tool_count = 0
     estimated_tokens = 0
@@ -73,7 +76,10 @@ def estimate_context_pressure(project_dir, context_packet=None):
                         tool_count += 1
                         estimated_tokens += _estimate_entry_tokens(line)
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [context_pressure] failed to read tool ledger: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
     is_high = estimated_tokens >= threshold_tokens if threshold_tokens > 0 else False
 
@@ -95,7 +101,10 @@ def estimate_context_pressure(project_dir, context_packet=None):
                 pressure_file,
             )
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [context_pressure] failed to write pressure snapshot: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     return tool_count, threshold_tokens, is_high
 

@@ -15,6 +15,7 @@ Provenance:    .omg/evidence/merge-writer-<run_id>.json
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time as _time
 from dataclasses import dataclass, field
@@ -24,6 +25,9 @@ from typing import Any
 from typing import cast
 
 from hooks.security_validators import sanitize_run_id
+
+
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -247,8 +251,8 @@ class MergeWriter:
         # Remove lock file
         try:
             lock_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+        except OSError as exc:
+            _logger.debug("Failed to remove merge-writer lock file %s: %s", lock_path, exc, exc_info=True)
 
         return provenance
 

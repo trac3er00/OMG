@@ -53,7 +53,8 @@ def _ensure_imports():
         from hooks._common import get_feature_flag as _gff
         _get_feature_flag = _gff
     except ImportError:
-        pass
+        # Optional: hooks._common not available
+        _get_feature_flag = None
 
 
 def _is_sandbox_enabled() -> bool:

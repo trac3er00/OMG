@@ -1,64 +1,110 @@
 # Changelog
 
-<!-- OMG:GENERATED:changelog-v2.2.12 -->
-### Governed Release Surface (v2.2.12)
+<!-- OMG:GENERATED:changelog-v2.3.0 -->
+
+### Governed Release Surface (v2.3.0)
 
 - Canonical release surface compilation
 - Dual-channel artifact output (public + enterprise)
-- Idempotent generated-section markers in docs
-<!-- /OMG:GENERATED:changelog-v2.2.12 -->
+- TypeScript rewrite with Bun runtime
+- 5-wave orchestration engine
+<!-- /OMG:GENERATED:changelog-v2.3.0 -->
 
-## 2.2.12 - 2026-03-20
+## 2.3.0 - 2026-04-05
 
-### Consolidated Feature Release — AI Enhancement, Security Hardening, Agent Expansion, Test Coverage
+### OMG v2 — TypeScript Rewrite, Smart Orchestration, Multi-Agent Compatibility
 
-This release merges 6 PRs (#116–#121) into a single governed release. All surfaces bumped to v2.2.12.
+This release merges PRs #129, #130, #131 plus the complete wave 2–5 orchestration engine. 561 files changed, 42,000+ lines added. All 132 version surfaces bumped to v2.3.0.
 
-#### Identity — Username Migration (#116)
-- **username rename**: update 51 files referencing old GitHub username `trac3er00` → `trac3r00`
-- Fixes CLA allowlist mismatch, plugin URLs, docs, registry, and tests
+#### TypeScript Rewrite (Bun Runtime)
 
-#### AI Enhancement — CoT, Model Hints, Tool Discovery (#117)
-- **CoT preamble injection**: inject chain-of-thought preamble for complex tasks (complexity >= 4)
-- **model parameter hints**: opus for HIGH complexity, sonnet for MEDIUM
-- **metaprompt auto-trigger**: auto-trigger when Codex detected at runtime
-- **semantic tool discovery**: 22-tool keyword catalog for context-aware tool selection
-- **prompt compiler**: outcome-tracked template selection with budget awareness
+- **full rewrite**: complete TypeScript reimplementation with Bun as the canonical runtime
+- **type system**: port Python dataclasses to TypeScript interfaces + Zod schemas
+- **SQLite state**: Bun SQLite foundation with FTS5 full-text search and atomic IO
+- **crypto module**: AES-256-GCM + PBKDF2 + Ed25519 security module in TypeScript
+- **config**: settings loader + feature flags + 6 presets
+- **CLI**: `bunx omg` CLI with install planner, env doctor, ship, and proof commands
 
-#### Security — Permission Tightening (#118)
-- **sensitive command migration**: move 17 sensitive command patterns from `allow` to `ask` in settings.json
-- Strengthens default security posture without breaking existing workflows
+#### Smart Orchestration Engine
 
-#### Agents — 18 New Specialized Definitions (#119)
-- **new agents**: accessibility-auditor, api-tester, code-archeologist, concurrency-expert, config-manager, data-engineer, debugger, dependency-analyst, devops-engineer, docs-writer, error-handler, log-analyst, migration-specialist, ml-engineer, performance-engineer, prototype-builder, refactor-agent, release-engineer
-- All agents include frontmatter with name, description, model, and tools for `agent_selector.py`
+- **DAG executor**: DAG-based task execution with dynamic tasks, timeouts, and streaming
+- **decision engine**: budget envelopes with multi-dimensional resource tracking
+- **team router**: critics + executor pattern for multi-agent coordination
+- **exec kernel**: worker watchdog + forge system for reliable execution
+- **reflection loops**: self-improving routing with async sub-agent dispatch
+- **unified session runtime**: execution modes and HUD system
 
-#### Test Coverage — Deep Plan and Runtime (#120)
-- **16 new test files** covering agents, hooks, runtime, and CLI
-- ~6,500 lines of test coverage across context engine, evidence narrator, skill foundry, task routing, coordinator state, dispatch strategy, and more
+#### Wave 2 — Protocol & Reliability
 
-#### Hooks — Cross-Hook Wiring and Reentry Guard (#121)
-- **reentry guard**: prevent concurrent hook execution with file-based locking
-- **circuit-breaker wiring**: wire circuit-breaker to stop-block loop detection
-- **ledger rotation**: cap tool-ledger.jsonl at 10K lines
-- **verification accuracy**: `check_verification()` uses current-turn commands from stop payload
-- **memory/planning exclusion**: memory and planning file writes excluded from source-write detection
+- **A2A protocol**: agent-to-agent communication with epistemic tracker
+- **deadlock prevention**: reliability calibration suite
+- **harness layers 4-5**: context handoff and cross-agent coordination
 
-#### Inherited from v2.2.11
+#### Wave 3 — Governance & Detection
 
-##### CI/CD — Migrate to Cubic AI Review Agents
-- **cubic AI migration**: replace all legacy GitHub Actions review workflows with 5 Cubic AI custom agents
-- **CLA workflow**: add CLA Assistant Lite for contributor license agreement signing
-- **GitGuardian**: add automated secret scanning on push and pull request events
+- **Society of Thought**: multi-perspective reasoning framework
+- **Governance Graph**: structured policy evaluation
+- **Collusion Detection**: anti-coordination failure mechanism
+- **Failure Taxonomy**: categorized failure modes for diagnostics
 
-##### Runtime — Release Artifact Audit Gate
-- **release artifact audit**: new `runtime/release_artifact_audit.py` — validates version parity, file completeness, and security properties
-- **path traversal fix**: replace `startswith()` with `is_relative_to()` to close traversal bypass
-- **contract snapshots**: regenerate both contract snapshots with `host_surfaces` field
+#### Wave 4 — Context Engineering
 
-##### Documentation — Launcher-First and Proof Framing
-- **launcher-first docs**: make public docs and install guides launcher-first
-- **version regex anchors**: add word-boundary anchors to prevent prefix matches
+- **context engine**: compression and pressure management
+- **durability checkpoints**: workspace reconstruction protocol
+- **context strategy router**: branch evaluation for optimal context allocation
+- **metacognitive pipeline**: uncertainty scoring and domain classification
+
+#### Wave 5 — Cross-Frontier Integration
+
+- **cross-frontier integration**: multi-host parity verification
+- **parity matrix**: cross-language contract enforcement
+- **retention policy**: intelligent context pruning
+- **performance tests**: end-to-end integration benchmarks
+
+#### MCP Control Plane
+
+- **omg-control server**: stdio transport + middleware architecture
+- **verification tools**: evidence + proof gate tool registration
+- **governance tools**: policy + lane-based tool fabric
+- **health + scoreboard**: session health monitoring and scoring
+
+#### Security Hardening
+
+- **JWT auth**: rate limiting + HMAC audit trail + threat scoring
+- **prompt injection defense**: multi-layer defense engine
+- **trust tiers**: defense state + secret guard + credential store
+- **firewall**: hard-blocking command screening with policy engine
+- **Ed25519 signed manifests**: trust review with cryptographic verification
+
+#### Host Compatibility
+
+- **hook emulation**: cross-host hook behavior normalization
+- **compensators**: trailing-off, completeness, deferral, merge-validator, completion-enforcer
+- **ASI drift reliability**: reliability calibration for different model behaviors
+- **cross-host integration tests**: full parity test suite
+
+#### Provider Adapters
+
+- **Claude + Codex + Gemini + Kimi + OpenCode**: unified provider adapters
+- **git tools**: integrated version control operations
+- **browser + LSP + web search**: config utilities for extended tool support
+
+#### Improvements (PR #129)
+
+- **README 전면 개편**: killer features, comparison table, architecture diagram
+- **MutationGate hard-block**: real mutation blocking (not just advisory)
+- **보안 강화**: strengthened default security posture
+
+#### Code Quality Hardening (PR #131)
+
+- **error handling**: comprehensive error handling improvements
+- **performance**: optimized hot paths
+- **tests**: expanded test coverage
+- **docs**: documentation accuracy fixes
+
+#### Inherited from v2.2.12
+
+- All changes from PRs #116–#121 (username migration, AI enhancement, security tightening, 18 agents, test coverage, hook hardening)
 
 ## 2.2.9 - 2026-03-18
 

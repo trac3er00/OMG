@@ -11,8 +11,8 @@ HOOKS_DIR = os.path.dirname(__file__)
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
 
-from _common import setup_crash_handler, json_input, _resolve_project_dir, is_stop_block_loop, record_stop_block
-from state_migration import resolve_state_dir
+from hooks._common import setup_crash_handler, json_input, _resolve_project_dir, is_stop_block_loop, record_stop_block
+from hooks.state_migration import resolve_state_dir
 
 setup_crash_handler("circuit-breaker", fail_closed=False)
 
@@ -24,6 +24,19 @@ DOMAIN_MODEL_HINTS = {
     'Write:': 'codex',
     'Edit:': 'codex',
 }
+
+_file_cache = {}
+
+
+def _cached_json_load(path, *, force=False):
+    path_str = str(path)
+    if force:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    if path_str not in _file_cache:
+        with open(path, "r", encoding="utf-8") as f:
+            _file_cache[path_str] = json.load(f)
+    return _file_cache[path_str]
 
 
 def _get_domain_hint(pk: str) -> str:
@@ -84,8 +97,7 @@ pattern_key = pattern_key[:120].replace("\n", " ")
 tracker = {}
 if os.path.exists(tracker_path):
     try:
-        with open(tracker_path, "r") as f:
-            tracker = json.load(f)
+        tracker = _cached_json_load(tracker_path, force=True)
         if not isinstance(tracker, dict):
             tracker = {}
     except Exception:
@@ -166,9 +178,15 @@ if is_failure:
             with open(tracker_path, "w") as f:
                 json.dump(tracker, f, indent=2)
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] failed to write circuit-breaker tracker without lock fallback: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     except Exception:
-        pass
+        try:
+            print(f"[omg:warn] failed to update circuit-breaker tracker: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
     count = entry["count"]
     effective_count = _effective_count(entry, now)
@@ -264,7 +282,10 @@ else:
             with open(tracker_path, "w") as f:
                 json.dump(tracker, f, indent=2)
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] failed to write cleared circuit-breaker tracker: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
         _recovery_path = os.path.join(ledger_dir, 'recovery.jsonl')
         try:
             import json as _json
@@ -282,8 +303,14 @@ else:
                     with open(_recovery_path, 'w') as _rf:
                         _rf.writelines(_lines[-200:])
             except OSError:
-                pass
+                try:
+                    print(f"[omg:warn] failed to trim circuit-breaker recovery ledger: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] failed to append circuit-breaker recovery event: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
 
 sys.exit(0)

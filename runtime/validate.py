@@ -7,6 +7,7 @@ governor, install integrity) rather than duplicating their logic.
 from __future__ import annotations
 
 import os
+import logging
 import shutil
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,9 @@ from runtime.compat import run_doctor, _doctor_check
 from runtime.contract_compiler import validate_contract_registry
 from runtime.plugin_diagnostics import run_plugin_diagnostics
 from runtime.profile_io import load_profile, ensure_governed_preferences, assess_profile_risk
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _check_contract_registry(root_dir: Path) -> dict[str, Any]:
@@ -187,7 +191,8 @@ def _load_selected_mcps(root_dir: Path) -> list[str]:
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             data = _yaml.safe_load(f)
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to parse MCP config from %s: %s", config_path, exc, exc_info=True)
         return []
 
     if not isinstance(data, dict):

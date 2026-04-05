@@ -1,8 +1,11 @@
 from __future__ import annotations
+# pyright: reportMissingImports=false
 
 import importlib
 import json
 from unittest.mock import patch
+
+import pytest
 
 from runtime.security_check import run_security_check, run_semgrep_scan
 
@@ -211,3 +214,78 @@ def test_non_sanctioned_callsites_remain_blocked(tmp_path):
     result = run_security_check(project_dir=str(tmp_path), scope=".")
     unwaived = [f for f in result.get("findings", []) if not f.get("waived") and f.get("id") in {"B307", "B602"}]
     assert len(unwaived) >= 1 and result.get("release_blocked") is True
+
+
+def test_resolve_scope_rejects_traversal_outside_project(tmp_path):
+    from runtime.security_check import _resolve_scope
+
+    with pytest.raises(ValueError):
+        _resolve_scope(str(tmp_path), "../outside")
+
+
+def test_normalize_waivers_handles_mixed_formats():
+    from runtime.security_check import _normalize_waivers
+
+    waivers = _normalize_waivers([
+        "B602-fixed-id",
+        {"finding_id": "B307-custom", "justification": "approved legacy call"},
+        {"id": "B102", "reason": "controlled runtime"},
+        {"id": "", "reason": "ignored"},
+    ])
+
+    assert waivers["B602-fixed-id"] == "waived"
+    assert waivers["B307-custom"] == "approved legacy call"
+    assert waivers["B102"] == "controlled runtime"
+
+
+def test_finalize_findings_applies_sanctioned_callsite_auto_waiver(tmp_path):
+    from runtime.security_check import _finalize_findings
+
+    callsite = tmp_path / "tools" / "python_repl.py"
+    callsite.parent.mkdir(parents=True)
+    callsite.write_text("eval('1+1')\n", encoding="utf-8")
+
+    finalized = _finalize_findings(
+        [
+            {
+                "id": "B307",
+                "source": "bandit-lite",
+                "category": "python_ast",
+                "severity": "high",
+                "message": "eval() detected",
+                "recommendation": "avoid eval",
+                "evidence": {"path": str(callsite), "line": 1, "snippet": "eval('1+1')"},
+            }
+        ],
+        {},
+        project_dir=str(tmp_path),
+    )
+
+    assert finalized[0]["waived"] is True
+    assert "Intentional eval() in REPL backend" in finalized[0]["waiver_justification"]
+
+
+def test_build_sarif_payload_marks_waived_findings_with_suppression():
+    from runtime.security_check import _build_sarif_payload
+
+    payload = _build_sarif_payload(
+        [
+            {
+                "id": "SEC002",
+                "category": "secret",
+                "severity": "critical",
+                "message": "Private key material detected",
+                "recommendation": "remove",
+                "finding_id": "SEC002-abc123",
+                "waived": True,
+                "waiver_justification": "approved fixture",
+                "exploitability": "high",
+                "reachability": "reachable",
+                "evidence": {"path": "secrets/key.pem", "line": 4, "snippet": "-----BEGIN RSA PRIVATE KEY-----"},
+            }
+        ]
+    )
+
+    result = payload["runs"][0]["results"][0]
+    assert result["level"] == "error"
+    assert result["suppressions"][0]["justification"] == "approved fixture"

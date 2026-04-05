@@ -1,3 +1,11 @@
+"""Encrypted runtime memory store for scoped OMG state and artifacts.
+
+This module provides a dual-backend (SQLite or JSON) memory layer used by OMG
+runtime components to persist run/profile-scoped notes, searchable memory
+entries, and artifact handles. Stored content is PII-redacted on write and can
+be encrypted at rest using Fernet (or deterministic fallback encryption).
+"""
+
 from __future__ import annotations
 
 import json
@@ -14,6 +22,8 @@ from typing import Any
 
 from runtime.profile_io import classify_preference_section, is_destructive_preference
 
+import warnings
+
 try:
     from cryptography.fernet import Fernet, InvalidToken
 
@@ -24,7 +34,26 @@ except ModuleNotFoundError:
     _has_fernet = False
 
 
+def check_encryption_available() -> bool:
+    """Check if cryptography library is installed. Returns True if available, False otherwise."""
+    return _has_fernet
+
+
+def ensure_encryption_warnings() -> None:
+    """Emit warnings if encryption is not available (fail-fast for production)."""
+    if not _has_fernet:
+        warnings.warn(
+            "OMG_MEMORY_ENCRYPTION_DISABLED: cryptography library not installed. "
+            "MemoryStore will use weak XOR-based encryption fallback. "
+            "For production, install: pip install cryptography",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+
 class MemoryStoreFullError(Exception):
+    """Raised when the memory store reaches configured capacity."""
+
     pass
 
 
@@ -50,7 +79,20 @@ _Item = dict[str, Any]  # pyright: ignore[reportExplicitAny]
 
 
 class MemoryStore:
+    """Persist, query, and index encrypted runtime memory entries.
+
+    The store supports both JSON and SQLite backends, optional full-text search,
+    run/profile namespace scoping, retention windows, artifact indexing, and
+    quarantine promotion flows.
+    """
+
     def __init__(self, store_path: str | None = None) -> None:
+        """Initialize a memory store bound to a JSON or SQLite path.
+
+        Args:
+            store_path: Optional explicit storage path. Defaults to the shared
+                OMG SQLite memory path under the user's home directory.
+        """
         if store_path is None:
             store_path = str(Path.home() / ".omg" / "shared-memory" / "store.sqlite3")
         self._memory_host = (os.environ.get("OMG_MEMORY_HOST", _DEFAULT_MEMORY_HOST).strip() or _DEFAULT_MEMORY_HOST)
@@ -60,14 +102,21 @@ class MemoryStore:
         self._store_path = ""
         self._backend = "json"
 
+        ensure_encryption_warnings()
         self.store_path = store_path
 
     @property
     def store_path(self) -> str:
+        """Return the currently configured store path."""
         return self._store_path
 
     @store_path.setter
     def store_path(self, store_path: str) -> None:
+        """Switch store path and reinitialize backend-specific state.
+
+        Args:
+            store_path: New memory store path.
+        """
         normalized_path = str(store_path)
         if normalized_path == self._store_path:
             return
@@ -84,6 +133,7 @@ class MemoryStore:
             self._init_sqlite()
 
     def close(self) -> None:
+        """Close the active SQLite connection if one is open."""
         if self._conn is not None:
             self._conn.close()
             self._conn = None
@@ -106,6 +156,24 @@ class MemoryStore:
         namespace: str = _DEFAULT_NAMESPACE,
         retention_days: int | None = None,
     ) -> _Item:
+        """Insert a memory item after redaction, scoping, and retention mapping.
+
+        Args:
+            key: Logical memory key.
+            content: Memory content to persist.
+            source_cli: Source runtime/CLI identifier.
+            tags: Optional list of tags.
+            run_id: Optional run scope identifier.
+            profile_id: Optional profile scope identifier.
+            namespace: Namespace token for multi-host isolation.
+            retention_days: Optional retention period used to compute expiry.
+
+        Returns:
+            Persisted memory item payload.
+
+        Raises:
+            MemoryStoreFullError: If max item capacity has been reached.
+        """
         if self.count() >= _MAX_ITEMS:
             raise MemoryStoreFullError(
                 f"Memory store is full ({_MAX_ITEMS} items). "
@@ -165,6 +233,14 @@ class MemoryStore:
         return item
 
     def get(self, item_id: str) -> _Item | None:
+        """Fetch a memory item by identifier.
+
+        Args:
+            item_id: Item UUID.
+
+        Returns:
+            Matching memory item, or ``None`` when missing.
+        """
         if self._backend == "json":
             for item in self._items:
                 if item["id"] == item_id:
@@ -183,6 +259,16 @@ class MemoryStore:
         content: str | None = None,
         tags: list[str] | None = None,
     ) -> _Item | None:
+        """Update mutable fields of an existing memory item.
+
+        Args:
+            item_id: Identifier of the item to update.
+            content: Optional replacement content.
+            tags: Optional replacement tags.
+
+        Returns:
+            Updated item payload, or ``None`` if the item does not exist.
+        """
         if self._backend == "json":
             item = self.get(item_id)
             if item is None:
@@ -217,6 +303,14 @@ class MemoryStore:
         return updated
 
     def delete(self, item_id: str) -> bool:
+        """Delete a memory item by identifier.
+
+        Args:
+            item_id: Identifier of the item to delete.
+
+        Returns:
+            ``True`` when an item was removed, otherwise ``False``.
+        """
         if self._backend == "json":
             for idx, item in enumerate(self._items):
                 if item["id"] == item_id:
@@ -238,6 +332,17 @@ class MemoryStore:
         namespace: str | None = None,
         include_quarantined: bool = False,
     ) -> list[_Item]:
+        """Run substring search across key/content/tags with scope filters.
+
+        Args:
+            query: Case-insensitive search query.
+            source_cli: Optional source filter.
+            namespace: Optional namespace filter.
+            include_quarantined: Whether quarantined items are searchable.
+
+        Returns:
+            Matching memory items.
+        """
         if self._backend == "json":
             q = query.lower()
             results: list[_Item] = []
@@ -285,6 +390,18 @@ class MemoryStore:
         namespace: str | None = None,
         include_quarantined: bool = False,
     ) -> list[_Item]:
+        """List all non-expired items with optional scope filters.
+
+        Args:
+            source_cli: Optional source filter.
+            run_id: Optional run scope filter.
+            profile_id: Optional profile scope filter.
+            namespace: Optional namespace filter.
+            include_quarantined: Whether quarantined items are included.
+
+        Returns:
+            Filtered list of memory items ordered by recency for SQLite.
+        """
         if self._backend == "json":
             out = [_normalize_item(item) for item in self._items if not _is_expired(item)]
             if source_cli is not None:
@@ -327,9 +444,26 @@ class MemoryStore:
         return [self._row_to_item(row) for row in rows]
 
     def export_all(self, *, include_quarantined: bool = False) -> list[_Item]:
+        """Export all stored items for backup or transfer.
+
+        Args:
+            include_quarantined: Whether to include quarantined entries.
+
+        Returns:
+            Serialized list of memory items.
+        """
         return self.list_all(include_quarantined=include_quarantined)
 
     def import_items(self, items: list[_Item], *, quarantined: bool = False) -> int:
+        """Import external memory items, skipping duplicate identifiers.
+
+        Args:
+            items: Items to import.
+            quarantined: Whether imported records should be quarantined.
+
+        Returns:
+            Number of items inserted.
+        """
         if self._backend == "json":
             existing_ids = {str(i["id"]) for i in self._items}
             added = 0
@@ -404,6 +538,7 @@ class MemoryStore:
         return added
 
     def count(self) -> int:
+        """Return the number of stored memory items."""
         if self._backend == "json":
             return len(self._items)
         row = self._sqlite_conn().execute("SELECT COUNT(*) AS n FROM memories").fetchone()
@@ -412,6 +547,11 @@ class MemoryStore:
         return int(row["n"])
 
     def clear(self) -> int:
+        """Delete all memories and related artifact/lineage records.
+
+        Returns:
+            Number of memory items that existed before clearing.
+        """
         n = self.count()
         if self._backend == "json":
             self._items.clear()
@@ -428,6 +568,14 @@ class MemoryStore:
         return n
 
     def promote_item(self, item_id: str) -> bool:
+        """Promote a quarantined item back into normal visibility.
+
+        Args:
+            item_id: Identifier of the item to promote.
+
+        Returns:
+            ``True`` when the item exists (and is promoted if quarantined).
+        """
         if self._backend == "json":
             item = self.get(item_id)
             if item is None:
@@ -453,6 +601,17 @@ class MemoryStore:
         profile_id: str,
         limit: int = 20,
     ) -> list[_Item]:
+        """Query memory limited to a specific run/profile scope.
+
+        Args:
+            query: Search query.
+            run_id: Required run scope.
+            profile_id: Required profile scope.
+            limit: Maximum number of returned rows.
+
+        Returns:
+            Matching scoped memory items.
+        """
         bounded_limit = max(1, min(int(limit), 200))
         if self._backend == "json":
             rows = self.search(query)
@@ -487,6 +646,17 @@ class MemoryStore:
         profile_id: str,
         limit: int = 10,
     ) -> list[dict[str, Any]]:
+        """Retrieve scoped memories ranked by FTS and token-overlap scoring.
+
+        Args:
+            query: Search query.
+            run_id: Required run scope.
+            profile_id: Required profile scope.
+            limit: Maximum number of scored results.
+
+        Returns:
+            Ranked memory rows with a ``score`` field.
+        """
         bounded_limit = max(1, min(int(limit), 100))
         if self._backend == "json":
             rows = self.query_scoped(query, run_id=run_id, profile_id=profile_id, limit=bounded_limit)
@@ -539,6 +709,20 @@ class MemoryStore:
         size_bytes: int = 0,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Index an artifact handle associated with a run/profile scope.
+
+        Args:
+            run_id: Run identifier owning the artifact.
+            profile_id: Profile identifier owning the artifact.
+            kind: Artifact kind token.
+            path: Artifact filesystem path.
+            summary: Bounded artifact summary text.
+            size_bytes: Artifact size in bytes.
+            metadata: Optional metadata map (sanitized before persistence).
+
+        Returns:
+            Normalized artifact handle payload.
+        """
         now = _utc_now_iso()
         artifact_id = f"artifact-{uuid.uuid4().hex}"
         clean_metadata = _sanitize_metadata(metadata or {})
@@ -603,6 +787,17 @@ class MemoryStore:
         kind: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
+        """Query artifact handles by run/profile/kind scope.
+
+        Args:
+            run_id: Run identifier to query.
+            profile_id: Optional profile filter.
+            kind: Optional artifact kind filter.
+            limit: Maximum number of returned handles.
+
+        Returns:
+            Artifact handle payloads with sanitized metadata.
+        """
         bounded_limit = max(1, min(int(limit), 200))
         if self._backend == "json":
             handles: list[dict[str, Any]] = []
@@ -881,6 +1076,16 @@ def project_preference_signals(
     store_path: str | None = None,
     max_signals: int = _PREFERENCE_SIGNAL_LIMIT,
 ) -> list[dict[str, Any]]:
+    """Extract deduplicated project preference signals from memory.
+
+    Args:
+        project_dir: Project directory used to match project-scoped signals.
+        store_path: Optional explicit memory store path.
+        max_signals: Maximum signals to return after deduplication.
+
+    Returns:
+        Recent unique preference signals relevant to the project.
+    """
     canonical_project = os.path.realpath(project_dir)
     if not canonical_project:
         return []
@@ -1179,4 +1384,4 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-__all__ = ["MemoryStore", "MemoryStoreFullError", "project_preference_signals"]
+__all__ = ["MemoryStore", "MemoryStoreFullError", "project_preference_signals", "check_encryption_available", "ensure_encryption_warnings"]

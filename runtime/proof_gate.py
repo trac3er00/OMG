@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from runtime import artifact_parsers
 from runtime.evidence_requirements import FULL_REQUIREMENTS, requirements_for_profile
+
+
+_logger = logging.getLogger(__name__)
 
 
 _REQUIRED_ARTIFACT_FIELDS = ("kind", "path", "sha256", "parser", "summary", "trace_id")
@@ -41,7 +45,8 @@ def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
     if not proof_result:
         try:
             proof_result = evaluate_proof_gate(payload)
-        except Exception:
+        except Exception as exc:
+            _logger.warning("Proof gate evaluation failed; returning internal error blocker: %s", exc, exc_info=True)
             proof_result = {"verdict": "fail", "blockers": ["proof_gate_internal_error"]}
 
     if not proof_result:
@@ -322,11 +327,30 @@ def _extract_artifact_records(claim: dict[str, Any]) -> list[dict[str, Any]]:
     return [item for item in raw_artifacts if isinstance(item, dict)]
 
 
+_MAX_ARTIFACT_SIZE_BYTES = 100 * 1024 * 1024  # 100MB
+
+
 def _parse_artifact(*, kind: str, path: str) -> dict[str, Any]:
+    file_path = Path(path)
+    if not file_path.exists():
+        return {"valid": False, "summary": {}, "error": "file_not_found"}
+
+    try:
+        size = file_path.stat().st_size
+    except OSError:
+        return {"valid": False, "summary": {}, "error": "file_unreadable"}
+
+    if size > _MAX_ARTIFACT_SIZE_BYTES:
+        return {"valid": False, "summary": {"size_bytes": size}, "error": "artifact_file_too_large"}
+
     parser = _PARSERS.get(kind)
     if parser is None:
         return {"valid": False, "summary": {}, "error": "unsupported_artifact_kind"}
-    return parser(path)
+    result = parser(path)
+
+    if result.get("valid"):
+        result["summary"]["size_bytes"] = size
+    return result
 
 
 def _validate_artifact_hash(artifact: dict[str, Any]) -> str | None:

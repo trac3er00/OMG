@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import glob
 import os
+import sys
 from datetime import datetime
 
 
@@ -67,12 +68,15 @@ def rotate_memories(project_dir: str, max_files: int = 50) -> int:
         try:
             os.remove(file_path)
         except OSError:
-            pass
+            try:
+                print(f"[omg:warn] failed to remove old memory file during rotation: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     return excess
 
 
 
-def search_memories(project_dir: str, query_keywords: list, max_results: int = 3, max_chars: int = 200) -> str:
+def search_memories(project_dir: str, query_keywords: list[str], max_results: int = 3, max_chars: int = 200) -> str:
     """Search memory files by keyword relevance. Returns formatted excerpt string."""
     memory_dir = os.path.join(project_dir, '.omg', 'state', 'memory')
     if not os.path.isdir(memory_dir):

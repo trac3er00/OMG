@@ -6,7 +6,14 @@
  * and native options via `omgHud`.
  */
 
-import { readFileSync, existsSync, readdirSync, realpathSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -23,34 +30,88 @@ const magenta = (t) => `${ESC}35m${t}${ESC}0m`;
 const cyan = (t) => `${ESC}36m${t}${ESC}0m`;
 
 function readOmgVersion() {
+  const cachePath = join(homedir(), ".omg", "hud-version-cache.json");
+  const ttlMs = 60_000;
+
+  try {
+    const cached = JSON.parse(readFileSync(cachePath, "utf8"));
+    if (
+      typeof cached?.ts === "number" &&
+      Date.now() - cached.ts < ttlMs &&
+      typeof cached?.version === "string" &&
+      cached.version.trim()
+    ) {
+      return {
+        version: cached.version.trim(),
+        isFallback: Boolean(cached.isFallback),
+      };
+    }
+  } catch {
+    // cache miss; detect live version below
+  }
+
   const scriptPath = realpathSync(fileURLToPath(import.meta.url));
   const scriptDir = dirname(scriptPath);
   const claudeDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 
+  const saveCache = (result) => {
+    try {
+      mkdirSync(dirname(cachePath), { recursive: true });
+      writeFileSync(
+        cachePath,
+        JSON.stringify({
+          ts: Date.now(),
+          version: result.version,
+          isFallback: result.isFallback,
+        }),
+        "utf8",
+      );
+    } catch {
+      // ignore cache write failures
+    }
+    return result;
+  };
+
   try {
-    const pluginJsonPath = join(scriptDir, "..", ".claude-plugin", "plugin.json");
+    const pluginJsonPath = join(
+      scriptDir,
+      "..",
+      ".claude-plugin",
+      "plugin.json",
+    );
     const pluginJson = JSON.parse(readFileSync(pluginJsonPath, "utf8"));
     if (typeof pluginJson?.version === "string" && pluginJson.version.trim()) {
-      return pluginJson.version.trim();
+      return saveCache({
+        version: pluginJson.version.trim(),
+        isFallback: false,
+      });
     }
   } catch {
     // fall through to git tag fallback
   }
 
   try {
-    const settingsJson = JSON.parse(readFileSync(join(claudeDir, "settings.json"), "utf8"));
+    const settingsJson = JSON.parse(
+      readFileSync(join(claudeDir, "settings.json"), "utf8"),
+    );
     const version = settingsJson?._omg?._version;
     if (typeof version === "string" && version.trim()) {
-      return version.trim();
+      return saveCache({ version: version.trim(), isFallback: false });
     }
   } catch {
     // fall through to cache and hook fallbacks
   }
 
   try {
-    const hooksVersion = readFileSync(join(claudeDir, "hooks", ".omg-version"), "utf8").trim();
+    const hooksVersion = readFileSync(
+      join(claudeDir, "hooks", ".omg-version"),
+      "utf8",
+    ).trim();
     if (hooksVersion) {
-      return hooksVersion.replace(/^v/, "").trim();
+      return saveCache({
+        version: hooksVersion.replace(/^v/, "").trim(),
+        isFallback: false,
+      });
     }
   } catch {
     // fall through to plugin cache fallback
@@ -64,10 +125,19 @@ function readOmgVersion() {
     const latest = versions.at(-1);
     if (latest) {
       const pluginJson = JSON.parse(
-        readFileSync(join(pluginCacheDir, latest, ".claude-plugin", "plugin.json"), "utf8"),
+        readFileSync(
+          join(pluginCacheDir, latest, ".claude-plugin", "plugin.json"),
+          "utf8",
+        ),
       );
-      if (typeof pluginJson?.version === "string" && pluginJson.version.trim()) {
-        return pluginJson.version.trim();
+      if (
+        typeof pluginJson?.version === "string" &&
+        pluginJson.version.trim()
+      ) {
+        return saveCache({
+          version: pluginJson.version.trim(),
+          isFallback: false,
+        });
       }
     }
   } catch {
@@ -76,18 +146,23 @@ function readOmgVersion() {
 
   try {
     const rootDir = join(scriptDir, "..");
-    const latestTag = execFileSync("git", ["describe", "--tags", "--abbrev=0"], {
-      cwd: rootDir,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    const latestTag = execFileSync(
+      "git",
+      ["describe", "--tags", "--abbrev=0"],
+      {
+        cwd: rootDir,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
     const normalized = latestTag.replace(/^v/, "").trim();
-    if (normalized) return normalized;
+    if (normalized)
+      return saveCache({ version: normalized, isFallback: false });
   } catch {
     // fall through to static fallback
   }
 
-  return "2.2.12";
+  return saveCache({ version: "2.3.0", isFallback: true });
 }
 
 const OMG_VERSION = readOmgVersion();
@@ -294,7 +369,8 @@ const HUD_PRESET_ALIASES = {
 };
 
 function resolveHudPreset(preset) {
-  const requested = typeof preset === "string" ? preset : DEFAULT_HUD_CONFIG.preset;
+  const requested =
+    typeof preset === "string" ? preset : DEFAULT_HUD_CONFIG.preset;
   const canonical = HUD_PRESET_ALIASES[requested] || requested;
   if (PRESET_CONFIGS[canonical]) return canonical;
   return DEFAULT_HUD_CONFIG.preset;
@@ -304,7 +380,7 @@ function countByExt(dirPath, ext) {
   if (!existsSync(dirPath)) return 0;
   try {
     return readdirSync(dirPath, { withFileTypes: true }).filter(
-      (entry) => entry.isFile() && entry.name.endsWith(ext)
+      (entry) => entry.isFile() && entry.name.endsWith(ext),
     ).length;
   } catch {
     return 0;
@@ -497,7 +573,11 @@ function getModelShort(stdin, format = "short") {
 
 function getModelId(stdin) {
   const fromStdin = stdin?.model?.id ?? stdin?.model?.display_name ?? "";
-  const fromEnv = process.env.CLAUDE_MODEL || process.env.OMG_MODEL_ID || process.env.OPENAI_MODEL || "";
+  const fromEnv =
+    process.env.CLAUDE_MODEL ||
+    process.env.OMG_MODEL_ID ||
+    process.env.OPENAI_MODEL ||
+    "";
   return String(fromStdin || fromEnv || "").trim();
 }
 
@@ -551,13 +631,19 @@ function getHostAwareCompactionTrigger(cwd, modelId) {
 
 function getCompactWarningThreshold(stdin, cfg, cwd) {
   const configuredPercent = Number(
-    cfg.contextLimitWarning.threshold ?? cfg.thresholds.contextCompactSuggestion ?? 80,
+    cfg.contextLimitWarning.threshold ??
+      cfg.thresholds.contextCompactSuggestion ??
+      80,
   );
-  const contextWindowSize = Number(stdin?.context_window?.context_window_size ?? 0);
+  const contextWindowSize = Number(
+    stdin?.context_window?.context_window_size ?? 0,
+  );
   const modelId = getModelId(stdin);
   const triggerTokens = getHostAwareCompactionTrigger(cwd, modelId);
   if (contextWindowSize > 0 && Number.isFinite(contextWindowSize)) {
-    const derivedPercent = Math.round((triggerTokens / contextWindowSize) * 100);
+    const derivedPercent = Math.round(
+      (triggerTokens / contextWindowSize) * 100,
+    );
     return Math.max(1, Math.min(100, derivedPercent));
   }
   return configuredPercent;
@@ -568,7 +654,10 @@ function sessionDuration(transcriptPath) {
   try {
     const fd = readFileSync(transcriptPath, "utf8");
     const nlIdx = fd.indexOf("\n");
-    const firstLine = fd.slice(0, nlIdx >= 0 ? nlIdx : Math.min(fd.length, 2000));
+    const firstLine = fd.slice(
+      0,
+      nlIdx >= 0 ? nlIdx : Math.min(fd.length, 2000),
+    );
     if (!firstLine.trim()) return null;
     const first = JSON.parse(firstLine);
     const raw = first?.timestamp ?? first?.ts;
@@ -585,14 +674,22 @@ function sessionDuration(transcriptPath) {
 
 function getGitInfo(cwd) {
   try {
-    const root = execFileSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    const branch = execFileSync("git", ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    const root = execFileSync(
+      "git",
+      ["-C", cwd, "rev-parse", "--show-toplevel"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
+    const branch = execFileSync(
+      "git",
+      ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
     return { repo: basename(root), branch };
   } catch {
     return { repo: null, branch: null };
@@ -684,7 +781,8 @@ function readOmgState(cwd) {
 
   const modeState = readJsonSafe(join(stateDir, "mode.json"));
   if (modeState && typeof modeState === "object") {
-    const candidate = modeState.mode || modeState.current_mode || modeState.name;
+    const candidate =
+      modeState.mode || modeState.current_mode || modeState.name;
     if (typeof candidate === "string" && candidate.trim()) {
       result.currentMode = candidate.trim().toLowerCase();
     }
@@ -695,7 +793,8 @@ function readOmgState(cwd) {
     result.ralph = {
       active: true,
       iteration: ralphState.iteration || 0,
-      maxIterations: ralphState.maxIterations || ralphState.max_iterations || 10,
+      maxIterations:
+        ralphState.maxIterations || ralphState.max_iterations || 10,
     };
   }
 
@@ -703,10 +802,13 @@ function readOmgState(cwd) {
   if (autopilotState?.active) {
     result.autopilot = {
       active: true,
-      phase: autopilotState.phase || autopilotState.current_phase || "execution",
+      phase:
+        autopilotState.phase || autopilotState.current_phase || "execution",
       iteration: autopilotState.iteration || 1,
-      maxIterations: autopilotState.maxIterations || autopilotState.max_iterations || 10,
-      tasksCompleted: autopilotState.tasksCompleted || autopilotState.tasks_completed || 0,
+      maxIterations:
+        autopilotState.maxIterations || autopilotState.max_iterations || 10,
+      tasksCompleted:
+        autopilotState.tasksCompleted || autopilotState.tasks_completed || 0,
       tasksTotal: autopilotState.tasksTotal || autopilotState.tasks_total || 0,
     };
   }
@@ -714,7 +816,8 @@ function readOmgState(cwd) {
   const prdState = readJsonSafe(join(stateDir, "prd-state.json"));
   if (prdState) {
     result.prd = {
-      currentStoryId: prdState.currentStoryId || prdState.current_story_id || null,
+      currentStoryId:
+        prdState.currentStoryId || prdState.current_story_id || null,
       completed: prdState.completed || 0,
       total: prdState.total || 0,
     };
@@ -722,7 +825,9 @@ function readOmgState(cwd) {
 
   const hudState = readJsonSafe(join(stateDir, "hud-state.json"));
   if (hudState?.backgroundTasks && Array.isArray(hudState.backgroundTasks)) {
-    result.backgroundTasks = hudState.backgroundTasks.filter((t) => t.status === "running");
+    result.backgroundTasks = hudState.backgroundTasks.filter(
+      (t) => t.status === "running",
+    );
   }
 
   try {
@@ -760,7 +865,9 @@ function readBackgroundVerificationState(stateDir) {
   return {
     status: data.status || "unknown",
     blockers: Array.isArray(data.blockers) ? data.blockers : [],
-    evidence_links: Array.isArray(data.evidence_links) ? data.evidence_links : [],
+    evidence_links: Array.isArray(data.evidence_links)
+      ? data.evidence_links
+      : [],
     progress: data.progress || {},
     updated_at: data.updated_at || null,
   };
@@ -807,13 +914,18 @@ function readActiveCoordinatorRunId(stateDir) {
 function normalizeVerificationState(data) {
   if (!data || typeof data !== "object") return null;
   const schema = data.schema;
-  if (schema !== "VerificationControllerState" && schema !== "BackgroundVerificationState") {
+  if (
+    schema !== "VerificationControllerState" &&
+    schema !== "BackgroundVerificationState"
+  ) {
     return null;
   }
   return {
     status: data.status || "unknown",
     blockers: Array.isArray(data.blockers) ? data.blockers : [],
-    evidence_links: Array.isArray(data.evidence_links) ? data.evidence_links : [],
+    evidence_links: Array.isArray(data.evidence_links)
+      ? data.evidence_links
+      : [],
     progress: data.progress || {},
     updated_at: data.updated_at || null,
     run_id: data.run_id || null,
@@ -833,13 +945,19 @@ function readVerificationState(stateDir) {
     };
   }
   const candidates = [];
-  candidates.push(join(stateDir, "verification_controller", `${activeRunId}.json`));
+  candidates.push(
+    join(stateDir, "verification_controller", `${activeRunId}.json`),
+  );
   candidates.push(join(stateDir, "verification_controller", "latest.json"));
   candidates.push(join(stateDir, "background-verification.json"));
 
   for (const candidate of candidates) {
     const normalized = normalizeVerificationState(readJsonSafe(candidate));
-    if (activeRunId && normalized?.run_id && normalized.run_id !== activeRunId) {
+    if (
+      activeRunId &&
+      normalized?.run_id &&
+      normalized.run_id !== activeRunId
+    ) {
       continue;
     }
     if (normalized) return normalized;
@@ -864,7 +982,10 @@ function readLatestSessionHealth(stateDir) {
     }
 
     const files = readdirSync(healthDir)
-      .filter((f) => f.endsWith(".json") && !f.endsWith(".tmp") && f !== "latest.json")
+      .filter(
+        (f) =>
+          f.endsWith(".json") && !f.endsWith(".tmp") && f !== "latest.json",
+      )
       .map((f) => {
         const fullPath = join(healthDir, f);
         try {
@@ -905,9 +1026,16 @@ function isSessionHealthStale(health) {
 
 function renderSessionHealth(health) {
   if (!health) return null;
-  const contamination = typeof health.contamination_risk === "number" ? health.contamination_risk : 0;
-  const overthinking = typeof health.overthinking_score === "number" ? health.overthinking_score : 0;
-  const ctxHealth = typeof health.context_health === "number" ? health.context_health : 1;
+  const contamination =
+    typeof health.contamination_risk === "number"
+      ? health.contamination_risk
+      : 0;
+  const overthinking =
+    typeof health.overthinking_score === "number"
+      ? health.overthinking_score
+      : 0;
+  const ctxHealth =
+    typeof health.context_health === "number" ? health.context_health : 1;
   const action = health.recommended_action || "continue";
 
   const contPct = Math.round(contamination * 100);
@@ -915,9 +1043,27 @@ function renderSessionHealth(health) {
   const healthPct = Math.round(ctxHealth * 100);
 
   const stale = isSessionHealthStale(health);
-  const contColor = stale ? dim : contamination >= 0.7 ? red : contamination >= 0.3 ? yellow : green;
-  const overColor = stale ? dim : overthinking >= 0.85 ? red : overthinking >= 0.5 ? yellow : green;
-  const healthColor = stale ? dim : ctxHealth <= 0.2 ? red : ctxHealth <= 0.4 ? yellow : green;
+  const contColor = stale
+    ? dim
+    : contamination >= 0.7
+      ? red
+      : contamination >= 0.3
+        ? yellow
+        : green;
+  const overColor = stale
+    ? dim
+    : overthinking >= 0.85
+      ? red
+      : overthinking >= 0.5
+        ? yellow
+        : green;
+  const healthColor = stale
+    ? dim
+    : ctxHealth <= 0.2
+      ? red
+      : ctxHealth <= 0.4
+        ? yellow
+        : green;
 
   let badge = "";
   if (action === "block") badge = ` ${red("BLOCK")}`;
@@ -967,7 +1113,10 @@ function parseTranscript(transcriptPath) {
         const entry = JSON.parse(line);
         const entryTs = parseEpochMs(entry.timestamp || entry.ts);
 
-        if (entry.type === "assistant" && Array.isArray(entry.message?.content)) {
+        if (
+          entry.type === "assistant" &&
+          Array.isArray(entry.message?.content)
+        ) {
           for (const block of entry.message.content) {
             if (block.type === "thinking" || block.type === "reasoning") {
               lastThinkingTs = entryTs;
@@ -1037,7 +1186,9 @@ function parseTranscript(transcriptPath) {
     if (pendingToolUse && !resolvedIds.has(pendingToolUse.id)) {
       result.pendingPermission = {
         toolName: pendingToolUse.toolName,
-        targetSummary: pendingToolUse.target ? String(pendingToolUse.target).slice(0, 40) : "",
+        targetSummary: pendingToolUse.target
+          ? String(pendingToolUse.target).slice(0, 40)
+          : "",
       };
     }
   } catch {
@@ -1068,7 +1219,15 @@ function renderAutopilot(autopilot) {
     complete: "Done",
     failed: "Failed",
   };
-  const phaseIndex = { expansion: 1, planning: 2, execution: 3, qa: 4, validation: 5, complete: 5, failed: 0 };
+  const phaseIndex = {
+    expansion: 1,
+    planning: 2,
+    execution: 3,
+    qa: 4,
+    validation: 5,
+    complete: 5,
+    failed: 0,
+  };
   const { phase, tasksCompleted, tasksTotal } = autopilot;
   const phaseNum = phaseIndex[phase] || 0;
   const phaseName = phaseNames[phase] || phase;
@@ -1127,17 +1286,21 @@ function renderVerificationStatus(state) {
   }
   const { status, blockers, evidence_links, progress } = state;
   const blockerCount = blockers.length;
-  const latestEvidence = evidence_links.length > 0
-    ? evidence_links[evidence_links.length - 1]
-    : null;
+  const latestEvidence =
+    evidence_links.length > 0
+      ? evidence_links[evidence_links.length - 1]
+      : null;
   const evidenceSuffix = latestEvidence
     ? ` ${dim(`evidence:${basename(latestEvidence)}`)}`
     : "";
 
   // Build progress suffix from step/total when available
-  const step = progress && typeof progress.step === "number" ? progress.step : null;
-  const total = progress && typeof progress.total === "number" ? progress.total : null;
-  const currentStage = progress && progress.current_stage ? progress.current_stage : null;
+  const step =
+    progress && typeof progress.step === "number" ? progress.step : null;
+  const total =
+    progress && typeof progress.total === "number" ? progress.total : null;
+  const currentStage =
+    progress && progress.current_stage ? progress.current_stage : null;
   let progressSuffix = "";
   if (step !== null && total !== null && status === "running") {
     progressSuffix = ` ${dim(`[${step}/${total}]`)}`;
@@ -1150,7 +1313,9 @@ function renderVerificationStatus(state) {
     return green("\u2713 verification ok") + evidenceSuffix;
   }
   if (status === "running") {
-    return yellow("\u27F3 verification running") + progressSuffix + evidenceSuffix;
+    return (
+      yellow("\u27F3 verification running") + progressSuffix + evidenceSuffix
+    );
   }
   if (status === "error" || status === "blocked") {
     const blockerSuffix = blockerCount > 0 ? ` (${blockerCount} blockers)` : "";
@@ -1207,7 +1372,11 @@ function readRateLimits() {
     // Handle wrapped format: { timestamp, data, source }
     const data = raw.data ?? raw;
     if (data.hourly || data.daily || data.weekly) return data;
-    if (typeof data.fiveHourPercent === "number" || typeof data.weeklyPercent === "number") return data;
+    if (
+      typeof data.fiveHourPercent === "number" ||
+      typeof data.weeklyPercent === "number"
+    )
+      return data;
   }
   return null;
 }
@@ -1372,13 +1541,14 @@ function renderRateLimits(limits) {
 
 function toSafeText(text) {
   const ansiColorCodeRegex = new RegExp("\\x1b\\[[0-9;]*m", "g");
-  return String(text)
-    .replace(ansiColorCodeRegex, "")
-    .replace(/⚠/g, "WARN");
+  return String(text).replace(ansiColorCodeRegex, "").replace(/⚠/g, "WARN");
 }
 
 function limitOutputLines(lines, maxLines) {
-  const limit = Math.max(1, Number(maxLines) || DEFAULT_HUD_CONFIG.elements.maxOutputLines);
+  const limit = Math.max(
+    1,
+    Number(maxLines) || DEFAULT_HUD_CONFIG.elements.maxOutputLines,
+  );
   return lines.slice(0, limit);
 }
 
@@ -1425,7 +1595,11 @@ async function main() {
 
     // [OMG#X.Y.Z] label
     if (cfg.elements.omcLabel !== false) {
-      els.push(bold(`[OMG#${OMG_VERSION}]`));
+      els.push(
+        bold(
+          `[OMG#${OMG_VERSION.isFallback ? `⚠v${OMG_VERSION.version}` : `v${OMG_VERSION.version}`}]`,
+        ),
+      );
     }
 
     // Rate limits
@@ -1434,7 +1608,11 @@ async function main() {
       if (rl) els.push(rl);
     }
 
-    const totals = renderTokenUsageTotals(sessionTokenTotal, dailyTokenTotal, weeklyTokenTotal);
+    const totals = renderTokenUsageTotals(
+      sessionTokenTotal,
+      dailyTokenTotal,
+      weeklyTokenTotal,
+    );
     if (totals) els.push(totals);
 
     // Permission status (disabled by default)
@@ -1505,8 +1683,12 @@ async function main() {
       let suffix = "";
       if (ctxPct >= critical) suffix = " CRITICAL";
       else if (ctxPct >= compactThreshold) suffix = " COMPRESS?";
-      const ctxLabel = cfg.elements.useBars ? `${renderBar(ctxPct)} ${ctxPct}%${suffix}` : `${ctxPct}%${suffix}`;
-      els.push(`\u{1F9E0}context:${colorByPercent(ctxPct, ctxLabel, warning, critical)}`);
+      const ctxLabel = cfg.elements.useBars
+        ? `${renderBar(ctxPct)} ${ctxPct}%${suffix}`
+        : `${ctxPct}%${suffix}`;
+      els.push(
+        `\u{1F9E0}context:${colorByPercent(ctxPct, ctxLabel, warning, critical)}`,
+      );
     }
 
     // Active agents
@@ -1558,8 +1740,8 @@ async function main() {
     const sep = dim(" | ");
     const lines = [els.join(sep), ...details];
     const safeMode = cfg.elements.safeMode !== false;
-    const finalLines = limitOutputLines(lines, cfg.elements.maxOutputLines).map((line) =>
-      safeMode ? toSafeText(line) : line
+    const finalLines = limitOutputLines(lines, cfg.elements.maxOutputLines).map(
+      (line) => (safeMode ? toSafeText(line) : line),
     );
     console.log(finalLines.join("\n"));
   } catch (err) {

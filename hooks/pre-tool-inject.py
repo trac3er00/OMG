@@ -93,6 +93,9 @@ try:
 
     json.dump({"contextInjection": injection}, sys.stdout)
 except Exception:
-    pass  # Graceful degradation
+    try:
+        import sys; print(f"[omg:warn] [pre-tool-inject] failed to build plan reminder: {sys.exc_info()[1]}", file=sys.stderr)
+    except Exception:
+        pass
 
 sys.exit(0)

@@ -1,0 +1,37 @@
+# Task 33 — Team Router + Selector + Critics + Executor
+
+## LSP Diagnostics
+- src/orchestration/router.ts: clean
+- src/orchestration/router-critics.ts: clean
+- src/orchestration/router.test.ts: clean
+
+## bun test
+Command:
+`PATH=/home/claw/.bun/bin:$PATH bun test src/orchestration/router.test.ts`
+
+Output:
+```
+bun test v1.3.11 (af24e281)
+-------------------------------------|---------|---------|-------------------
+File                                 | % Funcs | % Lines | Uncovered Line #s
+-------------------------------------|---------|---------|-------------------
+All files                            |   91.88 |   90.48 |
+ src/index.ts                        |  100.00 |  100.00 |
+ src/orchestration/router-critics.ts |   80.00 |   71.43 | 16-19,23-26
+ src/orchestration/router.ts         |   95.65 |  100.00 |
+-------------------------------------|---------|---------|-------------------
+
+ 6 pass
+ 0 fail
+ 13 expect() calls
+Ran 6 tests across 1 file. [109.00ms]
+```
+
+## TypeScript Check
+Command:
+`PATH=/home/claw/.bun/bin:$PATH bunx tsc --noEmit`
+
+Output:
+```
+(no output; exit code 0)
+```

@@ -1,0 +1,237 @@
+{
+  "schema_version": "1.0",
+  "registry_version": "2.3.0",
+  "skills": [
+    {
+      "id": "@governance",
+      "name": "Governance",
+      "description": "Security and governance policies for all tool operations",
+      "category": "universal",
+      "provider": "universal",
+      "path": "skills/universal/governance",
+      "keywords": ["security", "governance", "policy", "validation"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@orchestrate",
+      "name": "Orchestrate",
+      "description": "Multi-agent orchestration and coordination",
+      "category": "universal",
+      "provider": "universal",
+      "path": "skills/universal/orchestrate",
+      "keywords": ["orchestration", "multi-agent", "coordination"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@memory",
+      "name": "Memory",
+      "description": "Secure, namespaced, encrypted state management",
+      "category": "universal",
+      "provider": "universal",
+      "path": "skills/universal/memory",
+      "keywords": ["memory", "state", "persistence", "encryption"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@proof",
+      "name": "Proof",
+      "description": "Evidence-backed verification for all claims",
+      "category": "universal",
+      "provider": "universal",
+      "path": "skills/universal/proof",
+      "keywords": ["proof", "verification", "evidence", "validation"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@forge",
+      "name": "Forge",
+      "description": "Modular orchestration engine for complex tasks",
+      "category": "universal",
+      "provider": "universal",
+      "path": "skills/universal/forge",
+      "keywords": ["forge", "orchestration", "execution", "workflow"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@claude/extended-reasoning",
+      "name": "Extended Reasoning",
+      "description": "Claude extended thinking for complex problem-solving",
+      "category": "provider",
+      "provider": "claude",
+      "path": "skills/claude/extended-reasoning",
+      "keywords": ["claude", "reasoning", "thinking", "analysis"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@claude/artifacts",
+      "name": "Artifacts",
+      "description": "Create interactive artifacts for UI/UX prototyping",
+      "category": "provider",
+      "provider": "claude",
+      "path": "skills/claude/artifacts",
+      "keywords": ["claude", "artifacts", "ui", "ux", "prototype"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@claude/mcp-orchestrate",
+      "name": "MCP Orchestrate",
+      "description": "Orchestrate multiple MCP servers",
+      "category": "provider",
+      "provider": "claude",
+      "path": "skills/claude/mcp-orchestrate",
+      "keywords": ["claude", "mcp", "orchestration", "servers"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@codex/sandbox-execute",
+      "name": "Sandbox Execute",
+      "description": "Execute code in isolated sandbox environments",
+      "category": "provider",
+      "provider": "codex",
+      "path": "skills/codex/sandbox-execute",
+      "keywords": ["codex", "sandbox", "execution", "security"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@codex/patch-optimize",
+      "name": "Patch Optimize",
+      "description": "Optimize patch application for large changes",
+      "category": "provider",
+      "provider": "codex",
+      "path": "skills/codex/patch-optimize",
+      "keywords": ["codex", "patch", "refactoring", "apply"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@codex/multi-file",
+      "name": "Multi-File",
+      "description": "Handle multi-file refactoring at scale",
+      "category": "provider",
+      "provider": "codex",
+      "path": "skills/codex/multi-file",
+      "keywords": ["codex", "refactoring", "multi-file", "atomic"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@opencode/multi-session",
+      "name": "Multi-Session",
+      "description": "Manage multiple concurrent sessions",
+      "category": "provider",
+      "provider": "opencode",
+      "path": "skills/opencode/multi-session",
+      "keywords": ["opencode", "session", "concurrent", "coordination"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@opencode/tmux-orchestrate",
+      "name": "Tmux Orchestrate",
+      "description": "Orchestrate tmux sessions for parallel workflows",
+      "category": "provider",
+      "provider": "opencode",
+      "path": "skills/opencode/tmux-orchestrate",
+      "keywords": ["opencode", "tmux", "orchestration", "windows"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@opencode/agent-council",
+      "name": "Agent Council",
+      "description": "Run multi-agent Council meetings",
+      "category": "provider",
+      "provider": "opencode",
+      "path": "skills/opencode/agent-council",
+      "keywords": ["opencode", "council", "meeting", "agents"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@gemini/long-context",
+      "name": "Long Context",
+      "description": "Leverage Gemini's large context window",
+      "category": "provider",
+      "provider": "gemini",
+      "path": "skills/gemini/long-context",
+      "keywords": ["gemini", "context", "memory", "analysis"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@gemini/multimodal",
+      "name": "Multimodal",
+      "description": "Process images, audio, and video alongside text",
+      "category": "provider",
+      "provider": "gemini",
+      "path": "skills/gemini/multimodal",
+      "keywords": ["gemini", "multimodal", "images", "video", "audio"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@gemini/reasoning",
+      "name": "Reasoning",
+      "description": "Use Gemini's advanced reasoning capabilities",
+      "category": "provider",
+      "provider": "gemini",
+      "path": "skills/gemini/reasoning",
+      "keywords": ["gemini", "reasoning", "logic", "mathematics"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@kimi/long-context",
+      "name": "Long Context",
+      "description": "Use Kimi's 128K token context window for large inputs",
+      "category": "provider",
+      "provider": "kimi",
+      "path": "skills/kimi/long-context",
+      "keywords": ["kimi", "context", "long-context", "analysis"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@kimi/web-search",
+      "name": "Web Search",
+      "description": "Use Kimi's built-in web search capability",
+      "category": "provider",
+      "provider": "kimi",
+      "path": "skills/kimi/web-search",
+      "keywords": ["kimi", "web", "search", "research"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@kimi/code-generation",
+      "name": "Code Generation",
+      "description": "Optimize Kimi for code generation tasks",
+      "category": "provider",
+      "provider": "kimi",
+      "path": "skills/kimi/code-generation",
+      "keywords": ["kimi", "code", "generation", "refactor"],
+      "version": "2.3.0",
+      "enabled": false
+    },
+    {
+      "id": "@kimi/moonshot",
+      "name": "Moonshot",
+      "description": "Access Moonshot AI capabilities through Kimi",
+      "category": "provider",
+      "provider": "kimi",
+      "path": "skills/kimi/moonshot",
+      "keywords": ["kimi", "moonshot", "provider", "model"],
+      "version": "2.3.0",
+      "enabled": false
+    }
+  ]
+}

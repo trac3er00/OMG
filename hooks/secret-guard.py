@@ -15,7 +15,7 @@ for path in (HOOKS_DIR, PROJECT_ROOT, PORTABLE_RUNTIME_ROOT):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from _common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
+from hooks._common import bootstrap_runtime_paths, setup_crash_handler, json_input, deny_decision, is_bypass_mode, get_project_dir
 
 bootstrap_runtime_paths(__file__)
 
@@ -23,8 +23,8 @@ bootstrap_runtime_paths(__file__)
 setup_crash_handler("secret-guard", fail_closed=True)
 
 try:
-    from policy_engine import evaluate_file_access, load_allowlist, to_pretool_hook_output
-    from secret_audit import log_secret_access
+    from hooks.policy_engine import evaluate_file_access, load_allowlist, to_pretool_hook_output
+    from hooks.secret_audit import log_secret_access
     from runtime.mutation_gate import check_mutation_allowed
 except Exception as _import_err:
     print(f"OMG secret-guard: policy_engine import failed: {_import_err}", file=sys.stderr)
@@ -63,7 +63,10 @@ if tool in ("Write", "Edit", "MultiEdit"):
             _sg_explanation = format_block_explanation(deny_reason, {"tool": tool})
             deny_reason = f"{deny_reason}: {_sg_explanation}"
         except Exception:
-            pass  # Crash isolation: always falls back
+            try:
+                print(f"[omg:warn] failed to format mutation block explanation: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
         try:
             import json as _sg_json
             from datetime import datetime as _sg_dt, timezone as _sg_tz
@@ -77,7 +80,10 @@ if tool in ("Write", "Edit", "MultiEdit"):
                     "timestamp": _sg_dt.now(_sg_tz.utc).isoformat(),
                 }, _sg_f, indent=2)
         except Exception:
-            pass  # Best-effort only
+            try:
+                print(f"[omg:warn] failed to write last block explanation artifact: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
         try:
             log_secret_access(
                 project_dir=get_project_dir(),
@@ -88,7 +94,10 @@ if tool in ("Write", "Edit", "MultiEdit"):
                 allowlisted=False,
             )
         except Exception:
-            pass
+            try:
+                print(f"[omg:warn] failed to log denied secret access decision: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
         deny_decision(deny_reason)
         sys.exit(0)
 
@@ -106,7 +115,10 @@ try:
         allowlisted=False,
     )
 except Exception:
-    pass  # Crash isolation: audit logging must never break the hook
+    try:
+        print(f"[omg:warn] failed to write secret access audit log: {sys.exc_info()[1]}", file=sys.stderr)
+    except Exception:
+        pass
 
 # In bypass-permission mode, only enforce hard denials (critical safety).
 # Skip "ask" decisions so the user is not prompted for confirmation.

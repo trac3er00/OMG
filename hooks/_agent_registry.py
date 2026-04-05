@@ -398,6 +398,19 @@ def detect_available_models() -> dict[str, bool]:
     result['codex-cli'] = shutil.which('codex') is not None
     result['gemini-cli'] = shutil.which('gemini') is not None
     result['kimi-cli'] = shutil.which('kimi') is not None
+    result['opencode-cli'] = shutil.which('opencode') is not None
+
+    result['claude-code'] = shutil.which('claude') is not None
+
+    result['cursor-cli'] = shutil.which('cursor') is not None
+    if not result.get('cursor-cli'):
+        import pathlib
+        cursor_paths = [
+            pathlib.Path.home() / ".cursor" / "bin" / "cursor",
+            pathlib.Path("/Applications/Cursor.app/Contents/MacOS/Cursor"),
+        ]
+        result['cursor-cli'] = any(p.exists() for p in cursor_paths)
+
     _model_cache = result
     return result
 

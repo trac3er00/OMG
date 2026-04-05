@@ -1,6 +1,6 @@
 id: terminal-lane
 kind: governance
-version: 2.2.12
+version: 2.3.0
 title: OMG Terminal Lane
 description: Highest-risk governed terminal execution lane with strict approval and attestation.
 hosts:

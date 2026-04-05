@@ -1,0 +1,11 @@
+[test]
+preload = ["./src/index.ts"]
+timeout = 30000
+coverage = true
+
+[install]
+exact = false
+production = false
+
+[run]
+bun = true

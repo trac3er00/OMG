@@ -10,6 +10,7 @@ Crash-isolated: ``build_architecture_signal`` never raises.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Any
 
 _SUMMARY_MAX_CHARS = 500
 _STATE_REL = Path(".omg") / "state" / "architecture_signal"
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +36,8 @@ def _get_feature_flag(name: str, default: bool = False) -> bool:
     try:
         from hooks._common import get_feature_flag as _gff
         return _gff(name, default)
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to resolve feature flag %s via hooks: %s", name, exc, exc_info=True)
         return default
 
 
@@ -55,7 +58,8 @@ def _build_graph_summary(project_dir: str) -> tuple[str | None, dict[str, Any], 
     try:
         from plugins.viz.graph_builder import build_project_graph
         result = build_project_graph(project_dir)
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to build dependency graph summary: %s", exc, exc_info=True)
         return None, {}, (time.monotonic() - t0) * 1000
 
     raw_metrics = result.get("metrics", {})
@@ -68,8 +72,8 @@ def _build_graph_summary(project_dir: str) -> tuple[str | None, dict[str, Any], 
         tmp = artifact_path.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(result, indent=2, ensure_ascii=True), encoding="utf-8")
         os.rename(tmp, artifact_path)
-    except Exception:
-        pass  # crash isolation
+    except Exception as exc:
+        _logger.debug("Failed to persist architecture graph artifact to %s: %s", artifact_path, exc, exc_info=True)
 
     elapsed = (time.monotonic() - t0) * 1000
     return str(artifact_path), metrics, elapsed
@@ -92,7 +96,8 @@ def _build_lsp_summary(project_dir: str) -> tuple[str | None, dict[str, int], fl
 
     try:
         data = json.loads(lsp_path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to parse LSP diagnostics from %s: %s", lsp_path, exc, exc_info=True)
         return None, {}, (time.monotonic() - t0) * 1000
 
     # Normalize: accept both list-of-diagnostics and {diagnostics: [...]}
@@ -164,8 +169,8 @@ def _write_state(project_dir: str, payload: dict[str, Any]) -> None:
         tmp = latest.with_name("latest.json.tmp")
         tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=True), encoding="utf-8")
         os.rename(tmp, latest)
-    except Exception:
-        pass  # crash isolation
+    except Exception as exc:
+        _logger.debug("Failed to persist architecture signal state: %s", exc, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -221,6 +226,7 @@ def build_architecture_signal(project_dir: str) -> dict[str, Any]:
         _write_state(project_dir, result)
         return result
 
-    except Exception:
+    except Exception as exc:
+        _logger.warning("Architecture signal build failed; using fallback: %s", exc, exc_info=True)
         # Crash isolation: never raise to caller
         return dict(_FALLBACK_RESULT)

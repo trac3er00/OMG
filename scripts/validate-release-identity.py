@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import logging
 import re
 import sys
 from pathlib import Path
@@ -26,6 +27,9 @@ from runtime.release_surface_compiler import compile_release_surfaces
 from runtime.doc_generator import check_docs
 
 import importlib.util
+
+
+_logger = logging.getLogger(__name__)
 
 _SYNC_SCRIPT = _REPO_ROOT / "scripts" / "sync-release-identity.py"
 if not _SYNC_SCRIPT.exists() or not _SYNC_SCRIPT.resolve().is_relative_to(_REPO_ROOT):
@@ -165,8 +169,8 @@ def validate_derived(repo_root: Path, canonical: str) -> dict[str, Any]:
                                         "found": node.value.value,
                                         "expected": canonical,
                                     })
-        except (OSError, SyntaxError):
-            pass
+        except (OSError, SyntaxError) as exc:
+            _logger.debug("Failed to parse derived AST surface %s: %s", ast_path, exc, exc_info=True)
 
     status = "fail" if blockers else "ok"
     return {"status": status, "blockers": blockers}

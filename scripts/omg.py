@@ -21,10 +21,13 @@ import base64
 import hashlib
 import importlib.util
 import json
+import logging
 import os
 from pathlib import Path
 import sys
 from typing import Any, cast
+
+_logger = logging.getLogger(__name__)
 
 # --- Path resolution (never relies on CWD) ---
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -90,7 +93,7 @@ from runtime.compat import (
 )
 from runtime.validate import run_validate, format_text as validate_format_text
 from runtime.plugin_diagnostics import approve_plugin, run_plugin_diagnostics
-from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS
+from runtime.adoption import CANONICAL_VERSION, VALID_PRESETS, VALID_PRESETS_ALL, PRESET_HOOK_COUNT, PRESET_HOOK_MAPPING
 from runtime.install_planner import compute_install_plan, execute_plan, InstallAction
 from runtime.canonical_surface import get_canonical_hosts
 from runtime.ecosystem import ecosystem_status, list_ecosystem_repos, sync_ecosystem_repos
@@ -430,6 +433,7 @@ def cmd_resolve_policy(args: argparse.Namespace) -> int:
             pack = load_policy_pack(pack_id)
             packs.append(dict(pack))
         except Exception:
+            _logger.debug("Failed to load policy pack during resolve-policy", exc_info=True)
             packs.append({"id": pack_id, "error": "failed_to_load"})
 
     effective_policy: dict[str, Any] = {
@@ -531,6 +535,7 @@ def cmd_policy_pack_list(args: argparse.Namespace) -> int:
             pack = load_policy_pack(pack_id)
             packs.append(dict(pack))
         except Exception:
+            _logger.debug("Failed to load policy pack during list", exc_info=True)
             packs.append({"id": pack_id, "error": "failed_to_load"})
 
     output: dict[str, Any] = {
@@ -557,6 +562,7 @@ def cmd_policy_pack_diff(args: argparse.Namespace) -> int:
     try:
         pack = load_policy_pack(pack_id)
     except Exception:
+        _logger.debug("Failed to load requested policy pack for diff", exc_info=True)
         err = {"schema": "PolicyPackDiff", "status": "error", "reason": f"pack '{pack_id}' not found"}
         print(json.dumps(err, indent=2) if fmt == "json" else f"Error: {err['reason']}")
         return 1
@@ -656,6 +662,7 @@ def cmd_policy_pack_keygen(args: argparse.Namespace) -> int:
         try:
             trust_root: dict[str, Any] = json.loads(trust_root_path.read_text(encoding="utf-8"))
         except Exception:
+            _logger.debug("Failed to load trust root while generating key", exc_info=True)
             trust_root = {"version": 1, "signers": []}
 
         signer_entry: dict[str, Any] = {
@@ -777,7 +784,7 @@ def cmd_policy_pack_sign(args: argparse.Namespace) -> int:
         )
         signer_public_key_b64 = base64.b64encode(public_key_raw).decode("ascii")
     except Exception:
-        pass  # Best-effort; lockfile still valid without public key
+        _logger.debug("Failed to derive signer public key for lockfile", exc_info=True)
 
     lockfile = {
         "lockfile_version": 1,
@@ -1183,7 +1190,7 @@ def cmd_budget_simulate(args: argparse.Namespace) -> int:
         try:
             mgr._envelope_path(temp_id).unlink(missing_ok=True)
         except OSError:
-            pass
+            _logger.debug("Failed to remove temporary budget envelope", exc_info=True)
 
         result: dict[str, Any] = {
             "schema": "BudgetSimulateResult",
@@ -1959,7 +1966,7 @@ def cmd_profile_review(args: argparse.Namespace) -> int:
             try:
                 score = float(dm.get("decay_score", 0.0))
             except (TypeError, ValueError):
-                pass
+                _logger.debug("Failed to parse style profile decay score", exc_info=True)
             if score > 0:
                 decay_candidates.append({
                     "field": entry.get("field", ""),
@@ -2115,6 +2122,108 @@ def cmd_env_doctor(args: argparse.Namespace) -> int:
         passed = sum(1 for c in result["checks"] if c["status"] == "ok")
         print(f"\nPASS [{passed}] | WARN [{warnings}] | BLOCKER [{blockers}]")
     return 0 if result["status"] == "pass" else 1
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Fully automated OMG initialization - detect agents, select preset, configure."""
+    auto_mode = getattr(args, "auto", False)
+    preset = getattr(args, "preset", None)
+    fmt = getattr(args, "format", "text")
+
+    import shutil
+
+    detected = {}
+    for name, cmd in [("claude", "claude"), ("codex", "codex"), ("gemini", "gemini"),
+                      ("kimi", "kimi"), ("opencode", "opencode")]:
+        detected[name] = shutil.which(cmd) is not None
+
+    if auto_mode and preset is None:
+        if detected.get("codex") or detected.get("gemini"):
+            preset = "production"
+        elif detected.get("kimi") or detected.get("claude"):
+            preset = "balanced"
+        else:
+            preset = "safe"
+    elif preset is None:
+        preset = "safe"
+
+    if fmt == "json":
+        print(json.dumps({
+            "detected": detected,
+            "selected_preset": preset,
+            "auto": auto_mode
+        }, indent=2))
+    else:
+        print("OMG Initialization")
+        print(f"  Detected agents:")
+        for name, present in detected.items():
+            status = "✓" if present else "✗"
+            print(f"    {status} {name}")
+        print(f"  Selected preset: {preset}")
+        print(f"  Auto mode: {auto_mode}")
+
+    return 0
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    """Check OMG installation status - agents, MCP, runtime."""
+    fmt = getattr(args, "format", "text")
+    import shutil
+    import os
+
+    claude_dir = os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude"))
+
+    status = {
+        "version": CANONICAL_VERSION,
+        "agents": {},
+        "mcp_servers": {},
+        "installation": {},
+        "runtime": {}
+    }
+
+    for name, cmd in [("claude", "claude"), ("codex", "codex"), ("gemini", "gemini"),
+                      ("kimi", "kimi"), ("opencode", "opencode"), ("cursor", "cursor")]:
+        status["agents"][name] = shutil.which(cmd) is not None
+
+    omg_version_path = os.path.join(claude_dir, "hooks", ".omg-version")
+    omg_runtime_path = os.path.join(claude_dir, "omg-runtime")
+    status["installation"]["hooks_installed"] = os.path.exists(omg_version_path)
+    status["installation"]["runtime_installed"] = os.path.exists(omg_runtime_path)
+
+    mcp_path = os.path.join(claude_dir, ".mcp.json")
+    if os.path.exists(mcp_path):
+        try:
+            with open(mcp_path) as f:
+                mcp_data = json.load(f)
+                status["mcp_servers"] = list(mcp_data.get("mcpServers", {}).keys())
+        except Exception:
+            pass
+
+    if fmt == "json":
+        print(json.dumps(status, indent=2))
+    else:
+        print("=" * 50)
+        print(f"OMG Status - v{CANONICAL_VERSION}")
+        print("=" * 50)
+        print("\nAgents:")
+        for name, present in status["agents"].items():
+            marker = "✓" if present else "✗"
+            print(f"  {marker} {name}")
+
+        print(f"\nInstallation:")
+        inst = status["installation"]
+        print(f"  {'✓' if inst['hooks_installed'] else '✗'} Hooks installed")
+        print(f"  {'✓' if inst['runtime_installed'] else '✗'} Runtime installed")
+
+        if status["mcp_servers"]:
+            print(f"\nMCP Servers:")
+            for server in status["mcp_servers"]:
+                print(f"  • {server}")
+        else:
+            print(f"\nMCP Servers: none configured")
+
+    return 0
+
 
 
 def _detect_clis() -> dict[str, Any]:
@@ -2573,7 +2682,7 @@ def cmd_skill_list(args: argparse.Namespace) -> int:
             registry_data = json.loads(registry_path.read_text(encoding="utf-8"))
             active_skills = registry_data.get("active", [])
         except (json.JSONDecodeError, OSError):
-            pass
+            _logger.debug("Failed to read skill registry", exc_info=True)
 
     # Read proposals
     proposals_dir = project_path / ".omg" / "state" / "skill-proposals"
@@ -2635,7 +2744,7 @@ def cmd_skill_review(args: argparse.Namespace) -> int:
         try:
             eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            pass
+            _logger.debug("Failed to read skill proposal evaluation", exc_info=True)
 
     # Display proposal details
     print(f"Proposal ID: {proposal_id}")
@@ -2695,7 +2804,7 @@ def cmd_skill_promote(args: argparse.Namespace) -> int:
         try:
             eval_data = json.loads(eval_path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            pass
+            _logger.debug("Failed to read skill proposal evaluation for promotion", exc_info=True)
 
     # Check evaluation status
     proof_gate = eval_data.get("proof_gate_result", {})
@@ -3283,7 +3392,7 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--non-interactive", action="store_true", dest="non_interactive", help="Non-interactive mode")
     install.add_argument("--skip-preflight", action="store_true", dest="skip_preflight", help="Skip env preflight checks")
     install.add_argument("--format", default="text", choices=["text", "json"], dest="format")
-    install.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS))
+    install.add_argument("--preset", default="balanced", choices=list(VALID_PRESETS_ALL))
     install.add_argument("--mode", default="omg-only", choices=["omg-only", "coexist"])
     install.set_defaults(func=cmd_install)
 
@@ -3294,6 +3403,16 @@ def build_parser() -> argparse.ArgumentParser:
     env_doctor_cmd.add_argument("--fix", action="store_true", default=False, help="Attempt to fix failing checks")
     env_doctor_cmd.add_argument("--dry-run", action="store_true", default=False, dest="dry_run")
     env_doctor_cmd.set_defaults(func=cmd_env_doctor)
+
+    init_cmd = sub.add_parser("init", help="Fully automated OMG initialization")
+    init_cmd.add_argument("--auto", action="store_true", help="Fully automatic mode (no prompts)")
+    init_cmd.add_argument("--preset", default=None, choices=list(VALID_PRESETS), help="Force preset selection")
+    init_cmd.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    init_cmd.set_defaults(func=cmd_init)
+
+    status_cmd = sub.add_parser("status", help="Check OMG installation status")
+    status_cmd.add_argument("--format", default="text", choices=["text", "json"], dest="format")
+    status_cmd.set_defaults(func=cmd_status)
 
     return parser
 

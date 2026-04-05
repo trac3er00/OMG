@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bun dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Python dependencies
+        run: pip install -e ".[test]"
+
+      - name: TypeScript Tests (all directories)
+        run: PATH=/home/claw/.bun/bin:$PATH bun test
+        timeout-minutes: 10
+
+      - name: Typecheck
+        run: PATH=/home/claw/.bun/bin:$PATH bunx tsc --noEmit
+
+      - name: Lint
+        run: PATH=/home/claw/.bun/bin:$PATH bun run lint
+
+      - name: Python Tests (all test files)
+        run: pytest tests/ -n auto --timeout=60 --tb=short
+        timeout-minutes: 10

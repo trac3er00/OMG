@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import getpass
 import json
+import logging
 import os
 from pathlib import Path
 import platform
@@ -14,6 +15,7 @@ from uuid import uuid4
 
 TRACEBANK_REL_PATH = Path(".omg") / "tracebank" / "events.jsonl"
 TRACEBANK_EVIDENCE_LINKS_REL_PATH = Path(".omg") / "tracebank" / "evidence-links.jsonl"
+_logger = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -92,8 +94,8 @@ def record_trace(
                 evidence_links=(metadata or {}).get("verification_evidence_links", []),
                 progress=(metadata or {}).get("verification_progress", {}),
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            _logger.debug("Failed to publish verification state for trace %s: %s", trace_id, exc, exc_info=True)
 
     return record
 

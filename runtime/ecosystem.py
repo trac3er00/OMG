@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
 import subprocess
 from typing import Any
@@ -14,6 +15,7 @@ DEFAULT_ECOSYSTEM_REPO_DIR = ".omg/ecosystem/repos"
 DEFAULT_ECOSYSTEM_LOCK_PATH = ".omg/state/ecosystem-lock.json"
 DEFAULT_ECOSYSTEM_PLAYBOOK_DIR = ".omg/knowledge/ecosystem"
 MAX_SELECTION = 32
+_logger = logging.getLogger(__name__)
 
 
 ECOSYSTEM_REPOS: tuple[dict[str, Any], ...] = (
@@ -180,7 +182,8 @@ def _read_lock(lock_path: Path) -> dict[str, Any]:
         return {}
     try:
         payload = json.loads(lock_path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        _logger.debug("Failed to parse ecosystem lock file %s: %s", lock_path, exc, exc_info=True)
         return {}
     if not isinstance(payload, dict):
         return {}

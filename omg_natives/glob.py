@@ -8,10 +8,14 @@ Feature flag: ``OMG_RUST_ENGINE_ENABLED`` (default: False)
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import List
 
 from omg_natives._bindings import bind_function
+
+
+_logger = logging.getLogger(__name__)
 
 
 def glob(pattern: str, base: str = ".") -> list[str]:
@@ -28,8 +32,8 @@ def glob(pattern: str, base: str = ".") -> list[str]:
                 results.append(str(match.relative_to(base_path)))
             except ValueError:
                 results.append(str(match))
-    except OSError:
-        pass
+    except OSError as exc:
+        _logger.debug("Failed to expand glob pattern %s under %s: %s", pattern, base_path, exc, exc_info=True)
     return results
 
 

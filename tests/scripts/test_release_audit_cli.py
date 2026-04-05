@@ -36,7 +36,7 @@ def test_cmd_release_audit_json_delegates_to_engine(monkeypatch: pytest.MonkeyPa
         "status": "ok",
         "schema": "ReleaseArtifactAudit",
         "overall_status": "ok",
-        "version": "2.2.12",
+        "version": "2.3.0",
         "repo": "trac3r00/OMG",
     }
 
@@ -71,7 +71,7 @@ def test_cmd_ship_blocks_on_release_audit_drift(monkeypatch: pytest.MonkeyPatch,
             "status": "ok",
             "schema": "ReleaseArtifactAudit",
             "overall_status": "fail",
-            "blockers": ["github_release_missing:v2.2.12"],
+            "blockers": ["github_release_missing:v2.3.0"],
             "verdict": "FAIL",
         }
 

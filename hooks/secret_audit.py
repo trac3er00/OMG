@@ -76,10 +76,16 @@ def _rotate_log(log_path: str) -> None:
             try:
                 os.remove(archive)
             except OSError:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [secret_audit] failed to remove rotated archive: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
         shutil.move(log_path, archive)
     except Exception:
-        pass
+        try:
+            import sys; print(f"[omg:warn] [secret_audit] failed to rotate secret-access log: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass
 
 
 def log_secret_access(
@@ -139,6 +145,12 @@ def log_secret_access(
                 with open(log_path, "a") as f:
                     f.write(json.dumps(entry, separators=(",", ":")) + "\n")
             except Exception:
-                pass
+                try:
+                    import sys; print(f"[omg:warn] [secret_audit] fallback write failed: {sys.exc_info()[1]}", file=sys.stderr)
+                except Exception:
+                    pass
     except Exception:
-        pass  # Crash isolation: never fail the hook
+        try:
+            import sys; print(f"[omg:warn] [secret_audit] failed to append secret-access log: {sys.exc_info()[1]}", file=sys.stderr)
+        except Exception:
+            pass

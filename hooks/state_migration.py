@@ -50,7 +50,10 @@ def _copy_file(src: str, dst: str) -> str:
             if _sha256_file(src) == _sha256_file(dst):
                 return "unchanged"
         except Exception:
-            pass
+            try:
+                import sys; print(f"[omg:warn] [state_migration] failed to compare file hashes: {sys.exc_info()[1]}", file=sys.stderr)
+            except Exception:
+                pass
     shutil.copy2(src, dst)
     return "copied"
 

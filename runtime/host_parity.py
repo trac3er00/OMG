@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from dataclasses import asdict, dataclass
@@ -9,6 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from runtime.canonical_surface import get_canonical_hosts
+
+
+_logger = logging.getLogger(__name__)
 
 
 _IGNORED_SEMANTIC_KEYS = {
@@ -117,16 +121,16 @@ def _parse_json_blob(text: str) -> Any | None:
         return None
     try:
         return json.loads(stripped)
-    except json.JSONDecodeError:
-        pass
+    except json.JSONDecodeError as exc:
+        _logger.debug("Primary JSON parse failed for host parity payload: %s", exc, exc_info=True)
 
     fence = re.search(r"```(?:json)?\s*(\{[\s\S]*\}|\[[\s\S]*\])\s*```", stripped, flags=re.IGNORECASE)
     if fence:
         candidate = fence.group(1)
         try:
             return json.loads(candidate)
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as exc:
+            _logger.debug("Fenced JSON parse failed for host parity payload: %s", exc, exc_info=True)
 
     decoder = json.JSONDecoder()
     for start in range(len(stripped)):
@@ -215,7 +219,8 @@ class HostParityNormalizer:
         exit_code_raw = payload.get("exit_code", 0)
         try:
             exit_code = int(exit_code_raw)
-        except Exception:
+        except Exception as exc:
+            _logger.debug("Failed to coerce host exit code for %s: %s", host_name, exc, exc_info=True)
             exit_code = 0
 
         error = str(payload.get("error", "")).strip()
