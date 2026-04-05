@@ -293,3 +293,9 @@
 - Host artifact targets: claude -> `.claude-plugin/mcp.json`, codex -> `.agents/skills/omg/`, gemini -> `settings.json`, kimi -> `mcp.json`.
 - The `ship.ts` and `validate.ts` commands already had `runContractValidate()` that checked for `omg contract` in help text — previously always skipping. Now it will find and execute the command.
 - Yargs `CommandModule` type with `readonly` interface fields + `array: true` option causes type mismatch; workaround is casting via `argv as unknown as Args` pattern.
+
+## [T29] Integration Tests
+- Added `tests/integration/test_security_automode_governance.py` with 10 cross-cutting scenarios that intentionally validate interactions between Ralph auto-mode flow, mutation gating, rollback manifests, governance approvals, security firewall behavior, planning gate enforcement, and lane-based tool exposure.
+- Bun can execute `src/security/audit-trail.ts` directly from Python integration tests (`subprocess.run(["bun", "-e", ...])`), enabling restart/persisted-HMAC verification from the pytest lane without creating JS wrapper files.
+- Ralph lock contention tests must use a different live PID than the test process; `_acquire_ralph_session_lock()` treats same-PID ownership as a valid re-entry and will not emit concurrency blocks.
+- Current repo state has unrelated pre-existing integration failures in `tests/integration/test_cross_gap.py`; T29 module passes fully in isolation (`10 passed`).
