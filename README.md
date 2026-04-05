@@ -11,11 +11,13 @@
 ## 🚀 Killer Features
 
 ### 🛡️ MutationGate
+
 **Stop risky mutations before they happen.**
 MutationGate provides a hard gate for file system changes. It intercepts, warns, and blocks unauthorized or risky mutations, especially during release orchestration. No more accidental deletions or unauthorized config changes.
 (릴리즈 오케스트레이션 시 변조를 차단하거나 허용하는 강력한 게이트웨이입니다. 위험한 파일 시스템 변경을 사전에 방지합니다.)
 
 ### ⚖️ ProofGate
+
 **Evidence-backed verification, claim judge.**
 ProofGate requires machine-generated evidence (test results, build logs, etc.) for every claim an agent makes. It acts as a judge to verify that a task was actually completed correctly, not just "claimed" to be done.
 (에이전트의 주장을 증거 기반으로 검증합니다. 테스트 결과, 빌드 로그 등 객체적 증거를 통해 작업 완료 여부를 심판합니다.)
@@ -36,18 +38,21 @@ ProofGate requires machine-generated evidence (test results, build logs, etc.) f
 
 ## ⚔️ Comparison: Why OMG?
 
-| Feature | oh-my-openagent (44k⭐) | oh-my-claudecode (14k⭐) | **OMG** |
-| :--- | :---: | :---: | :---: |
-| **Architecture** | Plugin-based | Host-specific | **Native Control Plane** |
-| **Governance** | ❌ None | ⚠️ Limited | ✅ **Hard Gates (MutationGate)** |
-| **Verification** | ❌ Manual | ⚠️ Basic | ✅ **Evidence-Backed (ProofGate)** |
-| **Memory** | ❌ Volatile | ⚠️ Local Files | ✅ **Encrypted & Namespaced** |
-| **Interoperability** | ⚠️ Plugin-only | ❌ Single Host | ✅ **Universal MCP + Registry** |
+| Feature          | Native Claude Code | oh-my-claudecode |   gstack    | everything-claude-code |         **OMG v3.0.0**          |
+| :--------------- | :----------------: | :--------------: | :---------: | :--------------------: | :-----------------------------: |
+| **Governance**   |      ❌ None       |    ⚠️ Limited    | ⚠️ Optional |     ⚠️ AgentShield     | ✅ **Hard Gates + Approval UI** |
+| **Verification** |     ❌ Manual      |     ⚠️ Basic     |  ⚠️ Basic   |   ✅ Evidence-Backed   | ✅ **ProofGate + Claim Judge**  |
+| **Rollback**     |      ❌ None       |     ❌ None      |   ❌ None   |        ⚠️ Basic        |    ✅ **Rollback Manifests**    |
+| **Routing**      |     ❌ Single      |    ❌ Single     |  ❌ Single  |       ❌ Single        |   ✅ **Multi-Model Routing**    |
+| **Planning**     |     ❌ Linear      |     ⚠️ Basic     |  ⚠️ Basic   |        ⚠️ Basic        |  ✅ **Governed Deep Planning**  |
+| **Multi-Agent**  |      ❌ None       |     ❌ None      |  ⚠️ Basic   |        ⚠️ Basic        |   ✅ **Governed Multi-Agent**   |
 
-**OMG만의 고유 강점:**
-- **Native Control Plane**: 호스트에 종속되지 않는 독립적인 제어 계층.
-- **Hard Gates**: 단순 경고를 넘어선 실제 차단 능력.
-- **Encrypted Memory**: 보안이 강화된 네임스페이스 기반 메모리 저장소.
+**OMG v3.0.0 고유 강점:**
+
+- **Hard Gates + Approval UI**: 단순 경고를 넘어선 실제 차단 및 대화형 승인 인터페이스.
+- **Rollback Manifests**: 모든 작업에 대한 세밀한 실행 취소 및 복구 능력.
+- **Multi-Model Routing**: 작업 복잡도에 따른 최적의 모델 자동 선택 및 예산 관리.
+- **Governed Deep Planning**: 보안 정책이 내장된 구조화된 계획 수립.
 
 ---
 
@@ -120,6 +125,7 @@ graph TD
 ## Why OMG
 
 <!-- OMG:GENERATED:why-omg -->
+
 OMG keeps the host you already use, then adds governed install, proof, and release surfaces on top.
 
 - Canonical host parity targets are Claude, Codex, Gemini, and Kimi.
@@ -127,6 +133,7 @@ OMG keeps the host you already use, then adds governed install, proof, and relea
 - Install and verification stay explicit: doctor first, preview second, apply last.
 
 > Legacy Claude compatibility commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain documented as footnotes only.
+
 <!-- /OMG:GENERATED:why-omg -->
 
 - Claude front door: run `npx omg env doctor`, then `npx omg install --plan`, then `npx omg install --apply`.
@@ -152,6 +159,7 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 ## Quickstart
 
 <!-- OMG:GENERATED:install-intro -->
+
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
@@ -166,6 +174,7 @@ npx omg ship
 Local package-manager installs only link `omg` into `node_modules/.bin/`; they do not mutate configuration.
 
 For CI/automation, use `npx omg install --apply` directly.
+
 <!-- /OMG:GENERATED:install-intro -->
 
 On non-Claude hosts, verify native MCP registration after `npx omg install --apply`:
