@@ -1224,3 +1224,83 @@ def test_lock_released_on_completion(tmp_path):
 
     assert result.returncode == 0
     assert not (state_dir / "ralph-loop.lock").exists()
+
+
+def _ralph_budget_flags(flag_name: str, default: bool = True) -> bool:
+    if flag_name in {"ralph_loop", "ralph_budget_tracking"}:
+        return True
+    return default
+
+
+def test_ralph_state_includes_budget_fields(monkeypatch, tmp_path):
+    ralph_dir = tmp_path / ".omg" / "state"
+    ralph_dir.mkdir(parents=True, exist_ok=True)
+    ralph_path = ralph_dir / "ralph-loop.json"
+    ralph_path.write_text(
+        json.dumps(
+            {
+                "active": True,
+                "iteration": 0,
+                "max_iterations": 50,
+                "original_prompt": "budget fields test",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (ralph_dir / "ralph-config.json").write_text(
+        json.dumps(
+            {
+                "budget_token_limit": 100000,
+                "budget_tokens_per_iteration": 10000,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", _ralph_budget_flags)
+
+    data = {"_stop_ctx": {"ledger_entries": []}}
+    stop_dispatcher.check_ralph_loop(str(tmp_path), data)
+
+    final_state = json.loads(ralph_path.read_text(encoding="utf-8"))
+    assert final_state["budget_limit"] == 100000
+    assert final_state["budget_used"] == 10000
+    assert final_state["budget_remaining"] == 90000
+
+
+def test_ralph_stops_on_budget_exceeded(monkeypatch, tmp_path):
+    ralph_dir = tmp_path / ".omg" / "state"
+    ralph_dir.mkdir(parents=True, exist_ok=True)
+    ralph_path = ralph_dir / "ralph-loop.json"
+    ralph_path.write_text(
+        json.dumps(
+            {
+                "active": True,
+                "iteration": 0,
+                "max_iterations": 50,
+                "original_prompt": "budget exceeded test",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (ralph_dir / "ralph-config.json").write_text(
+        json.dumps(
+            {
+                "budget_token_limit": 30000,
+                "budget_tokens_per_iteration": 10000,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(stop_dispatcher, "get_feature_flag", _ralph_budget_flags)
+
+    data = {"_stop_ctx": {"ledger_entries": []}}
+    for _ in range(3):
+        stop_dispatcher.check_ralph_loop(str(tmp_path), data)
+
+    final_state = json.loads(ralph_path.read_text(encoding="utf-8"))
+    assert final_state["active"] is False
+    assert final_state["stop_reason"] == "budget_exceeded"
+    assert final_state["budget_used"] == 30000
+    assert final_state["budget_remaining"] == 0

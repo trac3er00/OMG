@@ -1,0 +1,45 @@
+{
+  "task": "T20",
+  "title": "Budget tracking wired into Ralph loop",
+  "timestamp": "2026-04-05T06:05:00Z",
+  "status": "pass",
+  "tests": {
+    "file": "tests/test_stop_dispatcher.py",
+    "total": 45,
+    "passed": 45,
+    "failed": 0,
+    "new_tests": [
+      "test_ralph_state_includes_budget_fields",
+      "test_ralph_stops_on_budget_exceeded"
+    ]
+  },
+  "changes": {
+    "hooks/stop_dispatcher.py": [
+      "Added _RALPH_DEFAULT_BUDGET_TOKEN_LIMIT, _RALPH_BUDGET_WARN_RATIO, _RALPH_BUDGET_REFLECT_RATIO, _RALPH_DEFAULT_TOKENS_PER_ITERATION constants",
+      "Added _ralph_budget_tracking() function wiring budget_envelopes into Ralph loop",
+      "Integrated budget check in check_ralph_loop() between convergence detection and max_iterations",
+      "Ralph state now includes budget_used, budget_remaining, budget_limit fields",
+      "Budget advisories returned from check_ralph_loop for warn/reflect thresholds"
+    ],
+    "tests/test_stop_dispatcher.py": [
+      "Added test_ralph_state_includes_budget_fields",
+      "Added test_ralph_stops_on_budget_exceeded"
+    ]
+  },
+  "feature_flag": {
+    "name": "ralph_budget_tracking",
+    "default": false,
+    "already_existed": true
+  },
+  "budget_thresholds": {
+    "warn": 0.70,
+    "reflect": 0.85,
+    "block": 1.00
+  },
+  "ralph_state_fields": [
+    "budget_used",
+    "budget_remaining",
+    "budget_limit"
+  ],
+  "stop_reason": "budget_exceeded"
+}

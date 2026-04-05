@@ -180,6 +180,10 @@ _RALPH_DEFAULT_MAX_ITERATIONS = 50
 _RALPH_DEFAULT_CONVERGENCE_STREAK = 3
 _RALPH_DEFAULT_DELTA_THRESHOLD = 1
 _RALPH_SEGMENTATION_PHASE_ITERATIONS = 3
+_RALPH_DEFAULT_BUDGET_TOKEN_LIMIT = 500000
+_RALPH_BUDGET_WARN_RATIO = 0.70
+_RALPH_BUDGET_REFLECT_RATIO = 0.85
+_RALPH_DEFAULT_TOKENS_PER_ITERATION = 10000
 _RALPH_APPROVALS_PATH = os.path.join(".omg", "state", "ralph-approvals.json")
 _RALPH_APPROVAL_AUDIT_PATH = os.path.join(
     ".omg", "state", "ledger", "ralph-approval-audit.jsonl"
@@ -1871,6 +1875,79 @@ def _stop_ralph_loop(
     return [], [advisory], False
 
 
+def _ralph_budget_tracking(
+    project_dir: str,
+    state: dict[str, object],
+    data: dict[str, object] | None,
+) -> tuple[str | None, str | None]:
+    """Track Ralph budget via budget envelopes.
+
+    Returns ``(stop_reason | None, advisory | None)``.
+    Modifies *state* in-place to add ``budget_used``, ``budget_remaining``,
+    ``budget_limit``.
+    """
+    if not get_feature_flag("ralph_budget_tracking", default=False):
+        return None, None
+
+    try:
+        from runtime.budget_envelopes import get_budget_envelope_manager
+    except ImportError:
+        return None, None
+
+    config = _load_ralph_config(project_dir)
+    budget_limit = _safe_int(
+        config.get("budget_token_limit"),
+        _RALPH_DEFAULT_BUDGET_TOKEN_LIMIT,
+        minimum=1,
+    )
+    tokens_per_iter = _safe_int(
+        config.get("budget_tokens_per_iteration"),
+        _RALPH_DEFAULT_TOKENS_PER_ITERATION,
+        minimum=1,
+    )
+
+    budget_run_id = str(state.get("_budget_run_id") or "")
+    if not budget_run_id:
+        budget_run_id = f"ralph-budget-{int(time.time() * 1000)}"
+        state["_budget_run_id"] = budget_run_id
+
+    try:
+        mgr = get_budget_envelope_manager(project_dir)
+
+        if not mgr.get_envelope_state(budget_run_id):
+            mgr.create_envelope(budget_run_id, token_limit=budget_limit)
+
+        mgr.record_usage(budget_run_id, tokens=tokens_per_iter)
+
+        envelope_state = mgr.get_envelope_state(budget_run_id)
+        usage = envelope_state.get("usage", {}) if envelope_state else {}
+        tokens_used = int(usage.get("tokens_used", 0))
+    except Exception:
+        return None, None
+
+    state["budget_used"] = tokens_used
+    state["budget_limit"] = budget_limit
+    state["budget_remaining"] = max(0, budget_limit - tokens_used)
+
+    ratio = tokens_used / budget_limit if budget_limit > 0 else 0.0
+
+    if ratio >= 1.0:
+        return "budget_exceeded", None
+    if ratio >= _RALPH_BUDGET_REFLECT_RATIO:
+        return None, (
+            f"@ralph-budget-critical: {int(ratio * 100)}% budget used "
+            f"({tokens_used}/{budget_limit} tokens). "
+            "Reduce tool calls and wrap up current work."
+        )
+    if ratio >= _RALPH_BUDGET_WARN_RATIO:
+        return None, (
+            f"@ralph-budget-warning: {int(ratio * 100)}% budget used "
+            f"({tokens_used}/{budget_limit} tokens)."
+        )
+
+    return None, None
+
+
 def _load_context_pressure_snapshot(project_dir: str) -> dict[str, object]:
     pressure_path = os.path.join(project_dir, ".omg", "state", ".context-pressure.json")
     if not os.path.exists(pressure_path):
@@ -2175,6 +2252,18 @@ def check_ralph_loop(project_dir, data):
                 ),
             )
 
+    _budget_stop_reason, _budget_advisory = _ralph_budget_tracking(
+        project_dir, state, data
+    )
+    if _budget_stop_reason:
+        return _stop_ralph_loop(
+            project_dir,
+            ralph_path,
+            state,
+            _budget_stop_reason,
+            f"Ralph loop stopped: {_budget_stop_reason}.",
+        )
+
     iteration = _safe_int(state.get("iteration"), 0)
     max_iter = _safe_int(
         state.get("max_iterations"), _RALPH_DEFAULT_MAX_ITERATIONS, minimum=1
@@ -2194,7 +2283,8 @@ def check_ralph_loop(project_dir, data):
     state.pop("stop_reason", None)
     atomic_json_write(ralph_path, state)
     reason = format_ralph_block_reason(state, project_dir)
-    return [reason], [], False
+    _ralph_advisories = [_budget_advisory] if _budget_advisory else []
+    return [reason], _ralph_advisories, False
 
 
 def check_planning_gate(project_dir, data=None):
