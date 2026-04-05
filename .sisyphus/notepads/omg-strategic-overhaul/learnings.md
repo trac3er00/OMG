@@ -115,6 +115,7 @@
 - Convergence gating should remain behind `get_feature_flag("ralph_convergence_detection", default=False)` so default behavior is unchanged unless explicitly enabled.
 - `max_iterations` override should be loaded from `resolve_state_file(project_dir, "state/ralph-config.json", "ralph-config.json")` each loop iteration to allow runtime tuning without prompt-enhancer changes.
 - Stop reasons are easiest to keep consistent via a single stop helper that deactivates state, writes `stop_reason`, and releases the Ralph lock (`completed`, `converged_no_delta`, `max_iterations`, `timeout`, `user_stop`).
+- If a Ralph state is already inactive but carries `completed`/`user_stop` markers, backfilling `stop_reason` on read keeps downstream state consumers deterministic without reactivating the loop.
 
 ## [T12] Approval Gate
 - Ralph loop now hard-refuses bypass permission mode before iteration progression: `is_bypass_mode(data)` raises runtime error with explicit disable guidance.

@@ -835,6 +835,40 @@ def test_ralph_stop_reason_field(monkeypatch, tmp_path):
     assert final_state["stop_reason"] == "completed"
 
 
+def test_ralph_inactive_state_backfills_user_stop_reason(monkeypatch, tmp_path):
+    ralph_dir = tmp_path / ".omg" / "state"
+    ralph_dir.mkdir(parents=True, exist_ok=True)
+    ralph_path = ralph_dir / "ralph-loop.json"
+    ralph_path.write_text(
+        json.dumps(
+            {
+                "active": False,
+                "iteration": 4,
+                "max_iterations": 50,
+                "original_prompt": "done",
+                "user_stop": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        stop_dispatcher,
+        "get_feature_flag",
+        lambda name, default=False: True if name == "ralph_loop" else default,
+    )
+
+    block_reasons, advisories, is_question = stop_dispatcher.check_ralph_loop(
+        str(tmp_path), {"_stop_ctx": {"ledger_entries": []}}
+    )
+    assert block_reasons == []
+    assert advisories == []
+    assert is_question is False
+
+    final_state = json.loads(ralph_path.read_text(encoding="utf-8"))
+    assert final_state["stop_reason"] == "user_stop"
+
+
 def _ralph_flags(flag_name: str, default: bool = True) -> bool:
     if flag_name in {"ralph_loop", "ralph_rollback_manifests"}:
         return True

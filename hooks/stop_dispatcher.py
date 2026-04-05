@@ -1888,6 +1888,13 @@ def check_ralph_loop(project_dir, data):
     except (json.JSONDecodeError, OSError):
         return [], [], False
     if not state.get("active"):
+        if "stop_reason" not in state:
+            if state.get("completed") is True:
+                state["stop_reason"] = "completed"
+                atomic_json_write(ralph_path, state)
+            elif state.get("user_stop") is True or state.get("stop_requested") is True:
+                state["stop_reason"] = "user_stop"
+                atomic_json_write(ralph_path, state)
         return [], [], False
 
     if state.get("completed") is True:
