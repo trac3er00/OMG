@@ -1,12 +1,18 @@
 import { z } from "zod";
 import {
   readdirSync,
+  readFileSync,
   statSync,
   renameSync,
   mkdirSync,
   existsSync,
+  unlinkSync,
+  writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, basename } from "node:path";
+import { gzipSync } from "node:zlib";
+import { readJsonLines } from "../state/atomic-io.js";
+import type { EvidenceRecord } from "./registry.js";
 
 export const RETENTION_VERSION = "1.0.0";
 
@@ -107,4 +113,130 @@ export function applyRetentionPolicy(
 
 export function getRetentionConfig(): RetentionPolicy[] {
   return DEFAULT_RETENTION_POLICIES;
+}
+
+export function parseDuration(spec: string): number {
+  const match = spec.match(/^(\d+)(d|h|m)$/);
+  if (!match)
+    throw new Error(
+      `Invalid duration format: "${spec}" (expected e.g. "30d", "24h", "60m")`,
+    );
+  const value = parseInt(match[1]!, 10);
+  const unit = match[2]!;
+  switch (unit) {
+    case "d":
+      return value * 24 * 60 * 60 * 1000;
+    case "h":
+      return value * 60 * 60 * 1000;
+    case "m":
+      return value * 60 * 1000;
+    default:
+      throw new Error(`Unknown duration unit: ${unit}`);
+  }
+}
+
+export function compressFileSync(srcPath: string, destPath: string): void {
+  const content = readFileSync(srcPath);
+  const compressed = gzipSync(content);
+  const destDir = join(destPath, "..");
+  if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+  writeFileSync(destPath, compressed);
+}
+
+export interface PruneOptions {
+  evidenceDir: string;
+  archiveDir: string;
+  olderThanMs: number;
+  now?: number;
+}
+
+export interface PruneResult {
+  archived: string[];
+  skipped: string[];
+  totalSize: number;
+}
+
+export function pruneEvidence(options: PruneOptions): PruneResult {
+  const { evidenceDir, archiveDir, olderThanMs, now = Date.now() } = options;
+  const result: PruneResult = { archived: [], skipped: [], totalSize: 0 };
+
+  if (!existsSync(evidenceDir)) return result;
+
+  mkdirSync(archiveDir, { recursive: true });
+
+  const files = readdirSync(evidenceDir).filter(
+    (f) => f.endsWith(".json") || f.endsWith(".jsonl") || f.endsWith(".txt"),
+  );
+
+  for (const file of files) {
+    const filePath = join(evidenceDir, file);
+    const stat = statSync(filePath);
+    const ageMs = now - stat.mtimeMs;
+
+    if (ageMs > olderThanMs) {
+      const archiveName = `${basename(file)}.gz`;
+      const archivePath = join(archiveDir, archiveName);
+      compressFileSync(filePath, archivePath);
+      unlinkSync(filePath);
+      result.archived.push(file);
+      result.totalSize += stat.size;
+    } else {
+      result.skipped.push(file);
+    }
+  }
+
+  return result;
+}
+
+export type EvidenceType =
+  | "security"
+  | "test"
+  | "build"
+  | "governance"
+  | "planning";
+
+export const EVIDENCE_TYPES: readonly EvidenceType[] = [
+  "security",
+  "test",
+  "build",
+  "governance",
+  "planning",
+] as const;
+
+export interface QueryOptions {
+  registryPath: string;
+  sinceMs?: number;
+  type?: string;
+  now?: number;
+}
+
+export interface QueryResult {
+  records: EvidenceRecord[];
+  total: number;
+  filtered: number;
+}
+
+export function queryEvidence(options: QueryOptions): QueryResult {
+  const { registryPath, sinceMs, type, now = Date.now() } = options;
+
+  const allRecords = readJsonLines<EvidenceRecord>(registryPath);
+  let filtered = allRecords;
+
+  if (type) {
+    filtered = filtered.filter((r) => r.type === type);
+  }
+
+  if (sinceMs !== undefined) {
+    const cutoff = now - sinceMs;
+    filtered = filtered.filter((r) => {
+      if (!r.timestamp) return false;
+      return new Date(r.timestamp).getTime() >= cutoff;
+    });
+  }
+
+  return {
+    records: filtered,
+    total: allRecords.length,
+    filtered: filtered.length,
+  };
 }

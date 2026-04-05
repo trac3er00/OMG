@@ -192,6 +192,68 @@ async function runCli(): Promise<void> {
       handler: () => {},
     })
     .command({
+      command: "evidence",
+      describe: "Evidence retention and querying",
+      builder: (command) =>
+        command
+          .command({
+            command: "prune",
+            describe:
+              "Archive and remove evidence older than a given threshold",
+            builder: (sub) =>
+              sub
+                .option("older-than", {
+                  type: "string",
+                  demandOption: true,
+                  describe: 'Duration threshold, e.g. "30d", "24h", "60m"',
+                })
+                .option("projectDir", {
+                  type: "string",
+                  describe: "Project directory override",
+                })
+                .option("json", {
+                  type: "boolean",
+                  default: false,
+                  describe: "Output as JSON",
+                }),
+            handler: async (argv) => {
+              const { evidencePruneCommand } =
+                await import("./commands/evidence.js");
+              await evidencePruneCommand.handler(argv as never);
+            },
+          })
+          .command({
+            command: "query",
+            describe: "Query evidence records by type and age",
+            builder: (sub) =>
+              sub
+                .option("since", {
+                  type: "string",
+                  describe: 'Filter evidence newer than duration, e.g. "7d"',
+                })
+                .option("type", {
+                  type: "string",
+                  describe: "Filter by evidence type",
+                })
+                .option("projectDir", {
+                  type: "string",
+                  describe: "Project directory override",
+                })
+                .option("json", {
+                  type: "boolean",
+                  default: true,
+                  describe: "Output as JSON (default)",
+                }),
+            handler: async (argv) => {
+              const { evidenceQueryCommand } =
+                await import("./commands/evidence.js");
+              await evidenceQueryCommand.handler(argv as never);
+            },
+          })
+          .demandCommand(1, "Specify an evidence subcommand: prune or query"),
+      handler: () => {},
+    })
+    .command({
       command: "migrate",
       describe: "Migrate OMG project config between versions",
       builder: (command) =>

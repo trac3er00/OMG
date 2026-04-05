@@ -219,3 +219,13 @@
 - Added `diff_plans(plan_v1, plan_v2)` to compute added/removed/modified task deltas for version-to-version review.
 - Integrated multi-model planning selection through `runtime.router_selector.select_target()` and retained tier-aware fallback routing.
 - New tests in `tests/runtime/test_opus_plan.py` validate governed checkpoints, persistence+versioning, and plan diff computation.
+
+## [T28] Evidence Retention
+
+- `retention.ts` already had `applyRetentionPolicy` for file-level archive/delete; new prune layer adds gzip compression on top
+- Evidence files: `.json`, `.jsonl`, `.txt` in `.omg/evidence/`; registry is JSONL at `.omg/state/ledger/evidence-registry.jsonl`
+- `gzipSync`/`gunzipSync` from `node:zlib` — synchronous is fine for evidence files (small, local)
+- CLI pattern: yargs nested subcommands with lazy `await import()` for each handler
+- `exactOptionalPropertyTypes` in tsconfig requires explicit conditional property assignment (can't pass `undefined` for optional props)
+- `readJsonLines` from `atomic-io.ts` returns empty array for missing files — safe for query on fresh projects
+- Evidence types: security, test, build, governance, planning — matches the 5 categories from the evidence registry
