@@ -1,0 +1,78 @@
+=== Task 32: Cross-Host Compilation Verification ===
+Date: 2026-04-05T06:45:56Z
+
+--- npx omg contract compile --host claude ---
+[claude] compiled -> .claude-plugin/mcp.json
+
+contract compile: SUCCESS
+  version: 2.3.0
+  channel: public
+  hosts: claude
+EXIT: 0
+
+--- npx omg contract compile --host codex ---
+[codex] compiled -> .agents/skills/omg/
+
+contract compile: SUCCESS
+  version: 2.3.0
+  channel: public
+  hosts: codex
+EXIT: 0
+
+--- npx omg contract compile --host gemini ---
+[gemini] compiled -> settings.json
+
+contract compile: SUCCESS
+  version: 2.3.0
+  channel: public
+  hosts: gemini
+EXIT: 0
+
+--- npx omg contract compile --host kimi ---
+[kimi] compiled -> mcp.json
+
+contract compile: SUCCESS
+  version: 2.3.0
+  channel: public
+  hosts: kimi
+EXIT: 0
+
+--- npx omg contract validate ---
+contract validate: pass
+  version: 2.3.0
+  hosts: claude, codex, gemini, kimi
+EXIT: 0
+
+--- npx omg contract compile --host claude --host codex --host gemini --host kimi ---
+[claude] compiled -> .claude-plugin/mcp.json
+[codex] compiled -> .agents/skills/omg/
+[gemini] compiled -> settings.json
+[kimi] compiled -> mcp.json
+
+contract compile: SUCCESS
+  version: 2.3.0
+  channel: public
+  hosts: claude, codex, gemini, kimi
+EXIT: 0
+
+--- bun test src/runtime/contract-compiler/compiler.test.ts ---
+bun test v1.3.11 (af24e281)
+---------------------------------------------|---------|---------|-------------------
+File                                         | % Funcs | % Lines | Uncovered Line #s
+---------------------------------------------|---------|---------|-------------------
+All files                                    |   76.67 |   82.06 |
+ src/index.ts                                |  100.00 |  100.00 | 
+ src/runtime/canonical-taxonomy.ts           |    0.00 |   97.37 | 
+ src/runtime/contract-compiler/host-emit.ts  |   60.00 |   53.52 | 45-57,61-72,82-89
+ src/runtime/contract-compiler/index.ts      |  100.00 |   75.00 | 14-18
+ src/runtime/contract-compiler/schema.ts     |  100.00 |   73.58 | 29-30,35-36,41,46-47,52,62,66,70,72,76
+ src/runtime/contract-compiler/validation.ts |  100.00 |   92.86 | 23,44
+---------------------------------------------|---------|---------|-------------------
+
+ 5 pass
+ 0 fail
+ 16 expect() calls
+Ran 5 tests across 1 file. [119.00ms]
+EXIT: 0
+
+=== All 4 canonical hosts: SUCCESS ===

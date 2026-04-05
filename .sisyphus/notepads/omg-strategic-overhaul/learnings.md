@@ -283,3 +283,13 @@
 - No source description edits were required in this pass (`fixed=0`), confirming T16 metadata improvements are holding.
 - Evidence artifact written: `.sisyphus/evidence/task-33-tool-descriptions.json` with per-tool checks and aggregate counts.
 - Overhaul-adjacent note: `memory_migrate` is in MCP scope and passes; `approval_ui`/`autorun` are not `@mcp.tool` entries in the audited server surfaces for this repository snapshot.
+
+## [T32] Cross-Host Compile
+
+- The `contract compile` CLI command was missing from `src/cli/index.ts`. The contract-compiler library existed at `src/runtime/contract-compiler/` but had no CLI entry point.
+- Added `src/cli/commands/contract.ts` with `contract validate` and `contract compile --host <host>` subcommands, registered in the main CLI.
+- The contract compiler uses a `ContractSchema` with version, capabilities, hosts, and tools. Validation checks: schema structure, required capabilities per host, and major version compatibility with `CANONICAL_VERSION`.
+- All 4 canonical hosts (claude, codex, gemini, kimi) compile successfully with exit code 0.
+- Host artifact targets: claude -> `.claude-plugin/mcp.json`, codex -> `.agents/skills/omg/`, gemini -> `settings.json`, kimi -> `mcp.json`.
+- The `ship.ts` and `validate.ts` commands already had `runContractValidate()` that checked for `omg contract` in help text — previously always skipping. Now it will find and execute the command.
+- Yargs `CommandModule` type with `readonly` interface fields + `array: true` option causes type mismatch; workaround is casting via `argv as unknown as Args` pattern.

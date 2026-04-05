@@ -254,6 +254,58 @@ async function runCli(): Promise<void> {
       handler: () => {},
     })
     .command({
+      command: "contract",
+      describe: "Contract compilation and validation",
+      builder: (command) =>
+        command
+          .command(
+            "validate",
+            "Validate the canonical contract schema",
+            (sub) =>
+              sub.option("json", {
+                type: "boolean",
+                description: "Output as JSON",
+                default: false,
+              }),
+            async (subArgv) => {
+              const { contractValidateCommand } =
+                await import("./commands/contract.js");
+              await contractValidateCommand.handler?.(subArgv as never);
+            },
+          )
+          .command(
+            "compile",
+            "Compile contract artifacts for target hosts",
+            (sub) =>
+              sub
+                .option("host", {
+                  type: "string",
+                  array: true,
+                  describe: "Target host(s): claude, codex, gemini, kimi",
+                })
+                .option("channel", {
+                  type: "string",
+                  describe: "Release channel",
+                  default: "public",
+                })
+                .option("json", {
+                  type: "boolean",
+                  description: "Output as JSON",
+                  default: false,
+                }),
+            async (subArgv) => {
+              const { contractCompileCommand } =
+                await import("./commands/contract.js");
+              await contractCompileCommand.handler?.(subArgv as never);
+            },
+          )
+          .demandCommand(
+            1,
+            "Specify a contract subcommand: validate or compile",
+          ),
+      handler: () => {},
+    })
+    .command({
       command: "migrate",
       describe: "Migrate OMG project config between versions",
       builder: (command) =>
