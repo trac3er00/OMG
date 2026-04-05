@@ -157,6 +157,41 @@ async function runCli(): Promise<void> {
       },
     })
     .command({
+      command: "audit",
+      describe: "Audit log management",
+      builder: (command) =>
+        command
+          .command({
+            command: "export",
+            describe:
+              "Export audit logs in SIEM-compatible format (enterprise only)",
+            builder: (sub) =>
+              sub
+                .option("format", {
+                  type: "string",
+                  choices: ["jsonl"] as const,
+                  default: "jsonl",
+                  describe: "Export format",
+                })
+                .option("output", {
+                  type: "string",
+                  demandOption: true,
+                  describe: "Output file path, or '-' for stdout",
+                })
+                .option("projectDir", {
+                  type: "string",
+                  describe: "Project directory override",
+                }),
+            handler: async (argv) => {
+              const { auditExportCommand } =
+                await import("./commands/audit.js");
+              await auditExportCommand.handler?.(argv as never);
+            },
+          })
+          .demandCommand(1, "Specify an audit subcommand"),
+      handler: () => {},
+    })
+    .command({
       command: "migrate",
       describe: "Migrate OMG project config between versions",
       builder: (command) =>

@@ -149,3 +149,14 @@
 - MCP tool: `memory_migrate(dry_run, batch_size)` added to `runtime/mcp_memory_server.py` for agent-accessible migration.
 - Edge case coverage: empty DB, already-Fernet, corrupted/undecryptable, batch commit boundaries, mixed DB, dry-run, JSON noop, unicode data integrity, CLI subprocess.
 - All 50 tests pass (41 from T8 + 9 new migration tests).
+
+## [T19] SIEM Export
+
+- AuditTrail stores entries as JSONL at `{stateDir}/ledger/audit.jsonl` with HMAC signatures
+- SIEM export maps AuditLogEntry → SiemEvent: timestamp, actor, action, resource, decision, risk_level, session_id, evidence_ref
+- Resource/decision/risk_level extracted from `details` field with sensible fallbacks (action prefix, "recorded", "info")
+- Enterprise tier gating via `OMG_TIER` env var or explicit `tier` option; throws `SiemChannelError` for non-enterprise
+- CLI wired as `npx omg audit export --format=jsonl --output=<path>` using yargs nested subcommand
+- `readJsonLines` from atomic-io.ts handles JSONL reading with graceful skip of malformed lines
+- stdout export supported via `--output=-` pattern
+- 10/10 tests pass (6 original + 4 new SIEM tests)

@@ -8,8 +8,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { appendJsonLine } from "../state/atomic-io.js";
+import { appendJsonLine, readJsonLines } from "../state/atomic-io.js";
 import { StateResolver } from "../state/state-resolver.js";
+import type { SubscriptionTier } from "../runtime/canonical-taxonomy.js";
 
 export interface AuditEntryInput {
   readonly actor: string;
@@ -29,6 +30,36 @@ export interface AuditLogEntry {
 export interface AuditTrailOptions {
   readonly projectDir?: string;
   readonly secret?: string;
+}
+
+/** SIEM-compatible event for security information and event management systems. */
+export interface SiemEvent {
+  readonly timestamp: string;
+  readonly actor: string;
+  readonly action: string;
+  readonly resource: string;
+  readonly decision: string;
+  readonly risk_level: string;
+  readonly session_id: string;
+  readonly evidence_ref: string;
+}
+
+export type SiemExportFormat = "jsonl";
+
+export interface SiemExportOptions {
+  readonly format: SiemExportFormat;
+  readonly output: string; // file path or "-" for stdout
+  readonly projectDir?: string;
+  readonly tier?: SubscriptionTier;
+}
+
+export class SiemChannelError extends Error {
+  constructor() {
+    super(
+      "SIEM export requires enterprise tier. Set OMG_TIER=enterprise or pass tier option.",
+    );
+    this.name = "SiemChannelError";
+  }
 }
 
 export const HMAC_KEY_FILENAME = "audit-hmac.key";
@@ -158,9 +189,73 @@ export class AuditTrail {
     return timingSafeEqual(expectedBuffer, actualBuffer);
   }
 
+  toSiemEvents(): SiemEvent[] {
+    const entries = readJsonLines<AuditLogEntry>(this.auditFilePath);
+    return entries.map((entry) => toSiemEvent(entry));
+  }
+
+  exportSiem(options: SiemExportOptions): {
+    eventCount: number;
+    output: string;
+  } {
+    const tier =
+      options.tier ??
+      (process.env.OMG_TIER as SubscriptionTier | undefined) ??
+      "community";
+    if (tier !== "enterprise") {
+      throw new SiemChannelError();
+    }
+
+    if (options.format !== "jsonl") {
+      throw new Error(`Unsupported SIEM export format: ${options.format}`);
+    }
+
+    const events = this.toSiemEvents();
+    const jsonl =
+      events.map((e) => JSON.stringify(e)).join("\n") +
+      (events.length > 0 ? "\n" : "");
+
+    if (options.output === "-") {
+      process.stdout.write(jsonl);
+    } else {
+      const dir = join(options.output, "..");
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      writeFileSync(options.output, jsonl, "utf8");
+    }
+
+    return { eventCount: events.length, output: options.output };
+  }
+
   private sign(unsignedEntry: Omit<AuditLogEntry, "signature">): string {
     return createHmac("sha256", this.secret)
       .update(stableJson(unsignedEntry), "utf8")
       .digest("hex");
   }
+}
+
+function toSiemEvent(entry: AuditLogEntry): SiemEvent {
+  const details = (entry.details ?? {}) as Record<string, unknown>;
+  return {
+    timestamp: entry.timestamp,
+    actor: entry.actor,
+    action: entry.action,
+    resource:
+      typeof details.resource === "string"
+        ? details.resource
+        : entry.action.split(".")[0],
+    decision:
+      typeof details.decision === "string" ? details.decision : "recorded",
+    risk_level:
+      typeof details.risk_level === "string" ? details.risk_level : "info",
+    session_id:
+      typeof details.sessionId === "string"
+        ? details.sessionId
+        : typeof details.runId === "string"
+          ? details.runId
+          : "unknown",
+    evidence_ref:
+      typeof details.evidenceRef === "string" ? details.evidenceRef : entry.id,
+  };
 }
