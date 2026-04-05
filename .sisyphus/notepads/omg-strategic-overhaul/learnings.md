@@ -229,3 +229,15 @@
 - `exactOptionalPropertyTypes` in tsconfig requires explicit conditional property assignment (can't pass `undefined` for optional props)
 - `readJsonLines` from `atomic-io.ts` returns empty array for missing files — safe for query on fresh projects
 - Evidence types: security, test, build, governance, planning — matches the 5 categories from the evidence registry
+
+## [T24] Multi-Agent
+- `runtime/subagent_dispatcher.py` now stamps each submitted job with `governed_context` carrying a per-job tool fabric lane id (`subagent-lane-<job_id>`), budget envelope metadata, and rollback manifest path/step id.
+- Governed context materialization is lazy but enforced at execution start via `_ensure_governed_context(...)`, which creates per-agent budget envelopes (`runtime.budget_envelopes`) and rollback manifests (`runtime.rollback_manifest`) before dispatch runs.
+- Added shared `AgentCoordinator` ownership tracking (`file_path -> job_id`) and conflict gating in `_run_job`: when a second agent claims an already-owned file, policy decision (`allow|ask|deny`, default deny) is recorded and non-allow decisions fail the job.
+- Dispatch artifacts/evidence now include `modified_files`, `governed_context`, `budget_check`, `file_ownership`, and `conflict_gate` so cross-agent governance decisions are auditable.
+- Regression tests added in `tests/runtime/test_subagent_dispatcher.py`:
+  - `test_multi_agent_governed_context`
+  - `test_cross_agent_file_conflict_detected`
+- Verification snapshot:
+  - `python3 -m pytest tests/runtime/test_subagent_dispatcher.py -v` passed
+  - `python3 -m pytest tests/runtime/ -k "agent" -v` still reports unrelated pre-existing collection errors in non-T24 modules (`agent_selector`, `router_selector`, coordinator-state shim, Python 3.11 `typing.override`).

@@ -1,4 +1,5 @@
 """Tests for parallel execution backend / subagent dispatcher (Task 2.5)."""
+
 from __future__ import annotations
 
 import json
@@ -29,6 +30,7 @@ from runtime.subagent_dispatcher import (
     _is_enabled,
     _jobs,
     _lock,
+    _agent_coordinator,
     _persist_job,
     _load_job_from_disk,
     _running_count,
@@ -46,6 +48,7 @@ from runtime.subagent_dispatcher import (
 
 # --- Helpers ---
 
+
 def _clear_jobs():
     """Clear in-memory job registry between tests."""
     with _lock:
@@ -56,8 +59,10 @@ def _clear_jobs():
 def clean_jobs():
     """Reset job registry before and after each test."""
     _clear_jobs()
+    _agent_coordinator.clear()
     yield
     _clear_jobs()
+    _agent_coordinator.clear()
 
 
 # =============================================================================
@@ -73,7 +78,9 @@ class TestFeatureFlag:
         with patch.dict(os.environ, {}, clear=False):
             # Remove the env var if it exists
             os.environ.pop("OMG_PARALLEL_SUBAGENTS_ENABLED", None)
-            with patch("runtime.subagent_dispatcher._get_feature_flag", return_value=None):
+            with patch(
+                "runtime.subagent_dispatcher._get_feature_flag", return_value=None
+            ):
                 assert _is_enabled() is False
 
     def test_enabled_via_env_var(self):
@@ -190,6 +197,23 @@ class TestSubmitJob:
         assert call_args[0][0] == _run_job
         assert call_args[0][1] == job_id
 
+    @patch("runtime.subagent_dispatcher._persist_job")
+    @patch("runtime.subagent_dispatcher.get_executor")
+    @patch.dict(os.environ, {"OMG_PARALLEL_SUBAGENTS_ENABLED": "1"})
+    def test_multi_agent_governed_context(self, mock_executor, mock_persist):
+        mock_pool = MagicMock()
+        mock_executor.return_value = mock_pool
+
+        a_job = submit_job("agent-a", "task a")
+        b_job = submit_job("agent-b", "task b")
+
+        a_ctx = _jobs[a_job]["governed_context"]
+        b_ctx = _jobs[b_job]["governed_context"]
+
+        assert a_ctx["tool_fabric_lane"] != b_ctx["tool_fabric_lane"]
+        assert a_ctx["budget_envelope"]["run_id"] != b_ctx["budget_envelope"]["run_id"]
+        assert a_ctx["rollback_manifest_path"] != b_ctx["rollback_manifest_path"]
+
 
 # =============================================================================
 # Test: Job Limit Enforcement
@@ -287,7 +311,9 @@ class TestGetJobStatus:
         record = {"job_id": job_id, "status": "completed", "agent_name": "disk-agent"}
         job_file.write_text(json.dumps(record))
 
-        with patch("runtime.subagent_dispatcher._get_project_dir", return_value=str(tmp_path)):
+        with patch(
+            "runtime.subagent_dispatcher._get_project_dir", return_value=str(tmp_path)
+        ):
             result = get_job_status(job_id)
             assert result["job_id"] == job_id
             assert result["status"] == "completed"
@@ -393,12 +419,15 @@ class TestListJobs:
 class TestRunJob:
     """Tests for _run_job() function."""
 
-    @patch("runtime.subagent_dispatcher._dispatch_job_task", return_value={
-        "status": "ok",
-        "worker": "codex",
-        "exit_code": 0,
-        "output": "{\"status\":\"ok\"}",
-    })
+    @patch(
+        "runtime.subagent_dispatcher._dispatch_job_task",
+        return_value={
+            "status": "ok",
+            "worker": "codex",
+            "exit_code": 0,
+            "output": '{"status":"ok"}',
+        },
+    )
     @patch("runtime.subagent_dispatcher._persist_job")
     def test_run_completes_job(self, mock_persist, mock_dispatch):
         """_run_job should transition job from queued → running → completed."""
@@ -419,12 +448,15 @@ class TestRunJob:
         assert len(_jobs["test01"]["artifacts"]) == 1
         assert _jobs["test01"]["artifacts"][0]["type"] == "worker-result"
 
-    @patch("runtime.subagent_dispatcher._dispatch_job_task", return_value={
-        "status": "ok",
-        "worker": "codex",
-        "exit_code": 0,
-        "output": "{\"status\":\"ok\"}",
-    })
+    @patch(
+        "runtime.subagent_dispatcher._dispatch_job_task",
+        return_value={
+            "status": "ok",
+            "worker": "codex",
+            "exit_code": 0,
+            "output": '{"status":"ok"}',
+        },
+    )
     @patch("runtime.subagent_dispatcher._persist_job")
     def test_run_records_worker_result_artifact(self, mock_persist, mock_dispatch):
         """_run_job should capture structured worker output instead of a simulated placeholder."""
@@ -446,13 +478,18 @@ class TestRunJob:
         assert artifact["worker"] == "codex"
         assert artifact["exit_code"] == 0
 
-    @patch("runtime.subagent_dispatcher._dispatch_job_task", return_value={
-        "status": "error",
-        "worker": "claude",
-        "message": "worker unavailable",
-    })
+    @patch(
+        "runtime.subagent_dispatcher._dispatch_job_task",
+        return_value={
+            "status": "error",
+            "worker": "claude",
+            "message": "worker unavailable",
+        },
+    )
     @patch("runtime.subagent_dispatcher._persist_job")
-    def test_run_marks_job_failed_when_worker_dispatch_fails(self, mock_persist, mock_dispatch):
+    def test_run_marks_job_failed_when_worker_dispatch_fails(
+        self, mock_persist, mock_dispatch
+    ):
         """_run_job should fail the job when the worker dispatch returns an error payload."""
         _jobs["fail01"] = {
             "job_id": "fail01",
@@ -494,17 +531,85 @@ class TestRunJob:
         # Should not raise
         _run_job("nonexistent")
 
-    @patch("runtime.subagent_dispatcher._dispatch_job_task", return_value={
-        "status": "ok",
-        "worker": "codex",
-        "exit_code": 0,
-        "output": "{\"status\":\"ok\"}",
-    })
-    @patch("runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/fake-worktree")
+    @patch("runtime.subagent_dispatcher._record_rollback_side_effects")
+    @patch("runtime.subagent_dispatcher._record_governed_usage")
+    @patch(
+        "runtime.subagent_dispatcher._ensure_governed_context",
+        return_value={
+            "tool_fabric_lane": "subagent-lane-a",
+            "budget_envelope": {"run_id": "run-a"},
+            "rollback_manifest_path": "/tmp/run-a.json",
+        },
+    )
+    @patch(
+        "runtime.subagent_dispatcher._dispatch_job_task",
+        return_value={
+            "status": "ok",
+            "worker": "codex",
+            "exit_code": 0,
+            "output": "ok",
+            "modified_files": ["runtime/subagent_dispatcher.py"],
+        },
+    )
+    @patch("runtime.subagent_dispatcher._persist_job")
+    def test_cross_agent_file_conflict_detected(
+        self,
+        mock_persist,
+        mock_dispatch,
+        mock_governed_context,
+        mock_record_usage,
+        mock_record_rollback,
+    ):
+        _jobs["owner01"] = {
+            "job_id": "owner01",
+            "agent_name": "agent-a",
+            "task_text": "task a",
+            "isolation": "none",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+            "governed_context": {},
+        }
+        _jobs["conf01"] = {
+            "job_id": "conf01",
+            "agent_name": "agent-b",
+            "task_text": "task b",
+            "isolation": "none",
+            "status": "queued",
+            "artifacts": [],
+            "error": None,
+            "governed_context": {},
+        }
+
+        _run_job("owner01")
+        assert _jobs["owner01"]["status"] == "completed"
+
+        _run_job("conf01")
+
+        assert _jobs["conf01"]["status"] == "failed"
+        assert "cross-agent file ownership conflict" in (_jobs["conf01"]["error"] or "")
+        gate = _jobs["conf01"].get("conflict_gate", {})
+        assert gate.get("status") == "fired"
+        assert gate.get("decision") == "deny"
+
+    @patch(
+        "runtime.subagent_dispatcher._dispatch_job_task",
+        return_value={
+            "status": "ok",
+            "worker": "codex",
+            "exit_code": 0,
+            "output": '{"status":"ok"}',
+        },
+    )
+    @patch(
+        "runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/fake-worktree"
+    )
     @patch("runtime.subagent_dispatcher._cleanup_worktree")
     @patch("runtime.subagent_dispatcher._persist_job")
     @patch("runtime.subagent_dispatcher._enforce_merge_writer_gate")
-    def test_run_with_worktree_isolation(self, mock_gate, mock_persist, mock_cleanup, mock_setup, mock_dispatch):
+    def test_run_with_worktree_isolation(
+        self, mock_gate, mock_persist, mock_cleanup, mock_setup, mock_dispatch
+    ):
         """_run_job should setup and cleanup worktree when isolation='worktree'."""
         _jobs["wt01"] = {
             "job_id": "wt01",
@@ -562,6 +667,7 @@ class TestExecutor:
     def test_get_executor_returns_pool(self):
         """get_executor should return a ThreadPoolExecutor."""
         import runtime.subagent_dispatcher as mod
+
         old_executor = mod._executor
         mod._executor = None  # Force re-creation
         try:
@@ -576,6 +682,7 @@ class TestExecutor:
     def test_shutdown_clears_executor(self):
         """shutdown should set _executor to None."""
         import runtime.subagent_dispatcher as mod
+
         old_executor = mod._executor
         mod._executor = MagicMock()
         try:
@@ -615,8 +722,13 @@ class TestArtifactStreaming:
     def test_persist_calls_atomic_write(self):
         """_persist_job should call atomic_json_write with correct path."""
         mock_writer = MagicMock()
-        with patch("runtime.subagent_dispatcher._get_atomic_json_write", return_value=mock_writer):
-            with patch("runtime.subagent_dispatcher._get_project_dir", return_value="/proj"):
+        with patch(
+            "runtime.subagent_dispatcher._get_atomic_json_write",
+            return_value=mock_writer,
+        ):
+            with patch(
+                "runtime.subagent_dispatcher._get_project_dir", return_value="/proj"
+            ):
                 record = {"job_id": "x1", "status": "running"}
                 _persist_job("x1", record)
 
@@ -627,7 +739,9 @@ class TestArtifactStreaming:
 
     def test_persist_handles_missing_writer(self):
         """_persist_job should not crash if atomic_json_write unavailable."""
-        with patch("runtime.subagent_dispatcher._get_atomic_json_write", return_value=None):
+        with patch(
+            "runtime.subagent_dispatcher._get_atomic_json_write", return_value=None
+        ):
             # Should not raise
             _persist_job("x2", {"job_id": "x2"})
 
@@ -639,14 +753,18 @@ class TestArtifactStreaming:
         record = {"job_id": "disk01", "status": "completed"}
         job_file.write_text(json.dumps(record))
 
-        with patch("runtime.subagent_dispatcher._get_project_dir", return_value=str(tmp_path)):
+        with patch(
+            "runtime.subagent_dispatcher._get_project_dir", return_value=str(tmp_path)
+        ):
             result = _load_job_from_disk("disk01")
             assert result is not None
             assert result["job_id"] == "disk01"
 
     def test_load_from_disk_missing(self, tmp_path):
         """_load_job_from_disk should return None for missing file."""
-        with patch("runtime.subagent_dispatcher._get_project_dir", return_value=str(tmp_path)):
+        with patch(
+            "runtime.subagent_dispatcher._get_project_dir", return_value=str(tmp_path)
+        ):
             result = _load_job_from_disk("nope")
             assert result is None
 
@@ -659,8 +777,10 @@ class TestArtifactStreaming:
 class TestConfiguredWorkerTimeoutAndFailure:
     """Tests for _run_configured_worker timeout, OSError, and edge-case failure paths."""
 
-    @patch("runtime.subagent_dispatcher.subprocess.run",
-           side_effect=subprocess.TimeoutExpired(cmd=["worker"], timeout=120))
+    @patch(
+        "runtime.subagent_dispatcher.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd=["worker"], timeout=120),
+    )
     def test_timeout_returns_error_payload(self, mock_run):
         """_run_configured_worker should return status=error with timeout message."""
         result = _run_configured_worker(
@@ -673,8 +793,10 @@ class TestConfiguredWorkerTimeoutAndFailure:
         assert result["worker"] == "claude"
         assert "timed out" in result["message"]
 
-    @patch("runtime.subagent_dispatcher.subprocess.run",
-           side_effect=OSError("No such file or directory"))
+    @patch(
+        "runtime.subagent_dispatcher.subprocess.run",
+        side_effect=OSError("No such file or directory"),
+    )
     def test_oserror_returns_error_payload(self, mock_run):
         """_run_configured_worker should return status=error when command is not found."""
         result = _run_configured_worker(
@@ -712,7 +834,9 @@ class TestConfiguredWorkerTimeoutAndFailure:
     @patch("runtime.subagent_dispatcher.subprocess.run")
     def test_nonzero_exit_code_returns_error_status(self, mock_run):
         """_run_configured_worker should return status=error for nonzero exit codes."""
-        mock_run.return_value = MagicMock(returncode=1, stdout="fail output", stderr="err")
+        mock_run.return_value = MagicMock(
+            returncode=1, stdout="fail output", stderr="err"
+        )
         result = _run_configured_worker(
             "claude --prompt {prompt}",
             "task",
@@ -732,10 +856,14 @@ class TestConfiguredWorkerTimeoutAndFailure:
 class TestRunJobFailurePropagation:
     """Tests for _run_job handling exceptions and mid-flight cancellation."""
 
-    @patch("runtime.subagent_dispatcher._dispatch_job_task",
-           side_effect=Exception("unexpected crash"))
+    @patch(
+        "runtime.subagent_dispatcher._dispatch_job_task",
+        side_effect=Exception("unexpected crash"),
+    )
     @patch("runtime.subagent_dispatcher._persist_job")
-    def test_run_job_marks_failed_on_unexpected_exception(self, mock_persist, mock_dispatch):
+    def test_run_job_marks_failed_on_unexpected_exception(
+        self, mock_persist, mock_dispatch
+    ):
         """_run_job should mark job 'failed' when dispatch raises an unexpected exception."""
         _jobs["crash01"] = {
             "job_id": "crash01",
@@ -755,8 +883,11 @@ class TestRunJobFailurePropagation:
 
     @patch("runtime.subagent_dispatcher._dispatch_job_task")
     @patch("runtime.subagent_dispatcher._persist_job")
-    def test_run_job_respects_mid_execution_cancellation(self, mock_persist, mock_dispatch):
+    def test_run_job_respects_mid_execution_cancellation(
+        self, mock_persist, mock_dispatch
+    ):
         """_run_job should not overwrite 'cancelled' status after dispatch completes."""
+
         def cancel_during_dispatch(record, *, project_dir):
             # Simulate cancellation happening while dispatch is running
             with _lock:
@@ -786,10 +917,14 @@ class TestRunJobFailurePropagation:
         assert _jobs["midcancel"]["status"] == "cancelled"
         assert len(_jobs["midcancel"]["artifacts"]) == 0
 
-    @patch("runtime.subagent_dispatcher._dispatch_job_task",
-           side_effect=RuntimeError("worker dispatch failed"))
+    @patch(
+        "runtime.subagent_dispatcher._dispatch_job_task",
+        side_effect=RuntimeError("worker dispatch failed"),
+    )
     @patch("runtime.subagent_dispatcher._persist_job")
-    def test_run_job_with_worktree_cleans_up_on_failure(self, mock_persist, mock_dispatch):
+    def test_run_job_with_worktree_cleans_up_on_failure(
+        self, mock_persist, mock_dispatch
+    ):
         """_run_job should cleanup worktree even when dispatch fails."""
         _jobs["wtfail"] = {
             "job_id": "wtfail",
@@ -801,9 +936,13 @@ class TestRunJobFailurePropagation:
             "error": None,
         }
 
-        with patch("runtime.subagent_dispatcher._enforce_merge_writer_gate"), \
-             patch("runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/wt") as mock_setup, \
-             patch("runtime.subagent_dispatcher._cleanup_worktree") as mock_cleanup:
+        with (
+            patch("runtime.subagent_dispatcher._enforce_merge_writer_gate"),
+            patch(
+                "runtime.subagent_dispatcher._setup_worktree", return_value="/tmp/wt"
+            ) as mock_setup,
+            patch("runtime.subagent_dispatcher._cleanup_worktree") as mock_cleanup,
+        ):
             _run_job("wtfail")
 
             mock_setup.assert_called_once_with("wtfail")
@@ -823,9 +962,11 @@ class TestMinimalChangeStaysLightweight:
     def test_trivial_prompt_scores_low(self):
         """A simple 'fix typo' prompt should score low complexity — no sub-agent needed."""
         from runtime.complexity_scorer import score_complexity
+
         result = score_complexity("fix typo in README")
-        assert result["category"] in ("trivial", "low"), \
+        assert result["category"] in ("trivial", "low"), (
             f"Minimal-change prompt should be trivial/low, got {result['category']}"
+        )
         gov = result["governance"]
         assert isinstance(gov, dict)
         assert gov["simplify_only"] is True
@@ -833,6 +974,7 @@ class TestMinimalChangeStaysLightweight:
     def test_single_word_prompt_is_trivial(self):
         """Empty or single-word prompts should stay trivial."""
         from runtime.complexity_scorer import score_complexity
+
         result = score_complexity("hello")
         assert result["category"] == "low"
         gov = result["governance"]
@@ -842,6 +984,7 @@ class TestMinimalChangeStaysLightweight:
     def test_empty_prompt_is_trivial(self):
         """Empty prompt should score trivial — never escalate."""
         from runtime.complexity_scorer import score_complexity
+
         result = score_complexity("")
         assert result["category"] == "trivial"
         gov = result["governance"]
@@ -851,6 +994,7 @@ class TestMinimalChangeStaysLightweight:
     def test_complex_prompt_scores_high(self):
         """Multi-step prompts should score high — contrast with minimal-change."""
         from runtime.complexity_scorer import score_complexity
+
         result = score_complexity(
             "Redesign the entire authentication system and then migrate "
             "all files to the new microservice architecture after that deploy "
@@ -865,6 +1009,7 @@ class TestMinimalChangeStaysLightweight:
     def test_submit_blocked_for_minimal_change_when_feature_disabled(self):
         """Minimal-change prompts should not create sub-agent jobs when feature is off."""
         from runtime.complexity_scorer import score_complexity
+
         result = score_complexity("fix typo")
         gov = result["governance"]
         assert isinstance(gov, dict)
@@ -876,6 +1021,7 @@ class TestMinimalChangeStaysLightweight:
     def test_resolve_execution_boundary_none_stays_local(self):
         """isolation='none' should resolve to local-only execution."""
         from runtime.subagent_dispatcher import resolve_execution_boundary
+
         boundary = resolve_execution_boundary(isolation="none")
         assert boundary["sandbox_mode"] == "none"
         assert boundary["worker_policy"] == "local-only"
