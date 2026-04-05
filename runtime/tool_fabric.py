@@ -31,11 +31,64 @@ _logger = logging.getLogger(__name__)
 try:
     import yaml
 except Exception as exc:
-    _logger.debug("PyYAML unavailable in tool_fabric; JSON-only bundle parsing active: %s", exc, exc_info=True)
+    _logger.debug(
+        "PyYAML unavailable in tool_fabric; JSON-only bundle parsing active: %s",
+        exc,
+        exc_info=True,
+    )
     yaml = None
 
 
 _MODULE_DIR = Path(__file__).resolve().parent.parent
+
+
+_PHASE_ALIASES: dict[str, str] = {
+    "plan": "planning",
+    "planning": "planning",
+    "execute": "execution",
+    "execution": "execution",
+    "verify": "verification",
+    "verification": "verification",
+}
+
+_PHASE_TOOL_EXPOSURE: dict[str, tuple[str, ...]] = {
+    "planning": (
+        "Read",
+        "Grep",
+        "Glob",
+        "WebSearch",
+        "WebFetch",
+        "NotebookRead",
+        "memory_search",
+        "memory_list",
+        "omg_get_session_health",
+        "omg_runtime_dispatch",
+    ),
+    "execution": (
+        "Read",
+        "Grep",
+        "Edit",
+        "Bash",
+        "omg_tool_fabric_request",
+        "omg_policy_evaluate",
+        "omg_security_check",
+        "memory_store",
+        "memory_delete",
+        "memory_promote",
+        "memory_migrate",
+    ),
+    "verification": (
+        "Read",
+        "Grep",
+        "Bash",
+        "omg_claim_judge",
+        "omg_test_intent_lock",
+        "omg_evidence_ingest",
+        "omg_security_check",
+        "omg_get_session_health",
+        "memory_export",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -86,7 +139,9 @@ class ToolFabric:
             project_dir: Optional project root. Defaults to environment/project
                 working directory resolution.
         """
-        self.project_dir: str = project_dir or os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+        self.project_dir: str = project_dir or os.environ.get(
+            "CLAUDE_PROJECT_DIR", os.getcwd()
+        )
         self._lanes: dict[str, _LanePolicy] = {}
 
     def register_lane(self, lane_name: str, bundle_path: str) -> None:
@@ -124,42 +179,62 @@ class ToolFabric:
 
         raw_tools = fabric_obj.get("tools")
         if isinstance(raw_tools, list):
-            allowed_tools = tuple(str(item).strip() for item in raw_tools if str(item).strip())
+            allowed_tools = tuple(
+                str(item).strip() for item in raw_tools if str(item).strip()
+            )
         else:
             allowed_tools = self._fallback_allowed_tools(payload)
 
         raw_evidence = fabric_obj.get("required_evidence")
         required_evidence: tuple[str, ...]
         if isinstance(raw_evidence, list):
-            required_evidence = tuple(str(item).strip() for item in raw_evidence if str(item).strip())
+            required_evidence = tuple(
+                str(item).strip() for item in raw_evidence if str(item).strip()
+            )
         else:
             required_evidence = tuple()
 
-        semantic_operations, mutation_operations, promotion_operations = self._parse_semantic_operations(
-            fabric_obj=fabric_obj,
-            default_tools=allowed_tools,
+        semantic_operations, mutation_operations, promotion_operations = (
+            self._parse_semantic_operations(
+                fabric_obj=fabric_obj,
+                default_tools=allowed_tools,
+            )
         )
 
         raw_max_age = fabric_obj.get("evidence_max_age_seconds")
-        evidence_max_age_seconds = raw_max_age if isinstance(raw_max_age, int) and raw_max_age > 0 else 3600
+        evidence_max_age_seconds = (
+            raw_max_age if isinstance(raw_max_age, int) and raw_max_age > 0 else 3600
+        )
 
         self._lanes[lane_key] = _LanePolicy(
             lane_name=lane_key,
             bundle_path=path,
             allowed_tools=allowed_tools,
-            requires_signed_approval=bool(fabric_obj.get("requires_signed_approval", False)),
+            requires_signed_approval=bool(
+                fabric_obj.get("requires_signed_approval", False)
+            ),
             requires_attestation=bool(fabric_obj.get("requires_attestation", False)),
             required_evidence=required_evidence,
             semantic_operations=semantic_operations,
             mutation_operations=mutation_operations,
             promotion_operations=promotion_operations,
-            requires_signed_approval_for_mutation=bool(fabric_obj.get("requires_signed_approval_for_mutation", False)),
-            requires_attestation_for_mutation=bool(fabric_obj.get("requires_attestation_for_mutation", False)),
+            requires_signed_approval_for_mutation=bool(
+                fabric_obj.get("requires_signed_approval_for_mutation", False)
+            ),
+            requires_attestation_for_mutation=bool(
+                fabric_obj.get("requires_attestation_for_mutation", False)
+            ),
             read_only_by_default=bool(fabric_obj.get("read_only_by_default", False)),
-            single_file_hash_bound=bool(fabric_obj.get("single_file_hash_bound", False)),
+            single_file_hash_bound=bool(
+                fabric_obj.get("single_file_hash_bound", False)
+            ),
             dry_run_first=bool(fabric_obj.get("dry_run_first", False)),
-            require_run_scoped_evidence=bool(fabric_obj.get("require_run_scoped_evidence", False)),
-            require_fresh_evidence=bool(fabric_obj.get("require_fresh_evidence", False)),
+            require_run_scoped_evidence=bool(
+                fabric_obj.get("require_run_scoped_evidence", False)
+            ),
+            require_fresh_evidence=bool(
+                fabric_obj.get("require_fresh_evidence", False)
+            ),
             evidence_max_age_seconds=evidence_max_age_seconds,
         )
 
@@ -192,6 +267,15 @@ class ToolFabric:
         clean_run_id = str(run_id).strip()
         input_context = context if isinstance(context, dict) else {}
 
+        phase = self._normalize_phase(input_context.get("phase"))
+        if phase and not self.is_tool_exposed_for_phase(clean_tool, phase):
+            return ToolFabricResult(
+                allowed=False,
+                reason=f"tool '{clean_tool}' is hidden in '{phase}' phase exposure",
+                evidence_path=None,
+                ledger_entry=None,
+            )
+
         if clean_tool not in lane.allowed_tools:
             return ToolFabricResult(
                 allowed=False,
@@ -209,14 +293,19 @@ class ToolFabric:
                 ledger_entry=None,
             )
 
-        mutation_capable = self._operation_is_mutation_capable(lane, operation, input_context)
+        mutation_capable = self._operation_is_mutation_capable(
+            lane, operation, input_context
+        )
 
         approval = self.check_approval(
             lane_name,
             clean_tool,
             clean_run_id,
             input_context,
-            require_signed=(lane.requires_signed_approval or (mutation_capable and lane.requires_signed_approval_for_mutation)),
+            require_signed=(
+                lane.requires_signed_approval
+                or (mutation_capable and lane.requires_signed_approval_for_mutation)
+            ),
         )
         if not approval["allowed"]:
             return ToolFabricResult(False, str(approval["reason"]), None, None)
@@ -224,7 +313,12 @@ class ToolFabric:
         if lane.single_file_hash_bound and mutation_capable:
             hash_gate = self._check_hash_edit_constraints(input_context)
             if not bool(hash_gate.get("allowed")):
-                return ToolFabricResult(False, str(hash_gate.get("reason", "hash-edit constraints failed")), None, None)
+                return ToolFabricResult(
+                    False,
+                    str(hash_gate.get("reason", "hash-edit constraints failed")),
+                    None,
+                    None,
+                )
 
         if mutation_capable and lane.requires_attestation_for_mutation:
             attestation_gate = self._check_mutation_attestation(
@@ -235,7 +329,12 @@ class ToolFabric:
                 max_age_seconds=lane.evidence_max_age_seconds,
             )
             if not bool(attestation_gate.get("allowed")):
-                return ToolFabricResult(False, str(attestation_gate.get("reason", "attestation required")), None, None)
+                return ToolFabricResult(
+                    False,
+                    str(attestation_gate.get("reason", "attestation required")),
+                    None,
+                    None,
+                )
 
         evidence = self.check_evidence(
             lane_name,
@@ -248,9 +347,17 @@ class ToolFabric:
             return ToolFabricResult(False, str(evidence["reason"]), None, None)
 
         attestation_artifact_obj = input_context.get("attestation_artifact")
-        attestation_artifact = cast(dict[str, object] | None, attestation_artifact_obj) if isinstance(attestation_artifact_obj, dict) else None
+        attestation_artifact = (
+            cast(dict[str, object] | None, attestation_artifact_obj)
+            if isinstance(attestation_artifact_obj, dict)
+            else None
+        )
         clarification_status_obj = input_context.get("clarification_status")
-        clarification_status = cast(dict[str, object] | None, clarification_status_obj) if isinstance(clarification_status_obj, dict) else None
+        clarification_status = (
+            cast(dict[str, object] | None, clarification_status_obj)
+            if isinstance(clarification_status_obj, dict)
+            else None
+        )
 
         compliance = evaluate_governed_tool_request(
             project_dir=self.project_dir,
@@ -263,12 +370,30 @@ class ToolFabric:
             clarification_status=clarification_status,
         )
         if compliance.get("status") == "blocked":
-            return ToolFabricResult(False, str(compliance.get("reason", "compliance blocked")), None, None)
+            return ToolFabricResult(
+                False, str(compliance.get("reason", "compliance blocked")), None, None
+            )
 
-        result_payload = self._execute_tool(input_context, lane.lane_name, clean_tool, clean_run_id)
-        ledger_entry = self.record_execution(lane.lane_name, clean_tool, clean_run_id, result_payload)
+        result_payload = self._execute_tool(
+            input_context, lane.lane_name, clean_tool, clean_run_id
+        )
+        ledger_entry = self.record_execution(
+            lane.lane_name, clean_tool, clean_run_id, result_payload
+        )
         evidence_path = str(evidence.get("evidence_path") or "") or None
         return ToolFabricResult(True, "allowed", evidence_path, ledger_entry)
+
+    def tools_for_phase(self, phase: str) -> tuple[str, ...]:
+        normalized = self._normalize_phase(phase)
+        if not normalized:
+            return tuple()
+        return _PHASE_TOOL_EXPOSURE.get(normalized, tuple())
+
+    def is_tool_exposed_for_phase(self, tool_name: str, phase: str) -> bool:
+        if not tool_name:
+            return False
+        exposed = self.tools_for_phase(phase)
+        return str(tool_name).strip() in exposed
 
     def check_approval(
         self,
@@ -291,7 +416,11 @@ class ToolFabric:
             Decision payload with ``allowed`` and ``reason`` keys.
         """
         lane = self._get_lane(lane_name)
-        signed_required = lane.requires_signed_approval if require_signed is None else bool(require_signed)
+        signed_required = (
+            lane.requires_signed_approval
+            if require_signed is None
+            else bool(require_signed)
+        )
         if not signed_required:
             return {"allowed": True, "reason": "approval not required"}
         if not run_id:
@@ -313,7 +442,9 @@ class ToolFabric:
         if isinstance(approval_path, str) and approval_path.strip():
             loaded = load_approval_artifact_from_path(
                 approval_path.strip(),
-                expected_artifact_digest=self._tool_approval_digest(lane.lane_name, tool_name, run_id),
+                expected_artifact_digest=self._tool_approval_digest(
+                    lane.lane_name, tool_name, run_id
+                ),
             )
             if bool(loaded.get("valid")):
                 return {"allowed": True, "reason": "approval artifact path verified"}
@@ -355,14 +486,22 @@ class ToolFabric:
             }
 
         if not lane.required_evidence:
-            default_evidence = Path(self.project_dir) / ".omg" / "evidence" / f"{run_id}.json"
+            default_evidence = (
+                Path(self.project_dir) / ".omg" / "evidence" / f"{run_id}.json"
+            )
             if default_evidence.exists():
                 return {
                     "allowed": True,
                     "reason": "default run evidence present",
-                    "evidence_path": str(default_evidence.relative_to(self.project_dir)),
+                    "evidence_path": str(
+                        default_evidence.relative_to(self.project_dir)
+                    ),
                 }
-            return {"allowed": True, "reason": "no explicit evidence requirements", "evidence_path": None}
+            return {
+                "allowed": True,
+                "reason": "no explicit evidence requirements",
+                "evidence_path": None,
+            }
 
         for raw_path in lane.required_evidence:
             normalized = raw_path.replace("{run_id}", run_id)
@@ -377,7 +516,11 @@ class ToolFabric:
             if not candidate.is_absolute():
                 candidate = Path(self.project_dir) / normalized
             if not candidate.exists():
-                return {"allowed": False, "reason": f"required evidence missing: {normalized}", "evidence_path": None}
+                return {
+                    "allowed": False,
+                    "reason": f"required evidence missing: {normalized}",
+                    "evidence_path": None,
+                }
             payload_gate = self._validate_evidence_payload(
                 candidate=candidate,
                 lane=lane,
@@ -388,14 +531,22 @@ class ToolFabric:
                 mutation_capable=mutation_capable,
             )
             if not bool(payload_gate.get("allowed")):
-                return {"allowed": False, "reason": str(payload_gate.get("reason", "invalid evidence")), "evidence_path": None}
+                return {
+                    "allowed": False,
+                    "reason": str(payload_gate.get("reason", "invalid evidence")),
+                    "evidence_path": None,
+                }
             return {
                 "allowed": True,
                 "reason": "required evidence present",
                 "evidence_path": str(candidate.relative_to(self.project_dir)),
             }
 
-        return {"allowed": False, "reason": "required evidence missing", "evidence_path": None}
+        return {
+            "allowed": False,
+            "reason": "required evidence missing",
+            "evidence_path": None,
+        }
 
     def record_execution(
         self,
@@ -433,10 +584,17 @@ class ToolFabric:
         }
         try:
             with ledger_path.open("a", encoding="utf-8") as handle:
-                _ = handle.write(json.dumps(entry, separators=(",", ":"), ensure_ascii=True) + "\n")
+                _ = handle.write(
+                    json.dumps(entry, separators=(",", ":"), ensure_ascii=True) + "\n"
+                )
             return entry
         except Exception as exc:
-            _logger.debug("Failed to append tool ledger entry for run %s: %s", run_id, exc, exc_info=True)
+            _logger.debug(
+                "Failed to append tool ledger entry for run %s: %s",
+                run_id,
+                exc,
+                exc_info=True,
+            )
             return None
 
     def _execute_tool(
@@ -448,7 +606,9 @@ class ToolFabric:
     ) -> dict[str, object]:
         executor = context.get("executor")
         if callable(executor):
-            output = executor(lane_name=lane_name, tool_name=tool_name, run_id=run_id, context=context)
+            output = executor(
+                lane_name=lane_name, tool_name=tool_name, run_id=run_id, context=context
+            )
             if isinstance(output, dict):
                 return output
             return {"output": output}
@@ -463,7 +623,15 @@ class ToolFabric:
     def _tool_approval_digest(self, lane_name: str, tool_name: str, run_id: str) -> str:
         from registry.approval_artifact import build_tool_approval_digest
 
-        return build_tool_approval_digest(lane_name=lane_name, tool_name=tool_name, run_id=run_id)
+        return build_tool_approval_digest(
+            lane_name=lane_name, tool_name=tool_name, run_id=run_id
+        )
+
+    def _normalize_phase(self, raw: object) -> str | None:
+        text = str(raw).strip().lower()
+        if not text:
+            return None
+        return _PHASE_ALIASES.get(text)
 
     def _fallback_allowed_tools(self, payload: dict[str, object]) -> tuple[str, ...]:
         tool_policy = payload.get("tool_policy")
@@ -509,12 +677,17 @@ class ToolFabric:
                 op_names.append(name)
             if bool(item.get("mutation_capable", False)) and name not in mutation_ops:
                 mutation_ops.append(name)
-            if bool(item.get("requires_explicit_promotion", False)) and name not in promotion_ops:
+            if (
+                bool(item.get("requires_explicit_promotion", False))
+                and name not in promotion_ops
+            ):
                 promotion_ops.append(name)
 
         return tuple(op_names), tuple(mutation_ops), tuple(promotion_ops)
 
-    def _resolve_operation(self, lane: _LanePolicy, tool_name: str, context: dict[str, object]) -> str | None:
+    def _resolve_operation(
+        self, lane: _LanePolicy, tool_name: str, context: dict[str, object]
+    ) -> str | None:
         if not lane.semantic_operations:
             return ""
         raw_operation = str(context.get("operation", "")).strip()
@@ -528,7 +701,9 @@ class ToolFabric:
                     return operation
         return None
 
-    def _operation_is_mutation_capable(self, lane: _LanePolicy, operation: str, context: dict[str, object]) -> bool:
+    def _operation_is_mutation_capable(
+        self, lane: _LanePolicy, operation: str, context: dict[str, object]
+    ) -> bool:
         if operation not in lane.mutation_operations:
             return False
         if lane.dry_run_first:
@@ -540,25 +715,43 @@ class ToolFabric:
             if bool(dry_run):
                 return False
         if operation in lane.promotion_operations:
-            promoted = self._is_truthy(context.get("promote_to_mutation")) or self._is_truthy(context.get("governed_promotion"))
+            promoted = self._is_truthy(
+                context.get("promote_to_mutation")
+            ) or self._is_truthy(context.get("governed_promotion"))
             return bool(promoted)
         return True
 
-    def _check_hash_edit_constraints(self, context: dict[str, object]) -> dict[str, object]:
+    def _check_hash_edit_constraints(
+        self, context: dict[str, object]
+    ) -> dict[str, object]:
         target_file = str(context.get("target_file", "")).strip()
         expected_hash = str(context.get("expected_hash", "")).strip()
         target_files_obj = context.get("target_files")
         if isinstance(target_files_obj, list):
-            targets = [str(item).strip() for item in target_files_obj if str(item).strip()]
+            targets = [
+                str(item).strip() for item in target_files_obj if str(item).strip()
+            ]
             if len(targets) != 1:
-                return {"allowed": False, "reason": "hash-edit lane only allows single-file mutation"}
+                return {
+                    "allowed": False,
+                    "reason": "hash-edit lane only allows single-file mutation",
+                }
             if not target_file:
                 target_file = targets[0]
         if not target_file:
-            return {"allowed": False, "reason": "hash-edit lane requires target_file for single-file mutation"}
+            return {
+                "allowed": False,
+                "reason": "hash-edit lane requires target_file for single-file mutation",
+            }
         if not expected_hash:
-            return {"allowed": False, "reason": "hash-edit lane requires expected_hash binding"}
-        return {"allowed": True, "reason": "hash-bound single-file constraints satisfied"}
+            return {
+                "allowed": False,
+                "reason": "hash-edit lane requires expected_hash binding",
+            }
+        return {
+            "allowed": True,
+            "reason": "hash-bound single-file constraints satisfied",
+        }
 
     def _check_mutation_attestation(
         self,
@@ -583,7 +776,10 @@ class ToolFabric:
             return {"allowed": False, "reason": "attestation lane mismatch"}
         attested_at = self._parse_timestamp(attestation_obj.get("attested_at"))
         if attested_at is None:
-            return {"allowed": False, "reason": "attestation attested_at timestamp required"}
+            return {
+                "allowed": False,
+                "reason": "attestation attested_at timestamp required",
+            }
         max_age = timedelta(seconds=max(1, max_age_seconds))
         if datetime.now(timezone.utc) - attested_at > max_age:
             return {"allowed": False, "reason": "attestation artifact is stale"}
@@ -600,15 +796,27 @@ class ToolFabric:
         run_id: str,
         mutation_capable: bool,
     ) -> dict[str, object]:
-        if not mutation_capable and not lane.require_fresh_evidence and not lane.require_run_scoped_evidence:
+        if (
+            not mutation_capable
+            and not lane.require_fresh_evidence
+            and not lane.require_run_scoped_evidence
+        ):
             return {"allowed": True, "reason": "evidence accepted"}
         try:
             payload = json.loads(candidate.read_text(encoding="utf-8"))
         except Exception as exc:
-            _logger.warning("Failed to parse evidence payload %s: %s", candidate, exc, exc_info=True)
-            return {"allowed": False, "reason": f"evidence must be valid JSON: {candidate.name}"}
+            _logger.warning(
+                "Failed to parse evidence payload %s: %s", candidate, exc, exc_info=True
+            )
+            return {
+                "allowed": False,
+                "reason": f"evidence must be valid JSON: {candidate.name}",
+            }
         if not isinstance(payload, dict):
-            return {"allowed": False, "reason": f"evidence must be a JSON object: {candidate.name}"}
+            return {
+                "allowed": False,
+                "reason": f"evidence must be a JSON object: {candidate.name}",
+            }
 
         evidence_run_id = str(payload.get("run_id", "")).strip()
         if lane.require_run_scoped_evidence and evidence_run_id != run_id:
@@ -629,7 +837,10 @@ class ToolFabric:
         if lane.require_fresh_evidence:
             generated_at = self._parse_timestamp(payload.get("generated_at"))
             if generated_at is None:
-                return {"allowed": False, "reason": "evidence generated_at timestamp required"}
+                return {
+                    "allowed": False,
+                    "reason": "evidence generated_at timestamp required",
+                }
             max_age = timedelta(seconds=max(1, lane.evidence_max_age_seconds))
             if datetime.now(timezone.utc) - generated_at > max_age:
                 return {"allowed": False, "reason": "evidence is stale"}

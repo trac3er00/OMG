@@ -9,17 +9,17 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 
-_MCP_IMPORT_ERROR: ModuleNotFoundError | None = None
+_mcp_import_error: ModuleNotFoundError | None = None
 
 try:
     from fastmcp import FastMCP as FastMCPImpl
     from starlette.requests import Request as RequestImpl
     from starlette.responses import JSONResponse as JSONResponseImpl
 except ModuleNotFoundError as exc:
-    _MCP_IMPORT_ERROR = exc
+    _mcp_import_error = exc
     RequestImpl = Any
 
-    class JSONResponseFallback(dict):
+    class JSONResponseFallback(dict[str, Any]):
         def __init__(self, content: dict[str, Any]):
             super().__init__(content)
 
@@ -31,7 +31,7 @@ except ModuleNotFoundError as exc:
 
     class FastMCPFallback:  # type: ignore[override]
         def __init__(self, *_args: Any, **_kwargs: Any) -> None:
-            self._import_error = _MCP_IMPORT_ERROR
+            self._import_error = _mcp_import_error
 
         custom_route = staticmethod(_passthrough_decorator)
         tool = staticmethod(_passthrough_decorator)

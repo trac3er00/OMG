@@ -17,6 +17,7 @@ _FastMCP: Any
 
 try:
     from fastmcp import FastMCP as _ImportedFastMCP
+
     _FastMCP = _ImportedFastMCP
 except ModuleNotFoundError as exc:
     _mcp_import_error = exc
@@ -53,7 +54,9 @@ except ModuleNotFoundError as exc:
 
         def prompt(self, *, name: str, description: str = ""):
             def decorator(func: Any) -> Any:
-                self._prompts.append(_StubPrompt(name=name, description=description, handler=func))
+                self._prompts.append(
+                    _StubPrompt(name=name, description=description, handler=func)
+                )
                 return func
 
             return decorator
@@ -119,14 +122,18 @@ mcp = FastMCP("OMG Control MCP", lifespan=lifespan, instructions=MCP_INSTRUCTION
 
 
 def _service() -> ControlPlaneService:
-    return ControlPlaneService(project_dir=os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+    return ControlPlaneService(
+        project_dir=os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd())
+    )
 
 
 def _read_repo_text(rel_path: str) -> str:
     return resolve_asset(rel_path).read_text(encoding="utf-8")
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Evaluate whether a proposed tool call is allowed under OMG policy and mutation gates. Use before running Write/Edit/Bash operations to catch blocked actions with structured reasons and remediation guidance."
+)
 def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
     if tool in {"Write", "Edit", "MultiEdit", "Bash"}:
         run_id_candidate = input.get("run_id") if isinstance(input, dict) else None
@@ -143,11 +150,17 @@ def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
 
         should_gate_tool_plan = tool in {"Write", "Edit", "MultiEdit"}
         if tool == "Bash":
-            bash_mode = classify_bash_command_mode(str(input.get("command", ""))) if isinstance(input, dict) else "read"
+            bash_mode = (
+                classify_bash_command_mode(str(input.get("command", "")))
+                if isinstance(input, dict)
+                else "read"
+            )
             should_gate_tool_plan = bash_mode in {"mutation", "external"}
 
         if should_gate_tool_plan:
-            tool_plan_result = tool_plan_gate_check(_service().project_dir, run_id, tool, tool_input=input)
+            tool_plan_result = tool_plan_gate_check(
+                _service().project_dir, run_id, tool, tool_input=input
+            )
             if tool_plan_result.get("status") == "blocked":
                 return tool_plan_result
 
@@ -164,10 +177,14 @@ def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
         gate_status, gate_payload = _service().mutation_gate_check(
             {
                 "tool": tool,
-                "file_path": str(input.get("file_path", "")) if isinstance(input, dict) else "",
+                "file_path": str(input.get("file_path", ""))
+                if isinstance(input, dict)
+                else "",
                 "lock_id": lock_id,
                 "exemption": exemption,
-                "command": str(input.get("command", "")) if isinstance(input, dict) else "",
+                "command": str(input.get("command", ""))
+                if isinstance(input, dict)
+                else "",
                 "run_id": run_id,
                 "metadata": metadata if isinstance(metadata, dict) else None,
             }
@@ -179,13 +196,21 @@ def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-@mcp.tool()
-def omg_trust_review(file_path: str, old_config: dict[str, Any], new_config: dict[str, Any]) -> dict[str, Any]:
-    _status, payload = _service().trust_review({"file_path": file_path, "old_config": old_config, "new_config": new_config})
+@mcp.tool(
+    description="Review a configuration change for trust and safety regressions by comparing old and new config objects. Use when editing settings, CI policy, or host integration files to surface high-risk drift."
+)
+def omg_trust_review(
+    file_path: str, old_config: dict[str, Any], new_config: dict[str, Any]
+) -> dict[str, Any]:
+    _status, payload = _service().trust_review(
+        {"file_path": file_path, "old_config": old_config, "new_config": new_config}
+    )
     return payload
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Ingest run evidence (tests, security scans, reproducibility, unresolved risks) into a signed evidence pack. Call this after execution or verification so claim-judge and release checks have machine-readable proof."
+)
 def omg_evidence_ingest(
     run_id: str,
     tests: list[dict[str, Any]],
@@ -213,25 +238,45 @@ def omg_evidence_ingest(
     return payload
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Route a task idea to a target runtime adapter and return normalized dispatch metadata. Use when an agent must select or validate the execution runtime before launching governed work."
+)
 def omg_runtime_dispatch(runtime: str, idea: dict[str, Any]) -> dict[str, Any]:
     _status, payload = _service().runtime_dispatch({"runtime": runtime, "idea": idea})
     return payload
 
 
-@mcp.tool()
-def omg_security_check(scope: str = ".", include_live_enrichment: bool = False, external_inputs: list[dict[str, Any]] | None = None, waivers: list[str] | None = None) -> dict[str, Any]:
-    _status, payload = _service().security_check({"scope": scope, "include_live_enrichment": include_live_enrichment, "external_inputs": external_inputs, "waivers": waivers})
+@mcp.tool(
+    description="Run OMG security auditing for a project scope with optional live enrichment and waiver input. Use during verification to detect secrets, risky patterns, and policy violations before completion claims."
+)
+def omg_security_check(
+    scope: str = ".",
+    include_live_enrichment: bool = False,
+    external_inputs: list[dict[str, Any]] | None = None,
+    waivers: list[str] | None = None,
+) -> dict[str, Any]:
+    _status, payload = _service().security_check(
+        {
+            "scope": scope,
+            "include_live_enrichment": include_live_enrichment,
+            "external_inputs": external_inputs,
+            "waivers": waivers,
+        }
+    )
     return payload
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Judge structured completion claims against available evidence and return pass/fail verdicts with reasons. Use as the final quality gate before reporting success or preparing release readiness outputs."
+)
 def omg_claim_judge(claims: list[dict[str, Any]]) -> dict[str, Any]:
     _status, payload = _service().claim_judge({"claims": claims})
     return payload
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Create or verify a test-intent lock that prevents silent weakening of tests. Use action=create before risky edits and action=verify after tests run to ensure expected intent and delta constraints hold."
+)
 def omg_test_intent_lock(
     action: str,
     intent: dict[str, Any] | None = None,
@@ -244,19 +289,25 @@ def omg_test_intent_lock(
     return payload
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Assert that generated text or config snippets conform to required guide rules. Use when prompts, policies, or generated artifacts must satisfy deterministic formatting and guardrail constraints."
+)
 def omg_guide_assert(candidate: str, rules: dict[str, Any]) -> dict[str, Any]:
     _status, payload = _service().guide_assert({"candidate": candidate, "rules": rules})
     return payload
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Fetch session health for a specific run or the latest run snapshot. Use in planning and verification to confirm whether the session is in a safe state before continuing mutations or finalizing output."
+)
 def omg_get_session_health(run_id: str | None = None) -> dict[str, Any]:
     _status, payload = _service().session_health({"run_id": run_id})
     return payload
 
 
-@mcp.tool()
+@mcp.tool(
+    description="Request governed execution of a tool through a registered fabric lane with approval and evidence checks. Use for high-risk operations that require lane policy enforcement and immutable ledger records."
+)
 def omg_tool_fabric_request(
     lane_name: str,
     tool_name: str,
@@ -274,7 +325,10 @@ def omg_tool_fabric_request(
     return payload
 
 
-@mcp.prompt(name="omg_contract_summary", description="Summarize the OMG production contract and generated host outputs")
+@mcp.prompt(
+    name="omg_contract_summary",
+    description="Summarize the OMG production contract and generated host outputs",
+)
 def omg_contract_summary(channel: str = "public") -> str:
     return (
         "Summarize the OMG production control plane contract for channel "
@@ -283,7 +337,12 @@ def omg_contract_summary(channel: str = "public") -> str:
     )
 
 
-@mcp.resource("resource://omg/contract", name="omg_contract", description="Canonical OMG production contract document", mime_type="text/markdown")
+@mcp.resource(
+    "resource://omg/contract",
+    name="omg_contract",
+    description="Canonical OMG production contract document",
+    mime_type="text/markdown",
+)
 def omg_contract_resource() -> str:
     return _read_repo_text("OMG_COMPAT_CONTRACT.md")
 
