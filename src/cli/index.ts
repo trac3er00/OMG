@@ -156,6 +156,36 @@ async function runCli(): Promise<void> {
         await validateCommand.handler?.(argv as never);
       },
     })
+    .command({
+      command: "migrate",
+      describe: "Migrate OMG project config between versions",
+      builder: (command) =>
+        command
+          .option("from", {
+            type: "string",
+            demandOption: true,
+            describe: "Source OMG version",
+          })
+          .option("to", {
+            type: "string",
+            demandOption: true,
+            describe: "Target OMG version",
+          })
+          .option("dry-run", {
+            type: "boolean",
+            default: true,
+            describe: "Preview migration without writing files",
+          })
+          .option("apply", {
+            type: "boolean",
+            default: false,
+            describe: "Apply migration and create rollback backups",
+          }),
+      handler: async (argv) => {
+        const { migrateCommand } = await import("./commands/migrate.js");
+        await migrateCommand.handler?.(argv as never);
+      },
+    })
     .demandCommand(1, "Specify a command")
     .parseAsync();
 }
