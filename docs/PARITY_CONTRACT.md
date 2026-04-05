@@ -2,7 +2,7 @@
 
 ## Canonical Rule
 
-**TypeScript (v3.0.0) is canonical for all NEW feature implementation.**
+**TypeScript (v2.3.0) is canonical for all NEW feature implementation.**
 Python (v2.3.0) provides the production runtime and extends TS-defined behaviors.
 TypeScript defines the interface contract; Python implements the full production executor.
 
@@ -100,7 +100,7 @@ business logic, evidence persistence, and audit capabilities.
 
 ## Version Sync Strategy
 
-- **TS v3.0.0** is the current canonical version
+- **TS v2.3.0** is the current canonical version
 - **Python v2.3.0** is the current runtime version
 - Version numbers reflect independent release cadences — this is expected
 - When adding new frontier features: implement TypeScript interface first, Python runtime follows

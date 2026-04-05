@@ -1,5 +1,5 @@
 /**
- * Complete type catalog for OMG v3.0.0.
+ * Complete type catalog for OMG v2.3.0.
  * All TypeScript types ported from Python @dataclass and TypedDict definitions.
  *
  * Domain types live here; shared boundary types are re-exported from src/interfaces/.
