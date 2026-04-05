@@ -308,3 +308,10 @@
 - Verify stage composes `evaluate_claims_for_release` (claim judge), `evaluate_proof_gate`, and `production_gate`; final payload now exposes `proof_gate_verdict` at both verify-stage and top-level result.
 - Added CLI command `npx omg autorun <goal...>` via `src/cli/commands/autorun.ts` + `src/cli/index.ts` wiring, with human summary output and JSON output mode.
 - Added tests `tests/runtime/test_autorun_pipeline.py` covering required checks: stage completion contract, governance checkpoints at each stage, and final proof gate verdict presence.
+
+## [T31] Backward Compat
+- Preset compatibility can be validated without mutating runtime code by combining `preset-matrix.json` membership checks with `runtime.adoption.resolve_preset/get_preset_features` loading checks for the full canonical tuple: `safe, balanced, interop, labs, buffet, production`.
+- The hook file count discrepancy is expected at command level: `ls hooks/*.py hooks/universal/*.py | wc -l` returns **57** because it includes `hooks/__init__.py`; compatibility count is **56** when excluding package init.
+- `hooks/universal/hooks.json` still serves as the legacy canonical registry; current runtime compatibility can be verified by requiring either direct entrypoint existence or mapped modern alias targets (`stop.py -> stop_dispatcher.py`, `pre-tool.py -> pre-tool-inject.py`, `post-tool.py -> post-tool-failure.py`).
+- Functional sanity for all hook filenames is stable using `py_compile` across all 56 entrypoints (syntax/executable import surface check) without invoking every hook runtime path.
+- `npx omg migrate --from=2.3.0 --to=3.0.0 --dry-run` exits 0, but its stdout can be truncated near 64KiB in subprocess-capture contexts due very large `state_inventory`; migration verification in tests should key on exit code rather than full JSON parse in that path.
