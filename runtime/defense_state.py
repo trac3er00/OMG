@@ -12,6 +12,14 @@ _CONTEXT_PRESSURE_REL_PATH = Path(".omg") / "state" / ".context-pressure.json"
 _UNTRUSTED_STATE_REL_PATH = Path(".omg") / "state" / "untrusted-content.json"
 _ACTIVE_RUN_REL_PATH = Path(".omg") / "shadow" / "active-run"
 _INTENT_GATE_REL_PATH = Path(".omg") / "state" / "intent_gate"
+_SETTINGS_REL_PATH = Path("settings.json")
+_POLICY_REL_PATH = Path(".omg") / "policy.yaml"
+
+_DEFAULT_THRESHOLDS: dict[str, dict[str, float | int]] = {
+    "critical": {"injection_hits": 3, "contamination_score": 0.7},
+    "high": {"injection_hits": 1, "contamination_score": 0.4},
+    "medium": {"overthinking_score": 0.5, "premature_fixer_score": 0.5},
+}
 
 _SAFE_STATE: dict[str, Any] = {
     "risk_level": "low",
@@ -23,11 +31,8 @@ _SAFE_STATE: dict[str, Any] = {
     "actions": [],
     "updated_at": "",
     "reasons": [],
-    "thresholds": {
-        "critical": {"injection_hits": 3, "contamination_score": 0.7},
-        "high": {"injection_hits": 1, "contamination_score": 0.4},
-        "medium": {"overthinking_score": 0.5, "premature_fixer_score": 0.5},
-    },
+    "thresholds": dict(_DEFAULT_THRESHOLDS),
+    "threshold_source": "defaults",
     "context_pressure": {
         "tool_count": 0,
         "threshold": 0,
@@ -50,6 +55,7 @@ class DefenseState:
         overthinking_score: float = 0.0,
         premature_fixer_score: float | None = None,
     ) -> dict[str, Any]:
+        thresholds, threshold_source = self._load_thresholds()
         pressure = self._read_json(self.project_dir / _CONTEXT_PRESSURE_REL_PATH)
         pressure_tool_count = self._to_int(pressure.get("tool_count"), default=0)
         pressure_threshold = self._to_int(pressure.get("threshold"), default=0)
@@ -82,6 +88,8 @@ class DefenseState:
             injection_hits=normalized_injection_hits,
             contamination_score=normalized_contamination,
             overthinking_score=normalized_overthinking,
+            premature_fixer_score=premature_fixer_score,
+            thresholds=thresholds,
         )
         if pressure_ratio >= 1.0:
             reasons.append("context pressure is above configured threshold")
@@ -96,11 +104,8 @@ class DefenseState:
             "actions": actions,
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "reasons": reasons,
-            "thresholds": {
-                "critical": {"injection_hits": 3, "contamination_score": 0.7},
-                "high": {"injection_hits": 1, "contamination_score": 0.4},
-                "medium": {"overthinking_score": 0.5, "premature_fixer_score": 0.5},
-            },
+            "thresholds": thresholds,
+            "threshold_source": threshold_source,
             "context_pressure": {
                 "tool_count": pressure_tool_count,
                 "threshold": pressure_threshold,
@@ -120,36 +125,61 @@ class DefenseState:
         return {
             "risk_level": str(payload.get("risk_level", "low")),
             "injection_hits": self._to_int(payload.get("injection_hits"), default=0),
-            "contamination_score": self._clamp_score(payload.get("contamination_score", 0.0)),
-            "overthinking_score": self._clamp_score(payload.get("overthinking_score", 0.0)),
-            "premature_fixer_score": self._clamp_score(payload.get("premature_fixer_score", 0.0)),
-            "clarification_sensitive": bool(payload.get("clarification_sensitive", False)),
+            "contamination_score": self._clamp_score(
+                payload.get("contamination_score", 0.0)
+            ),
+            "overthinking_score": self._clamp_score(
+                payload.get("overthinking_score", 0.0)
+            ),
+            "premature_fixer_score": self._clamp_score(
+                payload.get("premature_fixer_score", 0.0)
+            ),
+            "clarification_sensitive": bool(
+                payload.get("clarification_sensitive", False)
+            ),
             "actions": self._to_str_list(payload.get("actions")),
             "updated_at": str(payload.get("updated_at", "")),
             "reasons": self._to_str_list(payload.get("reasons")),
             "thresholds": payload.get("thresholds", _SAFE_STATE["thresholds"]),
-            "context_pressure": payload.get("context_pressure", _SAFE_STATE["context_pressure"]),
+            "threshold_source": str(payload.get("threshold_source", "defaults")),
+            "context_pressure": payload.get(
+                "context_pressure", _SAFE_STATE["context_pressure"]
+            ),
             "trust_posture": str(payload.get("trust_posture", "trusted")),
-            "action_recommendations": self._to_str_list(payload.get("action_recommendations")),
+            "action_recommendations": self._to_str_list(
+                payload.get("action_recommendations")
+            ),
         }
 
     def _read_clarification_signal(self) -> dict[str, Any]:
         active_run_path = self.project_dir / _ACTIVE_RUN_REL_PATH
         if not active_run_path.exists():
-            return {"requires_clarification": False, "intent_class": "", "confidence": 0.0}
+            return {
+                "requires_clarification": False,
+                "intent_class": "",
+                "confidence": 0.0,
+            }
 
         try:
             run_id = active_run_path.read_text(encoding="utf-8").strip()
         except OSError:
             run_id = ""
         if not run_id:
-            return {"requires_clarification": False, "intent_class": "", "confidence": 0.0}
+            return {
+                "requires_clarification": False,
+                "intent_class": "",
+                "confidence": 0.0,
+            }
 
         intent_gate_path = self.project_dir / _INTENT_GATE_REL_PATH / f"{run_id}.json"
         payload = self._read_json(intent_gate_path)
-        confidence = self._clamp_score(self._to_float(payload.get("confidence"), default=0.0))
+        confidence = self._clamp_score(
+            self._to_float(payload.get("confidence"), default=0.0)
+        )
         return {
-            "requires_clarification": bool(payload.get("requires_clarification") is True),
+            "requires_clarification": bool(
+                payload.get("requires_clarification") is True
+            ),
             "intent_class": str(payload.get("intent_class", "")).strip(),
             "confidence": confidence,
         }
@@ -189,29 +219,179 @@ class DefenseState:
             return "degraded"
         return "trusted"
 
+    def _clone_default_thresholds(self) -> dict[str, dict[str, float | int]]:
+        return {
+            "critical": {
+                "injection_hits": int(
+                    _DEFAULT_THRESHOLDS["critical"]["injection_hits"]
+                ),
+                "contamination_score": float(
+                    _DEFAULT_THRESHOLDS["critical"]["contamination_score"]
+                ),
+            },
+            "high": {
+                "injection_hits": int(_DEFAULT_THRESHOLDS["high"]["injection_hits"]),
+                "contamination_score": float(
+                    _DEFAULT_THRESHOLDS["high"]["contamination_score"]
+                ),
+            },
+            "medium": {
+                "overthinking_score": float(
+                    _DEFAULT_THRESHOLDS["medium"]["overthinking_score"]
+                ),
+                "premature_fixer_score": float(
+                    _DEFAULT_THRESHOLDS["medium"]["premature_fixer_score"]
+                ),
+            },
+        }
+
+    def _load_thresholds(self) -> tuple[dict[str, dict[str, float | int]], str]:
+        thresholds = self._clone_default_thresholds()
+        source = "defaults"
+
+        settings_payload = self._read_json(self.project_dir / _SETTINGS_REL_PATH)
+        settings_omg = (
+            settings_payload.get("_omg") if isinstance(settings_payload, dict) else None
+        )
+        if isinstance(settings_omg, dict):
+            candidate = settings_omg.get("defense_state")
+            if isinstance(candidate, dict):
+                if self._apply_threshold_overrides(
+                    thresholds, candidate.get("thresholds")
+                ):
+                    source = "settings._omg.defense_state.thresholds"
+
+        policy_payload = self._read_policy_yaml(self.project_dir / _POLICY_REL_PATH)
+        policy_candidate = (
+            policy_payload.get("defense_state")
+            if isinstance(policy_payload, dict)
+            else None
+        )
+        if isinstance(policy_candidate, dict):
+            if self._apply_threshold_overrides(
+                thresholds, policy_candidate.get("thresholds")
+            ):
+                source = ".omg/policy.yaml:defense_state.thresholds"
+
+        return thresholds, source
+
+    def _read_policy_yaml(self, path: Path) -> dict[str, Any]:
+        if not path.exists():
+            return {}
+        try:
+            import yaml  # type: ignore
+
+            payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
+    def _apply_threshold_overrides(
+        self,
+        target: dict[str, dict[str, float | int]],
+        candidate: Any,
+    ) -> bool:
+        if not isinstance(candidate, dict):
+            return False
+        changed = False
+
+        critical = candidate.get("critical")
+        if isinstance(critical, dict):
+            if "injection_hits" in critical:
+                target["critical"]["injection_hits"] = max(
+                    0,
+                    self._to_int(
+                        critical.get("injection_hits"),
+                        default=int(target["critical"]["injection_hits"]),
+                    ),
+                )
+                changed = True
+            if "contamination_score" in critical:
+                target["critical"]["contamination_score"] = self._clamp_score(
+                    critical.get("contamination_score")
+                )
+                changed = True
+
+        high = candidate.get("high")
+        if isinstance(high, dict):
+            if "injection_hits" in high:
+                target["high"]["injection_hits"] = max(
+                    0,
+                    self._to_int(
+                        high.get("injection_hits"),
+                        default=int(target["high"]["injection_hits"]),
+                    ),
+                )
+                changed = True
+            if "contamination_score" in high:
+                target["high"]["contamination_score"] = self._clamp_score(
+                    high.get("contamination_score")
+                )
+                changed = True
+
+        medium = candidate.get("medium")
+        if isinstance(medium, dict):
+            if "overthinking_score" in medium:
+                target["medium"]["overthinking_score"] = self._clamp_score(
+                    medium.get("overthinking_score")
+                )
+                changed = True
+            if "premature_fixer_score" in medium:
+                target["medium"]["premature_fixer_score"] = self._clamp_score(
+                    medium.get("premature_fixer_score")
+                )
+                changed = True
+
+        return changed
+
     def _score(
         self,
         *,
         injection_hits: int,
         contamination_score: float,
         overthinking_score: float,
+        premature_fixer_score: float,
+        thresholds: dict[str, dict[str, float | int]],
     ) -> tuple[str, list[str], list[str]]:
         reasons: list[str] = []
-        if injection_hits >= 3 or contamination_score >= 0.7:
-            if injection_hits >= 3:
+        critical_hits = self._to_int(
+            thresholds["critical"].get("injection_hits"), default=3
+        )
+        critical_contamination = self._clamp_score(
+            thresholds["critical"].get("contamination_score")
+        )
+        high_hits = self._to_int(thresholds["high"].get("injection_hits"), default=1)
+        high_contamination = self._clamp_score(
+            thresholds["high"].get("contamination_score")
+        )
+        medium_overthinking = self._clamp_score(
+            thresholds["medium"].get("overthinking_score")
+        )
+        medium_premature_fixer = self._clamp_score(
+            thresholds["medium"].get("premature_fixer_score")
+        )
+
+        if (
+            injection_hits >= critical_hits
+            or contamination_score >= critical_contamination
+        ):
+            if injection_hits >= critical_hits:
                 reasons.append("multiple prompt-injection signals detected")
-            if contamination_score >= 0.7:
+            if contamination_score >= critical_contamination:
                 reasons.append("contamination score exceeded critical threshold")
             return "critical", ["block", "quarantine"], reasons
 
-        if injection_hits >= 1 or contamination_score >= 0.4:
-            if injection_hits >= 1:
+        if injection_hits >= high_hits or contamination_score >= high_contamination:
+            if injection_hits >= high_hits:
                 reasons.append("prompt-injection signal detected")
-            if contamination_score >= 0.4:
+            if contamination_score >= high_contamination:
                 reasons.append("contamination score exceeded high threshold")
             return "high", ["warn", "flag"], reasons
 
-        if overthinking_score >= 0.5:
+        if (
+            overthinking_score >= medium_overthinking
+            or premature_fixer_score >= medium_premature_fixer
+        ):
             reasons.append("overthinking/cycle pressure exceeded medium threshold")
             return "medium", ["throttle"], reasons
 
@@ -229,7 +409,9 @@ class DefenseState:
     def _write_atomic(self, path: Path, payload: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_name(f"{path.name}.tmp")
-        tmp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        tmp_path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+        )
         os.rename(tmp_path, path)
 
     def _clamp_score(self, value: Any) -> float:

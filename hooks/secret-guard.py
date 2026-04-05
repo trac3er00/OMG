@@ -47,6 +47,18 @@ except Exception as _import_err:
     )
     sys.exit(0)
 
+
+def _requires_bypass_enforcement(
+    action: str, risk_level: str, controls: list[str]
+) -> bool:
+    normalized_controls = {
+        str(control).strip().lower() for control in controls if str(control).strip()
+    }
+    if "deny-on-bypass" in normalized_controls:
+        return True
+    return action == "ask" and str(risk_level).strip().lower() in {"high", "critical"}
+
+
 data = json_input()
 
 tool = data.get("tool_name", "")
@@ -166,8 +178,14 @@ except Exception:
         pass
 
 # In bypass-permission mode, only enforce hard denials (critical safety).
-# Skip "ask" decisions so the user is not prompted for confirmation.
 if is_bypass_mode(data) and decision.action != "deny":
+    if _requires_bypass_enforcement(
+        decision.action,
+        decision.risk_level,
+        decision.controls or [],
+    ):
+        deny_decision(f"Blocked in bypass mode: {decision.reason}")
+        sys.exit(0)
     sys.exit(0)
 
 out = to_pretool_hook_output(decision)

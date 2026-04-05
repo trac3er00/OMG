@@ -4,6 +4,7 @@
 Monitors Claude settings changes and writes Trust Review artifacts to
 .omg/trust/manifest.lock.json.
 """
+
 import json
 import os
 import sys
@@ -44,24 +45,42 @@ def _is_bypass_all_mode(payload: Any) -> bool:
     mode = str(payload.get("permission_mode", "")).strip().lower()
     return mode == "bypassall"
 
+
 # Compatibility marker for existing tests and policy docs.
 DANGEROUS_IN_ALLOW = [
-    "Bash(rm:*)", "Bash(sudo:*)", "Bash(curl:*)", "Bash(wget:*)",
-    "Bash(ssh:*)", "Bash(nc:*)", "Bash(ncat:*)",
+    "Bash(rm:*)",
+    "Bash(sudo:*)",
+    "Bash(curl:*)",
+    "Bash(wget:*)",
+    "Bash(ssh:*)",
+    "Bash(nc:*)",
+    "Bash(ncat:*)",
 ]
 
-setup_crash_handler("config-guard", fail_closed=False)
+setup_crash_handler("config-guard", fail_closed=True)
+
+
+def _emit_block(reason: str) -> None:
+    json.dump({"decision": "block", "reason": reason}, sys.stdout)
+
 
 try:
     trust_review = import_module("hooks.trust_review")
 except Exception as e:
-    print(f"[OMG] config-guard: trust_review import failed: {type(e).__name__}: {e}", file=sys.stderr)
+    print(
+        f"[OMG] config-guard: trust_review import failed: {type(e).__name__}: {e}",
+        file=sys.stderr,
+    )
+    _emit_block(
+        "SETTINGS CHANGE DETECTED: trust review unavailable; blocked fail-closed."
+    )
     sys.exit(0)
 
 format_review_summary = trust_review.format_review_summary
 regenerate_trust_manifest = trust_review.regenerate_trust_manifest
 
 data = json_input()
+
 
 def _decode_json_object(value):
     if isinstance(value, dict):
@@ -124,7 +143,10 @@ def _is_setup_in_progress():
                 return omg_config.get("setup_in_progress", False)
     except Exception:
         try:
-            print(f"[omg:warn] [config_guard] failed to detect setup-in-progress: {sys.exc_info()[1]}", file=sys.stderr)
+            print(
+                f"[omg:warn] [config_guard] failed to detect setup-in-progress: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
     return False
@@ -140,6 +162,40 @@ def _is_watched_config_path(path):
     return _is_watched_settings_path(path) or _is_mcp_config_file(path)
 
 
+_MANDATORY_REVIEW_KEYS = {
+    "hooks",
+    "permissions",
+    "mcp",
+    "mcpservers",
+    "policy",
+    "allowlist",
+    "denylist",
+    "security",
+}
+
+
+def _contains_mandatory_review_surface(value: Any) -> bool:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if str(key).strip().lower() in _MANDATORY_REVIEW_KEYS:
+                return True
+            if _contains_mandatory_review_surface(item):
+                return True
+    elif isinstance(value, list):
+        return any(_contains_mandatory_review_surface(item) for item in value)
+    return False
+
+
+def _requires_mandatory_review(
+    config_path: str, old_payload: Any, new_payload: Any
+) -> bool:
+    if _is_mcp_config_file(config_path):
+        return True
+    return _contains_mandatory_review_surface(
+        new_payload
+    ) or _contains_mandatory_review_surface(old_payload)
+
+
 config_path = _extract_config_path(data)
 if not config_path:
     sys.exit(0)
@@ -148,7 +204,11 @@ if not _is_watched_config_path(config_path):
     sys.exit(0)
 
 project_dir = _resolve_project_dir()
-new_path = config_path if os.path.isabs(config_path) else os.path.join(project_dir, config_path)
+new_path = (
+    config_path
+    if os.path.isabs(config_path)
+    else os.path.join(project_dir, config_path)
+)
 if not os.path.exists(new_path):
     sys.exit(0)
 
@@ -157,7 +217,11 @@ try:
     if not isinstance(new_config, dict):
         sys.exit(0)
 except Exception as e:
-    print(f"[OMG] config-guard: config read failed: {type(e).__name__}: {e}", file=sys.stderr)
+    print(
+        f"[OMG] config-guard: config read failed: {type(e).__name__}: {e}",
+        file=sys.stderr,
+    )
+    _emit_block("SETTINGS CHANGE DETECTED: config parse failed; blocked fail-closed.")
     sys.exit(0)
 
 payload_old = _extract_config_object(
@@ -169,8 +233,13 @@ payload_old = _extract_config_object(
 if _is_setup_in_progress() and _is_mcp_config_file(config_path):
     sys.exit(0)
 
-# In bypass mode, skip trust_review asks (but not denials for critical issues)
-if is_bypass_mode(data) or _is_bypass_all_mode(data):
+if (
+    is_bypass_mode(data) or _is_bypass_all_mode(data)
+) and not _requires_mandatory_review(
+    config_path,
+    payload_old,
+    new_config,
+):
     sys.exit(0)
 
 review_out = regenerate_trust_manifest(
@@ -188,6 +257,7 @@ hook_count = sum(len(v) if isinstance(v, list) else 0 for v in hooks.values())
 verdict = review.get("verdict", "allow")
 risk_level = review.get("risk_level", "low")
 summary = format_review_summary(review)
+bypass_active = is_bypass_mode(data) or _is_bypass_all_mode(data)
 
 if verdict == "deny":
     msg = "⚠ SETTINGS CHANGE DETECTED (Trust Review)\n" + summary
@@ -198,7 +268,7 @@ elif verdict == "ask":
     # block and require explicit user re-apply after review.
     msg = "⚠ SETTINGS CHANGE REQUIRES REVIEW\n" + summary
     msg += "\n\nRe-apply after human approval."
-    if risk_level == "high":
+    if risk_level == "high" or bypass_active:
         json.dump({"decision": "block", "reason": msg}, sys.stdout)
     else:
         json.dump({"decision": "pass", "reason": msg}, sys.stdout)

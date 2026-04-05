@@ -183,6 +183,19 @@ def _to_float(value: Any, default: float) -> float:
         return default
 
 
+def _requires_bypass_enforcement(decision: Any) -> bool:
+    controls = {
+        str(control).strip().lower()
+        for control in (getattr(decision, "controls", []) or [])
+        if str(control).strip()
+    }
+    if "deny-on-bypass" in controls:
+        return True
+
+    risk = str(getattr(decision, "risk_level", "")).strip().lower()
+    return risk in {"high", "critical"} and getattr(decision, "action", "") == "ask"
+
+
 def _mutating_defense_decision(
     *,
     project_dir: str,
@@ -383,9 +396,15 @@ if is_mutation_capable and gate_result.get("status") == "blocked":
 decision = _enrich_risk_context(decision, data)
 
 # In bypass-permission mode, only enforce hard denials (critical safety).
-# Skip "ask" decisions so the user is not prompted for confirmation.
 if is_bypass_mode(data) and decision.action != "deny":
-    sys.exit(0)
+    if _requires_bypass_enforcement(decision):
+        decision = deny(
+            f"Blocked in bypass mode: {decision.reason}",
+            "high",
+            ["bypass-enforced", "deny-on-bypass"],
+        )
+    else:
+        sys.exit(0)
 
 if decision.action == "allow" and is_mutation_capable:
     try:

@@ -1,13 +1,19 @@
 """Reusable helpers for hook regression tests."""
+
 import json
 import subprocess
 import os
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def run_hook_json(script_rel_path: str, payload: dict, env_overrides: dict = None):
+def run_hook_json(
+    script_rel_path: str,
+    payload: dict[str, Any],
+    env_overrides: dict[str, str] | None = None,
+):
     """Run a hook script with JSON payload on stdin, return parsed JSON output or None."""
     script = ROOT / script_rel_path
     env = os.environ.copy()
@@ -28,9 +34,9 @@ def run_hook_json(script_rel_path: str, payload: dict, env_overrides: dict = Non
     return json.loads(stdout) if stdout else None
 
 
-def get_decision(output: dict):
+def get_decision(output: object):
     """Extract permissionDecision from hook output."""
-    if not output:
+    if not isinstance(output, dict):
         return None
     return (output.get("hookSpecificOutput") or {}).get("permissionDecision")
 

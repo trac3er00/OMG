@@ -1,4 +1,5 @@
 """Tests for ConfigChange hook (§6.1)."""
+
 from __future__ import annotations
 
 import json
@@ -20,12 +21,14 @@ def run_config_guard(payload: dict[str, object], project_dir: str):
     out = (proc.stdout or "").strip()
     return json.loads(out) if out else None
 
+
 def test_config_guard_monitors_settings():
     """§6.1: Should monitor settings.json changes."""
     with open("hooks/config-guard.py") as f:
         content = f.read()
     assert "settings.json" in content
     assert "DANGEROUS_IN_ALLOW" in content
+
 
 def test_config_guard_checks_hook_count():
     """§6.1: Should warn if hooks are removed."""
@@ -170,3 +173,44 @@ def test_config_guard_scores_live_config_not_payload_override():
         assert out is not None
         assert out["decision"] == "block"
         assert "Bash(sudo:*)" in out["reason"]
+
+
+def test_config_guard_bypassall_still_reviews_sensitive_permissions_change():
+    old = {"permissions": {"allow": ["Read"]}}
+    new = {"permissions": {"allow": ["Read", "Bash(curl:*)"]}}
+    with tempfile.TemporaryDirectory() as tmpdir:
+        settings = Path(tmpdir) / "settings.json"
+        settings.write_text(json.dumps(new), encoding="utf-8")
+
+        out = run_config_guard(
+            {
+                "source": "user",
+                "file_path": str(settings),
+                "old_config": old,
+                "permission_mode": "bypassall",
+            },
+            tmpdir,
+        )
+
+        assert out is not None
+        assert out["decision"] == "block"
+        assert "Trust Review" in out["reason"]
+
+
+def test_config_guard_blocks_when_settings_parse_fails_fail_closed():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        settings = Path(tmpdir) / "settings.json"
+        settings.write_text("{not-json", encoding="utf-8")
+
+        out = run_config_guard(
+            {
+                "source": "user",
+                "file_path": str(settings),
+                "old_config": {},
+            },
+            tmpdir,
+        )
+
+        assert out is not None
+        assert out["decision"] == "block"
+        assert "parse failed" in out["reason"].lower()

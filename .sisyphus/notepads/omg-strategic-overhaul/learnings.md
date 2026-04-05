@@ -254,3 +254,12 @@
 - Tool invocations tracked via ledger entry mark (`_ledger_entry_mark`) — counts entries since last iteration
 - Both existing budget tests (T20) pass unchanged — new fields are additive, existing assertions unaffected
 - pyright type errors on `config.get()` → `float()` resolved with `str()` coercion wrapper
+
+## [T26] Security Fixes
+
+- Bypass-mode suppression is now policy-driven: firewall/secret-guard only auto-skip low-risk asks and hard-block `deny-on-bypass` or high-risk ask decisions.
+- Bash command enforcement now evaluates normalized command views (Unicode NFKC + empty-quote deobfuscation + shell tokenization), closing regex-evasion gaps like `c''url`.
+- Secret-file grep/search against secret-like paths now returns `deny` (not `ask`), removing bypass-assisted secret inspection paths.
+- Config governance moved to fail-closed behavior (`config-guard` crash/import/config-parse failures now block) and bypass mode no longer skips trust review for hooks/permissions/MCP/policy surfaces.
+- `runtime/defense_state.py` thresholds are no longer hardcoded-only: defaults are overridable from `settings.json` (`_omg.defense_state.thresholds`) and `.omg/policy.yaml` (`defense_state.thresholds`) with persisted `threshold_source` in state artifacts.
+- Added security regression coverage in `tests/security/test_security_posture_hardening.py` plus hook test updates for new deny-on-bypass semantics and config fail-closed behavior.

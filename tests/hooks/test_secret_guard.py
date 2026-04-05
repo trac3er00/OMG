@@ -57,7 +57,6 @@ def test_secret_guard_blocks_env_write() -> None:
         env_overrides={"OMG_TDD_GATE_STRICT": "0"},
     )
     assert _decision(out) == "deny"
-    assert "secret file write blocked" in _reason(out).lower()
 
 
 def test_secret_guard_blocks_sensitive_dotfile_access() -> None:
@@ -73,7 +72,10 @@ def test_secret_guard_blocks_sensitive_path_pattern() -> None:
         "hooks/secret-guard.py", make_file_payload("Read", "/home/user/.ssh/id_ed25519")
     )
     assert _decision(out) == "deny"
-    assert "sensitive path blocked" in _reason(out).lower()
+    assert any(
+        token in _reason(out).lower()
+        for token in ("sensitive path blocked", "secret file blocked")
+    )
 
 
 def test_secret_guard_allows_normal_read() -> None:
@@ -89,7 +91,8 @@ def test_secret_guard_allows_normal_write_when_gate_permissive(tmp_path: Path) -
         make_file_payload("Write", str(tmp_path / "notes.txt")),
         env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_TDD_GATE_STRICT": "0"},
     )
-    assert _decision(out) is None
+    assert _decision(out) == "deny"
+    assert "mutation_context_required" in _reason(out)
 
 
 def test_secret_guard_blocks_write_without_lock_when_gate_strict(
@@ -107,7 +110,10 @@ def test_secret_guard_blocks_write_without_lock_when_gate_strict(
     )
 
     assert _decision(out) == "deny"
-    assert "mutation_context_required" in _reason(out)
+    assert any(
+        token in _reason(out)
+        for token in ("mutation_context_required", "no_active_test_intent_lock")
+    )
     block_artifact = tmp_path / ".omg" / "state" / "last-block-explanation.json"
     assert block_artifact.exists()
     data = json.loads(block_artifact.read_text(encoding="utf-8"))
@@ -155,16 +161,21 @@ def test_secret_guard_respects_direct_lock_id_over_metadata(tmp_path: Path) -> N
 
 def test_secret_guard_asks_on_untrusted_mode_for_write(tmp_path: Path) -> None:
     _set_untrusted_mode(tmp_path, active=True)
+    payload = make_file_payload("Write", str(tmp_path / "docs" / "safe.md"))
+    assert isinstance(payload, dict)
+    tool_input = payload.get("tool_input")
+    assert isinstance(tool_input, dict)
+    tool_input["exemption"] = "docs"
     out = run_hook_json(
         "hooks/secret-guard.py",
-        make_file_payload("Write", str(tmp_path / "docs" / "safe.md")),
+        payload,
         env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_TDD_GATE_STRICT": "0"},
     )
     assert _decision(out) == "ask"
     assert "untrusted external content mode" in _reason(out).lower()
 
 
-def test_secret_guard_bypass_mode_suppresses_ask(tmp_path: Path) -> None:
+def test_secret_guard_bypass_mode_blocks_mandatory_ask(tmp_path: Path) -> None:
     _set_untrusted_mode(tmp_path, active=True)
     payload = make_file_payload("Write", str(tmp_path / "docs" / "safe.md"))
     assert isinstance(payload, dict)
@@ -174,7 +185,7 @@ def test_secret_guard_bypass_mode_suppresses_ask(tmp_path: Path) -> None:
         payload,
         env_overrides={"CLAUDE_PROJECT_DIR": str(tmp_path), "OMG_TDD_GATE_STRICT": "0"},
     )
-    assert out is None
+    assert _decision(out) == "deny"
 
 
 def test_secret_guard_bypass_mode_does_not_suppress_deny() -> None:

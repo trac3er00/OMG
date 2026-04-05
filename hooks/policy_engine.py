@@ -12,6 +12,8 @@ from fnmatch import fnmatch
 import importlib
 import os
 import re
+import shlex
+import unicodedata
 from typing import Any
 
 
@@ -307,7 +309,7 @@ def evaluate_action_justification(
         return ask(
             "State-changing action lacks trust-scored evidence.",
             "high",
-            ["manual-approval", "trusted-evidence-required"],
+            ["manual-approval", "trusted-evidence-required", "deny-on-bypass"],
         )
 
     tiers = {
@@ -329,13 +331,14 @@ def evaluate_action_justification(
         )
         controls = ["manual-approval", "trusted-corroboration", "review-provenance"]
         if require_explicit_approval:
+            controls.append("deny-on-bypass")
             return ask(reason, "high", controls)
         return deny(reason, "high", controls)
 
     return ask(
         "State-changing action has unknown trust provenance.",
         "high",
-        ["manual-approval", "review-provenance"],
+        ["manual-approval", "review-provenance", "deny-on-bypass"],
     )
 
 
@@ -347,6 +350,32 @@ def _is_untrusted_content_mode_active() -> bool:
         return is_untrusted_content_mode_active(project_dir)
     except Exception:
         return False
+
+
+def _command_match_views(command: str) -> tuple[str, ...]:
+    raw = str(command or "")
+    nfkc = unicodedata.normalize("NFKC", raw)
+    deobfuscated = re.sub(r"(?<=\w)(?:''|\"\")(?=\w)", "", nfkc)
+
+    views: list[str] = []
+    for candidate in (raw, nfkc, deobfuscated):
+        text = candidate.strip()
+        if text and text not in views:
+            views.append(text)
+
+    for candidate in (nfkc, deobfuscated):
+        try:
+            tokenized = " ".join(shlex.split(candidate, posix=True)).strip()
+        except ValueError:
+            continue
+        if tokenized and tokenized not in views:
+            views.append(tokenized)
+
+    return tuple(views) if views else ("",)
+
+
+def _matches(pattern: re.Pattern[str], command_views: tuple[str, ...]) -> bool:
+    return any(pattern.search(view) for view in command_views)
 
 
 def scan_mutation_command(cmd: str) -> dict[str, Any]:
@@ -403,34 +432,39 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
     if not cmd:
         return allow("empty command")
 
+    command_views = _command_match_views(cmd)
+    canonical_cmd = command_views[0]
+
     for compiled_pattern, label in DESTRUCT_PATTERNS_COMPILED:
-        if compiled_pattern.search(cmd):
+        if _matches(compiled_pattern, command_views):
             return deny(f"Blocked: {label}", "critical", ["destructive-op"])
 
     for compiled_pattern in PIPE_SHELL_PATTERNS_COMPILED:
-        if compiled_pattern.search(cmd):
+        if _matches(compiled_pattern, command_views):
             return deny("Blocked: pipe-to-shell", "critical", ["remote-code-exec"])
 
     for compiled_pattern in EVAL_PATTERNS_COMPILED:
-        if compiled_pattern.search(cmd):
+        if _matches(compiled_pattern, command_views):
             return deny("Blocked: dynamic eval", "high", ["dynamic-eval"])
 
     for secret_pat, redirect_pattern in zip(
         SECRET_FILE_PATTERNS_COMPILED,
         SECRET_REDIRECT_PATTERNS_COMPILED,
     ):
-        if not secret_pat.search(cmd):
+        if not _matches(secret_pat, command_views):
             continue
 
-        if SAFE_ENV_REFERENCE.search(cmd):
-            cleaned = SAFE_ENV_REFERENCE.sub("__SAFE_REF__", cmd)
-            if not secret_pat.search(cleaned):
+        if _matches(SAFE_ENV_REFERENCE, command_views):
+            cleaned_views = tuple(
+                SAFE_ENV_REFERENCE.sub("__SAFE_REF__", view) for view in command_views
+            )
+            if not _matches(secret_pat, cleaned_views):
                 continue
 
-        if READ_PATTERN_COMPILED.search(cmd):
+        if _matches(READ_PATTERN_COMPILED, command_views):
             return deny("Blocked: reading secret file", "critical", ["secret-access"])
 
-        if redirect_pattern.search(cmd):
+        if _matches(redirect_pattern, command_views):
             return deny(
                 "Blocked: reading secret file via redirect",
                 "critical",
@@ -438,24 +472,28 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
             )
 
         for exfil_pattern in EXFIL_COMMANDS_COMPILED:
-            if exfil_pattern.search(cmd):
+            if _matches(exfil_pattern, command_views):
                 return deny(
                     "Blocked: copying secret file", "critical", ["secret-exfiltration"]
                 )
 
-        if _GREP_COMMAND_RE.search(cmd):
-            return ask(
-                "Searching inside potential secret file — confirm this is safe",
+        if _matches(_GREP_COMMAND_RE, command_views):
+            return deny(
+                "Blocked: searching inside potential secret file",
                 "high",
-                ["secret-search"],
+                ["secret-search", "deny-on-bypass"],
             )
 
     for compiled_pattern, label in ASK_PATTERNS_COMPILED:
-        if compiled_pattern.search(cmd):
-            return ask(f"{label}: {cmd[:120]}", "med", ["human-approval"])
+        if _matches(compiled_pattern, command_views):
+            return ask(
+                f"{label}: {canonical_cmd[:120]}",
+                "high",
+                ["human-approval", "deny-on-bypass"],
+            )
 
     for compiled_pattern in UNTRUSTED_MUTATION_PATTERNS_COMPILED:
-        if not compiled_pattern.search(cmd):
+        if not _matches(compiled_pattern, command_views):
             continue
         provenance_entries = _load_untrusted_provenance_entries()
         if provenance_entries:
@@ -470,7 +508,7 @@ def evaluate_bash_command(cmd: str) -> PolicyDecision:
             return ask(
                 "Untrusted external content mode is active. Review before running state-changing commands.",
                 "high",
-                ["manual-approval", "review-provenance"],
+                ["manual-approval", "review-provenance", "deny-on-bypass"],
             )
         break
 
@@ -890,7 +928,7 @@ def evaluate_file_access(
             return ask(
                 "Untrusted external content mode is active. Review before mutating files.",
                 "high",
-                ["manual-approval", "review-provenance"],
+                ["manual-approval", "review-provenance", "deny-on-bypass"],
             )
 
     if allowlist and is_allowlisted(file_path, tool, allowlist):
