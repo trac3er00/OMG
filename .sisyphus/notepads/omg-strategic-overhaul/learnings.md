@@ -160,3 +160,13 @@
 - `readJsonLines` from atomic-io.ts handles JSONL reading with graceful skip of malformed lines
 - stdout export supported via `--output=-` pattern
 - 10/10 tests pass (6 original + 4 new SIEM tests)
+
+## [T17] Approval UI
+- Created `hooks/approval_ui.py` as terminal-based governance gate approval UI, following existing `stop_dispatcher.py` patterns for interactive detection (`sys.stdin.isatty()`) and JSONL ledger writing.
+- Resolution order: pre-approval file (`.omg/state/ralph-approvals.json`) → interactive TTY prompt → auto-deny when non-interactive. Matches T12 Ralph approval gate convention.
+- `present_approval_request()` returns "approve"/"deny"/"approve_all"/"deny_all"; `_input_fn` kwarg enables test injection without monkeypatching stdin.
+- Every decision logged to `.omg/state/ledger/approvals.jsonl` with SHA-256 integrity digest for tamper detection.
+- Wired into `trust_review.py`: `review_config_change()` and `regenerate_trust_manifest()` gained `resolve_ask=` kwarg (default False for backward compat); when True + verdict=="ask", approval UI is presented.
+- Pre-approval supports three modes: `allow_all`, `approved_risk_levels` (list), `approved_actions` (list of action strings).
+- ANSI color respects `NO_COLOR`/`FORCE_COLOR` env vars per terminal color spec.
+- 36 new tests (test_approval_ui.py) + 8 existing trust_review tests pass with no regression.

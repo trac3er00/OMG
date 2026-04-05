@@ -1,0 +1,54 @@
+Task 17: Terminal Approval UI for Governance Gates
+===================================================
+Date: 2026-04-05
+Status: COMPLETE
+
+Files Created:
+  - hooks/approval_ui.py (new — 368 lines)
+
+Files Modified:
+  - hooks/trust_review.py (wired resolve_ask into review_config_change and regenerate_trust_manifest)
+
+Test File Created:
+  - tests/hooks/test_approval_ui.py (36 tests across 7 test classes)
+
+Test Results:
+  - tests/hooks/test_approval_ui.py: 36 passed, 0 failed
+  - tests/hooks/test_trust_review.py: 8 passed, 0 failed (no regression)
+
+LSP Diagnostics:
+  - hooks/approval_ui.py: 0 errors
+  - hooks/trust_review.py: 0 errors
+
+Implementation Summary:
+  1. hooks/approval_ui.py — Terminal approval UI module
+     - present_approval_request(): Main entry point for governance approvals
+       Returns: "approve" / "deny" / "approve_all" / "deny_all"
+     - resolve_governance_ask(): Resolves 'ask' verdicts from trust reviews
+     - log_approval_decision(): JSONL ledger writer with SHA-256 integrity digest
+     - Three modes: interactive (TTY), non-interactive (auto-deny), batch (pre-approval)
+     - Pre-approval via .omg/state/ralph-approvals.json (allow_all, risk_levels, actions)
+     - ANSI color-coded risk display (NO_COLOR / FORCE_COLOR respected)
+     - Approval ledger: .omg/state/ledger/approvals.jsonl
+
+  2. hooks/trust_review.py — Wiring
+     - review_config_change() gained resolve_ask=, project_dir=, _input_fn= kwargs
+     - regenerate_trust_manifest() gained resolve_ask=, _input_fn= kwargs
+     - When resolve_ask=True and verdict=="ask", approval UI is presented
+     - Lazy import: hooks.approval_ui (with .approval_ui fallback)
+
+  3. tests/hooks/test_approval_ui.py — 36 tests
+     - TestFormatApprovalRequest: 6 tests (display format, truncation)
+     - TestPresentApprovalRequest: 9 tests (all input modes, EOFError, KeyboardInterrupt)
+     - TestPreApprovals: 5 tests (allow_all, risk_level, action-specific)
+     - TestLogApprovalDecision: 3 tests (create, append, digest integrity)
+     - TestResolveGovernanceAsk: 4 tests (passthrough + ask resolution)
+     - TestBuildActionDescription: 5 tests (all review fields)
+     - TestReviewConfigChangeWithResolveAsk: 4 tests (integration with trust_review)
+
+Design Decisions:
+  - Follows existing stop_dispatcher.py patterns for interactive detection and JSONL ledger
+  - _input_fn kwarg enables testability without monkeypatching sys.stdin
+  - SHA-256 digest on each ledger record for tamper detection
+  - resolve_ask defaults to False for backward compatibility
+  - Pre-approval resolution order matches T12 Ralph approval gate conventions

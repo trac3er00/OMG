@@ -5,6 +5,7 @@ Analyzes high-risk configuration changes (hooks/MCP/env/permissions) and emits
 structured trust review artifacts. Also integrates with config discovery to
 validate and approve discovered AI tool configurations.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -74,7 +75,9 @@ def _mcp_server_risk(server_name: str, config: Any) -> tuple[int, list[str], lis
         root = args_list[-1] if args_list else ""
         if root not in {".", "./"}:
             score += 45
-            reasons.append(f"MCP filesystem server {server_name} is scoped outside the project root")
+            reasons.append(
+                f"MCP filesystem server {server_name} is scoped outside the project root"
+            )
             controls.append("scope-filesystem-root")
 
     return score, reasons, controls
@@ -88,7 +91,9 @@ def _safe_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
-def _collect_mcp_changes(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> list[dict[str, Any]]:
+def _collect_mcp_changes(
+    old_cfg: dict[str, Any], new_cfg: dict[str, Any]
+) -> list[dict[str, Any]]:
     old_servers = _safe_dict(old_cfg.get("mcpServers"))
     new_servers = _safe_dict(new_cfg.get("mcpServers"))
     changes: list[dict[str, Any]] = []
@@ -99,7 +104,9 @@ def _collect_mcp_changes(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> li
     for name in sorted(new_keys - old_keys):
         changes.append({"type": "added", "server": name, "new": new_servers.get(name)})
     for name in sorted(old_keys - new_keys):
-        changes.append({"type": "removed", "server": name, "old": old_servers.get(name)})
+        changes.append(
+            {"type": "removed", "server": name, "old": old_servers.get(name)}
+        )
     for name in sorted(old_keys & new_keys):
         if old_servers.get(name) != new_servers.get(name):
             changes.append(
@@ -128,7 +135,9 @@ def _count_hooks(cfg: dict[str, Any]) -> int:
     return total
 
 
-def _collect_hook_changes(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> dict[str, Any]:
+def _collect_hook_changes(
+    old_cfg: dict[str, Any], new_cfg: dict[str, Any]
+) -> dict[str, Any]:
     old_hooks = _safe_dict(old_cfg.get("hooks"))
     new_hooks = _safe_dict(new_cfg.get("hooks"))
 
@@ -137,7 +146,9 @@ def _collect_hook_changes(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> d
     removed_events = sorted(old_events - new_events)
     added_events = sorted(new_events - old_events)
     modified_events = sorted(
-        event for event in (old_events & new_events) if old_hooks.get(event) != new_hooks.get(event)
+        event
+        for event in (old_events & new_events)
+        if old_hooks.get(event) != new_hooks.get(event)
     )
 
     return {
@@ -149,7 +160,9 @@ def _collect_hook_changes(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> d
     }
 
 
-def _collect_env_changes(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> list[dict[str, Any]]:
+def _collect_env_changes(
+    old_cfg: dict[str, Any], new_cfg: dict[str, Any]
+) -> list[dict[str, Any]]:
     old_env = _safe_dict(old_cfg.get("env"))
     new_env = _safe_dict(new_cfg.get("env"))
 
@@ -164,7 +177,9 @@ def _collect_env_changes(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> li
     return changes
 
 
-def _risk_from_permissions(old_cfg: dict[str, Any], new_cfg: dict[str, Any]) -> tuple[int, list[str], list[str]]:
+def _risk_from_permissions(
+    old_cfg: dict[str, Any], new_cfg: dict[str, Any]
+) -> tuple[int, list[str], list[str]]:
     old_perms = _safe_dict(old_cfg.get("permissions"))
     new_perms = _safe_dict(new_cfg.get("permissions"))
 
@@ -213,7 +228,9 @@ def _risk_from_hooks(hook_changes: dict[str, Any]) -> tuple[int, list[str], list
     return score, reasons, controls
 
 
-def _risk_from_mcp(mcp_changes: list[dict[str, Any]]) -> tuple[int, list[str], list[str]]:
+def _risk_from_mcp(
+    mcp_changes: list[dict[str, Any]],
+) -> tuple[int, list[str], list[str]]:
     score = 0
     reasons: list[str] = []
     controls: list[str] = []
@@ -221,7 +238,9 @@ def _risk_from_mcp(mcp_changes: list[dict[str, Any]]) -> tuple[int, list[str], l
     for change in mcp_changes:
         ctype = change.get("type")
         name = change.get("server")
-        server_cfg = change.get("new") if ctype in {"added", "modified"} else change.get("old")
+        server_cfg = (
+            change.get("new") if ctype in {"added", "modified"} else change.get("old")
+        )
         if ctype == "added":
             score += 30
             reasons.append(f"New MCP server added: {name}")
@@ -234,7 +253,9 @@ def _risk_from_mcp(mcp_changes: list[dict[str, Any]]) -> tuple[int, list[str], l
             score += 10
             reasons.append(f"MCP server removed: {name}")
 
-        extra_score, extra_reasons, extra_controls = _mcp_server_risk(str(name), server_cfg)
+        extra_score, extra_reasons, extra_controls = _mcp_server_risk(
+            str(name), server_cfg
+        )
         score += extra_score
         reasons.extend(extra_reasons)
         controls.extend(extra_controls)
@@ -242,14 +263,19 @@ def _risk_from_mcp(mcp_changes: list[dict[str, Any]]) -> tuple[int, list[str], l
     return score, reasons, controls
 
 
-def _risk_from_env(env_changes: list[dict[str, Any]]) -> tuple[int, list[str], list[str]]:
+def _risk_from_env(
+    env_changes: list[dict[str, Any]],
+) -> tuple[int, list[str], list[str]]:
     score = 0
     reasons: list[str] = []
     controls: list[str] = []
 
     for change in env_changes:
         key = str(change.get("key", ""))
-        if any(token in key.upper() for token in ["KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL"]):
+        if any(
+            token in key.upper()
+            for token in ["KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL"]
+        ):
             score += 20
             reasons.append(f"Sensitive environment key modified: {key}")
             controls.append("secret-env-review")
@@ -274,6 +300,10 @@ def review_config_change(
     file_path: str,
     old_config: dict[str, Any] | None,
     new_config: dict[str, Any] | None,
+    *,
+    resolve_ask: bool = False,
+    project_dir: str = ".",
+    _input_fn: Any = None,
 ) -> dict[str, Any]:
     old_cfg = old_config or {}
     new_cfg = new_config or {}
@@ -298,7 +328,7 @@ def review_config_change(
 
     verdict, risk_level = score_to_verdict(risk_score)
 
-    return {
+    review = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "changed_files": [file_path] if file_path else [],
         "mcp_changes": mcp_changes,
@@ -310,6 +340,17 @@ def review_config_change(
         "reasons": reasons,
         "controls": sorted(set(controls)),
     }
+
+    if resolve_ask and verdict == "ask":
+        try:
+            from hooks.approval_ui import resolve_governance_ask
+        except ImportError:
+            from .approval_ui import resolve_governance_ask  # type: ignore[no-redef]
+        review = resolve_governance_ask(
+            review, project_dir=project_dir, _input_fn=_input_fn
+        )
+
+    return review
 
 
 def format_review_summary(review: dict[str, Any]) -> str:
@@ -334,7 +375,9 @@ def write_trust_manifest(project_dir: str, review: dict[str, Any]) -> str:
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "last_review": review,
     }
-    digest_input = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    digest_input = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
     payload["signature"] = hashlib.sha256(digest_input).hexdigest()
 
     with open(manifest_path, "w", encoding="utf-8") as f:
@@ -362,13 +405,17 @@ def _canonical_config_path(file_path: str) -> str:
 def _trust_snapshot_path(project_dir: str, config_path: str) -> str:
     trust_dir = os.path.join(project_dir, ".omg", "trust")
     os.makedirs(trust_dir, exist_ok=True)
-    filename = "last-mcp.json" if _is_mcp_config_path(config_path) else "last-settings.json"
+    filename = (
+        "last-mcp.json" if _is_mcp_config_path(config_path) else "last-settings.json"
+    )
     return os.path.join(trust_dir, filename)
 
 
 def _resolve_live_config(project_dir: str, config_path: str) -> dict[str, Any]:
     rel_path = _canonical_config_path(config_path)
-    abs_path = rel_path if os.path.isabs(rel_path) else os.path.join(project_dir, rel_path)
+    abs_path = (
+        rel_path if os.path.isabs(rel_path) else os.path.join(project_dir, rel_path)
+    )
     return _load_json_file(abs_path)
 
 
@@ -377,14 +424,30 @@ def regenerate_trust_manifest(
     file_path: str,
     old_config: dict[str, Any] | None = None,
     new_config: dict[str, Any] | None = None,
+    *,
+    resolve_ask: bool = False,
+    _input_fn: Any = None,
 ) -> dict[str, Any]:
     canonical_path = _canonical_config_path(file_path)
     snapshot_path = _trust_snapshot_path(project_dir, canonical_path)
 
-    previous_cfg = old_config if isinstance(old_config, dict) else _load_json_file(snapshot_path)
-    current_cfg = new_config if isinstance(new_config, dict) else _resolve_live_config(project_dir, canonical_path)
+    previous_cfg = (
+        old_config if isinstance(old_config, dict) else _load_json_file(snapshot_path)
+    )
+    current_cfg = (
+        new_config
+        if isinstance(new_config, dict)
+        else _resolve_live_config(project_dir, canonical_path)
+    )
 
-    review = review_config_change(canonical_path, previous_cfg, current_cfg)
+    review = review_config_change(
+        canonical_path,
+        previous_cfg,
+        current_cfg,
+        resolve_ask=resolve_ask,
+        project_dir=project_dir,
+        _input_fn=_input_fn,
+    )
     manifest_path = write_trust_manifest(project_dir, review)
 
     with open(snapshot_path, "w", encoding="utf-8") as f:
@@ -409,24 +472,23 @@ def _load_json_file(path: str) -> dict[str, Any]:
         return {}
 
 
-
 # === Config Discovery Integration ============================================
 
 # Suspicious code patterns that should block config import
 _DANGEROUS_PATTERNS = [
-    re.compile(r'\beval\s*\('),
-    re.compile(r'\bexec\s*\('),
-    re.compile(r'\b__import__\s*\('),
-    re.compile(r'\bsubprocess\b'),
-    re.compile(r'\bos\.system\s*\('),
+    re.compile(r"\beval\s*\("),
+    re.compile(r"\bexec\s*\("),
+    re.compile(r"\b__import__\s*\("),
+    re.compile(r"\bsubprocess\b"),
+    re.compile(r"\bos\.system\s*\("),
 ]
 
 # Credential patterns that produce warnings (not blocking)
 _CREDENTIAL_PATTERNS = [
-    re.compile(r'\bpassword\b', re.IGNORECASE),
-    re.compile(r'\bsecret\b', re.IGNORECASE),
-    re.compile(r'\bapi_key\b', re.IGNORECASE),
-    re.compile(r'\btoken\b', re.IGNORECASE),
+    re.compile(r"\bpassword\b", re.IGNORECASE),
+    re.compile(r"\bsecret\b", re.IGNORECASE),
+    re.compile(r"\bapi_key\b", re.IGNORECASE),
+    re.compile(r"\btoken\b", re.IGNORECASE),
 ]
 
 # Max config size before warning (100KB)
@@ -445,12 +507,16 @@ def _validate_config_security(config_path: str, content: str) -> Dict[str, Any]:
     # Check for dangerous code patterns
     for pattern in _DANGEROUS_PATTERNS:
         if pattern.search(content):
-            issues.append(f"Dangerous pattern '{pattern.pattern}' found in {config_path}")
+            issues.append(
+                f"Dangerous pattern '{pattern.pattern}' found in {config_path}"
+            )
 
     # Check for credential patterns (warn only)
     for pattern in _CREDENTIAL_PATTERNS:
         if pattern.search(content):
-            warnings.append(f"Credential pattern '{pattern.pattern}' found in {config_path}")
+            warnings.append(
+                f"Credential pattern '{pattern.pattern}' found in {config_path}"
+            )
 
     # Check file size
     try:
@@ -459,7 +525,12 @@ def _validate_config_security(config_path: str, content: str) -> Dict[str, Any]:
             warnings.append(f"Config file is large ({size} bytes): {config_path}")
     except OSError:
         try:
-            import sys; print(f"[omg:warn] [trust_review] failed to read config size: {sys.exc_info()[1]}", file=sys.stderr)
+            import sys
+
+            print(
+                f"[omg:warn] [trust_review] failed to read config size: {sys.exc_info()[1]}",
+                file=sys.stderr,
+            )
         except Exception:
             pass
 
@@ -470,7 +541,9 @@ def _validate_config_security(config_path: str, content: str) -> Dict[str, Any]:
     }
 
 
-def _log_config_import(config_path: str, tool: str, approved: bool, project_dir: str = ".") -> None:
+def _log_config_import(
+    config_path: str, tool: str, approved: bool, project_dir: str = "."
+) -> None:
     """Log a config import decision to .omg/trust/config_imports.json.
 
     Uses atomic_json_write() from _common for safe writes.
@@ -494,7 +567,11 @@ def _log_config_import(config_path: str, tool: str, approved: bool, project_dir:
     # Compute SHA-256 hash of the config file
     sha256_hash = ""
     try:
-        abs_path = os.path.join(project_dir, config_path) if not os.path.isabs(config_path) else config_path
+        abs_path = (
+            os.path.join(project_dir, config_path)
+            if not os.path.isabs(config_path)
+            else config_path
+        )
         if os.path.isfile(abs_path):
             with open(abs_path, "rb") as f:
                 sha256_hash = hashlib.sha256(f.read()).hexdigest()
@@ -553,12 +630,18 @@ def review_discovered_configs(project_dir: str = ".") -> Dict[str, Any]:
         except ImportError:
             common_module = None
     try:
-        get_feature_flag = common_module.get_feature_flag if common_module is not None else None
+        get_feature_flag = (
+            common_module.get_feature_flag if common_module is not None else None
+        )
         if get_feature_flag is None:
             raise AttributeError("get_feature_flag unavailable")
         enabled = get_feature_flag("CONFIG_DISCOVERY", default=False)
     except Exception:
-        enabled = os.getenv("OMG_CONFIG_DISCOVERY_ENABLED", "false").lower() in ("1", "true", "yes")
+        enabled = os.getenv("OMG_CONFIG_DISCOVERY_ENABLED", "false").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
 
     if not enabled:
         return {"skipped": True, "reason": "feature disabled"}
@@ -567,7 +650,9 @@ def review_discovered_configs(project_dir: str = ".") -> Dict[str, Any]:
     try:
         from tools import config_discovery as config_discovery_module
     except ImportError:
-        tools_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools")
+        tools_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "..", "tools"
+        )
         tools_dir = os.path.normpath(tools_dir)
         if tools_dir not in sys.path:
             sys.path.insert(0, tools_dir)
@@ -637,7 +722,9 @@ def review_discovered_configs(project_dir: str = ".") -> Dict[str, Any]:
         "warnings": warnings,
         "pending": pending,
         "scan_dir": discovery_result.get("scan_dir", project_dir),
-        "timestamp": discovery_result.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        "timestamp": discovery_result.get(
+            "timestamp", datetime.now(timezone.utc).isoformat()
+        ),
     }
 
 
