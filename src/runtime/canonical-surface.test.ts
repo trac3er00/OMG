@@ -81,7 +81,7 @@ describe("Adoption", () => {
   });
 
   test("upgrade detection compares canonical version", () => {
-    expect(needsUpgrade("3.0.0")).toBe(false);
+    expect(needsUpgrade("2.3.0")).toBe(false);
     expect(needsUpgrade("2.9.9")).toBe(true);
   });
 });

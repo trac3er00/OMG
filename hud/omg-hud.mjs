@@ -162,7 +162,7 @@ function readOmgVersion() {
     // fall through to static fallback
   }
 
-  return saveCache({ version: "2.2.12", isFallback: true });
+  return saveCache({ version: "2.3.0", isFallback: true });
 }
 
 const OMG_VERSION = readOmgVersion();

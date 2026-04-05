@@ -6,7 +6,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { formatCliError, printCliError } from "./error-formatter.js";
 
-const CLI_VERSION = "3.0.0";
+const CLI_VERSION = "2.3.0";
 
 async function maybeStartControlServer(): Promise<boolean> {
   const executable = basename(process.argv[1] ?? "");

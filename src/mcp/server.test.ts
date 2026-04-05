@@ -45,7 +45,7 @@ describe("MCP server", () => {
     const serverInfo = client.getServerVersion();
 
     expect(serverInfo?.name).toBe("OMG Control MCP");
-    expect(serverInfo?.version).toBe("3.0.0");
+    expect(serverInfo?.version).toBe("2.3.0");
   });
 
   test("registers omg_ping and returns ok payload", async () => {

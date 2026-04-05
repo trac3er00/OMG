@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { compileContract, emitForHost, validateContract, validateSchema, type ContractSchema } from "./index.js";
 
 const VALID_SCHEMA: ContractSchema = {
-  version: "3.0.0",
+  version: "2.3.0",
   capabilities: [
     "compilation_targets",
     "hooks",

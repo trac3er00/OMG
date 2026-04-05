@@ -1,6 +1,6 @@
 {
   "name": "@trac3r/oh-my-god",
-  "version": "3.0.0",
+  "version": "2.3.0",
   "description": "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts",
   "type": "module",
   "main": "src/index.ts",

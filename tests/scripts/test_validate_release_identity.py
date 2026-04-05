@@ -162,7 +162,7 @@ class TestReleaseSurfaceValidation:
 
     def test_build_report_includes_release_surface_section(self):
         report = build_report(
-            canonical="2.2.12",
+            canonical="2.3.0",
             scope="all",
             forbid_version=None,
             authored={"status": "ok", "blockers": []},
@@ -175,7 +175,7 @@ class TestReleaseSurfaceValidation:
 
     def test_release_surface_failure_flips_overall_status(self):
         report = build_report(
-            canonical="2.2.12",
+            canonical="2.3.0",
             scope="all",
             forbid_version=None,
             authored={"status": "ok", "blockers": []},

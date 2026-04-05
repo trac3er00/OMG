@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 const BUN_BIN = "/home/claw/.bun/bin/bun";
 
 describe("CLI entrypoint", () => {
-  test("--version outputs 3.0.0", () => {
+  test("--version outputs 2.3.0", () => {
     const result = Bun.spawnSync({
       cmd: [BUN_BIN, "run", "src/cli/index.ts", "--version"],
       cwd: process.cwd(),
@@ -16,6 +16,6 @@ describe("CLI entrypoint", () => {
 
     expect(result.exitCode).toBe(0);
     expect(stderr).toBe("");
-    expect(stdout).toBe("3.0.0");
+    expect(stdout).toBe("2.3.0");
   });
 });

@@ -7,7 +7,7 @@ import { isMiddlewareResult, MiddlewareStack } from "./middleware.js";
 import { wrapTool } from "./tool-wrapper.js";
 
 const SERVER_NAME = "OMG Control MCP";
-const SERVER_VERSION = "3.0.0";
+const SERVER_VERSION = "2.3.0";
 
 /**
  * Canonical MCP protocol version expected by OMG clients.

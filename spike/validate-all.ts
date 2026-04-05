@@ -39,7 +39,7 @@ const checks: Check[] = [
     run: () => {
       const key = randomBytes(32);
       const iv = randomBytes(12);
-      const plaintext = "Hello, OMG v3.0.0!";
+      const plaintext = "Hello, OMG v2.3.0!";
 
       const cipher = createCipheriv("aes-256-gcm", key, iv);
       const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
@@ -222,7 +222,7 @@ export function greet() { return "hello from dynamic provider"; }`;
     run: () => {
       const testPayload = {
         jsonrpc: "2.0",
-        result: { serverInfo: { name: "OMG Control MCP", version: "3.0.0" } },
+        result: { serverInfo: { name: "OMG Control MCP", version: "2.3.0" } },
         id: 1,
       };
 
