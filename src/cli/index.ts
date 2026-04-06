@@ -8,6 +8,119 @@ import { formatCliError, printCliError } from "./error-formatter.js";
 
 const CLI_VERSION = "2.3.0";
 
+type CommandItem = {
+  readonly name: string;
+  readonly description: string;
+};
+
+type CommandGroup = {
+  readonly title: string;
+  readonly items: readonly CommandItem[];
+};
+
+const COMMAND_GROUPS: readonly CommandGroup[] = [
+  {
+    title: "Setup",
+    items: [
+      { name: "env doctor", description: "Run environment diagnostics" },
+      { name: "doctor", description: "Diagnose installation issues" },
+      { name: "health-check", description: "Verify setup and tool health" },
+      { name: "init", description: "Interactive first-time setup" },
+      { name: "project-init", description: "Deprecated alias for /OMG:init" },
+      { name: "setup", description: "Native OMG setup and adoption flow" },
+      { name: "diagnose-plugins", description: "Diagnose plugin conflicts" },
+    ],
+  },
+  {
+    title: "Work",
+    items: [
+      { name: "crazy", description: "Maximum multi-agent orchestration" },
+      { name: "deep-plan", description: "Canonical strategic planning" },
+      { name: "browser", description: "Browser automation and verification" },
+      { name: "playwright", description: "Compatibility alias for browser" },
+      { name: "forge", description: "Labs-only domain prototyping" },
+      {
+        name: "ai-commit",
+        description: "Split uncommitted changes into atomic commits",
+      },
+      { name: "issue", description: "Active red-team issue triage" },
+      {
+        name: "arch",
+        description: "Dependency graphs and architecture diagrams",
+      },
+      { name: "ccg", description: "Tri-track synthesis orchestration" },
+      {
+        name: "deps",
+        description: "Dependency CVE, license, and update scans",
+      },
+    ],
+  },
+  {
+    title: "Verify",
+    items: [
+      { name: "ship", description: "Idea-to-evidence-to-PR flow" },
+      { name: "validate", description: "Canonical validation checks" },
+      { name: "security-check", description: "Canonical security pipeline" },
+      {
+        name: "preflight",
+        description: "Route selection and evidence planning",
+      },
+      {
+        name: "api-twin",
+        description: "Contract replay and live verification",
+      },
+      { name: "red-team", description: "Planned red-team surface" },
+      { name: "next", description: "Planned next-step surface" },
+    ],
+  },
+  {
+    title: "Configure",
+    items: [
+      { name: "preset", description: "Inspect or apply the canonical preset" },
+      { name: "mode", description: "Set the current session mode" },
+      { name: "theme", description: "Interactive theme selection" },
+      { name: "profile-review", description: "Review governed profile state" },
+      { name: "teams", description: "Internal staged team routing" },
+      { name: "cost", description: "Session cost tracking and budgets" },
+      { name: "stats", description: "Session analytics and usage trends" },
+    ],
+  },
+  {
+    title: "Advanced",
+    items: [
+      {
+        name: "session-branch",
+        description: "Create or manage state branches",
+      },
+      { name: "session-fork", description: "Fork state from a snapshot" },
+      {
+        name: "session-merge",
+        description: "Merge state branches with conflicts",
+      },
+      { name: "ralph-start", description: "Start the Ralph autonomous loop" },
+      { name: "ralph-stop", description: "Stop the Ralph autonomous loop" },
+      { name: "create-agent", description: "Wizard for custom agent creation" },
+      { name: "compat", description: "Run legacy skill names via dispatcher" },
+      { name: "domain-init", description: "Alias for /OMG:init [domain-name]" },
+      { name: "escalate", description: "Auto-route to Codex, Gemini, or CCG" },
+      { name: "handoff", description: "Planned handoff surface" },
+    ],
+  },
+] as const;
+
+function printCommands(): void {
+  console.log("OMG Commands");
+  console.log("");
+
+  for (const group of COMMAND_GROUPS) {
+    console.log(`${group.title}:`);
+    for (const item of group.items) {
+      console.log(`  ${item.name.padEnd(14)} - ${item.description}`);
+    }
+    console.log("");
+  }
+}
+
 async function maybeStartControlServer(): Promise<boolean> {
   const executable = basename(process.argv[1] ?? "");
   if (executable !== "omg-control") {
@@ -26,6 +139,13 @@ async function runCli(): Promise<void> {
     .help()
     .version("version", CLI_VERSION, CLI_VERSION)
     .alias("v", "version")
+    .command({
+      command: "commands",
+      describe: "Print categorized OMG command index",
+      handler: async () => {
+        printCommands();
+      },
+    })
     .command({
       command: "env doctor",
       describe: "Run environment diagnostics",
