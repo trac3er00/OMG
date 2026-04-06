@@ -8,6 +8,7 @@ one centralized decision model.
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,70 @@ except Exception as _import_err:
         f"OMG firewall crash: policy_engine import failed: {_import_err}. Denying for safety."
     )
     sys.exit(0)
+
+
+class _RateLimiter:
+    _WINDOW_SECONDS: int = 60
+    _DENY_ALERT_THRESHOLD: int = 5
+    _ASK_AUTO_DENY_THRESHOLD: int = 10
+
+    def __init__(self, project_dir: str):
+        self._state_file: Path = (
+            Path(project_dir) / ".omg" / "state" / "security-rate-state.json"
+        )
+        self._state_file.parent.mkdir(parents=True, exist_ok=True)
+
+    def _load(self) -> dict[str, list[float]]:
+        try:
+            if self._state_file.exists():
+                return json.loads(self._state_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+        return {}
+
+    def _save(self, state: dict[str, list[float]]) -> None:
+        try:
+            self._state_file.write_text(json.dumps(state), encoding="utf-8")
+        except Exception:
+            pass
+
+    def _prune(self, timestamps: list[float]) -> list[float]:
+        cutoff = time.time() - self._WINDOW_SECONDS
+        return [t for t in timestamps if t > cutoff]
+
+    def record_and_check(self, pattern_key: str, action: str) -> dict[str, bool]:
+        state = self._load()
+        key = f"{action}:{pattern_key}"
+        timestamps = self._prune(state.get(key, []))
+        timestamps.append(time.time())
+        state[key] = timestamps
+        self._save(state)
+        count = len(timestamps)
+        if action == "deny" and count >= self._DENY_ALERT_THRESHOLD:
+            self._log_alert(pattern_key, action, count)
+            return {"auto_deny": False, "alert": True}
+        if action == "ask" and count >= self._ASK_AUTO_DENY_THRESHOLD:
+            self._log_alert(pattern_key, action, count)
+            return {"auto_deny": True, "alert": True}
+        return {"auto_deny": False, "alert": False}
+
+    def _log_alert(self, pattern_key: str, action: str, count: int) -> None:
+        try:
+            ledger = self._state_file.parent / "ledger"
+            ledger.mkdir(parents=True, exist_ok=True)
+            entry = json.dumps(
+                {
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "type": "rate_limit_alert",
+                    "pattern": pattern_key,
+                    "action": action,
+                    "count_in_window": count,
+                }
+            )
+            with open(ledger / "security-alerts.jsonl", "a", encoding="utf-8") as f:
+                f.write(entry + "\n")
+        except Exception:
+            pass
 
 
 def _enrich_risk_context(decision, payload: dict[str, object]):
@@ -176,6 +241,10 @@ def _strict_ambiguity_mode_enabled() -> bool:
     return token not in {"0", "false", "off", "no"}
 
 
+def _rate_limit_pattern_key(cmd: str) -> str:
+    return " ".join(str(cmd or "").split())[:200]
+
+
 def _to_float(value: Any, default: float) -> float:
     try:
         return float(value)
@@ -293,140 +362,153 @@ def _mutating_defense_decision(
     return None
 
 
-data = json_input()
+def main() -> None:
+    data = json_input()
 
-tool = data.get("tool_name", "")
-if tool != "Bash":
-    sys.exit(0)
-
-cmd = data.get("tool_input", {}).get("command", "")
-if not cmd:
-    sys.exit(0)
-
-decision = evaluate_bash_command(cmd)
-project_dir = get_project_dir()
-
-tool_input = data.get("tool_input")
-metadata = tool_input.get("metadata") if isinstance(tool_input, dict) else None
-lock_id = tool_input.get("lock_id") if isinstance(tool_input, dict) else None
-if not isinstance(lock_id, str) and isinstance(metadata, dict):
-    lock_id = metadata.get("lock_id")
-run_id = _resolve_run_id(data)
-
-gate_result = check_mutation_allowed(
-    tool="Bash",
-    file_path=cmd,
-    project_dir=project_dir,
-    lock_id=lock_id if isinstance(lock_id, str) else None,
-    command=cmd,
-    run_id=run_id or None,
-    metadata=metadata if isinstance(metadata, dict) else None,
-)
-bash_mode = classify_bash_command_mode(cmd)
-is_mutation_capable = bash_mode == "mutation"
-is_external_execution = bash_mode == "external"
-clarification_state = _read_clarification_state(project_dir, run_id)
-strict_ambiguity_mode = _strict_ambiguity_mode_enabled()
-if is_mutation_capable:
-    defense_decision = _mutating_defense_decision(
-        project_dir=project_dir,
-        cmd=cmd,
-        run_id=run_id,
-    )
-    if defense_decision is not None:
-        decision = defense_decision
-
-if (
-    strict_ambiguity_mode
-    and clarification_state.get("requires_clarification") is True
-    and (is_mutation_capable or is_external_execution)
-):
-    prompt = str(clarification_state.get("clarification_prompt", ""))
-    if is_external_execution:
-        deny_decision(_clarification_external_reason(prompt))
-    else:
-        deny_decision(_clarification_reason(prompt))
-    sys.exit(0)
-
-if is_mutation_capable and gate_result.get("status") == "blocked":
-    _fw_reason_code = str(
-        gate_result.get("reason", "mutation denied by test intent lock gate")
-    )
-    try:
-        from runtime.evidence_narrator import format_block_explanation
-
-        _fw_explanation = format_block_explanation(_fw_reason_code, {"tool": tool})
-        _fw_enhanced_reason = f"{_fw_reason_code}: {_fw_explanation}"
-    except Exception:
-        _fw_enhanced_reason = _fw_reason_code  # Crash isolation: always falls back
-    try:
-        import json as _fw_json
-        from datetime import datetime as _fw_dt, timezone as _fw_tz
-
-        _fw_artifact_dir = os.path.join(project_dir, ".omg", "state")
-        os.makedirs(_fw_artifact_dir, exist_ok=True)
-        with open(
-            os.path.join(_fw_artifact_dir, "last-block-explanation.json"),
-            "w",
-            encoding="utf-8",
-        ) as _fw_f:
-            _fw_json.dump(
-                {
-                    "reason_code": _fw_reason_code,
-                    "explanation": _fw_enhanced_reason,
-                    "tool": tool,
-                    "timestamp": _fw_dt.now(_fw_tz.utc).isoformat(),
-                },
-                _fw_f,
-                indent=2,
-            )
-    except Exception:
-        try:
-            import sys
-
-            print(
-                f"[omg:warn] [firewall] failed to persist last block explanation: {sys.exc_info()[1]}",
-                file=sys.stderr,
-            )
-        except Exception:
-            pass
-    deny_decision(_fw_enhanced_reason)
-    sys.exit(0)
-
-decision = _enrich_risk_context(decision, data)
-
-# In bypass-permission mode, only enforce hard denials (critical safety).
-if is_bypass_mode(data) and decision.action != "deny":
-    if _requires_bypass_enforcement(decision):
-        decision = deny(
-            f"Blocked in bypass mode: {decision.reason}",
-            "high",
-            ["bypass-enforced", "deny-on-bypass"],
-        )
-    else:
+    tool = data.get("tool_name", "")
+    if tool != "Bash":
         sys.exit(0)
 
-if decision.action == "allow" and is_mutation_capable:
-    try:
-        journal_mutation_bash(
-            project_dir=project_dir,
-            command=cmd,
-            run_id=run_id or None,
-            metadata=metadata if isinstance(metadata, dict) else None,
-        )
-    except Exception:
-        try:
-            import sys
+    cmd = data.get("tool_input", {}).get("command", "")
+    if not cmd:
+        sys.exit(0)
 
-            print(
-                f"[omg:warn] [firewall] failed to journal mutation-capable allow decision: {sys.exc_info()[1]}",
-                file=sys.stderr,
+    decision = evaluate_bash_command(cmd)
+    project_dir = get_project_dir()
+
+    tool_input = data.get("tool_input")
+    metadata = tool_input.get("metadata") if isinstance(tool_input, dict) else None
+    lock_id = tool_input.get("lock_id") if isinstance(tool_input, dict) else None
+    if not isinstance(lock_id, str) and isinstance(metadata, dict):
+        lock_id = metadata.get("lock_id")
+    run_id = _resolve_run_id(data)
+
+    gate_result = check_mutation_allowed(
+        tool="Bash",
+        file_path=cmd,
+        project_dir=project_dir,
+        lock_id=lock_id if isinstance(lock_id, str) else None,
+        command=cmd,
+        run_id=run_id or None,
+        metadata=metadata if isinstance(metadata, dict) else None,
+    )
+    bash_mode = classify_bash_command_mode(cmd)
+    is_mutation_capable = bash_mode == "mutation"
+    is_external_execution = bash_mode == "external"
+    clarification_state = _read_clarification_state(project_dir, run_id)
+    strict_ambiguity_mode = _strict_ambiguity_mode_enabled()
+    if is_mutation_capable:
+        defense_decision = _mutating_defense_decision(
+            project_dir=project_dir,
+            cmd=cmd,
+            run_id=run_id,
+        )
+        if defense_decision is not None:
+            decision = defense_decision
+
+    if (
+        strict_ambiguity_mode
+        and clarification_state.get("requires_clarification") is True
+        and (is_mutation_capable or is_external_execution)
+    ):
+        prompt = str(clarification_state.get("clarification_prompt", ""))
+        if is_external_execution:
+            deny_decision(_clarification_external_reason(prompt))
+        else:
+            deny_decision(_clarification_reason(prompt))
+        sys.exit(0)
+
+    if is_mutation_capable and gate_result.get("status") == "blocked":
+        _fw_reason_code = str(
+            gate_result.get("reason", "mutation denied by test intent lock gate")
+        )
+        try:
+            from runtime.evidence_narrator import format_block_explanation
+
+            _fw_explanation = format_block_explanation(_fw_reason_code, {"tool": tool})
+            _fw_enhanced_reason = f"{_fw_reason_code}: {_fw_explanation}"
+        except Exception:
+            _fw_enhanced_reason = _fw_reason_code  # Crash isolation: always falls back
+        try:
+            import json as _fw_json
+            from datetime import datetime as _fw_dt, timezone as _fw_tz
+
+            _fw_artifact_dir = os.path.join(project_dir, ".omg", "state")
+            os.makedirs(_fw_artifact_dir, exist_ok=True)
+            with open(
+                os.path.join(_fw_artifact_dir, "last-block-explanation.json"),
+                "w",
+                encoding="utf-8",
+            ) as _fw_f:
+                _fw_json.dump(
+                    {
+                        "reason_code": _fw_reason_code,
+                        "explanation": _fw_enhanced_reason,
+                        "tool": tool,
+                        "timestamp": _fw_dt.now(_fw_tz.utc).isoformat(),
+                    },
+                    _fw_f,
+                    indent=2,
+                )
+        except Exception:
+            try:
+                print(
+                    f"[omg:warn] [firewall] failed to persist last block explanation: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
+            except Exception:
+                pass
+        deny_decision(_fw_enhanced_reason)
+        sys.exit(0)
+
+    decision = _enrich_risk_context(decision, data)
+
+    if decision.action in {"deny", "ask"}:
+        rate_limiter = _RateLimiter(project_dir)
+        rate_result = rate_limiter.record_and_check(
+            _rate_limit_pattern_key(cmd), decision.action
+        )
+        if rate_result.get("auto_deny") is True:
+            decision = deny(
+                f"Blocked by rate_limit: repeated {decision.action} decisions for this command pattern",
+                getattr(decision, "risk_level", "high"),
+                ["rate-limit", "security-rate-limit"],
+            )
+
+    # In bypass-permission mode, only enforce hard denials (critical safety).
+    if is_bypass_mode(data) and decision.action != "deny":
+        if _requires_bypass_enforcement(decision):
+            decision = deny(
+                f"Blocked in bypass mode: {decision.reason}",
+                "high",
+                ["bypass-enforced", "deny-on-bypass"],
+            )
+        else:
+            sys.exit(0)
+
+    if decision.action == "allow" and is_mutation_capable:
+        try:
+            journal_mutation_bash(
+                project_dir=project_dir,
+                command=cmd,
+                run_id=run_id or None,
+                metadata=metadata if isinstance(metadata, dict) else None,
             )
         except Exception:
-            pass
+            try:
+                print(
+                    f"[omg:warn] [firewall] failed to journal mutation-capable allow decision: {sys.exc_info()[1]}",
+                    file=sys.stderr,
+                )
+            except Exception:
+                pass
 
-out = to_pretool_hook_output(decision)
-if out:
-    json.dump(out, sys.stdout)
+    out = to_pretool_hook_output(decision)
+    if out:
+        json.dump(out, sys.stdout)
 
-sys.exit(0)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
