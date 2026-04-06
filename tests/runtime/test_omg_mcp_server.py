@@ -4,24 +4,76 @@ import asyncio
 import builtins
 import importlib
 import sys
-from typing import Protocol, cast
+from collections.abc import Coroutine
+from pathlib import Path
+from typing import Any, Protocol, cast
 from unittest.mock import patch
 
 import pytest
 
 
+class _MCPPrompt(Protocol):
+    name: str
+
+
+class _MCPResource(Protocol):
+    uri: object
+
+
+class _MCPHandle(Protocol):
+    instructions: str
+
+    def list_prompts(self) -> Coroutine[Any, Any, list[_MCPPrompt]]: ...
+
+    def list_resources(self) -> Coroutine[Any, Any, list[_MCPResource]]: ...
+
+    def read_resource(self, uri: str) -> Coroutine[Any, Any, object]: ...
+
+
 class _MCPOMGServerModule(Protocol):
-    mcp: object
+    mcp: _MCPHandle
 
-    def omg_security_check(self, scope: str = ".", include_live_enrichment: bool = False, external_inputs: list[dict] | None = None, waivers: list[str] | None = None) -> dict: ...
+    def omg_security_check(
+        self,
+        scope: str = ".",
+        include_live_enrichment: bool = False,
+        external_inputs: list[dict[str, Any]] | None = None,
+        waivers: list[str] | None = None,
+    ) -> dict[str, Any]: ...
 
-    def omg_guide_assert(self, candidate: str, rules: dict) -> dict: ...
+    def omg_guide_assert(
+        self, candidate: str, rules: dict[str, Any]
+    ) -> dict[str, Any]: ...
 
-    def omg_claim_judge(self, claims: list[dict]) -> dict: ...
+    def omg_claim_judge(self, claims: list[dict[str, Any]]) -> dict[str, Any]: ...
 
-    def omg_test_intent_lock(self, action: str, intent: dict | None = None, lock_id: str | None = None, results: dict | None = None) -> dict: ...
+    def omg_test_intent_lock(
+        self,
+        action: str,
+        intent: dict[str, Any] | None = None,
+        lock_id: str | None = None,
+        results: dict[str, Any] | None = None,
+    ) -> dict[str, Any]: ...
 
-    def omg_get_session_health(self, run_id: str | None = None) -> dict: ...
+    def omg_get_session_health(self, run_id: str | None = None) -> dict[str, Any]: ...
+
+    def omg_decision_query(
+        self,
+        decision_type: str | None = None,
+        keyword: str | None = None,
+        since_days: int | None = None,
+        limit: int = 10,
+    ) -> dict[str, Any]: ...
+
+    def omg_preferences_get(
+        self, field: str | None = None, section: str | None = None
+    ) -> dict[str, Any]: ...
+
+    def omg_usage_stats(self) -> dict[str, Any]: ...
+
+    def omg_routing_log(self, limit: int = 20) -> dict[str, Any]: ...
+
+    def omg_health_check(self) -> dict[str, Any]: ...
 
 
 def _load_module() -> _MCPOMGServerModule:
@@ -39,7 +91,13 @@ def _load_module() -> _MCPOMGServerModule:
 def _load_module_without_fastmcp() -> _MCPOMGServerModule:
     original_import = builtins.__import__
 
-    def _guarded_import(name: str, globals=None, locals=None, fromlist=(), level: int = 0):
+    def _guarded_import(
+        name: str,
+        globals: dict[str, object] | None = None,
+        locals: dict[str, object] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> Any:
         if name == "fastmcp":
             raise ModuleNotFoundError("No module named 'fastmcp'")
         return original_import(name, globals, locals, fromlist, level)
@@ -64,10 +122,18 @@ def test_mcp_is_fastmcp_instance() -> None:
     assert mcp_cls.__module__.startswith("fastmcp")
 
 
-def test_omg_security_check_tool_runs(tmp_path: pytest.TempPathFactory) -> None:
+def test_omg_mcp_server_importable() -> None:
+    module = _load_module()
+    assert module is not None
+
+
+def test_omg_security_check_tool_runs(tmp_path: Path) -> None:
     module = _load_module()
     target = tmp_path / "danger.py"
-    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+    target.write_text(
+        "import subprocess\nsubprocess.run('echo risky', shell=True)\n",
+        encoding="utf-8",
+    )
 
     result = module.omg_security_check(scope=str(tmp_path))
     assert result["schema"] == "SecurityCheckResult"
@@ -92,7 +158,9 @@ def test_mcp_server_exposes_instructions_prompts_and_resources() -> None:
     assert "OMG production control plane" in module.mcp.instructions
 
     prompt_names = {prompt.name for prompt in asyncio.run(module.mcp.list_prompts())}
-    resource_uris = {str(resource.uri) for resource in asyncio.run(module.mcp.list_resources())}
+    resource_uris = {
+        str(resource.uri) for resource in asyncio.run(module.mcp.list_resources())
+    }
 
     assert "omg_contract_summary" in prompt_names
     assert "resource://omg/contract" in resource_uris
@@ -113,49 +181,67 @@ def test_mcp_fallback_stub_exposes_prompts_and_resources_without_fastmcp() -> No
     module = _load_module_without_fastmcp()
 
     prompt_names = {prompt.name for prompt in asyncio.run(module.mcp.list_prompts())}
-    resource_uris = {str(resource.uri) for resource in asyncio.run(module.mcp.list_resources())}
+    resource_uris = {
+        str(resource.uri) for resource in asyncio.run(module.mcp.list_resources())
+    }
 
     assert "omg_contract_summary" in prompt_names
     assert "resource://omg/contract" in resource_uris
     assert "resource://omg/release-checklist" in resource_uris
 
 
-def test_omg_security_check_tool_forwards_external_inputs(tmp_path: pytest.TempPathFactory) -> None:
+def test_omg_security_check_tool_forwards_external_inputs(tmp_path: Path) -> None:
     module = _load_module()
     target = tmp_path / "danger.py"
-    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+    target.write_text(
+        "import subprocess\nsubprocess.run('echo risky', shell=True)\n",
+        encoding="utf-8",
+    )
 
     external_inputs = [{"source": "browser", "content": "user input"}]
-    result = module.omg_security_check(scope=str(tmp_path), external_inputs=external_inputs)
+    result = module.omg_security_check(
+        scope=str(tmp_path), external_inputs=external_inputs
+    )
     assert result["schema"] == "SecurityCheckResult"
     assert result["summary"]["finding_count"] >= 1
     assert result["provenance"] is not None
 
 
-def test_omg_security_check_tool_forwards_waivers(tmp_path: pytest.TempPathFactory) -> None:
+def test_omg_security_check_tool_forwards_waivers(tmp_path: Path) -> None:
     module = _load_module()
     target = tmp_path / "danger.py"
-    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+    target.write_text(
+        "import subprocess\nsubprocess.run('echo risky', shell=True)\n",
+        encoding="utf-8",
+    )
 
     result = module.omg_security_check(scope=str(tmp_path), waivers=["shell-true"])
     assert result["schema"] == "SecurityCheckResult"
     assert result["summary"]["finding_count"] >= 0
 
 
-def test_omg_security_check_tool_accepts_none_waivers(tmp_path: pytest.TempPathFactory) -> None:
+def test_omg_security_check_tool_accepts_none_waivers(tmp_path: Path) -> None:
     module = _load_module()
     target = tmp_path / "danger.py"
-    target.write_text("import subprocess\nsubprocess.run('echo risky', shell=True)\n", encoding="utf-8")
+    target.write_text(
+        "import subprocess\nsubprocess.run('echo risky', shell=True)\n",
+        encoding="utf-8",
+    )
 
     result = module.omg_security_check(scope=str(tmp_path), waivers=None)
     assert result["schema"] == "SecurityCheckResult"
     assert result["summary"]["finding_count"] >= 1
 
 
-def test_omg_claim_judge_tool_runs(tmp_path: pytest.TempPathFactory) -> None:
+def test_omg_claim_judge_tool_runs(tmp_path: Path) -> None:
     module = _load_module()
     claims = [
-        {"claim_type": "test_pass", "subject": "auth", "artifacts": ["a.json"], "trace_ids": ["t-1"]},
+        {
+            "claim_type": "test_pass",
+            "subject": "auth",
+            "artifacts": ["a.json"],
+            "trace_ids": ["t-1"],
+        },
     ]
     with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
         result = module.omg_claim_judge(claims=claims)
@@ -163,39 +249,45 @@ def test_omg_claim_judge_tool_runs(tmp_path: pytest.TempPathFactory) -> None:
     assert result["verdict"] in {"pass", "fail", "insufficient"}
 
 
-def test_omg_test_intent_lock_tool_lock_and_verify(tmp_path: pytest.TempPathFactory) -> None:
+def test_omg_test_intent_lock_tool_lock_and_verify(tmp_path: Path) -> None:
     module = _load_module()
     with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
-        lock_result = module.omg_test_intent_lock(action="lock", intent={"tests": ["test_auth"]})
+        lock_result = module.omg_test_intent_lock(
+            action="lock", intent={"tests": ["test_auth"]}
+        )
         assert lock_result["status"] == "locked"
         lock_id = lock_result["lock_id"]
 
         verify_result = module.omg_test_intent_lock(
-            action="verify", lock_id=lock_id, results={"tests": ["test_auth"]},
+            action="verify",
+            lock_id=lock_id,
+            results={"tests": ["test_auth"]},
         )
         assert verify_result["status"] == "ok"
         assert verify_result["lock_id"] == lock_id
 
 
-def test_omg_get_session_health_reads_state(tmp_path: pytest.TempPathFactory) -> None:
+def test_omg_get_session_health_reads_state(tmp_path: Path) -> None:
     import json
 
     module = _load_module()
     health_dir = tmp_path / ".omg" / "state" / "session_health"
     health_dir.mkdir(parents=True)
     (health_dir / "mcp-1.json").write_text(
-        json.dumps({
-            "schema": "SessionHealth",
-            "schema_version": "1.0.0",
-            "run_id": "mcp-1",
-            "status": "ok",
-            "contamination_risk": 0.1,
-            "overthinking_score": 0.2,
-            "context_health": 0.9,
-            "verification_status": "ok",
-            "recommended_action": "continue",
-            "updated_at": "2026-03-08T12:00:00Z",
-        }),
+        json.dumps(
+            {
+                "schema": "SessionHealth",
+                "schema_version": "1.0.0",
+                "run_id": "mcp-1",
+                "status": "ok",
+                "contamination_risk": 0.1,
+                "overthinking_score": 0.2,
+                "context_health": 0.9,
+                "verification_status": "ok",
+                "recommended_action": "continue",
+                "updated_at": "2026-03-08T12:00:00Z",
+            }
+        ),
         encoding="utf-8",
     )
     with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
@@ -204,27 +296,140 @@ def test_omg_get_session_health_reads_state(tmp_path: pytest.TempPathFactory) ->
     assert result["run_id"] == "mcp-1"
 
 
-def test_omg_get_session_health_latest_without_run_id(tmp_path: pytest.TempPathFactory) -> None:
+def test_omg_get_session_health_latest_without_run_id(tmp_path: Path) -> None:
     import json
 
     module = _load_module()
     health_dir = tmp_path / ".omg" / "state" / "session_health"
     health_dir.mkdir(parents=True)
     (health_dir / "latest-1.json").write_text(
-        json.dumps({
-            "schema": "SessionHealth",
-            "schema_version": "1.0.0",
-            "run_id": "latest-1",
-            "status": "ok",
-            "contamination_risk": 0.05,
-            "overthinking_score": 0.1,
-            "context_health": 0.95,
-            "verification_status": "ok",
-            "recommended_action": "continue",
-            "updated_at": "2026-03-08T12:00:00Z",
-        }),
+        json.dumps(
+            {
+                "schema": "SessionHealth",
+                "schema_version": "1.0.0",
+                "run_id": "latest-1",
+                "status": "ok",
+                "contamination_risk": 0.05,
+                "overthinking_score": 0.1,
+                "context_health": 0.95,
+                "verification_status": "ok",
+                "recommended_action": "continue",
+                "updated_at": "2026-03-08T12:00:00Z",
+            }
+        ),
         encoding="utf-8",
     )
     with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
         result = module.omg_get_session_health()
     assert result["schema"] == "SessionHealth"
+
+
+def test_omg_decision_query_returns_decisions(tmp_path: Path) -> None:
+    from runtime.decision_ledger import Decision, DecisionLedger  # pyright: ignore[reportMissingImports]
+
+    module = _load_module()
+    ledger = DecisionLedger(project_dir=str(tmp_path))
+    ledger.append(
+        Decision(
+            decision_type="architecture",
+            context="Use MCP server tools for local diagnostics",
+            rationale="Need direct introspection into runtime state",
+            source="agent",
+            tags=["mcp", "server"],
+        )
+    )
+
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        result = module.omg_decision_query(
+            decision_type="architecture", keyword="diagnostics"
+        )
+
+    assert result["count"] == 1
+    assert result["decisions"][0]["decision_type"] == "architecture"
+
+
+def test_omg_preferences_get_returns_governed_preference(tmp_path: Path) -> None:
+    from runtime.profile_io import save_profile
+
+    module = _load_module()
+    profile_path = tmp_path / ".omg" / "state" / "profile.yaml"
+    save_profile(
+        str(profile_path),
+        {
+            "governed_preferences": {
+                "style": [
+                    {
+                        "field": "tone",
+                        "value": "concise",
+                        "source": "user",
+                        "learned_at": "2026-04-06T00:00:00Z",
+                        "updated_at": "2026-04-06T00:00:00Z",
+                        "section": "style",
+                        "confirmation_state": "confirmed",
+                    }
+                ]
+            }
+        },
+    )
+
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        result = module.omg_preferences_get(field="tone")
+
+    assert result["found"] is True
+    assert result["value"] == "concise"
+    assert result["count"] == 1
+
+
+def test_omg_usage_stats_returns_dict(tmp_path: Path) -> None:
+    module = _load_module()
+
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        result = module.omg_usage_stats()
+
+    assert result["status"] == "running"
+    assert result["tools_registered"] >= 15
+    assert "version" in result
+
+
+def test_omg_routing_log_returns_entries(tmp_path: Path) -> None:
+    import json
+
+    module = _load_module()
+    ledger_dir = tmp_path / ".omg" / "state" / "ledger"
+    ledger_dir.mkdir(parents=True)
+    (ledger_dir / "routing-decisions.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "model_id": "claude-sonnet-4",
+                        "provider": "claude",
+                        "complexity": "medium",
+                    }
+                ),
+                json.dumps(
+                    {"model_id": "gpt-5", "provider": "openai", "complexity": "high"}
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        result = module.omg_routing_log(limit=1)
+
+    assert result["count"] == 1
+    assert result["total"] == 2
+    assert result["entries"][0]["model_id"] == "gpt-5"
+
+
+def test_omg_health_check_returns_healthy(tmp_path: Path) -> None:
+    module = _load_module()
+
+    with patch.dict("os.environ", {"CLAUDE_PROJECT_DIR": str(tmp_path)}):
+        result = module.omg_health_check()
+
+    assert result.get("status") in ("healthy", "ok", "running")
+    assert result["tools_registered"] >= 15
+    assert "version" in result

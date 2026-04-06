@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from collections.abc import AsyncIterator
@@ -9,7 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from runtime.asset_loader import resolve_asset
+from runtime.adoption import CANONICAL_VERSION
 from runtime.compliance_governor import classify_bash_command_mode
+from runtime.profile_io import ensure_governed_preferences, load_profile
 from runtime.tool_plan_gate import resolve_current_run_id, tool_plan_gate_check
 
 _mcp_import_error: ModuleNotFoundError | None = None
@@ -108,6 +111,30 @@ MCP_INSTRUCTIONS = (
     "contract, release-readiness, and governance context before using direct tools."
 )
 
+MCP_TOOL_NAMES: tuple[str, ...] = (
+    "omg_policy_evaluate",
+    "omg_trust_review",
+    "omg_evidence_ingest",
+    "omg_runtime_dispatch",
+    "omg_security_check",
+    "omg_claim_judge",
+    "omg_test_intent_lock",
+    "omg_guide_assert",
+    "omg_get_session_health",
+    "omg_tool_fabric_request",
+    "omg_decision_query",
+    "omg_preferences_get",
+    "omg_usage_stats",
+    "omg_routing_log",
+    "omg_health_check",
+)
+
+MCP_PROMPT_NAMES: tuple[str, ...] = ("omg_contract_summary",)
+MCP_RESOURCE_URIS: tuple[str, ...] = (
+    "resource://omg/contract",
+    "resource://omg/release-checklist",
+)
+
 
 def _root_dir() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -127,8 +154,50 @@ def _service() -> ControlPlaneService:
     )
 
 
+def _project_dir() -> str:
+    return _service().project_dir
+
+
 def _read_repo_text(rel_path: str) -> str:
     return resolve_asset(rel_path).read_text(encoding="utf-8")
+
+
+def _read_jsonl_records(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+
+    records: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            loaded = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(loaded, dict):
+            records.append(loaded)
+    return records
+
+
+def _profile_path(project_dir: str) -> Path:
+    return Path(project_dir) / ".omg" / "state" / "profile.yaml"
+
+
+def _routing_log_path(project_dir: str) -> Path:
+    return Path(project_dir) / ".omg" / "state" / "ledger" / "routing-decisions.jsonl"
+
+
+def _decision_log_path(project_dir: str) -> Path:
+    return Path(project_dir) / ".omg" / "state" / "ledger" / "decisions.jsonl"
+
+
+def _lookup_nested_value(payload: dict[str, Any], dotted_field: str) -> Any:
+    current: Any = payload
+    for part in dotted_field.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return None
+        current = current[part]
+    return current
 
 
 @mcp.tool(
@@ -323,6 +392,150 @@ def omg_tool_fabric_request(
         }
     )
     return payload
+
+
+@mcp.tool(
+    description="Query the decision ledger by type, keyword, and recency to inspect prior runtime decisions."
+)
+def omg_decision_query(
+    decision_type: str | None = None,
+    keyword: str | None = None,
+    since_days: int | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+    try:
+        DecisionLedger = __import__(
+            "runtime.decision_ledger", fromlist=["DecisionLedger"]
+        ).DecisionLedger
+
+        results = DecisionLedger(project_dir=_project_dir()).query(
+            decision_type=decision_type,
+            keyword=keyword,
+            since_days=since_days,
+            limit=limit,
+        )
+        return {
+            "decisions": [decision.to_dict() for decision in results],
+            "count": len(results),
+            "filters": {
+                "decision_type": decision_type,
+                "keyword": keyword,
+                "since_days": since_days,
+                "limit": limit,
+            },
+        }
+    except Exception as exc:
+        return {
+            "error": str(exc),
+            "decisions": [],
+            "count": 0,
+            "filters": {
+                "decision_type": decision_type,
+                "keyword": keyword,
+                "since_days": since_days,
+                "limit": limit,
+            },
+        }
+
+
+@mcp.tool(
+    description="Get a stored user preference from the OMG profile, including governed preferences and direct profile fields."
+)
+def omg_preferences_get(
+    field: str | None = None,
+    section: str | None = None,
+) -> dict[str, Any]:
+    project_dir = _project_dir()
+    profile = load_profile(str(_profile_path(project_dir)))
+    ensure_governed_preferences(profile)
+
+    governed_obj = profile.get("governed_preferences")
+    governed = governed_obj if isinstance(governed_obj, dict) else {}
+    sections = [section] if section else ["style", "safety"]
+    matches: list[dict[str, Any]] = []
+
+    for section_name in sections:
+        raw_entries = governed.get(section_name, [])
+        entries = raw_entries if isinstance(raw_entries, list) else []
+        for raw_entry in entries:
+            if not isinstance(raw_entry, dict):
+                continue
+            if field is not None and str(raw_entry.get("field", "")).strip() != field:
+                continue
+            matches.append(dict(raw_entry))
+
+    direct_value = None
+    if field:
+        direct_value = _lookup_nested_value(profile, field)
+        if direct_value is None:
+            preferences_obj = profile.get("preferences")
+            preferences = preferences_obj if isinstance(preferences_obj, dict) else {}
+            direct_value = _lookup_nested_value(preferences, field)
+
+    resolved_value = matches[-1].get("value") if matches else direct_value
+    return {
+        "field": field,
+        "section": section,
+        "preferences": matches,
+        "value": resolved_value,
+        "found": bool(matches) or direct_value is not None,
+        "count": len(matches),
+    }
+
+
+@mcp.tool(
+    description="Return local MCP session usage statistics including registered surfaces and ledger counts."
+)
+def omg_usage_stats() -> dict[str, Any]:
+    project_dir = _project_dir()
+    decisions = _read_jsonl_records(_decision_log_path(project_dir))
+    routing_entries = _read_jsonl_records(_routing_log_path(project_dir))
+    return {
+        "session_id": "current",
+        "status": "running",
+        "version": CANONICAL_VERSION,
+        "project_dir": project_dir,
+        "tools_registered": len(MCP_TOOL_NAMES),
+        "prompts_registered": len(MCP_PROMPT_NAMES),
+        "resources_registered": len(MCP_RESOURCE_URIS),
+        "decision_count": len(decisions),
+        "routing_decision_count": len(routing_entries),
+        "fastmcp_available": _mcp_import_error is None,
+    }
+
+
+@mcp.tool(
+    description="Read the persisted model routing decision log for the current project session."
+)
+def omg_routing_log(limit: int = 20) -> dict[str, Any]:
+    entries = _read_jsonl_records(_routing_log_path(_project_dir()))
+    safe_limit = max(0, limit)
+    return {
+        "entries": entries[-safe_limit:] if safe_limit else [],
+        "count": min(len(entries), safe_limit),
+        "total": len(entries),
+    }
+
+
+@mcp.tool(
+    description="Return OMG MCP server health, version, and registered capability counts."
+)
+def omg_health_check() -> dict[str, Any]:
+    return {
+        "status": "healthy",
+        "version": CANONICAL_VERSION,
+        "project_dir": _project_dir(),
+        "tools_registered": len(MCP_TOOL_NAMES),
+        "prompts_registered": len(MCP_PROMPT_NAMES),
+        "resources_registered": len(MCP_RESOURCE_URIS),
+        "fastmcp_available": _mcp_import_error is None,
+        "modules": [
+            "decision_ledger",
+            "profile_io",
+            "session_health",
+            "model_router",
+        ],
+    }
 
 
 @mcp.prompt(
