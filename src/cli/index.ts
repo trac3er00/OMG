@@ -71,7 +71,7 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
         name: "api-twin",
         description: "Contract replay and live verification",
       },
-      { name: "red-team", description: "Planned red-team surface" },
+      { name: "red-team", description: "Adversarial security review" },
       { name: "next", description: "Planned next-step surface" },
     ],
   },
@@ -540,6 +540,31 @@ async function runCli(): Promise<void> {
       handler: async (argv) => {
         const { handoffCommand } = await import("./commands/handoff.js");
         await handoffCommand.handler?.(argv as never);
+      },
+    })
+    .command({
+      command: "red-team [scope]",
+      describe: "Run adversarial security review",
+      builder: (command) =>
+        command
+          .positional("scope", {
+            type: "string",
+            description: "File or directory to scan",
+            default: ".",
+          })
+          .option("severity-floor", {
+            type: "string",
+            choices: ["low", "medium", "high", "critical"] as const,
+            description: "Minimum severity level for findings",
+            default: "medium",
+          })
+          .option("output", {
+            type: "string",
+            description: "Write full JSON report to this path",
+          }),
+      handler: async (argv) => {
+        const { redTeamCommand } = await import("./commands/red-team.js");
+        await redTeamCommand.handler?.(argv as never);
       },
     })
     .demandCommand(1, "Specify a command")
