@@ -112,7 +112,7 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
       { name: "compat", description: "Run legacy skill names via dispatcher" },
       { name: "domain-init", description: "Alias for /OMG:init [domain-name]" },
       { name: "escalate", description: "Auto-route to Codex, Gemini, or CCG" },
-      { name: "handoff", description: "Planned handoff surface" },
+      { name: "handoff", description: "Structured session handoff document" },
     ],
   },
 ] as const;
@@ -512,6 +512,34 @@ async function runCli(): Promise<void> {
       handler: async (argv) => {
         const { migrateCommand } = await import("./commands/migrate.js");
         await migrateCommand.handler?.(argv as never);
+      },
+    })
+    .command({
+      command: "handoff",
+      describe: "Produce structured session handoff document",
+      builder: (command) =>
+        command
+          .option("save", {
+            type: "boolean",
+            description: "Save output to .sisyphus/handoffs/",
+            default: false,
+          })
+          .option("format", {
+            type: "string",
+            choices: ["md", "json"] as const,
+            description: "Output format",
+            default: "md",
+          })
+          .option("verbosity", {
+            type: "string",
+            choices: ["brief", "standard", "detailed"] as const,
+            description:
+              "Items per section: brief (3), standard (10), detailed (50)",
+            default: "standard",
+          }),
+      handler: async (argv) => {
+        const { handoffCommand } = await import("./commands/handoff.js");
+        await handoffCommand.handler?.(argv as never);
       },
     })
     .demandCommand(1, "Specify a command")
