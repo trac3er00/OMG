@@ -1,0 +1,4 @@
+name: api-twin
+description: Versioned endpoint cassette replay
+category: testing
+dependencies: []

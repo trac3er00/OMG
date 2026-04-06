@@ -1,0 +1,4 @@
+name: browser
+description: Browser automation via Playwright
+category: testing
+dependencies: []
