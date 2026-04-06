@@ -6,6 +6,8 @@
 
 **OMG upgrades your agent host instead of replacing it.** It gives Claude Code, Codex, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
 
+🚀 **[Getting Started Guide](docs/GETTING-STARTED.md)** — Get up and running in 1 minute.
+
 ---
 
 ## 🚀 Killer Features
