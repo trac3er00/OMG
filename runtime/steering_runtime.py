@@ -4,6 +4,7 @@ Detects failure patterns in tool outputs and steering data.
 Computes steering signals for re-routing around known failure modes.
 Integrates with decision_ledger.py to learn from failures.
 """
+
 from __future__ import annotations
 
 import time
@@ -49,6 +50,15 @@ class SteeringSignal:
     reason: str
     failure_count: int
     suggested_context: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass
+class ReSteeringPlan:
+    original_action: str
+    new_action: str
+    reason: str
+    context_additions: list[str] = field(default_factory=list)
+    model_preference: str | None = None
 
 
 class SteeringRuntime:
@@ -108,7 +118,9 @@ class SteeringRuntime:
             )
 
         # Critical failures → escalate
-        critical = [failure for failure in recent_failures if failure.severity == "critical"]
+        critical = [
+            failure for failure in recent_failures if failure.severity == "critical"
+        ]
         if critical:
             return SteeringSignal(
                 action="escalate_model",
@@ -162,7 +174,9 @@ class SteeringRuntime:
             "total_failures": len(self._failures),
             "by_type": {
                 failure_type: sum(
-                    1 for failure in self._failures if failure.failure_type == failure_type
+                    1
+                    for failure in self._failures
+                    if failure.failure_type == failure_type
                 )
                 for failure_type in FAILURE_TYPES
                 if any(
@@ -175,3 +189,76 @@ class SteeringRuntime:
     def clear_history(self) -> None:
         self._failures.clear()
         self._retry_counts.clear()
+
+
+class ReSteeringController:
+    def __init__(self, steering: SteeringRuntime | None = None):
+        self.steering: SteeringRuntime = steering or SteeringRuntime()
+        self._resteering_history: list[ReSteeringPlan] = []
+
+    def should_resteer(self, signal: SteeringSignal) -> bool:
+        return signal.action in ("switch_approach", "escalate_model", "add_context")
+
+    def plan_resteering(
+        self,
+        signal: SteeringSignal,
+        available_models: list[str] | None = None,
+    ) -> ReSteeringPlan:
+        models = available_models or [
+            "claude-haiku-3",
+            "claude-sonnet-4",
+            "claude-opus-4",
+        ]
+
+        if signal.action == "escalate_model":
+            current_idx = 0
+            for i, model in enumerate(models):
+                if "haiku" in model.lower() or "mini" in model.lower():
+                    current_idx = i
+            next_model = models[min(current_idx + 1, len(models) - 1)]
+            plan = ReSteeringPlan(
+                original_action=signal.action,
+                new_action="retry_with_better_model",
+                reason=f"escalating to {next_model}: {signal.reason}",
+                model_preference=next_model,
+            )
+        elif signal.action == "switch_approach":
+            plan = ReSteeringPlan(
+                original_action=signal.action,
+                new_action="alternative_implementation",
+                reason=f"switching approach after {signal.failure_count} failures",
+                context_additions=[
+                    "Consider alternative implementation strategy",
+                    "Break into smaller steps",
+                ],
+            )
+        elif signal.action == "add_context":
+            plan = ReSteeringPlan(
+                original_action=signal.action,
+                new_action="retry_with_context",
+                reason=f"adding context after {signal.failure_count} failures",
+                context_additions=[
+                    "Include more context about the error",
+                    "Add relevant file contents",
+                ],
+            )
+        else:
+            plan = ReSteeringPlan(
+                original_action=signal.action,
+                new_action=signal.action,
+                reason="no re-steering needed",
+            )
+
+        self._resteering_history.append(plan)
+        return plan
+
+    def get_resteering_history(self) -> list[dict[str, str | None]]:
+        return [
+            {
+                "original": plan.original_action,
+                "new": plan.new_action,
+                "reason": plan.reason,
+                "model": plan.model_preference,
+            }
+            for plan in self._resteering_history
+        ]
