@@ -56,4 +56,4 @@
 - `/OMG:compat` — Run legacy skill names via dispatcher
 - `/OMG:domain-init` — Alias for `/OMG:init [domain-name]`
 - `/OMG:escalate` — Auto-route to Codex, Gemini, or CCG
-- `/OMG:handoff` — Planned handoff surface
+- `/OMG:handoff` — Structured session handoff document (context compaction + transfer)
