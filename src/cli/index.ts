@@ -6,6 +6,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { formatCliError, printCliError } from "./error-formatter.js";
 import { hooksListCommand } from "./commands/hooks.js";
+import { memoryCommand } from "./commands/memory.js";
 import { skillsListCommand } from "./commands/skills.js";
 
 const CLI_VERSION = "2.3.0";
@@ -91,6 +92,7 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
     title: "Inspect",
     items: [
       { name: "hooks list", description: "List registered hook scripts" },
+      { name: "memory show", description: "Show structured memory schemas" },
       { name: "skills list", description: "List installed OMG skills" },
     ],
   },
@@ -321,6 +323,7 @@ async function runCli(): Promise<void> {
           .demandCommand(1, "Specify a skills subcommand: list"),
       handler: () => {},
     })
+    .command(memoryCommand)
     .command({
       command: "validate",
       describe: "Run validation checks",
