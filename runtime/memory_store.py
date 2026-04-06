@@ -16,6 +16,7 @@ import uuid
 import base64
 import hashlib
 import socket
+import warnings
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -92,6 +93,7 @@ class MemoryStore:
         self._items: list[_Item] = []
         self._store_path = ""
         self._backend = "json"
+        self._fernet_available = check_encryption_available()
 
         ensure_encryption_warnings()
         self.store_path = store_path
@@ -1122,6 +1124,11 @@ class MemoryStore:
     def _encrypt_text(self, text: str, *, purpose: str) -> str:
         if text.startswith(_ENCRYPTED_PREFIX):
             return text
+        if not self._fernet_available or Fernet is None:
+            raise RuntimeError(
+                "cryptography package required for MemoryStore encryption. "
+                "Install with: pip install cryptography"
+            )
         key_bytes = self._derive_key_bytes(purpose=purpose)
         fernet_key = base64.urlsafe_b64encode(key_bytes)
         token = Fernet(fernet_key).encrypt(text.encode("utf-8")).decode("utf-8")
@@ -1131,6 +1138,13 @@ class MemoryStore:
         self, text: str, *, purpose: str, migrate_item_id: str | None = None
     ) -> str:
         if not text.startswith(_ENCRYPTED_PREFIX):
+            warnings.warn(
+                f"DEPRECATION: plaintext memory entry detected (purpose={purpose}). "
+                "Run 'npx omg memory migrate' to encrypt existing entries. "
+                "Plaintext tolerance will be REMOVED in Phase 2.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
             return text
         payload = text[len(_ENCRYPTED_PREFIX) :]
         key_bytes = self._derive_key_bytes(purpose=purpose)
