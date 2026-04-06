@@ -48,6 +48,10 @@ const PRESET_NAMES = new Set([
   "labs",
   "buffet",
   "production",
+  "minimal",
+  "standard",
+  "full",
+  "experimental",
 ]);
 
 interface PlannedFileChange {
@@ -124,7 +128,7 @@ function detectSettingsMigration(
 
   const nextOmg: Record<string, unknown> = {
     ...currentOmg,
-    preset: "balanced",
+    preset: "standard",
   };
   const next = { ...settings, _omg: nextOmg };
 

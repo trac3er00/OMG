@@ -92,7 +92,7 @@ describe("migrateConfig v2.3.0 -> v3.0.0", () => {
     expect(report.errors).toHaveLength(0);
     expect(existsSync(report.rollback_path)).toBe(true);
     expect(readFileSync(settingsPath, "utf8")).toContain(
-      '"preset": "balanced"',
+      '"preset": "standard"',
     );
 
     rmSync(projectDir, { recursive: true, force: true });

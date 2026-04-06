@@ -98,7 +98,7 @@ let _currentResolver: FeatureFlagResolver | null = null;
 
 export function getFeatureFlagResolver(): FeatureFlagResolver {
   if (!_currentResolver) {
-    _currentResolver = new FeatureFlagResolver("balanced");
+    _currentResolver = new FeatureFlagResolver("standard");
   }
   return _currentResolver;
 }
@@ -108,6 +108,9 @@ export function setFeatureFlagResolver(resolver: FeatureFlagResolver): void {
 }
 
 /** Convenience: get a single feature flag using the current resolver */
-export function getFeatureFlag(flagName: string, defaultValue = false): boolean {
+export function getFeatureFlag(
+  flagName: string,
+  defaultValue = false,
+): boolean {
   return getFeatureFlagResolver().resolve(flagName, defaultValue);
 }

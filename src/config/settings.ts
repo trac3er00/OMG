@@ -7,8 +7,13 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { SettingsSchema, type Settings, type PresetName } from "../types/config.js";
+import {
+  SettingsSchema,
+  type Settings,
+  type PresetName,
+} from "../types/config.js";
 import { FeatureFlagResolver } from "./feature-flags.js";
+import { normalizePresetName } from "./presets.js";
 
 export interface ResolvedSettings {
   readonly raw: Settings;
@@ -41,17 +46,23 @@ export function loadSettings(projectDir?: string): ResolvedSettings {
         raw = result.data;
       } else {
         // Invalid settings — use defaults, don't crash
-        console.warn(`[OMG] settings.json parse error: ${result.error.message}`);
+        console.warn(
+          `[OMG] settings.json parse error: ${result.error.message}`,
+        );
       }
     } catch (err) {
-      console.warn(`[OMG] Could not read settings.json: ${err instanceof Error ? err.message : String(err)}`);
+      console.warn(
+        `[OMG] Could not read settings.json: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
   // Resolve preset from settings or env
   const presetFromEnv = process.env["OMG_PRESET"] as PresetName | undefined;
   const presetFromSettings = raw._omg?.preset;
-  const preset: PresetName = presetFromEnv ?? presetFromSettings ?? "balanced";
+  const preset: PresetName = normalizePresetName(
+    presetFromEnv ?? presetFromSettings ?? "standard",
+  );
 
   // Create feature flag resolver
   const featureFlags = new FeatureFlagResolver(preset, raw._omg?.features);
@@ -66,7 +77,9 @@ export function loadSettings(projectDir?: string): ResolvedSettings {
 }
 
 /** Get hook registrations from settings.json */
-export function getHookRegistrations(settings: Settings): Record<string, string[]> {
+export function getHookRegistrations(
+  settings: Settings,
+): Record<string, string[]> {
   return (settings.hooks as Record<string, string[]> | undefined) ?? {};
 }
 

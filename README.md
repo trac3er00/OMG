@@ -190,7 +190,7 @@ Success looks like:
 - Claude Code's plugin bundle owns `omg-control` via `.claude-plugin/mcp.json`; project or user `.mcp.json` entries can keep `filesystem` without collisions
 - `~/.claude/settings.json` has a `statusLine` command for `~/.claude/hud/omg-hud.mjs`
 - `~/.codex/config.toml`, `~/.gemini/settings.json`, and `~/.kimi/mcp.json` receive `omg-control` after `npx omg install --apply` when those CLIs are on `PATH`
-- additional MCP servers are added when a broader preset is selected (`balanced` adds `context7`; `interop` adds `websearch` and `omg-memory`; `labs` adds browser automation)
+- additional MCP servers are added when a broader preset is selected (`standard` adds `context7`; `full` adds `websearch` and `omg-memory`; `experimental` adds browser automation)
 - `.omg/state/adoption-report.json` is written when another ecosystem is present
 - OMG reports the selected preset and next step
 - narrowed defaults keep the required control plane small while optional capabilities such as browser automation remain opt-in
@@ -233,11 +233,11 @@ OMG uses native setup language instead of public migration commands.
 - `OMG-only`: recommended. OMG becomes the primary hooks, HUD, MCP, and orchestration layer.
 - `coexist`: advanced. OMG preserves non-conflicting third-party surfaces and records overlap instead of overwriting it.
 - Modes: `chill`, `focused`, `exploratory`. `focused` is the production default.
-- Presets: `safe`, `balanced`, `interop`, `labs`, `production` (all governed flags on).
+- Presets: `minimal`, `standard`, `full`, `experimental`, `production` (`safe`, `balanced`, `interop`, `labs`, and `buffet` still work with deprecation warnings).
 
 ## Security Notes
 
-- The shipped `safe` preset now registers pre-tool security hooks before the planning helper.
+- The shipped `minimal` preset now registers pre-tool security hooks before the planning helper.
 - `Bash` requests are screened by `firewall.py`, and file reads or edits are screened by `secret-guard.py`.
 - Raw environment dumps, interpreters, and permission-changing commands such as `env`, `node`, `python`, `python3`, `chmod`, and `chown` now require approval instead of being silently allowed.
 

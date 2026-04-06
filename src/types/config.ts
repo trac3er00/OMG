@@ -8,7 +8,18 @@ import { z } from "zod";
 // Preset names
 // ---------------------------------------------------------------------------
 
-export const PresetNameSchema = z.enum(["safe", "balanced", "interop", "labs", "buffet", "production"]);
+export const PresetNameSchema = z.enum([
+  "safe",
+  "balanced",
+  "interop",
+  "labs",
+  "buffet",
+  "production",
+  "minimal",
+  "standard",
+  "full",
+  "experimental",
+]);
 export type PresetName = z.infer<typeof PresetNameSchema>;
 
 // ---------------------------------------------------------------------------
@@ -22,7 +33,13 @@ export type FeatureFlags = z.infer<typeof FeatureFlagsSchema>;
 // Host type
 // ---------------------------------------------------------------------------
 
-export const HostTypeSchema = z.enum(["claude", "codex", "gemini", "kimi", "opencode"]);
+export const HostTypeSchema = z.enum([
+  "claude",
+  "codex",
+  "gemini",
+  "kimi",
+  "opencode",
+]);
 export type HostType = z.infer<typeof HostTypeSchema>;
 
 // ---------------------------------------------------------------------------
@@ -40,18 +57,24 @@ export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
 // Settings schema (settings.json shape)
 // ---------------------------------------------------------------------------
 
-export const SettingsSchema = z.object({
-  permissions: z.object({
-    allow: z.array(z.string()).optional(),
-    deny: z.array(z.string()).optional(),
-  }).optional(),
-  hooks: z.record(z.string(), z.array(z.string())).optional(),
-  _omg: z.object({
-    features: FeatureFlagsSchema.optional(),
-    preset: PresetNameSchema.optional(),
-    mode: z.enum(["omg-only", "coexist"]).optional(),
-  }).optional(),
-}).passthrough();
+export const SettingsSchema = z
+  .object({
+    permissions: z
+      .object({
+        allow: z.array(z.string()).optional(),
+        deny: z.array(z.string()).optional(),
+      })
+      .optional(),
+    hooks: z.record(z.string(), z.array(z.string())).optional(),
+    _omg: z
+      .object({
+        features: FeatureFlagsSchema.optional(),
+        preset: PresetNameSchema.optional(),
+        mode: z.enum(["omg-only", "coexist"]).optional(),
+      })
+      .optional(),
+  })
+  .catchall(z.unknown());
 export type Settings = z.infer<typeof SettingsSchema>;
 
 // ---------------------------------------------------------------------------
@@ -125,5 +148,11 @@ export type CanonicalMode = z.infer<typeof CanonicalModeSchema>;
 // Runtime concurrency profile names
 // ---------------------------------------------------------------------------
 
-export const RuntimeConcurrencyProfileSchema = z.enum(["eco", "balanced", "turbo"]);
-export type RuntimeConcurrencyProfile = z.infer<typeof RuntimeConcurrencyProfileSchema>;
+export const RuntimeConcurrencyProfileSchema = z.enum([
+  "eco",
+  "balanced",
+  "turbo",
+]);
+export type RuntimeConcurrencyProfile = z.infer<
+  typeof RuntimeConcurrencyProfileSchema
+>;
