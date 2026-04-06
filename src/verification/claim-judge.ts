@@ -1,4 +1,4 @@
-import type { ClaimVerdict } from "../interfaces/evidence.js";
+import type { ClaimVerdict, ProofScore } from "../interfaces/evidence.js";
 import {
   evaluateWithCompensators,
   type CompensatorInput,
@@ -25,13 +25,66 @@ export interface BatchResult {
   readonly rejectedCount: number;
 }
 
+function toProofScoreBand(score: number): ProofScore["band"] {
+  if (score >= 85) {
+    return "complete";
+  }
+  if (score >= 65) {
+    return "strong";
+  }
+  if (score >= 40) {
+    return "developing";
+  }
+  return "weak";
+}
+
+function createClaimProofScore(claim: Claim): ProofScore {
+  const totalEvidence = claim.evidence.length;
+  const validEvidence = claim.evidence.filter((e) => e.valid !== false);
+  const invalidEvidence = totalEvidence - validEvidence.length;
+  const uniqueTypes = new Set(validEvidence.map((e) => e.type)).size;
+  const pathBackedEvidence = validEvidence.filter(
+    (e) => typeof e.path === "string" && e.path.length > 0,
+  ).length;
+  const completeness = Math.min(40, totalEvidence * 20);
+  const validity =
+    totalEvidence === 0 ? 0 : Math.max(0, 35 - invalidEvidence * 20);
+  const diversity = Math.min(15, uniqueTypes * 7.5);
+  const traceability = Math.min(10, pathBackedEvidence * 5);
+  const compensator = claim.compensatorInput ? 5 : 0;
+  const score = Number(
+    Math.max(
+      0,
+      Math.min(
+        100,
+        completeness + validity + diversity + traceability + compensator,
+      ),
+    ).toFixed(2),
+  );
+
+  return {
+    score,
+    band: toProofScoreBand(score),
+    breakdown: {
+      completeness: Number(completeness.toFixed(2)),
+      validity: Number(validity.toFixed(2)),
+      diversity: Number(diversity.toFixed(2)),
+      traceability: Number(traceability.toFixed(2)),
+      compensator: Number(compensator.toFixed(2)),
+    },
+  };
+}
+
 export function judgeSingleClaim(claim: Claim): ClaimVerdict {
+  const proofScore = createClaimProofScore(claim);
+
   if (claim.evidence.length === 0) {
     return {
       verdict: "reject",
       reasons: ["No supporting evidence provided for claim"],
       evidenceSummary: {},
       confidence: 0.1,
+      proofScore,
     };
   }
 
@@ -44,6 +97,7 @@ export function judgeSingleClaim(claim: Claim): ClaimVerdict {
       ],
       evidenceSummary: { invalid: invalidEvidence.map((e) => e.type) },
       confidence: 0.2,
+      proofScore,
     };
   }
 
@@ -63,6 +117,7 @@ export function judgeSingleClaim(claim: Claim): ClaimVerdict {
           compensators: compensatorResult.checks,
         },
         confidence: 0.2,
+        proofScore,
       };
     }
   }
@@ -72,6 +127,7 @@ export function judgeSingleClaim(claim: Claim): ClaimVerdict {
     reasons: [`Supported by ${validEvidence.length} evidence item(s)`],
     evidenceSummary: { types: validEvidence.map((e) => e.type) },
     confidence: Math.min(0.9 + validEvidence.length * 0.02, 1.0),
+    proofScore,
   };
 }
 

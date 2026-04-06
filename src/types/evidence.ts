@@ -8,6 +8,7 @@ import { z } from "zod";
 export type {
   ClaimVerdict,
   EvidenceProfile,
+  ProofScore,
   EvidenceType,
   Finding,
   ProofGateResult,
@@ -18,7 +19,12 @@ export type {
 // Proof chain entry
 // ---------------------------------------------------------------------------
 
-export const ProofStepStatusSchema = z.enum(["pass", "fail", "skip", "pending"]);
+export const ProofStepStatusSchema = z.enum([
+  "pass",
+  "fail",
+  "skip",
+  "pending",
+]);
 export type ProofStepStatus = z.infer<typeof ProofStepStatusSchema>;
 
 export const ProofChainEntrySchema = z.object({
@@ -102,13 +108,25 @@ export const EvidenceProfileSchema = z.object({
 // Proof gate result Zod schema (matches interfaces/evidence.ts)
 // ---------------------------------------------------------------------------
 
-export const ProofVerdictSchema = z.enum(["pass", "fail", "blocked", "pending"]);
+export const ProofVerdictSchema = z.enum([
+  "pass",
+  "fail",
+  "blocked",
+  "pending",
+]);
+
+export const ProofScoreSchema = z.object({
+  score: z.number().min(0).max(100),
+  band: z.enum(["weak", "developing", "strong", "complete"]),
+  breakdown: z.record(z.string(), z.number().min(0).max(100)),
+});
 
 export const ProofGateResultSchema = z.object({
   status: ProofVerdictSchema,
   blockers: z.array(z.string()),
   requiredPrimitives: z.array(EvidenceTypeSchema),
   evidenceSummary: z.record(z.string(), z.unknown()),
+  proofScore: ProofScoreSchema,
 });
 
 // ---------------------------------------------------------------------------
@@ -120,4 +138,5 @@ export const ClaimVerdictSchema = z.object({
   reasons: z.array(z.string()),
   evidenceSummary: z.record(z.string(), z.unknown()),
   confidence: z.number().min(0).max(1),
+  proofScore: ProofScoreSchema,
 });

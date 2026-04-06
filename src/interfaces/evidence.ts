@@ -1,5 +1,17 @@
-export type EvidenceType = "junit" | "coverage" | "sarif" | "browser_trace" | "proof_chain" | "test_intent_lock";
+export type EvidenceType =
+  | "junit"
+  | "coverage"
+  | "sarif"
+  | "browser_trace"
+  | "proof_chain"
+  | "test_intent_lock";
 export type ProofVerdict = "pass" | "fail" | "blocked" | "pending";
+
+export interface ProofScore {
+  readonly score: number;
+  readonly band: "weak" | "developing" | "strong" | "complete";
+  readonly breakdown: Readonly<Record<string, number>>;
+}
 
 export interface EvidenceProfile {
   readonly required: readonly EvidenceType[];
@@ -13,6 +25,7 @@ export interface ProofGateResult {
   readonly blockers: readonly string[];
   readonly requiredPrimitives: readonly EvidenceType[];
   readonly evidenceSummary: Readonly<Record<string, unknown>>;
+  readonly proofScore: ProofScore;
 }
 
 export interface ClaimVerdict {
@@ -20,6 +33,7 @@ export interface ClaimVerdict {
   readonly reasons: readonly string[];
   readonly evidenceSummary: Readonly<Record<string, unknown>>;
   readonly confidence: number;
+  readonly proofScore: ProofScore;
 }
 
 export interface Finding {

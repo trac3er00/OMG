@@ -8,6 +8,8 @@ describe("judgeSingleClaim", () => {
     const r = judgeSingleClaim({ text: "I fixed the bug", evidence: [] });
     expect(r.verdict).toBe("reject");
     expect(r.reasons.some((reason) => reason.includes("evidence"))).toBe(true);
+    expect(r.proofScore.score).toBe(0);
+    expect(r.proofScore.band).toBe("weak");
   });
 
   test("claim with junit evidence → accept", () => {
@@ -16,6 +18,8 @@ describe("judgeSingleClaim", () => {
       evidence: [{ type: "junit", path: "test-results.xml", valid: true }],
     });
     expect(r.verdict).toBe("accept");
+    expect(r.proofScore.score).toBeGreaterThan(0);
+    expect(r.proofScore.band).not.toBe("weak");
   });
 
   test("claim rejected when compensator pipeline rejects", () => {
@@ -44,6 +48,25 @@ describe("judgeSingleClaim", () => {
     const r = judgeSingleClaim({ text: "code change", evidence: [] });
     expect(r.confidence).toBeGreaterThanOrEqual(0);
     expect(r.confidence).toBeLessThanOrEqual(1);
+  });
+
+  test("more complete evidence increases proof score", () => {
+    const weak = judgeSingleClaim({
+      text: "done",
+      evidence: [{ type: "junit", valid: true }],
+    });
+    const strong = judgeSingleClaim({
+      text: "done",
+      evidence: [
+        { type: "junit", path: "results.xml", valid: true },
+        { type: "coverage", path: "coverage.json", valid: true },
+      ],
+    });
+
+    expect(strong.proofScore.score).toBeGreaterThan(weak.proofScore.score);
+    expect(strong.proofScore.breakdown.traceability).toBeGreaterThan(
+      weak.proofScore.breakdown.traceability,
+    );
   });
 });
 

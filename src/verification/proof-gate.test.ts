@@ -7,6 +7,7 @@ describe("productionGate", () => {
     const r = productionGate({});
     expect(r.status).toBe("blocked");
     expect(r.blockers.length).toBeGreaterThan(0);
+    expect(r.proofScore.score).toBe(0);
   });
 
   test("junit + coverage → pass", () => {
@@ -16,6 +17,8 @@ describe("productionGate", () => {
     });
     expect(r.status).toBe("pass");
     expect(r.blockers).toHaveLength(0);
+    expect(r.proofScore.score).toBeGreaterThanOrEqual(80);
+    expect(r.proofScore.band).toBe("complete");
   });
 
   test("junit failures present → blocked", () => {
@@ -50,6 +53,7 @@ describe("evaluateProofGate", () => {
       },
     });
     expect(r.status).toBe("pass");
+    expect(r.proofScore.score).toBeGreaterThan(0);
   });
 
   test("claim rejected by compensator pipeline blocks proof gate", () => {
@@ -70,6 +74,30 @@ describe("evaluateProofGate", () => {
     expect(
       r.blockers.some((blocker) => blocker.includes("Compensator pipeline")),
     ).toBe(true);
+  });
+
+  test("optional evidence improves proof score", () => {
+    const baseline = evaluateProofGate({
+      evidence: {
+        junit: { tests: 5, failures: 0, errors: 0 },
+        coverage: { line_rate: 0.9 },
+      },
+    });
+    const enriched = evaluateProofGate({
+      evidence: {
+        junit: { tests: 5, failures: 0, errors: 0 },
+        coverage: { line_rate: 0.9 },
+        sarif: { results: [] },
+        test_intent_lock: { locked: true },
+      },
+    });
+
+    expect(enriched.proofScore.score).toBeGreaterThan(
+      baseline.proofScore.score,
+    );
+    expect(enriched.proofScore.breakdown.optionalEvidence).toBeGreaterThan(
+      baseline.proofScore.breakdown.optionalEvidence,
+    );
   });
 });
 
