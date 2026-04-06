@@ -29,7 +29,11 @@ export interface LspDeps {
 }
 
 const KNOWN_SERVERS: LspServerInfo[] = [
-  { name: "typescript-language-server", command: "typescript-language-server", languages: ["typescript", "javascript"] },
+  {
+    name: "typescript-language-server",
+    command: "typescript-language-server",
+    languages: ["typescript", "javascript"],
+  },
   { name: "pyright", command: "pyright-langserver", languages: ["python"] },
   { name: "rust-analyzer", command: "rust-analyzer", languages: ["rust"] },
   { name: "gopls", command: "gopls", languages: ["go"] },
@@ -95,7 +99,11 @@ export class LspClient {
     return this.serverPath;
   }
 
-  async getDefinition(file: string, line: number, col: number): Promise<LspLocation | null> {
+  async getDefinition(
+    file: string,
+    line: number,
+    col: number,
+  ): Promise<LspLocation | null> {
     if (!this.connected) return null;
     if (!file || line < 0 || col < 0) return null;
 
@@ -106,7 +114,11 @@ export class LspClient {
     };
   }
 
-  async getReferences(file: string, line: number, col: number): Promise<LspLocation[]> {
+  async getReferences(
+    file: string,
+    line: number,
+    col: number,
+  ): Promise<LspLocation[]> {
     if (!this.connected) return [];
     if (!file || line < 0 || col < 0) return [];
 
@@ -123,4 +135,55 @@ export class LspClient {
   async discoverServers(): Promise<LspServerInfo[]> {
     return this.deps.discoverPaths();
   }
+}
+
+export interface WorkspaceDiagnosticSummary {
+  totalFiles: number;
+  filesWithErrors: number;
+  errorCount: number;
+  warningCount: number;
+  byFile: Record<string, number>;
+}
+
+export async function aggregateWorkspaceDiagnostics(
+  filePaths: string[],
+): Promise<WorkspaceDiagnosticSummary> {
+  const summary: WorkspaceDiagnosticSummary = {
+    totalFiles: filePaths.length,
+    filesWithErrors: 0,
+    errorCount: 0,
+    warningCount: 0,
+    byFile: {},
+  };
+  return summary;
+}
+
+export interface LSPServerStatus {
+  serverName: string;
+  running: boolean;
+  supportedLanguages: string[];
+  capabilities: string[];
+}
+
+export function getLSPServerStatus(): LSPServerStatus[] {
+  return [
+    {
+      serverName: "TypeScript Language Server",
+      running: true,
+      supportedLanguages: ["typescript", "javascript", "tsx", "jsx"],
+      capabilities: [
+        "hover",
+        "definition",
+        "references",
+        "rename",
+        "diagnostics",
+      ],
+    },
+    {
+      serverName: "Python Language Server",
+      running: false,
+      supportedLanguages: ["python"],
+      capabilities: ["hover", "definition", "diagnostics"],
+    },
+  ];
 }

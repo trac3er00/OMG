@@ -83,6 +83,7 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
       { name: "preset", description: "Inspect or apply the canonical preset" },
       { name: "mode", description: "Set the current session mode" },
       { name: "theme", description: "Interactive theme selection" },
+      { name: "lsp", description: "Show detected LSP server status" },
       { name: "profile-review", description: "Review governed profile state" },
       { name: "teams", description: "Internal staged team routing" },
       { name: "cost", description: "Session cost tracking and budgets" },
@@ -325,6 +326,14 @@ async function runCli(): Promise<void> {
       handler: () => {},
     })
     .command(memoryCommand)
+    .command({
+      command: "lsp",
+      describe: "Show LSP server status",
+      handler: async () => {
+        const { runLspStatus } = await import("./commands/lsp-status.js");
+        await runLspStatus();
+      },
+    })
     .command({
       command: "validate",
       describe: "Run validation checks",

@@ -1,9 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import type { LspDeps, LspServerInfo } from "./lsp.js";
-import { LspClient } from "./lsp.js";
+import {
+  aggregateWorkspaceDiagnostics,
+  getLSPServerStatus,
+  LspClient,
+} from "./lsp.js";
 
 const stubServers: LspServerInfo[] = [
-  { name: "ts-server", command: "typescript-language-server", languages: ["typescript"] },
+  {
+    name: "ts-server",
+    command: "typescript-language-server",
+    languages: ["typescript"],
+  },
   { name: "pyright", command: "pyright-langserver", languages: ["python"] },
 ];
 
@@ -114,5 +122,22 @@ describe("LspClient", () => {
     const client = LspClient.create(makeDeps());
     await client.connect("typescript-language-server");
     expect(await client.getReferences("", 10, 5)).toEqual([]);
+  });
+});
+
+describe("workspace LSP helpers", () => {
+  test("getLSPServerStatus returns array", () => {
+    const servers = getLSPServerStatus();
+    expect(Array.isArray(servers)).toBe(true);
+    expect(servers.length).toBeGreaterThan(0);
+  });
+
+  test("aggregateWorkspaceDiagnostics handles empty list", async () => {
+    const result = await aggregateWorkspaceDiagnostics([]);
+    expect(result.totalFiles).toBe(0);
+    expect(result.filesWithErrors).toBe(0);
+    expect(result.errorCount).toBe(0);
+    expect(result.warningCount).toBe(0);
+    expect(result.byFile).toEqual({});
   });
 });
