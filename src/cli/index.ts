@@ -543,6 +543,29 @@ async function runCli(): Promise<void> {
       },
     })
     .command({
+      command: "next",
+      describe: "Analyze project health and surface next improvements",
+      builder: (command) =>
+        command
+          .option("focus", {
+            type: "string",
+            description: "Narrow analysis to a specific dimension",
+          })
+          .option("quick", {
+            type: "boolean",
+            description: "Skip deep analysis for faster results",
+            default: false,
+          })
+          .option("output", {
+            type: "string",
+            description: "Write full JSON report to this path",
+          }),
+      handler: async (argv) => {
+        const { nextCommand } = await import("./commands/next.js");
+        await nextCommand.handler?.(argv as never);
+      },
+    })
+    .command({
       command: "red-team [scope]",
       describe: "Run adversarial security review",
       builder: (command) =>
