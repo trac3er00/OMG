@@ -16,8 +16,13 @@ import warnings
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
+from typing import cast
 
-from runtime.release_run_coordinator import get_active_coordinator_run_id, is_release_orchestration_active, resolve_current_run_id
+from runtime.release_run_coordinator import (
+    get_active_coordinator_run_id,
+    is_release_orchestration_active,
+    resolve_current_run_id,
+)
 from runtime.test_intent_lock import verify_done_when, verify_lock
 from runtime.tool_plan_gate import has_tool_plan_for_run
 
@@ -49,7 +54,10 @@ _READ_ONLY_BASH_ALLOWLIST = (
 _QUOTED_SEGMENT_PATTERN = re.compile(r"(['\"]).*?\1")
 _CRITICAL_FILE_PATTERNS = (
     re.compile(r"\.env(?:\..+)?$", re.IGNORECASE),
-    re.compile(r"(?:^|[\s/\\])(?:secret|password|passwd|pwd|credential|key|api[_-]?key|private[_-]?key|token)(?:[\s/\\]|\..+)", re.IGNORECASE),
+    re.compile(
+        r"(?:^|[\s/\\])(?:secret|password|passwd|pwd|credential|key|api[_-]?key|private[_-]?key|token)(?:[\s/\\]|\..+)",
+        re.IGNORECASE,
+    ),
     re.compile(r"\.pem$", re.IGNORECASE),
     re.compile(r"\.key$", re.IGNORECASE),
     re.compile(r"\.pfx$", re.IGNORECASE),
@@ -111,7 +119,9 @@ def check_mutation_allowed(
     explicit_exempt = bool(metadata_obj.get("exempt") is True)
     strict_mode = os.environ.get("OMG_TDD_GATE_STRICT", "1").strip() != "0"
 
-    if explicit_exempt and (normalized_exemption in _EXEMPTIONS or metadata_obj.get("exempt_reason")):
+    if explicit_exempt and (
+        normalized_exemption in _EXEMPTIONS or metadata_obj.get("exempt_reason")
+    ):
         return {
             "status": "exempt",
             "reason": "metadata exemption allows mutation without lock",
@@ -143,52 +153,79 @@ def check_mutation_allowed(
         or resolve_current_run_id(project_dir=project_dir)
     )
 
-    # Release orchestration bypass: check FIRST before lock/plan/done_when gates.
-    # When release orchestration is active, most TDD gates are bypassed to allow
-    # CI/release operations to proceed without requiring test-intent locks.
-    # CRITICAL: Even during release, security-sensitive files are ALWAYS blocked.
     if is_release_orchestration_active(project_dir=project_dir):
-        if _is_critical_file(normalized_file_path):
-            _write_block_artifact(project_dir, normalized_tool, normalized_file_path, "critical_file_during_release")
+        release_status, release_reason = _evaluate_release_mode_gates(
+            project_dir=project_dir,
+            tool=normalized_tool,
+            file_path=normalized_file_path,
+            lock_id=normalized_lock_id,
+            run_id=resolved_run_id,
+        )
+        if release_status == "blocked":
             return {
-                "status": "blocked",
-                "reason": "critical_file_during_release",
+                "status": release_status,
+                "reason": release_reason,
                 "lock_id": normalized_lock_id,
             }
-        _update_live_counter(project_dir, "allowed")
         return {
-            "status": "allowed",
-            "reason": "release_orchestration_active",
+            "status": release_status,
+            "reason": release_reason,
             "lock_id": normalized_lock_id,
         }
 
-    # Governance context check: if there is NO active run context AND no explicit
-    # lock_id, there is no governance context at all.  Returning
-    # `no_active_test_intent_lock` here would be a false positive — that reason
-    # code is reserved for when a run context IS present but the lock lookup
-    # fails.  Use `mutation_context_required` instead so callers can distinguish
-    # "no governance context" from "context present but lock missing".
-    # HARD-BLOCK: mutation_context_required is now always blocked (advisory→hard-block #1)
     if not resolved_run_id and normalized_lock_id is None:
-        _write_block_artifact(project_dir, normalized_tool, normalized_file_path, "mutation_context_required")
+        reason = "mutation_context_required"
+        if strict_mode:
+            _write_block_artifact(
+                project_dir,
+                normalized_tool,
+                normalized_file_path,
+                reason,
+            )
+            return {
+                "status": "blocked",
+                "reason": reason,
+                "lock_id": None,
+            }
+
+        _write_warning_artifact(
+            project_dir,
+            normalized_tool,
+            normalized_file_path,
+            reason,
+        )
+        warnings.warn(
+            f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         return {
-            "status": "blocked",
-            "reason": "mutation_context_required",
+            "status": "allowed",
+            "reason": reason,
             "lock_id": None,
         }
 
-    verification = verify_lock(project_dir, run_id=resolved_run_id, lock_id=normalized_lock_id)
+    verification = verify_lock(
+        project_dir, run_id=resolved_run_id, lock_id=normalized_lock_id
+    )
     if verification.get("status") != "ok":
-        reason = str(verification.get("reason", "no_active_test_intent_lock"))
+        reason_value = cast(
+            object, verification.get("reason", "no_active_test_intent_lock")
+        )
+        reason = str(reason_value)
         if strict_mode:
-            _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+            _write_block_artifact(
+                project_dir, normalized_tool, normalized_file_path, reason
+            )
             return {
                 "status": "blocked",
                 "reason": reason,
                 "lock_id": normalized_lock_id,
             }
 
-        _write_warning_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+        _write_warning_artifact(
+            project_dir, normalized_tool, normalized_file_path, reason
+        )
         warnings.warn(
             f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
             RuntimeWarning,
@@ -202,20 +239,11 @@ def check_mutation_allowed(
 
     if resolved_run_id and not has_tool_plan_for_run(project_dir, resolved_run_id):
         reason = "tool_plan_required"
-        _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
-        return {
-            "status": "blocked",
-            "reason": reason,
-            "lock_id": normalized_lock_id,
-        }
-        _write_warning_artifact(project_dir, normalized_tool, normalized_file_path, reason)
-        warnings.warn(
-            f"mutation_gate_permissive_allow:{normalized_tool}:{reason}",
-            RuntimeWarning,
-            stacklevel=2,
+        _write_block_artifact(
+            project_dir, normalized_tool, normalized_file_path, reason
         )
         return {
-            "status": "allowed",
+            "status": "blocked",
             "reason": reason,
             "lock_id": normalized_lock_id,
         }
@@ -223,8 +251,13 @@ def check_mutation_allowed(
     if resolved_run_id:
         done_when_verification = verify_done_when(metadata_obj, run_id=resolved_run_id)
         if done_when_verification.get("status") != "ok":
-            reason = str(done_when_verification.get("reason", "done_when_required"))
-            _write_block_artifact(project_dir, normalized_tool, normalized_file_path, reason)
+            reason_value = cast(
+                object, done_when_verification.get("reason", "done_when_required")
+            )
+            reason = str(reason_value)
+            _write_block_artifact(
+                project_dir, normalized_tool, normalized_file_path, reason
+            )
             return {
                 "status": "blocked",
                 "reason": reason,
@@ -273,13 +306,43 @@ def _is_read_only_program_with_redirect(command: str) -> bool:
         return False
     lowered = cmd_portion.lower()
     _read_only_prefixes = (
-        "python", "python3", "node", "ruby", "perl",
-        "jq", "yq",
-        "git log", "git diff", "git status", "git show", "git branch",
-        "gh pr", "gh run", "gh api",
-        "ls", "find", "grep", "rg", "ag", "wc", "sort", "uniq",
-        "head", "tail", "less", "more", "file", "stat", "du", "df",
-        "env", "printenv", "uname", "whoami", "hostname", "date",
+        "python",
+        "python3",
+        "node",
+        "ruby",
+        "perl",
+        "jq",
+        "yq",
+        "git log",
+        "git diff",
+        "git status",
+        "git show",
+        "git branch",
+        "gh pr",
+        "gh run",
+        "gh api",
+        "ls",
+        "find",
+        "grep",
+        "rg",
+        "ag",
+        "wc",
+        "sort",
+        "uniq",
+        "head",
+        "tail",
+        "less",
+        "more",
+        "file",
+        "stat",
+        "du",
+        "df",
+        "env",
+        "printenv",
+        "uname",
+        "whoami",
+        "hostname",
+        "date",
     )
     for prefix in _read_only_prefixes:
         if lowered.startswith(prefix):
@@ -319,7 +382,9 @@ def _is_allowlisted_read_only_command(command: str) -> bool:
     return False
 
 
-def _write_warning_artifact(project_dir: str, tool: str, file_path: str, reason: str) -> None:
+def _write_warning_artifact(
+    project_dir: str, tool: str, file_path: str, reason: str
+) -> None:
     state_dir = Path(project_dir) / ".omg" / "state" / "mutation_gate"
     state_dir.mkdir(parents=True, exist_ok=True)
 
@@ -334,11 +399,15 @@ def _write_warning_artifact(project_dir: str, tool: str, file_path: str, reason:
     }
 
     temp_path = artifact_path.with_suffix(".tmp")
-    temp_path.write_text(json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8")
+    _ = temp_path.write_text(
+        json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8"
+    )
     os.replace(temp_path, artifact_path)
 
 
-def _write_block_artifact(project_dir: str, tool: str, file_path: str, reason: str) -> None:
+def _write_block_artifact(
+    project_dir: str, tool: str, file_path: str, reason: str
+) -> None:
     state_dir = Path(project_dir) / ".omg" / "state" / "mutation_gate"
     state_dir.mkdir(parents=True, exist_ok=True)
 
@@ -353,9 +422,82 @@ def _write_block_artifact(project_dir: str, tool: str, file_path: str, reason: s
     }
 
     temp_path = artifact_path.with_suffix(".tmp")
-    temp_path.write_text(json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8")
+    _ = temp_path.write_text(
+        json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8"
+    )
     os.replace(temp_path, artifact_path)
     _update_live_counter(project_dir, "blocked")
+
+
+def _log_release_bypass(
+    project_dir: str, tool: str, file_path: str, reason: str
+) -> None:
+    try:
+        ledger_dir = Path(project_dir) / ".omg" / "state" / "ledger"
+        ledger_dir.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "gate_bypassed": "done_when",
+            "file_path": file_path,
+            "tool": tool,
+            "reason": reason,
+        }
+        with (ledger_dir / "release-bypass-audit.jsonl").open(
+            "a", encoding="utf-8"
+        ) as handle:
+            _ = handle.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass
+
+
+def _evaluate_release_mode_gates(
+    project_dir: str,
+    tool: str,
+    file_path: str,
+    lock_id: str | None,
+    run_id: str | None,
+) -> tuple[str, str]:
+    """Returns (status, reason) for release-mode gate evaluation. Only done-when is bypassable."""
+    if _is_critical_file(file_path):
+        reason = "critical_file_during_release"
+        _write_block_artifact(project_dir, tool, file_path, reason)
+        return ("blocked", reason)
+
+    lock_result = verify_lock(project_dir=project_dir, run_id=run_id, lock_id=lock_id)
+    lock_status = lock_result.get("status")
+    if lock_status == "locked":
+        reason = "test_intent_lock_active_during_release"
+        _write_block_artifact(project_dir, tool, file_path, reason)
+        return ("blocked", reason)
+
+    if (
+        lock_id
+        and lock_status in {"ok", "exempt", None}
+        and not has_tool_plan_for_run(project_dir=project_dir, run_id=run_id)
+    ):
+        reason = "tool_plan_missing_during_release"
+        _write_block_artifact(project_dir, tool, file_path, reason)
+        return ("blocked", reason)
+
+    reason = "release_orchestration_active"
+    _update_live_counter(project_dir, "allowed")
+    _log_release_bypass(
+        project_dir, tool, file_path, "done_when_bypassed_during_release"
+    )
+    return ("allowed", reason)
+
+
+def _coerce_counter_value(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
 
 
 def _update_live_counter(project_dir: str, counter_type: str) -> None:
@@ -363,12 +505,19 @@ def _update_live_counter(project_dir: str, counter_type: str) -> None:
     counter_file = state_dir / "live-counter.json"
     try:
         if counter_file.exists():
-            data = json.loads(counter_file.read_text(encoding="utf-8"))
+            raw_data = cast(
+                object, json.loads(counter_file.read_text(encoding="utf-8"))
+            )
+            data = (
+                cast(dict[str, object], raw_data) if isinstance(raw_data, dict) else {}
+            )
         else:
             data = {"blocked": 0, "allowed": 0, "updated_at": ""}
-        data[counter_type] = data.get(counter_type, 0) + 1
+        data[counter_type] = _coerce_counter_value(data.get(counter_type, 0)) + 1
         data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        counter_file.write_text(json.dumps(data, sort_keys=True, indent=2), encoding="utf-8")
+        _ = counter_file.write_text(
+            json.dumps(data, sort_keys=True, indent=2), encoding="utf-8"
+        )
     except (OSError, json.JSONDecodeError):
         pass
 
@@ -378,8 +527,16 @@ def get_live_counter(project_dir: str) -> dict[str, int]:
     counter_file = state_dir / "live-counter.json"
     try:
         if counter_file.exists():
-            data = json.loads(counter_file.read_text(encoding="utf-8"))
-            return {"blocked": data.get("blocked", 0), "allowed": data.get("allowed", 0)}
+            raw_data = cast(
+                object, json.loads(counter_file.read_text(encoding="utf-8"))
+            )
+            data = (
+                cast(dict[str, object], raw_data) if isinstance(raw_data, dict) else {}
+            )
+            return {
+                "blocked": _coerce_counter_value(data.get("blocked", 0)),
+                "allowed": _coerce_counter_value(data.get("allowed", 0)),
+            }
     except (OSError, json.JSONDecodeError):
         pass
     return {"blocked": 0, "allowed": 0}
@@ -389,6 +546,11 @@ def reset_live_counter(project_dir: str) -> None:
     state_dir = Path(project_dir) / ".omg" / "state" / "mutation_gate"
     counter_file = state_dir / "live-counter.json"
     try:
-        counter_file.write_text(json.dumps({"blocked": 0, "allowed": 0, "updated_at": ""}, sort_keys=True, indent=2), encoding="utf-8")
+        _ = counter_file.write_text(
+            json.dumps(
+                {"blocked": 0, "allowed": 0, "updated_at": ""}, sort_keys=True, indent=2
+            ),
+            encoding="utf-8",
+        )
     except OSError:
         pass
