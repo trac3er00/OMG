@@ -1,0 +1,31 @@
+name: saas
+description: Full SaaS domain pack — multi-tenancy, billing, auth, API design, and operational governance
+category: web
+extends: saas-lite
+dependencies: []
+rules:
+  - rules/auth-and-sessions.md
+  - rules/multi-tenancy.md
+  - rules/billing-and-subscriptions.md
+  - rules/api-design.md
+  - rules/data-isolation.md
+  - rules/rate-limiting.md
+  - rules/feature-flags.md
+  - rules/audit-logging.md
+  - rules/security-hardening.md
+prompts:
+  - prompts/saas-architect.md
+  - prompts/tenant-onboarding.md
+  - prompts/incident-response.md
+scaffold:
+  - scaffold/README.md
+  - scaffold/.env.example
+  - scaffold/docker-compose.yaml
+evidence:
+  required:
+    - auth-flow-test
+    - tenant-isolation-test
+    - billing-webhook-test
+    - rate-limit-test
+  artifacts:
+    - .omg/evidence/saas/*.json
