@@ -37,8 +37,21 @@ def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
         blockers.append("production_gate_missing_claim_judge")
     else:
         status = str(primitive_payload.get("status", "")).strip().lower()
-        verdict = str(primitive_payload.get("claim_judge_verdict", primitive_payload.get("verdict", ""))).strip().lower()
-        if status in {"blocked", "error", "fail", "insufficient"} or verdict in {"blocked", "error", "fail", "insufficient"}:
+        verdict = (
+            str(
+                primitive_payload.get(
+                    "claim_judge_verdict", primitive_payload.get("verdict", "")
+                )
+            )
+            .strip()
+            .lower()
+        )
+        if status in {"blocked", "error", "fail", "insufficient"} or verdict in {
+            "blocked",
+            "error",
+            "fail",
+            "insufficient",
+        }:
             blockers.append("production_gate_claim_judge_blocked")
 
     proof_result = _as_dict(payload.get("proof_gate"))
@@ -46,8 +59,15 @@ def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
         try:
             proof_result = evaluate_proof_gate(payload)
         except Exception as exc:
-            _logger.warning("Proof gate evaluation failed; returning internal error blocker: %s", exc, exc_info=True)
-            proof_result = {"verdict": "fail", "blockers": ["proof_gate_internal_error"]}
+            _logger.warning(
+                "Proof gate evaluation failed; returning internal error blocker: %s",
+                exc,
+                exc_info=True,
+            )
+            proof_result = {
+                "verdict": "fail",
+                "blockers": ["proof_gate_internal_error"],
+            }
 
     if not proof_result:
         blockers.append("production_gate_missing_proof_gate")
@@ -70,10 +90,14 @@ def production_gate(evidence: dict[str, Any]) -> dict[str, Any]:
     else:
         lock_status = str(lock_payload.get("status", "")).strip().lower()
         lock_id = str(lock_payload.get("lock_id", "")).strip()
-        if lock_status in {"blocked", "error", "fail", "insufficient"} or (lock_status not in {"ok", "allowed"} and not lock_id):
+        if lock_status in {"blocked", "error", "fail", "insufficient"} or (
+            lock_status not in {"ok", "allowed"} and not lock_id
+        ):
             blockers.append("production_gate_test_intent_lock_unsatisfied")
 
-    unique_blockers = list(dict.fromkeys(item for item in blockers if str(item).strip()))
+    unique_blockers = list(
+        dict.fromkeys(item for item in blockers if str(item).strip())
+    )
     if unique_blockers:
         return {
             "status": "blocked",
@@ -93,7 +117,9 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
     security_evidence = _as_dict(input.get("security_evidence"))
     browser_evidence = _as_dict(input.get("browser_evidence"))
     evidence_pack = _as_dict(input.get("evidence_pack"))
-    evidence_profile = _resolve_evidence_profile(input=input, evidence_pack=evidence_pack)
+    evidence_profile = _resolve_evidence_profile(
+        input=input, evidence_pack=evidence_pack
+    )
     evidence_requirements = requirements_for_profile(evidence_profile)
     test_intent_lock = _as_dict(input.get("test_intent_lock"))
     test_delta = _as_dict(input.get("test_delta"))
@@ -112,9 +138,24 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
         blockers.append("proof_gate_proof_chain_blockers_invalid")
 
     trace_id = str(proof_chain.get("trace_id", "")).strip()
-    blockers.extend(_validate_claim_artifacts(claims, evidence_requirements=evidence_requirements))
-    blockers.extend(_validate_trace_linkage(claims=claims, trace_id=trace_id, eval_output=eval_output, browser_evidence=browser_evidence))
-    blockers.extend(_validate_security_and_browser_artifacts(claims=claims, security_evidence=security_evidence, browser_evidence=browser_evidence))
+    blockers.extend(
+        _validate_claim_artifacts(claims, evidence_requirements=evidence_requirements)
+    )
+    blockers.extend(
+        _validate_trace_linkage(
+            claims=claims,
+            trace_id=trace_id,
+            eval_output=eval_output,
+            browser_evidence=browser_evidence,
+        )
+    )
+    blockers.extend(
+        _validate_security_and_browser_artifacts(
+            claims=claims,
+            security_evidence=security_evidence,
+            browser_evidence=browser_evidence,
+        )
+    )
     blockers.extend(_validate_evidence_pack(evidence_pack))
 
     strict_mode = os.environ.get("OMG_PROOF_CHAIN_STRICT", "0").strip() == "1"
@@ -127,12 +168,16 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
     if strict_mode:
         blockers.extend(causal_chain_blockers)
 
-    unique_blockers = list(dict.fromkeys(item for item in blockers if str(item).strip()))
+    unique_blockers = list(
+        dict.fromkeys(item for item in blockers if str(item).strip())
+    )
     advisories = [] if strict_mode else causal_chain_blockers
     evidence_summary = {
         "claim_count": len(claims),
         "proof_chain_status": proof_status,
-        "proof_chain_blocker_count": len(proof_blockers) if isinstance(proof_blockers, list) else 0,
+        "proof_chain_blocker_count": len(proof_blockers)
+        if isinstance(proof_blockers, list)
+        else 0,
         "required_artifacts": _required_artifact_keys(evidence_requirements),
         "evidence_profile": evidence_profile,
         "evidence_requirements": list(evidence_requirements),
@@ -140,8 +185,12 @@ def evaluate_proof_gate(input: dict[str, Any]) -> dict[str, Any]:
         "eval_trace_id": str(eval_output.get("trace_id", "")).strip(),
         "has_security_evidence": bool(security_evidence),
         "has_browser_evidence": bool(browser_evidence),
-        "has_lock_evidence": _has_lock_evidence(claims, test_intent_lock, evidence_pack),
-        "has_waiver_artifact": _has_waiver_artifact(test_delta or _as_dict(evidence_pack.get("test_delta"))),
+        "has_lock_evidence": _has_lock_evidence(
+            claims, test_intent_lock, evidence_pack
+        ),
+        "has_waiver_artifact": _has_waiver_artifact(
+            test_delta or _as_dict(evidence_pack.get("test_delta"))
+        ),
         "advisories": advisories,
     }
     return {
@@ -214,7 +263,9 @@ def _validate_claim_artifacts(
         if key in _REQUIRED_ARTIFACT_TOKENS
     }
     for key, tokens in required_tokens.items():
-        if not any(any(token in artifact for token in tokens) for artifact in all_artifacts):
+        if not any(
+            any(token in artifact for token in tokens) for artifact in all_artifacts
+        ):
             blockers.append(f"proof_gate_missing_artifact_{key}")
 
     for artifact in artifact_records:
@@ -259,7 +310,9 @@ def _validate_trace_linkage(
         blockers.append("proof_gate_eval_trace_mismatch")
 
     browser_metadata = _as_dict(browser_evidence.get("metadata"))
-    browser_trace_id = str(browser_metadata.get("trace_id", browser_evidence.get("trace_id", ""))).strip()
+    browser_trace_id = str(
+        browser_metadata.get("trace_id", browser_evidence.get("trace_id", ""))
+    ).strip()
     if browser_trace_id and trace_id and browser_trace_id != trace_id:
         blockers.append("proof_gate_browser_trace_mismatch")
     return blockers
@@ -285,7 +338,10 @@ def _validate_security_and_browser_artifacts(
     if browser_evidence:
         artifacts = _as_dict(browser_evidence.get("artifacts"))
         trace_path = str(artifacts.get("trace", "")).strip().lower()
-        if trace_path and not any("trace" in artifact or "playwright" in artifact for artifact in all_artifacts):
+        if trace_path and not any(
+            "trace" in artifact or "playwright" in artifact
+            for artifact in all_artifacts
+        ):
             blockers.append("proof_gate_browser_trace_not_linked_by_claims")
 
     return blockers
@@ -341,7 +397,11 @@ def _parse_artifact(*, kind: str, path: str) -> dict[str, Any]:
         return {"valid": False, "summary": {}, "error": "file_unreadable"}
 
     if size > _MAX_ARTIFACT_SIZE_BYTES:
-        return {"valid": False, "summary": {"size_bytes": size}, "error": "artifact_file_too_large"}
+        return {
+            "valid": False,
+            "summary": {"size_bytes": size},
+            "error": "artifact_file_too_large",
+        }
 
     parser = _PARSERS.get(kind)
     if parser is None:
@@ -357,10 +417,14 @@ def _validate_artifact_hash(artifact: dict[str, Any]) -> str | None:
     sha256_value = str(artifact.get("sha256", "")).strip().lower()
     path = str(artifact.get("path", "")).strip()
     kind = str(artifact.get("kind", "artifact")).strip().lower() or "artifact"
-    if not sha256_value or not path:
-        return None
-    if len(sha256_value) != 64 or any(ch not in "0123456789abcdef" for ch in sha256_value):
-        return None
+    if not path:
+        return f"proof_gate_artifact_path_missing_{kind}"
+    if not sha256_value:
+        return f"proof_gate_artifact_hash_missing_{kind}"
+    if len(sha256_value) != 64 or any(
+        ch not in "0123456789abcdef" for ch in sha256_value
+    ):
+        return f"proof_gate_artifact_hash_invalid_format_{kind}"
 
     file_path = Path(path)
     if not file_path.exists():
@@ -374,7 +438,11 @@ def _validate_artifact_hash(artifact: dict[str, Any]) -> str | None:
     return None
 
 
-def _has_lock_evidence(claims: list[dict[str, Any]], test_intent_lock: dict[str, Any], evidence_pack: dict[str, Any]) -> bool:
+def _has_lock_evidence(
+    claims: list[dict[str, Any]],
+    test_intent_lock: dict[str, Any],
+    evidence_pack: dict[str, Any],
+) -> bool:
     lock_status = str(test_intent_lock.get("status", "")).strip().lower()
     if lock_status == "ok":
         return True
@@ -415,7 +483,9 @@ def _is_weakened_or_drift_delta(delta_summary: dict[str, Any]) -> bool:
         "integration_to_mock_downgrade",
         "snapshot_only_refresh",
     }
-    normalized_flags = {str(item).strip().lower() for item in flags if str(item).strip()}
+    normalized_flags = {
+        str(item).strip().lower() for item in flags if str(item).strip()
+    }
     return bool(normalized_flags & risk_flags)
 
 
@@ -430,13 +500,19 @@ def _validate_lock_delta_chain(
     if not _has_lock_evidence(claims, test_intent_lock, evidence_pack):
         blockers.append("proof_gate_missing_lock_evidence")
 
-    delta_summary = test_delta if test_delta else _as_dict(evidence_pack.get("test_delta"))
-    if _is_weakened_or_drift_delta(delta_summary) and not _has_waiver_artifact(delta_summary):
+    delta_summary = (
+        test_delta if test_delta else _as_dict(evidence_pack.get("test_delta"))
+    )
+    if _is_weakened_or_drift_delta(delta_summary) and not _has_waiver_artifact(
+        delta_summary
+    ):
         blockers.append("proof_gate_missing_waiver_artifact")
     return blockers
 
 
-def _resolve_evidence_profile(*, input: dict[str, Any], evidence_pack: dict[str, Any]) -> str:
+def _resolve_evidence_profile(
+    *, input: dict[str, Any], evidence_pack: dict[str, Any]
+) -> str:
     profile = str(input.get("evidence_profile", "")).strip()
     if profile:
         return profile
@@ -445,7 +521,9 @@ def _resolve_evidence_profile(*, input: dict[str, Any], evidence_pack: dict[str,
 
 def _required_artifact_keys(evidence_requirements: list[str]) -> list[str]:
     required: list[str] = []
-    requirement_set = {str(item).strip() for item in evidence_requirements if str(item).strip()}
+    requirement_set = {
+        str(item).strip() for item in evidence_requirements if str(item).strip()
+    }
     if "tests" in requirement_set:
         required.append("junit")
     if "build" in requirement_set:
@@ -688,7 +766,9 @@ def render_lane_status(project_dir: str) -> str:
             if not lane_id:
                 continue
             # Keep latest by file modification time
-            if lane_id not in lane_data or lane_file.stat().st_mtime > lane_data[lane_id].get("_mtime", 0):
+            if lane_id not in lane_data or lane_file.stat().st_mtime > lane_data[
+                lane_id
+            ].get("_mtime", 0):
                 data["_mtime"] = lane_file.stat().st_mtime
                 lane_data[lane_id] = data
         except (json.JSONDecodeError, OSError):

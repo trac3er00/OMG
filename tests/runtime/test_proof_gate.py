@@ -19,7 +19,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def _seed_release_readiness_fixtures(output_root: Path) -> None:
     prepare = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "prepare-release-proof-fixtures.py"), "--output-root", str(output_root)],
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "prepare-release-proof-fixtures.py"),
+            "--output-root",
+            str(output_root),
+        ],
         cwd=str(ROOT),
         capture_output=True,
         text=True,
@@ -51,16 +56,27 @@ def test_proof_gate_fails_when_proof_chain_has_blockers() -> None:
             "claims": [
                 {
                     "claim_type": "release_ready",
-                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                    "artifacts": [
+                        "junit.xml",
+                        "coverage.xml",
+                        "scan.sarif",
+                        "trace.zip",
+                    ],
                     "trace_ids": ["trace-1"],
                 }
             ],
-            "proof_chain": {"status": "error", "blockers": ["proof_chain_missing_trace_id"], "trace_id": "trace-1"},
+            "proof_chain": {
+                "status": "error",
+                "blockers": ["proof_chain_missing_trace_id"],
+                "trace_id": "trace-1",
+            },
         }
     )
 
     assert result["verdict"] == "fail"
-    assert any(str(item).startswith("proof_gate_proof_chain") for item in result["blockers"])
+    assert any(
+        str(item).startswith("proof_gate_proof_chain") for item in result["blockers"]
+    )
 
 
 def test_proof_gate_passes_with_clean_chain_and_claims() -> None:
@@ -74,7 +90,7 @@ def test_proof_gate_passes_with_clean_chain_and_claims() -> None:
                             {
                                 "kind": "junit",
                                 "path": str(FIXTURES / "sample.junit.xml"),
-                                "sha256": "abc123",
+                                "sha256": _sha256(FIXTURES / "sample.junit.xml"),
                                 "parser": "junit",
                                 "summary": "junit",
                                 "trace_id": "trace-1",
@@ -82,7 +98,7 @@ def test_proof_gate_passes_with_clean_chain_and_claims() -> None:
                             {
                                 "kind": "coverage",
                                 "path": str(FIXTURES / "sample_coverage.xml"),
-                                "sha256": "abc124",
+                                "sha256": _sha256(FIXTURES / "sample_coverage.xml"),
                                 "parser": "coverage",
                                 "summary": "coverage",
                                 "trace_id": "trace-1",
@@ -90,7 +106,7 @@ def test_proof_gate_passes_with_clean_chain_and_claims() -> None:
                             {
                                 "kind": "sarif",
                                 "path": str(FIXTURES / "sample.sarif.json"),
-                                "sha256": "abc125",
+                                "sha256": _sha256(FIXTURES / "sample.sarif.json"),
                                 "parser": "sarif",
                                 "summary": "security scan",
                                 "trace_id": "trace-1",
@@ -98,7 +114,9 @@ def test_proof_gate_passes_with_clean_chain_and_claims() -> None:
                             {
                                 "kind": "browser_trace",
                                 "path": str(FIXTURES / "sample_browser_trace.json"),
-                                "sha256": "abc126",
+                                "sha256": _sha256(
+                                    FIXTURES / "sample_browser_trace.json"
+                                ),
                                 "parser": "playwright",
                                 "summary": "browser trace",
                                 "trace_id": "trace-1",
@@ -117,7 +135,9 @@ def test_proof_gate_passes_with_clean_chain_and_claims() -> None:
     assert result["blockers"] == []
 
 
-def test_proof_gate_fails_with_specific_blocker_when_junit_is_malformed(tmp_path: Path) -> None:
+def test_proof_gate_fails_with_specific_blocker_when_junit_is_malformed(
+    tmp_path: Path,
+) -> None:
     malformed_junit = tmp_path / "bad.junit.xml"
     malformed_junit.write_text("<testsuite>", encoding="utf-8")
 
@@ -175,13 +195,20 @@ def test_proof_gate_fails_with_specific_blocker_when_junit_is_malformed(tmp_path
 
 
 def test_proof_gate_accepts_v1_evidence_payload() -> None:
-    payload = json.loads((FIXTURES / "evidence_v1_sample.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (FIXTURES / "evidence_v1_sample.json").read_text(encoding="utf-8")
+    )
     result = evaluate_proof_gate(
         {
             "claims": [
                 {
                     "claim_type": "release_ready",
-                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                    "artifacts": [
+                        "junit.xml",
+                        "coverage.xml",
+                        "scan.sarif",
+                        "trace.zip",
+                    ],
                     "trace_ids": ["trace-1"],
                 }
             ],
@@ -196,7 +223,9 @@ def test_proof_gate_accepts_v1_evidence_payload() -> None:
 
 
 def test_proof_gate_accepts_v2_evidence_payload() -> None:
-    payload = json.loads((FIXTURES / "evidence_v2_sample.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (FIXTURES / "evidence_v2_sample.json").read_text(encoding="utf-8")
+    )
     result = evaluate_proof_gate(
         {
             "claims": [
@@ -252,7 +281,9 @@ def test_proof_gate_accepts_v2_evidence_payload() -> None:
 
 
 def test_proof_gate_accepts_v2_evidence_payload_with_optional_sibling_fields() -> None:
-    payload = json.loads((FIXTURES / "evidence_v2_sample.json").read_text(encoding="utf-8"))
+    payload = json.loads(
+        (FIXTURES / "evidence_v2_sample.json").read_text(encoding="utf-8")
+    )
     payload["claims"] = [{"claim_type": "release_ready", "trace_ids": ["trace-1"]}]
     payload["test_delta"] = {"changed": ["runtime/proof_chain.py"]}
     payload["browser_evidence_path"] = ".omg/evidence/playwright-adapter-run-1.json"
@@ -260,18 +291,38 @@ def test_proof_gate_accepts_v2_evidence_payload_with_optional_sibling_fields() -
     payload["context_checksum"] = "ctx-deterministic"
     payload["profile_version"] = "profile-v31"
     payload["intent_gate_version"] = "1.3.0"
-    payload["intent_gate_state"] = {"path": ".omg/state/intent_gate/run-1.json", "run_id": "run-1"}
-    payload["profile_digest"] = {"path": ".omg/state/profile.yaml", "profile_version": "profile-v31"}
-    payload["session_health_state"] = {"path": ".omg/state/session_health/run-1.json", "run_id": "run-1"}
-    payload["council_verdicts"] = {"path": ".omg/state/council_verdicts/run-1.json", "run_id": "run-1"}
-    payload["forge_starter_proof"] = {"path": ".omg/evidence/forge-specialists-run-1.json", "run_id": "run-1"}
+    payload["intent_gate_state"] = {
+        "path": ".omg/state/intent_gate/run-1.json",
+        "run_id": "run-1",
+    }
+    payload["profile_digest"] = {
+        "path": ".omg/state/profile.yaml",
+        "profile_version": "profile-v31",
+    }
+    payload["session_health_state"] = {
+        "path": ".omg/state/session_health/run-1.json",
+        "run_id": "run-1",
+    }
+    payload["council_verdicts"] = {
+        "path": ".omg/state/council_verdicts/run-1.json",
+        "run_id": "run-1",
+    }
+    payload["forge_starter_proof"] = {
+        "path": ".omg/evidence/forge-specialists-run-1.json",
+        "run_id": "run-1",
+    }
 
     result = evaluate_proof_gate(
         {
             "claims": [
                 {
                     "claim_type": "release_ready",
-                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                    "artifacts": [
+                        "junit.xml",
+                        "coverage.xml",
+                        "scan.sarif",
+                        "trace.zip",
+                    ],
                     "trace_ids": ["trace-1"],
                 }
             ],
@@ -292,11 +343,20 @@ def test_proof_gate_accepts_browser_cli_trace_linked_by_claims() -> None:
             "claims": [
                 {
                     "claim_type": "release_ready",
-                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "browser-trace.zip"],
+                    "artifacts": [
+                        "junit.xml",
+                        "coverage.xml",
+                        "scan.sarif",
+                        "browser-trace.zip",
+                    ],
                     "trace_ids": ["trace-browser-cli"],
                 }
             ],
-            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-browser-cli"},
+            "proof_chain": {
+                "status": "ok",
+                "blockers": [],
+                "trace_id": "trace-browser-cli",
+            },
             "eval_output": {"trace_id": "trace-browser-cli", "status": "ok"},
             "browser_evidence": {
                 "schema": "BrowserEvidence",
@@ -317,7 +377,12 @@ def test_proof_gate_fails_without_lock_evidence_in_strict_mode(monkeypatch) -> N
             "claims": [
                 {
                     "claim_type": "release_ready",
-                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                    "artifacts": [
+                        "junit.xml",
+                        "coverage.xml",
+                        "scan.sarif",
+                        "trace.zip",
+                    ],
                     "trace_ids": ["trace-1"],
                 }
             ],
@@ -331,14 +396,21 @@ def test_proof_gate_fails_without_lock_evidence_in_strict_mode(monkeypatch) -> N
     assert "proof_gate_missing_lock_evidence" in result["blockers"]
 
 
-def test_proof_gate_requires_waiver_artifact_for_weakened_delta_in_strict_mode(monkeypatch) -> None:
+def test_proof_gate_requires_waiver_artifact_for_weakened_delta_in_strict_mode(
+    monkeypatch,
+) -> None:
     monkeypatch.setenv("OMG_PROOF_CHAIN_STRICT", "1")
     result = evaluate_proof_gate(
         {
             "claims": [
                 {
                     "claim_type": "release_ready",
-                    "artifacts": ["junit.xml", "coverage.xml", "scan.sarif", "trace.zip"],
+                    "artifacts": [
+                        "junit.xml",
+                        "coverage.xml",
+                        "scan.sarif",
+                        "trace.zip",
+                    ],
                     "trace_ids": ["trace-1"],
                 }
             ],
@@ -360,7 +432,10 @@ def test_forge_proof_gate_passes_with_complete_evidence() -> None:
                 {
                     "claim_type": "forge_dispatch",
                     "artifacts": [
-                        "junit.xml", "coverage.xml", "scan.sarif", "trace.zip",
+                        "junit.xml",
+                        "coverage.xml",
+                        "scan.sarif",
+                        "trace.zip",
                         ".omg/evidence/forge-specialists-run-1.json",
                     ],
                     "trace_ids": ["forge-run-1"],
@@ -421,7 +496,11 @@ def test_proof_gate_release_profile_requires_full_artifact_set() -> None:
                     "trace_ids": ["trace-release-1"],
                 }
             ],
-            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-release-1"},
+            "proof_chain": {
+                "status": "ok",
+                "blockers": [],
+                "trace_id": "trace-release-1",
+            },
             "evidence_profile": "release",
         }
     )
@@ -431,7 +510,9 @@ def test_proof_gate_release_profile_requires_full_artifact_set() -> None:
     assert "proof_gate_missing_artifact_browser_trace" in result["blockers"]
 
 
-def test_proof_gate_missing_or_empty_evidence_profile_fails_closed_to_full_requirements() -> None:
+def test_proof_gate_missing_or_empty_evidence_profile_fails_closed_to_full_requirements() -> (
+    None
+):
     for profile in (None, ""):
         payload: dict[str, object] = {
             "claims": [
@@ -441,7 +522,11 @@ def test_proof_gate_missing_or_empty_evidence_profile_fails_closed_to_full_requi
                     "trace_ids": ["trace-default-1"],
                 }
             ],
-            "proof_chain": {"status": "ok", "blockers": [], "trace_id": "trace-default-1"},
+            "proof_chain": {
+                "status": "ok",
+                "blockers": [],
+                "trace_id": "trace-default-1",
+            },
         }
         if profile is not None:
             payload["evidence_profile"] = profile
@@ -449,7 +534,9 @@ def test_proof_gate_missing_or_empty_evidence_profile_fails_closed_to_full_requi
         result = evaluate_proof_gate(payload)
         assert result["verdict"] == "fail"
         assert "proof_gate_missing_artifact_junit" in result["blockers"]
-        assert result["evidence_summary"]["evidence_requirements"] == list(FULL_REQUIREMENTS)
+        assert result["evidence_summary"]["evidence_requirements"] == list(
+            FULL_REQUIREMENTS
+        )
 
 
 def test_proof_gate_strict_release_chain_passes_with_lock_provenance_and_mutation_waiver(
@@ -472,7 +559,9 @@ def test_proof_gate_strict_release_chain_passes_with_lock_provenance_and_mutatio
     lock_state = cast(
         dict[str, object],
         json.loads(
-        (tmp_path / ".omg" / "state" / "test-intent-lock" / "lock-1.json").read_text(encoding="utf-8")
+            (
+                tmp_path / ".omg" / "state" / "test-intent-lock" / "lock-1.json"
+            ).read_text(encoding="utf-8")
         ),
     )
     proof_result = evaluate_proof_gate(
@@ -546,7 +635,12 @@ def test_proof_gate_strict_release_chain_passes_with_lock_provenance_and_mutatio
     assert proof_result["evidence_summary"]["trace_id"] == "trace-1"
     assert proof_result["evidence_summary"]["has_lock_evidence"] is True
     assert proof_result["evidence_summary"]["has_waiver_artifact"] is True
-    assert proof_result["evidence_summary"]["required_artifacts"] == ["junit", "coverage", "sarif", "browser_trace"]
+    assert proof_result["evidence_summary"]["required_artifacts"] == [
+        "junit",
+        "coverage",
+        "sarif",
+        "browser_trace",
+    ]
 
 
 def test_production_gate_fails_when_proof_primitives_missing() -> None:
