@@ -59,6 +59,20 @@ DESTRUCT_PATTERNS = [
     (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\$HOME", "rm -rf $HOME"),
     (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\$\{?HOME\}?", "rm -rf ${HOME}"),
     (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\.\.\s", "rm -rf .."),
+    # === Relative path destruction (not covered above) ===
+    (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\.(\s|$|\*)", "rm -rf . (relative)"),
+    (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\*(\s|$)", "rm -rf * (glob)"),
+    # === Recursive find-delete ===
+    (r"find\s+.*\s+(-delete|--delete)\b", "find -delete"),
+    (r"find\s+.*\s+-exec\s+rm\s", "find -exec rm"),
+    # === Sync-based deletion ===
+    (r"rsync\s+.*--delete\b", "rsync --delete"),
+    # === File content destruction ===
+    (r"truncate\s+(-s\s*0|--size[=\s]0)\b", "truncate to zero"),
+    (r"\bshred\b", "shred (secure delete)"),
+    # === Untracked file removal (should be ASK, not DENY) - see ASK_PATTERNS below ===
+    # === Data destruction without sudo ===
+    (r"dd\s+if=/dev/zero\b", "dd if=/dev/zero (data wipe)"),
     (r":\(\)\s*\{\s*:\|:&\s*\}\s*;:", "fork bomb"),
     (r"function\s+\w+\(\)\s*\{\s*\w+\s*\|\s*\w+\s*&", "potential fork bomb"),
     (r">\s*/dev/sd[a-z]", "overwrite disk"),
@@ -145,6 +159,7 @@ ASK_PATTERNS = [
     (r"(^|\s)(ssh|scp|rsync)(\s|$)", "Remote connection"),
     (r"git\s+push\s+.*(-f|--force)", "Force push"),
     (r"git\s+push\s+.*(main|master|production|release)", "Push to protected branch"),
+    (r"git\s+clean\b", "git clean (removes untracked files)"),
     (r"chmod\s+(777|666|a\+[rwx])", "Overly permissive chmod"),
     (r"docker\s+run\s+.*--privileged", "Privileged container"),
     (r"python[23]?\s+-c\s+", "Inline Python execution"),
