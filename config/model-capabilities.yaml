@@ -1,0 +1,74 @@
+# OMG Model Capability Registry
+# Used by Model Router (Task 22) for intelligent model selection
+models:
+  claude-haiku-3:
+    provider: claude
+    speed: fast
+    quality: medium
+    cost_per_1k_tokens: 0.00025
+    context_window: 200000
+    specialties: [quick_tasks, summarization, simple_code]
+
+  claude-sonnet-4:
+    provider: claude
+    speed: medium
+    quality: high
+    cost_per_1k_tokens: 0.003
+    context_window: 200000
+    specialties: [code, analysis, reasoning, complex_tasks]
+
+  claude-opus-4:
+    provider: claude
+    speed: slow
+    quality: very_high
+    cost_per_1k_tokens: 0.015
+    context_window: 200000
+    specialties: [critical_tasks, architecture, security, deep_reasoning]
+
+  gpt-4o-mini:
+    provider: openai
+    speed: fast
+    quality: medium
+    cost_per_1k_tokens: 0.00015
+    context_window: 128000
+    specialties: [quick_tasks, summarization]
+
+  gpt-4o:
+    provider: openai
+    speed: medium
+    quality: high
+    cost_per_1k_tokens: 0.005
+    context_window: 128000
+    specialties: [code, analysis, vision, complex_tasks]
+
+  gpt-5.4:
+    provider: openai
+    speed: medium
+    quality: very_high
+    cost_per_1k_tokens: 0.01
+    context_window: 200000
+    specialties: [code, analysis, deep_reasoning, critical_tasks]
+
+  gemini-flash-2:
+    provider: gemini
+    speed: fast
+    quality: medium
+    cost_per_1k_tokens: 0.0001
+    context_window: 1000000
+    specialties: [quick_tasks, long_context, multimodal]
+
+  gemini-pro-2:
+    provider: gemini
+    speed: medium
+    quality: high
+    cost_per_1k_tokens: 0.001
+    context_window: 2000000
+    specialties: [code, analysis, long_context, complex_tasks]
+
+  kimi-k1:
+    provider: kimi
+    speed: fast
+    quality: medium
+    cost_per_1k_tokens: 0.002
+    context_window: 128000
+    specialties: [code, chinese_language, analysis]
