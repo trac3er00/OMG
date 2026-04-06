@@ -81,6 +81,14 @@ DESTRUCT_PATTERNS = [
     (r"sudo\s+rm\b", "sudo rm"),
     (r"echo\s+.*>\s*/proc/", "write to /proc"),
     (r"echo\s+.*>\s*/sys/", "write to /sys"),
+    (
+        r"python[23]?\s+-c\s+[\"'].*\b(os\.system|os\.popen|subprocess|shutil\.rmtree|exec|eval)\b",
+        "Dangerous inline Python",
+    ),
+    (
+        r"node\s+-e\s+[\"'].*\b(child_process|execSync|spawnSync|fs\.rmSync|fs\.rmdirSync)\b",
+        "Dangerous inline Node",
+    ),
 ]
 
 PIPE_SHELL_PATTERNS = [
