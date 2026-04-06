@@ -100,3 +100,65 @@ def evaluate(
             reason=f"high_complexity_{resolved}",
             governance_active=True,
         )
+
+
+def get_mode_prefix(result: ModeResult) -> str:
+    """Get the visual indicator prefix for governed mode messages.
+
+    Returns '[GOVERNED] ' for governed mode, empty string for instant mode.
+    """
+    if result.mode == MODE_GOVERNED:
+        return "[GOVERNED] "
+    return ""
+
+
+def format_mode_message(result: ModeResult, message: str) -> str:
+    """Format a message with mode prefix for user-facing output.
+
+    Example: format_mode_message(result, "Running test suite")
+    → "[GOVERNED] Running test suite" (in governed mode)
+    → "Running test suite" (in instant mode)
+    """
+    return f"{get_mode_prefix(result)}{message}"
+
+
+def get_governance_requirements(
+    result: ModeResult, project_dir: str = "."
+) -> dict[str, Any]:
+    """Get governance requirements based on current mode and team policy.
+
+    Returns dict with keys:
+      - proof_required: bool
+      - claim_judge_active: bool
+      - gate_mode: 'hard' | 'advisory'
+      - note: str
+    """
+    if result.mode == MODE_INSTANT:
+        return {
+            "proof_required": False,
+            "claim_judge_active": False,
+            "gate_mode": "advisory",
+            "note": "Instant mode: governance advisory-only",
+        }
+
+    requirements: dict[str, Any] = {
+        "proof_required": True,
+        "claim_judge_active": True,
+        "gate_mode": "hard",
+        "note": "Governed mode: full governance active",
+    }
+
+    policy_path = Path(project_dir) / ".omg" / "policy.yaml"
+    if policy_path.exists():
+        try:
+            import yaml
+
+            data = yaml.safe_load(policy_path.read_text())
+            if isinstance(data, dict):
+                team = data.get("team", {})
+                if isinstance(team, dict) and team.get("overrides"):
+                    requirements["note"] += " (team overrides applied)"
+        except Exception:
+            pass
+
+    return requirements
