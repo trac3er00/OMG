@@ -1,0 +1,36 @@
+packs:
+  vision:
+    description: "Vision/OCR capabilities for image processing"
+    entry_modules:
+      - runtime.vision_artifacts
+      - runtime.vision_processing
+    dependencies: []
+    trigger: "from runtime.vision_"
+
+  browser:
+    description: "Browser automation via Playwright"
+    entry_modules:
+      - runtime.playwright_driver
+    dependencies: []
+    trigger: "from runtime.playwright_"
+
+  music-omr:
+    description: "Music OCR and transposition engine"
+    entry_modules:
+      - runtime.music_omr_testbed
+    dependencies: []
+    trigger: "from runtime.music_omr"
+
+  api-twin:
+    description: "API cassette replay and twin testing"
+    entry_modules:
+      - runtime.api_twin
+    dependencies: []
+    trigger: "from runtime.api_twin"
+
+  data-lineage:
+    description: "Data provenance and lineage tracking"
+    entry_modules:
+      - runtime.data_lineage
+    dependencies: []
+    trigger: "from runtime.data_lineage"
