@@ -5,7 +5,6 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from types import ModuleType
 from typing import Protocol, TypedDict, cast
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -55,9 +54,7 @@ class PackLoaderModuleProtocol(Protocol):
     get_loader: GetLoaderProtocol
 
 
-pack_loader_module = cast(
-    PackLoaderModuleProtocol, cast(ModuleType, PACK_LOADER_MODULE)
-)
+pack_loader_module = cast(PackLoaderModuleProtocol, cast(object, PACK_LOADER_MODULE))
 PackLoader = pack_loader_module.PackLoader
 get_loader = pack_loader_module.get_loader
 

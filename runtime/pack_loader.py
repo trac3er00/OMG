@@ -130,7 +130,7 @@ class PackLoader:
         ]
         return len(loaded_pack_modules) == 0
 
-    def list_packs(self) -> list[dict[str, object]]:
+    def list_packs(self) -> list[PackListing]:
         packs: list[PackListing] = []
         for name, info in self._manifest.items():
             packs.append(
