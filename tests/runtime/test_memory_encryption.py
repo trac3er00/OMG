@@ -9,20 +9,16 @@ import runtime.memory_store as memory_store_module
 from runtime.memory_store import MemoryStore
 
 
-def test_plaintext_decrypt_emits_deprecation_warning(tmp_path: Path) -> None:
+def test_plaintext_decrypt_raises_value_error(tmp_path: Path) -> None:
+    """Phase 2: plaintext reads now raise ValueError (no longer just warn)."""
     store = MemoryStore(store_path=str(tmp_path / "store.sqlite3"))
 
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        result = store._decrypt_text("plaintext-data", purpose="test")
+    with pytest.raises(ValueError) as exc_info:
+        store._decrypt_text("plaintext-data", purpose="test")
 
-    assert result == "plaintext-data"
-    assert any(
-        "plaintext" in str(warning.message).lower()
-        or "deprecation" in str(warning.message).lower()
-        for warning in caught
-    ), (
-        f"Expected plaintext deprecation warning, got: {[str(x.message) for x in caught]}"
+    assert (
+        "migrate" in str(exc_info.value).lower()
+        or "encrypt" in str(exc_info.value).lower()
     )
 
 

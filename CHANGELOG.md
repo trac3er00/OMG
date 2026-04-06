@@ -1,5 +1,16 @@
 # Changelog
 
+## [Phase 2] MemoryStore Plaintext Removal (BREAKING)
+
+### Changed
+
+- `MemoryStore._decrypt_text()` now raises `ValueError` for plaintext entries
+- Previously emitted `DeprecationWarning` in Phase 1; plaintext reads are now hard-blocked
+
+### Migration
+
+Run `npx omg memory migrate` to encrypt all existing plaintext entries before upgrading.
+
 <!-- OMG:GENERATED:changelog-v2.3.0 -->
 
 ### Governed Release Surface (v2.3.0)

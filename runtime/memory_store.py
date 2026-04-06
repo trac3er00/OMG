@@ -16,7 +16,6 @@ import uuid
 import base64
 import hashlib
 import socket
-import warnings
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -1138,14 +1137,11 @@ class MemoryStore:
         self, text: str, *, purpose: str, migrate_item_id: str | None = None
     ) -> str:
         if not text.startswith(_ENCRYPTED_PREFIX):
-            warnings.warn(
-                f"DEPRECATION: plaintext memory entry detected (purpose={purpose}). "
+            raise ValueError(
+                f"Plaintext memory entry detected (purpose={purpose}). "
                 "Run 'npx omg memory migrate' to encrypt existing entries. "
-                "Plaintext tolerance will be REMOVED in Phase 2.",
-                DeprecationWarning,
-                stacklevel=3,
+                "See CHANGELOG for migration guide."
             )
-            return text
         payload = text[len(_ENCRYPTED_PREFIX) :]
         key_bytes = self._derive_key_bytes(purpose=purpose)
         try:
