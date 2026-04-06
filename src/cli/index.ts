@@ -5,6 +5,8 @@ import process from "node:process";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { formatCliError, printCliError } from "./error-formatter.js";
+import { hooksListCommand } from "./commands/hooks.js";
+import { skillsListCommand } from "./commands/skills.js";
 
 const CLI_VERSION = "2.3.0";
 
@@ -83,6 +85,13 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
       { name: "teams", description: "Internal staged team routing" },
       { name: "cost", description: "Session cost tracking and budgets" },
       { name: "stats", description: "Session analytics and usage trends" },
+    ],
+  },
+  {
+    title: "Inspect",
+    items: [
+      { name: "hooks list", description: "List registered hook scripts" },
+      { name: "skills list", description: "List installed OMG skills" },
     ],
   },
   {
@@ -293,6 +302,24 @@ async function runCli(): Promise<void> {
         const { blockedCommand } = await import("./commands/blocked.js");
         await blockedCommand.handler?.(argv as never);
       },
+    })
+    .command({
+      command: "hooks",
+      describe: "Inspect registered hook scripts",
+      builder: (command) =>
+        command
+          .command(hooksListCommand)
+          .demandCommand(1, "Specify a hooks subcommand: list"),
+      handler: () => {},
+    })
+    .command({
+      command: "skills",
+      describe: "Inspect installed OMG skills",
+      builder: (command) =>
+        command
+          .command(skillsListCommand)
+          .demandCommand(1, "Specify a skills subcommand: list"),
+      handler: () => {},
     })
     .command({
       command: "validate",
