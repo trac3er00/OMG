@@ -42,6 +42,7 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
       { name: "browser", description: "Browser automation and verification" },
       { name: "playwright", description: "Compatibility alias for browser" },
       { name: "forge", description: "Labs-only domain prototyping" },
+      { name: "domains", description: "Domain pack discovery and scaffolding" },
       {
         name: "ai-commit",
         description: "Split uncommitted changes into atomic commits",
@@ -591,6 +592,33 @@ async function runCli(): Promise<void> {
       handler: async (argv) => {
         const { redTeamCommand } = await import("./commands/red-team.js");
         await redTeamCommand.handler?.(argv as never);
+      },
+    })
+    .command({
+      command: "domains [subcommand] [pack]",
+      describe: "Domain pack discovery and scaffolding",
+      builder: (command) =>
+        command
+          .positional("subcommand", {
+            type: "string",
+            description: "Subcommand: list or init",
+            default: "list",
+          })
+          .positional("pack", {
+            type: "string",
+            description: "Pack name (for init)",
+          })
+          .option("target", {
+            type: "string",
+            description: "Target directory for scaffold output",
+          }),
+      handler: async (argv) => {
+        const { runDomains } = await import("./commands/domains.js");
+        runDomains(
+          argv.subcommand as string | undefined,
+          argv.pack as string | undefined,
+          argv.target as string | undefined,
+        );
       },
     })
     .demandCommand(1, "Specify a command")

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from pathlib import Path
 
-from runtime.domain_packs import get_domain_pack_contract
+from runtime.domain_packs import get_domain_pack_contract, list_packs, scaffold_project
 
 
 def test_health_domain_pack_enforces_human_review():
@@ -69,3 +70,64 @@ def test_get_domain_pack_contract_returns_copy():
     contract1["name"] = "mutated"
     contract2 = get_domain_pack_contract("vision")
     assert contract2["name"] == "vision"
+
+
+def test_list_packs_returns_list(tmp_path):
+    (tmp_path / "pack1").mkdir()
+    (tmp_path / "pack1" / "pack.yaml").write_text(
+        "name: pack1\ndescription: Test pack\ncategory: test\n"
+    )
+    packs = list_packs(packs_dir=tmp_path)
+    assert len(packs) >= 1
+    assert any(p["name"] == "pack1" for p in packs)
+
+
+def test_list_packs_has_required_fields(tmp_path):
+    (tmp_path / "mypk").mkdir()
+    (tmp_path / "mypk" / "pack.yaml").write_text(
+        "name: mypk\ndescription: d\ncategory: web\n"
+    )
+    packs = list_packs(packs_dir=tmp_path)
+    for p in packs:
+        assert "name" in p
+        assert "description" in p
+        assert "category" in p
+
+
+def test_scaffold_project_creates_files(tmp_path):
+    pack_dir = tmp_path / "domains" / "mypack"
+    scaffold = pack_dir / "scaffold" / "src"
+    scaffold.mkdir(parents=True)
+    (scaffold / "index.ts").write_text("export default 'hello'")
+    (pack_dir / "pack.yaml").write_text(
+        "name: mypack\ndescription: test\ncategory: web\n"
+    )
+    target = tmp_path / "output"
+    result = scaffold_project("mypack", target, packs_dir=tmp_path / "domains")
+    assert result["success"] is True
+    assert (target / "src" / "index.ts").exists()
+
+
+def test_scaffold_project_installs_rules(tmp_path):
+    pack_dir = tmp_path / "domains" / "withrulespack"
+    rules = pack_dir / "rules"
+    rules.mkdir(parents=True)
+    (rules / "my-rule.md").write_text("# Rule")
+    (pack_dir / "pack.yaml").write_text(
+        "name: withrulespack\ndescription: t\ncategory: test\n"
+    )
+    target = tmp_path / "output"
+    result = scaffold_project("withrulespack", target, packs_dir=tmp_path / "domains")
+    assert "my-rule.md" in result["rules"]
+    assert (target / ".omg" / "knowledge" / "rules" / "my-rule.md").exists()
+
+
+def test_scaffold_nonexistent_pack_returns_error(tmp_path):
+    result = scaffold_project("nonexistent", tmp_path / "out", packs_dir=tmp_path)
+    assert result["success"] is False
+    assert "error" in result
+
+
+def test_list_empty_dir_returns_empty(tmp_path):
+    packs = list_packs(packs_dir=tmp_path)
+    assert packs == []
