@@ -285,6 +285,10 @@ def _validate_claim_artifacts(
         hash_blocker = _validate_artifact_hash(artifact)
         if hash_blocker:
             blockers.append(hash_blocker)
+
+        content_blocker = _validate_artifact_content(artifact)
+        if content_blocker:
+            blockers.append(content_blocker)
     return blockers
 
 
@@ -436,6 +440,50 @@ def _validate_artifact_hash(artifact: dict[str, Any]) -> str | None:
     if digest != sha256_value:
         return f"proof_gate_artifact_hash_mismatch_{kind}"
     return None
+
+
+def _validate_artifact_content(artifact: dict[str, Any]) -> str | None:
+    path = str(artifact.get("path", "")).strip()
+    kind = str(artifact.get("kind", "artifact")).strip().lower() or "artifact"
+
+    if not path:
+        return None
+
+    file_path = Path(path)
+    if not file_path.exists():
+        return None
+
+    try:
+        content = file_path.read_bytes()
+    except OSError:
+        return f"proof_gate_artifact_content_unreadable_{kind}"
+
+    if len(content) == 0:
+        return f"proof_gate_artifact_content_empty_{kind}"
+
+    suffix = file_path.suffix.lower()
+    if suffix in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
+        if not _is_valid_image_magic(content, suffix):
+            return f"proof_gate_artifact_content_invalid_image_{kind}"
+
+    if kind in ("test_output", "test_results") or suffix in (".txt", ".log"):
+        text = content.decode("utf-8", errors="replace")
+        if len(text.strip()) < 5:
+            return f"proof_gate_artifact_content_too_short_{kind}"
+
+    return None
+
+
+def _is_valid_image_magic(content: bytes, suffix: str) -> bool:
+    if suffix == ".png":
+        return content[:8] == b"\x89PNG\r\n\x1a\n"
+    if suffix in (".jpg", ".jpeg"):
+        return content[:2] == b"\xff\xd8"
+    if suffix == ".gif":
+        return content[:6] in (b"GIF87a", b"GIF89a")
+    if suffix == ".webp":
+        return content[:4] == b"RIFF" and content[8:12] == b"WEBP"
+    return True
 
 
 def _has_lock_evidence(
