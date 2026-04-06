@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from runtime.model_registry import (  # pyright: ignore[reportMissingImports]
+from runtime.model_registry import (
     ModelCapability,
     get_models_for,
     load_registry,

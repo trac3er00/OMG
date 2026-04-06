@@ -53,14 +53,28 @@ def load_registry(path: str | Path | None = None) -> dict[str, ModelCapability]:
             if not isinstance(model_id, str) or not isinstance(attrs, dict):
                 continue
             typed_attrs = cast(dict[str, object], attrs)
+            cost_raw = typed_attrs.get("cost_per_1k_tokens", 0.005)
+            cost = float(cost_raw) if isinstance(cost_raw, (int, float, str)) else 0.005
+            context_raw = typed_attrs.get("context_window", 128000)
+            context_window = (
+                int(context_raw)
+                if isinstance(context_raw, (int, float, str))
+                else 128000
+            )
+            specialties_raw = typed_attrs.get("specialties", [])
+            specialties = (
+                [str(item) for item in specialties_raw]
+                if isinstance(specialties_raw, list)
+                else []
+            )
             models[model_id] = ModelCapability(
                 model_id=model_id,
                 provider=str(typed_attrs.get("provider", "unknown")),
                 speed=str(typed_attrs.get("speed", "medium")),
                 quality=str(typed_attrs.get("quality", "medium")),
-                cost_per_1k_tokens=float(typed_attrs.get("cost_per_1k_tokens", 0.005)),
-                context_window=int(typed_attrs.get("context_window", 128000)),
-                specialties=list(typed_attrs.get("specialties", [])),
+                cost_per_1k_tokens=cost,
+                context_window=context_window,
+                specialties=specialties,
             )
         return models
     except Exception:
