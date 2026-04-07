@@ -29,6 +29,7 @@ from runtime.tool_plan_gate import has_tool_plan_for_run
 
 _MUTATING_TOOLS = frozenset({"Write", "Edit", "MultiEdit"})
 _EXEMPTIONS = frozenset({"docs", "config", "generated", "test"})
+_SILENT_SAFETY_TRUE_VALUES = frozenset({"true", "1", "yes"})
 _MUTATION_BASH_PATTERNS = (
     r"\b(git\s+(add|commit|push|rebase|cherry-pick|merge|tag(?!\s+(-l|--list)\b)))\b",
     r"\b(rm|mv|cp|tee|touch|mkdir|rmdir|ln)\b",
@@ -64,6 +65,45 @@ _CRITICAL_FILE_PATTERNS = (
     re.compile(r"(?:^|[\s/\\])config(?:\..+)?$", re.IGNORECASE),
     re.compile(r"(?:^|[\s/\\])settings(?:\..+)?$", re.IGNORECASE),
 )
+NEVER_AUTO_APPROVE_COMMANDS = [
+    "rm -rf",
+    "rm -r /",
+    "rmdir /s /q",
+    "DROP TABLE",
+    "DROP DATABASE",
+    "TRUNCATE TABLE",
+    "git push --force",
+    "git push -f",
+    "dd if=",
+    "mkfs",
+    "shred ",
+    "wipe ",
+]
+NEVER_AUTO_APPROVE_PATHS = [
+    ".env",
+    ".aws",
+    ".ssh",
+    "credentials",
+    "private_key",
+    "id_rsa",
+    ".omg/",
+    ".agents/",
+    "settings.json",
+]
+_SILENT_SAFE_BASH_PREFIXES = (
+    "npm install",
+    "pip install",
+    "bun install",
+    "yarn install",
+    "git add",
+    "git commit",
+    "git checkout",
+    "git branch",
+    "mkdir",
+    "cp",
+    "mv",
+    "touch",
+)
 
 
 def _is_critical_file(file_path: str) -> bool:
@@ -77,6 +117,99 @@ def _is_critical_file(file_path: str) -> bool:
     return False
 
 
+def _decision(
+    status: str,
+    reason: str,
+    lock_id: str | None,
+    *,
+    silent: bool = False,
+) -> dict[str, object | None]:
+    return {
+        "status": status,
+        "allowed": status != "blocked",
+        "reason": reason,
+        "lock_id": lock_id,
+        "silent": silent,
+    }
+
+
+def _is_silent_safety_enabled() -> bool:
+    return (
+        os.environ.get("SILENT_SAFETY", "").strip().lower()
+        in _SILENT_SAFETY_TRUE_VALUES
+    )
+
+
+def _matches_never_auto_approve_command(command: str) -> bool:
+    normalized = str(command or "").strip().lower()
+    if not normalized:
+        return False
+    return any(token.lower() in normalized for token in NEVER_AUTO_APPROVE_COMMANDS)
+
+
+def _matches_never_auto_approve_path(file_path: str) -> bool:
+    normalized = str(file_path or "").strip().replace("\\", "/").lower()
+    if not normalized:
+        return False
+    return any(token.lower() in normalized for token in NEVER_AUTO_APPROVE_PATHS)
+
+
+def _is_silent_safe_bash_command(command: str) -> bool:
+    normalized = str(command or "").strip().lower()
+    if not normalized:
+        return False
+    return any(
+        normalized == prefix or normalized.startswith(f"{prefix} ")
+        for prefix in _SILENT_SAFE_BASH_PREFIXES
+    )
+
+
+def _evaluate_silent_safety(
+    *,
+    tool: str,
+    file_path: str,
+    lock_id: str | None,
+    command: str,
+) -> dict[str, object | None] | None:
+    if not _is_silent_safety_enabled():
+        return None
+
+    if _matches_never_auto_approve_command(command) or _matches_never_auto_approve_path(
+        file_path
+    ):
+        return _decision(
+            "blocked",
+            "silent_safety_blocked_by_never_auto_approve",
+            lock_id,
+            silent=False,
+        )
+
+    if tool in _MUTATING_TOOLS:
+        if _is_critical_file(file_path):
+            return _decision(
+                "blocked",
+                "silent_safety_blocked_sensitive_path",
+                lock_id,
+                silent=False,
+            )
+        return _decision(
+            "allowed",
+            "silent_safety_auto_approved_safe_mutation",
+            lock_id,
+            silent=True,
+        )
+
+    if tool == "Bash" and _is_silent_safe_bash_command(command):
+        return _decision(
+            "allowed",
+            "silent_safety_auto_approved_safe_command",
+            lock_id,
+            silent=True,
+        )
+
+    return None
+
+
 def check_mutation_allowed(
     tool: str,
     file_path: str,
@@ -87,7 +220,7 @@ def check_mutation_allowed(
     command: str | None = None,
     run_id: str | None = None,
     metadata: dict[str, object] | None = None,
-) -> dict[str, str | None]:
+) -> dict[str, object | None]:
     """Evaluate whether a tool invocation is permitted to mutate state.
 
     The gate first resolves exemptions and mutation capability, then enforces
@@ -119,21 +252,39 @@ def check_mutation_allowed(
     explicit_exempt = bool(metadata_obj.get("exempt") is True)
     strict_mode = os.environ.get("OMG_TDD_GATE_STRICT", "1").strip() != "0"
 
+    silent_safety_result = _evaluate_silent_safety(
+        tool=normalized_tool,
+        file_path=normalized_file_path,
+        lock_id=normalized_lock_id,
+        command=normalized_command,
+    )
+    if silent_safety_result is not None:
+        if silent_safety_result.get("status") == "allowed":
+            _update_live_counter(project_dir, "allowed")
+        else:
+            _write_block_artifact(
+                project_dir,
+                normalized_tool,
+                normalized_file_path,
+                str(silent_safety_result.get("reason") or "silent_safety_blocked"),
+            )
+        return silent_safety_result
+
     if explicit_exempt and (
         normalized_exemption in _EXEMPTIONS or metadata_obj.get("exempt_reason")
     ):
-        return {
-            "status": "exempt",
-            "reason": "metadata exemption allows mutation without lock",
-            "lock_id": normalized_lock_id,
-        }
+        return _decision(
+            "exempt",
+            "metadata exemption allows mutation without lock",
+            normalized_lock_id,
+        )
 
     if normalized_exemption in _EXEMPTIONS:
-        return {
-            "status": "exempt",
-            "reason": f"exemption '{normalized_exemption}' allows mutation without lock",
-            "lock_id": normalized_lock_id,
-        }
+        return _decision(
+            "exempt",
+            f"exemption '{normalized_exemption}' allows mutation without lock",
+            normalized_lock_id,
+        )
 
     requires_lock = normalized_tool in _MUTATING_TOOLS
     if normalized_tool == "Bash":
@@ -141,11 +292,9 @@ def check_mutation_allowed(
 
     if not requires_lock:
         _update_live_counter(project_dir, "allowed")
-        return {
-            "status": "allowed",
-            "reason": "tool is read-only for mutation gate",
-            "lock_id": normalized_lock_id,
-        }
+        return _decision(
+            "allowed", "tool is read-only for mutation gate", normalized_lock_id
+        )
 
     resolved_run_id = (
         get_active_coordinator_run_id(project_dir=project_dir)
@@ -162,16 +311,8 @@ def check_mutation_allowed(
             run_id=resolved_run_id,
         )
         if release_status == "blocked":
-            return {
-                "status": release_status,
-                "reason": release_reason,
-                "lock_id": normalized_lock_id,
-            }
-        return {
-            "status": release_status,
-            "reason": release_reason,
-            "lock_id": normalized_lock_id,
-        }
+            return _decision(release_status, release_reason, normalized_lock_id)
+        return _decision(release_status, release_reason, normalized_lock_id)
 
     if not resolved_run_id and normalized_lock_id is None:
         reason = "mutation_context_required"
@@ -182,11 +323,7 @@ def check_mutation_allowed(
                 normalized_file_path,
                 reason,
             )
-            return {
-                "status": "blocked",
-                "reason": reason,
-                "lock_id": None,
-            }
+            return _decision("blocked", reason, None)
 
         _write_warning_artifact(
             project_dir,
@@ -199,11 +336,7 @@ def check_mutation_allowed(
             RuntimeWarning,
             stacklevel=2,
         )
-        return {
-            "status": "allowed",
-            "reason": reason,
-            "lock_id": None,
-        }
+        return _decision("allowed", reason, None)
 
     verification = verify_lock(
         project_dir, run_id=resolved_run_id, lock_id=normalized_lock_id
@@ -217,11 +350,7 @@ def check_mutation_allowed(
             _write_block_artifact(
                 project_dir, normalized_tool, normalized_file_path, reason
             )
-            return {
-                "status": "blocked",
-                "reason": reason,
-                "lock_id": normalized_lock_id,
-            }
+            return _decision("blocked", reason, normalized_lock_id)
 
         _write_warning_artifact(
             project_dir, normalized_tool, normalized_file_path, reason
@@ -231,22 +360,14 @@ def check_mutation_allowed(
             RuntimeWarning,
             stacklevel=2,
         )
-        return {
-            "status": "allowed",
-            "reason": reason,
-            "lock_id": normalized_lock_id,
-        }
+        return _decision("allowed", reason, normalized_lock_id)
 
     if resolved_run_id and not has_tool_plan_for_run(project_dir, resolved_run_id):
         reason = "tool_plan_required"
         _write_block_artifact(
             project_dir, normalized_tool, normalized_file_path, reason
         )
-        return {
-            "status": "blocked",
-            "reason": reason,
-            "lock_id": normalized_lock_id,
-        }
+        return _decision("blocked", reason, normalized_lock_id)
 
     if resolved_run_id:
         done_when_verification = verify_done_when(metadata_obj, run_id=resolved_run_id)
@@ -258,18 +379,14 @@ def check_mutation_allowed(
             _write_block_artifact(
                 project_dir, normalized_tool, normalized_file_path, reason
             )
-            return {
-                "status": "blocked",
-                "reason": reason,
-                "lock_id": normalized_lock_id,
-            }
+            return _decision("blocked", reason, normalized_lock_id)
 
     _update_live_counter(project_dir, "allowed")
-    return {
-        "status": "allowed",
-        "reason": "active test intent lock found",
-        "lock_id": str(verification.get("lock_id") or normalized_lock_id or "") or None,
-    }
+    return _decision(
+        "allowed",
+        "active test intent lock found",
+        str(verification.get("lock_id") or normalized_lock_id or "") or None,
+    )
 
 
 def _is_mutation_capable_bash(command: str) -> bool:
