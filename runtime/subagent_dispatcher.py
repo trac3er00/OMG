@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import json
+import importlib
 import logging
 import shlex
 import subprocess
@@ -17,8 +18,11 @@ import sys
 import uuid
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
+
+from .runtime_profile import _load_cli_parallel_cap, load_runtime_profile
 
 # --- Path resolution (never relies on CWD) ---
 _DISPATCHER_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -519,12 +523,73 @@ def _record_rollback_side_effects(
         _logger.debug("Failed to record rollback side effects: %s", exc, exc_info=True)
 
 
-def get_executor() -> ThreadPoolExecutor:
+def get_executor(max_workers: int = MAX_JOBS) -> ThreadPoolExecutor:
     """Lazy-init and return the module-level ThreadPoolExecutor singleton."""
     global _executor
     if _executor is None:
-        _executor = ThreadPoolExecutor(max_workers=MAX_JOBS)
+        _executor = ThreadPoolExecutor(max_workers=max(1, min(max_workers, MAX_JOBS)))
     return _executor
+
+
+def _infer_task_complexity(task_text: str) -> str:
+    normalized = str(task_text).strip().lower()
+    if not normalized:
+        return "medium"
+
+    keyword_bands = (
+        ("critical", ("critical", "urgent", "sev1", "production", "outage")),
+        (
+            "complex",
+            ("complex", "multi-agent", "orchestration", "distributed", "migration"),
+        ),
+        ("simple", ("simple", "small", "minor", "tiny", "quick")),
+        ("trivial", ("trivial", "rename", "comment", "whitespace")),
+    )
+    for label, keywords in keyword_bands:
+        if any(keyword in normalized for keyword in keywords):
+            return label
+
+    word_count = len(normalized.split())
+    if word_count <= 4:
+        return "simple"
+    if word_count >= 20:
+        return "complex"
+    return "medium"
+
+
+def resolve_dispatch_workers(
+    project_dir: str,
+    *,
+    task_text: str,
+    requested_workers: int = MAX_JOBS,
+    budget_remaining_pct: float = 100.0,
+    rate_limited: bool = False,
+    call_history: Sequence[Mapping[str, object]] | None = None,
+) -> int:
+    profile = load_runtime_profile(project_dir)
+    if profile["profile"] != "elastic":
+        raw_max_workers = profile["max_workers"]
+        max_workers = (
+            int(raw_max_workers) if raw_max_workers is not None else requested_workers
+        )
+        cli_cap = _load_cli_parallel_cap(project_dir)
+        if cli_cap is not None:
+            max_workers = min(max_workers, cli_cap)
+        return max(1, min(requested_workers, max_workers))
+
+    if call_history:
+        loop_breaker = importlib.import_module("runtime.loop_breaker")
+        if loop_breaker.detect_loop(call_history)["detected"]:
+            return 1
+
+    cli_cap = _load_cli_parallel_cap(project_dir)
+    elastic_agent = importlib.import_module("runtime.elastic_agent")
+    pool = elastic_agent.ElasticPool(
+        max_workers=cli_cap if cli_cap is not None else 8,
+        budget_remaining_pct=budget_remaining_pct,
+        rate_limited=rate_limited,
+    )
+    return pool.compute_agent_count(_infer_task_complexity(task_text))
 
 
 def _running_count() -> int:
@@ -560,6 +625,11 @@ def submit_job(
         if _running_count() >= MAX_JOBS:
             raise RuntimeError("job limit reached")
 
+        concurrency_limit = resolve_dispatch_workers(
+            _get_project_dir(),
+            task_text=task_text,
+            requested_workers=MAX_JOBS,
+        )
         job_id = uuid.uuid4().hex[:8]
         now = datetime.now(timezone.utc).isoformat()
         isolation_contract = resolve_isolation_contract(isolation=isolation)
@@ -576,6 +646,7 @@ def submit_job(
             "evidence_hooks": list(evidence_hooks or []),
             "attach_log": attach_log,
             "error": None,
+            "concurrency_limit": concurrency_limit,
         }
         record["governed_context"] = _build_governed_context(
             job_id, record, project_dir=_get_project_dir()
@@ -587,7 +658,7 @@ def submit_job(
     _persist_job(job_id, record)
 
     # Submit to thread pool — returns immediately
-    executor = get_executor()
+    executor = get_executor(concurrency_limit)
     executor.submit(_run_job, job_id)
 
     return job_id

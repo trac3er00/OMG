@@ -1,4 +1,5 @@
 """Runtime profile loading and parallelism budgets."""
+
 from __future__ import annotations
 
 import logging
@@ -15,8 +16,9 @@ _logger = logging.getLogger(__name__)
 
 class RuntimeProfile(TypedDict):
     profile: str
-    max_workers: int
+    max_workers: int | None
     background_polling: bool
+    description: str
 
 
 class CanonicalModeProfile(TypedDict):
@@ -27,9 +29,30 @@ class CanonicalModeProfile(TypedDict):
 
 
 PROFILE_PRESETS: dict[str, RuntimeProfile] = {
-    "eco": {"profile": "eco", "max_workers": 2, "background_polling": False},
-    "balanced": {"profile": "balanced", "max_workers": 3, "background_polling": False},
-    "turbo": {"profile": "turbo", "max_workers": 5, "background_polling": True},
+    "eco": {
+        "profile": "eco",
+        "max_workers": 2,
+        "background_polling": False,
+        "description": "Low-cost fixed concurrency",
+    },
+    "balanced": {
+        "profile": "balanced",
+        "max_workers": 3,
+        "background_polling": False,
+        "description": "Default fixed concurrency",
+    },
+    "turbo": {
+        "profile": "turbo",
+        "max_workers": 5,
+        "background_polling": True,
+        "description": "Higher fixed concurrency",
+    },
+    "elastic": {
+        "profile": "elastic",
+        "max_workers": None,
+        "background_polling": True,
+        "description": "Auto-scaling based on task complexity and budget",
+    },
 }
 
 RUNTIME_CONCURRENCY_PROFILE_NAMES = tuple(PROFILE_PRESETS.keys())
@@ -72,9 +95,16 @@ def load_runtime_profile(project_dir: str) -> RuntimeProfile:
     profile_name = "balanced"
     if runtime_path.exists():
         try:
-            raw_payload: object = yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
+            raw_payload: object = (
+                yaml.safe_load(runtime_path.read_text(encoding="utf-8")) or {}
+            )
         except Exception as exc:
-            _logger.debug("Failed to parse runtime profile from %s: %s", runtime_path, exc, exc_info=True)
+            _logger.debug(
+                "Failed to parse runtime profile from %s: %s",
+                runtime_path,
+                exc,
+                exc_info=True,
+            )
             raw_payload = {}
         if isinstance(raw_payload, dict):
             payload_map = cast(dict[object, object], raw_payload)
@@ -83,7 +113,11 @@ def load_runtime_profile(project_dir: str) -> RuntimeProfile:
                 if isinstance(key, str):
                     payload[key] = value
             candidate_obj = payload.get("profile", profile_name)
-            candidate = candidate_obj.strip() if isinstance(candidate_obj, str) else profile_name
+            candidate = (
+                candidate_obj.strip()
+                if isinstance(candidate_obj, str)
+                else profile_name
+            )
             if candidate in RUNTIME_CONCURRENCY_PROFILE_NAMES:
                 profile_name = candidate
 
@@ -92,13 +126,17 @@ def load_runtime_profile(project_dir: str) -> RuntimeProfile:
         "profile": preset["profile"],
         "max_workers": preset["max_workers"],
         "background_polling": preset["background_polling"],
+        "description": preset["description"],
     }
     return result
 
 
 def resolve_parallel_workers(project_dir: str, *, requested_workers: int) -> int:
     profile = load_runtime_profile(project_dir)
-    max_workers = int(profile["max_workers"])
+    raw_max_workers = profile["max_workers"]
+    max_workers = (
+        int(raw_max_workers) if raw_max_workers is not None else requested_workers
+    )
     cli_cap = _load_cli_parallel_cap(project_dir)
     if cli_cap is not None:
         max_workers = min(max_workers, cli_cap)
@@ -110,9 +148,16 @@ def _load_cli_parallel_cap(project_dir: str) -> int | None:
     if not config_path.exists():
         return None
     try:
-        raw_payload: object = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        raw_payload: object = (
+            yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        )
     except Exception as exc:
-        _logger.debug("Failed to parse CLI parallel cap from %s: %s", config_path, exc, exc_info=True)
+        _logger.debug(
+            "Failed to parse CLI parallel cap from %s: %s",
+            config_path,
+            exc,
+            exc_info=True,
+        )
         return None
     if not isinstance(raw_payload, dict):
         return None
