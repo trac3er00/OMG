@@ -33,6 +33,13 @@
 - bun test for TypeScript: `bun test tests/hud/test_hud_enhanced.test.ts`
 - conftest.py has shared fixtures (tmp_project, mock_stdin, clean_env) - USE THEM
 
+## Task T1 Learnings
+- `runtime/__init__.py` was the real cold-start leak: eager vision exports loaded `runtime.vision_*` before `PackLoader` ever ran, so converting package exports to `__getattr__`-backed lazy exports fixed isolation without breaking public names.
+- `config/packs.yaml` only covered five packs and included a stale browser/vision module entry, so `PackLoader` needs runtime-side fallback discovery/merging to guarantee a complete lazy-pack registry and preserve `list_packs()` latency.
+- A tiny explicit `runtime/core_imports.py` manifest keeps the eager import budget measurable; loading only the documented must-have core modules kept `PackLoader()` cold start well under the 200ms target.
+- Intent classifier uses exact-token matching for English keywords and substring matching for Hangul keywords to avoid false positives like `productivity` -> `product`
+- Intent clarification stays in the input language and escalates when prompts contain multiple product signals joined by connectors like `and`, `이랑`, or `둘 다`
+
 ## Pack Schema Validation
 - Default pack validation should only require `name`; relaxed mode must allow saas-lite without blocking on missing recommended fields.
 - Strict validation should reject missing `rules/prompts/scaffold/evidence`, but still grandfather the 9-rule legacy SaaS pack.
