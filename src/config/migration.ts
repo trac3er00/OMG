@@ -29,6 +29,47 @@ const SUPPORTED_TRANSITION = {
   to: "3.0.0",
 } as const;
 
+interface MigrationConfigStep {
+  readonly action: "add_config";
+  readonly path: string;
+  readonly value: unknown;
+}
+
+interface MigrationPlan {
+  readonly from: string;
+  readonly to: string;
+  readonly steps: readonly MigrationConfigStep[];
+}
+
+export const CONFIG_MIGRATION_STEPS: readonly MigrationPlan[] = [
+  {
+    from: "2.3.0",
+    to: "2.5.0",
+    steps: [
+      {
+        action: "add_config",
+        path: "memory.tiers",
+        value: { auto: {}, micro: {}, ship: {} },
+      },
+      {
+        action: "add_config",
+        path: "features.pause_continue",
+        value: false,
+      },
+      {
+        action: "add_config",
+        path: "features.context_durability",
+        value: false,
+      },
+      {
+        action: "add_config",
+        path: "features.society_of_thought",
+        value: false,
+      },
+    ],
+  },
+] as const;
+
 export const CANONICAL_STATE_SCHEMA_VERSIONS: Record<string, string> = {
   verification_controller: "1.0.0",
   release_run_coordinator: "1.0.0",
@@ -258,6 +299,7 @@ export function migrateConfig(options: MigrationOptions): MigrationReport {
   const changesRequired: Record<string, unknown> = {
     transition: `${options.from}->${options.to}`,
     canonical_state_schemas: CANONICAL_STATE_SCHEMA_VERSIONS,
+    migration_steps: CONFIG_MIGRATION_STEPS,
     state_inventory: {},
     config_updates: {},
   };
