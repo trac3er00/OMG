@@ -1,5 +1,9 @@
 import { HudState } from "./hud.js";
 import { OrchestrationSession, type SessionEvent } from "./session.js";
+import {
+  getReliabilityHudData,
+  type ReliabilityHudData,
+} from "../reliability/hud-integration.js";
 
 export interface HudServerOptions {
   readonly session: OrchestrationSession;
@@ -44,6 +48,10 @@ export class HudServer {
 
   renderAnsi(): string {
     return this.hud.render();
+  }
+
+  async getReliabilityData(projectDir = "."): Promise<ReliabilityHudData> {
+    return getReliabilityHudData(projectDir);
   }
 
   snapshotJson(): Record<string, unknown> {
