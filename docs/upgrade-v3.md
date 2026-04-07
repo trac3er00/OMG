@@ -49,6 +49,22 @@ The migration tool performs:
 - **Schema Updates**: Aligns on-disk JSON payloads with v3.0.0 contracts.
 - **Backup**: Creates a rollback backup in `.omg/backups/migrations/` before mutating state.
 
+## Phase 1 Feature Flags
+
+All Phase 1 capabilities remain **off by default**. Enable them explicitly if you want the v2.5.0 surface before the v3 rollout.
+
+| Flag                           | Default | Purpose                                        |
+| :----------------------------- | :-----: | :--------------------------------------------- |
+| `cmms_memory_tiers`            |   off   | Tier-aware memory routing (Auto/Micro/Ship).   |
+| `pause_continue`               |   off   | Session checkpoint pause/resume flow.          |
+| `context_durability`           |   off   | Freshness scoring and adaptive reconstruction. |
+| `society_of_thought`           |   off   | Complexity-gated debate planning.              |
+| `reliability_scoring`          |   off   | HUD reliability scoring.                       |
+| `governance_graph_compliance`  |   off   | Advisory compliance enforcement.               |
+| `handoff_retry_optimization`   |   off   | Budget-aware retry optimization.               |
+| `memory_tier_status`           |   off   | CLI inspection for memory tier state.          |
+| `session_lifecycle_monitoring` |   off   | Continuous context durability monitoring.      |
+
 ---
 
 ## New Features

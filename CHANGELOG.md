@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.5.0] - 2026-04-07
+
+### Added
+
+- CMMS tier-aware memory routing (Auto/Micro/Ship layers) behind feature flag
+- `/pause` command with checkpoint persistence for session state
+- `/continue` command with checkpoint restoration and staleness check
+- Context durability with freshness score, decay detection, and adaptive reconstruction
+- Society of Thought debate integration into planning pipeline (complexity-gated)
+- Reliability scoring wired into HUD dashboard
+- Governance graph compliance enforcement (advisory mode)
+- Advanced handoff retry optimization with budget tracking
+- `memory tier-status` CLI inspection command
+- Session lifecycle context durability monitoring
+
 ## [Phase 2] MemoryStore Plaintext Removal (BREAKING)
 
 ### Changed
