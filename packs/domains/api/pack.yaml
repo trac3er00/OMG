@@ -1,0 +1,36 @@
+name: api
+description: REST/GraphQL API backend service
+category: backend
+rules:
+  - name: rest-conventions
+    description: Use RESTful resource naming, proper HTTP verbs, status codes
+  - name: error-handling
+    description: All endpoints must return structured error responses with codes
+  - name: input-validation
+    description: Validate and sanitize all request inputs before processing
+  - name: auth-middleware
+    description: Protected routes must use JWT/session authentication middleware
+  - name: rate-limiting
+    description: Public endpoints must implement rate limiting per IP
+prompts:
+  - api-architect
+  - endpoint-design
+  - error-response
+scaffold:
+  - express-rest
+  - src/app.ts
+  - src/routes/index.ts
+  - src/middleware/auth.ts
+  - src/middleware/validation.ts
+  - src/controllers/example.ts
+  - src/types/index.ts
+  - openapi.yaml
+  - package.json
+  - tsconfig.json
+evidence:
+  required:
+    - endpoint-test
+    - auth-flow-test
+    - error-response-test
+  artifacts:
+    - .omg/evidence/api/*.json

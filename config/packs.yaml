@@ -28,9 +28,51 @@ packs:
     dependencies: []
     trigger: "from runtime.api_twin"
 
+  api:
+    description: "REST/GraphQL API backend service"
+    entry_modules:
+      - runtime.api_backend
+    dependencies: []
+    trigger: "from runtime.api_"
+
   data-lineage:
     description: "Data provenance and lineage tracking"
     entry_modules:
       - runtime.data_lineage
     dependencies: []
     trigger: "from runtime.data_lineage"
+
+  bot:
+    description: "Chatbot and messaging platform integration"
+    entry_modules:
+      - runtime.bot
+    dependencies: []
+    trigger: "from runtime.bot"
+
+  landing:
+    description: "Landing page and portfolio website domain pack"
+    entry_modules:
+      - runtime.landing_pack
+    dependencies: []
+    trigger: "from runtime.landing_"
+
+  ecommerce:
+    description: "Online store and commerce platform"
+    entry_modules:
+      - runtime.ecommerce
+    dependencies: []
+    trigger: "from runtime.ecommerce"
+
+  admin:
+    description: "Admin panel and internal dashboard domain pack"
+    entry_modules:
+      - runtime.admin_pack
+    dependencies: []
+    trigger: "from runtime.admin_"
+
+  cli:
+    description: "Command-line and terminal interface tooling"
+    entry_modules:
+      - runtime.cli_pack
+    dependencies: []
+    trigger: "from runtime.cli_"
