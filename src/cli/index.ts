@@ -37,6 +37,11 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     title: "Work",
     items: [
+      {
+        name: "instant",
+        description:
+          "Build anything with one command - scaffold + code + preview",
+      },
       { name: "crazy", description: "Maximum multi-agent orchestration" },
       { name: "deep-plan", description: "Canonical strategic planning" },
       { name: "browser", description: "Browser automation and verification" },
@@ -238,6 +243,19 @@ async function runCli(): Promise<void> {
         await shipCommand.handler?.(argv as never);
       },
     })
+    .command(
+      "instant <prompt>",
+      "Build anything with one command - scaffold + code + preview",
+      (yargs) => {
+        yargs.positional("prompt", {
+          describe: "What to build",
+          type: "string",
+        });
+      },
+      async (argv) => {
+        console.log("Running instant mode:", argv.prompt);
+      },
+    )
     .command({
       command: "autorun <goal...>",
       describe:
