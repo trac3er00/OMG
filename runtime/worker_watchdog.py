@@ -7,6 +7,7 @@ State paths:
 - Heartbeats: .omg/state/worker-heartbeats/<run_id>.json
 - Replay evidence: .omg/evidence/subagents/<run_id>-replay.json
 """
+
 from __future__ import annotations
 
 import json
@@ -14,11 +15,23 @@ import logging
 import os
 import signal
 import time
+from importlib import import_module
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypedDict, cast
 
 from hooks.security_validators import sanitize_run_id
+
+
+class LoopDetectionResult(TypedDict):
+    detected: bool
+    type: str | None
+    suggestion: str | None
+    history_analyzed: int
+
+
+detect_loop = cast(Callable[[list[dict[str, object]]], LoopDetectionResult], import_module("runtime.loop_breaker").detect_loop)
 
 _logger = logging.getLogger(__name__)
 
@@ -84,6 +97,7 @@ class WorkerWatchdog:
 
     def __init__(self, project_dir: str | None = None):
         self.project_dir = _project_dir(project_dir)
+        self.loop_detector = detect_loop
 
     # --- Paths ---
 
@@ -94,7 +108,13 @@ class WorkerWatchdog:
         return self._heartbeat_dir() / f"{sanitize_run_id(run_id)}.json"
 
     def _replay_evidence_path(self, run_id: str) -> Path:
-        return self.project_dir / ".omg" / "evidence" / "subagents" / f"{sanitize_run_id(run_id)}-replay.json"
+        return (
+            self.project_dir
+            / ".omg"
+            / "evidence"
+            / "subagents"
+            / f"{sanitize_run_id(run_id)}-replay.json"
+        )
 
     def _worktree_dir(self, run_id: str) -> Path:
         return self.project_dir / ".omg" / "worktrees" / sanitize_run_id(run_id)
@@ -136,6 +156,10 @@ class WorkerWatchdog:
         existing = _read_json(path)
 
         heartbeat_count = int(existing.get("heartbeat_count", 0)) + 1
+        loop_detection = self._check_loop_metadata(run_id, metadata)
+        merged_metadata = dict(metadata or existing.get("metadata", {}))
+        if loop_detection["detected"]:
+            merged_metadata["loop_detection"] = loop_detection
 
         record: dict[str, Any] = {
             "schema": "WorkerHeartbeat",
@@ -145,12 +169,46 @@ class WorkerWatchdog:
             "heartbeat_count": heartbeat_count,
             "last_heartbeat_at": _now_iso(),
             "first_heartbeat_at": existing.get("first_heartbeat_at", _now_iso()),
-            "metadata": metadata or existing.get("metadata", {}),
+            "metadata": merged_metadata,
             "ownership": self._ownership_metadata(run_id),
         }
 
         _write_atomic_json(path, record)
         return record
+
+    def check_loop(
+        self,
+        run_id: str,
+        call_history: list[dict[str, object]],
+    ) -> LoopDetectionResult:
+        result = self.loop_detector(call_history)
+        if result["detected"]:
+            _logger.warning(
+                "Loop breaker detected %s for run %s after %d calls: %s",
+                result["type"],
+                run_id,
+                result["history_analyzed"],
+                result["suggestion"],
+            )
+        return result
+
+    def _check_loop_metadata(
+        self,
+        run_id: str,
+        metadata: dict[str, Any] | None,
+    ) -> LoopDetectionResult:
+        call_history = (
+            metadata.get("call_history") if isinstance(metadata, dict) else None
+        )
+        if not isinstance(call_history, list):
+            return {
+                "detected": False,
+                "type": None,
+                "suggestion": None,
+                "history_analyzed": 0,
+            }
+        normalized_history = [call for call in call_history if isinstance(call, dict)]
+        return self.check_loop(run_id, normalized_history)
 
     def read_heartbeat(self, run_id: str) -> dict[str, Any]:
         """Read heartbeat state for a given run_id.
@@ -174,7 +232,9 @@ class WorkerWatchdog:
                 if record:
                     results.append(record)
         except OSError as exc:
-            _logger.debug("Failed to enumerate heartbeat records: %s", exc, exc_info=True)
+            _logger.debug(
+                "Failed to enumerate heartbeat records: %s", exc, exc_info=True
+            )
         return results
 
     def cleanup_terminal_heartbeats(self, max_age_seconds: float) -> list[str]:
@@ -196,7 +256,11 @@ class WorkerWatchdog:
             if status not in removable_statuses:
                 continue
 
-            timestamp = str(record.get("last_heartbeat_at") or record.get("first_heartbeat_at") or "")
+            timestamp = str(
+                record.get("last_heartbeat_at")
+                or record.get("first_heartbeat_at")
+                or ""
+            )
             if not timestamp:
                 continue
 
@@ -381,7 +445,9 @@ class WorkerWatchdog:
                 cwd=str(self.project_dir),
             )
             if cleanup_proc.returncode != 0:
-                snippet = (cleanup_proc.stderr or cleanup_proc.stdout or "").strip()[:200]
+                snippet = (cleanup_proc.stderr or cleanup_proc.stdout or "").strip()[
+                    :200
+                ]
                 _logger.warning(
                     "git worktree remove failed for %s (rc=%d): %s",
                     run_id,
@@ -393,7 +459,11 @@ class WorkerWatchdog:
                 result["method"] = "git_worktree_remove"
                 return result
         except (subprocess.TimeoutExpired, OSError) as exc:
-            _logger.debug("Failed to remove stale git worktree via git command: %s", exc, exc_info=True)
+            _logger.debug(
+                "Failed to remove stale git worktree via git command: %s",
+                exc,
+                exc_info=True,
+            )
 
         # Fallback: rmtree
         try:
@@ -441,7 +511,9 @@ class WorkerWatchdog:
         }
 
         _write_atomic_json(path, payload)
-        payload["evidence_path"] = str(path.relative_to(self.project_dir)).replace("\\", "/")
+        payload["evidence_path"] = str(path.relative_to(self.project_dir)).replace(
+            "\\", "/"
+        )
         return payload
 
     # --- Composite Operations ---
@@ -468,7 +540,9 @@ class WorkerWatchdog:
         termination: dict[str, Any] | None = None
         if worker_pid is not None:
             termination = self.terminate_worker(
-                run_id, worker_pid, grace_seconds=grace_seconds,
+                run_id,
+                worker_pid,
+                grace_seconds=grace_seconds,
             )
 
         cleanup = self.cleanup_stale_worktree(run_id)
