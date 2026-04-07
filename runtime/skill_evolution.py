@@ -3,14 +3,20 @@ from __future__ import annotations
 import json
 import os
 import uuid
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping, cast
+from typing import Mapping, NamedTuple, cast
 
 from runtime import proof_gate
 
 
-def propose_skill(name: str, source: str, description: str = "", metadata: dict[str, object] | None = None) -> dict[str, object]:
+def propose_skill(
+    name: str,
+    source: str,
+    description: str = "",
+    metadata: dict[str, object] | None = None,
+) -> dict[str, object]:
     normalized_name = str(name).strip()
     normalized_source = str(source).strip()
     if not normalized_name:
@@ -47,7 +53,9 @@ def propose_skill(name: str, source: str, description: str = "", metadata: dict[
     }
 
 
-def evaluate_proposal(proposal_id: str, test_results: dict[str, object]) -> dict[str, object]:
+def evaluate_proposal(
+    proposal_id: str, test_results: dict[str, object]
+) -> dict[str, object]:
     normalized_id = str(proposal_id).strip()
     proposal_path = _proposal_path(normalized_id)
     proposal_payload = _read_json(proposal_path)
@@ -66,7 +74,9 @@ def evaluate_proposal(proposal_id: str, test_results: dict[str, object]) -> dict
         }
 
     gate_input = _build_proof_gate_input(normalized_id, test_results)
-    proof_gate_result = cast(dict[str, object], proof_gate.evaluate_proof_gate(gate_input))
+    proof_gate_result = cast(
+        dict[str, object], proof_gate.evaluate_proof_gate(gate_input)
+    )
     promotable = str(proof_gate_result.get("verdict", "fail")) == "pass"
     status = "evaluated" if promotable else "failed"
 
@@ -134,7 +144,9 @@ def promote_if_proven(proposal_id: str) -> dict[str, object]:
     }
 
 
-def _build_proof_gate_input(proposal_id: str, test_results: dict[str, object]) -> dict[str, object]:
+def _build_proof_gate_input(
+    proposal_id: str, test_results: dict[str, object]
+) -> dict[str, object]:
     raw_gate_input = test_results.get("proof_gate_input")
     if isinstance(raw_gate_input, dict):
         payload = cast(dict[str, object], dict(raw_gate_input))
@@ -149,19 +161,35 @@ def _build_proof_gate_input(proposal_id: str, test_results: dict[str, object]) -
         proof_chain = {"status": "error", "blockers": ["proof_chain_missing"]}
 
     raw_eval_output = test_results.get("eval_output")
-    eval_output = cast(dict[str, object], dict(raw_eval_output)) if isinstance(raw_eval_output, dict) else {}
+    eval_output = (
+        cast(dict[str, object], dict(raw_eval_output))
+        if isinstance(raw_eval_output, dict)
+        else {}
+    )
 
     raw_security_evidence = test_results.get("security_evidence")
-    security_evidence = cast(dict[str, object], dict(raw_security_evidence)) if isinstance(raw_security_evidence, dict) else {}
+    security_evidence = (
+        cast(dict[str, object], dict(raw_security_evidence))
+        if isinstance(raw_security_evidence, dict)
+        else {}
+    )
 
     raw_browser_evidence = test_results.get("browser_evidence")
-    browser_evidence = cast(dict[str, object], dict(raw_browser_evidence)) if isinstance(raw_browser_evidence, dict) else {}
+    browser_evidence = (
+        cast(dict[str, object], dict(raw_browser_evidence))
+        if isinstance(raw_browser_evidence, dict)
+        else {}
+    )
 
     raw_claims = test_results.get("claims")
     claims = list(raw_claims) if isinstance(raw_claims, list) else []
 
     raw_evidence_pack = test_results.get("evidence_pack")
-    evidence_pack: dict[str, object] = cast(dict[str, object], dict(raw_evidence_pack)) if isinstance(raw_evidence_pack, dict) else {}
+    evidence_pack: dict[str, object] = (
+        cast(dict[str, object], dict(raw_evidence_pack))
+        if isinstance(raw_evidence_pack, dict)
+        else {}
+    )
     evidence_pack["proposal_id"] = proposal_id
     return {
         "claims": claims,
@@ -219,3 +247,107 @@ def _relative_to_project(path: Path) -> str:
 
 def _timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+class ToolSequence(NamedTuple):
+    tools: tuple[str, ...]
+
+    def __len__(self) -> int:  # type: ignore[override]
+        return len(self.tools)
+
+
+class SkillProposal:
+    def __init__(
+        self,
+        name: str,
+        trigger: str,
+        tool_sequence: ToolSequence,
+        expected_outcome: str,
+    ) -> None:
+        self.name = name
+        self.trigger = trigger
+        self.tool_sequence = tool_sequence
+        self.expected_outcome = expected_outcome
+        self.occurrence_count: int = 0
+        self.status: str = "proposed"
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "trigger": self.trigger,
+            "tool_sequence": list(self.tool_sequence.tools),
+            "expected_outcome": self.expected_outcome,
+            "occurrence_count": self.occurrence_count,
+            "status": self.status,
+        }
+
+
+def detect_repeated_patterns(
+    session_histories: list[list[str]],
+    min_sequence_length: int = 3,
+    min_occurrences: int = 3,
+) -> list[tuple[ToolSequence, int]]:
+    sequence_counts: Counter[ToolSequence] = Counter()
+
+    for session in session_histories:
+        for start in range(len(session)):
+            for end in range(start + min_sequence_length, len(session) + 1):
+                seq = ToolSequence(tuple(session[start:end]))
+                sequence_counts[seq] += 1
+
+    repeated = [
+        (seq, count)
+        for seq, count in sequence_counts.items()
+        if count >= min_occurrences
+    ]
+    return sorted(repeated, key=lambda x: x[1], reverse=True)
+
+
+def auto_propose_skill(
+    sequence: ToolSequence,
+    occurrence_count: int,
+) -> SkillProposal:
+    tool_names = list(sequence.tools)
+    name = f"auto-{'-'.join(tool_names[:3])}"
+    trigger = f"When needing to {tool_names[0]} followed by {tool_names[-1]}"
+    outcome = f"Automated sequence: {' → '.join(tool_names)}"
+
+    proposal = SkillProposal(
+        name=name,
+        trigger=trigger,
+        tool_sequence=sequence,
+        expected_outcome=outcome,
+    )
+    proposal.occurrence_count = occurrence_count
+    return proposal
+
+
+def save_skill_proposal(
+    proposal: SkillProposal,
+    proposals_dir: str = ".omg/skill-proposals",
+) -> str:
+    os.makedirs(proposals_dir, exist_ok=True)
+    filename = f"{proposal.name}.json"
+    filepath = os.path.join(proposals_dir, filename)
+    with open(filepath, "w", encoding="utf-8") as fh:
+        json.dump(proposal.to_dict(), fh, indent=2, ensure_ascii=True)
+    return filepath
+
+
+def run_auto_propose(
+    session_histories: list[list[str]],
+    proposals_dir: str = ".omg/skill-proposals",
+    min_sequence_length: int = 3,
+    min_occurrences: int = 3,
+) -> list[SkillProposal]:
+    patterns = detect_repeated_patterns(
+        session_histories,
+        min_sequence_length,
+        min_occurrences,
+    )
+    proposals: list[SkillProposal] = []
+    for sequence, count in patterns:
+        proposal = auto_propose_skill(sequence, count)
+        save_skill_proposal(proposal, proposals_dir)
+        proposals.append(proposal)
+    return proposals
