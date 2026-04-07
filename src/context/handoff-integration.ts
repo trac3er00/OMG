@@ -10,6 +10,7 @@ import {
   serializeState,
 } from "./workspace-reconstruction.js";
 import { CheckpointSystem } from "./checkpoint.js";
+import { applyLevel1Compression } from "./compression.js";
 
 export interface HandoffPlan {
   readonly from_agent_id: string;
@@ -25,8 +26,17 @@ export interface HandoffOutcome {
   readonly pre_handoff_checkpoint_id: string | null;
 }
 
+export interface HandoffHealthMetrics {
+  readonly success: boolean;
+  readonly attemptCount: number;
+  readonly maxRetries: number;
+  readonly tokenWaste: number;
+  readonly successRate: number;
+}
+
 export const MIN_HANDOFF_RETENTION = 0.8;
 export const MIN_CASCADING_RETENTION = 0.6;
+export const DEFAULT_MAX_RETRIES = 3;
 
 export function executeContextHandoff(plan: HandoffPlan): HandoffOutcome {
   const checkpointSystem = new CheckpointSystem(plan.project_dir);
@@ -57,6 +67,88 @@ export function executeContextHandoff(plan: HandoffPlan): HandoffOutcome {
     retention_quality,
     checkpoint_created: true,
     pre_handoff_checkpoint_id: checkpointResult.checkpoint_id,
+  };
+}
+
+export function compactContextForRetry(
+  state: CompactCanonicalState,
+): CompactCanonicalState {
+  const estimatedTokens = JSON.stringify(state).length;
+  const compressed = applyLevel1Compression(estimatedTokens);
+  return {
+    ...state,
+    context_version: state.context_version + 1,
+    reconstructed_at: new Date().toISOString(),
+    _compacted_tokens: compressed.compressed_tokens,
+  } as CompactCanonicalState;
+}
+
+export function executeHandoffWithRetries(
+  plan: HandoffPlan,
+  maxRetries: number = DEFAULT_MAX_RETRIES,
+): { outcome: HandoffOutcome; health: HandoffHealthMetrics } {
+  let attemptCount = 0;
+  const tokenCosts: number[] = [];
+  let currentState = plan.state;
+  let lastOutcome: HandoffOutcome | undefined;
+
+  while (attemptCount < maxRetries) {
+    attemptCount++;
+    const estimatedCost = JSON.stringify(currentState).length;
+    tokenCosts.push(estimatedCost);
+
+    lastOutcome = executeContextHandoff({
+      ...plan,
+      state: currentState,
+    });
+
+    if (lastOutcome.result.success) {
+      const totalTokens = tokenCosts.reduce((a, b) => a + b, 0);
+      const wastedTokens = totalTokens - tokenCosts[tokenCosts.length - 1]!;
+      return {
+        outcome: lastOutcome,
+        health: {
+          success: true,
+          attemptCount,
+          maxRetries,
+          tokenWaste: wastedTokens,
+          successRate: 1.0 / attemptCount,
+        },
+      };
+    }
+
+    currentState = compactContextForRetry(currentState);
+  }
+
+  const totalTokens = tokenCosts.reduce((a, b) => a + b, 0);
+  return {
+    outcome: lastOutcome!,
+    health: {
+      success: false,
+      attemptCount,
+      maxRetries,
+      tokenWaste: totalTokens,
+      successRate: 0,
+    },
+  };
+}
+
+export function getHandoffHealth(
+  attemptCount: number,
+  maxRetries: number,
+  tokenCosts: readonly number[],
+  success: boolean,
+): HandoffHealthMetrics {
+  const totalTokens = tokenCosts.reduce((a, b) => a + b, 0);
+  const wastedTokens = success
+    ? totalTokens - (tokenCosts[tokenCosts.length - 1] ?? 0)
+    : totalTokens;
+  return {
+    success,
+    attemptCount,
+    maxRetries,
+    tokenWaste: wastedTokens,
+    successRate: success && attemptCount > 0 ? 1.0 / attemptCount : 0,
   };
 }
 

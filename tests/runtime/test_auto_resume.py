@@ -156,3 +156,117 @@ def test_check_resume_with_invalid_json_reports_parse_error(
     reason = result.get("reason")
     assert isinstance(reason, str)
     assert reason.startswith("parse_error:")
+
+
+RetryBudget = auto_resume.RetryBudget  # type: ignore[attr-defined]
+HandoffBudgetExceeded = auto_resume.HandoffBudgetExceeded  # type: ignore[attr-defined]
+compact_context_for_retry = auto_resume.compact_context_for_retry  # type: ignore[attr-defined]
+resume_with_retries = auto_resume.resume_with_retries  # type: ignore[attr-defined]
+
+
+def test_retry_budget_prevents_infinite_loops() -> None:
+    budget = RetryBudget(max_retries=3)
+
+    assert budget.increment(token_cost=100) is True
+    assert budget.increment(token_cost=100) is True
+    assert budget.increment(token_cost=100) is True
+    assert budget.increment(token_cost=100) is False
+
+    assert budget.attempt_count == 4
+    diag = budget.diagnostic()
+    assert "4 attempts" in diag
+    assert "max: 3" in diag
+
+
+def test_retry_budget_health_metrics_on_success() -> None:
+    budget = RetryBudget(max_retries=3)
+    budget.increment(token_cost=500)
+    budget.increment(token_cost=300)
+    budget.success = True
+
+    metrics = budget.health_metrics
+    assert metrics["success"] is True
+    assert metrics["attempt_count"] == 2
+    assert metrics["token_waste"] == 500
+    assert metrics["success_rate"] == pytest.approx(0.5)
+
+
+def test_retry_budget_health_metrics_on_failure() -> None:
+    budget = RetryBudget(max_retries=2)
+    budget.increment(token_cost=400)
+    budget.increment(token_cost=300)
+
+    metrics = budget.health_metrics
+    assert metrics["success"] is False
+    assert metrics["token_waste"] == 700
+    assert metrics["success_rate"] == 0.0
+
+
+def test_retry_compaction_reduces_size() -> None:
+    large_state: dict[str, object] = {
+        "decisions": list(range(50)),
+        "long_text": "x" * 5000,
+        "small": "keep",
+    }
+
+    compacted = compact_context_for_retry(large_state)
+
+    assert len(cast(list[object], compacted["decisions"])) == 10
+    assert len(cast(str, compacted["long_text"])) == 2000
+    assert compacted["small"] == "keep"
+    assert compacted["_compacted"] is True
+
+    original_size = len(json.dumps(large_state, default=str))
+    compacted_size = len(json.dumps(compacted, default=str))
+    assert compacted_size < original_size
+
+
+def test_resume_with_retries_succeeds_first_try() -> None:
+    state: dict[str, object] = {"goal": "test"}
+
+    def handler(s: dict[str, object]) -> dict[str, object]:
+        return {"done": True}
+
+    result = resume_with_retries(state, handler, max_retries=3)
+    assert result["done"] is True
+    metrics = result["_health_metrics"]
+    assert isinstance(metrics, dict)
+    assert metrics["success"] is True
+    assert metrics["attempt_count"] == 1
+
+
+def test_resume_with_retries_succeeds_on_second_try() -> None:
+    call_count = 0
+
+    def handler(s: dict[str, object]) -> dict[str, object]:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 2:
+            raise RuntimeError("transient")
+        return {"done": True}
+
+    result = resume_with_retries({"goal": "test"}, handler, max_retries=3)
+    assert result["done"] is True
+    assert result["_health_metrics"]["attempt_count"] == 2
+
+
+def test_resume_with_retries_raises_on_budget_exceeded() -> None:
+    def always_fail(s: dict[str, object]) -> dict[str, object]:
+        raise RuntimeError("always fails")
+
+    with pytest.raises(HandoffBudgetExceeded, match="3 attempts"):
+        resume_with_retries({"goal": "test"}, always_fail, max_retries=2)
+
+
+def test_resume_with_retries_compacts_between_attempts() -> None:
+    states_seen: list[dict[str, object]] = []
+
+    def handler(s: dict[str, object]) -> dict[str, object]:
+        states_seen.append(dict(s))
+        if len(states_seen) < 2:
+            raise RuntimeError("retry")
+        return {"done": True}
+
+    resume_with_retries({"data": list(range(50))}, handler, max_retries=3)
+    assert "_compacted" not in states_seen[0]
+    assert states_seen[1].get("_compacted") is True

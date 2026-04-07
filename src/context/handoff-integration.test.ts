@@ -4,8 +4,13 @@ import { join } from "node:path";
 import {
   MIN_HANDOFF_RETENTION,
   MIN_CASCADING_RETENTION,
+  DEFAULT_MAX_RETRIES,
   executeContextHandoff,
   executeCascadingHandoff,
+  executeHandoffWithRetries,
+  compactContextForRetry,
+  getHandoffHealth,
+  type HandoffHealthMetrics,
 } from "./handoff-integration.js";
 import {
   registerAgent,
@@ -204,6 +209,83 @@ describe("context/handoff-integration", () => {
       );
       expect(result.steps.length).toBeGreaterThan(0);
       expect(result.steps[0]?.outcome.result.success).toBe(false);
+    });
+  });
+
+  describe("retry optimization", () => {
+    test("DEFAULT_MAX_RETRIES is 3", () => {
+      expect(DEFAULT_MAX_RETRIES).toBe(3);
+    });
+
+    test("compactContextForRetry increments context_version", () => {
+      const state = createCompactState("Goal");
+      const compacted = compactContextForRetry(state);
+      expect(compacted.context_version).toBe(state.context_version + 1);
+      expect(compacted.reconstructed_at).toBeDefined();
+    });
+
+    test("getHandoffHealth reports correct metrics on success", () => {
+      const health: HandoffHealthMetrics = getHandoffHealth(
+        2,
+        3,
+        [500, 300],
+        true,
+      );
+      expect(health.success).toBe(true);
+      expect(health.attemptCount).toBe(2);
+      expect(health.maxRetries).toBe(3);
+      expect(health.tokenWaste).toBe(500);
+      expect(health.successRate).toBeCloseTo(0.5);
+    });
+
+    test("getHandoffHealth reports all tokens as waste on failure", () => {
+      const health = getHandoffHealth(3, 3, [500, 400, 300], false);
+      expect(health.success).toBe(false);
+      expect(health.tokenWaste).toBe(1200);
+      expect(health.successRate).toBe(0);
+    });
+
+    test("executeHandoffWithRetries succeeds on registered agent", () => {
+      const agent = makeAgent("agent-retry-ok", 128_000);
+      registerAgent(agent);
+      const state = createCompactState("Retry goal");
+
+      const { outcome, health } = executeHandoffWithRetries(
+        {
+          from_agent_id: "agent-a",
+          to_agent: agent,
+          state,
+          project_dir: TEST_DIR,
+        },
+        3,
+      );
+
+      expect(outcome.result.success).toBe(true);
+      expect(health.success).toBe(true);
+      expect(health.attemptCount).toBe(1);
+      expect(health.tokenWaste).toBe(0);
+      expect(health.successRate).toBe(1.0);
+    });
+
+    test("executeHandoffWithRetries exhausts budget on unregistered agent", () => {
+      const agent = makeAgent("never-registered", 128_000);
+      const state = createCompactState("Doomed goal");
+
+      const { outcome, health } = executeHandoffWithRetries(
+        {
+          from_agent_id: "agent-a",
+          to_agent: agent,
+          state,
+          project_dir: TEST_DIR,
+        },
+        2,
+      );
+
+      expect(outcome.result.success).toBe(false);
+      expect(health.success).toBe(false);
+      expect(health.attemptCount).toBe(2);
+      expect(health.maxRetries).toBe(2);
+      expect(health.tokenWaste).toBeGreaterThan(0);
     });
   });
 });

@@ -4,12 +4,13 @@ import importlib.metadata
 import json
 import os
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import NotRequired, TypedDict, cast
 
 
 HANDOFF_PATH = os.path.join(".omg", "state", "handoff-latest.json")
 STALENESS_DAYS = 7
+DEFAULT_MAX_RETRIES = 3
 
 
 class ResumeResult(TypedDict):
@@ -24,6 +25,100 @@ class HandoffRecord(TypedDict):
     version: str
     saved_at: float
     state: dict[str, object]
+
+
+class HandoffBudgetExceeded(Exception):
+    """Raised when a handoff retry budget is exhausted."""
+
+
+class RetryBudget:
+    """Tracks retry attempts and token cost to prevent infinite loops."""
+
+    def __init__(self, max_retries: int = DEFAULT_MAX_RETRIES) -> None:
+        self.max_retries = max_retries
+        self.attempt_count = 0
+        self.token_cost_per_attempt: list[int] = []
+        self.success: bool = False
+
+    def increment(self, token_cost: int = 0) -> bool:
+        self.attempt_count += 1
+        self.token_cost_per_attempt.append(token_cost)
+        return self.attempt_count <= self.max_retries
+
+    def diagnostic(self) -> str:
+        total = sum(self.token_cost_per_attempt)
+        return (
+            f"Handoff failed after {self.attempt_count} attempts "
+            f"(max: {self.max_retries}). Total token cost: {total}"
+        )
+
+    @property
+    def health_metrics(self) -> dict[str, object]:
+        total_tokens = sum(self.token_cost_per_attempt)
+        waste = sum(self.token_cost_per_attempt[:-1]) if self.success else total_tokens
+        return {
+            "success": self.success,
+            "attempt_count": self.attempt_count,
+            "max_retries": self.max_retries,
+            "token_waste": waste,
+            "success_rate": (
+                1.0 / self.attempt_count
+                if self.success and self.attempt_count > 0
+                else 0.0
+            ),
+        }
+
+
+def compact_context_for_retry(state: dict[str, object]) -> dict[str, object]:
+    compacted: dict[str, object] = {}
+    for key, value in state.items():
+        if isinstance(value, list) and len(value) > 10:
+            compacted[key] = value[-10:]
+        elif isinstance(value, str) and len(value) > 2000:
+            compacted[key] = value[:2000]
+        else:
+            compacted[key] = value
+    compacted["_compacted"] = True
+    return compacted
+
+
+def resume_with_retries(
+    state: dict[str, object],
+    handler: Callable[[dict[str, object]], dict[str, object]] | None = None,
+    *,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    estimate_token_cost: Callable[[dict[str, object]], int] | None = None,
+) -> dict[str, object]:
+    budget = RetryBudget(max_retries=max_retries)
+
+    _handler: Callable[[dict[str, object]], dict[str, object]]
+    if handler is None:
+        _handler = lambda s: {"resumed": True, **s}
+    else:
+        _handler = handler
+
+    _estimate: Callable[[dict[str, object]], int]
+    if estimate_token_cost is None:
+        _estimate = lambda s: len(json.dumps(s, default=str))
+    else:
+        _estimate = estimate_token_cost
+
+    current_state = state
+
+    while True:
+        cost = _estimate(current_state)
+        if not budget.increment(token_cost=cost):
+            raise HandoffBudgetExceeded(budget.diagnostic())
+
+        try:
+            result = _handler(current_state)
+            budget.success = True
+            result["_health_metrics"] = budget.health_metrics
+            return result
+        except HandoffBudgetExceeded:
+            raise
+        except Exception:
+            current_state = compact_context_for_retry(current_state)
 
 
 def save_handoff(state: dict[str, object]) -> None:
