@@ -62,12 +62,28 @@ export interface TransitionResult {
   readonly error?: string;
 }
 
+export type EnforcementMode = "advisory" | "soft-block" | "hard-block";
+
+export interface ValidationResult {
+  readonly allowed: boolean;
+  readonly mode: EnforcementMode;
+  readonly agents: readonly string[];
+  readonly warnings: readonly string[];
+  readonly violations: readonly string[];
+}
+
 export class GovernanceGraphRuntime {
   private graph: GovernanceGraph;
   private readonly projectDir: string;
+  private readonly enforcementMode: EnforcementMode;
 
-  constructor(projectDir: string, graphId = "default") {
+  constructor(
+    projectDir: string,
+    graphId = "default",
+    enforcementMode: EnforcementMode = "advisory",
+  ) {
     this.projectDir = projectDir;
+    this.enforcementMode = enforcementMode;
     const loaded = this.load();
     if (loaded != null) {
       this.graph = loaded;
@@ -161,6 +177,111 @@ export class GovernanceGraphRuntime {
 
   getGraph(): Readonly<GovernanceGraph> {
     return this.graph;
+  }
+
+  getEnforcementMode(): EnforcementMode {
+    return this.enforcementMode;
+  }
+
+  exportToDOT(): string {
+    const lines = ["digraph governance {"];
+    const nodeIds = Object.keys(this.graph.nodes).sort();
+    const escapeDotLabel = (value: string) => value.replaceAll('"', '\\"');
+
+    for (const nodeId of nodeIds) {
+      const node = this.graph.nodes[nodeId]!;
+      lines.push(
+        `  "${escapeDotLabel(nodeId)}" [label="${escapeDotLabel(node.node_id)} (${node.state})"];`,
+      );
+    }
+
+    for (const fromNodeId of Object.keys(this.graph.adjacency).sort()) {
+      for (const toNodeId of [
+        ...(this.graph.adjacency[fromNodeId] ?? []),
+      ].sort()) {
+        lines.push(
+          `  "${escapeDotLabel(fromNodeId)}" -> "${escapeDotLabel(toNodeId)}" [label="dependency"];`,
+        );
+      }
+    }
+
+    lines.push("}");
+    return lines.join("\n");
+  }
+
+  validateAgentCombination(agents: string[]): ValidationResult {
+    const normalizedAgents = agents
+      .map((agent) => agent.trim())
+      .filter(Boolean);
+    const uniqueAgents = [...new Set(normalizedAgents)];
+    const warnings: string[] = [];
+    const violations: string[] = [];
+
+    if (normalizedAgents.length !== uniqueAgents.length) {
+      warnings.push("duplicate agents normalized before validation");
+    }
+
+    if (uniqueAgents.length === 0) {
+      violations.push("at least one agent is required");
+    }
+
+    for (const agentId of uniqueAgents) {
+      const node = this.graph.nodes[agentId];
+      if (node == null) {
+        violations.push(`unknown governance node: ${agentId}`);
+        continue;
+      }
+      if (node.state === "blocked") {
+        violations.push(`agent is blocked by governance graph: ${agentId}`);
+      }
+
+      const missingApprovers = node.requires_approval_from.filter(
+        (approver) => !uniqueAgents.includes(approver),
+      );
+      if (missingApprovers.length > 0) {
+        violations.push(
+          `agent ${agentId} missing required approvers: ${missingApprovers.join(", ")}`,
+        );
+      }
+    }
+
+    const selectedAgentSet = new Set(uniqueAgents);
+    const visiting = new Set<string>();
+    const visited = new Set<string>();
+    const hasCycle = (agentId: string): boolean => {
+      visiting.add(agentId);
+      for (const neighbor of this.graph.adjacency[agentId] ?? []) {
+        if (!selectedAgentSet.has(neighbor)) {
+          continue;
+        }
+        if (visiting.has(neighbor)) {
+          return true;
+        }
+        if (!visited.has(neighbor) && hasCycle(neighbor)) {
+          return true;
+        }
+      }
+      visiting.delete(agentId);
+      visited.add(agentId);
+      return false;
+    };
+
+    for (const agentId of uniqueAgents) {
+      if (!visited.has(agentId) && hasCycle(agentId)) {
+        violations.push(
+          `selected agent combination contains a dependency cycle: ${agentId}`,
+        );
+        break;
+      }
+    }
+
+    return {
+      allowed: violations.length === 0,
+      mode: this.enforcementMode,
+      agents: uniqueAgents,
+      warnings,
+      violations,
+    };
   }
 
   persist(): void {

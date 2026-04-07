@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { type LedgerEntry } from "./ledger.js";
+import { GovernanceLedger, type LedgerEntry } from "./ledger.js";
+import { type EnforcementMode } from "./graph.js";
 
 export const COLLUSION_DETECTION_VERSION = "1.0.0";
 export const EVIDENCE_THRESHOLD = 0.7;
@@ -29,6 +30,33 @@ export interface DetectionResult {
   readonly collusion_detected: boolean;
   readonly checked_entries: number;
 }
+
+export interface CollusionEnforcementResult {
+  readonly detected: boolean;
+  readonly pattern?: string;
+  readonly requiresElevatedApproval: boolean;
+  readonly action: "allow" | "warn" | "block";
+}
+
+export interface GovernanceLedgerEvent {
+  readonly agent_id: string;
+  readonly node_id: string;
+  readonly from_state: string;
+  readonly to_state: string;
+  readonly evidence_refs?: string[];
+}
+
+declare module "./ledger.js" {
+  interface GovernanceLedger {
+    recordEvent(event: GovernanceLedgerEvent): LedgerEntry;
+  }
+}
+
+GovernanceLedger.prototype.recordEvent = function recordEvent(
+  event: GovernanceLedgerEvent,
+): LedgerEntry {
+  return this.append(event);
+};
 
 export function detectMutualApproval(
   entries: readonly LedgerEntry[],
@@ -150,5 +178,63 @@ export function runCollusionDetection(
     incidents,
     collusion_detected: incidents.length > 0,
     checked_entries: entries.length,
+  };
+}
+
+export function detectCollusion(
+  agents: string[],
+  opts: {
+    ledger?: GovernanceLedger;
+    projectDir?: string;
+    taskId?: string;
+    mode?: EnforcementMode;
+  } = {},
+): CollusionEnforcementResult {
+  const normalizedAgents = [
+    ...new Set(agents.map((agent) => agent.trim()).filter(Boolean)),
+  ];
+  const ledger =
+    opts.ledger ??
+    (opts.projectDir ? new GovernanceLedger(opts.projectDir) : undefined);
+  const mode = opts.mode ?? "advisory";
+
+  if (normalizedAgents.length < 2) {
+    return {
+      detected: false,
+      requiresElevatedApproval: false,
+      action: "allow",
+    };
+  }
+
+  const entries = (ledger?.readAll() ?? []).filter((entry) =>
+    normalizedAgents.includes(entry.agent_id),
+  );
+  const detection = runCollusionDetection(entries);
+  const incident = detection.incidents.find((candidate) =>
+    candidate.agent_ids.every((agentId) => normalizedAgents.includes(agentId)),
+  );
+
+  if (incident == null) {
+    return {
+      detected: false,
+      requiresElevatedApproval: false,
+      action: "allow",
+    };
+  }
+
+  const action = mode === "hard-block" ? "block" : "warn";
+  ledger?.recordEvent({
+    agent_id: "governance-collusion",
+    node_id: opts.taskId ?? `agents:${normalizedAgents.join(",")}`,
+    from_state: "reviewing",
+    to_state: action === "block" ? "blocked" : "reviewing",
+    evidence_refs: [`pattern:${incident.pattern}`, ...incident.evidence],
+  });
+
+  return {
+    detected: true,
+    pattern: incident.pattern,
+    requiresElevatedApproval: true,
+    action,
   };
 }

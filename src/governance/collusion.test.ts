@@ -1,11 +1,15 @@
 import { describe, test, expect } from "bun:test";
+import { mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   detectMutualApproval,
   detectGovernanceBypass,
   runCollusionDetection,
   CollusionIncidentSchema,
+  detectCollusion,
 } from "./collusion.js";
-import { type LedgerEntry } from "./ledger.js";
+import { GovernanceLedger, type LedgerEntry } from "./ledger.js";
 
 function makeEntry(
   agent: string,
@@ -143,6 +147,98 @@ describe("governance/collusion", () => {
       );
       const result = runCollusionDetection(entries);
       expect(result.checked_entries).toBe(10);
+    });
+  });
+
+  describe("enforcement integration", () => {
+    test("enforcement", () => {
+      const projectDir = join(
+        tmpdir(),
+        `omg-collusion-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      );
+      mkdirSync(join(projectDir, ".omg", "state"), { recursive: true });
+      const ledger = new GovernanceLedger(projectDir);
+
+      try {
+        ledger.append({
+          agent_id: "agent-a",
+          node_id: "task-1",
+          from_state: "planning",
+          to_state: "implementing",
+        });
+        ledger.append({
+          agent_id: "agent-a",
+          node_id: "task-2",
+          from_state: "planning",
+          to_state: "implementing",
+        });
+        ledger.append({
+          agent_id: "agent-b",
+          node_id: "task-1",
+          from_state: "planning",
+          to_state: "implementing",
+        });
+        ledger.append({
+          agent_id: "agent-b",
+          node_id: "task-2",
+          from_state: "planning",
+          to_state: "implementing",
+        });
+
+        const result = detectCollusion(["agent-a", "agent-b"], { ledger });
+        expect(result.detected).toBe(true);
+        expect(result.requiresElevatedApproval).toBe(true);
+        expect(result.action).toBe("warn");
+      } finally {
+        rmSync(projectDir, { recursive: true, force: true });
+      }
+    });
+
+    test("detection-recorded", () => {
+      const projectDir = join(
+        tmpdir(),
+        `omg-collusion-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      );
+      mkdirSync(join(projectDir, ".omg", "state"), { recursive: true });
+      const ledger = new GovernanceLedger(projectDir);
+
+      try {
+        ledger.append({
+          agent_id: "agent-a",
+          node_id: "task-1",
+          from_state: "planning",
+          to_state: "implementing",
+        });
+        ledger.append({
+          agent_id: "agent-a",
+          node_id: "task-2",
+          from_state: "planning",
+          to_state: "implementing",
+        });
+        ledger.append({
+          agent_id: "agent-b",
+          node_id: "task-1",
+          from_state: "planning",
+          to_state: "implementing",
+        });
+        ledger.append({
+          agent_id: "agent-b",
+          node_id: "task-2",
+          from_state: "planning",
+          to_state: "implementing",
+        });
+
+        detectCollusion(["agent-a", "agent-b"], {
+          ledger,
+          taskId: "dispatch-123",
+        });
+
+        const entries = ledger.readAll();
+        expect(entries.at(-1)?.agent_id).toBe("governance-collusion");
+        expect(entries.at(-1)?.node_id).toBe("dispatch-123");
+      } finally {
+        rmSync(projectDir, { recursive: true, force: true });
+      }
     });
   });
 });

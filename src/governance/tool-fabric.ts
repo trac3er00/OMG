@@ -1,6 +1,9 @@
 import { appendJsonLine, readJsonLines } from "../state/atomic-io.js";
 import { StateResolver } from "../state/state-resolver.js";
 import { join } from "node:path";
+import { GovernanceGraphRuntime, type EnforcementMode } from "./graph.js";
+import { detectCollusion } from "./collusion.js";
+import { GovernanceLedger } from "./ledger.js";
 
 export interface LanePolicy {
   readonly allowedTools?: readonly string[];
@@ -26,15 +29,32 @@ export interface ToolExecutionResult {
   readonly output?: unknown;
 }
 
-type ToolExecutor = (tool: string, args: Readonly<Record<string, unknown>>) => unknown | Promise<unknown>;
+export interface GovernanceCheckResult {
+  readonly allowed: boolean;
+  readonly mode: EnforcementMode;
+  readonly warnings: string[];
+  readonly ledgerEntry: string;
+}
+
+type ToolExecutor = (
+  tool: string,
+  args: Readonly<Record<string, unknown>>,
+) => unknown | Promise<unknown>;
 
 export class ToolFabric {
   private readonly lanes = new Map<string, LanePolicy>();
   private readonly ledgerPath: string;
+  private readonly governanceGraph: GovernanceGraphRuntime;
+  private readonly governanceLedger: GovernanceLedger;
 
   constructor(projectDir: string) {
     const resolver = new StateResolver(projectDir);
     this.ledgerPath = resolver.resolve(join("ledger", "tool-fabric.jsonl"));
+    this.governanceGraph = new GovernanceGraphRuntime(
+      projectDir,
+      "tool-fabric",
+    );
+    this.governanceLedger = new GovernanceLedger(projectDir);
   }
 
   registerLane(name: string, policy: LanePolicy): void {
@@ -79,6 +99,65 @@ export class ToolFabric {
 
     const output = await executor(tool, args);
     return { decision, output };
+  }
+
+  async preDispatchGovernanceCheck(
+    agents: string[],
+    taskId: string,
+  ): Promise<GovernanceCheckResult> {
+    const normalizedAgents = [
+      ...new Set(agents.map((agent) => agent.trim()).filter(Boolean)),
+    ];
+    for (const agentId of normalizedAgents) {
+      if (this.governanceGraph.getNode(agentId) == null) {
+        this.governanceGraph.addNode(agentId);
+      }
+    }
+
+    const validation =
+      this.governanceGraph.validateAgentCombination(normalizedAgents);
+    const collusion = detectCollusion(normalizedAgents, {
+      ledger: this.governanceLedger,
+      taskId,
+      mode: validation.mode,
+    });
+    const warnings = [...validation.warnings, ...validation.violations];
+
+    if (collusion.detected) {
+      warnings.push(
+        `collusion detected: ${collusion.pattern ?? "unknown pattern"}`,
+        "elevated approval required",
+      );
+    }
+
+    const advisory = validation.mode === "advisory";
+    const blocked =
+      !advisory && (!validation.allowed || collusion.action === "block");
+
+    if (advisory && warnings.length > 0) {
+      console.warn(
+        `[governance] advisory pre-dispatch warning for ${taskId}: ${warnings.join("; ")}`,
+      );
+    }
+
+    const ledgerEntry = this.governanceLedger.append({
+      agent_id: "tool-fabric-governance",
+      node_id: taskId,
+      from_state: "planning",
+      to_state: blocked ? "blocked" : "planning",
+      evidence_refs: [
+        `mode:${validation.mode}`,
+        `agents:${normalizedAgents.join(",")}`,
+        ...warnings.map((warning) => `warning:${warning}`),
+      ],
+    });
+
+    return {
+      allowed: !blocked,
+      mode: validation.mode,
+      warnings,
+      ledgerEntry: ledgerEntry.entry_id,
+    };
   }
 
   getLedgerEntries(): readonly LedgerEntry[] {
@@ -158,7 +237,10 @@ export class ToolFabric {
     };
   }
 
-  private hasRequiredEvidence(evidence: unknown, requiredKeys: readonly string[]): boolean {
+  private hasRequiredEvidence(
+    evidence: unknown,
+    requiredKeys: readonly string[],
+  ): boolean {
     if (!evidence || typeof evidence !== "object") {
       return false;
     }

@@ -113,6 +113,37 @@ describe("governance/graph", () => {
       });
     });
 
+    describe("compliance enforcement", () => {
+      test("dot-export", () => {
+        const runtime = new GovernanceGraphRuntime(TEST_DIR);
+        runtime.addNode("agent-A");
+        runtime.addNode("agent-B", "implementing");
+        runtime.addEdge("agent-A", "agent-B");
+
+        const dot = runtime.exportToDOT();
+        expect(dot.startsWith("digraph")).toBe(true);
+        expect(dot).toContain('"agent-A"');
+        expect(dot).toContain('"agent-A" -> "agent-B" [label="dependency"]');
+      });
+
+      test("validate-combination", () => {
+        const runtime = new GovernanceGraphRuntime(TEST_DIR);
+        runtime.addNode("agent-a");
+        runtime.addNode("agent-b", "implementing", {
+          requires_approval_from: ["agent-a"],
+        });
+
+        const result = runtime.validateAgentCombination(["agent-a", "agent-b"]);
+        expect(result.allowed).toBe(true);
+        expect(result.violations).toHaveLength(0);
+      });
+
+      test("advisory-mode", () => {
+        const runtime = new GovernanceGraphRuntime(TEST_DIR);
+        expect(runtime.getEnforcementMode()).toBe("advisory");
+      });
+    });
+
     describe("persist and restore", () => {
       test("persist creates governance-graph.json", () => {
         const runtime = new GovernanceGraphRuntime(TEST_DIR);
