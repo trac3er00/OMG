@@ -19,5 +19,8 @@
     "crazy-mode",
     "escalation"
   ],
-  "mcpServers": "./.claude-plugin/mcp.json"
+  "mcpServers": "./.claude-plugin/mcp.json",
+  "commands": {
+    "instant": "npx omg instant"
+  }
 }

@@ -10,7 +10,7 @@ python3 scripts/omg.py contract compile --host codex --channel enterprise
 
 ## Protected Paths
 
-The following paths require tier-gated review before mutation:
+Tier-gated review is required before mutating:
 
 - `.omg/**`
 - `.agents/**`
@@ -19,18 +19,18 @@ The following paths require tier-gated review before mutation:
 
 ## Release Audit
 
-Release readiness requires claim and compliance outcomes:
+Release readiness requires these outcomes:
 
 - `claim_judge`
 - `compliance_governor`
 - `execution_primitives`
-Attestation requirements:
+  Attestation requirements:
 - `registry.verify_artifact.sign_artifact_statement`
 - `registry.verify_artifact.verify_artifact_statement`
 
 ## Evidence Contract
 
-Every production action must emit evidence containing these fields:
+Production actions must emit evidence with:
 
 - `attestation_statement`
 - `attestation_verifier`
@@ -48,7 +48,7 @@ Every production action must emit evidence containing these fields:
 
 ## Protected Planning Surface
 
-Council planning skills are protected and explicit-invocation only:
+Protected planning skills require explicit invocation:
 
 - `omg/plan-council`
 
@@ -56,20 +56,23 @@ Council planning skills are protected and explicit-invocation only:
 
 - Prefer cached results over live network requests.
 - Do NOT initiate live web searches unless explicitly instructed.
-- Use `context7` or local documentation before external lookups.
-- Set `cached_web_search: prefer_cached` as the default.
+- Use `context7` or local documentation before external lookups; default to `cached_web_search: prefer_cached`.
 
 ## Approval Constraints
 
 - Destructive file operations require explicit user approval.
-- `git push --force` and branch deletions require explicit approval.
+- `git push --force` and branch deletions require approval.
 - Production deployments require explicit approval.
 - Mutations to protected paths require tier-gated approval.
+
+## Instant Mode
+
+- `/OMG:instant` — quick-start instant mode via `npx omg instant` for zero-config host bootstrap.
 
 ## Rules & Automations
 
 - Rules: `protected_paths, explicit_invocation`
 - Automations: `contract-compile, release-readiness`
-- Defer to the repo's `AGENTS.md` / `AGENTS.override.md` instruction hierarchy before OMG-specific guidance.
-- Do not mirror or override Codex built-in slash commands; OMG guidance applies through MCP, skills, and generated rules.
-- Require explicit invocation for protected production planning skills.
+- Respect the repo's `AGENTS.md` / `AGENTS.override.md` chain before OMG guidance.
+- Keep OMG guidance separate from Codex built-in slash commands.
+- Protected production planning skills stay explicit-invocation only.
