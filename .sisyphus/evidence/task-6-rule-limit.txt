@@ -1,0 +1,2 @@
+PASS: strict validation rejects 8-rule packs with a rule-count error.
+RESULT: New packs over the 5-rule limit fail; legacy 9-rule SaaS pack remains grandfathered.

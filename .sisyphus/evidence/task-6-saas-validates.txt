@@ -1,0 +1,3 @@
+PASS: pytest tests/runtime/test_pack_schema.py
+PASS: python3 -c "from runtime.pack_schema_validator import validate_pack; r = validate_pack('packs/domains/saas/pack.yaml'); assert r['valid'], r['errors']"
+RESULT: SaaS pack validates in relaxed and strict modes.
