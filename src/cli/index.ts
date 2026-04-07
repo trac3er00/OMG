@@ -6,6 +6,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { formatCliError, printCliError } from "./error-formatter.js";
 import { hooksListCommand } from "./commands/hooks.js";
+import { continueCommand } from "./commands/continue.js";
 import { memoryCommand } from "./commands/memory.js";
 import { pauseCommand } from "./commands/pause.js";
 import { skillsListCommand } from "./commands/skills.js";
@@ -346,6 +347,7 @@ async function runCli(): Promise<void> {
     })
     .command(memoryCommand)
     .command(pauseCommand)
+    .command(continueCommand)
     .command({
       command: "lsp",
       describe: "Show LSP server status",
