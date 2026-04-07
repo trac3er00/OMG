@@ -42,6 +42,13 @@ packs:
     dependencies: []
     trigger: "from runtime.data_lineage"
 
+  ecommerce:
+    description: "Online store and commerce platform"
+    entry_modules:
+      - runtime.ecommerce
+    dependencies: []
+    trigger: "from runtime.ecommerce"
+
   bot:
     description: "Chatbot and messaging platform integration"
     entry_modules:

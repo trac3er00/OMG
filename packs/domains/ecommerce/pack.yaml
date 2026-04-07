@@ -1,0 +1,30 @@
+name: ecommerce
+description: Online store and commerce platform
+category: fullstack
+rules:
+  - "product-catalog: Products must have name, price, SKU, images, and category"
+  - "cart-state: Cart state must persist across sessions with proper serialization"
+  - "payment-security: Payment handling must use secure third-party providers, never store raw card data"
+  - "inventory-tracking: Stock levels must be tracked and prevent overselling"
+  - "order-lifecycle: Orders must track status through created/paid/shipped/delivered states"
+prompts:
+  - "ecommerce-architect: Design store structure with catalog, cart, checkout, and order management"
+  - "product-page: Design product listing with filtering, sorting, and detail view"
+  - "checkout-flow: Design checkout process from cart to order confirmation"
+scaffold:
+  - "template: nextjs-store"
+  - app/page.tsx
+  - app/products/page.tsx
+  - app/cart/page.tsx
+  - app/checkout/page.tsx
+  - components/ProductCard.tsx
+  - components/Cart.tsx
+  - lib/store.ts
+  - package.json
+evidence:
+  required:
+    - cart-flow-test
+    - payment-mock-test
+    - inventory-test
+  artifacts:
+    - .omg/evidence/ecommerce/*.json
