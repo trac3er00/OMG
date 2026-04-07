@@ -14,6 +14,10 @@ export interface CompressionResult {
   readonly strategy_used: StrategyName;
 }
 
+export interface CompressionOptions {
+  readonly reconstructionBoundary?: boolean;
+}
+
 export interface PressureResponse {
   readonly pressure: number;
   readonly level: "advisory" | "automatic" | "emergency";
@@ -97,7 +101,20 @@ export function selectCompressionLevel(pressure: number): CompressionLevel {
   return 1;
 }
 
-export function compress(state: ContextState): CompressionResult {
+export function compress(
+  state: ContextState,
+  options: CompressionOptions = {},
+): CompressionResult {
+  if (options.reconstructionBoundary === true) {
+    return {
+      level: 1,
+      original_tokens: state.totalTokens,
+      compressed_tokens: state.totalTokens,
+      retention_rate: 1,
+      strategy_used: "durability",
+    };
+  }
+
   const pressure = computePressure(state);
   const level = selectCompressionLevel(pressure);
   switch (level) {

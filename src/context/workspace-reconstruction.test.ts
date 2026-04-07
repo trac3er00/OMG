@@ -8,6 +8,11 @@ import {
   serializeState,
   deserializeState,
   measureRetentionQuality,
+  computeContextFreshnessScore,
+  detectContextDecay,
+  getWorkspaceDurabilityState,
+  onContextDecayDetected,
+  reconstructWorkspace,
 } from "./workspace-reconstruction.js";
 
 const TEST_DIR = "/tmp/omg-reconstruction-test";
@@ -170,6 +175,81 @@ describe("workspace-reconstruction", () => {
       const reconstructed = createCompactState("Same goal");
       const quality = measureRetentionQuality(original, reconstructed);
       expect(quality.retention_rate).toBeGreaterThanOrEqual(0.4);
+    });
+  });
+
+  describe("durability hardening", () => {
+    test("freshness score computed correctly across context age", () => {
+      const now = new Date("2026-04-07T12:00:00.000Z");
+      const recentReferences = Array.from({ length: 12 }, (_, index) => ({
+        path: `src/file-${index}.ts`,
+        referencedAt: new Date(now.getTime() - 5 * 60_000).toISOString(),
+      }));
+
+      const freshScore = computeContextFreshnessScore({
+        fileReferences: recentReferences,
+        sessionStartedAt: new Date(now.getTime() - 10 * 60_000).toISOString(),
+        now: now.toISOString(),
+      });
+      const staleScore = computeContextFreshnessScore({
+        fileReferences: recentReferences,
+        sessionStartedAt: new Date(now.getTime() - 40 * 60_000).toISOString(),
+        now: now.toISOString(),
+      });
+
+      expect(freshScore).toBeGreaterThan(80);
+      expect(staleScore).toBeLessThan(50);
+    });
+
+    test("decay detection emits event when efficiency falls below threshold", () => {
+      const received: number[] = [];
+      const unsubscribe = onContextDecayDetected((event) => {
+        received.push(event.freshnessScore);
+      });
+
+      const result = detectContextDecay(
+        {
+          fileReferences: [
+            {
+              path: "src/old.ts",
+              referencedAt: "2026-04-07T11:40:00.000Z",
+            },
+          ],
+          sessionStartedAt: "2026-04-07T11:00:00.000Z",
+          now: "2026-04-07T12:00:00.000Z",
+        },
+        0.3,
+      );
+
+      unsubscribe();
+
+      expect(result.decayDetected).toBe(true);
+      expect(received.length).toBeGreaterThan(0);
+      expect(getWorkspaceDurabilityState().decayEventCount).toBeGreaterThan(0);
+    });
+
+    test("reconstructWorkspace persists durability metadata", async () => {
+      const state = createCompactState("Durability goal", {
+        evidence_index: ["a.json"],
+        next_actions: ["reconstruct"],
+      });
+
+      const result = await reconstructWorkspace({
+        projectDir: TEST_DIR,
+        state,
+        fileReferences: Array.from({ length: 10 }, (_, index) => ({
+          path: `src/recent-${index}.ts`,
+          referencedAt: "2026-04-07T11:55:00.000Z",
+        })),
+        sessionStartedAt: "2026-04-07T11:50:00.000Z",
+        now: "2026-04-07T12:00:00.000Z",
+      });
+      const saved = deserializeState(TEST_DIR);
+
+      expect(result.attempts).toBe(1);
+      expect(saved?.contextFreshnessScore).toBeGreaterThan(80);
+      expect(saved?.lastReconstructionAt).toBeDefined();
+      expect(typeof saved?.decayEventCount).toBe("number");
     });
   });
 });

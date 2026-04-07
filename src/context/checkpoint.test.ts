@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { readJsonFile } from "../state/atomic-io.js";
 import {
   CheckpointSystem,
   DEFAULT_CHECKPOINT_INTERVAL,
@@ -86,6 +87,27 @@ describe("checkpoint", () => {
       const r1 = sys.saveCheckpoint();
       const r2 = sys.saveCheckpoint();
       expect(r1.checkpoint_id).not.toBe(r2.checkpoint_id);
+    });
+
+    test("checkpoint persists optional durability metadata", () => {
+      serializeState(
+        createCompactState("Durable goal", {
+          contextFreshnessScore: 72,
+          lastReconstructionAt: "2026-04-07T12:00:00.000Z",
+          decayEventCount: 3,
+        }),
+        TEST_DIR,
+      );
+
+      const sys = new CheckpointSystem(TEST_DIR);
+      const result = sys.saveCheckpoint();
+      const saved = readJsonFile<{ meta: Record<string, unknown> }>(
+        result.path,
+      );
+
+      expect(saved?.meta.contextFreshnessScore).toBe(72);
+      expect(saved?.meta.lastReconstructionAt).toBe("2026-04-07T12:00:00.000Z");
+      expect(saved?.meta.decayEventCount).toBe(3);
     });
   });
 

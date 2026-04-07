@@ -1,4 +1,20 @@
-export type StrategyName = "keep-last-n" | "summarize" | "discard-all";
+import {
+  reconstructWorkspace,
+  type WorkspaceReconstructionRequest,
+} from "./workspace-reconstruction.js";
+
+export type StrategyName =
+  | "keep-last-n"
+  | "summarize"
+  | "discard-all"
+  | "durability";
+
+export const STRATEGY_REGISTRY = [
+  "keep-last-n",
+  "summarize",
+  "discard-all",
+  "durability",
+] as const;
 
 export interface ContextState {
   readonly totalTokens: number;
@@ -6,6 +22,8 @@ export interface ContextState {
   readonly turnCount: number;
   readonly hasRecentDecisions: boolean;
   readonly hasEvidenceRefs: boolean;
+  readonly freshnessScore?: number;
+  readonly durabilityContext?: WorkspaceReconstructionRequest;
 }
 
 export interface StrategyEvaluation {
@@ -24,13 +42,17 @@ const PRESSURE_TRIGGER_THRESHOLD = 0.7;
 const EMERGENCY_THRESHOLD = 0.85;
 const LOOKAHEAD_STEPS = 3;
 const DEFAULT_KEEP_N = 20;
+const DURABILITY_FRESHNESS_THRESHOLD = 40;
 
 export function computePressure(state: ContextState): number {
   return state.totalTokens / state.maxTokens;
 }
 
 export function shouldTrigger(state: ContextState): boolean {
-  return computePressure(state) >= PRESSURE_TRIGGER_THRESHOLD;
+  return (
+    computePressure(state) >= PRESSURE_TRIGGER_THRESHOLD ||
+    (state.freshnessScore ?? 100) < DURABILITY_FRESHNESS_THRESHOLD
+  );
 }
 
 function scoreKeepLastN(
@@ -40,6 +62,8 @@ function scoreKeepLastN(
   let score = 0.5;
   if (state.hasRecentDecisions) score += 0.2;
   if (pressure < 0.8) score += 0.15;
+  if ((state.freshnessScore ?? 100) < DURABILITY_FRESHNESS_THRESHOLD)
+    score -= 0.4;
   const projectedPressureAfterN =
     pressure * (DEFAULT_KEEP_N / Math.max(state.turnCount, 1));
   if (projectedPressureAfterN < 0.6) score += 0.1;
@@ -82,6 +106,27 @@ function scoreDiscardAll(
   };
 }
 
+function scoreDurability(
+  state: ContextState,
+  pressure: number,
+): StrategyEvaluation {
+  const freshnessScore = state.freshnessScore ?? 100;
+  let score = 0.2;
+  if (pressure > PRESSURE_TRIGGER_THRESHOLD) score += 0.25;
+  if (freshnessScore < DURABILITY_FRESHNESS_THRESHOLD) {
+    score += 0.55;
+    score = Math.max(score, 0.98);
+  }
+  if (pressure > PRESSURE_TRIGGER_THRESHOLD && freshnessScore < 60)
+    score += 0.1;
+  score = Math.max(0, Math.min(1, score));
+  return {
+    strategy: "durability",
+    score,
+    rationale: `Adaptive reconstruction; pressure=${pressure.toFixed(2)} freshness=${freshnessScore.toFixed(0)}`,
+  };
+}
+
 function applyLookahead(
   evaluations: StrategyEvaluation[],
   _state: ContextState,
@@ -94,6 +139,8 @@ function applyLookahead(
         projectedPressure *= 0.6;
       } else if (ev.strategy === "summarize") {
         projectedPressure *= 0.45;
+      } else if (ev.strategy === "durability") {
+        projectedPressure *= 0.35;
       } else {
         projectedPressure *= 0.2;
       }
@@ -112,6 +159,7 @@ export function evaluateStrategies(
     scoreKeepLastN(state, pressure),
     scoreSummarize(state, pressure),
     scoreDiscardAll(state, pressure),
+    scoreDurability(state, pressure),
   ];
 
   const evaluations = applyLookahead(rawEvaluations, state, pressure);
@@ -125,5 +173,9 @@ export function selectStrategy(
   state: ContextState,
 ): StrategySelectionResult | null {
   if (!shouldTrigger(state)) return null;
-  return evaluateStrategies(state);
+  const result = evaluateStrategies(state);
+  if (result.selected === "durability" && state.durabilityContext) {
+    void reconstructWorkspace(state.durabilityContext);
+  }
+  return result;
 }

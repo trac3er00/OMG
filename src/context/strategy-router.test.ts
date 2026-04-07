@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import {
+  STRATEGY_REGISTRY,
   computePressure,
   shouldTrigger,
   evaluateStrategies,
@@ -13,9 +14,14 @@ const baseState: ContextState = {
   turnCount: 25,
   hasRecentDecisions: true,
   hasEvidenceRefs: true,
+  freshnessScore: 85,
 };
 
 describe("context/strategy-router", () => {
+  test("durability strategy is registered", () => {
+    expect(STRATEGY_REGISTRY).toContain("durability");
+  });
+
   describe("computePressure", () => {
     test("returns ratio of used to max tokens", () => {
       const state: ContextState = {
@@ -77,15 +83,26 @@ describe("context/strategy-router", () => {
       };
       expect(shouldTrigger(state)).toBe(false);
     });
+
+    test("triggers durability when freshness score decays below 40", () => {
+      expect(
+        shouldTrigger({
+          ...baseState,
+          totalTokens: 30000,
+          freshnessScore: 35,
+        }),
+      ).toBe(true);
+    });
   });
 
   describe("evaluateStrategies", () => {
-    test("returns all 3 strategies", () => {
+    test("returns all registered strategies including durability", () => {
       const result = evaluateStrategies({ ...baseState, totalTokens: 80000 });
       const names = result.evaluations.map((e) => e.strategy);
       expect(names).toContain("keep-last-n");
       expect(names).toContain("summarize");
       expect(names).toContain("discard-all");
+      expect(names).toContain("durability");
     });
 
     test("all scores are numeric 0-1", () => {
@@ -146,7 +163,31 @@ describe("context/strategy-router", () => {
         hasEvidenceRefs: true,
       };
       const result = evaluateStrategies(state);
-      expect(["keep-last-n", "summarize"]).toContain(result.selected);
+      expect(["keep-last-n", "summarize", "durability"]).toContain(
+        result.selected,
+      );
+    });
+
+    test("durability strategy activates when context pressure exceeds 0.7", () => {
+      const result = evaluateStrategies({
+        ...baseState,
+        totalTokens: 90000,
+        freshnessScore: 30,
+      });
+      const durability = result.evaluations.find(
+        (evaluation) => evaluation.strategy === "durability",
+      );
+      expect(durability).toBeDefined();
+      expect(durability?.score).toBeGreaterThan(0.5);
+    });
+
+    test("durability strategy wins when freshness is critically low", () => {
+      const result = evaluateStrategies({
+        ...baseState,
+        totalTokens: 30000,
+        freshnessScore: 20,
+      });
+      expect(result.selected).toBe("durability");
     });
 
     test("each evaluation has a rationale string", () => {
@@ -171,10 +212,10 @@ describe("context/strategy-router", () => {
       expect(result?.selected).toBeDefined();
     });
 
-    test("3 evaluations returned when triggered", () => {
+    test("4 evaluations returned when triggered", () => {
       const state: ContextState = { ...baseState, totalTokens: 80000 };
       const result = selectStrategy(state);
-      expect(result?.evaluations.length).toBe(3);
+      expect(result?.evaluations.length).toBe(4);
     });
   });
 });

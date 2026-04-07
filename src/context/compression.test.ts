@@ -146,5 +146,13 @@ describe("context/compression", () => {
       expect(result.retention_rate).toBeGreaterThan(0);
       expect(result.retention_rate).toBeLessThanOrEqual(1);
     });
+
+    test("reconstruction boundary skips compression for that chunk", () => {
+      const state = makeState(80000);
+      const result = compress(state, { reconstructionBoundary: true });
+      expect(result.compressed_tokens).toBe(state.totalTokens);
+      expect(result.retention_rate).toBe(1);
+      expect(result.strategy_used).toBe("durability");
+    });
   });
 });

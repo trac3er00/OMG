@@ -7,6 +7,7 @@ import {
   type CompactCanonicalState,
   serializeState,
   deserializeState,
+  getWorkspaceDurabilityState,
 } from "./workspace-reconstruction.js";
 
 export const CHECKPOINT_VERSION = "1.0.0";
@@ -19,6 +20,9 @@ const CheckpointMetaSchema = z.object({
   tool_call_count: z.number().int(),
   context_version: z.number().int(),
   goal_summary: z.string(),
+  contextFreshnessScore: z.number().min(0).max(100).optional(),
+  lastReconstructionAt: z.string().optional(),
+  decayEventCount: z.number().int().min(0).optional(),
 });
 type CheckpointMeta = z.infer<typeof CheckpointMetaSchema>;
 
@@ -65,6 +69,7 @@ export class CheckpointSystem {
 
   saveCheckpoint(): CheckpointResult {
     const state = deserializeState(this.projectDir);
+    const durabilityState = getWorkspaceDurabilityState();
     if (state == null) {
       const empty: CompactCanonicalState = {
         schema_version: "1.0.0",
@@ -88,6 +93,12 @@ export class CheckpointSystem {
       tool_call_count: this.toolCallCount,
       context_version: state?.context_version ?? 0,
       goal_summary: (state?.goal ?? "").slice(0, 80),
+      contextFreshnessScore:
+        state?.contextFreshnessScore ?? durabilityState.contextFreshnessScore,
+      lastReconstructionAt:
+        state?.lastReconstructionAt ?? durabilityState.lastReconstructionAt,
+      decayEventCount:
+        state?.decayEventCount ?? durabilityState.decayEventCount,
     });
 
     const checkpointPath = join(this.checkpointDir, `${checkpointId}.json`);
