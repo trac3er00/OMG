@@ -1,0 +1,15 @@
+
+ 1401 pass
+ 1 fail
+ 3210 expect() calls
+Ran 1402 tests across 118 files. [25.89s]
+ERROR tests/e2e/test_setup_script.py::test_setup_uninstall_emits_receipt@e2e_setup-script-e2e
+ERROR tests/e2e/test_setup_script.py::test_setup_uninstall_preserves_non_omg_settings@e2e_setup-script-e2e
+ERROR tests/e2e/test_setup_script.py::test_setup_uninstall_verify_clean_dry_run@e2e_setup-script-e2e
+ERROR tests/e2e/test_setup_script.py::test_setup_uninstall_host_configs_cleaned_non_empty@e2e_setup-script-e2e
+ERROR tests/e2e/test_setup_script.py::test_setup_verify_clean_detects_all_owned_surfaces@e2e_setup-script-e2e
+ERROR tests/e2e/test_setup_script.py::test_setup_verify_clean_repair_removes_owned_residue@e2e_setup-script-e2e
+ERROR tests/e2e/test_setup_script.py::test_setup_verify_clean_receipt_schema@e2e_setup-script-e2e
+ERROR tests/e2e/test_setup_script.py::test_setup_verify_clean_codex_structural_removal@e2e_setup-script-e2e
+ERROR tests/e2e/test_setup_script.py::test_setup_uninstall_cleans_settings_before_runtime_deletion@e2e_setup-script-e2e
+= 110 failed, 5346 passed, 2 skipped, 6 warnings, 93 errors in 95.00s (0:01:35) =
