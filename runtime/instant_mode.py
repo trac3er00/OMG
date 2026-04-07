@@ -38,6 +38,7 @@ class InstantResult(TypedDict, total=False):
     evidence: dict[str, ProofScoreResult]
     warning: str
     subdirectory: str
+    skipped_files: list[dict[str, str]]
     silent_safety: bool
     silent_safety_restored: str | None
 
@@ -103,15 +104,19 @@ def run_instant(
 
         emit("scaffold", f"Generating {intent_type} scaffold")
         file_count = 0
+        skipped_files: list[dict[str, str]] = []
         for relative_path in _extract_scaffold_files(pack):
             full_path = resolved_target / relative_path
-            _assert_mutation_allowed(full_path)
             full_path.parent.mkdir(parents=True, exist_ok=True)
-            _ = full_path.write_text(
-                _render_scaffold_file(relative_path, intent_type, prompt),
-                encoding="utf-8",
-            )
-            file_count += 1
+            try:
+                _assert_mutation_allowed(full_path)
+                _ = full_path.write_text(
+                    _render_scaffold_file(relative_path, intent_type, prompt),
+                    encoding="utf-8",
+                )
+                file_count += 1
+            except PermissionError as exc:
+                skipped_files.append({"path": relative_path, "reason": str(exc)})
 
         emit("verify", "Computing evidence score")
         evidence: list[dict[str, object]] = [
@@ -137,6 +142,8 @@ def run_instant(
         if warning is not None:
             result["warning"] = warning
             result["subdirectory"] = str(resolved_target)
+        if skipped_files:
+            result["skipped_files"] = skipped_files
 
         emit("done", f"Created {file_count} files in {resolved_target}")
         return result
