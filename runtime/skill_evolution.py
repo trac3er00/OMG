@@ -351,3 +351,90 @@ def run_auto_propose(
         save_skill_proposal(proposal, proposals_dir)
         proposals.append(proposal)
     return proposals
+
+
+class SkillHealthMetrics:
+    """Track skill usage and success metrics."""
+
+    def __init__(self, skill_name: str) -> None:
+        self.skill_name = skill_name
+        self.usage_count = 0
+        self.success_count = 0
+        self.consecutive_failures = 0
+        self.failure_reasons: list[str] = []
+
+    def record_success(self) -> None:
+        self.usage_count += 1
+        self.success_count += 1
+        self.consecutive_failures = 0
+
+    def record_failure(self, reason: str = "") -> None:
+        self.usage_count += 1
+        self.consecutive_failures += 1
+        if reason:
+            self.failure_reasons.append(reason)
+
+    @property
+    def success_rate(self) -> float:
+        return self.success_count / self.usage_count if self.usage_count > 0 else 0.0
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "skill_name": self.skill_name,
+            "usage_count": self.usage_count,
+            "success_count": self.success_count,
+            "consecutive_failures": self.consecutive_failures,
+            "success_rate": self.success_rate,
+        }
+
+
+class SkillLifecycleManager:
+    """Manages skill promotion and retirement lifecycle."""
+
+    def __init__(
+        self,
+        promote_after_successes: int = 5,
+        retire_after_failures: int = 3,
+        proposals_dir: str = ".omg/skill-proposals",
+    ) -> None:
+        self.promote_after_successes = promote_after_successes
+        self.retire_after_failures = retire_after_failures
+        self.proposals_dir = proposals_dir
+        self.metrics: dict[str, SkillHealthMetrics] = {}
+
+    def get_metrics(self, skill_name: str) -> SkillHealthMetrics:
+        if skill_name not in self.metrics:
+            self.metrics[skill_name] = SkillHealthMetrics(skill_name)
+        return self.metrics[skill_name]
+
+    def record_use(self, skill_name: str, success: bool, reason: str = "") -> str:
+        """Record a skill use. Returns new status: 'proposed', 'active', 'retired'."""
+        m = self.get_metrics(skill_name)
+        if success:
+            m.record_success()
+        else:
+            m.record_failure(reason)
+
+        if m.success_count >= self.promote_after_successes:
+            self._update_skill_status(skill_name, "active")
+            return "active"
+
+        if m.consecutive_failures >= self.retire_after_failures:
+            self._update_skill_status(skill_name, "retired")
+            return "retired"
+
+        return "proposed"
+
+    def _update_skill_status(self, skill_name: str, new_status: str) -> None:
+        import glob as _glob
+
+        pattern = os.path.join(self.proposals_dir, f"*{skill_name}*.json")
+        for filepath in _glob.glob(pattern):
+            try:
+                with open(filepath, encoding="utf-8") as f:
+                    data = json.load(f)
+                data["status"] = new_status
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=True)
+            except Exception:
+                pass
