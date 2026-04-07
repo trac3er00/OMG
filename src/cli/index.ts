@@ -7,6 +7,7 @@ import { hideBin } from "yargs/helpers";
 import { formatCliError, printCliError } from "./error-formatter.js";
 import { hooksListCommand } from "./commands/hooks.js";
 import { memoryCommand } from "./commands/memory.js";
+import { pauseCommand } from "./commands/pause.js";
 import { skillsListCommand } from "./commands/skills.js";
 
 const CLI_VERSION = "2.3.0";
@@ -344,6 +345,7 @@ async function runCli(): Promise<void> {
       handler: () => {},
     })
     .command(memoryCommand)
+    .command(pauseCommand)
     .command({
       command: "lsp",
       describe: "Show LSP server status",
