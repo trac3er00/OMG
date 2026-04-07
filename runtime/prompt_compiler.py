@@ -386,3 +386,85 @@ def generate_parity_report(scores: list[ParityScore]) -> dict[str, Any]:
         "templates": [s.to_dict() for s in scores],
         "low_parity_templates": [s.template_id for s in scores if s.is_low_parity],
     }
+
+
+# ---------------------------------------------------------------------------
+# Parity enforcement — auto-correction overlays
+# ---------------------------------------------------------------------------
+
+
+class ProviderCorrection:
+    """Provider-specific template correction overlay."""
+
+    def __init__(self, provider: str, original_template: str):
+        self.provider = provider
+        self.original_template = original_template
+        self.corrections: list[tuple[str, str]] = []
+        self.applied = False
+
+    def add_correction(self, original: str, corrected: str) -> None:
+        self.corrections.append((original, corrected))
+
+    def apply(self) -> str:
+        """Apply corrections to produce provider-specific template."""
+        result = self.original_template
+        for original, corrected in self.corrections:
+            result = result.replace(original, corrected)
+        self.applied = True
+        return result
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "provider": self.provider,
+            "corrections_count": len(self.corrections),
+            "applied": self.applied,
+            "corrections": [{"from": o, "to": c} for o, c in self.corrections],
+        }
+
+
+def auto_correct_template(
+    template: str,
+    provider: str,
+    parity_score: float,
+    threshold: float = 0.8,
+) -> ProviderCorrection:
+    """Auto-correct a template when parity is below threshold.
+
+    Returns a ProviderCorrection overlay; original template is unchanged.
+    """
+    correction = ProviderCorrection(provider=provider, original_template=template)
+
+    if parity_score >= threshold:
+        return correction
+
+    provider_hints: dict[str, dict[str, str]] = {
+        "claude": {"You are": "As an AI assistant,", "Please": ""},
+        "codex": {"explain": "describe", "analyze": "review"},
+        "gemini": {"step by step": "systematically", "think": "reason"},
+        "kimi": {"output": "result", "generate": "create"},
+    }
+
+    hints = provider_hints.get(provider.lower(), {})
+    for original, replacement in hints.items():
+        if original in template:
+            correction.add_correction(original, replacement)
+
+    return correction
+
+
+def enforce_parity(
+    template_id: str,
+    template: str,
+    parity_scores: dict[str, float],
+    threshold: float = 0.8,
+) -> dict[str, ProviderCorrection]:
+    """Enforce parity by auto-correcting templates below threshold.
+
+    Returns dict of provider -> ProviderCorrection (only for below-threshold providers).
+    """
+    corrections: dict[str, ProviderCorrection] = {}
+    for provider, score in parity_scores.items():
+        if score < threshold:
+            correction = auto_correct_template(template, provider, score, threshold)
+            corrections[provider] = correction
+    return corrections
