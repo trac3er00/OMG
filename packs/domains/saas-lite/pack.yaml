@@ -2,3 +2,12 @@ name: saas-lite
 description: Lightweight SaaS starter (Next.js + Auth)
 category: web
 dependencies: []
+instant_mode:
+  default_stack: nextjs-prisma-stripe
+  recommended_services:
+    - auth: nextauth
+    - database: postgresql
+    - billing: stripe
+    - hosting: vercel
+  quickstart_template: saas-starter
+  estimated_scaffold_time: 45s
