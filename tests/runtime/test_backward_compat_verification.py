@@ -84,7 +84,7 @@ def test_all_presets_load() -> None:
 
 def test_all_hook_filenames_exist() -> None:
     hook_files = _collect_hook_files()
-    assert len(hook_files) == 56, f"expected 56 hook filenames, found {len(hook_files)}"
+    assert len(hook_files) == 58, f"expected 58 hook filenames, found {len(hook_files)}"
 
     filenames = {path.name for path in hook_files}
     registry_filenames = _collect_registry_hook_filenames()
