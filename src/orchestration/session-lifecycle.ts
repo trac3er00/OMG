@@ -23,6 +23,14 @@ import {
 import { WorkerWatchdog } from "./watchdog.js";
 import { ResourceLockManager, type ResourceLockPriority } from "./deadlock.js";
 import { type DagTaskResult } from "./dag-executor.js";
+import {
+  detectContextDecay,
+  reconstructWorkspace,
+  createCompactState,
+  getWorkspaceDurabilityState,
+  type ContextFreshnessInput,
+  type FileReference,
+} from "../context/workspace-reconstruction.js";
 
 export const OrchestrationTaskSchema = z.object({
   id: z.string().min(1),
@@ -34,6 +42,13 @@ export const OrchestrationTaskSchema = z.object({
   timeout_ms: z.number().positive().default(120_000),
 });
 export type OrchestrationTask = z.infer<typeof OrchestrationTaskSchema>;
+
+export interface DurabilityMetrics {
+  totalReconstructions: number;
+  averageFreshnessScore: number;
+  decayEventCount: number;
+  lastReconstructionAt?: string;
+}
 
 export interface SessionSnapshot {
   readonly sessionId: string;
@@ -48,6 +63,7 @@ export interface SessionSnapshot {
   readonly tasksSkipped: number;
   readonly budgetPressure: Readonly<Record<string, number>>;
   readonly events: readonly SessionEvent[];
+  readonly durabilityMetrics: Readonly<DurabilityMetrics>;
 }
 
 export interface OrchestrationSessionOptions {
@@ -59,10 +75,14 @@ export interface OrchestrationSessionOptions {
   readonly idGenerator?: () => string;
   readonly now?: () => Date;
   readonly maxEvents?: number;
+  readonly freshnessCheckIntervalMinutes?: number;
+  readonly freshnessThreshold?: number;
 }
 
 const DEFAULT_WATCHDOG_THRESHOLD_MS = 60_000;
 const MAX_EVENTS = 500;
+export const CHECK_INTERVAL_MINUTES = 10;
+export const DEFAULT_FRESHNESS_THRESHOLD = 40;
 
 export class OrchestrationSession extends EventEmitter {
   static create(
@@ -87,6 +107,19 @@ export class OrchestrationSession extends EventEmitter {
   private readonly taskResults = new Map<string, DagTaskResult>();
   private readonly events: SessionEvent[] = [];
 
+  private freshnessCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly fileReferences: FileReference[] = [];
+  private readonly freshnessScores: number[] = [];
+  private readonly freshnessCheckIntervalMs: number;
+  private readonly freshnessThreshold: number;
+  private readonly projectDir: string;
+  private readonly createdAt: string;
+  private readonly durability: DurabilityMetrics = {
+    totalReconstructions: 0,
+    averageFreshnessScore: 100,
+    decayEventCount: 0,
+  };
+
   constructor(options: OrchestrationSessionOptions = {}) {
     super();
 
@@ -100,8 +133,17 @@ export class OrchestrationSession extends EventEmitter {
     const watchdogThresholdMs =
       options.watchdogThresholdMs ?? DEFAULT_WATCHDOG_THRESHOLD_MS;
 
+    const projectDir = options.projectDir ?? process.cwd();
+    this.projectDir = projectDir;
+    this.createdAt = this.now().toISOString();
+    this.freshnessCheckIntervalMs =
+      (options.freshnessCheckIntervalMinutes ?? CHECK_INTERVAL_MINUTES) *
+      60_000;
+    this.freshnessThreshold =
+      options.freshnessThreshold ?? DEFAULT_FRESHNESS_THRESHOLD;
+
     const agentManager = AgentManager.create({
-      projectDir: options.projectDir ?? process.cwd(),
+      projectDir,
       now: this.now,
     });
 
@@ -141,6 +183,7 @@ export class OrchestrationSession extends EventEmitter {
     this.agents.startWatchdog((payload) =>
       this.emitEvent("agent_stalled", payload),
     );
+    this.startFreshnessChecking();
 
     try {
       for (const task of tasks) {
@@ -199,6 +242,7 @@ export class OrchestrationSession extends EventEmitter {
       throw error;
     } finally {
       this.agents.stopWatchdog();
+      this.stopFreshnessChecking();
     }
   }
 
@@ -208,6 +252,7 @@ export class OrchestrationSession extends EventEmitter {
     this.status = "cancelled";
     await this.agents.cancelAll();
     this.agents.stopWatchdog();
+    this.stopFreshnessChecking();
     this.emitEvent("session_cancelled", this.getSummary());
   }
 
@@ -226,6 +271,7 @@ export class OrchestrationSession extends EventEmitter {
       tasksSkipped: results.filter((r) => r.status === "skipped").length,
       budgetPressure: this.budget.pressureSnapshot(),
       events: latestSessionEvents(this.events, 50),
+      durabilityMetrics: this.getDurabilityMetrics(),
     };
   }
 
@@ -253,6 +299,100 @@ export class OrchestrationSession extends EventEmitter {
     return released;
   }
 
+  recordFileReference(path: string): void {
+    this.fileReferences.push({
+      path,
+      referencedAt: this.now().toISOString(),
+    });
+  }
+
+  async checkFreshness(): Promise<number> {
+    const sessionStart = this.startedAt || this.createdAt;
+    const input: ContextFreshnessInput = {
+      fileReferences: this.fileReferences,
+      sessionStartedAt: sessionStart,
+      now: this.now(),
+    };
+
+    const result = detectContextDecay(input, this.freshnessThreshold / 100);
+    this.freshnessScores.push(result.freshnessScore);
+
+    if (result.decayDetected) {
+      this.durability.decayEventCount++;
+      this.emitEvent("context-decay-detected", {
+        freshnessScore: result.freshnessScore,
+        threshold: this.freshnessThreshold,
+        efficiencyRatio: result.efficiencyRatio,
+        fileReferenceCount: this.fileReferences.length,
+      });
+      await this.attemptReconstruction(result.freshnessScore);
+    }
+
+    this.updateAverageFreshness();
+    return result.freshnessScore;
+  }
+
+  getDurabilityMetrics(): Readonly<DurabilityMetrics> {
+    return { ...this.durability };
+  }
+
+  getContextFreshnessScore(): number {
+    if (this.freshnessScores.length > 0) {
+      return this.freshnessScores[this.freshnessScores.length - 1]!;
+    }
+    return getWorkspaceDurabilityState().contextFreshnessScore;
+  }
+
+  private startFreshnessChecking(): void {
+    if (this.freshnessCheckTimer !== null) return;
+    this.freshnessCheckTimer = setInterval(() => {
+      void this.checkFreshness();
+    }, this.freshnessCheckIntervalMs);
+  }
+
+  private stopFreshnessChecking(): void {
+    if (this.freshnessCheckTimer !== null) {
+      clearInterval(this.freshnessCheckTimer);
+      this.freshnessCheckTimer = null;
+    }
+  }
+
+  private async attemptReconstruction(freshnessScore: number): Promise<void> {
+    try {
+      const state = createCompactState("session-workspace-reconstruction", {
+        contextFreshnessScore: freshnessScore,
+      });
+
+      await reconstructWorkspace({
+        projectDir: this.projectDir,
+        state,
+        fileReferences: this.fileReferences,
+        sessionStartedAt: this.startedAt || this.createdAt,
+        now: this.now(),
+      });
+
+      this.durability.totalReconstructions++;
+      this.durability.lastReconstructionAt = this.now().toISOString();
+
+      this.emitEvent("workspace_reconstructed", {
+        freshnessScore,
+        totalReconstructions: this.durability.totalReconstructions,
+      });
+    } catch {
+      this.emitEvent("reconstruction_failed", {
+        freshnessScore,
+      });
+    }
+  }
+
+  private updateAverageFreshness(): void {
+    if (this.freshnessScores.length === 0) return;
+    const sum = this.freshnessScores.reduce((a, b) => a + b, 0);
+    this.durability.averageFreshnessScore = Math.round(
+      sum / this.freshnessScores.length,
+    );
+  }
+
   private emitEvent(type: string, payload: Record<string, unknown>): void {
     emitSessionEvent({
       emitter: this,
@@ -276,6 +416,7 @@ export class OrchestrationSession extends EventEmitter {
       tasksSkipped: results.filter((r) => r.status === "skipped").length,
       elapsedMs: this.startMs > 0 ? this.now().getTime() - this.startMs : 0,
       budget: this.budget.toSnapshot(),
+      durabilityMetrics: this.getDurabilityMetrics(),
     };
   }
 }
