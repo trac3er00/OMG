@@ -152,6 +152,25 @@ class ModelRouter:
                 estimated_cost_per_1k=best.cost_per_1k_tokens,
             )
 
+        try:
+            from .model_toggle import get_mode, get_preferred_model
+
+            toggle_mode = get_mode()
+            if toggle_mode != "balanced":
+                decision = RoutingDecision(
+                    model_id=get_preferred_model(resolved_complexity),
+                    provider="claude",
+                    complexity=resolved_complexity,
+                    budget_remaining_pct=self.budget.remaining_pct,
+                    reasoning=(
+                        f"toggle override: mode={toggle_mode}, "
+                        f"complexity={resolved_complexity}{mode_reason}"
+                    ),
+                    estimated_cost_per_1k=decision.estimated_cost_per_1k,
+                )
+        except Exception:
+            pass
+
         self._emit_budget_alerts()
         self._log_decision(decision)
         return decision
