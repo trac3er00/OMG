@@ -4,25 +4,51 @@
 [![npm version](https://img.shields.io/npm/v/%40trac3r%2Foh-my-god)](https://www.npmjs.com/package/@trac3r/oh-my-god)
 [![License](https://img.shields.io/github/license/trac3r00/OMG)](LICENSE)
 
-**OMG upgrades your agent host instead of replacing it.** It gives Claude Code, Codex, and other supported CLIs a tighter setup flow, stronger orchestration, native adoption from older plugin stacks, and proof-backed verification.
+**Build anything with one command. Governed by default.**
+**(딸깍 한 번으로 무엇이든 만드세요. 거버넌스는 기본입니다.)**
 
 🚀 **[Getting Started Guide](docs/GETTING-STARTED.md)** — Get up and running in 1 minute.
 
 ---
 
+## ⚡ Instant Mode: One Command, One Product
+
+OMG transforms your prompt into a production-ready codebase in seconds. No more manual setup, boilerplate, or configuration hell.
+
+```bash
+# Generate a landing page instantly
+npx omg instant "랜딩페이지 만들어줘"
+
+# Generate a SaaS boilerplate
+npx omg instant "SaaS 서비스 뼈대 잡아줘"
+```
+
+### 📦 What you can build (7 Domain Packs)
+- **SaaS**: Full-stack subscription apps
+- **Landing**: High-conversion marketing pages
+- **E-commerce**: Storefronts with cart and checkout
+- **API**: Robust backend services (REST/GraphQL)
+- **Bot**: Discord, Slack, and Telegram bots
+- **Admin**: Internal dashboards and CMS
+- **CLI**: Powerful command-line tools
+
+---
+
 ## 🚀 Killer Features
 
-### 🛡️ MutationGate
-
+### 🛡️ MutationGate (Under the Hood)
 **Stop risky mutations before they happen.**
 MutationGate provides a hard gate for file system changes. It intercepts, warns, and blocks unauthorized or risky mutations, especially during release orchestration. No more accidental deletions or unauthorized config changes.
 (릴리즈 오케스트레이션 시 변조를 차단하거나 허용하는 강력한 게이트웨이입니다. 위험한 파일 시스템 변경을 사전에 방지합니다.)
 
-### ⚖️ ProofGate
-
+### ⚖️ ProofGate (Under the Hood)
 **Evidence-backed verification, claim judge.**
 ProofGate requires machine-generated evidence (test results, build logs, etc.) for every claim an agent makes. It acts as a judge to verify that a task was actually completed correctly, not just "claimed" to be done.
 (에이전트의 주장을 증거 기반으로 검증합니다. 테스트 결과, 빌드 로그 등 객체적 증거를 통해 작업 완료 여부를 심판합니다.)
+
+### 📊 Real-time HUD
+Monitor your agent's activity, ProofScore (0-100), and system health in real-time.
+(에이전트 활동, 증거 점수(0-100), 시스템 상태를 실시간으로 모니터링하세요.)
 
 ---
 
@@ -42,6 +68,8 @@ ProofGate requires machine-generated evidence (test results, build logs, etc.) f
 
 | Feature          | Native Claude Code | oh-my-claudecode |   gstack    | everything-claude-code |         **OMG v3.0.0**          |
 | :--------------- | :----------------: | :--------------: | :---------: | :--------------------: | :-----------------------------: |
+| **Instant Product Generation** | ❌ None | ❌ None | ❌ None | ❌ None | ✅ **7 Domain Packs** |
+| **Real-time HUD** | ❌ None | ❌ None | ❌ None | ❌ None | ✅ **Agent Activity + ProofScore** |
 | **Governance**   |      ❌ None       |    ⚠️ Limited    | ⚠️ Optional |     ⚠️ AgentShield     | ✅ **Hard Gates + Approval UI** |
 | **Verification** |     ❌ Manual      |     ⚠️ Basic     |  ⚠️ Basic   |   ✅ Evidence-Backed   | ✅ **ProofGate + Claim Judge**  |
 | **Rollback**     |      ❌ None       |     ❌ None      |   ❌ None   |        ⚠️ Basic        |    ✅ **Rollback Manifests**    |
@@ -51,6 +79,8 @@ ProofGate requires machine-generated evidence (test results, build logs, etc.) f
 
 **OMG v3.0.0 고유 강점:**
 
+- **Instant Product Generation**: 7가지 도메인 팩을 통해 즉시 제품 생성.
+- **Real-time HUD**: 에이전트 활동 및 ProofScore 실시간 모니터링.
 - **Hard Gates + Approval UI**: 단순 경고를 넘어선 실제 차단 및 대화형 승인 인터페이스.
 - **Rollback Manifests**: 모든 작업에 대한 세밀한 실행 취소 및 복구 능력.
 - **Multi-Model Routing**: 작업 복잡도에 따른 최적의 모델 자동 선택 및 예산 관리.

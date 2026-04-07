@@ -1,62 +1,82 @@
 # Getting Started with OMG
 
-OMG(Oh My God)는 기존 에이전트 호스트의 기능을 확장하고 보안 및 거버넌스 계층을 추가하는 강력한 도구입니다. 이 가이드는 OMG를 빠르게 설치하고 첫 번째 작업을 시작하는 방법을 안내합니다.
+OMG (Oh My God) is a powerful tool that extends the capabilities of existing agent hosts and adds a governance layer. Build products instantly or upgrade your existing workflow with security and verification.
 
-Welcome to OMG! This guide helps you get up and running in minutes. OMG upgrades your agent host (Claude Code, Codex, etc.) with governance, safety gates, and evidence-backed verification.
+## ⚡ 1-Command Quickstart
 
-## Prerequisites
+The fastest way to see OMG in action is to generate a product instantly:
 
-Before you start, ensure you have:
+```bash
+# Generate a landing page
+npx omg instant "make a landing page"
 
+# Generate a SaaS boilerplate
+npx omg instant "create a SaaS app with authentication"
+```
+
+### 📦 What you can build
+OMG comes with 7 specialized domain packs:
+- **SaaS**: Full-stack subscription apps
+- **Landing**: High-conversion marketing pages
+- **E-commerce**: Storefronts with cart and checkout
+- **API**: Robust backend services
+- **Bot**: Discord, Slack, and Telegram bots
+- **Admin**: Internal dashboards and CMS
+- **CLI**: Powerful command-line tools
+
+---
+
+## 🛠️ Installation & Setup
+
+If you want to use OMG as a governance layer for your existing agent host (Claude Code, Codex, etc.):
+
+### 1. Prerequisites
 - **Node.js**: >= 18
 - **Python**: >= 3.10
 - **OS**: macOS or Linux
 
-## 1-Minute Install
-
-The fastest way to set up OMG is using the interactive initializer:
+### 2. Initialize
+Run the interactive initializer to set up your environment:
 
 ```bash
 npx omg init
 ```
 
-This command runs environment diagnostics, previews the changes, and applies the configuration for your detected hosts.
+This command runs environment diagnostics (`npx omg env doctor`), previews changes, and applies configuration.
+
+---
 
 ## First 5 Commands to Try
 
-Try these commands to see OMG in action:
-
-1. **Setup**: `npx omg env doctor` - Check if your environment is ready for agent work.
-2. **Work**: `npx omg ship` - Orchestrate a release with full governance and safety checks.
-3. **Verify**: `npx omg proof open --html` - View the evidence dashboard for your last task.
-4. **Configure**: `npx omg install --plan` - Preview configuration changes without applying them.
-5. **Advanced**: `npx omg contract validate` - Validate your project's compliance with the OMG contract.
+1. **Instant**: `npx omg instant "<prompt>"` - Build a product from a single prompt.
+2. **Setup**: `npx omg env doctor` - Check if your environment is ready.
+3. **Work**: `npx omg ship` - Orchestrate a release with full governance.
+4. **Verify**: `npx omg proof open --html` - View the evidence dashboard.
+5. **Configure**: `npx omg install --plan` - Preview configuration changes.
 
 ## Understanding Presets
 
 OMG uses presets to determine which capabilities to enable. You can choose one during `npx omg init`:
 
-- **minimal**: Core governance and security hooks. Lightweight and fast.
-- **standard**: Adds `context7` for better documentation retrieval.
-- **full**: Adds `websearch` and `omg-memory` for persistent state and research.
+- **minimal**: Core governance and security hooks.
+- **standard**: Adds `context7` for documentation retrieval.
+- **full**: Adds `websearch` and `omg-memory` for persistent state.
 - **experimental**: Enables browser automation via Playwright.
 
 ## Quick Wins: What OMG Does Automatically
 
-Once installed, OMG works behind the scenes to protect your project:
+Once installed, OMG works behind the scenes:
 
-- **MutationGate**: Intercepts and blocks risky file system changes (like accidental deletions).
-- **Security Gates**: Automatically screens `bash` commands for secrets and risky patterns.
-- **ProofGate**: Requires machine-generated evidence (tests, builds) before accepting a task as "done".
-- **Session Health**: Monitors your session state and warns you if things look unstable.
+- **MutationGate**: Intercepts and blocks risky file system changes.
+- **Security Gates**: Screens `bash` commands for secrets and risky patterns.
+- **ProofGate**: Requires machine-generated evidence before accepting a task as "done".
+- **Session Health**: Monitors your session state and warns if things look unstable.
 
 ## Next Steps
 
-Ready to dive deeper? Check out these guides:
-
-- [Installation Guides](README.md#install-guides) - Detailed steps for specific hosts.
-- [Claude Code Guide](docs/install/claude-code.md) - Specific tips for Claude users.
-- [Quick Reference](QUICK-REFERENCE.md) - A handy list of all commands and presets.
+- [Installation Guides](../README.md#install-guides) - Detailed steps for specific hosts.
+- [Claude Code Guide](install/claude-code.md) - Specific tips for Claude users.
+- [Quick Reference](../QUICK-REFERENCE.md) - A handy list of all commands and presets.
 
 ---
 
