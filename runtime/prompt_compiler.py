@@ -9,6 +9,7 @@ Workflow:
     2. After verification: record_outcome(task_type, template_id, success) → update stats
     3. Over time: templates with higher success rates get selected more often
 """
+
 from __future__ import annotations
 
 import json
@@ -122,6 +123,7 @@ _DEFAULT_TEMPLATE: dict[str, Any] = {
 # Outcome tracking
 # ---------------------------------------------------------------------------
 
+
 def _outcomes_path(project_dir: str | Path) -> str:
     """Path to the prompt outcomes ledger."""
     return os.path.join(str(project_dir), ".omg", "state", "prompt-outcomes.jsonl")
@@ -161,10 +163,14 @@ def record_outcome(
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, separators=(",", ":")) + "\n")
     except Exception as exc:
-        _logger.debug("Failed to append prompt outcome at %s: %s", path, exc, exc_info=True)
+        _logger.debug(
+            "Failed to append prompt outcome at %s: %s", path, exc, exc_info=True
+        )
 
 
-def _load_outcomes(project_dir: str | Path, max_age_days: int = 30) -> list[dict[str, Any]]:
+def _load_outcomes(
+    project_dir: str | Path, max_age_days: int = 30
+) -> list[dict[str, Any]]:
     """Load recent outcomes from the ledger."""
     path = _outcomes_path(project_dir)
     if not os.path.exists(path):
@@ -185,13 +191,16 @@ def _load_outcomes(project_dir: str | Path, max_age_days: int = 30) -> list[dict
                 except json.JSONDecodeError:
                     continue
     except Exception as exc:
-        _logger.debug("Failed to load prompt outcomes from %s: %s", path, exc, exc_info=True)
+        _logger.debug(
+            "Failed to load prompt outcomes from %s: %s", path, exc, exc_info=True
+        )
     return outcomes
 
 
 # ---------------------------------------------------------------------------
 # Template selection
 # ---------------------------------------------------------------------------
+
 
 def _compute_template_scores(
     task_type: str,
@@ -275,3 +284,105 @@ def get_compiled_preamble(
 def get_available_task_types() -> list[str]:
     """Return all task types that have templates."""
     return list(_TEMPLATES.keys())
+
+
+# ---------------------------------------------------------------------------
+# Cross-provider parity measurement
+# ---------------------------------------------------------------------------
+
+
+class ParityScore:
+    """Structural similarity score between prompt outputs (0.0-1.0)."""
+
+    def __init__(self, template_id: str) -> None:
+        self.template_id = template_id
+        self.scores: dict[str, float] = {}
+        self.low_parity_threshold = 0.8
+
+    def add_score(self, provider: str, score: float) -> None:
+        self.scores[provider] = score
+
+    @property
+    def average_score(self) -> float:
+        return sum(self.scores.values()) / len(self.scores) if self.scores else 0.0
+
+    @property
+    def is_low_parity(self) -> bool:
+        return self.average_score < self.low_parity_threshold
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "template_id": self.template_id,
+            "scores": self.scores,
+            "average": self.average_score,
+            "low_parity": self.is_low_parity,
+        }
+
+
+def compute_structural_similarity(output_a: str, output_b: str) -> float:
+    """Compute structural similarity between two prompt outputs.
+
+    Uses simple heuristics: section count, word overlap, length ratio.
+    Returns 0.0-1.0 (1.0 = identical structure).
+    """
+    # Count sections (lines starting with #)
+    sections_a = len([line for line in output_a.split("\n") if line.startswith("#")])
+    sections_b = len([line for line in output_b.split("\n") if line.startswith("#")])
+
+    # Word overlap (Jaccard similarity)
+    words_a = set(output_a.lower().split())
+    words_b = set(output_b.lower().split())
+    if not words_a and not words_b:
+        return 1.0
+    jaccard = len(words_a & words_b) / len(words_a | words_b)
+
+    # Length ratio
+    max_len = max(len(output_a), len(output_b))
+    len_ratio = min(len(output_a), len(output_b)) / max_len if max_len > 0 else 1.0
+
+    # Section similarity
+    section_total = sections_a + sections_b
+    section_sim = 1.0 - abs(sections_a - sections_b) / max(section_total, 1)
+
+    return jaccard * 0.5 + len_ratio * 0.3 + section_sim * 0.2
+
+
+def measure_template_parity(template_id: str, outputs: dict[str, str]) -> ParityScore:
+    """Measure parity of a template across multiple provider outputs.
+
+    Args:
+        template_id: Identifier for the prompt template.
+        outputs: Mapping of provider_name to output_text.
+
+    Returns:
+        ParityScore with per-provider similarity against the reference provider.
+    """
+    score = ParityScore(template_id)
+    providers = list(outputs.keys())
+
+    if len(providers) < 2:
+        # Single provider: perfect parity by definition
+        for p in providers:
+            score.add_score(p, 1.0)
+        return score
+
+    # Compare each provider against the first (reference)
+    reference_provider = providers[0]
+    reference_output = outputs[reference_provider]
+    score.add_score(reference_provider, 1.0)
+
+    for provider in providers[1:]:
+        sim = compute_structural_similarity(reference_output, outputs[provider])
+        score.add_score(provider, sim)
+
+    return score
+
+
+def generate_parity_report(scores: list[ParityScore]) -> dict[str, Any]:
+    """Generate parity report with low-parity templates flagged."""
+    return {
+        "total_templates": len(scores),
+        "low_parity_count": sum(1 for s in scores if s.is_low_parity),
+        "templates": [s.to_dict() for s in scores],
+        "low_parity_templates": [s.template_id for s in scores if s.is_low_parity],
+    }
