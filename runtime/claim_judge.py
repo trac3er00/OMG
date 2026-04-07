@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,12 @@ from registry.verify_artifact import verify_artifact_statement
 from runtime import artifact_parsers
 from runtime.context_engine import load_profile_digest
 from runtime.evidence_query import get_evidence_pack
-from runtime.evidence_requirements import FULL_REQUIREMENTS, normalize_profile, resolve_profile, requirements_for_profile
+from runtime.evidence_requirements import (
+    FULL_REQUIREMENTS,
+    normalize_profile,
+    resolve_profile,
+    requirements_for_profile,
+)
 
 
 def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, Any]:
@@ -58,10 +64,16 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             evidence_profile = ""
             if isinstance(evidence_pack, dict):
                 trace_ids = _as_non_empty_str_list(evidence_pack.get("trace_ids"))
-                context_checksum = str(evidence_pack.get("context_checksum", "")).strip()
+                context_checksum = str(
+                    evidence_pack.get("context_checksum", "")
+                ).strip()
                 profile_version = str(evidence_pack.get("profile_version", "")).strip()
-                intent_gate_version = str(evidence_pack.get("intent_gate_version", "")).strip()
-                evidence_profile = str(evidence_pack.get("evidence_profile", "")).strip()
+                intent_gate_version = str(
+                    evidence_pack.get("intent_gate_version", "")
+                ).strip()
+                evidence_profile = str(
+                    evidence_pack.get("evidence_profile", "")
+                ).strip()
             resolved_claim = {
                 **claim,
                 "artifacts": [f".omg/evidence/{run_id}.json"],
@@ -79,15 +91,23 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             updated_reasons.extend(council_reasons)
             result = {**result, "reasons": updated_reasons, "verdict": "block"}
         result_with_run = {**result, "run_id": run_id}
-        result_with_run["context_checksum"] = str(resolved_claim.get("context_checksum", "")).strip()
-        result_with_run["profile_version"] = str(resolved_claim.get("profile_version", "")).strip()
-        result_with_run["intent_gate_version"] = str(resolved_claim.get("intent_gate_version", "")).strip()
+        result_with_run["context_checksum"] = str(
+            resolved_claim.get("context_checksum", "")
+        ).strip()
+        result_with_run["profile_version"] = str(
+            resolved_claim.get("profile_version", "")
+        ).strip()
+        result_with_run["intent_gate_version"] = str(
+            resolved_claim.get("intent_gate_version", "")
+        ).strip()
         result_with_run["advisory_context"] = {"profile_digest": profile_digest}
         results.append(result_with_run)
         aggregate_tokens.append(str(result.get("verdict", "")).strip().lower())
 
         artifact_run_id = run_id or f"unknown-{index + 1}"
-        artifact_path = evidence_dir / f"claim-judge-{_sanitize_run_id(artifact_run_id)}.json"
+        artifact_path = (
+            evidence_dir / f"claim-judge-{_sanitize_run_id(artifact_run_id)}.json"
+        )
         artifact_payload = {
             "schema": "ClaimJudgeResult",
             "run_id": run_id,
@@ -95,10 +115,14 @@ def judge_claims(project_dir: str, claims: list[dict[str, Any]]) -> dict[str, An
             "result": result,
             "context_checksum": str(resolved_claim.get("context_checksum", "")).strip(),
             "profile_version": str(resolved_claim.get("profile_version", "")).strip(),
-            "intent_gate_version": str(resolved_claim.get("intent_gate_version", "")).strip(),
+            "intent_gate_version": str(
+                resolved_claim.get("intent_gate_version", "")
+            ).strip(),
             "advisory_context": {"profile_digest": profile_digest},
         }
-        artifact_path.write_text(json.dumps(artifact_payload, indent=2, sort_keys=True), encoding="utf-8")
+        artifact_path.write_text(
+            json.dumps(artifact_payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
 
     verdict = "pass"
     if any(token == "fail" for token in aggregate_tokens):
@@ -131,13 +155,17 @@ def evaluate_claims_for_release(
         Decision payload with ``status`` set to ``allowed`` or ``blocked`` and
         the underlying claim-judge result attached.
     """
-    candidate_claims = claims if isinstance(claims, list) and claims else [
-        {
-            "claim_type": "release_ready",
-            "run_id": run_id,
-            "evidence_profile": "release",
-        }
-    ]
+    candidate_claims = (
+        claims
+        if isinstance(claims, list) and claims
+        else [
+            {
+                "claim_type": "release_ready",
+                "run_id": run_id,
+                "evidence_profile": "release",
+            }
+        ]
+    )
     judged = judge_claims(project_dir, candidate_claims)
     verdict = str(judged.get("verdict", "")).strip().lower()
     if verdict in {"fail", "insufficient", "block", "blocked", "error"}:
@@ -182,10 +210,16 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
     security_scans = normalized_claim.get("security_scans")
     browser_evidence = normalized_claim.get("browser_evidence")
     excluded_failures = _as_non_empty_list(normalized_claim.get("excluded_failures"))
-    excluded_failures_waiver_path = str(normalized_claim.get("excluded_failures_waiver_path", "")).strip()
+    excluded_failures_waiver_path = str(
+        normalized_claim.get("excluded_failures_waiver_path", "")
+    ).strip()
     evidence_profile = str(normalized_claim.get("evidence_profile", "")).strip()
-    evidence_requirements, evidence_profile_error = _resolve_evidence_requirements(evidence_profile)
-    requirement_set = {str(item).strip() for item in evidence_requirements if str(item).strip()}
+    evidence_requirements, evidence_profile_error = _resolve_evidence_requirements(
+        evidence_profile
+    )
+    requirement_set = {
+        str(item).strip() for item in evidence_requirements if str(item).strip()
+    }
     causal_chain = _as_dict(normalized_claim.get("causal_chain"))
 
     reasons: list[dict[str, Any]] = []
@@ -232,8 +266,19 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
 
     raw_artifacts = _extract_artifact_dicts(claim)
     project_dir = str(claim.get("project_dir", "."))
+    proof_score_evidence = _build_proof_score_evidence(
+        artifacts=artifacts, raw_artifacts=raw_artifacts
+    )
     for artifact in raw_artifacts:
-        parse_result = parse_artifact_content(artifact=artifact, project_dir=project_dir)
+        parse_result = parse_artifact_content(
+            artifact=artifact, project_dir=project_dir
+        )
+        for evidence_item in proof_score_evidence:
+            if evidence_item.get("path") == artifact.get("path") and evidence_item.get(
+                "type"
+            ) == artifact.get("kind"):
+                evidence_item["valid"] = bool(parse_result.get("parsed"))
+                break
         if parse_result.get("parsed"):
             continue
         kind = str(parse_result.get("kind", "artifact")).strip().lower() or "artifact"
@@ -261,7 +306,9 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
         claim=claim,
     )
 
-    causal_chain_errors = _validate_causal_chain(causal_chain, require_versions=strict_causal_chain)
+    causal_chain_errors = _validate_causal_chain(
+        causal_chain, require_versions=strict_causal_chain
+    )
     if causal_chain_errors:
         if strict_causal_chain:
             reasons.append(
@@ -283,7 +330,7 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
     else:
         verdict = "pass"
 
-    return {
+    result = {
         "schema": "ClaimJudgeResult",
         "verdict": verdict,
         "reasons": reasons,
@@ -292,9 +339,15 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
         "evidence": {
             "artifacts": artifacts,
             "trace_ids": trace_ids,
-            "lineage": normalized_claim.get("lineage") if isinstance(normalized_claim.get("lineage"), dict) else {},
-            "security_scans": security_scans if isinstance(security_scans, list) else [],
-            "browser_evidence": browser_evidence if isinstance(browser_evidence, list) else [],
+            "lineage": normalized_claim.get("lineage")
+            if isinstance(normalized_claim.get("lineage"), dict)
+            else {},
+            "security_scans": security_scans
+            if isinstance(security_scans, list)
+            else [],
+            "browser_evidence": browser_evidence
+            if isinstance(browser_evidence, list)
+            else [],
             "excluded_failures": excluded_failures,
             "excluded_failures_waiver_path": excluded_failures_waiver_path,
             "causal_chain": causal_chain,
@@ -303,6 +356,12 @@ def judge_claim(claim: dict[str, Any]) -> dict[str, Any]:
             "evidence_requirements": list(evidence_requirements),
         },
     }
+    try:
+        compute_score = import_module("runtime.proof_score").compute_score
+        result["proofScore"] = compute_score(proof_score_evidence)
+    except Exception:
+        pass
+    return result
 
 
 def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
@@ -315,31 +374,66 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
         trace_ids = _as_non_empty_str_list(claim.get("trace_ids"))
 
     claim_lineage = claim.get("lineage")
-    lineage = claim_lineage if isinstance(claim_lineage, dict) else _as_dict(evidence.get("lineage"))
+    lineage = (
+        claim_lineage
+        if isinstance(claim_lineage, dict)
+        else _as_dict(evidence.get("lineage"))
+    )
 
     claim_security_scans = claim.get("security_scans")
-    security_scans = claim_security_scans if isinstance(claim_security_scans, list) else _as_non_empty_dict_list(evidence.get("security_scans"))
+    security_scans = (
+        claim_security_scans
+        if isinstance(claim_security_scans, list)
+        else _as_non_empty_dict_list(evidence.get("security_scans"))
+    )
 
     claim_browser_evidence = claim.get("browser_evidence")
-    browser_evidence = claim_browser_evidence if isinstance(claim_browser_evidence, list) else _as_non_empty_dict_list(evidence.get("browser_evidence"))
+    browser_evidence = (
+        claim_browser_evidence
+        if isinstance(claim_browser_evidence, list)
+        else _as_non_empty_dict_list(evidence.get("browser_evidence"))
+    )
 
     claim_excluded_failures = claim.get("excluded_failures")
-    excluded_failures = claim_excluded_failures if isinstance(claim_excluded_failures, list) else _as_non_empty_list(evidence.get("excluded_failures"))
+    excluded_failures = (
+        claim_excluded_failures
+        if isinstance(claim_excluded_failures, list)
+        else _as_non_empty_list(evidence.get("excluded_failures"))
+    )
 
     excluded_failures_waiver_path = str(
-        claim.get("excluded_failures_waiver_path", evidence.get("excluded_failures_waiver_path", ""))
+        claim.get(
+            "excluded_failures_waiver_path",
+            evidence.get("excluded_failures_waiver_path", ""),
+        )
     ).strip()
 
-    lock_verification = claim.get("lock_verification") if isinstance(claim.get("lock_verification"), dict) else _as_dict(evidence.get("lock_verification"))
+    lock_verification = (
+        claim.get("lock_verification")
+        if isinstance(claim.get("lock_verification"), dict)
+        else _as_dict(evidence.get("lock_verification"))
+    )
     causal_chain = {
         "lock_id": str(claim.get("lock_id", evidence.get("lock_id", ""))).strip(),
-        "delta_summary": claim.get("delta_summary") if isinstance(claim.get("delta_summary"), dict) else _as_dict(evidence.get("delta_summary")),
-        "verification_status": str(claim.get("verification_status", evidence.get("verification_status", ""))).strip(),
-        "waiver_artifact_path": str(claim.get("waiver_artifact_path", evidence.get("waiver_artifact_path", ""))).strip(),
+        "delta_summary": claim.get("delta_summary")
+        if isinstance(claim.get("delta_summary"), dict)
+        else _as_dict(evidence.get("delta_summary")),
+        "verification_status": str(
+            claim.get("verification_status", evidence.get("verification_status", ""))
+        ).strip(),
+        "waiver_artifact_path": str(
+            claim.get("waiver_artifact_path", evidence.get("waiver_artifact_path", ""))
+        ).strip(),
         "lock_verification": lock_verification,
-        "context_checksum": str(claim.get("context_checksum", evidence.get("context_checksum", ""))).strip(),
-        "profile_version": str(claim.get("profile_version", evidence.get("profile_version", ""))).strip(),
-        "intent_gate_version": str(claim.get("intent_gate_version", evidence.get("intent_gate_version", ""))).strip(),
+        "context_checksum": str(
+            claim.get("context_checksum", evidence.get("context_checksum", ""))
+        ).strip(),
+        "profile_version": str(
+            claim.get("profile_version", evidence.get("profile_version", ""))
+        ).strip(),
+        "intent_gate_version": str(
+            claim.get("intent_gate_version", evidence.get("intent_gate_version", ""))
+        ).strip(),
     }
 
     return {
@@ -354,11 +448,17 @@ def _normalize_claim(claim: dict[str, Any]) -> dict[str, Any]:
         "excluded_failures": excluded_failures,
         "excluded_failures_waiver_path": excluded_failures_waiver_path,
         "causal_chain": causal_chain,
-        "evidence_profile": normalize_profile(str(claim.get("evidence_profile", evidence.get("evidence_profile", ""))).strip()),
+        "evidence_profile": normalize_profile(
+            str(
+                claim.get("evidence_profile", evidence.get("evidence_profile", ""))
+            ).strip()
+        ),
     }
 
 
-def _resolve_evidence_requirements(evidence_profile: str) -> tuple[list[str], dict[str, Any] | None]:
+def _resolve_evidence_requirements(
+    evidence_profile: str,
+) -> tuple[list[str], dict[str, Any] | None]:
     raw_profile = str(evidence_profile or "").strip()
     normalized = normalize_profile(raw_profile) if raw_profile else ""
 
@@ -503,7 +603,9 @@ def _normalize_exclusion_token(value: Any) -> str:
     return str(value).strip()
 
 
-def _validate_causal_chain(causal_chain: dict[str, Any], *, require_versions: bool) -> list[str]:
+def _validate_causal_chain(
+    causal_chain: dict[str, Any], *, require_versions: bool
+) -> list[str]:
     errors: list[str] = []
     lock_id = str(causal_chain.get("lock_id", "")).strip()
     delta_summary = causal_chain.get("delta_summary")
@@ -537,7 +639,9 @@ def _validate_causal_chain(causal_chain: dict[str, Any], *, require_versions: bo
     return errors
 
 
-def _claim_type_enforces_strict_causal_chain(*, claim_type: str, claim: dict[str, Any]) -> bool:
+def _claim_type_enforces_strict_causal_chain(
+    *, claim_type: str, claim: dict[str, Any]
+) -> bool:
     mode = str(claim.get("causal_chain_mode", "")).strip().lower()
     if mode == "legacy":
         return False
@@ -575,7 +679,9 @@ def _normalize_artifact_records(value: Any) -> list[str]:
     return refs
 
 
-def parse_artifact_content(artifact: dict[str, Any], project_dir: str) -> dict[str, Any]:
+def parse_artifact_content(
+    artifact: dict[str, Any], project_dir: str
+) -> dict[str, Any]:
     """Parse a typed evidence artifact via the registered parser map.
 
     Args:
@@ -589,11 +695,21 @@ def parse_artifact_content(artifact: dict[str, Any], project_dir: str) -> dict[s
     kind = str(artifact.get("kind", "")).strip().lower()
     path_value = str(artifact.get("path", "")).strip()
     if not kind or not path_value:
-        return {"parsed": False, "kind": kind or "unknown", "summary": {}, "error": "missing_kind_or_path"}
+        return {
+            "parsed": False,
+            "kind": kind or "unknown",
+            "summary": {},
+            "error": "missing_kind_or_path",
+        }
 
     parser = _PARSERS.get(kind)
     if parser is None:
-        return {"parsed": False, "kind": kind, "summary": {}, "error": "unsupported_artifact_kind"}
+        return {
+            "parsed": False,
+            "kind": kind,
+            "summary": {},
+            "error": "unsupported_artifact_kind",
+        }
 
     file_path = Path(path_value)
     if not file_path.is_absolute():
@@ -663,6 +779,29 @@ def _extract_artifact_dicts(claim: dict[str, Any]) -> list[dict[str, Any]]:
     return [item for item in raw_artifacts if isinstance(item, dict)]
 
 
+def _build_proof_score_evidence(
+    *, artifacts: list[str], raw_artifacts: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    if raw_artifacts:
+        return [
+            {
+                "type": str(item.get("kind", "")).strip(),
+                "path": str(item.get("path", "")).strip(),
+                "valid": True,
+            }
+            for item in raw_artifacts
+        ]
+    return [
+        {
+            "type": "artifact",
+            "path": artifact,
+            "valid": True,
+        }
+        for artifact in artifacts
+        if artifact
+    ]
+
+
 _PARSERS: dict[str, Any] = {
     "junit": artifact_parsers.parse_junit,
     "sarif": artifact_parsers.parse_sarif,
@@ -673,7 +812,9 @@ _PARSERS: dict[str, Any] = {
 
 
 def _sanitize_run_id(value: str) -> str:
-    cleaned = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "-" for ch in value.strip())
+    cleaned = "".join(
+        ch if ch.isalnum() or ch in {"-", "_", "."} else "-" for ch in value.strip()
+    )
     return cleaned or "unknown"
 
 
@@ -699,7 +840,10 @@ def _load_council_reasons(project_dir: str, run_id: str) -> list[dict[str, Any]]
     finding_items = findings if isinstance(findings, list) else []
     message = "council evidence completeness failed"
     if finding_items:
-        message = "; ".join(str(item).strip() for item in finding_items if str(item).strip()) or message
+        message = (
+            "; ".join(str(item).strip() for item in finding_items if str(item).strip())
+            or message
+        )
     return [
         {
             "code": "council_evidence_incomplete",
