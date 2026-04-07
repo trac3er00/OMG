@@ -24,6 +24,7 @@ npx omg instant "SaaS 서비스 뼈대 잡아줘"
 ```
 
 ### 📦 What you can build (7 Domain Packs)
+
 - **SaaS**: Full-stack subscription apps
 - **Landing**: High-conversion marketing pages
 - **E-commerce**: Storefronts with cart and checkout
@@ -37,18 +38,39 @@ npx omg instant "SaaS 서비스 뼈대 잡아줘"
 ## 🚀 Killer Features
 
 ### 🛡️ MutationGate (Under the Hood)
+
 **Stop risky mutations before they happen.**
 MutationGate provides a hard gate for file system changes. It intercepts, warns, and blocks unauthorized or risky mutations, especially during release orchestration. No more accidental deletions or unauthorized config changes.
 (릴리즈 오케스트레이션 시 변조를 차단하거나 허용하는 강력한 게이트웨이입니다. 위험한 파일 시스템 변경을 사전에 방지합니다.)
 
 ### ⚖️ ProofGate (Under the Hood)
+
 **Evidence-backed verification, claim judge.**
 ProofGate requires machine-generated evidence (test results, build logs, etc.) for every claim an agent makes. It acts as a judge to verify that a task was actually completed correctly, not just "claimed" to be done.
 (에이전트의 주장을 증거 기반으로 검증합니다. 테스트 결과, 빌드 로그 등 객체적 증거를 통해 작업 완료 여부를 심판합니다.)
 
 ### 📊 Real-time HUD
+
 Monitor your agent's activity, ProofScore (0-100), and system health in real-time.
 (에이전트 활동, 증거 점수(0-100), 시스템 상태를 실시간으로 모니터링하세요.)
+
+### 🧠 CMMS Memory Tiers
+
+**Auto/Micro/Ship tier-aware memory routing.**
+CMMS automatically routes state and context to the most efficient memory tier based on task complexity and persistence requirements.
+(작업 복잡도와 영속성 요구 사항에 따라 상태와 컨텍스트를 가장 효율적인 메모리 계층으로 자동 라우팅합니다.)
+
+### ⏸️ /pause and /continue
+
+**Session checkpoint persistence.**
+Save your entire session state with `/pause` and resume exactly where you left off with `/continue`. Perfect for long-running tasks or context switching.
+(세션 상태 전체를 저장하고 나중에 그대로 복구하세요. 장기 작업이나 컨텍스트 전환에 최적입니다.)
+
+### 🔄 Context Durability
+
+**Freshness scoring, adaptive workspace reconstruction.**
+OMG ensures your workspace remains consistent across sessions by scoring context freshness and adaptively reconstructing the environment.
+(컨텍스트 신선도를 측정하고 작업 공간을 적응적으로 재구성하여 세션 간 일관성을 유지합니다.)
 
 ---
 
@@ -66,16 +88,19 @@ Monitor your agent's activity, ProofScore (0-100), and system health in real-tim
 
 ## ⚔️ Comparison: Why OMG?
 
-| Feature          | Native Claude Code | oh-my-claudecode |   gstack    | everything-claude-code |         **OMG v3.0.0**          |
-| :--------------- | :----------------: | :--------------: | :---------: | :--------------------: | :-----------------------------: |
-| **Instant Product Generation** | ❌ None | ❌ None | ❌ None | ❌ None | ✅ **7 Domain Packs** |
-| **Real-time HUD** | ❌ None | ❌ None | ❌ None | ❌ None | ✅ **Agent Activity + ProofScore** |
-| **Governance**   |      ❌ None       |    ⚠️ Limited    | ⚠️ Optional |     ⚠️ AgentShield     | ✅ **Hard Gates + Approval UI** |
-| **Verification** |     ❌ Manual      |     ⚠️ Basic     |  ⚠️ Basic   |   ✅ Evidence-Backed   | ✅ **ProofGate + Claim Judge**  |
-| **Rollback**     |      ❌ None       |     ❌ None      |   ❌ None   |        ⚠️ Basic        |    ✅ **Rollback Manifests**    |
-| **Routing**      |     ❌ Single      |    ❌ Single     |  ❌ Single  |       ❌ Single        |   ✅ **Multi-Model Routing**    |
-| **Planning**     |     ❌ Linear      |     ⚠️ Basic     |  ⚠️ Basic   |        ⚠️ Basic        |  ✅ **Governed Deep Planning**  |
-| **Multi-Agent**  |      ❌ None       |     ❌ None      |  ⚠️ Basic   |        ⚠️ Basic        |   ✅ **Governed Multi-Agent**   |
+| Feature                        | Native Claude Code | oh-my-claudecode |   gstack    | everything-claude-code |           **OMG v3.0.0**           |
+| :----------------------------- | :----------------: | :--------------: | :---------: | :--------------------: | :--------------------------------: |
+| **Instant Product Generation** |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |       ✅ **7 Domain Packs**        |
+| **Real-time HUD**              |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         | ✅ **Agent Activity + ProofScore** |
+| **Governance**                 |      ❌ None       |    ⚠️ Limited    | ⚠️ Optional |     ⚠️ AgentShield     |  ✅ **Hard Gates + Approval UI**   |
+| **Verification**               |     ❌ Manual      |     ⚠️ Basic     |  ⚠️ Basic   |   ✅ Evidence-Backed   |   ✅ **ProofGate + Claim Judge**   |
+| **Rollback**                   |      ❌ None       |     ❌ None      |   ❌ None   |        ⚠️ Basic        |     ✅ **Rollback Manifests**      |
+| **Routing**                    |     ❌ Single      |    ❌ Single     |  ❌ Single  |       ❌ Single        |     ✅ **Multi-Model Routing**     |
+| **Planning**                   |     ❌ Linear      |     ⚠️ Basic     |  ⚠️ Basic   |        ⚠️ Basic        |   ✅ **Governed Deep Planning**    |
+| **Multi-Agent**                |      ❌ None       |     ❌ None      |  ⚠️ Basic   |        ⚠️ Basic        |    ✅ **Governed Multi-Agent**     |
+| **CMMS Memory Tiers**          |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |    ✅ **Auto/Micro/Ship Tiers**    |
+| **Session Checkpoints**        |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |      ✅ **Pause & Continue**       |
+| **Context Durability**         |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |   ✅ **Adaptive Reconstruction**   |
 
 **OMG v3.0.0 고유 강점:**
 
@@ -85,6 +110,9 @@ Monitor your agent's activity, ProofScore (0-100), and system health in real-tim
 - **Rollback Manifests**: 모든 작업에 대한 세밀한 실행 취소 및 복구 능력.
 - **Multi-Model Routing**: 작업 복잡도에 따른 최적의 모델 자동 선택 및 예산 관리.
 - **Governed Deep Planning**: 보안 정책이 내장된 구조화된 계획 수립.
+- **CMMS Memory Tiers**: 계층형 메모리 라우팅을 통한 효율적인 상태 관리.
+- **Session Checkpoints**: `/pause` 및 `/continue`를 통한 세션 중단 및 재개.
+- **Context Durability**: 적응형 워크스페이스 재구성을 통한 컨텍스트 유지.
 
 ---
 

@@ -15,6 +15,17 @@ npx omg instant "make a chatbot"         # Bot
 
 Supports: SaaS, Landing, E-commerce, API, Bot, Admin, CLI
 
+## Memory Commands
+
+- `npx omg memory tier-status` — Display CMMS Auto/Micro/Ship tier status
+- `npx omg memory tier-status --json` — Machine-readable tier output
+- `npx omg memory tier-status --tier=<auto|micro|ship>` — Filter specific tier
+
+## Session Commands
+
+- `npx omg pause` — Save session checkpoint for later resumption
+- `npx omg continue` — Restore session from most recent checkpoint
+
 ## 🎯 Core Integration Points
 
 ### Canonical Hosts
