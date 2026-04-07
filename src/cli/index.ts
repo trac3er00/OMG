@@ -54,6 +54,10 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
         name: "ai-commit",
         description: "Split uncommitted changes into atomic commits",
       },
+      {
+        name: "autoresearch",
+        description: "Deep research on a topic with structured report",
+      },
       { name: "issue", description: "Active red-team issue triage" },
       {
         name: "arch",
@@ -650,6 +654,38 @@ async function runCli(): Promise<void> {
           argv.pack as string | undefined,
           argv.target as string | undefined,
         );
+      },
+    })
+    .command({
+      command: "autoresearch <topic>",
+      describe:
+        "Perform deep research on a topic and generate a structured report",
+      builder: (command) =>
+        command
+          .positional("topic", {
+            type: "string",
+            demandOption: true,
+            describe: "Research topic",
+          })
+          .option("timeout", {
+            type: "number",
+            default: 120,
+            description: "Max seconds for research",
+          })
+          .option("max-tokens", {
+            type: "number",
+            default: 10000,
+            description: "Token budget limit",
+          })
+          .option("output-dir", {
+            type: "string",
+            default: ".omg/research",
+            description: "Output directory",
+          }),
+      handler: async (argv) => {
+        const { autoresearchCommand } =
+          await import("./commands/autoresearch.js");
+        await autoresearchCommand.handler?.(argv as never);
       },
     })
     .demandCommand(1, "Specify a command")
