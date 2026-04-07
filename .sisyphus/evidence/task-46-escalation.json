@@ -1,0 +1,10 @@
+{
+  "task": 46,
+  "scenario": "escalation_after_max",
+  "result": {
+    "escalated": true,
+    "iterations_attempted": 3,
+    "reason": "max iterations reached"
+  },
+  "status": "PASS"
+}
