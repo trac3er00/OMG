@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from enum import Enum
+
 CATEGORIES = (
     "decisions",
     "preferences",
@@ -7,6 +10,22 @@ CATEGORIES = (
     "open_loops",
     "team_context",
 )
+
+
+class MemoryTier(str, Enum):
+    AUTO = "auto"
+    MICRO = "micro"
+    SHIP = "ship"
+
+
+@dataclass
+class TierConfig:
+    promotion_threshold: int = 3
+    demotion_ttl_seconds: int = 3600
+    auto_max_items: int = 500
+    micro_max_items: int = 10_000
+    ship_max_items: int = 100_000
+
 
 _SCHEMAS: dict[str, dict[str, type]] = {
     "decisions": {

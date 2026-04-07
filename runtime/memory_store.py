@@ -15,6 +15,7 @@ import sqlite3
 import uuid
 import base64
 import hashlib
+import importlib
 import socket
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,6 +24,10 @@ from typing import Any
 from cryptography.fernet import Fernet, InvalidToken
 
 from runtime.profile_io import classify_preference_section, is_destructive_preference
+
+_memory_schema = importlib.import_module("runtime.memory_schema")
+MemoryTier = _memory_schema.MemoryTier
+TierConfig = _memory_schema.TierConfig
 
 
 def check_encryption_available() -> bool:
@@ -52,6 +57,8 @@ _DEFAULT_NAMESPACE = "default"
 _DEFAULT_MEMORY_HOST = "127.0.0.1"
 _ENCRYPTED_PREFIX = "enc:v1:"
 _JSON_ENVELOPE_FORMAT = "omg.memory.json.v1"
+_CMMS_SOURCE = "cmms"
+_CMMS_TAG = "cmms"
 _PII_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
@@ -93,6 +100,11 @@ class MemoryStore:
         self._store_path = ""
         self._backend = "json"
         self._fernet_available = check_encryption_available()
+        self._auto_cache: dict[str, dict[str, Any]] = {}
+        self._micro_access_counts: dict[str, int] = {}
+        self._tier_config = TierConfig()
+        self._ship_path: Path | None = None
+        self._ship_index: dict[str, dict[str, Any]] = {}
 
         ensure_encryption_warnings()
         self.store_path = store_path
@@ -120,11 +132,21 @@ class MemoryStore:
         )
         self._items = []
         self._fts_enabled = False
+        self._auto_cache = {}
+        self._micro_access_counts = {}
+        self._ship_path = (
+            Path(normalized_path).with_suffix(".ship.jsonl")
+            if normalized_path
+            else None
+        )
+        self._ship_index = {}
 
         if self._backend == "json":
             self._items = self._load_json_items()
         else:
             self._init_sqlite()
+        if self._ship_path is not None and self._ship_path.exists():
+            self._load_ship()
 
     def close(self) -> None:
         """Close the active SQLite connection if one is open."""
@@ -235,11 +257,21 @@ class MemoryStore:
         Returns:
             Matching memory item, or ``None`` when missing.
         """
+        auto_entry = self._auto_cache.get(item_id)
+        if auto_entry is not None:
+            auto_entry["access_count"] = int(auto_entry.get("access_count", 0)) + 1
+            auto_entry["last_access"] = _utc_now_iso()
+            return auto_entry.get("value")
+
         if self._backend == "json":
             for item in self._items:
                 if item["id"] == item_id:
                     return item
-            return None
+            micro_value = self._get_micro_value(item_id)
+            if micro_value is not None:
+                return micro_value
+            ship_entry = self._ship_index.get(item_id)
+            return ship_entry.get("value") if ship_entry is not None else None
 
         row = (
             self._sqlite_conn()
@@ -249,7 +281,259 @@ class MemoryStore:
             )
             .fetchone()
         )
-        return self._row_to_item(row) if row is not None else None
+        if row is not None:
+            return self._row_to_item(row)
+
+        micro_value = self._get_micro_value(item_id)
+        if micro_value is not None:
+            return micro_value
+        ship_entry = self._ship_index.get(item_id)
+        return ship_entry.get("value") if ship_entry is not None else None
+
+    def set(
+        self,
+        key: str,
+        value: dict[str, Any],
+        *,
+        tier: MemoryTier = MemoryTier.MICRO,
+    ) -> dict[str, Any]:
+        normalized_tier = MemoryTier(tier)
+        self._auto_cache.pop(key, None)
+        self._micro_access_counts.pop(key, None)
+
+        if normalized_tier == MemoryTier.AUTO:
+            self._auto_cache[key] = {
+                "value": value,
+                "access_count": 0,
+                "last_access": _utc_now_iso(),
+            }
+            return value
+
+        if normalized_tier == MemoryTier.SHIP:
+            self._write_ship(key, value)
+            self._ship_index[key] = {"key": key, "value": value}
+            return value
+
+        self._set_micro_value(key, value)
+        return value
+
+    def _load_ship(self) -> None:
+        if self._ship_path is None or not self._ship_path.exists():
+            return
+        for line in self._ship_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            key = str(payload.get("key", "")).strip()
+            if not key:
+                continue
+            self._ship_index[key] = payload
+
+    def _write_ship(self, key: str, value: dict[str, Any]) -> None:
+        if self._ship_path is None:
+            return
+        self._ship_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "key": key,
+            "value": value,
+            "tier": MemoryTier.SHIP.value,
+            "updated_at": _utc_now_iso(),
+        }
+        with self._ship_path.open("a", encoding="utf-8") as handle:
+            _ = handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+    def _get_tier(self, key: str) -> MemoryTier:
+        if key in self._auto_cache:
+            return MemoryTier.AUTO
+        if self._has_micro_key(key):
+            return MemoryTier.MICRO
+        if key in self._ship_index:
+            return MemoryTier.SHIP
+        return MemoryTier.MICRO
+
+    def _cmms_storage_key(self, key: str) -> str:
+        return f"cmms::{key}"
+
+    def _cmms_payload(self, key: str, value: dict[str, Any], tier: MemoryTier) -> str:
+        return json.dumps(
+            {"key": key, "value": value, "tier": tier.value},
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+
+    def _decode_cmms_payload(self, raw_content: str) -> dict[str, Any] | None:
+        try:
+            payload = json.loads(raw_content)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        value = payload.get("value")
+        return value if isinstance(value, dict) else None
+
+    def _has_micro_key(self, key: str) -> bool:
+        storage_key = self._cmms_storage_key(key)
+        if self._backend == "json":
+            return any(str(item.get("key", "")) == storage_key for item in self._items)
+        row = (
+            self._sqlite_conn()
+            .execute(
+                "SELECT 1 FROM memories WHERE key = ? AND source_cli = ?",
+                (storage_key, _CMMS_SOURCE),
+            )
+            .fetchone()
+        )
+        return row is not None
+
+    def _set_micro_value(self, key: str, value: dict[str, Any]) -> None:
+        storage_key = self._cmms_storage_key(key)
+        now = _utc_now_iso()
+        payload = self._cmms_payload(key, value, MemoryTier.MICRO)
+        tags = [_CMMS_TAG, f"tier:{MemoryTier.MICRO.value}"]
+        if self._backend == "json":
+            for item in self._items:
+                if str(item.get("key", "")) == storage_key:
+                    item["content"] = payload
+                    item["tags"] = tags
+                    item["updated_at"] = now
+                    self._save_json_items()
+                    return
+            self._items.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "key": storage_key,
+                    "content": payload,
+                    "source_cli": _CMMS_SOURCE,
+                    "tags": tags,
+                    "run_id": "",
+                    "profile_id": "",
+                    "namespace": _qualify_namespace(_DEFAULT_NAMESPACE),
+                    "retention_days": None,
+                    "expires_at": None,
+                    "created_at": now,
+                    "updated_at": now,
+                    "quarantined": False,
+                }
+            )
+            self._save_json_items()
+            return
+
+        conn = self._sqlite_conn()
+        existing = conn.execute(
+            "SELECT id FROM memories WHERE key = ? AND source_cli = ?",
+            (storage_key, _CMMS_SOURCE),
+        ).fetchone()
+        if existing is None:
+            item_id = str(uuid.uuid4())
+            conn.execute(
+                """
+                INSERT INTO memories(
+                    id, key, content, source_cli, tags_json, run_id, profile_id,
+                    namespace, retention_days, expires_at, created_at, updated_at, quarantined
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    item_id,
+                    storage_key,
+                    self._encrypt_text(payload, purpose="sqlite-content"),
+                    _CMMS_SOURCE,
+                    json.dumps(tags, ensure_ascii=True),
+                    "",
+                    "",
+                    _qualify_namespace(_DEFAULT_NAMESPACE),
+                    None,
+                    None,
+                    now,
+                    now,
+                    0,
+                ),
+            )
+            self._upsert_fts(
+                {"id": item_id, "key": storage_key, "content": payload, "tags": tags}
+            )
+        else:
+            item_id = str(existing["id"])
+            conn.execute(
+                "UPDATE memories SET content = ?, tags_json = ?, updated_at = ? WHERE id = ?",
+                (
+                    self._encrypt_text(payload, purpose="sqlite-content"),
+                    json.dumps(tags, ensure_ascii=True),
+                    now,
+                    item_id,
+                ),
+            )
+            self._upsert_fts(
+                {"id": item_id, "key": storage_key, "content": payload, "tags": tags}
+            )
+        conn.commit()
+
+    def _get_micro_value(self, key: str) -> dict[str, Any] | None:
+        storage_key = self._cmms_storage_key(key)
+        payload_text = ""
+        if self._backend == "json":
+            for item in reversed(self._items):
+                if str(item.get("key", "")) == storage_key:
+                    payload_text = str(item.get("content", ""))
+                    break
+        else:
+            row = (
+                self._sqlite_conn()
+                .execute(
+                    "SELECT id, content FROM memories WHERE key = ? AND source_cli = ?",
+                    (storage_key, _CMMS_SOURCE),
+                )
+                .fetchone()
+            )
+            if row is not None:
+                payload_text = self._decrypt_text(
+                    str(row["content"]),
+                    purpose="sqlite-content",
+                    migrate_item_id=str(row["id"]),
+                )
+
+        if not payload_text:
+            return None
+        value = self._decode_cmms_payload(payload_text)
+        if value is None:
+            return None
+
+        access_count = self._micro_access_counts.get(key, 0) + 1
+        self._micro_access_counts[key] = access_count
+        if access_count > self._tier_config.promotion_threshold:
+            self._delete_micro_value(key)
+            self._auto_cache[key] = {
+                "value": value,
+                "access_count": access_count,
+                "last_access": _utc_now_iso(),
+            }
+        return value
+
+    def _delete_micro_value(self, key: str) -> None:
+        storage_key = self._cmms_storage_key(key)
+        if self._backend == "json":
+            self._items = [
+                item for item in self._items if str(item.get("key", "")) != storage_key
+            ]
+            self._save_json_items()
+            return
+        conn = self._sqlite_conn()
+        row = conn.execute(
+            "SELECT id FROM memories WHERE key = ? AND source_cli = ?",
+            (storage_key, _CMMS_SOURCE),
+        ).fetchone()
+        if row is None:
+            return
+        conn.execute(
+            "DELETE FROM memories WHERE key = ? AND source_cli = ?",
+            (storage_key, _CMMS_SOURCE),
+        )
+        self._delete_fts(str(row["id"]))
+        conn.commit()
 
     def update(
         self,

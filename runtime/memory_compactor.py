@@ -7,6 +7,7 @@ Retention rules:
 - Compact old preferences (deduplicate)
 Budget: max 10MB default, auto-compact at 80%
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -80,7 +81,9 @@ class MemoryCompactor:
             return entries, []
 
         if category == "failures":
-            cutoff_ts = datetime.now(timezone.utc).timestamp() - (_FAILURE_RETENTION_DAYS * 86400)
+            cutoff_ts = datetime.now(timezone.utc).timestamp() - (
+                _FAILURE_RETENTION_DAYS * 86400
+            )
             kept_entries: list[JsonObject] = []
             archived_entries: list[JsonObject] = []
             for entry in entries:
@@ -108,6 +111,7 @@ class MemoryCompactor:
         self,
         entries_by_category: dict[str, list[JsonObject]],
         dry_run: bool = False,
+        respect_tier_boundaries: bool = True,
     ) -> CompactionResult:
         """Compact memory entries according to retention rules.
 
@@ -130,7 +134,21 @@ class MemoryCompactor:
         categories_compacted: list[str] = []
 
         for category, entries in entries_by_category.items():
-            kept_entries, archived_entries = self._filter_by_category(entries, category)
+            ship_entries: list[JsonObject] = []
+            category_entries = entries
+            if respect_tier_boundaries:
+                category_entries = []
+                for entry in entries:
+                    if str(entry.get("_memory_tier", "")).lower() == "ship":
+                        ship_entries.append(entry)
+                    else:
+                        category_entries.append(entry)
+
+            kept_entries, archived_entries = self._filter_by_category(
+                category_entries, category
+            )
+            if ship_entries:
+                kept_entries = [*kept_entries, *ship_entries]
             kept[category] = kept_entries
             archived[category] = archived_entries
             if archived_entries:
@@ -138,7 +156,9 @@ class MemoryCompactor:
 
         after_total = sum(len(entries) for entries in kept.values())
         after_bytes = sum(
-            len(json.dumps(entry, sort_keys=True)) for entries in kept.values() for entry in entries
+            len(json.dumps(entry, sort_keys=True))
+            for entries in kept.values()
+            for entry in entries
         )
         total_archived = sum(len(entries) for entries in archived.values())
 
@@ -150,7 +170,9 @@ class MemoryCompactor:
                     for entry in entries:
                         archived_entry = dict(entry)
                         archived_entry["_archived_from"] = category
-                        _ = handle.write(json.dumps(archived_entry, sort_keys=True) + "\n")
+                        _ = handle.write(
+                            json.dumps(archived_entry, sort_keys=True) + "\n"
+                        )
 
         return CompactionResult(
             before_entries=before_total,

@@ -894,3 +894,66 @@ class TestEncryptionHardening:
         assert proc.returncode != 0
         assert "ModuleNotFoundError" in proc.stderr
         assert "cryptography" in proc.stderr
+
+
+def test_cmms_tier_enum() -> None:
+    MemoryTier = __import__("runtime.memory_schema", fromlist=["MemoryTier"]).MemoryTier
+
+    assert MemoryTier.AUTO == "auto"
+    assert MemoryTier.MICRO == "micro"
+    assert MemoryTier.SHIP == "ship"
+
+
+def test_cmms_micro_default(tmp_path: Path) -> None:
+    store = MemoryStore(str(tmp_path / "mem.db"))
+
+    store.set("test-key", {"value": "test"})
+
+    result = store.get("test-key")
+    assert result is not None
+
+
+def test_cmms_auto_tier(tmp_path: Path) -> None:
+    MemoryTier = __import__("runtime.memory_schema", fromlist=["MemoryTier"]).MemoryTier
+
+    store = MemoryStore(str(tmp_path / "mem.db"))
+
+    store.set("hot-data", {"value": "fast"}, tier=MemoryTier.AUTO)
+
+    result = store.get("hot-data")
+    assert result is not None
+
+
+def test_cmms_ship_persistence(tmp_path: Path) -> None:
+    MemoryTier = __import__("runtime.memory_schema", fromlist=["MemoryTier"]).MemoryTier
+
+    store = MemoryStore(str(tmp_path / "mem.db"))
+    store.set("project-knowledge", {"value": "important"}, tier=MemoryTier.SHIP)
+
+    del store
+    store2 = MemoryStore(str(tmp_path / "mem.db"))
+
+    result = store2.get("project-knowledge")
+    assert result is not None
+
+
+def test_cmms_auto_promotion(tmp_path: Path) -> None:
+    MemoryTier = __import__("runtime.memory_schema", fromlist=["MemoryTier"]).MemoryTier
+
+    store = MemoryStore(str(tmp_path / "mem.db"))
+    store.set("hot-data", {"value": "test"}, tier=MemoryTier.MICRO)
+
+    for _ in range(4):
+        store.get("hot-data")
+
+    tier = store._get_tier("hot-data")
+    assert tier == MemoryTier.AUTO
+
+
+def test_cmms_backward_compat(tmp_path: Path) -> None:
+    store = MemoryStore(str(tmp_path / "mem.db"))
+
+    store.set("existing-key", {"value": "existing"})
+
+    result = store.get("existing-key")
+    assert result is not None
