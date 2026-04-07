@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import type { ToolRegistration } from "../interfaces/mcp.js";
 import { isMiddlewareResult, MiddlewareStack } from "./middleware.js";
+import { newCapabilityTools } from "./tools/new-capabilities.js";
 import { wrapTool } from "./tool-wrapper.js";
 
 const SERVER_NAME = "OMG Control MCP";
@@ -119,9 +120,10 @@ export function createServer(options: CreateServerOptions = {}): OmgMcpServer {
     },
   );
 
-  const projectDir = options.projectDir ?? process.env.CLAUDE_PROJECT_DIR ?? cwd();
+  const projectDir =
+    options.projectDir ?? process.env.CLAUDE_PROJECT_DIR ?? cwd();
   const middlewareStack = options.middlewareStack ?? new MiddlewareStack();
-  const builtInTools = [createPingToolRegistration()];
+  const builtInTools = [createPingToolRegistration(), ...newCapabilityTools];
   const allTools = [...builtInTools, ...(options.tools ?? [])];
 
   for (const tool of allTools) {
@@ -137,7 +139,7 @@ export function createServer(options: CreateServerOptions = {}): OmgMcpServer {
       tool.name,
       {
         description: tool.description,
-        inputSchema: z.object({}).passthrough(),
+        inputSchema: z.looseObject({}),
       },
       async (args) => {
         const result = await wrapped(args);
@@ -156,7 +158,9 @@ export function createServer(options: CreateServerOptions = {}): OmgMcpServer {
 /**
  * Start the OMG MCP server over stdio transport.
  */
-export async function startServer(options: CreateServerOptions = {}): Promise<OmgMcpServer> {
+export async function startServer(
+  options: CreateServerOptions = {},
+): Promise<OmgMcpServer> {
   const runtime = createServer(options);
   const transport = new StdioServerTransport();
   await runtime.server.connect(transport);
