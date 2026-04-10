@@ -1,0 +1,25 @@
+Task 20 — Enhanced Model Routing
+Date: 2026-04-10
+
+Summary
+- Extended TeamRouter with ModelTier enum: haiku, sonnet, opus.
+- Preserved existing provider target routing (codex/gemini/ccg) while adding signal-based tier selection.
+- Added budget-aware downgrade when remaining budget ratio drops below 20%.
+
+Routing rules implemented
+- Simple signals ({files:1, loc<=10, deps:0, errors:0}) => haiku
+- Standard signals ({files:1-3, loc:10-500, deps<=5, non-complex errors}) => sonnet
+- Complex signals (files>=10 OR loc>=1000 OR deps>=10 OR errors>=5) => opus
+- Budget pressure (<20% remaining on any tracked budget dimension) downgrades one tier to a cheaper option
+
+Verification
+- bun test src/orchestration/router => 13 pass, 0 fail
+- bun run build => passed
+- lsp_diagnostics for changed TypeScript files could not run because typescript-language-server is not installed in this environment
+
+Changed files
+- src/orchestration/router.ts
+- src/orchestration/router.test.ts
+- src/interfaces/orchestration.ts
+- src/types/orchestration.ts
+- src/types/runtime.ts

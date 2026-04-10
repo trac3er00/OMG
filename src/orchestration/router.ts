@@ -1,16 +1,29 @@
-import type { TeamDispatchRequest, TeamDispatchResult } from "../interfaces/orchestration.js";
+import type {
+  BudgetEnvelope as BudgetEnvelopeSnapshot,
+  RoutingSignals,
+  TeamDispatchRequest,
+  TeamDispatchResult,
+} from "../interfaces/orchestration.js";
 
 export type RouterTarget = "codex" | "gemini" | "ccg";
 export type RouterRequestedTarget = RouterTarget | "auto";
 
+export enum ModelTier {
+  Haiku = "haiku",
+  Sonnet = "sonnet",
+  Opus = "opus",
+}
+
 export interface RouterWorkerTask {
   readonly agentName: RouterTarget;
+  readonly modelTier: ModelTier;
   readonly prompt: string;
   readonly order?: number;
 }
 
 export interface RouterWorkerResult {
   readonly agent: string;
+  readonly modelTier: ModelTier;
   readonly order: number;
   readonly status: "completed" | "failed" | "error";
   readonly output?: string;
@@ -28,6 +41,7 @@ export type TeamRouterDispatchFn = (
   agentName: RouterTarget,
   prompt: string,
   context: TeamDispatchRequest,
+  modelTier: ModelTier,
 ) => Promise<TeamRouterDispatchResult>;
 
 export interface TeamRouterOptions {
@@ -76,18 +90,166 @@ const RESEARCH_SIGNALS: readonly string[] = [
   "report",
 ];
 
+const SIMPLE_LOC_MAX = 10;
+const STANDARD_FILES_MAX = 3;
+const STANDARD_LOC_MAX = 500;
+const STANDARD_DEPS_MAX = 5;
+const COMPLEX_FILES_MIN = 10;
+const COMPLEX_LOC_MIN = 1_000;
+const COMPLEX_DEPS_MIN = 10;
+const COMPLEX_ERRORS_MIN = 5;
+const BUDGET_DOWNGRADE_THRESHOLD = 0.2;
+
+interface NormalizedRoutingSignals {
+  readonly files: number;
+  readonly loc: number;
+  readonly deps: number;
+  readonly errors: number;
+}
+
+interface TierSelection {
+  readonly tier: ModelTier;
+  readonly baseTier: ModelTier;
+  readonly reason: string;
+  readonly downgradedForBudget: boolean;
+  readonly budgetRemainingRatio: number | null;
+  readonly signals: NormalizedRoutingSignals;
+}
+
+function normalizeSignals(
+  request: TeamDispatchRequest,
+): NormalizedRoutingSignals {
+  const signals: RoutingSignals = request.routingSignals ?? {};
+  return {
+    files: signals.files ?? request.files?.length ?? 0,
+    loc: signals.loc ?? 0,
+    deps: signals.deps ?? 0,
+    errors: signals.errors ?? 0,
+  };
+}
+
+function inferBaseTier(signals: NormalizedRoutingSignals): {
+  readonly tier: ModelTier;
+  readonly reason: string;
+} {
+  const isComplex =
+    signals.files >= COMPLEX_FILES_MIN ||
+    signals.loc >= COMPLEX_LOC_MIN ||
+    signals.deps >= COMPLEX_DEPS_MIN ||
+    signals.errors >= COMPLEX_ERRORS_MIN;
+  if (isComplex) {
+    return {
+      tier: ModelTier.Opus,
+      reason: "complex routing signals require the highest-capability tier",
+    };
+  }
+
+  const isSimple =
+    signals.files === 1 &&
+    signals.loc <= SIMPLE_LOC_MAX &&
+    signals.deps === 0 &&
+    signals.errors === 0;
+  if (isSimple) {
+    return {
+      tier: ModelTier.Haiku,
+      reason: "simple routing signals fit the low-cost tier",
+    };
+  }
+
+  const isStandard =
+    signals.files >= 1 &&
+    signals.files <= STANDARD_FILES_MAX &&
+    signals.loc >= SIMPLE_LOC_MAX &&
+    signals.loc <= STANDARD_LOC_MAX &&
+    signals.deps <= STANDARD_DEPS_MAX &&
+    signals.errors < COMPLEX_ERRORS_MIN;
+  if (isStandard) {
+    return {
+      tier: ModelTier.Sonnet,
+      reason: "standard routing signals fit the default tier",
+    };
+  }
+
+  return {
+    tier: ModelTier.Sonnet,
+    reason: "ambiguous routing signals default to the standard tier",
+  };
+}
+
+function downgradeTier(tier: ModelTier): ModelTier {
+  if (tier === ModelTier.Opus) {
+    return ModelTier.Sonnet;
+  }
+  if (tier === ModelTier.Sonnet) {
+    return ModelTier.Haiku;
+  }
+  return ModelTier.Haiku;
+}
+
+function budgetRemainingRatio(budget?: BudgetEnvelopeSnapshot): number | null {
+  if (budget === undefined) {
+    return null;
+  }
+
+  const ratios = [
+    [budget.tokenLimit, budget.tokensUsed],
+    [budget.cpuSecondsLimit, budget.cpuSecondsUsed],
+    [budget.memoryMbLimit, budget.memoryMbPeak],
+    [budget.wallTimeSecondsLimit, budget.wallTimeSecondsUsed],
+    [budget.networkBytesLimit, budget.networkBytesUsed],
+  ]
+    .filter(([limit]) => limit > 0)
+    .map(([limit, used]) => Math.max(0, (limit - used) / limit));
+
+  if (ratios.length === 0) {
+    return null;
+  }
+
+  return Math.min(...ratios);
+}
+
+function selectModelTier(request: TeamDispatchRequest): TierSelection {
+  const signals = normalizeSignals(request);
+  const base = inferBaseTier(signals);
+  const remainingRatio = budgetRemainingRatio(request.budget);
+  const shouldDowngrade =
+    remainingRatio !== null && remainingRatio < BUDGET_DOWNGRADE_THRESHOLD;
+  const tier = shouldDowngrade ? downgradeTier(base.tier) : base.tier;
+  const reason = shouldDowngrade
+    ? `${base.reason}; downgraded for budget pressure`
+    : base.reason;
+
+  return {
+    tier,
+    baseTier: base.tier,
+    reason,
+    downgradedForBudget: shouldDowngrade,
+    budgetRemainingRatio: remainingRatio,
+    signals,
+  };
+}
+
 function rankTargetsByCost(targets: readonly RouterTarget[]): RouterTarget[] {
   return [...targets].sort((left, right) => COST_TIER[left] - COST_TIER[right]);
 }
 
-function inferTarget(problem: string): { readonly target: RouterTarget; readonly reason: string } {
+function inferTarget(problem: string): {
+  readonly target: RouterTarget;
+  readonly reason: string;
+} {
   const normalized = problem.toLowerCase();
 
   const explicitCodex = /\bcodex\b/.test(normalized);
   const explicitGemini = /\bgemini\b/.test(normalized);
-  const explicitCcg = /\bccg\b/.test(normalized) || normalized.includes("tri-track") || normalized.includes("tri track");
+  const explicitCcg =
+    /\bccg\b/.test(normalized) ||
+    normalized.includes("tri-track") ||
+    normalized.includes("tri track");
   if (explicitCcg || (explicitCodex && explicitGemini)) {
-    return { target: "ccg", reason: "explicitly requested multi-provider routing" };
+    return {
+      target: "ccg",
+      reason: "explicitly requested multi-provider routing",
+    };
   }
   if (explicitCodex) {
     return { target: "codex", reason: "explicit codex intent detected" };
@@ -96,9 +258,15 @@ function inferTarget(problem: string): { readonly target: RouterTarget; readonly
     return { target: "gemini", reason: "explicit gemini intent detected" };
   }
 
-  const hasCodeSignal = CODE_SIGNALS.some((signal) => normalized.includes(signal));
-  const hasInfraSignal = INFRA_SIGNALS.some((signal) => normalized.includes(signal));
-  const hasResearchSignal = RESEARCH_SIGNALS.some((signal) => normalized.includes(signal));
+  const hasCodeSignal = CODE_SIGNALS.some((signal) =>
+    normalized.includes(signal),
+  );
+  const hasInfraSignal = INFRA_SIGNALS.some((signal) =>
+    normalized.includes(signal),
+  );
+  const hasResearchSignal = RESEARCH_SIGNALS.some((signal) =>
+    normalized.includes(signal),
+  );
 
   if (hasInfraSignal || hasCodeSignal) {
     return {
@@ -121,7 +289,9 @@ function inferTarget(problem: string): { readonly target: RouterTarget; readonly
   };
 }
 
-function toStatus(result: TeamRouterDispatchResult): RouterWorkerResult["status"] {
+function toStatus(
+  result: TeamRouterDispatchResult,
+): RouterWorkerResult["status"] {
   if (result.error !== undefined) {
     return "error";
   }
@@ -132,7 +302,10 @@ function toStatus(result: TeamRouterDispatchResult): RouterWorkerResult["status"
 }
 
 function defaultDispatch(): TeamRouterDispatchFn {
-  return async (_agentName, _prompt) => ({ output: "dispatch skipped (no dispatchFn configured)", exitCode: 0 });
+  return async (_agentName, _prompt, _context, _modelTier) => ({
+    output: "dispatch skipped (no dispatchFn configured)",
+    exitCode: 0,
+  });
 }
 
 export class TeamRouter {
@@ -147,21 +320,36 @@ export class TeamRouter {
   }
 
   async route(request: TeamDispatchRequest): Promise<TeamDispatchResult> {
-    const requestedTarget = request.target.toLowerCase().trim() as RouterRequestedTarget;
+    const requestedTarget = request.target
+      .toLowerCase()
+      .trim() as RouterRequestedTarget;
     const selection = this.selectTarget(requestedTarget, request.problem);
-    const workers = this.buildWorkers(selection.target, request);
+    const tierSelection = selectModelTier(request);
+    const workers = this.buildWorkers(
+      selection.target,
+      request,
+      tierSelection.tier,
+    );
     const parallel = selection.target === "ccg";
     const execution = await this.executeWorkers(workers, request, parallel);
 
     const findings: string[] = [
       `Target router selected: ${selection.target}`,
       `Reason: ${selection.reason}`,
+      `Model tier selected: ${tierSelection.tier}`,
+      `Model tier reason: ${tierSelection.reason}`,
       `Execution mode: ${parallel ? "parallel" : "sequential"}`,
     ];
 
     const actions = parallel
-      ? ["Run codex and gemini in parallel", "Synthesize cross-functional findings"]
-      : ["Run focused single-agent execution", "Return concrete action plan and verification steps"];
+      ? [
+          "Run codex and gemini in parallel",
+          "Synthesize cross-functional findings",
+        ]
+      : [
+          "Run focused single-agent execution",
+          "Return concrete action plan and verification steps",
+        ];
 
     return {
       status: "ok",
@@ -171,6 +359,12 @@ export class TeamRouter {
         requested_target: requestedTarget,
         selected_target: selection.target,
         selection_reason: selection.reason,
+        model_tier: tierSelection.tier,
+        base_model_tier: tierSelection.baseTier,
+        model_tier_reason: tierSelection.reason,
+        model_tier_budget_downgraded: tierSelection.downgradedForBudget,
+        budget_remaining_ratio: tierSelection.budgetRemainingRatio,
+        routing_signals: tierSelection.signals,
         cost_ranking: rankTargetsByCost(["codex", "gemini", "ccg"]),
         parallel_execution: parallel,
         execution,
@@ -178,9 +372,16 @@ export class TeamRouter {
     };
   }
 
-  private selectTarget(requestedTarget: RouterRequestedTarget, problem: string): { readonly target: RouterTarget; readonly reason: string } {
+  private selectTarget(
+    requestedTarget: RouterRequestedTarget,
+    problem: string,
+  ): { readonly target: RouterTarget; readonly reason: string } {
     if (requestedTarget !== "auto") {
-      if (requestedTarget === "codex" || requestedTarget === "gemini" || requestedTarget === "ccg") {
+      if (
+        requestedTarget === "codex" ||
+        requestedTarget === "gemini" ||
+        requestedTarget === "ccg"
+      ) {
         return { target: requestedTarget, reason: "explicit target requested" };
       }
       return { target: "codex", reason: "invalid target fallbacked to codex" };
@@ -188,17 +389,32 @@ export class TeamRouter {
     return inferTarget(problem);
   }
 
-  private buildWorkers(target: RouterTarget, request: TeamDispatchRequest): RouterWorkerTask[] {
-    const sharedContext = request.context.length > 0 ? `\n\nContext:\n${request.context}` : "";
+  private buildWorkers(
+    target: RouterTarget,
+    request: TeamDispatchRequest,
+    modelTier: ModelTier,
+  ): RouterWorkerTask[] {
+    const sharedContext =
+      request.context.length > 0 ? `\n\nContext:\n${request.context}` : "";
     const basePrompt = `${request.problem}${sharedContext}`;
 
     if (target === "ccg") {
       return [
-        { agentName: "codex", prompt: `Backend/code track:\n${basePrompt}`, order: 1 },
-        { agentName: "gemini", prompt: `Research/UI track:\n${basePrompt}`, order: 2 },
+        {
+          agentName: "codex",
+          modelTier,
+          prompt: `Backend/code track:\n${basePrompt}`,
+          order: 1,
+        },
+        {
+          agentName: "gemini",
+          modelTier,
+          prompt: `Research/UI track:\n${basePrompt}`,
+          order: 2,
+        },
       ];
     }
-    return [{ agentName: target, prompt: basePrompt, order: 1 }];
+    return [{ agentName: target, modelTier, prompt: basePrompt, order: 1 }];
   }
 
   private async executeWorkers(
@@ -215,13 +431,21 @@ export class TeamRouter {
     workers: readonly RouterWorkerTask[],
     request: TeamDispatchRequest,
   ): Promise<readonly RouterWorkerResult[]> {
-    const sorted = [...workers].sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+    const sorted = [...workers].sort(
+      (left, right) => (left.order ?? 0) - (right.order ?? 0),
+    );
     const results: RouterWorkerResult[] = [];
 
     for (const worker of sorted) {
-      const result = await this.dispatchFn(worker.agentName, worker.prompt, request);
+      const result = await this.dispatchFn(
+        worker.agentName,
+        worker.prompt,
+        request,
+        worker.modelTier,
+      );
       const workerResult: RouterWorkerResult = {
         agent: worker.agentName,
+        modelTier: worker.modelTier,
         order: worker.order ?? 0,
         status: toStatus(result),
       };
@@ -244,13 +468,21 @@ export class TeamRouter {
     workers: readonly RouterWorkerTask[],
     request: TeamDispatchRequest,
   ): Promise<readonly RouterWorkerResult[]> {
-    const sorted = [...workers].sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+    const sorted = [...workers].sort(
+      (left, right) => (left.order ?? 0) - (right.order ?? 0),
+    );
 
     return Promise.all(
       sorted.map(async (worker): Promise<RouterWorkerResult> => {
-        const result = await this.dispatchFn(worker.agentName, worker.prompt, request);
+        const result = await this.dispatchFn(
+          worker.agentName,
+          worker.prompt,
+          request,
+          worker.modelTier,
+        );
         const workerResult: RouterWorkerResult = {
           agent: worker.agentName,
+          modelTier: worker.modelTier,
           order: worker.order ?? 0,
           status: toStatus(result),
         };

@@ -11,6 +11,7 @@ export type {
   AgentState,
   BudgetEnvelope,
   IsolationMode,
+  RoutingSignals,
   TaskComplexity,
   TeamDispatchRequest,
   TeamDispatchResult,
@@ -63,7 +64,13 @@ export type WorkerHeartbeat = z.infer<typeof WorkerHeartbeatSchema>;
 // Job record (subagent_dispatcher.py)
 // ---------------------------------------------------------------------------
 
-export const JobStatusSchema = z.enum(["pending", "running", "completed", "failed", "cancelled"]);
+export const JobStatusSchema = z.enum([
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+]);
 export type JobStatus = z.infer<typeof JobStatusSchema>;
 
 export const JobRecordSchema = z.object({
@@ -83,7 +90,13 @@ export type JobRecord = z.infer<typeof JobRecordSchema>;
 // Team dispatch target
 // ---------------------------------------------------------------------------
 
-export const TeamDispatchTargetSchema = z.enum(["codex", "gemini", "ccg", "claude", "auto"]);
+export const TeamDispatchTargetSchema = z.enum([
+  "codex",
+  "gemini",
+  "ccg",
+  "claude",
+  "auto",
+]);
 export type TeamDispatchTarget = z.infer<typeof TeamDispatchTargetSchema>;
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ export type {
   AgentState,
   BudgetEnvelope,
   IsolationMode,
+  RoutingSignals,
   TaskComplexity,
   TeamDispatchRequest,
   TeamDispatchResult,
@@ -38,7 +39,10 @@ export type SchemaVersion = z.infer<typeof SchemaVersionSchema>;
 // State layout (runtime_contracts.py → default_layout)
 // ---------------------------------------------------------------------------
 
-export const StateLayoutSchema = z.record(z.string(), z.record(z.string(), z.string()));
+export const StateLayoutSchema = z.record(
+  z.string(),
+  z.record(z.string(), z.string()),
+);
 export type StateLayout = z.infer<typeof StateLayoutSchema>;
 
 // ---------------------------------------------------------------------------
@@ -60,7 +64,12 @@ export type ContextLimitEntry = z.infer<typeof ContextLimitEntrySchema>;
 // Verdict schema (verdict_schema.py → VerdictReceipt)
 // ---------------------------------------------------------------------------
 
-export const VerdictStatusSchema = z.enum(["pass", "fail", "action_required", "pending"]);
+export const VerdictStatusSchema = z.enum([
+  "pass",
+  "fail",
+  "action_required",
+  "pending",
+]);
 export type VerdictStatus = z.infer<typeof VerdictStatusSchema>;
 
 export const VerdictReceiptSchema = z.object({
@@ -121,7 +130,12 @@ export type FeatureConfig = z.infer<typeof FeatureConfigSchema>;
 // Session health
 // ---------------------------------------------------------------------------
 
-export const SessionHealthStatusSchema = z.enum(["healthy", "degraded", "critical", "unknown"]);
+export const SessionHealthStatusSchema = z.enum([
+  "healthy",
+  "degraded",
+  "critical",
+  "unknown",
+]);
 export type SessionHealthStatus = z.infer<typeof SessionHealthStatusSchema>;
 
 export const SessionHealthSchema = z.object({
@@ -180,5 +194,7 @@ export type KernelRun = z.infer<typeof KernelRunSchema>;
 // ---------------------------------------------------------------------------
 
 export type JsonPrimitive = string | number | boolean | null;
-export interface JsonObject { [key: string]: JsonValue }
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];

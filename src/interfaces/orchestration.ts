@@ -1,6 +1,17 @@
-export type AgentState = "pending" | "running" | "completed" | "failed" | "cancelled" | "orphaned";
+export type AgentState =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "orphaned";
 export type IsolationMode = "worktree" | "container" | "none";
-export type TaskComplexity = "trivial" | "simple" | "moderate" | "complex" | "extreme";
+export type TaskComplexity =
+  | "trivial"
+  | "simple"
+  | "moderate"
+  | "complex"
+  | "extreme";
 
 export interface AgentConfig {
   readonly name: string;
@@ -45,12 +56,21 @@ export interface AgentRecommendation {
   readonly complexity: TaskComplexity;
 }
 
+export interface RoutingSignals {
+  readonly files?: number;
+  readonly loc?: number;
+  readonly deps?: number;
+  readonly errors?: number;
+}
+
 export interface TeamDispatchRequest {
   readonly target: string;
   readonly problem: string;
   readonly context: string;
   readonly files?: readonly string[];
   readonly expectedOutcome?: string;
+  readonly routingSignals?: RoutingSignals;
+  readonly budget?: BudgetEnvelope;
 }
 
 export interface TeamDispatchResult {
