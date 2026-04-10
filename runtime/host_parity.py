@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from runtime.canonical_surface import get_canonical_hosts
+from runtime.providers.provider_registry import generate_parity_report, get_registry
 
 
 _logger = logging.getLogger(__name__)
@@ -38,6 +39,8 @@ _REAL_PARITY_SOURCE_KINDS = {
     "replayed_output",
     "replayed_artifact",
 }
+
+_PROVIDER_PARITY_STUBS = tuple(entry.name for entry in get_registry())
 
 
 @dataclass
@@ -346,6 +349,14 @@ def check_parity(outputs_by_host: dict[str, Any], context: dict[str, Any] | None
     return HostParityNormalizer().check_parity(outputs_by_host, context)
 
 
+def get_provider_parity_stubs() -> list[str]:
+    return list(_PROVIDER_PARITY_STUBS)
+
+
+def evaluate_provider_registry_parity() -> dict[str, Any]:
+    return generate_parity_report(get_registry())
+
+
 def emit_parity_report(
     run_id: str,
     results: ParityCheckResult,
@@ -375,4 +386,6 @@ __all__ = [
     "normalize_output",
     "check_parity",
     "emit_parity_report",
+    "get_provider_parity_stubs",
+    "evaluate_provider_registry_parity",
 ]
