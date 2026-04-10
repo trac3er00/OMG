@@ -1,0 +1,100 @@
+{
+  "task": 39,
+  "generatedAt": "2026-04-10T13:08:51.530Z",
+  "prompt": "Normalize this provider response.",
+  "providerCount": 6,
+  "normalizedShape": [
+    "content",
+    "model",
+    "usage",
+    "provider"
+  ],
+  "usageShape": [
+    "inputTokens",
+    "outputTokens"
+  ],
+  "parityReport": {
+    "totalResponses": 6,
+    "providersSeen": [
+      "claude",
+      "codex",
+      "gemini",
+      "kimi",
+      "ollama",
+      "opencode"
+    ],
+    "missingProviders": [],
+    "duplicateProviders": [],
+    "isFormatConsistent": true,
+    "formatInconsistencies": [],
+    "variance": [
+      {
+        "field": "model",
+        "baseline": "claude-sonnet-4",
+        "mismatches": [
+          {
+            "provider": "codex",
+            "value": "gpt-5-codex"
+          },
+          {
+            "provider": "gemini",
+            "value": "gemini-2.5-pro"
+          },
+          {
+            "provider": "kimi",
+            "value": "kimi-k2"
+          },
+          {
+            "provider": "ollama",
+            "value": "llama3:latest"
+          },
+          {
+            "provider": "opencode",
+            "value": "opencode-compatible"
+          }
+        ]
+      },
+      {
+        "field": "usage.inputTokens",
+        "baseline": 18,
+        "mismatches": [
+          {
+            "provider": "codex",
+            "value": 19
+          },
+          {
+            "provider": "gemini",
+            "value": 17
+          },
+          {
+            "provider": "ollama",
+            "value": 20
+          }
+        ]
+      },
+      {
+        "field": "usage.outputTokens",
+        "baseline": 9,
+        "mismatches": [
+          {
+            "provider": "gemini",
+            "value": 10
+          },
+          {
+            "provider": "kimi",
+            "value": 10
+          },
+          {
+            "provider": "ollama",
+            "value": 11
+          }
+        ]
+      }
+    ]
+  },
+  "notes": [
+    "All six providers satisfy the normalized response shape.",
+    "Expected variance is limited to provider-specific model identifiers and token accounting.",
+    "Task 16 provider matrix predates Ollama parity coverage and reports five CLI wrappers."
+  ]
+}

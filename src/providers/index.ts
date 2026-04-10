@@ -7,14 +7,19 @@ import { KimiProvider } from "./kimi.js";
 import { OllamaProvider } from "./ollama.js";
 import { OpenCodeProvider } from "./opencode.js";
 
-const PROVIDER_MAP: ReadonlyMap<HostType, () => ICliProvider> = new Map([
-  ["claude", () => new ClaudeProvider()],
-  ["codex", () => new CodexProvider()],
-  ["gemini", () => new GeminiProvider()],
-  ["kimi", () => new KimiProvider()],
-  ["ollama", () => new OllamaProvider()],
-  ["opencode", () => new OpenCodeProvider()],
-]);
+const PROVIDER_ENTRIES: ReadonlyArray<readonly [HostType, () => ICliProvider]> =
+  [
+    ["claude", () => new ClaudeProvider()],
+    ["codex", () => new CodexProvider()],
+    ["gemini", () => new GeminiProvider()],
+    ["kimi", () => new KimiProvider()],
+    ["ollama", () => new OllamaProvider()],
+    ["opencode", () => new OpenCodeProvider()],
+  ];
+
+const PROVIDER_MAP: ReadonlyMap<HostType, () => ICliProvider> = new Map(
+  PROVIDER_ENTRIES,
+);
 
 export class ProviderRegistry {
   private readonly instances = new Map<HostType, ICliProvider>();
@@ -44,3 +49,13 @@ export { GeminiProvider } from "./gemini.js";
 export { KimiProvider } from "./kimi.js";
 export { OllamaProvider } from "./ollama.js";
 export { OpenCodeProvider } from "./opencode.js";
+export {
+  checkParity,
+  checkStreamParity,
+  type ParityReport,
+  type ParityVariance,
+  type ProviderResponse,
+  type ProviderStreamEvent,
+  type ProviderUsage,
+  type StreamParityReport,
+} from "./parity.js";

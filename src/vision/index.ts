@@ -85,6 +85,7 @@ const DEFAULT_ADAPTERS: Readonly<Record<HostType, VisionProviderAdapter>> = {
   codex: { supportsVision: false },
   gemini: { supportsVision: false },
   kimi: { supportsVision: false },
+  ollama: { supportsVision: false },
   opencode: { supportsVision: false },
 };
 
