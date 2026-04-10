@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.0.0-rc] - 2026-04-10
+
+### Added
+
+- Provider expansion with confirmed providers and pending stubs
+- Anti-distillation domain pack validation
+- Governance soft-block enforcement
+- Platform compatibility checks
+
 ## [2.9.0] - 2026-04-10
 
 ### Added

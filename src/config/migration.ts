@@ -25,8 +25,8 @@ export interface MigrationOptions {
 }
 
 const SUPPORTED_TRANSITION = {
-  from: "2.3.0",
-  to: "3.0.0",
+  from: "2.9.0",
+  to: "3.0.0-rc",
 } as const;
 
 interface MigrationConfigStep {
@@ -120,6 +120,37 @@ export const CONFIG_MIGRATION_STEPS: readonly MigrationPlan[] = [
           enabled: true,
           security_envelope: true,
         },
+      },
+    ],
+  },
+  {
+    from: "2.9.0",
+    to: "3.0.0-rc",
+    steps: [
+      {
+        action: "add_config",
+        path: "provider_registry.confirmed",
+        value: ["saas", "landing", "ecommerce", "api"],
+      },
+      {
+        action: "add_config",
+        path: "provider_registry.pending_stubs",
+        value: ["bot", "admin", "cli"],
+      },
+      {
+        action: "add_config",
+        path: "validation.domain_pack_validation",
+        value: true,
+      },
+      {
+        action: "add_config",
+        path: "governance.enforcement_mode",
+        value: "soft-block",
+      },
+      {
+        action: "add_config",
+        path: "platform.compatibility_checks",
+        value: true,
       },
     ],
   },
