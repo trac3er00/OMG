@@ -163,6 +163,14 @@ const RESEARCH_PATTERNS = [
   /\bstudy\b/,
   /\bsurvey\b/,
 ];
+const DESTRUCTIVE_PATTERNS = [
+  /\bdelete\b/,
+  /\bremove\b/,
+  /\bdestroy\b/,
+  /\bpurge\b/,
+  /\berase\b/,
+  /\bwipe\b/,
+];
 
 const VAGUE_TERMS = [
   "something",
@@ -322,6 +330,10 @@ function estimateEffort(intent: IntentType): EffortLevel {
 }
 
 function estimateRisk(intent: IntentType, domain: IntentDomain): RiskLevel {
+  if (domain === "data" && intent !== "trivial") {
+    return "medium";
+  }
+
   if (domain === "security" || domain === "infrastructure") {
     return intent === "trivial" ? "medium" : "high";
   }
@@ -332,6 +344,18 @@ function estimateRisk(intent: IntentType, domain: IntentDomain): RiskLevel {
     return "medium";
   }
   return "low";
+}
+
+function escalateRiskForPrompt(prompt: string, risk: RiskLevel): RiskLevel {
+  if (!hasAnyPattern(prompt, DESTRUCTIVE_PATTERNS)) {
+    return risk;
+  }
+
+  if (prompt.includes(" all ") || prompt.startsWith("delete all ")) {
+    return "high";
+  }
+
+  return risk === "low" ? "medium" : risk;
 }
 
 function buildClarifyingQuestions(
@@ -444,7 +468,7 @@ export function understandIntent(
     complexity: {
       filesAffected: estimateFilesAffected(intent, domain),
       effort: estimateEffort(intent),
-      riskLevel: estimateRisk(intent, domain),
+      riskLevel: escalateRiskForPrompt(prompt, estimateRisk(intent, domain)),
       signals: buildSignals(prompt, intent, domain, ambiguities),
     },
     ambiguities,
