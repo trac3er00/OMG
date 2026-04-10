@@ -103,6 +103,9 @@ OMG ensures your workspace remains consistent across sessions by scoring context
 | **Context Durability**         |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |   ✅ **Adaptive Reconstruction**   |
 | **Convergence Detection**      |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |      ✅ **Early Stop Logic**       |
 | **Mutation Safety**            |      ❌ None       |     ❌ None      |   ❌ None   |      ⚠️ Advisory       |     ✅ **Hard Mutation Gate**      |
+| **Audit / SIEM Export**        |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |      ✅ **JSONL SIEM Export**      |
+| **Budget Envelopes**           |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         | ✅ **CPU/Mem/Token/Net Tracking**  |
+| **Tool Fabric Governance**     |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |  ✅ **Lane-Based Signed Fabric**   |
 
 **OMG v3.0.0 고유 강점:**
 
@@ -115,6 +118,9 @@ OMG ensures your workspace remains consistent across sessions by scoring context
 - **CMMS Memory Tiers**: 계층형 메모리 라우팅을 통한 효율적인 상태 관리.
 - **Session Checkpoints**: `/pause` 및 `/continue`를 통한 세션 중단 및 재개.
 - **Context Durability**: 적응형 워크스페이스 재구성을 통한 컨텍스트 유지.
+- **Audit / SIEM Export**: JSONL 형식의 엔터프라이즈 보안 모니터링 내보내기.
+- **Budget Envelopes**: CPU, 메모리, 토큰, 네트워크 등 다차원 리소스 추적.
+- **Tool Fabric Governance**: 서명된 승인과 원장 기록이 포함된 레인 기반 도구 거버넌스.
 
 ---
 

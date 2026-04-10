@@ -2,6 +2,18 @@
 
 This guide covers the transition from OMG v2.3.0 to v3.0.0. This major release introduces a strategic overhaul of the governance engine, security posture, and multi-agent orchestration.
 
+## TL;DR
+
+| Item                    | Detail                                                                               |
+| :---------------------- | :----------------------------------------------------------------------------------- |
+| **Version**             | 2.3.0 → 3.0.0                                                                        |
+| **Breaking changes**    | 3 (soft-block default, CMMS tier routing required, min runtime bump)                 |
+| **Migration command**   | `npx omg migrate --from=2.3.0 --to=3.0.0`                                            |
+| **New feature phases**  | 4 (Context & Memory, Planning & Thought, Governance & Security, Multi-Agent & Scale) |
+| **Feature flags added** | 10 (all default `off`)                                                               |
+| **Performance**         | Token usage −14.7%, startup +8.2% (within threshold)                                 |
+| **Rollback**            | Backup in `.omg/backups/migrations/`, downgrade to `@trac3r/oh-my-god@2.3.0`         |
+
 ## Breaking Changes
 
 ### 1. Enforcement Mode Change (Soft-Block)
@@ -76,6 +88,21 @@ npx omg migrate --from=2.3.0 --to=3.0.0
 | `ralph_approval_gate`         |   off   | Enables interactive approval for destructive actions. |
 | `multi_model_routing`         |   off   | Enables complexity-aware model selection.             |
 | `plan_adherence_enforcement`  |   off   | Fails iterations that drift from the plan.            |
+| `governed_tool_fabric`        |   off   | Lane-based tool governance with signed approval.      |
+| `audit_siem_export`           |   off   | JSONL export for enterprise security monitoring.      |
+
+---
+
+## Performance Benchmark (v2.3.0 → v3.0.0-rc)
+
+| Metric                       | v2.3.0 | v3.0.0-rc |  Delta |       Status        |
+| :--------------------------- | -----: | --------: | -----: | :-----------------: |
+| Startup (ms)                 |    850 |       920 |  +8.2% | ✅ Within threshold |
+| Token usage / session        | 15,000 |    12,800 | −14.7% |     ✅ Improved     |
+| Wall clock, simple task (ms) |  3,200 |     3,100 |  −3.1% |     ✅ Improved     |
+| Memory (MB)                  |    128 |       145 | +13.3% | ✅ Within threshold |
+
+All regressions are within the 20% tolerance. Token savings come from CMMS tier routing and context durability reducing redundant reconstruction. Full data: `.omg/evidence/benchmark.json`.
 
 ---
 
