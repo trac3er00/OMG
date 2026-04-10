@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { HudState } from "./hud.js";
 import { AgentState } from "./agent-manager.js";
 import type { SessionSnapshot, SessionEvent } from "./session.js";
+import { INITIAL_DURABILITY_METRICS } from "./session.js";
 
 function makeSnapshot(
   overrides: Partial<SessionSnapshot> = {},
@@ -19,6 +20,7 @@ function makeSnapshot(
     tasksSkipped: 0,
     budgetPressure: { tokens: 0.3, wall_time_ms: 0.1, memory_mb: 0.05 },
     events: [],
+    durabilityMetrics: INITIAL_DURABILITY_METRICS,
     ...overrides,
   };
 }

@@ -1,0 +1,45 @@
+bun test v1.3.12 (700fc117)
+--------------------------------------------|---------|---------|-------------------
+File                                        | % Funcs | % Lines | Uncovered Line #s
+--------------------------------------------|---------|---------|-------------------
+All files                                   |   80.86 |   85.04 |
+ src/context/checkpoint.ts                  |   81.82 |   97.66 | 133-134
+ src/context/compression.ts                 |   50.00 |   34.48 | 32-61,65-72,76-83,100,109-115,123-124
+ src/context/strategy-router.ts             |   11.11 |   13.01 | 51-53,58-74,78-90,94-105,109-126,130-149,153-168,172-179
+ src/context/workspace-reconstruction.ts    |   81.25 |   67.13 | 149-212,224,255-258,291-294,317,327-329,348-350,370-372,380-382,395-398,400,402-404
+ src/index.ts                               |  100.00 |  100.00 | 
+ src/orchestration/a2a.ts                   |  100.00 |   92.38 | 128-135
+ src/orchestration/agent-coordinator.ts     |   84.62 |   89.44 | 63-71,82-87
+ src/orchestration/agent-manager.ts         |   82.76 |   89.59 | 100-103,265-267,271-272,285-298
+ src/orchestration/auto-escalation.ts       |  100.00 |   92.45 | 84-87
+ src/orchestration/budget-tracker.ts        |  100.00 |  100.00 | 
+ src/orchestration/budget.ts                |  100.00 |  100.00 | 
+ src/orchestration/dag-executor.ts          |  100.00 |  100.00 | 
+ src/orchestration/deadlock.ts              |   80.00 |   97.48 | 90-92
+ src/orchestration/decision-engine.ts       |  100.00 |  100.00 | 
+ src/orchestration/dispatcher.ts            |   84.21 |   90.91 | 119,136-148
+ src/orchestration/enhanced-dag-executor.ts |  100.00 |  100.00 | 
+ src/orchestration/escalation.ts            |   91.67 |   96.52 | 270-276
+ src/orchestration/exec-kernel.ts           |   75.00 |  100.00 | 
+ src/orchestration/execution-controller.ts  |  100.00 |  100.00 | 
+ src/orchestration/forge.ts                 |   80.00 |  100.00 | 
+ src/orchestration/hud-server.ts            |   54.55 |   73.77 | 31,35,50-53,65-70,79-82
+ src/orchestration/hud.ts                   |  100.00 |  100.00 | 
+ src/orchestration/modes.ts                 |  100.00 |  100.00 | 
+ src/orchestration/reflection.ts            |  100.00 |  100.00 | 
+ src/orchestration/router-critics.ts        |   80.00 |  100.00 | 
+ src/orchestration/router.ts                |   95.65 |  100.00 | 
+ src/orchestration/self-improving.ts        |  100.00 |  100.00 | 
+ src/orchestration/session-events.ts        |  100.00 |  100.00 | 
+ src/orchestration/session-lifecycle.ts     |   78.79 |   94.83 | 183,348,408-419
+ src/orchestration/session.ts               |  100.00 |  100.00 | 
+ src/orchestration/watchdog.ts              |   83.33 |  100.00 | 
+ src/reliability/hud-integration.ts         |    0.00 |    8.45 | 18-23,28-33,37-56,60-92
+ src/reliability/metrics.ts                 |    0.00 |   19.80 | 47-67,71-93,97-119,123-143,147-166,170-195,199-204,208-225
+ src/state/atomic-io.ts                     |   54.55 |   33.33 | 16-19,28-38,40,48-49,66-70,77,81-111,127-144,148-152
+--------------------------------------------|---------|---------|-------------------
+
+ 187 pass
+ 0 fail
+ 412 expect() calls
+Ran 187 tests across 26 files. [1201.00ms]
