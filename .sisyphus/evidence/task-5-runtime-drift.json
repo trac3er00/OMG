@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-10",
+  "source_plan": ".sisyphus/plans/omg-v3-roadmap.md",
+  "summary": {
+    "compared_features": 4,
+    "high_drift": 2,
+    "medium_drift": 2,
+    "low_drift": 0,
+    "overall_assessment": "Python and TypeScript overlap on names, but memory and eval are notably split-brain; TypeScript owns richer context/governance orchestration while Python retains separate runtime implementations."
+  },
+  "comparisons": [
+    {
+      "feature": "memory",
+      "python": {
+        "paths": [
+          "runtime/memory_store.py",
+          "runtime/memory_schema.py",
+          "runtime/memory_compactor.py"
+        ],
+        "status": "implemented",
+        "evidence": [
+          "runtime/memory_schema.py defines MemoryTier AUTO/MICRO/SHIP",
+          "runtime/memory_store.py exposes tier-aware internals and CMMS pytest subset passed"
+        ]
+      },
+      "typescript": {
+        "paths": ["src/state/memory-store.ts"],
+        "status": "implemented_without_cmms_tiering",
+        "evidence": [
+          "src/state/memory-store.ts exists",
+          "No Auto/Micro/Ship or tier-routing signals were found in src/state/memory-store.ts"
+        ]
+      },
+      "consistency_assessment": "high_drift",
+      "reason": "Python has explicit CMMS tiering while the TypeScript memory store is still a single-store encrypted SQLite design with no tier model."
+    },
+    {
+      "feature": "context",
+      "python": {
+        "paths": ["runtime/context_engine.py"],
+        "status": "implemented",
+        "evidence": [
+          "runtime/context_engine.py imports cleanly",
+          "python3 -m pytest tests/runtime/test_context_engine.py -q -o addopts='' -> 26 passed",
+          "Module includes recency-decay heuristics"
+        ]
+      },
+      "typescript": {
+        "paths": [
+          "src/context/workspace-reconstruction.ts",
+          "src/context/strategy-router.ts",
+          "src/context/checkpoint.ts",
+          "src/context/compression.ts"
+        ],
+        "status": "implemented",
+        "evidence": [
+          "TS context modules include freshness scoring, decay detection, checkpointing, reconstruction boundaries, and durability routing"
+        ]
+      },
+      "consistency_assessment": "medium_drift",
+      "reason": "Both runtimes implement context concepts, but TypeScript contains the richer freshness/reconstruction orchestration while Python looks more like a bounded packet/decay engine."
+    },
+    {
+      "feature": "eval",
+      "python": {
+        "paths": ["runtime/eval_gate.py"],
+        "status": "implemented",
+        "evidence": [
+          "runtime/eval_gate.py has RegressionDetector and TrajectoryTracker",
+          "Smoke checks exported a trajectory JSONL and detected a regression"
+        ]
+      },
+      "typescript": {
+        "paths": ["src/verification/"],
+        "status": "adjacent_but_not_equivalent",
+        "evidence": [
+          "src/verification contains proof-gate, claim-judge, test-intent-lock, and compliance-governor",
+          "No eval-gate/trajectory/regression counterpart was found under src/verification"
+        ]
+      },
+      "consistency_assessment": "high_drift",
+      "reason": "Python owns explicit eval history and regression logic; TypeScript verification focuses on proof/compliance primitives rather than an eval pipeline."
+    },
+    {
+      "feature": "governance",
+      "python": {
+        "paths": [
+          "runtime/compliance_governor.py",
+          "runtime/tool_plan_gate.py",
+          "runtime/mutation_gate.py"
+        ],
+        "status": "implemented",
+        "evidence": [
+          "python3 -m pytest tests/runtime/test_compliance_governor.py -q -o addopts='' -> 12 passed",
+          "python3 -m pytest tests/runtime/test_tool_plan_gate.py -q -o addopts='' -> 35 passed"
+        ]
+      },
+      "typescript": {
+        "paths": [
+          "src/governance/graph.ts",
+          "src/governance/collusion.ts",
+          "src/governance/tool-fabric.ts",
+          "src/verification/compliance-governor.ts"
+        ],
+        "status": "implemented",
+        "evidence": [
+          "TS governance stack covers graph validation, collusion checks, lane policy enforcement, and bash command classification"
+        ]
+      },
+      "consistency_assessment": "medium_drift",
+      "reason": "Both runtimes have real governance modules, but responsibilities are split differently: Python handles release/tool-plan gates while TypeScript emphasizes graph/lane enforcement and command classification."
+    }
+  ]
+}

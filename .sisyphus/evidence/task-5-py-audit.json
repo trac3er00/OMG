@@ -1,0 +1,426 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-04-10",
+  "source_plan": ".sisyphus/plans/omg-v3-roadmap.md",
+  "audit_scope": {
+    "included_task_ids": [1, 8, 14, 19, 20, 21, 22, 23, 25, 26, 27, 29, 30, 32, 33],
+    "verdict_rule": "confirmed = expected Python deliverable exists, imports, and has passing task-fit runtime evidence; partial = imports/existence are present but a referenced module is missing, behavior is incomplete, or test evidence is missing/misaligned; missing = claimed deliverable file absent or non-importable"
+  },
+  "summary": {
+    "confirmed": 4,
+    "partial": 11,
+    "missing": 0,
+    "critical_findings": [
+      "CMMS Auto/Micro/Ship tiering exists in runtime/memory_store.py and CMMS pytest subset passes, but runtime/memory_encrypt.py from the roadmap references does not exist.",
+      "Task 22 lifecycle logic does not retire skills after 3 consecutive failures once a skill has already reached the promotion threshold; success_count check wins first.",
+      "Task 30 security envelope appears self-contained in runtime/autoresearch_engine.py and does not integrate hooks/firewall.py despite the roadmap claim.",
+      "Task 32 marks claude as a confirmed provider in provider_registry.py, but no runtime/providers/claude_provider.py exists."
+    ]
+  },
+  "task_verdicts": [
+    {
+      "task_id": 1,
+      "title": "CMMS Tier Routing Architecture",
+      "canonical_runtime": "Python",
+      "expected_python_modules": [
+        "runtime/memory_store.py",
+        "runtime/memory_schema.py",
+        "runtime/memory_compactor.py",
+        "runtime/memory_encrypt.py"
+      ],
+      "checks": {
+        "exists": {
+          "runtime/memory_store.py": true,
+          "runtime/memory_schema.py": true,
+          "runtime/memory_compactor.py": true,
+          "runtime/memory_encrypt.py": false
+        },
+        "imports": {
+          "runtime.memory_store": true,
+          "runtime.memory_schema": true,
+          "runtime.memory_compactor": true
+        },
+        "cmms_tiering": {
+          "memory_tier_values": ["auto", "micro", "ship"],
+          "memory_store_tier_related_members": [
+            "_delete_micro_value",
+            "_get_micro_value",
+            "_get_tier",
+            "_has_micro_key",
+            "_load_ship",
+            "_set_micro_value",
+            "_write_ship"
+          ],
+          "pytest": [
+            "python3 -m pytest tests/runtime/test_memory_store.py -k 'cmms' -q -o addopts='' -> 6 passed",
+            "python3 -m pytest tests/runtime/test_memory_compactor.py -q -o addopts='' -> 6 passed",
+            "python3 -m pytest tests/runtime/test_memory_encryption.py -q -o addopts='' -> 2 passed",
+            "python3 -m pytest tests/runtime/test_memory_schema.py -q -o addopts='' -> collection error (dataclass/importlib loader interaction)"
+          ]
+        }
+      },
+      "verdict": "partial",
+      "reason": "Core CMMS routing works and targeted CMMS tests pass, but the roadmap-referenced runtime/memory_encrypt.py module is absent and isolated test_memory_schema collection failed."
+    },
+    {
+      "task_id": 8,
+      "title": "Advanced Handoff — Retry Optimization",
+      "canonical_runtime": "Python + TypeScript",
+      "expected_python_modules": ["runtime/auto_resume.py"],
+      "checks": {
+        "exists": {"runtime/auto_resume.py": true},
+        "imports": {"runtime.auto_resume": true},
+        "pytest": ["python3 -m pytest tests/runtime/test_auto_resume.py -q -o addopts='' -> 15 passed"]
+      },
+      "verdict": "confirmed",
+      "reason": "The Python auto-resume module exists, imports cleanly, and its retry-budget/compaction test file passes."
+    },
+    {
+      "task_id": 14,
+      "title": "Planning Improvement #1 — Context Retention Across Plan Execution",
+      "canonical_runtime": "Both",
+      "expected_python_modules": ["runtime/opus_plan.py"],
+      "checks": {
+        "exists": {"runtime/opus_plan.py": true},
+        "imports": {"runtime.opus_plan": true},
+        "grep_signals": [
+          "runtime/opus_plan.py shows planning model/context configuration",
+          "no direct Ship-tier or MemoryStore references were found in runtime/opus_plan.py"
+        ],
+        "pytest": []
+      },
+      "verdict": "partial",
+      "reason": "The Python planning module exists and imports, but this audit did not find Ship-tier persistence wiring or task-specific Python test coverage for the roadmap claim."
+    },
+    {
+      "task_id": 19,
+      "title": "Smart Prompt Engineering — Cross-Provider Parity Measurement",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/prompt_compiler.py"],
+      "checks": {
+        "exists": {"runtime/prompt_compiler.py": true},
+        "imports": {"runtime.prompt_compiler": true},
+        "smoke": [
+          "measure_template_parity('tmpl', {'a':'hello world','b':'hello world!'}) -> average 0.8208333333333333"
+        ],
+        "pytest": []
+      },
+      "verdict": "partial",
+      "reason": "Parity measurement functions exist and smoke-run, but the roadmap-named pytest file tests/runtime/test_prompt_compiler.py is missing."
+    },
+    {
+      "task_id": 20,
+      "title": "Smart Prompt Engineering — Parity Enforcement + Auto-Correction",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/prompt_compiler.py"],
+      "checks": {
+        "exists": {"runtime/prompt_compiler.py": true},
+        "imports": {"runtime.prompt_compiler": true},
+        "smoke": [
+          "auto_correct_template('Please think step by step', 'gemini', 0.6) -> 2 provider-specific corrections"
+        ],
+        "pytest": []
+      },
+      "verdict": "partial",
+      "reason": "Auto-correction overlay logic exists and smoke-runs, but the roadmap-named pytest coverage is absent."
+    },
+    {
+      "task_id": 21,
+      "title": "Self-Evolving Skills — Auto-Propose from Repeated Patterns",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/skill_evolution.py"],
+      "checks": {
+        "exists": {"runtime/skill_evolution.py": true},
+        "imports": {"runtime.skill_evolution": true},
+        "pytest": ["python3 -m pytest tests/runtime/test_skill_evolution.py -q -o addopts='' -> 4 passed"],
+        "smoke": [
+          "detect_repeated_patterns() found repeated tool sequences",
+          "auto_propose_skill(ToolSequence(...), 3) produced a proposal object"
+        ]
+      },
+      "verdict": "confirmed",
+      "reason": "Auto-proposal primitives exist, import cleanly, and both pytest plus targeted smoke checks succeed."
+    },
+    {
+      "task_id": 22,
+      "title": "Self-Evolving Skills — Auto-Promote + Auto-Retire",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/skill_evolution.py"],
+      "checks": {
+        "exists": {"runtime/skill_evolution.py": true},
+        "imports": {"runtime.skill_evolution": true},
+        "pytest": ["python3 -m pytest tests/runtime/test_skill_evolution.py -q -o addopts='' -> 4 passed"],
+        "smoke": [
+          "SkillLifecycleManager promoted a skill to active after 5 successes",
+          "After 3 consecutive failures the same skill remained active in smoke testing instead of retiring"
+        ]
+      },
+      "verdict": "partial",
+      "reason": "Promotion logic works, but retirement does not trigger after promotion because success_count >= threshold is checked before consecutive_failures."
+    },
+    {
+      "task_id": 23,
+      "title": "/autoresearch On-Demand Mode",
+      "canonical_runtime": "Python + TypeScript",
+      "expected_python_modules": ["runtime/autoresearch_engine.py"],
+      "checks": {
+        "exists": {"runtime/autoresearch_engine.py": true},
+        "imports": {"runtime.autoresearch_engine": true},
+        "smoke": [
+          "research_topic('python testing') generated a markdown report in a temp directory"
+        ],
+        "pytest": []
+      },
+      "verdict": "partial",
+      "reason": "The Python engine exists and produces reports, but the roadmap-named tests/runtime/test_autoresearch.py file is absent."
+    },
+    {
+      "task_id": 25,
+      "title": "Eval-Driven Pipeline — CI/CD Integration + Trajectory Tracking",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/eval_gate.py"],
+      "checks": {
+        "exists": {"runtime/eval_gate.py": true},
+        "imports": {"runtime.eval_gate": true},
+        "smoke": [
+          "TrajectoryTracker exported a trajectory-*.jsonl file",
+          "RegressionDetector saved baseline/current snapshots and detected regression"
+        ],
+        "pytest": []
+      },
+      "verdict": "partial",
+      "reason": "The eval module works in smoke testing, but the roadmap-named tests/runtime/test_eval_gate.py file is missing."
+    },
+    {
+      "task_id": 26,
+      "title": "Eval-Driven Pipeline — Regression Detection in Release Gates",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/eval_gate.py"],
+      "checks": {
+        "exists": {"runtime/eval_gate.py": true},
+        "imports": {"runtime.eval_gate": true},
+        "smoke": [
+          "RegressionDetector.check_release_gate() returned passed=false with one regression when current metrics dropped below baseline"
+        ],
+        "pytest": []
+      },
+      "verdict": "partial",
+      "reason": "Release-gate regression logic exists and smoke-runs, but there is no matching tests/runtime/test_eval_gate.py coverage in the repo."
+    },
+    {
+      "task_id": 27,
+      "title": "Smart Task Handling — Always-On Governance Routing",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/tool_plan_gate.py", "runtime/mutation_gate.py"],
+      "checks": {
+        "exists": {
+          "runtime/tool_plan_gate.py": true,
+          "runtime/mutation_gate.py": true
+        },
+        "imports": {
+          "runtime.tool_plan_gate": true,
+          "runtime.mutation_gate": true
+        },
+        "pytest": ["python3 -m pytest tests/runtime/test_tool_plan_gate.py -q -o addopts='' -> 35 passed"]
+      },
+      "verdict": "confirmed",
+      "reason": "The Python governance-routing surface exists, imports, and its dedicated test file passes cleanly."
+    },
+    {
+      "task_id": 29,
+      "title": "/autoresearch Background Daemon Mode",
+      "canonical_runtime": "Python + TypeScript",
+      "expected_python_modules": ["runtime/autoresearch_engine.py"],
+      "checks": {
+        "exists": {"runtime/autoresearch_engine.py": true},
+        "imports": {"runtime.autoresearch_engine": true},
+        "smoke": [
+          "start_daemon() -> status started",
+          "stop_daemon() -> status stopped"
+        ],
+        "pytest": []
+      },
+      "verdict": "partial",
+      "reason": "Daemon helpers exist and smoke-run, but no matching Python pytest coverage exists for the roadmap claim."
+    },
+    {
+      "task_id": 30,
+      "title": "/autoresearch Security Envelope",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/autoresearch_engine.py", "hooks/firewall.py"],
+      "checks": {
+        "exists": {
+          "runtime/autoresearch_engine.py": true,
+          "hooks/firewall.py": true
+        },
+        "imports": {
+          "runtime.autoresearch_engine": true,
+          "hooks/firewall.py": true
+        },
+        "grep_signals": [
+          "runtime/autoresearch_engine.py defines token/web/output/disk budget fields and allow_code_execution=False",
+          "No direct import or call-site reference to hooks/firewall.py was found inside runtime/autoresearch_engine.py"
+        ],
+        "pytest": []
+      },
+      "verdict": "partial",
+      "reason": "The security-envelope module has local budget/read-only checks, but this audit did not confirm the roadmap-claimed firewall.py integration and the named pytest file is missing."
+    },
+    {
+      "task_id": 32,
+      "title": "Provider Expansion — Verify CLI Existence + Add Confirmed Providers",
+      "canonical_runtime": "Python",
+      "expected_python_modules": [
+        "runtime/providers/provider_registry.py",
+        "runtime/providers/codex_provider.py",
+        "runtime/providers/gemini_provider.py",
+        "runtime/providers/kimi_provider.py",
+        "runtime/providers/opencode_provider.py"
+      ],
+      "checks": {
+        "exists": {
+          "runtime/providers/provider_registry.py": true,
+          "runtime/providers/codex_provider.py": true,
+          "runtime/providers/gemini_provider.py": true,
+          "runtime/providers/kimi_provider.py": true,
+          "runtime/providers/opencode_provider.py": true,
+          "runtime/providers/claude_provider.py": false
+        },
+        "imports": {
+          "runtime.providers.provider_registry": true,
+          "runtime.providers.codex_provider": true,
+          "runtime.providers.gemini_provider": true,
+          "runtime.providers.kimi_provider": true,
+          "runtime.providers.opencode_provider": true
+        },
+        "pytest": ["python3 -m pytest tests/runtime/test_provider_parity.py -q -o addopts='' -> 8 passed"],
+        "registry_notes": [
+          "provider_registry.py marks claude/codex/gemini/kimi as confirmed",
+          "provider_registry.py marks qwen-cli/kilocode/conductor as pending"
+        ]
+      },
+      "verdict": "partial",
+      "reason": "Provider registry and several adapters exist, but claude is marked confirmed without a corresponding runtime/providers/claude_provider.py adapter."
+    },
+    {
+      "task_id": 33,
+      "title": "Provider Expansion — Parity Testing for New Providers",
+      "canonical_runtime": "Python",
+      "expected_python_modules": ["runtime/provider_parity_eval.py", "runtime/host_parity.py"],
+      "checks": {
+        "exists": {
+          "runtime/provider_parity_eval.py": true,
+          "runtime/host_parity.py": true
+        },
+        "imports": {
+          "runtime.provider_parity_eval": true,
+          "runtime.host_parity": true
+        },
+        "pytest": ["python3 -m pytest tests/runtime/test_provider_parity.py -q -o addopts='' -> 8 passed"]
+      },
+      "verdict": "confirmed",
+      "reason": "Both parity modules exist, import cleanly, and the dedicated provider-parity tests pass."
+    }
+  ],
+  "supplemental_module_checks": [
+    {
+      "module": "runtime/context_engine.py",
+      "task_context": [4, 10],
+      "exists": true,
+      "import_ok": true,
+      "test_evidence": "python3 -m pytest tests/runtime/test_context_engine.py -q -o addopts='' -> 26 passed",
+      "verdict": "partial",
+      "note": "The module exists and works under test, but this audit only found recency-decay heuristics on the Python side, not clear Python-side workspace reconstruction/durability lifecycle delivery."
+    },
+    {
+      "module": "runtime/compliance_governor.py",
+      "task_context": [7],
+      "exists": true,
+      "import_ok": true,
+      "test_evidence": "python3 -m pytest tests/runtime/test_compliance_governor.py -q -o addopts='' -> 12 passed",
+      "verdict": "confirmed",
+      "note": "Python governance module is present and directly tested."
+    },
+    {
+      "module": "runtime/proof_score.py",
+      "task_context": [6],
+      "exists": true,
+      "import_ok": true,
+      "test_evidence": "Smoke check compute_score([...]) -> {'score': 75, 'band': 'strong'}",
+      "verdict": "partial",
+      "note": "Module works in smoke testing, but no dedicated Python pytest file was found for proof_score.py."
+    },
+    {
+      "module": "runtime/debate_engine.py",
+      "task_context": [5],
+      "exists": false,
+      "import_ok": false,
+      "verdict": "missing",
+      "note": "No runtime/*debate*.py file was found; debate implementation is TypeScript-first in src/debate/."
+    },
+    {
+      "module": "runtime/reliability_*.py",
+      "task_context": [6],
+      "exists": false,
+      "import_ok": false,
+      "verdict": "missing",
+      "note": "No runtime/reliability*.py files were found; only runtime/proof_score.py exists on the Python side."
+    },
+    {
+      "module": "control_plane/server.py",
+      "task_context": [],
+      "exists": true,
+      "import_ok": true,
+      "verdict": "confirmed",
+      "note": "Module exists and loads successfully by path import."
+    },
+    {
+      "module": "control_plane/service.py",
+      "task_context": [],
+      "exists": true,
+      "import_ok": true,
+      "verdict": "confirmed",
+      "note": "Module exists and loads successfully by path import."
+    },
+    {
+      "module": "hooks/firewall.py",
+      "task_context": [30],
+      "exists": true,
+      "import_ok": true,
+      "verdict": "confirmed",
+      "note": "Script file exists and loads successfully by path import."
+    },
+    {
+      "module": "hooks/secret-guard.py",
+      "task_context": [],
+      "exists": true,
+      "import_ok": true,
+      "verdict": "partial",
+      "note": "Path import exits via SystemExit(0), so the script is present/executable but not shaped like a library module."
+    },
+    {
+      "module": "hooks/memory.py",
+      "task_context": [],
+      "exists": false,
+      "import_ok": false,
+      "verdict": "missing",
+      "note": "hooks/memory.py is absent; closest files are hooks/_memory.py and hooks/session-end-capture.py."
+    },
+    {
+      "module": "hooks/budget.py",
+      "task_context": [],
+      "exists": false,
+      "import_ok": false,
+      "verdict": "missing",
+      "note": "hooks/budget.py is absent; closest files are hooks/_budget.py and hooks/budget_governor.py."
+    },
+    {
+      "module": "hooks/routing.py",
+      "task_context": [],
+      "exists": false,
+      "import_ok": false,
+      "verdict": "missing",
+      "note": "No hooks/routing.py file exists."
+    }
+  ]
+}
