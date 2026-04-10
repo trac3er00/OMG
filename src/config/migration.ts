@@ -94,6 +94,35 @@ export const CONFIG_MIGRATION_STEPS: readonly MigrationPlan[] = [
       },
     ],
   },
+  {
+    from: "2.7.0",
+    to: "2.9.0",
+    steps: [
+      {
+        action: "add_config",
+        path: "features.eval_driven_pipeline",
+        value: true,
+      },
+      {
+        action: "add_config",
+        path: "features.smart_task_handling",
+        value: true,
+      },
+      {
+        action: "add_config",
+        path: "features.trajectory_tracking",
+        value: true,
+      },
+      {
+        action: "add_config",
+        path: "features.autoresearch_daemon",
+        value: {
+          enabled: true,
+          security_envelope: true,
+        },
+      },
+    ],
+  },
 ] as const;
 
 export const CANONICAL_STATE_SCHEMA_VERSIONS: Record<string, string> = {

@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.9.0] - 2026-04-10
+
+### Added
+
+- Phase 3 integration coverage for auto-escalation, trajectory tracking, governance routing, and autoresearch daemon concepts
+- Eval-Driven Pipeline with trajectory tracking and regression detection
+- Smart Task Handling with auto-classification and model escalation
+- `/autoresearch` daemon mode with security envelope and aligned v2.9.0 release surfaces
+
 ## [2.7.0] - 2026-04-10
 
 ### Added
