@@ -1,0 +1,23 @@
+{
+  "name": "Bash",
+  "arguments": {
+    "command": "export PATH=\"$HOME/.bun/bin:$PATH\" && bun test tests/unit/",
+    "timeout": 60000
+  },
+  "middleware": {
+    "context": {
+      "toolName": "Bash",
+      "toolArgs": {
+        "command": "export PATH=\"$HOME/.bun/bin:$PATH\" && bun test tests/unit/",
+        "timeout": 60000
+      },
+      "sessionId": "ses-fixture-001",
+      "requestId": "req-tool-001",
+      "timestamp": "2026-04-10T09:00:00.000Z"
+    },
+    "result": {
+      "decision": "allow",
+      "reason": "Command passed firewall screening"
+    }
+  }
+}

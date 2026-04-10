@@ -1,0 +1,9 @@
+{
+  "method": "tools/call",
+  "params": {
+    "name": "omg_ping",
+    "arguments": {}
+  },
+  "jsonrpc": "2.0",
+  "id": "req-health-001"
+}

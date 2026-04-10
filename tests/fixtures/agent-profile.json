@@ -1,0 +1,24 @@
+{
+  "name": "build-agent",
+  "category": "implementation",
+  "prompt": "Implement the feature according to the plan, write tests, and verify the build passes",
+  "skills": ["@claude/write", "@proof", "@governance"],
+  "timeout": 300000,
+  "maxRetries": 2,
+  "subagentType": "hephaestus",
+  "budgetEnvelope": {
+    "runId": "run-agent-profile-001",
+    "cpuSecondsLimit": 300,
+    "memoryMbLimit": 512,
+    "wallTimeSecondsLimit": 600,
+    "tokenLimit": 100000,
+    "networkBytesLimit": 10485760,
+    "cpuSecondsUsed": 0,
+    "memoryMbPeak": 0,
+    "wallTimeSecondsUsed": 0,
+    "tokensUsed": 0,
+    "networkBytesUsed": 0,
+    "exceeded": false,
+    "exceededDimensions": []
+  }
+}

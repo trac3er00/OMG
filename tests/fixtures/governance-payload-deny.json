@@ -1,0 +1,10 @@
+{
+  "action": "deny",
+  "reason": "Tool 'Delete' is not in allowed tools for lane 'safe': [Read, Edit, Bash]",
+  "lane": "safe",
+  "tool": "Delete",
+  "timestamp": "2026-03-26T10:31:00.000Z",
+  "args": {
+    "path": "/etc/passwd"
+  }
+}

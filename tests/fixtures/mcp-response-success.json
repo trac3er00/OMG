@@ -1,0 +1,13 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"status\":\"ok\",\"timestamp\":1712725423000}"
+    }
+  ],
+  "structuredContent": {
+    "status": "ok",
+    "timestamp": 1712725423000
+  },
+  "isError": false
+}

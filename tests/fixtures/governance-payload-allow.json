@@ -1,0 +1,11 @@
+{
+  "action": "allow",
+  "reason": "Tool 'Bash' is allowed in lane 'default'",
+  "lane": "default",
+  "tool": "Bash",
+  "timestamp": "2026-03-26T10:30:00.000Z",
+  "args": {
+    "command": "ls -la src/",
+    "timeout": 30000
+  }
+}

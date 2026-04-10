@@ -1,0 +1,46 @@
+{
+  "sessionId": "orch-a1b2c3d4e5f6",
+  "mode": "ultrawork",
+  "status": "running",
+  "startedAt": "2026-04-10T08:00:00.000Z",
+  "elapsedMs": 45200,
+  "agents": [
+    {
+      "name": "build-agent",
+      "status": "running",
+      "tasksExecuted": 2
+    },
+    {
+      "name": "review-agent",
+      "status": "pending",
+      "tasksExecuted": 0
+    }
+  ],
+  "tasksTotal": 5,
+  "tasksCompleted": 2,
+  "tasksFailed": 0,
+  "tasksSkipped": 0,
+  "budgetPressure": {
+    "cpuSeconds": 0.35,
+    "tokens": 0.22,
+    "wallTimeSeconds": 0.15
+  },
+  "events": [
+    {
+      "type": "task_started",
+      "taskId": "task-001",
+      "timestamp": "2026-04-10T08:00:01.000Z"
+    },
+    {
+      "type": "task_completed",
+      "taskId": "task-001",
+      "timestamp": "2026-04-10T08:00:20.000Z"
+    }
+  ],
+  "durabilityMetrics": {
+    "totalReconstructions": 0,
+    "averageFreshnessScore": 92,
+    "decayEventCount": 0,
+    "lastReconstructionAt": null
+  }
+}

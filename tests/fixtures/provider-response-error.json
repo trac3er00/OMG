@@ -1,0 +1,12 @@
+{
+  "hostType": "claude",
+  "health": {
+    "available": false,
+    "authenticated": false,
+    "healthy": false,
+    "message": "claude CLI not found on PATH",
+    "hint": "Install Claude Code: npm install -g @anthropic-ai/claude-code"
+  },
+  "mcpConfig": null,
+  "surface": null
+}

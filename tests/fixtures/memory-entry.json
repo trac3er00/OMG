@@ -1,0 +1,10 @@
+{
+  "key": "auth-flow-design-v2",
+  "namespace": "default",
+  "content": "OAuth2 token refresh with PKCE, JWT validation via RS256, rate limiting at 100 req/min per user",
+  "tags": ["auth", "api", "security"],
+  "runId": "run-task6-fixture",
+  "sourceCli": "claude",
+  "createdAt": "2026-04-09T14:00:00.000Z",
+  "updatedAt": "2026-04-10T08:30:00.000Z"
+}

@@ -1,0 +1,71 @@
+Task 6: Test Fixture Foundation — Validation Evidence
+=====================================================
+Date: 2026-04-10
+Validator: sisyphus-junior (claude-opus-4-6)
+
+## Fixture Count
+Before: 2 files (hud-session-health.json, smoke_page.html)
+After:  13 JSON fixture files + 1 HTML fixture = 14 total
+
+## JSON Fixture Files (13)
+1. hud-session-health.json     — (pre-existing) HUD session health snapshot
+2. mcp-request-health.json     — MCP tool call request (omg_ping)
+3. mcp-request-policy.json     — MCP tool call request (omg_policy_evaluate)
+4. mcp-response-success.json   — MCP successful response (CallToolResult)
+5. mcp-response-error.json     — MCP error response (CallToolResult, isError=true)
+6. governance-payload-allow.json — Governance decision: allow (ToolFabricResult + LedgerEntry)
+7. governance-payload-deny.json  — Governance decision: deny (ToolFabricResult + LedgerEntry)
+8. session-state-active.json   — Active session snapshot (SessionSnapshot)
+9. memory-entry.json           — Memory store entry (MemoryEntry)
+10. provider-response-claude.json — Claude provider health + MCP config
+11. provider-response-error.json  — Provider error (CLI not found)
+12. tool-call.json              — Tool invocation with middleware context
+13. agent-profile.json          — Agent config with budget envelope
+
+## Coverage Matrix
+| Domain          | Fixture(s)                                    | Shape Source                          |
+|-----------------|-----------------------------------------------|---------------------------------------|
+| MCP request     | mcp-request-health, mcp-request-policy        | src/mcp/server.ts (JSON-RPC 2.0)     |
+| MCP response    | mcp-response-success, mcp-response-error      | CallToolResult interface              |
+| Governance      | governance-payload-allow, governance-payload-deny | ToolFabricResult / LedgerEntry     |
+| Session state   | session-state-active                          | SessionSnapshot interface             |
+| Memory          | memory-entry                                  | MemoryEntry interface                 |
+| Provider        | provider-response-claude, provider-response-error | CliHealthStatus + HostSurface     |
+| Tool call       | tool-call                                     | MiddlewareContext + MiddlewareResult  |
+| Agent profile   | agent-profile                                 | AgentConfig + BudgetEnvelope          |
+
+## Validation Results
+
+### Python JSON parse (all OK)
+tests/fixtures/agent-profile.json OK
+tests/fixtures/governance-payload-allow.json OK
+tests/fixtures/governance-payload-deny.json OK
+tests/fixtures/hud-session-health.json OK
+tests/fixtures/mcp-request-health.json OK
+tests/fixtures/mcp-request-policy.json OK
+tests/fixtures/mcp-response-error.json OK
+tests/fixtures/mcp-response-success.json OK
+tests/fixtures/memory-entry.json OK
+tests/fixtures/provider-response-claude.json OK
+tests/fixtures/provider-response-error.json OK
+tests/fixtures/session-state-active.json OK
+tests/fixtures/tool-call.json OK
+
+### Bun require() validation (all OK)
+agent-profile.json: name,category,prompt,skills,timeout,maxRetries,subagentType,budgetEnvelope
+governance-payload-allow.json: action,reason,lane,tool,timestamp,args
+governance-payload-deny.json: action,reason,lane,tool,timestamp,args
+hud-session-health.json: cwd,transcript_path,model,context_window,session_health
+mcp-request-health.json: method,params,jsonrpc,id
+mcp-request-policy.json: method,params,jsonrpc,id
+mcp-response-error.json: content,structuredContent,isError
+mcp-response-success.json: content,structuredContent,isError
+memory-entry.json: key,namespace,content,tags,runId,sourceCli,createdAt,updatedAt
+provider-response-claude.json: hostType,health,mcpConfig,surface
+provider-response-error.json: hostType,health,mcpConfig,surface
+session-state-active.json: sessionId,mode,status,startedAt,elapsedMs,agents,tasksTotal,...
+tool-call.json: name,arguments,middleware
+
+## Outcome
+PASS — 13 JSON fixtures (≥10 required), all parse correctly in both Python and Bun.
+All Tier 1 domains covered: MCP, governance, session, memory, providers, tool calls, agent profiles.

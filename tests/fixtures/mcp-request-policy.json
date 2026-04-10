@@ -1,0 +1,15 @@
+{
+  "method": "tools/call",
+  "params": {
+    "name": "omg_policy_evaluate",
+    "arguments": {
+      "tool": "Bash",
+      "input": {
+        "command": "rm -rf /tmp/test-dir",
+        "timeout": 30000
+      }
+    }
+  },
+  "jsonrpc": "2.0",
+  "id": "req-policy-001"
+}

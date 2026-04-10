@@ -1,0 +1,25 @@
+{
+  "hostType": "claude",
+  "health": {
+    "available": true,
+    "authenticated": true,
+    "healthy": true,
+    "message": "claude CLI available and authenticated"
+  },
+  "mcpConfig": {
+    "mcpServers": {
+      "omg-control": {
+        "command": "node",
+        "args": ["dist/mcp/index.js"],
+        "env": {
+          "OMG_PROJECT_DIR": "/home/user/project"
+        }
+      }
+    }
+  },
+  "surface": {
+    "configPath": ".mcp.json",
+    "hooksPath": ".claude/settings.local.json",
+    "skillsDir": ".agents/skills"
+  }
+}
