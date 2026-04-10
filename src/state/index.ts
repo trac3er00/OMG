@@ -22,3 +22,6 @@ export type {
 
 export { acquireLock, withLock } from "./file-lock.js";
 export type { LockOptions, ReleaseFn } from "./file-lock.js";
+
+export { SessionCache, computeHash } from "./cache.js";
+export type { SessionCacheConfig, CacheWriteResult } from "./cache.js";
