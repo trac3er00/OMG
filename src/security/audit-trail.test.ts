@@ -71,7 +71,7 @@ describe("AuditTrail", () => {
 
   test("env var override takes precedence over key file", () => {
     const projectDir = join(tmpdir(), `audit-env-${Date.now()}`);
-    const envSecret = "env-override-secret-hex-value-for-testing";
+    const envSecret = "env-override-hmac-hex-value-for-testing";
 
     const saved = process.env.OMG_AUDIT_HMAC_SECRET;
     process.env.OMG_AUDIT_HMAC_SECRET = envSecret;
