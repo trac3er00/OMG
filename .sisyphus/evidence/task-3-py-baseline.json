@@ -1,0 +1,15 @@
+{
+  "error": 1,
+  "fail": 0,
+  "importStatus": {
+    "control_plane": "ok",
+    "runtime": "ok"
+  },
+  "pass": 0,
+  "pytestAvailable": false,
+  "runtimeModuleCount": 146,
+  "skip": 0,
+  "testFileCount": 364,
+  "timestamp": "2026-04-10T11:15:29.216741+00:00",
+  "total": 0
+}
