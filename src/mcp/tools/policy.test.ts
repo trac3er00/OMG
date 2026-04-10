@@ -28,7 +28,10 @@ describe("omg_policy_evaluate", () => {
   });
 
   test("allows innocuous bash command", async () => {
-    const result = await tool.handler({ tool: "Bash", input: { command: "ls" } });
+    const result = await tool.handler({
+      tool: "Bash",
+      input: { command: "ls" },
+    });
     expect(isRecord(result)).toBe(true);
     if (isRecord(result)) {
       expect(result.action).toBe("allow");
@@ -101,6 +104,20 @@ describe("omg_mutation_gate", () => {
     if (isRecord(result)) {
       expect(result.allowed).toBe(false);
       expect(typeof result.reason).toBe("string");
+    }
+  });
+
+  test("deny result is a hard block rather than a warning", async () => {
+    const result = await tool.handler({
+      tool: "Write",
+      file_path: ".env",
+      run_id: "hard-block-check",
+    });
+
+    expect(isRecord(result)).toBe(true);
+    if (isRecord(result)) {
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain("Blocked:");
     }
   });
 
@@ -184,6 +201,15 @@ describe("omg_tool_fabric_request", () => {
     if (isRecord(result)) {
       expect(result.allowed).toBe(false);
       expect(result.lane).toBe("restricted");
+    }
+  });
+
+  test("default lane passthrough remains allowed without explicit approval lane", async () => {
+    const result = await tool.handler({ tool: "Bash" });
+    expect(isRecord(result)).toBe(true);
+    if (isRecord(result)) {
+      expect(result.allowed).toBe(true);
+      expect(result.lane).toBe("default");
     }
   });
 });

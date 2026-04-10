@@ -68,6 +68,20 @@ describe("governance/ledger", () => {
       const entries = ledger.readAll();
       expect(entries.length).toBe(2);
     });
+
+    test("entry round-trip matches persisted JSONL record", () => {
+      const ledger = new GovernanceLedger(TEST_DIR);
+      const written = ledger.append({
+        agent_id: "agent-a",
+        node_id: "task-round-trip",
+        from_state: "planning",
+        to_state: "implementing",
+        evidence_refs: ["proof:test"],
+      });
+
+      const [readBack] = ledger.readAll();
+      expect(readBack).toEqual(written);
+    });
   });
 
   describe("GovernanceLedger.verifyIntegrity", () => {

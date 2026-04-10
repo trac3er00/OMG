@@ -1,6 +1,7 @@
-import { appendJsonLine, readJsonLines } from "../state/atomic-io.js";
+import { appendJsonLine } from "../state/atomic-io.js";
 import { StateResolver } from "../state/state-resolver.js";
 import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
 import { GovernanceGraphRuntime, type EnforcementMode } from "./graph.js";
 import { detectCollusion } from "./collusion.js";
 import { GovernanceLedger } from "./ledger.js";
@@ -41,13 +42,18 @@ type ToolExecutor = (
   args: Readonly<Record<string, unknown>>,
 ) => unknown | Promise<unknown>;
 
+interface ToolFabricDeps {
+  readonly appendLedgerLine?: (path: string, entry: LedgerEntry) => void;
+}
+
 export class ToolFabric {
   private readonly lanes = new Map<string, LanePolicy>();
   private readonly ledgerPath: string;
   private readonly governanceGraph: GovernanceGraphRuntime;
   private readonly governanceLedger: GovernanceLedger;
+  private readonly appendLedgerLine: (path: string, entry: LedgerEntry) => void;
 
-  constructor(projectDir: string) {
+  constructor(projectDir: string, deps: ToolFabricDeps = {}) {
     const resolver = new StateResolver(projectDir);
     this.ledgerPath = resolver.resolve(join("ledger", "tool-fabric.jsonl"));
     this.governanceGraph = new GovernanceGraphRuntime(
@@ -55,6 +61,7 @@ export class ToolFabric {
       "tool-fabric",
     );
     this.governanceLedger = new GovernanceLedger(projectDir);
+    this.appendLedgerLine = deps.appendLedgerLine ?? appendJsonLine;
   }
 
   registerLane(name: string, policy: LanePolicy): void {
@@ -77,11 +84,7 @@ export class ToolFabric {
     const result = this.decide(tool, args, lane, policy, timestamp);
     const entry: LedgerEntry = { ...result, args };
 
-    try {
-      appendJsonLine(this.ledgerPath, entry);
-    } catch {
-      // best-effort ledger write
-    }
+    this.appendLedgerLine(this.ledgerPath, entry);
 
     return result;
   }
@@ -161,7 +164,24 @@ export class ToolFabric {
   }
 
   getLedgerEntries(): readonly LedgerEntry[] {
-    return readJsonLines<LedgerEntry>(this.ledgerPath);
+    if (!existsSync(this.ledgerPath)) {
+      return [];
+    }
+
+    return readFileSync(this.ledgerPath, "utf8")
+      .split("\n")
+      .filter((line) => line.trim().length > 0)
+      .map((line, index) => {
+        try {
+          return JSON.parse(line) as LedgerEntry;
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Failed to parse tool fabric ledger entry ${index + 1}: ${message}`,
+          );
+        }
+      });
   }
 
   close(): void {

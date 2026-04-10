@@ -1,0 +1,14 @@
+[
+  {
+    "gate": "MutationGate",
+    "claimedLevel": "hard-block",
+    "actualLevel": "hard-block",
+    "evidence": "src/mcp/tools/policy.test.ts: blocks dangerous bash mutation + deny result is a hard block rather than a warning => handler returns allowed=false with Blocked reason for critical mutations"
+  },
+  {
+    "gate": "ToolFabric",
+    "claimedLevel": "soft-block",
+    "actualLevel": "soft-block",
+    "evidence": "src/governance/tool-fabric.test.ts: default lane remains passthrough and executes unapproved tools => default lane allows execution; restricted lane deny blocks executor dispatch => blocking exists only when a restrictive lane is configured"
+  }
+]

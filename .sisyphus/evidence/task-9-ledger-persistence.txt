@@ -1,0 +1,19 @@
+Task 9 ledger persistence evidence
+Date: 2026-04-10
+
+Command:
+export PATH="$HOME/.bun/bin:$PATH" && bun test src/governance/
+
+Observed result:
+- 54 pass
+- 0 fail
+
+Persistence assertions now covered:
+- `src/governance/ledger.test.ts` :: `entry round-trip matches persisted JSONL record`
+  - Writes a governance ledger entry, reads JSONL back with `readAll()`, and verifies exact equality.
+- `src/governance/tool-fabric.test.ts` :: `ledger round-trip preserves persisted decision`
+  - Evaluates a tool-fabric decision, writes to `tool-fabric.jsonl`, reads it back with `getLedgerEntries()`, and verifies the stored decision matches the written payload.
+- `src/governance/tool-fabric.test.ts` :: `ledger write errors propagate instead of being swallowed`
+  - Confirms ledger write failures now reject instead of being silently ignored.
+- `src/governance/tool-fabric.test.ts` :: `malformed ledger entries throw on read instead of being ignored`
+  - Confirms malformed JSONL input now throws with entry context instead of being silently skipped.
