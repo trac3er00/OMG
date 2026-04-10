@@ -38,6 +38,7 @@
     "build": "bun build src/index.ts --outdir dist --target bun",
     "omg": "bun run src/cli/index.ts",
     "omg-control": "bun run src/mcp/server.ts",
+    "eval": "bun run src/eval/runner.ts",
     "postinstall": "echo 'OMG v3.0.0-rc installed. Run: bunx omg install --plan'"
   },
   "keywords": [

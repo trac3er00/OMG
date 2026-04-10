@@ -1,0 +1,19 @@
+Task 19 USS learning evidence
+Date: 2026-04-10
+
+Observed learned profile from 5 Korean + TypeScript mock messages:
+{
+  "language": "ko",
+  "technicalLevel": "intermediate",
+  "namingConvention": "camelCase",
+  "stack": ["typescript"]
+}
+
+Observed suggestion for task "new API":
+한국어로 설명하고 approach new API using typescript, prefer camelCase naming, and balance clarity with implementation detail.
+
+Notes:
+- USS stores derived preferences only.
+- Raw conversation content is not persisted.
+- Persistence path defaults to .omg/state/uss-profile.json when projectDir is provided.
+- Verification log: .sisyphus/evidence/task-19-uss-tests.log

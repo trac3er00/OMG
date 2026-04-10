@@ -43,3 +43,8 @@ jobs:
       - name: Python Tests (all test files)
         run: pytest tests/ -n auto --timeout=60 --tb=short
         timeout-minutes: 10
+
+      - name: Eval Suites (informational)
+        run: bun run eval || true
+        continue-on-error: true
+        timeout-minutes: 5

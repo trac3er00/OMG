@@ -1,0 +1,18 @@
+Task 19 USS empty-profile evidence
+Date: 2026-04-10
+
+Observed default profile for a new user:
+{
+  "language": "en",
+  "technicalLevel": "intermediate",
+  "namingConvention": "camelCase",
+  "stack": []
+}
+
+Observed suggestion for task "new API":
+Explain in English and approach new API using the existing project stack, prefer camelCase naming, and balance clarity with implementation detail.
+
+Notes:
+- Empty/new-user profile degrades gracefully.
+- No manual configuration required.
+- No crash observed for getProfile(), getPreference(), or suggestApproach().
