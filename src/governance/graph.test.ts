@@ -138,9 +138,9 @@ describe("governance/graph", () => {
         expect(result.violations).toHaveLength(0);
       });
 
-      test("advisory-mode", () => {
+      test("soft-block-default-mode", () => {
         const runtime = new GovernanceGraphRuntime(TEST_DIR);
-        expect(runtime.getEnforcementMode()).toBe("advisory");
+        expect(runtime.getEnforcementMode()).toBe("soft-block");
       });
     });
 

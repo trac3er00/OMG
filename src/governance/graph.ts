@@ -80,7 +80,7 @@ export class GovernanceGraphRuntime {
   constructor(
     projectDir: string,
     graphId = "default",
-    enforcementMode: EnforcementMode = "advisory",
+    enforcementMode: EnforcementMode = "soft-block",
   ) {
     this.projectDir = projectDir;
     this.enforcementMode = enforcementMode;
