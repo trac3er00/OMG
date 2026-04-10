@@ -1,0 +1,36 @@
+{
+  "timestamp": "2026-04-10T13:23:03Z",
+  "passed": false,
+  "checks": [
+    {
+      "name": "tests",
+      "status": "pass",
+      "detail": "1765 pass, 0 fail"
+    },
+    {
+      "name": "eval",
+      "status": "pass",
+      "detail": "aggregate_score 100; 18/18 cases passed"
+    },
+    {
+      "name": "skills",
+      "status": "fail",
+      "detail": "validate-skills reported total=46, validated=3, stub=22, missing=21"
+    },
+    {
+      "name": "benchmarks",
+      "status": "pass",
+      "detail": "allUnder100ms=true; maxAvgMs=0.288; minOpsPerSec=3471"
+    },
+    {
+      "name": "evidence",
+      "status": "pass",
+      "detail": "526 task-1..42 evidence matches"
+    },
+    {
+      "name": "security",
+      "status": "fail",
+      "detail": "security-check release_blocked=true; unresolved_high_risk_count=1 (SEC003 in src/security/audit-trail.test.ts:74)"
+    }
+  ]
+}
