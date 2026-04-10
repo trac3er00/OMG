@@ -133,15 +133,14 @@ function normalizeGateConfig(
   }
 
   const normalized: GateConfigInput = {
-    ...(normalizedBase.enabled ?? baseDefault.enabled) !== undefined
+    ...((normalizedBase.enabled ?? baseDefault.enabled) !== undefined
       ? { enabled: normalizedBase.enabled ?? baseDefault.enabled }
-      : {},
-    ...(normalizedBase.enforcement ?? baseDefault.enforcement)
+      : {}),
+    ...((normalizedBase.enforcement ?? baseDefault.enforcement)
       ? {
-          enforcement:
-            normalizedBase.enforcement ?? baseDefault.enforcement,
+          enforcement: normalizedBase.enforcement ?? baseDefault.enforcement,
         }
-      : {},
+      : {}),
     ...(Object.keys(providers).length > 0 ? { providers } : {}),
   };
 
@@ -162,26 +161,24 @@ function normalizeConfig(value: unknown): GovernanceConfig {
         ? value.defaultProvider.trim().toLowerCase()
         : DEFAULT_CONFIG.defaultProvider,
     gates: {
-      MutationGate: normalizeGateConfig(
-        "MutationGate",
-        rawGates.MutationGate,
-      ),
+      MutationGate: normalizeGateConfig("MutationGate", rawGates.MutationGate),
       ToolFabric: normalizeGateConfig("ToolFabric", rawGates.ToolFabric),
     },
   };
 }
 
 export class UserGovernanceControl {
+  private readonly projectDir: string;
   private readonly configPath: string;
   private readonly snapshotPath: string;
-  private readonly auditTrail: AuditTrail;
+  private auditTrail: AuditTrail | null = null;
 
   constructor(projectDir: string) {
+    this.projectDir = projectDir;
     this.configPath = join(projectDir, ...GOVERNANCE_CONFIG_PATH);
     this.snapshotPath = new StateResolver(projectDir).resolve(
       "governance-config.snapshot.json",
     );
-    this.auditTrail = AuditTrail.create({ projectDir });
   }
 
   loadConfig(): GovernanceConfig {
@@ -203,7 +200,9 @@ export class UserGovernanceControl {
     provider?: string | null,
   ): ResolvedGateControl {
     const config = this.loadConfig();
-    const resolvedProvider = normalizeProvider(provider ?? config.defaultProvider);
+    const resolvedProvider = normalizeProvider(
+      provider ?? config.defaultProvider,
+    );
     const gateConfig = config.gates[gate] ?? DEFAULT_CONFIG.gates[gate];
     const providerOverride = gateConfig.providers?.[resolvedProvider] ?? {};
 
@@ -243,7 +242,7 @@ export class UserGovernanceControl {
       return;
     }
 
-    this.auditTrail.record({
+    this.recordAudit({
       actor: "user-governance",
       action: "governance.gate.bypass",
       details: {
@@ -267,7 +266,7 @@ export class UserGovernanceControl {
       return;
     }
 
-    this.auditTrail.record({
+    this.recordAudit({
       actor: "user-governance",
       action: "governance.config.changed",
       details: {
@@ -285,6 +284,13 @@ export class UserGovernanceControl {
     } satisfies GovernanceSnapshot);
   }
 
+  private recordAudit(entry: Parameters<AuditTrail["record"]>[0]): void {
+    try {
+      this.auditTrail ??= AuditTrail.create({ projectDir: this.projectDir });
+      this.auditTrail.record(entry);
+    } catch {}
+  }
+
   private readSnapshot(): GovernanceSnapshot | null {
     if (!existsSync(this.snapshotPath)) {
       return null;
@@ -299,7 +305,9 @@ export class UserGovernanceControl {
   }
 }
 
-export function getUserGovernanceControl(projectDir: string): UserGovernanceControl {
+export function getUserGovernanceControl(
+  projectDir: string,
+): UserGovernanceControl {
   return new UserGovernanceControl(projectDir);
 }
 

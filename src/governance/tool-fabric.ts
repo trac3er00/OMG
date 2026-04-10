@@ -106,7 +106,8 @@ export class ToolFabric {
     if (!gateControl.enabled) {
       const result: ToolFabricResult = {
         action: "allow",
-        reason: "ToolFabric disabled by user governance; request passed through",
+        reason:
+          "ToolFabric disabled by user governance; request passed through",
         lane,
         tool,
         timestamp,
@@ -146,11 +147,13 @@ export class ToolFabric {
     const governance = getUserGovernanceControl(this.projectDir);
     const gateControl = governance.getGateControl("ToolFabric", opts.provider);
     const decision = await this.evaluateRequest(tool, args, laneName);
+    const enforcement =
+      opts.enforcement ?? gateControl.enforcement ?? DEFAULT_ENFORCEMENT;
 
     if (decision.action === "deny") {
       return this.applyExecutionEnforcement(decision, tool, {
         ...opts,
-        enforcement: gateControl.enforcement,
+        enforcement,
       });
     }
 

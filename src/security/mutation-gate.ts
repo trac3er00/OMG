@@ -151,6 +151,8 @@ export async function checkMutationAllowed(
   const governance = getUserGovernanceControl(projectDir);
   const gateControl = governance.getGateControl("MutationGate", opts.provider);
   void lockId;
+  const enforcement =
+    opts.enforcement ?? gateControl.enforcement ?? DEFAULT_ENFORCEMENT;
 
   if (!gateControl.enabled) {
     governance.recordGateBypass({
@@ -167,7 +169,8 @@ export async function checkMutationAllowed(
 
     return {
       allowed: true,
-      reason: "MutationGate disabled by user governance; mutation passed through",
+      reason:
+        "MutationGate disabled by user governance; mutation passed through",
       operation,
       decision: makeDecision(
         "warn",
@@ -216,7 +219,7 @@ export async function checkMutationAllowed(
     };
     return applyEnforcement(result, tool, {
       ...opts,
-      enforcement: gateControl.enforcement,
+      enforcement,
     });
   }
 
@@ -235,7 +238,7 @@ export async function checkMutationAllowed(
     };
     return applyEnforcement(result, tool, {
       ...opts,
-      enforcement: gateControl.enforcement,
+      enforcement,
     });
   }
 
