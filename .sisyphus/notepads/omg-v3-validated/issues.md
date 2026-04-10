@@ -20,3 +20,5 @@
 - 2026-04-10: Task 11 validation also confirmed Python memory imports cleanly, but the roadmap-referenced `runtime/memory_encrypt.py` module is still missing from the Python runtime layout.
 - Task 10: added MutationGate warn-path coverage for exemption overrides, SecretGuard API_KEY redaction coverage, and explicit crypto round-trip coverage.
 - Task 10: TypeScript LSP diagnostics could not run because typescript-language-server is not installed in this environment.
+- 2026-04-10 Task 8: `src/mcp/server.ts` was only registering `omg_ping` plus `newCapabilityTools`, so canonical health/policy/verification MCP tools were absent from `tools/list` until the built-in registry was restored.
+- 2026-04-10 Task 8: MCP server handlers needed explicit error-result wrapping so malformed tool payloads return structured MCP errors instead of tearing down the request path.

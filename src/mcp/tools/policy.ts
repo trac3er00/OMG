@@ -47,6 +47,22 @@ function asRecord(value: unknown): Readonly<Record<string, unknown>> {
   return {};
 }
 
+function requireToolName(value: unknown): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error("tool must be a non-empty string");
+  }
+
+  return value.trim();
+}
+
+function requireInputRecord(value: unknown): Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("input must be an object");
+  }
+
+  return value as Readonly<Record<string, unknown>>;
+}
+
 function mapPolicyAction(action: PolicyDecision["action"]): "allow" | "block" {
   return action === "allow" || action === "warn" ? "allow" : "block";
 }
@@ -56,8 +72,7 @@ export function createPolicyEvaluateTool(
 ): ToolRegistration {
   return {
     name: "omg_policy_evaluate",
-    description:
-      "Evaluate bash/file/artifact policy for a tool invocation",
+    description: "Evaluate bash/file/artifact policy for a tool invocation",
     inputSchema: {
       type: "object",
       properties: {
@@ -83,8 +98,8 @@ export function createPolicyEvaluateTool(
       required: ["tool", "input"],
     },
     handler: async (args) => {
-      const tool = String(args.tool ?? "");
-      const input = asRecord(args.input);
+      const tool = requireToolName(args.tool);
+      const input = requireInputRecord(args.input);
       const decision = await deps.evaluatePolicy({ tool, input });
       return {
         action: mapPolicyAction(decision.action),
@@ -125,10 +140,8 @@ export function createMutationGateTool(
     },
     handler: async (args) => {
       const tool = String(args.tool ?? "");
-      const filePath =
-        args.file_path != null ? String(args.file_path) : null;
-      const command =
-        args.command != null ? String(args.command) : null;
+      const filePath = args.file_path != null ? String(args.file_path) : null;
+      const command = args.command != null ? String(args.command) : null;
       const runId = String(args.run_id ?? "anonymous");
 
       const result = await deps.checkMutationAllowed(
@@ -172,8 +185,7 @@ export function createToolFabricRequestTool(
     },
     handler: async (args) => {
       const tool = String(args.tool ?? "");
-      const lane =
-        args.lane != null ? String(args.lane) : undefined;
+      const lane = args.lane != null ? String(args.lane) : undefined;
       const result = await deps.evaluateRequest(tool, {}, lane);
 
       return {
@@ -185,9 +197,7 @@ export function createToolFabricRequestTool(
   };
 }
 
-export function createTrustReviewTool(
-  deps: TrustReviewDeps,
-): ToolRegistration {
+export function createTrustReviewTool(deps: TrustReviewDeps): ToolRegistration {
   return {
     name: "omg_trust_review",
     description:

@@ -2,9 +2,28 @@ import { cwd } from "node:process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { ToolFabric } from "../governance/tool-fabric.js";
 import type { ToolRegistration } from "../interfaces/mcp.js";
+import { SessionHealthProvider } from "../runtime/session-health.js";
+import { checkMutationAllowed } from "../security/mutation-gate.js";
+import { evaluatePolicy } from "../security/policy-engine.js";
+import {
+  getTrustDecision,
+  scoreTrustChange,
+} from "../security/trust-review.js";
 import { isMiddlewareResult, MiddlewareStack } from "./middleware.js";
+import {
+  createGuideAssertTool,
+  createSessionHealthTool,
+} from "./tools/health.js";
 import { newCapabilityTools } from "./tools/new-capabilities.js";
+import {
+  createMutationGateTool,
+  createPolicyEvaluateTool,
+  createToolFabricRequestTool,
+  createTrustReviewTool,
+} from "./tools/policy.js";
+import { createVerificationTools } from "./tools/verification.js";
 import { wrapTool } from "./tool-wrapper.js";
 
 const SERVER_NAME = "OMG Control MCP";
@@ -86,6 +105,24 @@ function toCallToolResult(result: unknown): {
   };
 }
 
+function toErrorToolResult(error: unknown): {
+  content: Array<{ type: "text"; text: string }>;
+  structuredContent: Record<string, unknown>;
+  isError: true;
+} {
+  const message = error instanceof Error ? error.message : String(error);
+  const payload = {
+    status: "error",
+    reason: message,
+  } satisfies Record<string, unknown>;
+
+  return {
+    content: [{ type: "text", text: JSON.stringify(payload) }],
+    structuredContent: payload,
+    isError: true,
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -100,6 +137,25 @@ function createPingToolRegistration(): ToolRegistration {
       timestamp: Date.now(),
     }),
   };
+}
+
+function createBuiltinTools(projectDir: string): ToolRegistration[] {
+  const healthProvider = SessionHealthProvider.create(projectDir);
+  const toolFabric = new ToolFabric(projectDir);
+
+  return [
+    createPingToolRegistration(),
+    createSessionHealthTool(healthProvider),
+    createGuideAssertTool(),
+    createPolicyEvaluateTool({ evaluatePolicy }),
+    createMutationGateTool({ checkMutationAllowed, projectDir }),
+    createToolFabricRequestTool({
+      evaluateRequest: toolFabric.evaluateRequest.bind(toolFabric),
+    }),
+    createTrustReviewTool({ scoreTrustChange, getTrustDecision }),
+    ...createVerificationTools(),
+    ...newCapabilityTools,
+  ];
 }
 
 /**
@@ -123,7 +179,7 @@ export function createServer(options: CreateServerOptions = {}): OmgMcpServer {
   const projectDir =
     options.projectDir ?? process.env.CLAUDE_PROJECT_DIR ?? cwd();
   const middlewareStack = options.middlewareStack ?? new MiddlewareStack();
-  const builtInTools = [createPingToolRegistration(), ...newCapabilityTools];
+  const builtInTools = createBuiltinTools(projectDir);
   const allTools = [...builtInTools, ...(options.tools ?? [])];
 
   for (const tool of allTools) {
@@ -142,8 +198,12 @@ export function createServer(options: CreateServerOptions = {}): OmgMcpServer {
         inputSchema: z.looseObject({}),
       },
       async (args) => {
-        const result = await wrapped(args);
-        return toCallToolResult(result);
+        try {
+          const result = await wrapped(args);
+          return toCallToolResult(result);
+        } catch (error) {
+          return toErrorToolResult(error);
+        }
       },
     );
   }
