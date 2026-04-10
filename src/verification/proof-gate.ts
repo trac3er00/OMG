@@ -7,12 +7,27 @@ import type {
 import { judgeSingleClaim, type Claim } from "./claim-judge.js";
 
 export interface EvidenceBundle {
-  readonly junit?: { tests: number; failures: number; errors: number };
-  readonly coverage?: { line_rate: number };
+  readonly junit?: {
+    tests: number;
+    failures: number;
+    errors: number;
+    stale?: boolean;
+    generatedAt?: string;
+  };
+  readonly coverage?: {
+    line_rate: number;
+    stale?: boolean;
+    generatedAt?: string;
+  };
   readonly sarif?: { results: unknown[] };
   readonly browser_trace?: unknown;
   readonly test_intent_lock?: { locked: boolean };
   readonly [key: string]: unknown;
+}
+
+interface EvidenceFreshnessMeta {
+  readonly stale?: boolean;
+  readonly generatedAt?: string;
 }
 
 export interface ProductionGateResult {
@@ -104,8 +119,23 @@ export function productionGate(evidence: EvidenceBundle): ProductionGateResult {
   const blockers: string[] = [];
 
   for (const primitive of REQUIRED_PRIMITIVES) {
-    if (!(primitive in evidence) || evidence[primitive] == null) {
+    const primitiveEvidence = evidence[primitive] as
+      | EvidenceFreshnessMeta
+      | undefined;
+    if (!(primitive in evidence) || primitiveEvidence == null) {
       blockers.push(`Missing required evidence: ${primitive}`);
+      continue;
+    }
+
+    if (primitiveEvidence.stale === true) {
+      const generatedAtSuffix =
+        typeof primitiveEvidence.generatedAt === "string" &&
+        primitiveEvidence.generatedAt.length > 0
+          ? ` (generatedAt=${primitiveEvidence.generatedAt})`
+          : "";
+      blockers.push(
+        `Stale required evidence: ${primitive}${generatedAtSuffix}`,
+      );
     }
   }
 

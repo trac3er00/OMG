@@ -10,6 +10,23 @@ describe("productionGate", () => {
     expect(r.proofScore.score).toBe(0);
   });
 
+  test("stale required evidence → blocked", () => {
+    const r = productionGate({
+      junit: {
+        tests: 10,
+        failures: 0,
+        errors: 0,
+        stale: true,
+        generatedAt: "2026-04-09T00:00:00.000Z",
+      },
+      coverage: { line_rate: 0.85 },
+    });
+    expect(r.status).toBe("blocked");
+    expect(r.blockers).toContain(
+      "Stale required evidence: junit (generatedAt=2026-04-09T00:00:00.000Z)",
+    );
+  });
+
   test("junit + coverage → pass", () => {
     const r = productionGate({
       junit: { tests: 10, failures: 0, errors: 0 },
@@ -73,6 +90,23 @@ describe("evaluateProofGate", () => {
     expect(r.status).toBe("blocked");
     expect(
       r.blockers.some((blocker) => blocker.includes("Compensator pipeline")),
+    ).toBe(true);
+  });
+
+  test("claim without evidence blocks proof gate even with artifacts", () => {
+    const r = evaluateProofGate({
+      evidence: {
+        junit: { tests: 5, failures: 0, errors: 0 },
+        coverage: { line_rate: 0.9 },
+      },
+      claim: {
+        text: "Task complete",
+        evidence: [],
+      },
+    });
+    expect(r.status).toBe("blocked");
+    expect(
+      r.blockers.some((blocker) => blocker.includes("No supporting evidence")),
     ).toBe(true);
   });
 
