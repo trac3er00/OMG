@@ -1,16 +1,25 @@
 import { OmgDatabase } from "./database.js";
 import { StateResolver } from "./state-resolver.js";
-import { decrypt, deriveKey, encrypt, type EncryptedPayload } from "../security/crypto.js";
+import {
+  decrypt,
+  deriveKey,
+  encrypt,
+  type EncryptedPayload,
+} from "../security/crypto.js";
 
-const CAPACITY_LIMIT = 10_000;
+const DEFAULT_CAPACITY_LIMIT = 10_000;
 const DEFAULT_NAMESPACE = "default";
 const DEFAULT_PASSPHRASE = "omg-memory-store-v3-default";
 const DEFAULT_SALT = "omg-memory-store-v3-salt";
 const STORE_KEY_DERIVE_ITERATIONS = 100_000;
+const DEFAULT_DB_FILENAME = "memory.sqlite3";
 
 const PII_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[REDACTED:EMAIL]"],
-  [/\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/g, "[REDACTED:PHONE]"],
+  [
+    /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/g,
+    "[REDACTED:PHONE]",
+  ],
   [/\b\d{3}-\d{2}-\d{4}\b/g, "[REDACTED:SSN]"],
 ];
 
@@ -27,7 +36,10 @@ interface MemoryRow {
 }
 
 export class MemoryStoreFullError extends Error {
-  constructor(message = `Memory store is full (${CAPACITY_LIMIT} items). Delete items before adding new ones.`) {
+  constructor(
+    limit = DEFAULT_CAPACITY_LIMIT,
+    message = `Memory store is full (${limit} items). Delete items before adding new ones.`,
+  ) {
     super(message);
     this.name = "MemoryStoreFullError";
   }
@@ -60,20 +72,28 @@ export interface MemoryStoreConfig {
   readonly projectDir: string;
   readonly namespace?: string;
   readonly passphrase?: string;
+  readonly capacityLimit?: number;
+  readonly dbFileName?: string;
 }
 
 export class MemoryStore {
   private readonly db: OmgDatabase;
   private readonly namespace: string;
   private readonly passphrase: string;
+  private readonly capacityLimit: number;
   private encryptionKey: Buffer | null = null;
 
   constructor(config: MemoryStoreConfig) {
-    this.namespace = (config.namespace ?? DEFAULT_NAMESPACE).trim() || DEFAULT_NAMESPACE;
+    this.namespace =
+      (config.namespace ?? DEFAULT_NAMESPACE).trim() || DEFAULT_NAMESPACE;
     this.passphrase = config.passphrase ?? DEFAULT_PASSPHRASE;
+    this.capacityLimit = Math.max(
+      1,
+      config.capacityLimit ?? DEFAULT_CAPACITY_LIMIT,
+    );
 
     const resolver = new StateResolver(config.projectDir);
-    const dbPath = resolver.resolve("memory.sqlite3");
+    const dbPath = resolver.resolve(config.dbFileName ?? DEFAULT_DB_FILENAME);
     this.db = new OmgDatabase({ path: dbPath, walMode: true });
 
     this.initSchema();
@@ -95,7 +115,9 @@ export class MemoryStore {
       )
     `);
 
-    this.db.exec("CREATE INDEX IF NOT EXISTS idx_memories_namespace_key ON memories(namespace, key)");
+    this.db.exec(
+      "CREATE INDEX IF NOT EXISTS idx_memories_namespace_key ON memories(namespace, key)",
+    );
 
     this.db.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts
@@ -105,7 +127,11 @@ export class MemoryStore {
 
   private async getKey(): Promise<Buffer> {
     if (this.encryptionKey === null) {
-      this.encryptionKey = await deriveKey(this.passphrase, DEFAULT_SALT, STORE_KEY_DERIVE_ITERATIONS);
+      this.encryptionKey = await deriveKey(
+        this.passphrase,
+        DEFAULT_SALT,
+        STORE_KEY_DERIVE_ITERATIONS,
+      );
     }
     return this.encryptionKey;
   }
@@ -157,15 +183,17 @@ export class MemoryStore {
     return entry;
   }
 
-  private upsertFts(memoryId: number, key: string, content: string, tags: readonly string[]): void {
+  private upsertFts(
+    memoryId: number,
+    key: string,
+    content: string,
+    tags: readonly string[],
+  ): void {
     this.db.run("DELETE FROM memories_fts WHERE memory_id = ?", [memoryId]);
-    this.db.run("INSERT INTO memories_fts (memory_id, key, content, tags, namespace) VALUES (?, ?, ?, ?, ?)", [
-      memoryId,
-      key,
-      content,
-      tags.join(" "),
-      this.namespace,
-    ]);
+    this.db.run(
+      "INSERT INTO memories_fts (memory_id, key, content, tags, namespace) VALUES (?, ?, ?, ?, ?)",
+      [memoryId, key, content, tags.join(" "), this.namespace],
+    );
   }
 
   async write(key: string, options: WriteOptions): Promise<MemoryEntry> {
@@ -174,9 +202,12 @@ export class MemoryStore {
       [key, this.namespace],
     );
     if (!existing) {
-      const row = this.db.get<{ n: number }>("SELECT COUNT(*) AS n FROM memories WHERE namespace = ?", [this.namespace]);
-      if ((row?.n ?? 0) >= CAPACITY_LIMIT) {
-        throw new MemoryStoreFullError();
+      const row = this.db.get<{ n: number }>(
+        "SELECT COUNT(*) AS n FROM memories WHERE namespace = ?",
+        [this.namespace],
+      );
+      if ((row?.n ?? 0) >= this.capacityLimit) {
+        throw new MemoryStoreFullError(this.capacityLimit);
       }
     }
 
@@ -239,7 +270,10 @@ export class MemoryStore {
   }
 
   async delete(key: string): Promise<boolean> {
-    const row = this.db.get<{ id: number }>("SELECT id FROM memories WHERE key = ? AND namespace = ?", [key, this.namespace]);
+    const row = this.db.get<{ id: number }>(
+      "SELECT id FROM memories WHERE key = ? AND namespace = ?",
+      [key, this.namespace],
+    );
     if (!row) {
       return false;
     }
@@ -279,7 +313,10 @@ export class MemoryStore {
   }
 
   async count(): Promise<number> {
-    const row = this.db.get<{ n: number }>("SELECT COUNT(*) AS n FROM memories WHERE namespace = ?", [this.namespace]);
+    const row = this.db.get<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM memories WHERE namespace = ?",
+      [this.namespace],
+    );
     return row?.n ?? 0;
   }
 
