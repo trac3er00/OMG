@@ -1,0 +1,90 @@
+== Task 13 Hooks Validation ==
+-- Python hooks present --
+hooks/__init__.py
+hooks/_agent_registry.py
+hooks/_analytics.py
+hooks/_budget.py
+hooks/_common.py
+hooks/_compression_optimizer.py
+hooks/_cost_ledger.py
+hooks/_learnings.py
+hooks/_memory.py
+hooks/_post_write.py
+hooks/_protected_context.py
+hooks/_token_counter.py
+hooks/approval_ui.py
+hooks/branch_manager.py
+hooks/budget_governor.py
+hooks/circuit-breaker.py
+hooks/compression_feedback.py
+hooks/config-guard.py
+hooks/context_pressure.py
+hooks/credential_store.py
+hooks/fetch-rate-limits.py
+hooks/firewall.py
+hooks/hashline-formatter-bridge.py
+hooks/hashline-injector.py
+hooks/hashline-validator.py
+hooks/idle-detector.py
+hooks/instructions-loaded.py
+hooks/intentgate-keyword-detector.py
+hooks/language-preserve.py
+hooks/magic-keyword-router.py
+hooks/policy_engine.py
+hooks/post-tool-failure.py
+hooks/post-tool-output.py
+hooks/post-write.py
+hooks/pre-compact.py
+hooks/pre-tool-inject.py
+hooks/prompt-enhancer.py
+hooks/quality-runner.py
+hooks/query.py
+hooks/secret-guard.py
+hooks/secret_audit.py
+hooks/security_validators.py
+hooks/session-end-capture.py
+hooks/session-start.py
+hooks/setup_wizard.py
+hooks/shadow_manager.py
+hooks/state_migration.py
+hooks/stop-gate.py
+hooks/stop_dispatcher.py
+hooks/tdd-gate.py
+hooks/terms-guard.py
+hooks/test-validator.py
+hooks/test_generator_hook.py
+hooks/todo-state-tracker.py
+hooks/tool-ledger.py
+hooks/trust_review.py
+hooks/user-prompt-submit.py
+-- Import checks --
+firewall OK
+secret-guard OK
+-- Firewall screening --
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask", "permissionDecisionReason": "Raw environment dump: env [defense risk=low]"}}
+-- Secret guard screening --
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "Direct .env read blocked. Masked preview:\n\n[Could not read file]\n\nKeys/tokens/passwords masked with ****. Ask the user for specific values if needed."}}
+-- Python pre/post lifecycle simulation --
+[
+  {
+    "stage": "pre-tool",
+    "result": null
+  },
+  {
+    "stage": "tool",
+    "result": {
+      "status": "simulated-ok"
+    }
+  },
+  {
+    "stage": "post-tool",
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "language_cache_exists": true,
+    "language_cache": {
+      "language": "korean",
+      "updated_at": "2026-04-10T11:54:59Z"
+    }
+  }
+]

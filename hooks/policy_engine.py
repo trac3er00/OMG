@@ -163,11 +163,14 @@ EXFIL_COMMANDS = [
 ]
 
 ASK_PATTERNS = [
+    (r"(?:^|\s|;|&&|\|\|)env(?:\s|$)", "Raw environment dump"),
     (r"(^|\s)(curl|wget)(\s|$)", "Network egress"),
     (r"(^|\s)(ssh|scp|rsync)(\s|$)", "Remote connection"),
     (r"git\s+push\s+.*(-f|--force)", "Force push"),
     (r"git\s+push\s+.*(main|master|production|release)", "Push to protected branch"),
     (r"git\s+clean\b", "git clean (removes untracked files)"),
+    (r"(?:^|\s|;|&&|\|\|)(python|python3|node)(?:\s|$)", "Interpreter execution"),
+    (r"(?:^|\s|;|&&|\|\|)(chmod|chown)(?:\s|$)", "Permission-changing command"),
     (r"chmod\s+(777|666|a\+[rwx])", "Overly permissive chmod"),
     (r"docker\s+run\s+.*--privileged", "Privileged container"),
     (r"python[23]?\s+-c\s+", "Inline Python execution"),

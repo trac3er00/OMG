@@ -26,12 +26,17 @@ describe("HookLifecycleManager", () => {
 
     manager.registerHook("pre-tool", async () => {
       events.push("pre-tool");
-      return { decision: { action: "allow", reason: "ok", riskLevel: "low", tags: [] } };
+      return {
+        decision: { action: "allow", reason: "ok", riskLevel: "low", tags: [] },
+      };
     });
 
     const runTool = async (): Promise<void> => {
       const preResult = await manager.runPreTool(makeContext());
-      if (preResult.decision.action === "deny" || preResult.decision.action === "block") {
+      if (
+        preResult.decision.action === "deny" ||
+        preResult.decision.action === "block"
+      ) {
         return;
       }
       events.push("tool");
@@ -40,6 +45,40 @@ describe("HookLifecycleManager", () => {
     await runTool();
 
     expect(events).toEqual(["pre-tool", "tool"]);
+  });
+
+  test("pre-tool runs before tool and post-tool runs after", async () => {
+    const manager = HookLifecycleManager.create();
+    const events: string[] = [];
+
+    manager.registerHook("pre-tool", async () => {
+      events.push("pre-tool");
+      return {
+        decision: { action: "allow", reason: "ok", riskLevel: "low", tags: [] },
+      };
+    });
+
+    manager.registerHook("post-tool", async (ctx) => {
+      events.push(
+        `post-tool:${String(ctx.toolOutput?.["result"] ?? "missing")}`,
+      );
+      return {
+        decision: { action: "allow", reason: "ok", riskLevel: "low", tags: [] },
+      };
+    });
+
+    const preResult = await manager.runPreTool(makeContext());
+    if (
+      preResult.decision.action === "deny" ||
+      preResult.decision.action === "block"
+    ) {
+      throw new Error("pre-tool unexpectedly blocked execution");
+    }
+
+    events.push("tool");
+    await manager.runPostTool(makeContext(), { result: "done" });
+
+    expect(events).toEqual(["pre-tool", "tool", "post-tool:done"]);
   });
 
   test("deny from pre-tool blocks tool execution", async () => {
@@ -53,7 +92,10 @@ describe("HookLifecycleManager", () => {
 
     const runTool = async (): Promise<void> => {
       const preResult = await manager.runPreTool(makeContext());
-      if (preResult.decision.action === "deny" || preResult.decision.action === "block") {
+      if (
+        preResult.decision.action === "deny" ||
+        preResult.decision.action === "block"
+      ) {
         return;
       }
       events.push("tool");
@@ -72,7 +114,14 @@ describe("HookLifecycleManager", () => {
       "session-start",
       async () => {
         calls.push(30);
-        return { decision: { action: "allow", reason: "late", riskLevel: "low", tags: [] } };
+        return {
+          decision: {
+            action: "allow",
+            reason: "late",
+            riskLevel: "low",
+            tags: [],
+          },
+        };
       },
       30,
     );
@@ -80,7 +129,14 @@ describe("HookLifecycleManager", () => {
       "session-start",
       async () => {
         calls.push(10);
-        return { decision: { action: "allow", reason: "early", riskLevel: "low", tags: [] } };
+        return {
+          decision: {
+            action: "allow",
+            reason: "early",
+            riskLevel: "low",
+            tags: [],
+          },
+        };
       },
       10,
     );
@@ -88,7 +144,14 @@ describe("HookLifecycleManager", () => {
       "session-start",
       async () => {
         calls.push(20);
-        return { decision: { action: "allow", reason: "middle", riskLevel: "low", tags: [] } };
+        return {
+          decision: {
+            action: "allow",
+            reason: "middle",
+            riskLevel: "low",
+            tags: [],
+          },
+        };
       },
       20,
     );
@@ -108,12 +171,26 @@ describe("HookLifecycleManager", () => {
 
     async function secondHook(): Promise<HookResult> {
       calls.push("second");
-      return { decision: { action: "allow", reason: "second", riskLevel: "low", tags: [] } };
+      return {
+        decision: {
+          action: "allow",
+          reason: "second",
+          riskLevel: "low",
+          tags: [],
+        },
+      };
     }
 
     async function firstHook(): Promise<HookResult> {
       calls.push("first");
-      return { decision: { action: "allow", reason: "first", riskLevel: "low", tags: [] } };
+      return {
+        decision: {
+          action: "allow",
+          reason: "first",
+          riskLevel: "low",
+          tags: [],
+        },
+      };
     }
 
     manager.registerHook("pre-tool", secondHook);

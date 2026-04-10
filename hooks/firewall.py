@@ -362,16 +362,27 @@ def _mutating_defense_decision(
     return None
 
 
-def main() -> None:
-    data = json_input()
+def _normalize_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, dict):
+        tool_input = payload.get("input")
+
+    normalized: dict[str, Any] = dict(payload)
+    normalized["tool_name"] = payload.get("tool_name", payload.get("tool", ""))
+    normalized["tool_input"] = tool_input if isinstance(tool_input, dict) else {}
+    return normalized
+
+
+def check_command(payload: dict[str, Any]) -> dict[str, Any] | None:
+    data = _normalize_payload(payload)
 
     tool = data.get("tool_name", "")
     if tool != "Bash":
-        sys.exit(0)
+        return None
 
     cmd = data.get("tool_input", {}).get("command", "")
     if not cmd:
-        sys.exit(0)
+        return None
 
     decision = evaluate_bash_command(cmd)
     project_dir = get_project_dir()
@@ -412,11 +423,12 @@ def main() -> None:
         and (is_mutation_capable or is_external_execution)
     ):
         prompt = str(clarification_state.get("clarification_prompt", ""))
-        if is_external_execution:
-            deny_decision(_clarification_external_reason(prompt))
-        else:
-            deny_decision(_clarification_reason(prompt))
-        sys.exit(0)
+        reason = (
+            _clarification_external_reason(prompt)
+            if is_external_execution
+            else _clarification_reason(prompt)
+        )
+        return deny_decision(reason)
 
     if is_mutation_capable and gate_result.get("status") == "blocked":
         _fw_reason_code = str(
@@ -428,7 +440,7 @@ def main() -> None:
             _fw_explanation = format_block_explanation(_fw_reason_code, {"tool": tool})
             _fw_enhanced_reason = f"{_fw_reason_code}: {_fw_explanation}"
         except Exception:
-            _fw_enhanced_reason = _fw_reason_code  # Crash isolation: always falls back
+            _fw_enhanced_reason = _fw_reason_code
         try:
             import json as _fw_json
             from datetime import datetime as _fw_dt, timezone as _fw_tz
@@ -458,8 +470,7 @@ def main() -> None:
                 )
             except Exception:
                 pass
-        deny_decision(_fw_enhanced_reason)
-        sys.exit(0)
+        return deny_decision(_fw_enhanced_reason)
 
     decision = _enrich_risk_context(decision, data)
 
@@ -475,7 +486,6 @@ def main() -> None:
                 ["rate-limit", "security-rate-limit"],
             )
 
-    # In bypass-permission mode, only enforce hard denials (critical safety).
     if is_bypass_mode(data) and decision.action != "deny":
         if _requires_bypass_enforcement(decision):
             decision = deny(
@@ -484,7 +494,7 @@ def main() -> None:
                 ["bypass-enforced", "deny-on-bypass"],
             )
         else:
-            sys.exit(0)
+            return None
 
     if decision.action == "allow" and is_mutation_capable:
         try:
@@ -503,7 +513,13 @@ def main() -> None:
             except Exception:
                 pass
 
-    out = to_pretool_hook_output(decision)
+    return to_pretool_hook_output(decision)
+
+
+def main() -> None:
+    data = json_input()
+
+    out = check_command(data)
     if out:
         json.dump(out, sys.stdout)
 

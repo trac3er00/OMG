@@ -1,0 +1,49 @@
+bun test v1.3.12 (700fc117)
+
+src/hooks/memory.test.ts:
+[memory] content compressed from 2400 to 1639 chars
+[memory] content compressed from 150 to 118 chars
+
+src/hooks/common.test.ts:
+[OMG] Hook 'slow-hook' exceeded 100ms budget: 200ms
+-----------------------------------------|---------|---------|-------------------
+File                                     | % Funcs | % Lines | Uncovered Line #s
+-----------------------------------------|---------|---------|-------------------
+All files                                |   60.51 |   66.13 |
+ src/config/feature-flags.ts             |    0.00 |   22.06 | 17,22-24,33-34,42-66,71,76,81-91,99-102,106,111-114
+ src/config/presets.ts                   |    0.00 |   90.26 | 160-170,174-176
+ src/config/settings.ts                  |    0.00 |   14.55 | 34-75,80-82,87
+ src/context/checkpoint.ts               |   16.67 |   27.66 | 62-66,70-112,116-147,151,155-175
+ src/context/compression.ts              |   66.67 |   48.28 | 34-39,42-47,56-61,65-72,76-83,100,109-115,123-124
+ src/context/context-engineering.ts      |   25.00 |   70.91 | 49-51,55-57,61,65-66,70,74-79
+ src/context/strategy-router.ts          |   81.82 |   89.43 | 51-53,117-118,172-179
+ src/context/workspace-reconstruction.ts |   28.57 |   40.89 | 158,167-169,178-180,189-191,200,216,220-223,227-244,248-251,255-258,262-266,270-298,302-313,317,321-403
+ src/debate/consensus.ts                 |    0.00 |   11.21 | 24-118
+ src/debate/perspectives.ts              |   66.67 |   91.92 | 93,101-102,129-133
+ src/debate/voting.ts                    |   84.62 |   94.59 | 90-91,112-115
+ src/governance/collusion.ts             |   44.44 |   40.11 | 55-57,68-71,77-81,83-94,105-108,113-122,140-147,160-163,168-171,184-238
+ src/governance/graph.ts                 |   30.77 |   46.54 | 125-137,174,178,182,186-208,212-283,287-289,293-296,309-329
+ src/governance/ledger.ts                |   87.50 |   75.41 | 95-124
+ src/hooks/analytics.ts                  |   86.67 |  100.00 | 
+ src/hooks/budget.ts                     |   88.24 |   55.35 | 61-175,221-226
+ src/hooks/common.ts                     |   92.86 |  100.00 | 
+ src/hooks/compression.ts                |   58.33 |   34.87 | 57-99,123-129,148-153,157-166,170-202
+ src/hooks/lifecycle.ts                  |   86.36 |   95.21 | 120-123,152-155
+ src/hooks/memory.ts                     |   89.29 |   92.05 | 242-260
+ src/hooks/quality.ts                    |   87.50 |  100.00 | 
+ src/hooks/routing.ts                    |   90.00 |  100.00 | 
+ src/index.ts                            |  100.00 |  100.00 | 
+ src/integration/frontier-pipeline.ts    |  100.00 |   87.39 | 69-70,96-107
+ src/metacognitive/epistemic-tracker.ts  |   33.33 |   51.25 | 39-40,44,72-82,86-110
+ src/metacognitive/pipeline.ts           |  100.00 |   57.78 | 60-77,79-83,85-87,104-115
+ src/metacognitive/types.ts              |  100.00 |  100.00 | 
+ src/orchestration/a2a.ts                |   14.29 |   31.19 | 51-55,59,63,71-73,77-106,110-144
+ src/reliability/metrics.ts              |   61.54 |   48.73 | 51-58,71-93,97-119,123-143,147-166,199-204
+ src/state/atomic-io.ts                  |   54.55 |   32.48 | 16-19,28-38,40,48-49,57,66-70,77,81-111,127-144,148-152
+ src/types/config.ts                     |  100.00 |  100.00 | 
+-----------------------------------------|---------|---------|-------------------
+
+ 90 pass
+ 0 fail
+ 156 expect() calls
+Ran 90 tests across 5 files. [333.00ms]
