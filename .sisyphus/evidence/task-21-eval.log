@@ -29,8 +29,8 @@ Aggregate Score: 100/100
 --- JSON Output ---
 {
   "schema": "EvalRunResult",
-  "eval_id": "eval-ts-1775822716855-axltbc",
-  "timestamp": "2026-04-10T12:05:16.855Z",
+  "eval_id": "eval-ts-1775823077464-c8j257",
+  "timestamp": "2026-04-10T12:11:17.464Z",
   "suites": [
     {
       "module": "governance",
@@ -72,7 +72,7 @@ Aggregate Score: 100/100
           "details": "cycle_detected=true"
         }
       ],
-      "timestamp": "2026-04-10T12:05:16.326Z"
+      "timestamp": "2026-04-10T12:11:16.949Z"
     },
     {
       "module": "memory",
@@ -128,7 +128,7 @@ Aggregate Score: 100/100
           "details": "all=3, prefixed=2, count=3"
         }
       ],
-      "timestamp": "2026-04-10T12:05:16.850Z"
+      "timestamp": "2026-04-10T12:11:17.459Z"
     },
     {
       "module": "routing",
@@ -177,7 +177,7 @@ Aggregate Score: 100/100
           "details": "6/6 structural checks"
         }
       ],
-      "timestamp": "2026-04-10T12:05:16.855Z"
+      "timestamp": "2026-04-10T12:11:17.464Z"
     }
   ],
   "aggregate_score": 100,
