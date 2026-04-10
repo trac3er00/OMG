@@ -1,6 +1,7 @@
 """Reproducible evaluation results for release gating."""
 from __future__ import annotations
 
+from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 import getpass
 import json
@@ -8,7 +9,7 @@ import os
 from pathlib import Path
 import platform
 import socket
-from typing import Any
+from typing import Any, Optional
 from uuid import uuid4
 
 
@@ -94,3 +95,139 @@ def link_trace(project_dir: str, *, eval_id: str, trace_id: str) -> dict[str, An
         _ = handle.write(json.dumps(link, ensure_ascii=True) + "\n")
     link["path"] = EVAL_GATE_TRACE_LINKS_REL_PATH.as_posix()
     return link
+
+
+@dataclass
+class EvalSnapshot:
+    """Point-in-time eval metrics snapshot."""
+
+    snapshot_id: str
+    timestamp: str
+    metrics: dict[str, float]
+    session_id: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+class RegressionDetector:
+    """Detects eval metric regressions against historical baseline."""
+
+    def __init__(
+        self,
+        history_dir: str = ".omg/eval-history",
+        regression_threshold: float = 0.2,
+    ):
+        self.history_dir = history_dir
+        self.regression_threshold = regression_threshold
+
+    def save_snapshot(self, snapshot: EvalSnapshot) -> str:
+        """Save eval snapshot to history. Returns file path."""
+        os.makedirs(self.history_dir, exist_ok=True)
+        filepath = os.path.join(self.history_dir, f"eval-{snapshot.snapshot_id}.json")
+        with open(filepath, "w") as f:
+            json.dump(snapshot.to_dict(), f, indent=2)
+        return filepath
+
+    def load_baseline(self, baseline_id: str) -> Optional[EvalSnapshot]:
+        """Load a historical baseline snapshot."""
+        filepath = os.path.join(self.history_dir, f"eval-{baseline_id}.json")
+        if not os.path.exists(filepath):
+            return None
+        with open(filepath) as f:
+            data = json.load(f)
+        return EvalSnapshot(**data)
+
+    def detect_regressions(
+        self, current: EvalSnapshot, baseline: EvalSnapshot
+    ) -> list[dict]:
+        """
+        Compare current metrics against baseline.
+        Returns list of regression dicts for metrics that regressed beyond threshold.
+        """
+        regressions = []
+        for metric, current_val in current.metrics.items():
+            if metric not in baseline.metrics:
+                continue
+            baseline_val = baseline.metrics[metric]
+            if baseline_val == 0:
+                continue
+            regression_pct = (baseline_val - current_val) / baseline_val
+            if regression_pct > self.regression_threshold:
+                regressions.append(
+                    {
+                        "metric": metric,
+                        "baseline": baseline_val,
+                        "current": current_val,
+                        "regression_pct": regression_pct,
+                    }
+                )
+        return regressions
+
+    def check_release_gate(
+        self, current: EvalSnapshot, baseline: EvalSnapshot
+    ) -> dict:
+        """Run release gate check. Returns gate result dict."""
+        regressions = self.detect_regressions(current, baseline)
+        return {
+            "passed": len(regressions) == 0,
+            "regressions": regressions,
+            "message": (
+                "All eval metrics within threshold"
+                if not regressions
+                else (
+                    f"{len(regressions)} metric(s) regressed beyond "
+                    f"{self.regression_threshold * 100:.0f}% threshold"
+                )
+            ),
+        }
+
+
+# ---------------------------------------------------------------------------
+# Session trajectory tracking
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TrajectoryEntry:
+    tool: str
+    decision: str
+    outcome: str
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    session_id: Optional[str] = None
+
+
+class TrajectoryTracker:
+    """Tracks session tool calls and decisions as a trajectory."""
+
+    def __init__(self, session_id: str, output_dir: str = ".omg/eval-history"):
+        self.session_id = session_id
+        self.output_dir = output_dir
+        self.entries: list[TrajectoryEntry] = []
+
+    def record(self, tool: str, decision: str, outcome: str) -> None:
+        entry = TrajectoryEntry(
+            tool=tool, decision=decision, outcome=outcome, session_id=self.session_id
+        )
+        self.entries.append(entry)
+
+    def export_jsonl(self) -> str:
+        """Export trajectory as JSONL file. Returns file path."""
+        os.makedirs(self.output_dir, exist_ok=True)
+        filename = f"trajectory-{self.session_id}.jsonl"
+        filepath = os.path.join(self.output_dir, filename)
+        with open(filepath, "w", encoding="utf-8") as f:
+            for entry in self.entries:
+                f.write(json.dumps(asdict(entry), ensure_ascii=True) + "\n")
+        return filepath
+
+    def to_ci_artifact(self) -> dict[str, Any]:
+        """Format trajectory as CI artifact metadata."""
+        return {
+            "session_id": self.session_id,
+            "entry_count": len(self.entries),
+            "filepath": os.path.join(
+                self.output_dir, f"trajectory-{self.session_id}.jsonl"
+            ),
+            "tools_used": sorted({e.tool for e in self.entries}),
+        }
