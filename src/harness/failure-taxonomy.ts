@@ -7,6 +7,8 @@ export const TAXONOMY_VERSION = "1.0.0";
 export type FailureCategory =
   | "context-related"
   | "tool-related"
+  | "governance-related"
+  | "reliability-related"
   | "reasoning-related"
   | "hallucination-related"
   | "unknown";
@@ -17,6 +19,8 @@ export const FailureReportSchema = z.object({
   category: z.enum([
     "context-related",
     "tool-related",
+    "governance-related",
+    "reliability-related",
     "reasoning-related",
     "hallucination-related",
     "unknown",
@@ -45,6 +49,22 @@ const TOOL_PATTERNS = [
   /command.*not.*found/i,
   /spawn.*fail/i,
   /circuit.*(open|breaker)/i,
+];
+
+const GOVERNANCE_PATTERNS = [
+  /governance.*block/i,
+  /approval.*required/i,
+  /signed.*approval/i,
+  /attestation.*required/i,
+  /policy.*den(y|ied)/i,
+];
+
+const RELIABILITY_PATTERNS = [
+  /reliability.*below.*threshold/i,
+  /calibration.*(drift|fail|uncalibrated)/i,
+  /consistency.*score/i,
+  /predictability.*degrad/i,
+  /safe failure.*fail/i,
 ];
 
 const HALLUCINATION_PATTERNS = [
@@ -89,6 +109,31 @@ function classifyError(errorMessage: string): {
         root_cause: "Tool execution failure or timeout",
         remediation:
           "Retry with backoff; check tool availability and permissions",
+      };
+    }
+  }
+
+  for (const pattern of GOVERNANCE_PATTERNS) {
+    if (pattern.test(errorMessage)) {
+      return {
+        category: "governance-related",
+        confidence: 0.88,
+        root_cause: "Governance approval or policy gate blocked execution",
+        remediation:
+          "Refresh approvals, attestations, and required policy evidence",
+      };
+    }
+  }
+
+  for (const pattern of RELIABILITY_PATTERNS) {
+    if (pattern.test(errorMessage)) {
+      return {
+        category: "reliability-related",
+        confidence: 0.82,
+        root_cause:
+          "Reliability verification detected unstable or degraded behavior",
+        remediation:
+          "Re-run calibration and inspect consistency, predictability, and safety metrics",
       };
     }
   }
@@ -160,6 +205,8 @@ export function summarizeTaxonomy(
   const summary: Record<FailureCategory, number> = {
     "context-related": 0,
     "tool-related": 0,
+    "governance-related": 0,
+    "reliability-related": 0,
     "reasoning-related": 0,
     "hallucination-related": 0,
     unknown: 0,

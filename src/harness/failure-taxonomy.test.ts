@@ -69,6 +69,21 @@ describe("harness/failure-taxonomy", () => {
       expect(report.category).toBe("tool-related");
     });
 
+    test("approval required → governance-related", () => {
+      const report = classifyFailure({
+        error_message: "signed approval required before execute",
+      });
+      expect(report.category).toBe("governance-related");
+    });
+
+    test("reliability threshold breach → reliability-related", () => {
+      const report = classifyFailure({
+        error_message:
+          "reliability score below threshold after calibration drift",
+      });
+      expect(report.category).toBe("reliability-related");
+    });
+
     test("report validates against schema", () => {
       const report = classifyFailure({ error_message: "timeout:task:5000ms" });
       expect(FailureReportSchema.safeParse(report).success).toBe(true);
@@ -130,6 +145,8 @@ describe("harness/failure-taxonomy", () => {
       const categories = [
         "context-related",
         "tool-related",
+        "governance-related",
+        "reliability-related",
         "reasoning-related",
         "hallucination-related",
         "unknown",

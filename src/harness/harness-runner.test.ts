@@ -70,6 +70,10 @@ describe("harness/harness-runner", () => {
       });
       expect(report.layers_executed).toEqual([1, 2, 3]);
       expect(report.layer_results.length).toBe(3);
+      expect(typeof report.orchestration.phases.started_at).toBe("string");
+      expect(typeof report.orchestration.phases.executed_at).toBe("string");
+      expect(typeof report.orchestration.phases.verified_at).toBe("string");
+      expect(typeof report.orchestration.phases.reported_at).toBe("string");
     });
 
     test("all-passing run returns overall_status pass", async () => {
@@ -88,6 +92,9 @@ describe("harness/harness-runner", () => {
 
       const report = await runner.run({ module: "src/test/", layers: [1, 2] });
       expect(report.overall_status).toBe("fail");
+      expect(
+        report.orchestration.reliability.snapshot.overall_score,
+      ).toBeLessThan(1);
     });
 
     test("missing runner produces skip result", async () => {
@@ -136,6 +143,52 @@ describe("harness/harness-runner", () => {
       const report = await runner.run({ module: "src/test/", layers: [1] });
       expect(report.failed_tests).toBe(3);
       expect(report.passed_tests).toBe(7);
+    });
+
+    test("high-complexity run orchestrates debate → governance → reliability", async () => {
+      const runner = new HarnessRunner();
+      runner.register(createPassingRunner(1, "start"));
+      runner.register(createPassingRunner(2, "execute"));
+      runner.register(createPassingRunner(3, "verify"));
+
+      const report = await runner.run({
+        module: "src/harness/",
+        layers: [1, 2, 3],
+        complexity: 8,
+        context:
+          "Validate harness orchestration against validated debate chain",
+        governance: {
+          signedApproval: true,
+          attested: true,
+        },
+      });
+
+      expect(report.orchestration.debate.invoked).toBe(true);
+      expect(report.orchestration.governance.allowed).toBe(true);
+      expect(report.orchestration.governance.action).toBe("allow");
+      expect(report.orchestration.reliability.snapshot.overall_score).toBe(1);
+      expect(report.orchestration.reliability.gate.passed).toBe(true);
+      expect(report.overall_status).toBe("pass");
+    });
+
+    test("governance gate blocks execution without approval", async () => {
+      const runner = new HarnessRunner();
+      runner.register(createPassingRunner(1, "unit"));
+
+      const report = await runner.run({
+        module: "src/harness/",
+        layers: [1],
+        complexity: 8,
+        governance: {
+          signedApproval: false,
+          attested: true,
+        },
+      });
+
+      expect(report.orchestration.governance.allowed).toBe(false);
+      expect(report.orchestration.governance.action).toBe("deny");
+      expect(report.layer_results[0]?.status).toBe("error");
+      expect(report.overall_status).toBe("fail");
     });
   });
 
