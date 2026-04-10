@@ -3,6 +3,8 @@ import type { PolicyDecision } from "../../interfaces/policy.js";
 import type { MutationCheck } from "../../interfaces/security.js";
 import type { ToolFabricResult } from "../../governance/tool-fabric.js";
 import type { TrustDecision } from "../../security/trust-review.js";
+import type { MutationGateOptions } from "../../security/mutation-gate.js";
+import { GovernanceBlockError } from "../../governance/enforcement.js";
 
 export interface PolicyEvaluateDeps {
   readonly evaluatePolicy: (request: {
@@ -20,6 +22,7 @@ export interface MutationGateDeps {
     exemption: string | null,
     command: string | null,
     runId: string,
+    opts?: MutationGateOptions,
   ) => Promise<MutationCheck>;
   readonly projectDir: string;
 }
@@ -144,20 +147,30 @@ export function createMutationGateTool(
       const command = args.command != null ? String(args.command) : null;
       const runId = String(args.run_id ?? "anonymous");
 
-      const result = await deps.checkMutationAllowed(
-        tool,
-        filePath,
-        deps.projectDir,
-        null,
-        null,
-        command,
-        runId,
-      );
+      try {
+        const result = await deps.checkMutationAllowed(
+          tool,
+          filePath,
+          deps.projectDir,
+          null,
+          null,
+          command,
+          runId,
+        );
 
-      return {
-        allowed: result.allowed,
-        reason: result.reason,
-      };
+        return {
+          allowed: result.allowed,
+          reason: result.reason,
+        };
+      } catch (err) {
+        if (err instanceof GovernanceBlockError) {
+          return {
+            allowed: false,
+            reason: err.message,
+          };
+        }
+        throw err;
+      }
     },
   };
 }

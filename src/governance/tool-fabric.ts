@@ -5,6 +5,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { GovernanceGraphRuntime, type EnforcementMode } from "./graph.js";
 import { detectCollusion } from "./collusion.js";
 import { GovernanceLedger } from "./ledger.js";
+import {
+  GovernanceBlockError,
+  DEFAULT_ENFORCEMENT,
+  type GovernanceEnforcement,
+  type ForceOverrideRecord,
+} from "./enforcement.js";
 
 export interface LanePolicy {
   readonly allowedTools?: readonly string[];
@@ -44,6 +50,12 @@ type ToolExecutor = (
 
 interface ToolFabricDeps {
   readonly appendLedgerLine?: (path: string, entry: LedgerEntry) => void;
+}
+
+export interface ToolFabricExecuteOptions {
+  readonly enforcement?: GovernanceEnforcement;
+  readonly force?: boolean;
+  readonly onForceOverride?: (record: ForceOverrideRecord) => void;
 }
 
 export class ToolFabric {
@@ -94,8 +106,14 @@ export class ToolFabric {
     args: Record<string, unknown>,
     laneName = "default",
     executor?: ToolExecutor,
+    opts: ToolFabricExecuteOptions = {},
   ): Promise<ToolExecutionResult> {
     const decision = await this.evaluateRequest(tool, args, laneName);
+
+    if (decision.action === "deny") {
+      return this.applyExecutionEnforcement(decision, tool, opts);
+    }
+
     if (decision.action !== "allow" || !executor) {
       return { decision };
     }
@@ -186,6 +204,38 @@ export class ToolFabric {
 
   close(): void {
     // no-op: retained for API parity
+  }
+
+  private applyExecutionEnforcement(
+    decision: ToolFabricResult,
+    tool: string,
+    opts: ToolFabricExecuteOptions,
+  ): ToolExecutionResult {
+    const enforcement = opts.enforcement ?? DEFAULT_ENFORCEMENT;
+
+    if (opts.force) {
+      const record: ForceOverrideRecord = {
+        gate: "ToolFabric",
+        tool,
+        reason: decision.reason,
+        timestamp: new Date().toISOString(),
+        override: "force",
+      };
+      opts.onForceOverride?.(record);
+      return {
+        decision: {
+          ...decision,
+          action: "warn",
+          reason: `FORCE OVERRIDE: ${decision.reason}`,
+        },
+      };
+    }
+
+    if (enforcement === "enforced") {
+      throw new GovernanceBlockError("ToolFabric", decision.reason);
+    }
+
+    return { decision };
   }
 
   private decide(

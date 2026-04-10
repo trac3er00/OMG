@@ -1,0 +1,190 @@
+$ bun run src/eval/runner.ts
+✅ governance: 100/100
+  ✓ state-transition-correctness: 100/100 (7/7 transitions correct)
+  ✓ allowed-transitions-completeness: 100/100 (3/3 completeness checks)
+  ✓ ledger-integrity-chain: 100/100 (integrity=true, entries=3, unique_hashes=true)
+  ✓ tool-fabric-lane-enforcement: 100/100 (5/5 enforcement decisions correct)
+  ✓ governance-graph-cycle-detection: 100/100 (cycle_detected=true)
+✅ memory: 100/100
+  ✓ write-read-roundtrip: 100/100 (roundtrip score=100)
+  ✓ write-overwrite-consistency: 100/100 (overwrite=true)
+  ✓ delete-operation: 100/100 (delete=true, null_after=true, missing=true)
+  ✓ pii-redaction-quality: 100/100 (6/6 PII patterns redacted)
+  ✓ encryption-at-rest: 100/100 (encrypted=true, json_format=true, decrypts_ok=true)
+  ✓ namespace-isolation: 100/100 (ns-a=from-ns-a, ns-b=from-ns-b)
+  ✓ list-and-count: 100/100 (all=3, prefixed=2, count=3)
+✅ routing: 100/100
+  ✓ explicit-target-routing: 100/100 (3/3 explicit routes correct)
+  ✓ auto-routing-code-signals: 100/100 (3/3 code-signal routes to codex)
+  ✓ auto-routing-research-signals: 100/100 (3/3 research-signal routes to gemini)
+  ✓ multi-provider-ccg-detection: 100/100 (4/4 ccg detection checks)
+  ✓ cost-tier-fallback: 100/100 (lowest_cost_first=true, fallback_correct=true)
+  ✓ route-result-structure: 100/100 (6/6 structural checks)
+
+--- Eval Summary ---
+Suites: 3
+Cases: 18/18 passed
+Aggregate Score: 100/100
+
+--- JSON Output ---
+{
+  "schema": "EvalRunResult",
+  "eval_id": "eval-ts-1775822716855-axltbc",
+  "timestamp": "2026-04-10T12:05:16.855Z",
+  "suites": [
+    {
+      "module": "governance",
+      "score": 100,
+      "details": [
+        {
+          "name": "state-transition-correctness",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "7/7 transitions correct"
+        },
+        {
+          "name": "allowed-transitions-completeness",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "3/3 completeness checks"
+        },
+        {
+          "name": "ledger-integrity-chain",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "integrity=true, entries=3, unique_hashes=true"
+        },
+        {
+          "name": "tool-fabric-lane-enforcement",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "5/5 enforcement decisions correct"
+        },
+        {
+          "name": "governance-graph-cycle-detection",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "cycle_detected=true"
+        }
+      ],
+      "timestamp": "2026-04-10T12:05:16.326Z"
+    },
+    {
+      "module": "memory",
+      "score": 100,
+      "details": [
+        {
+          "name": "write-read-roundtrip",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "roundtrip score=100"
+        },
+        {
+          "name": "write-overwrite-consistency",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "overwrite=true"
+        },
+        {
+          "name": "delete-operation",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "delete=true, null_after=true, missing=true"
+        },
+        {
+          "name": "pii-redaction-quality",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "6/6 PII patterns redacted"
+        },
+        {
+          "name": "encryption-at-rest",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "encrypted=true, json_format=true, decrypts_ok=true"
+        },
+        {
+          "name": "namespace-isolation",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "ns-a=from-ns-a, ns-b=from-ns-b"
+        },
+        {
+          "name": "list-and-count",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "all=3, prefixed=2, count=3"
+        }
+      ],
+      "timestamp": "2026-04-10T12:05:16.850Z"
+    },
+    {
+      "module": "routing",
+      "score": 100,
+      "details": [
+        {
+          "name": "explicit-target-routing",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "3/3 explicit routes correct"
+        },
+        {
+          "name": "auto-routing-code-signals",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "3/3 code-signal routes to codex"
+        },
+        {
+          "name": "auto-routing-research-signals",
+          "passed": true,
+          "score": 100,
+          "weight": 2,
+          "details": "3/3 research-signal routes to gemini"
+        },
+        {
+          "name": "multi-provider-ccg-detection",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "4/4 ccg detection checks"
+        },
+        {
+          "name": "cost-tier-fallback",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "lowest_cost_first=true, fallback_correct=true"
+        },
+        {
+          "name": "route-result-structure",
+          "passed": true,
+          "score": 100,
+          "weight": 1,
+          "details": "6/6 structural checks"
+        }
+      ],
+      "timestamp": "2026-04-10T12:05:16.855Z"
+    }
+  ],
+  "aggregate_score": 100,
+  "summary": {
+    "total_cases": 18,
+    "passed_cases": 18,
+    "failed_cases": 0,
+    "suite_count": 3
+  }
+}

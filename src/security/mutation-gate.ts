@@ -3,6 +3,12 @@ import type {
   MutationOperation,
   PolicyDecision,
 } from "../interfaces/policy.js";
+import {
+  GovernanceBlockError,
+  DEFAULT_ENFORCEMENT,
+  type GovernanceEnforcement,
+  type ForceOverrideRecord,
+} from "../governance/enforcement.js";
 
 export const MUTATION_CAPABLE_TOOLS = new Set([
   "Write",
@@ -43,6 +49,12 @@ const BASH_MUTATION_PATTERNS = [
   /\btruncate\b/,
   />\s*\/dev\/(sda|sdb|hda|null)\b/,
 ];
+
+export interface MutationGateOptions {
+  readonly enforcement?: GovernanceEnforcement;
+  readonly force?: boolean;
+  readonly onForceOverride?: (record: ForceOverrideRecord) => void;
+}
 
 export function isMutationCapableTool(tool: string): boolean {
   return MUTATION_CAPABLE_TOOLS.has(tool);
@@ -85,6 +97,44 @@ function makeDecision(
   };
 }
 
+function applyEnforcement(
+  result: MutationCheck,
+  tool: string,
+  opts: MutationGateOptions,
+): MutationCheck {
+  if (result.allowed) return result;
+
+  const enforcement = opts.enforcement ?? DEFAULT_ENFORCEMENT;
+
+  if (opts.force) {
+    const record: ForceOverrideRecord = {
+      gate: "MutationGate",
+      tool,
+      reason: result.reason,
+      timestamp: new Date().toISOString(),
+      override: "force",
+    };
+    opts.onForceOverride?.(record);
+    return {
+      ...result,
+      allowed: true,
+      reason: `FORCE OVERRIDE: ${result.reason}`,
+      decision: makeDecision(
+        "warn",
+        `Force override: ${result.decision.reason}`,
+        result.decision.riskLevel as "low" | "medium" | "high" | "critical",
+        (result.decision.metadata?.runId as string) ?? "",
+      ),
+    };
+  }
+
+  if (enforcement === "enforced") {
+    throw new GovernanceBlockError("MutationGate", result.reason);
+  }
+
+  return result;
+}
+
 export async function checkMutationAllowed(
   tool: string,
   filePath: string | null,
@@ -93,6 +143,7 @@ export async function checkMutationAllowed(
   exemption: string | null,
   command: string | null,
   runId: string,
+  opts: MutationGateOptions = {},
 ): Promise<MutationCheck> {
   const operation = operationForTool(tool);
   void projectDir;
@@ -120,7 +171,7 @@ export async function checkMutationAllowed(
   }
 
   if (tool === "Bash" && command && hasBashMutationPattern(command)) {
-    return {
+    const result: MutationCheck = {
       allowed: false,
       reason:
         "Blocked: destructive or dangerous bash pattern detected in command",
@@ -133,10 +184,11 @@ export async function checkMutationAllowed(
       ),
       riskScore: 100,
     };
+    return applyEnforcement(result, tool, opts);
   }
 
   if (filePath && isCriticalFilePath(filePath)) {
-    return {
+    const result: MutationCheck = {
       allowed: false,
       reason: `Blocked: mutation to critical file '${filePath}' is not allowed`,
       operation,
@@ -148,6 +200,7 @@ export async function checkMutationAllowed(
       ),
       riskScore: 95,
     };
+    return applyEnforcement(result, tool, opts);
   }
 
   return {

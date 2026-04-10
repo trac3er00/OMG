@@ -3,6 +3,7 @@ import { rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ToolFabric } from "./tool-fabric.js";
+import { GovernanceBlockError } from "./enforcement.js";
 
 describe("ToolFabric", () => {
   function mkFabric() {
@@ -146,7 +147,7 @@ describe("ToolFabric", () => {
     }
   });
 
-  test("restricted lane deny blocks executor dispatch", async () => {
+  test("restricted lane deny blocks executor dispatch in advisory mode", async () => {
     const { fabric, dir } = mkFabric();
     const executions: string[] = [];
 
@@ -161,11 +162,98 @@ describe("ToolFabric", () => {
           executions.push(tool);
           return { ok: true };
         },
+        { enforcement: "advisory" },
       );
 
       expect(result.decision.action).toBe("deny");
       expect(result.output).toBeUndefined();
       expect(executions).toEqual([]);
+    } finally {
+      fabric.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("enforced mode throws GovernanceBlockError on deny", async () => {
+    const { fabric, dir } = mkFabric();
+
+    try {
+      fabric.registerLane("restricted", { allowedTools: ["Read"] });
+
+      await expect(
+        fabric.executeTool("Write", {}, "restricted", async () => ({}), {
+          enforcement: "enforced",
+        }),
+      ).rejects.toThrow(GovernanceBlockError);
+    } finally {
+      fabric.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("enforced mode is the default for executeTool deny", async () => {
+    const { fabric, dir } = mkFabric();
+
+    try {
+      fabric.registerLane("restricted", { allowedTools: ["Read"] });
+
+      await expect(
+        fabric.executeTool("Write", {}, "restricted", async () => ({})),
+      ).rejects.toThrow(GovernanceBlockError);
+    } finally {
+      fabric.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("advisory mode returns deny result without throwing", async () => {
+    const { fabric, dir } = mkFabric();
+
+    try {
+      fabric.registerLane("restricted", { allowedTools: ["Read"] });
+
+      const result = await fabric.executeTool(
+        "Write",
+        {},
+        "restricted",
+        async () => ({}),
+        { enforcement: "advisory" },
+      );
+
+      expect(result.decision.action).toBe("deny");
+      expect(result.output).toBeUndefined();
+    } finally {
+      fabric.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("force override bypasses enforced gate and logs audit trail", async () => {
+    const { fabric, dir } = mkFabric();
+    const overrides: Array<{ gate: string; tool: string; override: string }> =
+      [];
+
+    try {
+      fabric.registerLane("restricted", { allowedTools: ["Read"] });
+
+      const result = await fabric.executeTool(
+        "Write",
+        {},
+        "restricted",
+        async () => ({ ok: true }),
+        {
+          enforcement: "enforced",
+          force: true,
+          onForceOverride: (record) => overrides.push(record),
+        },
+      );
+
+      expect(result.decision.action).toBe("warn");
+      expect(result.decision.reason).toContain("FORCE OVERRIDE");
+      expect(overrides).toHaveLength(1);
+      expect(overrides[0]!.gate).toBe("ToolFabric");
+      expect(overrides[0]!.tool).toBe("Write");
+      expect(overrides[0]!.override).toBe("force");
     } finally {
       fabric.close();
       rmSync(dir, { recursive: true, force: true });
