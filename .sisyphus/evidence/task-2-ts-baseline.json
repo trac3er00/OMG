@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-04-10T11:14:00.550578+00:00",
+  "total": 1495,
+  "pass": 1495,
+  "fail": 0,
+  "skip": 0,
+  "tscErrors": 1,
+  "errorCategories": {
+    "missingModule": 0,
+    "typeError": 1,
+    "timeout": 0,
+    "other": 0
+  }
+}
