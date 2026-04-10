@@ -179,6 +179,30 @@ describe("workspace-reconstruction", () => {
   });
 
   describe("durability hardening", () => {
+    test("freshness scoring scales with recent-reference density instead of always saturating", () => {
+      const now = new Date("2026-04-07T12:00:00.000Z");
+      const sparseScore = computeContextFreshnessScore({
+        fileReferences: Array.from({ length: 6 }, (_, index) => ({
+          path: `src/sparse-${index}.ts`,
+          referencedAt: new Date(now.getTime() - 4 * 60_000).toISOString(),
+        })),
+        sessionStartedAt: new Date(now.getTime() - 20 * 60_000).toISOString(),
+        now: now.toISOString(),
+      });
+      const saturatedScore = computeContextFreshnessScore({
+        fileReferences: Array.from({ length: 12 }, (_, index) => ({
+          path: `src/dense-${index}.ts`,
+          referencedAt: new Date(now.getTime() - 2 * 60_000).toISOString(),
+        })),
+        sessionStartedAt: new Date(now.getTime() - 10 * 60_000).toISOString(),
+        now: now.toISOString(),
+      });
+
+      expect(sparseScore).toBe(30);
+      expect(saturatedScore).toBe(100);
+      expect(sparseScore).toBeLessThan(saturatedScore);
+    });
+
     test("freshness score computed correctly across context age", () => {
       const now = new Date("2026-04-07T12:00:00.000Z");
       const recentReferences = Array.from({ length: 12 }, (_, index) => ({

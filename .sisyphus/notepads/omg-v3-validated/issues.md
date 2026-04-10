@@ -24,6 +24,9 @@
 - 2026-04-10 Task 8: MCP server handlers needed explicit error-result wrapping so malformed tool payloads return structured MCP errors instead of tearing down the request path.
 - 2026-04-10 Task 12: verification validation confirmed `bun test src/verification/` passes at 86 pass / 0 fail after adding stale-artifact blocking coverage to `proof-gate`, plus an explicit proof-gate rejection case for claims without evidence.
 - 2026-04-10 Task 12: TypeScript LSP diagnostics remain unavailable in this environment because `typescript-language-server` is not installed, so clean verification was established with Bun test evidence instead.
+- 2026-04-10 Task 16: all five TypeScript provider adapters are still stub-level wrappers; they normalize `CliHealthStatus` and host-specific MCP config but do not implement real prompt/session execution.
+- 2026-04-10 Task 16: Claude/Codex/Gemini auth checks are timeout-guarded CLI probes, while Kimi/OpenCode only inspect local auth/config files, so provider confidence is intentionally uneven.
+- 2026-04-10 Task 16: OpenCode remains compatibility-only (`supportsHooks=false`, `supportsPresets=false`) even though its normalized provider status now tests cleanly.
 - 2026-04-10 Task 15: `npx omg` initially failed with `sh: 1: omg: Permission denied` because `src/cli/index.ts` lacked the executable bit even though it is the published package bin entry.
 - 2026-04-10 Task 15: the categorized command list in `src/cli/index.ts` advertises many commands that are not registered with yargs, so the public CLI surface currently mixes working, stub, and broken entries.
 - 2026-04-10 Task 15: `instant` is registered but still behaves like a stub because its handler only echoes the prompt instead of running scaffold/workflow logic.

@@ -94,6 +94,33 @@ describe("debate/integration", () => {
       expect(["accepted", "dissent", "forced"]).toContain(status);
     });
 
+    test("five perspectives converge to a non-blocking consensus with recorded dissent", async () => {
+      const decision: PlanningDecision = {
+        topic: "Runtime provider failover policy",
+        complexity: 8,
+        context:
+          "Balance reliability, cost, and rollback safety for host failover",
+      };
+
+      const outcome = await runPlanningDebate(decision);
+
+      expect(outcome.invoked).toBe(true);
+      expect(outcome.transcript).toBeDefined();
+      expect(outcome.transcript!.rounds[2]?.perspectives).toBeDefined();
+      expect(
+        Object.keys(outcome.transcript!.rounds[2]!.perspectives),
+      ).toHaveLength(5);
+      expect(outcome.transcript!.consensus.status).toBe("dissent");
+      expect(outcome.transcript!.consensus.governanceEscalationRequired).toBe(
+        false,
+      );
+      expect(outcome.transcript!.consensus.blockingIssues).toHaveLength(0);
+      expect(outcome.transcript!.consensus.dissenting.length).toBeGreaterThan(
+        0,
+      );
+      expect(outcome.transcript!.votingResult.verdict).toBe("accept");
+    });
+
     test("debate transcript includes voting result", async () => {
       const decision: PlanningDecision = {
         topic: "Auth system redesign",

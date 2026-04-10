@@ -90,6 +90,91 @@ describe("reliability/calibration", () => {
       expect(result.accuracy).toBeLessThanOrEqual(1);
     });
 
+    test("tracks prediction accuracy and correct_count from benchmark outcomes", () => {
+      const runs: CalibrationRun[] = [
+        {
+          task_id: "t-1",
+          metric_score: 0.95,
+          actual_success: true,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-2",
+          metric_score: 0.9,
+          actual_success: true,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-3",
+          metric_score: 0.85,
+          actual_success: true,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-4",
+          metric_score: 0.8,
+          actual_success: true,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-5",
+          metric_score: 0.75,
+          actual_success: true,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-6",
+          metric_score: 0.65,
+          actual_success: true,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-7",
+          metric_score: 0.7,
+          actual_success: false,
+          human_agrees: false,
+        },
+        {
+          task_id: "t-8",
+          metric_score: 0.45,
+          actual_success: false,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-9",
+          metric_score: 0.35,
+          actual_success: false,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-10",
+          metric_score: 0.25,
+          actual_success: false,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-11",
+          metric_score: 0.15,
+          actual_success: false,
+          human_agrees: true,
+        },
+        {
+          task_id: "t-12",
+          metric_score: 0.05,
+          actual_success: true,
+          human_agrees: false,
+        },
+      ];
+
+      const result = calibrateMetric(runs);
+
+      expect(result.task_count).toBe(12);
+      expect(result.correct_count).toBe(10);
+      expect(result.accuracy).toBeCloseTo(10 / 12, 5);
+      expect(result.false_positive_rate).toBeCloseTo(1 / 5, 5);
+      expect(result.false_negative_rate).toBeCloseTo(1 / 7, 5);
+    });
+
     test("FPR and FNR are 0-1", () => {
       const runs: CalibrationRun[] = Array.from({ length: 20 }, (_, i) => ({
         task_id: `t-${i}`,
