@@ -11,6 +11,7 @@ import {
   type GovernanceEnforcement,
   type ForceOverrideRecord,
 } from "./enforcement.js";
+import { getUserGovernanceControl } from "./user-control.js";
 
 export interface LanePolicy {
   readonly allowedTools?: readonly string[];
@@ -56,16 +57,19 @@ export interface ToolFabricExecuteOptions {
   readonly enforcement?: GovernanceEnforcement;
   readonly force?: boolean;
   readonly onForceOverride?: (record: ForceOverrideRecord) => void;
+  readonly provider?: string;
 }
 
 export class ToolFabric {
   private readonly lanes = new Map<string, LanePolicy>();
+  private readonly projectDir: string;
   private readonly ledgerPath: string;
   private readonly governanceGraph: GovernanceGraphRuntime;
   private readonly governanceLedger: GovernanceLedger;
   private readonly appendLedgerLine: (path: string, entry: LedgerEntry) => void;
 
   constructor(projectDir: string, deps: ToolFabricDeps = {}) {
+    this.projectDir = projectDir;
     const resolver = new StateResolver(projectDir);
     this.ledgerPath = resolver.resolve(join("ledger", "tool-fabric.jsonl"));
     this.governanceGraph = new GovernanceGraphRuntime(
@@ -92,6 +96,37 @@ export class ToolFabric {
     const lane = laneName.trim().toLowerCase() || "default";
     const policy = this.lanes.get(lane);
     const timestamp = new Date().toISOString();
+    const governance = getUserGovernanceControl(this.projectDir);
+    const provider =
+      typeof args.provider === "string" && args.provider.trim().length > 0
+        ? args.provider
+        : undefined;
+    const gateControl = governance.getGateControl("ToolFabric", provider);
+
+    if (!gateControl.enabled) {
+      const result: ToolFabricResult = {
+        action: "allow",
+        reason: "ToolFabric disabled by user governance; request passed through",
+        lane,
+        tool,
+        timestamp,
+      };
+      const entry: LedgerEntry = { ...result, args };
+
+      governance.recordGateBypass({
+        gate: "ToolFabric",
+        provider: gateControl.provider,
+        tool,
+        reason: "ToolFabric disabled by user governance",
+        context: {
+          lane,
+          args,
+        },
+      });
+      this.appendLedgerLine(this.ledgerPath, entry);
+
+      return result;
+    }
 
     const result = this.decide(tool, args, lane, policy, timestamp);
     const entry: LedgerEntry = { ...result, args };
@@ -108,10 +143,15 @@ export class ToolFabric {
     executor?: ToolExecutor,
     opts: ToolFabricExecuteOptions = {},
   ): Promise<ToolExecutionResult> {
+    const governance = getUserGovernanceControl(this.projectDir);
+    const gateControl = governance.getGateControl("ToolFabric", opts.provider);
     const decision = await this.evaluateRequest(tool, args, laneName);
 
     if (decision.action === "deny") {
-      return this.applyExecutionEnforcement(decision, tool, opts);
+      return this.applyExecutionEnforcement(decision, tool, {
+        ...opts,
+        enforcement: gateControl.enforcement,
+      });
     }
 
     if (decision.action !== "allow" || !executor) {

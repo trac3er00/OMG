@@ -9,6 +9,7 @@ import {
   type GovernanceEnforcement,
   type ForceOverrideRecord,
 } from "../governance/enforcement.js";
+import { getUserGovernanceControl } from "../governance/user-control.js";
 
 export const MUTATION_CAPABLE_TOOLS = new Set([
   "Write",
@@ -54,6 +55,7 @@ export interface MutationGateOptions {
   readonly enforcement?: GovernanceEnforcement;
   readonly force?: boolean;
   readonly onForceOverride?: (record: ForceOverrideRecord) => void;
+  readonly provider?: string;
 }
 
 export function isMutationCapableTool(tool: string): boolean {
@@ -146,8 +148,36 @@ export async function checkMutationAllowed(
   opts: MutationGateOptions = {},
 ): Promise<MutationCheck> {
   const operation = operationForTool(tool);
-  void projectDir;
+  const governance = getUserGovernanceControl(projectDir);
+  const gateControl = governance.getGateControl("MutationGate", opts.provider);
   void lockId;
+
+  if (!gateControl.enabled) {
+    governance.recordGateBypass({
+      gate: "MutationGate",
+      provider: gateControl.provider,
+      tool,
+      reason: "MutationGate disabled by user governance",
+      context: {
+        filePath,
+        command,
+        runId,
+      },
+    });
+
+    return {
+      allowed: true,
+      reason: "MutationGate disabled by user governance; mutation passed through",
+      operation,
+      decision: makeDecision(
+        "warn",
+        "User disabled MutationGate",
+        "medium",
+        runId,
+      ),
+      riskScore: 35,
+    };
+  }
 
   if (!isMutationCapableTool(tool)) {
     return {
@@ -184,7 +214,10 @@ export async function checkMutationAllowed(
       ),
       riskScore: 100,
     };
-    return applyEnforcement(result, tool, opts);
+    return applyEnforcement(result, tool, {
+      ...opts,
+      enforcement: gateControl.enforcement,
+    });
   }
 
   if (filePath && isCriticalFilePath(filePath)) {
@@ -200,7 +233,10 @@ export async function checkMutationAllowed(
       ),
       riskScore: 95,
     };
-    return applyEnforcement(result, tool, opts);
+    return applyEnforcement(result, tool, {
+      ...opts,
+      enforcement: gateControl.enforcement,
+    });
   }
 
   return {

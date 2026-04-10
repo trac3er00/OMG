@@ -1,0 +1,23 @@
+version: 1
+defaultProvider: claude
+gates:
+  MutationGate:
+    enabled: true
+    enforcement: enforced
+    providers:
+      claude:
+        enabled: true
+        enforcement: enforced
+      ollama:
+        enabled: true
+        enforcement: advisory
+  ToolFabric:
+    enabled: true
+    enforcement: enforced
+    providers:
+      claude:
+        enabled: true
+        enforcement: enforced
+      ollama:
+        enabled: true
+        enforcement: advisory

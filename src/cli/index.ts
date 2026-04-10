@@ -10,6 +10,7 @@ import { continueCommand } from "./commands/continue.js";
 import { memoryCommand } from "./commands/memory.js";
 import { pauseCommand } from "./commands/pause.js";
 import { skillsListCommand } from "./commands/skills.js";
+import { governanceStatusCommand } from "./commands/governance.js";
 
 const CLI_VERSION = "2.3.0";
 
@@ -93,6 +94,7 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
     items: [
       { name: "preset", description: "Inspect or apply the canonical preset" },
       { name: "mode", description: "Set the current session mode" },
+      { name: "governance status", description: "Show active gate states" },
       { name: "theme", description: "Interactive theme selection" },
       { name: "lsp", description: "Show detected LSP server status" },
       { name: "profile-review", description: "Review governed profile state" },
@@ -352,6 +354,15 @@ async function runCli(): Promise<void> {
     .command(memoryCommand)
     .command(pauseCommand)
     .command(continueCommand)
+    .command({
+      command: "governance",
+      describe: "Inspect governance gate configuration",
+      builder: (command) =>
+        command
+          .command(governanceStatusCommand)
+          .demandCommand(1, "Specify a governance subcommand: status"),
+      handler: () => {},
+    })
     .command({
       command: "lsp",
       describe: "Show LSP server status",
