@@ -20,7 +20,7 @@ test("ambiguous auth task generates exactly 3 options with 1 recommended", () =>
 });
 
 test("clear trivial task generates no options", () => {
-  const analysis = understandIntent("fix typo");
+  const analysis = understandIntent("fix typo in docs");
   const result = resolveDecisionPoint(analysis);
 
   expect(result).toBeNull();
