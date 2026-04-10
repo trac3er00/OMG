@@ -101,6 +101,8 @@ OMG ensures your workspace remains consistent across sessions by scoring context
 | **CMMS Memory Tiers**          |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |    ✅ **Auto/Micro/Ship Tiers**    |
 | **Session Checkpoints**        |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |      ✅ **Pause & Continue**       |
 | **Context Durability**         |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |   ✅ **Adaptive Reconstruction**   |
+| **Convergence Detection**      |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |      ✅ **Early Stop Logic**       |
+| **Mutation Safety**            |      ❌ None       |     ❌ None      |   ❌ None   |      ⚠️ Advisory       |     ✅ **Hard Mutation Gate**      |
 
 **OMG v3.0.0 고유 강점:**
 

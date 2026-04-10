@@ -4,120 +4,78 @@ This guide covers the transition from OMG v2.3.0 to v3.0.0. This major release i
 
 ## Breaking Changes
 
-### 1. XOR Encryption Removed
+### 1. Enforcement Mode Change (Soft-Block)
 
-The legacy XOR fallback encryption has been completely removed from `MemoryStore`. Cryptography is now a hard dependency.
+In v3.0.0, the default enforcement mode for security violations has shifted from advisory (warnings) to a "soft-block". High-risk actions will now pause execution and require explicit confirmation unless pre-authorized.
 
-- **Impact**: Any remaining XOR-encrypted data must be migrated.
-- **Action**: Run the migration tool (see below) to re-encrypt data using Fernet (AES-256-GCM).
+- **Impact**: Automation scripts that were not previously encountering blocks may now pause.
+- **Action**: Use `--apply` or update `.omg/policy.yaml` to authorize specific recurring high-risk operations.
 
-### 2. HMAC Key Persistence
+### 2. Version Bump Requirements
 
-The HMAC key used for audit trail signatures is now persisted to `.omg/state/audit-hmac.key`.
+Minimum dependency versions have been raised. Node.js >=18 and Python >=3.10 are now strictly required and enforced during `env doctor`.
 
-- **Impact**: Process restarts no longer invalidate existing signatures.
-- **Action**: The first run of v3.0.0 will automatically generate and persist a key if one doesn't exist.
+- **Impact**: Installation or updates will fail on older environments.
+- **Action**: Upgrade your runtime environment before running `npx omg install`.
 
-### 3. Security Posture Hardening
+### 3. CMMS Tier Routing Required
 
-Bypass mode (`dontAsk` / `bypassPermissions`) no longer suppresses high-risk security gates.
+State persistence now mandates a tier selection. Un-tiered memory routing is deprecated and will default to the `Micro` tier, which may cause context truncation for large tasks.
 
-- **Impact**: Destructive actions and sensitive file access will now trigger a hard block or require explicit approval even in bypass mode.
-- **Action**: Review your `.omg/policy.yaml` if you rely on automated bypass for high-risk operations.
+- **Impact**: Complex tasks may lose context if not explicitly routed to the `Ship` tier.
+- **Action**: Update your task definitions to include a `tier` parameter or enable `cmms_memory_tiers` auto-routing.
 
 ---
 
 ## Migration Steps
 
-We provide an automated migration tool to handle state and configuration updates.
-
-### Automated Migration
-
-Run the following command to preview and apply changes:
+Run the following command to migrate your existing installation to v3.0.0:
 
 ```bash
-# 1. Preview changes (Dry Run)
 npx omg migrate --from=2.3.0 --to=3.0.0
-
-# 2. Apply changes
-npx omg migrate --from=2.3.0 --to=3.0.0 --apply
 ```
-
-The migration tool performs:
-
-- **Memory Migration**: Re-encrypts XOR data to Fernet.
-- **Schema Updates**: Aligns on-disk JSON payloads with v3.0.0 contracts.
-- **Backup**: Creates a rollback backup in `.omg/backups/migrations/` before mutating state.
-
-## Phase 1 Feature Flags
-
-All Phase 1 capabilities remain **off by default**. Enable them explicitly if you want the v2.5.0 surface before the v3 rollout.
-
-| Flag                           | Default | Purpose                                        |
-| :----------------------------- | :-----: | :--------------------------------------------- |
-| `cmms_memory_tiers`            |   off   | Tier-aware memory routing (Auto/Micro/Ship).   |
-| `pause_continue`               |   off   | Session checkpoint pause/resume flow.          |
-| `context_durability`           |   off   | Freshness scoring and adaptive reconstruction. |
-| `society_of_thought`           |   off   | Complexity-gated debate planning.              |
-| `reliability_scoring`          |   off   | HUD reliability scoring.                       |
-| `governance_graph_compliance`  |   off   | Advisory compliance enforcement.               |
-| `handoff_retry_optimization`   |   off   | Budget-aware retry optimization.               |
-| `memory_tier_status`           |   off   | CLI inspection for memory tier state.          |
-| `session_lifecycle_monitoring` |   off   | Continuous context durability monitoring.      |
 
 ---
 
-## New Features
+## New Features Overview
 
-### 🛡️ Approval Gates & UI
+### Phase 1: Context & Memory
 
-A new terminal-based UI for governance gates. Destructive actions (deletions, protected-path mutations) now trigger an interactive approval prompt unless pre-approved in `.omg/state/ralph-approvals.json`.
+- **CMMS Memory Tiers**: Auto/Micro/Ship tier-aware memory routing.
+- **Context Durability**: Freshness scoring and adaptive reconstruction.
+- **Session Checkpoints**: `/pause` and `/continue` flows.
 
-### 🔄 Convergence Detection
+### Phase 2: Planning & Thought
 
-The Ralph loop now detects when a task has converged (no meaningful deltas in files or tool results) and stops early to save tokens and time.
+- **Governed Deep Planning**: Structured planning with embedded security checkpoints.
+- **Society of Thought**: Complexity-gated debate planning.
 
-### 📜 Rollback Manifests
+### Phase 3: Governance & Security
 
-Every iteration now generates a rollback manifest in `.omg/state/ralph-rollbacks/`. This allows for granular, per-interaction undo of file system changes and side effects.
+- **Approval UI**: Interactive terminal interface for governance gates.
+- **MutationGate**: Hard block on unauthorized file mutations.
+- **Audit SIEM Export**: JSONL export for enterprise security monitoring.
 
-### 🤖 Multi-Model Routing
+### Phase 4: Multi-Agent & Scale
 
-Complexity-aware model tiering. OMG automatically selects the optimal model (Light/Balanced/Heavy) based on task complexity and remaining budget.
-
-### 🗺️ Governed Deep Planning
-
-A new planning pipeline that emits structured plans with embedded governance checkpoints. Each task is evaluated against security policies before execution.
-
-### 🤝 Governed Multi-Agent
-
-Sub-agents now run in dedicated tool fabric lanes with per-job budget envelopes and file-ownership tracking to prevent resource conflicts.
-
-### 📊 SIEM Export
-
-Audit logs can now be exported in SIEM-compatible JSONL format for integration with enterprise security dashboards.
-
-```bash
-npx omg audit export --format=jsonl --output=audit-log.jsonl
-```
-
-### 🧹 Evidence Retention
-
-Automated pruning and GZIP compression of evidence artifacts (test results, build logs) based on configurable retention policies.
+- **Governed Multi-Agent**: Lane-based tool fabric for sub-agents.
+- **Multi-Model Routing**: Complexity-aware model selection.
+- **Convergence Detection**: Early stop on no-delta iterations.
 
 ---
 
 ## Feature Flags
 
-All new v3.0.0 features are **off by default** to preserve backward compatibility. Enable them in your configuration or via environment variables:
-
-| Feature Flag                  | Description                                           |
-| :---------------------------- | :---------------------------------------------------- |
-| `ralph_convergence_detection` | Enables early stop on no-delta iterations.            |
-| `ralph_approval_gate`         | Enables interactive approval for destructive actions. |
-| `multi_model_routing`         | Enables complexity-aware model selection.             |
-| `plan_adherence_enforcement`  | Fails iterations that drift outside the active plan.  |
-| `ralph_budget_tracking`       | Enables USD and token-based budget enforcement.       |
+| Flag                          | Default | Description                                           |
+| :---------------------------- | :-----: | :---------------------------------------------------- |
+| `cmms_memory_tiers`           |   off   | Enables tier-aware memory routing.                    |
+| `pause_continue`              |   off   | Enables session checkpoint persistence.               |
+| `context_durability`          |   off   | Enables adaptive workspace reconstruction.            |
+| `society_of_thought`          |   off   | Enables complexity-gated debate planning.             |
+| `ralph_convergence_detection` |   off   | Enables early stop on no-delta iterations.            |
+| `ralph_approval_gate`         |   off   | Enables interactive approval for destructive actions. |
+| `multi_model_routing`         |   off   | Enables complexity-aware model selection.             |
+| `plan_adherence_enforcement`  |   off   | Fails iterations that drift from the plan.            |
 
 ---
 
