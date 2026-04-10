@@ -68,6 +68,32 @@ export const CONFIG_MIGRATION_STEPS: readonly MigrationPlan[] = [
       },
     ],
   },
+  {
+    from: "2.5.0",
+    to: "2.7.0",
+    steps: [
+      {
+        action: "add_config",
+        path: "features.wave_optimization",
+        value: true,
+      },
+      {
+        action: "add_config",
+        path: "features.cross_model_escalation",
+        value: true,
+      },
+      {
+        action: "add_config",
+        path: "features.planning_context_retention",
+        value: true,
+      },
+      {
+        action: "add_config",
+        path: "features.traceability",
+        value: true,
+      },
+    ],
+  },
 ] as const;
 
 export const CANONICAL_STATE_SCHEMA_VERSIONS: Record<string, string> = {

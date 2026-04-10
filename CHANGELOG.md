@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.0] - 2026-04-10
+
+### Added
+
+- Phase 2 integration coverage for wave optimization, escalation, planning context retention, and traceability exports
+- Phase 2 release surfaces aligned to v2.7.0 across package metadata, Python packaging, and TypeScript entrypoint
+- Phase 2 migration plan for the 2.5.0 → 2.7.0 config upgrade path
+
 ## [2.5.0] - 2026-04-07
 
 ### Added
