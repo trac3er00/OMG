@@ -1,0 +1,341 @@
+{
+  "generatedAt": "2026-04-10T11:30:00Z",
+  "sourcePlan": ".sisyphus/plans/omg-v3-roadmap.md",
+  "summary": {
+    "confirmed": 3,
+    "partial": 16,
+    "missing": 0
+  },
+  "overallHealth": {
+    "targetedTsAreasPass": true,
+    "targetedTsAreas": {
+      "orchestration_governance_security_state": "bun test src/orchestration/ src/governance/ src/security/ src/state/ -> 442 pass, 0 fail",
+      "mcp": "bun test src/mcp/ -> 70 pass, 0 fail",
+      "verification": "bun test src/verification/ -> 84 pass, 0 fail",
+      "harness": "bun test src/harness/ -> 45 pass, 0 fail",
+      "providers": "bun test src/providers/ -> 26 pass, 0 fail"
+    },
+    "keyAnswers": {
+      "cmmsMemoryTieringInTypeScript": false,
+      "aosHarnessRunnerWorks": false,
+      "governanceActuallyBlocks": "partially",
+      "providerAdaptersMakeRealApiCalls": false
+    }
+  },
+  "verdicts": [
+    {
+      "taskId": 2,
+      "claimed": "/pause command + checkpoint writer",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "src/cli/commands/pause.ts exists, imports, and pause tests pass.",
+        "Actual CLI writes a checkpoint file, but payload is mostly placeholders: active_task undefined, pending_tasks [], memory_snapshot {}.",
+        "Version is hardcoded to 2.3.0 and there is no deferral-tracker or CheckpointSystem integration."
+      ]
+    },
+    {
+      "taskId": 3,
+      "claimed": "/continue command + checkpoint reader",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "src/cli/commands/continue.ts exists, imports, and continue tests pass.",
+        "Actual CLI restores only a summary string; it does not restore memory tier state, context summary, or pending task state into runtime systems.",
+        "Staleness/version checks are hardcoded around 2.3.0 and do not use src/context/checkpoint.ts."
+      ]
+    },
+    {
+      "taskId": 4,
+      "claimed": "context durability workspace reconstruction hardening",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": true
+      },
+      "verdict": "confirmed",
+      "notes": [
+        "workspace-reconstruction, strategy-router, checkpoint, and compression modules all exist and import cleanly.",
+        "bun test src/context/ passed (103 pass, 0 fail).",
+        "Code includes freshness scoring, decay detection, automatic reconstruction hooks, durability strategy registration, and reconstruction boundary handling in compression.ts."
+      ]
+    },
+    {
+      "taskId": 5,
+      "claimed": "Society of Thought planning pipeline integration",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "debate integration modules exist and bun test src/debate/ passed (60 pass, 0 fail).",
+        "runPlanningDebate is only referenced in tests/integration files during this audit; there is no evidence of plan-council bundle/runtime wiring.",
+        "Debate engine works in isolation, but planning-pipeline integration is not demonstrated in production code."
+      ]
+    },
+    {
+      "taskId": 6,
+      "claimed": "reliability scoring HUD integration",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "reliability HUD/gate modules exist and bun test src/reliability/ passed (62 pass, 0 fail).",
+        "HUD color/band mapping and history parsing work.",
+        "No TypeScript evidence of the claimed session-end reliability report card/evidence export was found."
+      ]
+    },
+    {
+      "taskId": 7,
+      "claimed": "governance graph compliance enforcement",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "governance modules exist and bun test src/governance/ passed (48 pass, 0 fail).",
+        "preDispatchGovernanceCheck records ledger entries and can deny invalid combinations.",
+        "Phase-1 claim said default mode should be advisory, but GovernanceGraphRuntime defaults to soft-block now; collusion detection itself only warns unless hard-block mode is used."
+      ]
+    },
+    {
+      "taskId": 9,
+      "claimed": "CMMS CLI inspection command",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "memory tier-status command exists, imports, tests pass, and CLI prints JSON/table output.",
+        "The command only reads .omg/state/memory-tier-status.json or tier-status.json snapshots.",
+        "src/state/memory-store.ts has no Auto/Micro/Ship routing, so this command is not backed by a real TS CMMS implementation."
+      ]
+    },
+    {
+      "taskId": 10,
+      "claimed": "context durability session lifecycle wiring",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "session-lifecycle/session modules exist and session-lifecycle tests pass.",
+        "Periodic freshness checking, context-decay-detected events, and reconstruction attempts are implemented.",
+        "Task claim also required /pause checkpoint freshness integration, but pause.ts does not capture freshness state."
+      ]
+    },
+    {
+      "taskId": 11,
+      "claimed": "Phase 1 integration tests",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "src/phase1.integration.test.ts exists and passes (8 pass, 0 fail).",
+        "The tests cover checkpoint metadata, debate invocation, and governance ledger behavior.",
+        "They do not verify real CMMS tiers, real /pause+/continue command flow, or handoff retry demotion behavior claimed in the roadmap."
+      ]
+    },
+    {
+      "taskId": 14,
+      "claimed": "planning context retention via CMMS Ship tier",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "planning/context-retention.ts exists and tests pass.",
+        "Persistence works across store reinitialization.",
+        "Implementation is a file-backed planning-context store that labels records tier:'ship'; it does not integrate with a real TS Ship tier because src/state/memory-store.ts has no tier routing."
+      ]
+    },
+    {
+      "taskId": 15,
+      "claimed": "cross-model escalation for hard subtasks",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "router.ts exists/imports and router tests pass.",
+        "Router selects codex/gemini/ccg from keyword heuristics.",
+        "There is no budget-tracker integration or explicit hard-subtask escalation evidence in router.ts; task-level escalation cost tracking exists only in separate auto-escalation.ts helpers."
+      ]
+    },
+    {
+      "taskId": 16,
+      "claimed": "parallel wave auto-optimization",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": true
+      },
+      "verdict": "confirmed",
+      "notes": [
+        "wave-optimizer.ts exists/imports and tests pass.",
+        "Implementation performs topological grouping into waves and validates dependency ordering/cycles.",
+        "Behavior matches the core roadmap claim for automatic wave computation."
+      ]
+    },
+    {
+      "taskId": 17,
+      "claimed": "verification step generation",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": true
+      },
+      "verdict": "confirmed",
+      "notes": [
+        "qa-generator.ts exists/imports and tests pass.",
+        "Generator emits happy-path and error-case scenarios with tool selection heuristics and markdown formatting.",
+        "While heuristic, the deliverable exists and works as a concrete generator."
+      ]
+    },
+    {
+      "taskId": 18,
+      "claimed": "plan-to-code traceability",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "traceability helper module and tests exist.",
+        "Current TS implementation is utility-only: parse/format/generate report from supplied data.",
+        "No evidence of actual git commit integration or phase-gate traceability report generation was found in TypeScript runtime code."
+      ]
+    },
+    {
+      "taskId": 23,
+      "claimed": "/autoresearch on-demand mode",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "CLI command exists/tests pass and actual CLI produces a markdown report file.",
+        "Runtime/autoresearch_engine.py only does local grep-based code/file search; no web-source section is emitted and TS CLI ignores --max-tokens.",
+        "The deliverable works in a reduced form, not at the full roadmap scope (web + filesystem + code search + budget envelope)."
+      ]
+    },
+    {
+      "taskId": 28,
+      "claimed": "smart task handling auto-escalation to stronger models",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "auto-escalation.ts exists/imports and tests pass.",
+        "Decision helper supports user override and cost tracking in isolation.",
+        "It is not wired into router.ts or broader task-routing flow, so the roadmap integration claim is incomplete."
+      ]
+    },
+    {
+      "taskId": 29,
+      "claimed": "/autoresearch background daemon mode",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "Python runtime has DaemonConfig/start_daemon/stop_daemon helpers.",
+        "TypeScript CLI has no --daemon or --stop flag support; running omg autoresearch topic --daemon fails with Unknown argument: daemon.",
+        "The TS-facing deliverable therefore exists only as backend scaffolding."
+      ]
+    },
+    {
+      "taskId": 34,
+      "claimed": "anti-distillation domain pack validation pipeline",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "domain-packs/validator.ts and phase4 integration tests exist and pass.",
+        "Current validator checks required files/directories and computes a simple issue-count score.",
+        "It does not generate projects, run npm installs/builds/tests, or validate actual pack output behavior as claimed."
+      ]
+    },
+    {
+      "taskId": 35,
+      "claimed": "governance graph soft-block collusion prevention",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "soft-block tests exist and pass; GovernanceGraphRuntime defaults to soft-block.",
+        "However detectCollusion returns warn in soft-block mode and blocks only in hard-block mode.",
+        "That means collusion-specific soft-block enforcement/override behavior is not fully implemented as claimed."
+      ]
+    },
+    {
+      "taskId": 38,
+      "claimed": "AOS integration polish",
+      "evidence": {
+        "fileExists": true,
+        "testPasses": true,
+        "behaviorWorks": false
+      },
+      "verdict": "partial",
+      "notes": [
+        "tests/integration/test_aos_e2e.ts exists and passes when run directly with bun test ./tests/integration/test_aos_e2e.ts.",
+        "The test mostly checks imports/constants and synthetic behavior, not full cross-feature orchestration.",
+        "src/harness/harness-runner.ts is only referenced by its own tests and uses fake passing/failing runners, so the claimed working harness runner/orchestrated AOS flow is not present."
+      ]
+    }
+  ],
+  "observations": {
+    "cmms": [
+      "src/state/memory-store.ts is a single SQLite-backed namespace store with no Auto/Micro/Ship tier model.",
+      "tier-status CLI reads snapshot JSON instead of querying a tiered TS store."
+    ],
+    "providers": [
+      "src/providers/{claude,codex,gemini,kimi,opencode}.ts exist and provider tests pass.",
+      "Adapters only implement availability/auth health checks and MCP config generation; no prompt execution/API-call surface was found in these TS adapters."
+    ],
+    "harness": [
+      "src/harness/harness-runner.ts is schema/aggregation scaffolding with synthetic helper runners.",
+      "No production wiring to actual agent orchestration or multi-layer test execution was found."
+    ]
+  }
+}

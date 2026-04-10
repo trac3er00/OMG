@@ -1,0 +1,111 @@
+{
+  "generatedAt": "2026-04-10T11:30:00Z",
+  "phantoms": [
+    {
+      "taskId": 2,
+      "files": ["src/cli/commands/pause.ts"],
+      "why": "Checkpoint file is created, but the saved state is placeholder-only and hardcodes version 2.3.0 instead of capturing live session state."
+    },
+    {
+      "taskId": 3,
+      "files": ["src/cli/commands/continue.ts"],
+      "why": "Command prints a restore summary, but it does not restore memory/context into runtime systems and is hardwired to version 2.3.0 semantics."
+    },
+    {
+      "taskId": 5,
+      "files": ["src/debate/integration.ts"],
+      "why": "Debate logic works in isolation, but no production plan-council wiring was found."
+    },
+    {
+      "taskId": 6,
+      "files": ["src/reliability/hud-integration.ts", "src/reliability/gate-integration.ts"],
+      "why": "HUD integration works, but the claimed session-end reliability evidence/report card is missing from TypeScript runtime flow."
+    },
+    {
+      "taskId": 7,
+      "files": ["src/governance/graph.ts", "src/governance/tool-fabric.ts", "src/governance/collusion.ts"],
+      "why": "Governance exists, but current defaults/behavior do not match the phase-1 advisory-first claim and collusion soft-block behavior is incomplete."
+    },
+    {
+      "taskId": 9,
+      "files": ["src/cli/commands/memory.ts"],
+      "why": "tier-status CLI renders snapshot JSON, but the underlying TS memory store has no real Auto/Micro/Ship routing."
+    },
+    {
+      "taskId": 10,
+      "files": ["src/orchestration/session-lifecycle.ts"],
+      "why": "Freshness monitoring exists, but /pause does not persist freshness state as claimed."
+    },
+    {
+      "taskId": 11,
+      "files": ["src/phase1.integration.test.ts"],
+      "why": "Integration tests exist, but they do not exercise the full claimed cross-feature behaviors (real CMMS, real pause/continue flow, retry demotion)."
+    },
+    {
+      "taskId": 14,
+      "files": ["src/planning/context-retention.ts"],
+      "why": "The module persists files labeled as ship-tier, but there is no real TS ship-tier memory backend."
+    },
+    {
+      "taskId": 15,
+      "files": ["src/orchestration/router.ts"],
+      "why": "Router selection works, but hard-subtask escalation cost tracking is not integrated into router behavior."
+    },
+    {
+      "taskId": 18,
+      "files": ["src/tracebank/traceability.ts"],
+      "why": "Traceability helpers exist, but actual git/phase-gate integration is absent."
+    },
+    {
+      "taskId": 23,
+      "files": ["src/cli/commands/autoresearch.ts", "runtime/autoresearch_engine.py"],
+      "why": "On-demand reports are generated, but no web-source pipeline or effective CLI token-budget enforcement exists."
+    },
+    {
+      "taskId": 28,
+      "files": ["src/orchestration/auto-escalation.ts"],
+      "why": "Escalation helper exists, but it is not wired into the main task-routing path."
+    },
+    {
+      "taskId": 29,
+      "files": ["src/cli/commands/autoresearch.ts", "runtime/autoresearch_engine.py"],
+      "why": "Daemon helpers exist in Python, but the TS CLI exposes no --daemon or --stop behavior."
+    },
+    {
+      "taskId": 34,
+      "files": ["src/domain-packs/validator.ts"],
+      "why": "Validator checks structure only; it does not build/test generated projects as the anti-distillation claim requires."
+    },
+    {
+      "taskId": 35,
+      "files": ["src/governance/graph.ts", "src/governance/collusion.ts"],
+      "why": "Soft-block mode exists, but collusion-specific blocking still requires hard-block mode."
+    },
+    {
+      "taskId": 38,
+      "files": ["tests/integration/test_aos_e2e.ts", "src/harness/harness-runner.ts"],
+      "why": "AOS integration test is mostly synthetic and harness-runner uses fake runners rather than actual orchestration."
+    },
+    {
+      "taskId": "area-memory-store",
+      "files": ["src/state/memory-store.ts"],
+      "why": "TypeScript memory store is monolithic; no explicit Auto/Micro/Ship tier routing exists."
+    },
+    {
+      "taskId": "area-providers",
+      "files": [
+        "src/providers/claude.ts",
+        "src/providers/codex.ts",
+        "src/providers/gemini.ts",
+        "src/providers/kimi.ts",
+        "src/providers/opencode.ts"
+      ],
+      "why": "Adapters exist and test cleanly, but they only expose health checks/config generation and are not complete TS provider execution surfaces."
+    },
+    {
+      "taskId": "area-harness",
+      "files": ["src/harness/harness-runner.ts"],
+      "why": "Harness runner schema exists, but real layer execution is replaced by createPassingRunner/createFailingRunner stubs."
+    }
+  ]
+}
