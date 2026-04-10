@@ -1,0 +1,18 @@
+Task 34 beginner onboarding evidence
+
+Command under test: bun test src/cli/commands/init
+Log: .sisyphus/evidence/task-34-onboarding-tests.log
+
+Observed beginner path (Enter-driven defaults):
+1. Step 1: Pick your setup pace -> default beginner
+2. Step 2 of 4: Name your project -> default current folder name (demo-project in test)
+3. Step 3 of 4: Choose a setup style -> default standard
+4. Step 4 of 4: Review before setup -> confirm yes by pressing Enter
+
+Evidence from automated test:
+- Test name: guided beginner flow stays enter-driven and under ten steps
+- Step count assertion: <= 10
+- Guidance copy present
+- Confirmation-before-action copy present
+- Stored env: OMG_INIT_SKILL_LEVEL=beginner, OMG_INIT_FLOW_MODE=guided, OMG_INIT_PRESET=standard
+- Wizard invocation count: 1

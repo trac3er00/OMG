@@ -1,0 +1,24 @@
+Task 34 expert onboarding evidence
+
+Command under test: bun test src/cli/commands/init
+Log: .sisyphus/evidence/task-34-onboarding-tests.log
+
+Observed expert fast path (--fast):
+1. [1/3] Project -> default current folder name
+2. [2/3] Preset -> default standard
+3. [3/3] Apply -> confirm omg-only mode
+
+Evidence from automated test:
+- Test name: expert --fast flow stays compact and skips verbose guidance
+- Step count assertion: <= 5
+- Fast banner present: OMG Fast Init
+- Skill-detection explanation omitted in fast path
+- Beginner explanatory copy omitted in fast path
+- Stored env: OMG_INIT_SKILL_LEVEL=expert, OMG_INIT_FLOW_MODE=fast, OMG_INIT_PRESET=standard
+- Wizard invocation count: 1
+
+Recovery evidence:
+- Test name: clear retry messaging recovers from a simulated failure
+- First wizard attempt throws: simulated install failure
+- User is shown clear failure message and retry prompt
+- Second attempt succeeds after retry
