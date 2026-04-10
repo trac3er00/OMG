@@ -412,15 +412,15 @@ function isDecisionWorthy(analysis: IntentAnalysis): boolean {
     return false;
   }
 
+  if (analysis.ambiguities.length > 0) {
+    return true;
+  }
+
   if (
     analysis.complexity.effort === "low" &&
     analysis.complexity.riskLevel === "low"
   ) {
     return false;
-  }
-
-  if (analysis.ambiguities.length > 0) {
-    return true;
   }
 
   if (HIGH_DECISION_DOMAINS.includes(analysis.domain)) {
