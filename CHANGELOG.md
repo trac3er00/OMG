@@ -1,5 +1,33 @@
 # Changelog
 
+## [3.0.0] - 2026-04-10
+
+### Release Summary
+
+OMG v3.0.0 final release — multi-agent orchestration, evidence-backed verification,
+and durable session state for Claude Code, Codex, Gemini, and Kimi.
+
+### Highlights
+
+- **Instant Product Generation**: 7 domain packs (SaaS, Landing, E-commerce, API, Bot, Admin, CLI)
+- **Real-time HUD**: Agent activity monitoring with ProofScore (0-100)
+- **MutationGate**: Hard gate for file system changes during release orchestration
+- **ProofGate + Claim Judge**: Evidence-backed verification for every agent claim
+- **CMMS Memory Tiers**: Auto/Micro/Ship tier-aware memory routing
+- **Session Checkpoints**: `/pause` and `/continue` with checkpoint persistence
+- **Context Durability**: Freshness scoring and adaptive workspace reconstruction
+- **Governed Deep Planning**: Council-style planning with security policy
+- **Multi-Model Routing**: Optimal model selection by task complexity
+- **Tool Fabric Governance**: Lane-based tool governance with signed approval and ledgering
+- **Budget Envelopes**: Multi-dimensional resource tracking (CPU, memory, tokens, network)
+- **Host Parity**: Semantic normalization across Claude, Codex, Gemini, and Kimi
+- **Audit / SIEM Export**: JSONL enterprise security monitoring
+
+### Migration
+
+- Config migration path: 2.9.0 → 3.0.0-rc → 3.0.0
+- Run `npx omg install --apply` to upgrade
+
 ## [3.0.0-rc] - 2026-04-10
 
 ### Added

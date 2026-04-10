@@ -26,7 +26,7 @@ export interface MigrationOptions {
 
 const SUPPORTED_TRANSITION = {
   from: "2.9.0",
-  to: "3.0.0-rc",
+  to: "3.0.0",
 } as const;
 
 interface MigrationConfigStep {
@@ -151,6 +151,22 @@ export const CONFIG_MIGRATION_STEPS: readonly MigrationPlan[] = [
         action: "add_config",
         path: "platform.compatibility_checks",
         value: true,
+      },
+    ],
+  },
+  {
+    from: "3.0.0-rc",
+    to: "3.0.0",
+    steps: [
+      {
+        action: "add_config",
+        path: "release.final",
+        value: true,
+      },
+      {
+        action: "add_config",
+        path: "release.version",
+        value: "3.0.0",
       },
     ],
   },

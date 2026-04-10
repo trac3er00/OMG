@@ -17,7 +17,7 @@ function makeProjectDir(): string {
   return dir;
 }
 
-describe("migrateConfig v2.9.0 -> v3.0.0-rc", () => {
+describe("migrateConfig v2.9.0 -> v3.0.0", () => {
   test("dry-run reports required fields without mutating files", () => {
     const projectDir = makeProjectDir();
     const settingsPath = join(projectDir, "settings.json");
@@ -50,7 +50,7 @@ describe("migrateConfig v2.9.0 -> v3.0.0-rc", () => {
 
     const report = migrateConfig({
       from: "2.9.0",
-      to: "3.0.0-rc",
+      to: "3.0.0",
       projectDir,
       dryRun: true,
       apply: false,
@@ -83,7 +83,7 @@ describe("migrateConfig v2.9.0 -> v3.0.0-rc", () => {
 
     const report = migrateConfig({
       from: "2.9.0",
-      to: "3.0.0-rc",
+      to: "3.0.0",
       projectDir,
       apply: true,
       dryRun: false,
