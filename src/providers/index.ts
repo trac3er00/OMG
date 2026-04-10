@@ -4,6 +4,7 @@ import { ClaudeProvider } from "./claude.js";
 import { CodexProvider } from "./codex.js";
 import { GeminiProvider } from "./gemini.js";
 import { KimiProvider } from "./kimi.js";
+import { OllamaProvider } from "./ollama.js";
 import { OpenCodeProvider } from "./opencode.js";
 
 const PROVIDER_MAP: ReadonlyMap<HostType, () => ICliProvider> = new Map([
@@ -11,6 +12,7 @@ const PROVIDER_MAP: ReadonlyMap<HostType, () => ICliProvider> = new Map([
   ["codex", () => new CodexProvider()],
   ["gemini", () => new GeminiProvider()],
   ["kimi", () => new KimiProvider()],
+  ["ollama", () => new OllamaProvider()],
   ["opencode", () => new OpenCodeProvider()],
 ]);
 
@@ -40,4 +42,5 @@ export { ClaudeProvider } from "./claude.js";
 export { CodexProvider } from "./codex.js";
 export { GeminiProvider } from "./gemini.js";
 export { KimiProvider } from "./kimi.js";
+export { OllamaProvider } from "./ollama.js";
 export { OpenCodeProvider } from "./opencode.js";

@@ -1,0 +1,1 @@
+Mock image fixture: a receipt photo showing the text HELLO FROM MOCK OCR and a simple two-box diagram.

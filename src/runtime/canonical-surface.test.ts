@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { CANONICAL_HOSTS, COMPAT_HOSTS, FULLY_SUPPORTED_HOSTS, HOST_SURFACES, detectInstalledHosts, getHostSurface, isHostInstalled } from "./canonical-surface.js";
+import {
+  CANONICAL_HOSTS,
+  COMPAT_HOSTS,
+  FULLY_SUPPORTED_HOSTS,
+  HOST_SURFACES,
+  detectInstalledHosts,
+  getHostSurface,
+  isHostInstalled,
+} from "./canonical-surface.js";
 import { getTierCapabilities } from "./canonical-taxonomy.js";
 import { needsUpgrade, selectDefaultPreset } from "./adoption.js";
 
@@ -51,9 +59,17 @@ describe("Host surfaces", () => {
 });
 
 describe("Host detection", () => {
-  const installed = new Set(["claude", "codex", "gemini", "kimi", "opencode"]);
+  const installed = new Set([
+    "claude",
+    "codex",
+    "gemini",
+    "kimi",
+    "ollama",
+    "opencode",
+  ]);
 
-  const probe = async (command: string): Promise<boolean> => installed.has(command);
+  const probe = async (command: string): Promise<boolean> =>
+    installed.has(command);
 
   test("isHostInstalled uses the CLI command", async () => {
     expect(await isHostInstalled("claude", probe)).toBe(true);

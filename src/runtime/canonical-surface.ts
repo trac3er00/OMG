@@ -10,7 +10,11 @@ import type { HostType } from "../types/config.js";
 export interface HostSurface {
   readonly hostType: HostType;
   readonly cliCommand: string;
-  readonly configFormat: "mcp-json" | "config-toml" | "settings-json" | "kimi-json";
+  readonly configFormat:
+    | "mcp-json"
+    | "config-toml"
+    | "settings-json"
+    | "kimi-json";
   readonly configPath: string;
   readonly supportsHooks: boolean;
   readonly supportsPresets: boolean;
@@ -59,6 +63,16 @@ export const HOST_SURFACES: Record<HostType, HostSurface> = {
     transportType: "stdio",
     description: "Kimi CLI (Moonshot AI)",
   },
+  ollama: {
+    hostType: "ollama",
+    cliCommand: "ollama",
+    configFormat: "mcp-json",
+    configPath: ".mcp.json",
+    supportsHooks: false,
+    supportsPresets: false,
+    transportType: "http-sse",
+    description: "Ollama (local model server)",
+  },
   opencode: {
     hostType: "opencode",
     cliCommand: "opencode",
@@ -71,9 +85,22 @@ export const HOST_SURFACES: Record<HostType, HostSurface> = {
   },
 };
 
-export const CANONICAL_HOSTS: HostType[] = ["claude", "codex", "gemini", "kimi", "opencode"];
-export const FULLY_SUPPORTED_HOSTS: HostType[] = ["claude", "codex", "gemini", "kimi"];
+export const CANONICAL_HOSTS: HostType[] = [
+  "claude",
+  "codex",
+  "gemini",
+  "kimi",
+  "ollama",
+  "opencode",
+];
+export const FULLY_SUPPORTED_HOSTS: HostType[] = [
+  "claude",
+  "codex",
+  "gemini",
+  "kimi",
+];
 export const COMPAT_HOSTS: HostType[] = ["opencode"];
+export const LOCAL_HOSTS: HostType[] = ["ollama"];
 
 export function getHostSurface(hostType: HostType): HostSurface {
   const surface = HOST_SURFACES[hostType];
@@ -111,7 +138,10 @@ export async function detectInstalledHosts(
   probe: (command: string) => Promise<boolean> = probeCommandOnPath,
 ): Promise<HostType[]> {
   const checks = await Promise.all(
-    CANONICAL_HOSTS.map(async (host) => ({ host, installed: await isHostInstalled(host, probe) })),
+    CANONICAL_HOSTS.map(async (host) => ({
+      host,
+      installed: await isHostInstalled(host, probe),
+    })),
   );
 
   return checks.filter((check) => check.installed).map((check) => check.host);

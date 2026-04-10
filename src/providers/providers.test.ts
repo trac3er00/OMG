@@ -352,14 +352,15 @@ describe("OpenCodeProvider", () => {
 describe("ProviderRegistry", () => {
   const registry = new ProviderRegistry();
 
-  test("listProviders returns all 5 canonical hosts", () => {
+  test("listProviders returns all 6 canonical hosts", () => {
     const providers = registry.listProviders();
     expect(providers).toContain("claude");
     expect(providers).toContain("codex");
     expect(providers).toContain("gemini");
     expect(providers).toContain("kimi");
+    expect(providers).toContain("ollama");
     expect(providers).toContain("opencode");
-    expect(providers).toHaveLength(5);
+    expect(providers).toHaveLength(6);
   });
 
   test("getProvider returns correct provider by name", () => {
