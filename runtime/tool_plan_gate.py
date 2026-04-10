@@ -4,8 +4,10 @@ import logging
 import os
 import re
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 import json
@@ -462,3 +464,76 @@ def _is_docs_exemption(tool_input: dict[str, object]) -> bool:
     if metadata.get("exempt") is True and str(metadata.get("exemption", "")).strip().lower() == "docs":
         return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# Always-on task classification and governance routing
+# ---------------------------------------------------------------------------
+
+RiskLevel = Literal["low", "medium", "high", "critical"]
+GovernancePipeline = Literal["minimal", "standard", "elevated", "maximum"]
+
+SECURITY_KEYWORDS = frozenset([
+    "password", "secret", "token", "key", "auth", "credential", "crypto", "encrypt",
+])
+COMPLEXITY_KEYWORDS = frozenset([
+    "architecture", "refactor", "migrate", "database", "schema", "deploy", "release",
+])
+
+
+@dataclass
+class TaskClassification:
+    risk_level: RiskLevel
+    governance_pipeline: GovernancePipeline
+    complexity_score: int  # 1-10
+    reasoning: str
+
+
+def classify_task(task_description: str) -> TaskClassification:
+    """Auto-classify a task by complexity and risk.
+
+    Returns classification with recommended governance pipeline.
+    """
+    desc_lower = task_description.lower()
+
+    security_hits = sum(1 for kw in SECURITY_KEYWORDS if kw in desc_lower)
+    complexity_hits = sum(1 for kw in COMPLEXITY_KEYWORDS if kw in desc_lower)
+    complexity_score = min(
+        10, complexity_hits * 2 + len(task_description.split()) // 20 + 1,
+    )
+
+    if security_hits >= 2 or "production" in desc_lower or "delete" in desc_lower:
+        risk_level: RiskLevel = "critical"
+        pipeline: GovernancePipeline = "maximum"
+        reasoning = f"High-risk task ({security_hits} security keywords)"
+    elif security_hits >= 1 or complexity_score >= 7:
+        risk_level = "high"
+        pipeline = "elevated"
+        reasoning = f"Security-sensitive or complex task (score={complexity_score})"
+    elif complexity_score >= 4:
+        risk_level = "medium"
+        pipeline = "standard"
+        reasoning = f"Moderate complexity (score={complexity_score})"
+    else:
+        risk_level = "low"
+        pipeline = "minimal"
+        reasoning = f"Simple task (score={complexity_score})"
+
+    return TaskClassification(
+        risk_level=risk_level,
+        governance_pipeline=pipeline,
+        complexity_score=complexity_score,
+        reasoning=reasoning,
+    )
+
+
+def log_classification(classification: TaskClassification, task_id: str = "") -> dict:
+    """Log classification decision for audit trail."""
+    return {
+        "task_id": task_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "risk_level": classification.risk_level,
+        "governance_pipeline": classification.governance_pipeline,
+        "complexity_score": classification.complexity_score,
+        "reasoning": classification.reasoning,
+    }
