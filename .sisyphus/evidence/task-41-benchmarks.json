@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-04-10T13:04:03.273Z",
+  "runtime": "bun",
+  "iterations": 1000,
+  "results": [
+    {
+      "operation": "classifyIntent",
+      "iterations": 1000,
+      "totalMs": 146.781,
+      "avgMs": 0.147,
+      "p95Ms": 0.299,
+      "p99Ms": 0.434,
+      "opsPerSec": 6813
+    },
+    {
+      "operation": "imss.set",
+      "iterations": 1000,
+      "totalMs": 147.806,
+      "avgMs": 0.148,
+      "p95Ms": 0.31,
+      "p99Ms": 0.441,
+      "opsPerSec": 6766
+    },
+    {
+      "operation": "imss.get",
+      "iterations": 1000,
+      "totalMs": 148.407,
+      "avgMs": 0.148,
+      "p95Ms": 0.311,
+      "p99Ms": 0.438,
+      "opsPerSec": 6738
+    },
+    {
+      "operation": "routeTask",
+      "iterations": 1000,
+      "totalMs": 207.379,
+      "avgMs": 0.207,
+      "p95Ms": 0.746,
+      "p99Ms": 0.884,
+      "opsPerSec": 4822
+    },
+    {
+      "operation": "checkMutationAllowed",
+      "iterations": 1000,
+      "totalMs": 227.067,
+      "avgMs": 0.227,
+      "p95Ms": 0.354,
+      "p99Ms": 0.414,
+      "opsPerSec": 4404
+    }
+  ],
+  "summary": {
+    "allUnder100ms": true,
+    "maxAvgMs": 0.227,
+    "minOpsPerSec": 4404
+  }
+}

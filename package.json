@@ -39,6 +39,7 @@
     "omg": "bun run src/cli/index.ts",
     "omg-control": "bun run src/mcp/server.ts",
     "eval": "bun run src/eval/runner.ts",
+    "benchmark": "bun run src/benchmarks/runner.ts",
     "validate-skills": "bun run src/skills/validator.ts",
     "postinstall": "echo 'OMG v3.0.0-rc installed. Run: bunx omg install --plan'"
   },
