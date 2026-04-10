@@ -32,10 +32,13 @@ export class CodexProvider extends BaseCliProvider {
     }
 
     try {
-      await execFileAsync("codex", ["auth", "status"], {
-        timeout: AUTH_CHECK_TIMEOUT_MS,
-      });
-      return this.makeHealthStatus(true, true, true, "codex CLI available and authenticated");
+      await this.checkAuth();
+      return this.makeHealthStatus(
+        true,
+        true,
+        true,
+        "codex CLI available and authenticated",
+      );
     } catch {
       return this.makeHealthStatus(
         true,
@@ -47,7 +50,10 @@ export class CodexProvider extends BaseCliProvider {
     }
   }
 
-  getMcpConfig(serverCommand: string, serverArgs: string[]): Record<string, unknown> {
+  getMcpConfig(
+    serverCommand: string,
+    serverArgs: string[],
+  ): Record<string, unknown> {
     return {
       mcp_servers: {
         "omg-control": {
@@ -65,5 +71,11 @@ export class CodexProvider extends BaseCliProvider {
     } catch {
       return false;
     }
+  }
+
+  protected async checkAuth(): Promise<void> {
+    await execFileAsync("codex", ["auth", "status"], {
+      timeout: AUTH_CHECK_TIMEOUT_MS,
+    });
   }
 }

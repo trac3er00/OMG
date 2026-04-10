@@ -35,7 +35,12 @@ export class OpenCodeProvider extends BaseCliProvider {
 
     const authOk = await this.checkAuth();
     if (authOk) {
-      return this.makeHealthStatus(true, true, true, "opencode CLI available and authenticated");
+      return this.makeHealthStatus(
+        true,
+        true,
+        true,
+        "opencode CLI available and authenticated",
+      );
     }
     return this.makeHealthStatus(
       true,
@@ -46,7 +51,10 @@ export class OpenCodeProvider extends BaseCliProvider {
     );
   }
 
-  getMcpConfig(serverCommand: string, serverArgs: string[]): Record<string, unknown> {
+  getMcpConfig(
+    serverCommand: string,
+    serverArgs: string[],
+  ): Record<string, unknown> {
     return {
       mcp: {
         "omg-control": {
@@ -67,13 +75,23 @@ export class OpenCodeProvider extends BaseCliProvider {
     }
   }
 
-  private async checkAuth(): Promise<boolean> {
+  protected async checkAuth(): Promise<boolean> {
     try {
-      const authPath = join(homedir(), ".local", "share", "opencode", "auth.json");
+      const authPath = join(
+        homedir(),
+        ".local",
+        "share",
+        "opencode",
+        "auth.json",
+      );
       await access(authPath);
       const content = await readFile(authPath, "utf-8");
       const parsed: unknown = JSON.parse(content);
-      return parsed !== null && typeof parsed === "object" && Object.keys(parsed).length > 0;
+      return (
+        parsed !== null &&
+        typeof parsed === "object" &&
+        Object.keys(parsed).length > 0
+      );
     } catch {
       return false;
     }

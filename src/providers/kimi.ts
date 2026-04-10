@@ -35,7 +35,12 @@ export class KimiProvider extends BaseCliProvider {
 
     const authOk = await this.checkAuth();
     if (authOk) {
-      return this.makeHealthStatus(true, true, true, "kimi CLI available and authenticated");
+      return this.makeHealthStatus(
+        true,
+        true,
+        true,
+        "kimi CLI available and authenticated",
+      );
     }
     return this.makeHealthStatus(
       true,
@@ -46,7 +51,10 @@ export class KimiProvider extends BaseCliProvider {
     );
   }
 
-  getMcpConfig(serverCommand: string, serverArgs: string[]): Record<string, unknown> {
+  getMcpConfig(
+    serverCommand: string,
+    serverArgs: string[],
+  ): Record<string, unknown> {
     return {
       mcpServers: {
         "omg-control": {
@@ -66,7 +74,7 @@ export class KimiProvider extends BaseCliProvider {
     }
   }
 
-  private async checkAuth(): Promise<boolean> {
+  protected async checkAuth(): Promise<boolean> {
     try {
       const configPath = join(homedir(), ".kimi", "config.toml");
       await access(configPath);

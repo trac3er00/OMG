@@ -1,10 +1,95 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import { ClaudeProvider } from "./claude.js";
 import { CodexProvider } from "./codex.js";
 import { GeminiProvider } from "./gemini.js";
 import { KimiProvider } from "./kimi.js";
 import { OpenCodeProvider } from "./opencode.js";
 import { ProviderRegistry } from "./index.js";
+
+class MockClaudeProvider extends ClaudeProvider {
+  constructor(
+    private readonly availableMock: () => Promise<boolean>,
+    private readonly authMock: () => Promise<void>,
+  ) {
+    super();
+  }
+
+  override isAvailable(): Promise<boolean> {
+    return this.availableMock();
+  }
+
+  protected override checkAuth(): Promise<void> {
+    return this.authMock();
+  }
+}
+
+class MockCodexProvider extends CodexProvider {
+  constructor(
+    private readonly availableMock: () => Promise<boolean>,
+    private readonly authMock: () => Promise<void>,
+  ) {
+    super();
+  }
+
+  override isAvailable(): Promise<boolean> {
+    return this.availableMock();
+  }
+
+  protected override checkAuth(): Promise<void> {
+    return this.authMock();
+  }
+}
+
+class MockGeminiProvider extends GeminiProvider {
+  constructor(
+    private readonly availableMock: () => Promise<boolean>,
+    private readonly authMock: () => Promise<void>,
+  ) {
+    super();
+  }
+
+  override isAvailable(): Promise<boolean> {
+    return this.availableMock();
+  }
+
+  protected override checkAuth(): Promise<void> {
+    return this.authMock();
+  }
+}
+
+class MockKimiProvider extends KimiProvider {
+  constructor(
+    private readonly availableMock: () => Promise<boolean>,
+    private readonly authMock: () => Promise<boolean>,
+  ) {
+    super();
+  }
+
+  override isAvailable(): Promise<boolean> {
+    return this.availableMock();
+  }
+
+  protected override checkAuth(): Promise<boolean> {
+    return this.authMock();
+  }
+}
+
+class MockOpenCodeProvider extends OpenCodeProvider {
+  constructor(
+    private readonly availableMock: () => Promise<boolean>,
+    private readonly authMock: () => Promise<boolean>,
+  ) {
+    super();
+  }
+
+  override isAvailable(): Promise<boolean> {
+    return this.availableMock();
+  }
+
+  protected override checkAuth(): Promise<boolean> {
+    return this.authMock();
+  }
+}
 
 describe("ClaudeProvider", () => {
   const provider = new ClaudeProvider();
@@ -44,6 +129,24 @@ describe("ClaudeProvider", () => {
     const path = provider.getConfigPath("/home/user/project");
     expect(path).toBe("/home/user/project/.mcp.json");
   });
+
+  test("healthCheck returns normalized unauthenticated status via mocks", async () => {
+    const availableMock = mock(async () => true);
+    const authMock = mock(async () => {
+      throw new Error("not authenticated");
+    });
+    const mockedProvider = new MockClaudeProvider(availableMock, authMock);
+
+    await expect(mockedProvider.healthCheck()).resolves.toEqual({
+      available: true,
+      authOk: false,
+      liveConnection: false,
+      statusMessage: "claude CLI found but not authenticated",
+      installHint: "Run: claude auth login",
+    });
+    expect(availableMock).toHaveBeenCalledTimes(1);
+    expect(authMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("CodexProvider", () => {
@@ -77,6 +180,21 @@ describe("CodexProvider", () => {
         },
       },
     });
+  });
+
+  test("healthCheck returns normalized authenticated status via mocks", async () => {
+    const availableMock = mock(async () => true);
+    const authMock = mock(async () => undefined);
+    const mockedProvider = new MockCodexProvider(availableMock, authMock);
+
+    await expect(mockedProvider.healthCheck()).resolves.toEqual({
+      available: true,
+      authOk: true,
+      liveConnection: true,
+      statusMessage: "codex CLI available and authenticated",
+    });
+    expect(availableMock).toHaveBeenCalledTimes(1);
+    expect(authMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -112,6 +230,22 @@ describe("GeminiProvider", () => {
       },
     });
   });
+
+  test("healthCheck returns normalized missing-install status via mocks", async () => {
+    const availableMock = mock(async () => false);
+    const authMock = mock(async () => undefined);
+    const mockedProvider = new MockGeminiProvider(availableMock, authMock);
+
+    await expect(mockedProvider.healthCheck()).resolves.toEqual({
+      available: false,
+      authOk: false,
+      liveConnection: false,
+      statusMessage: "gemini CLI not found on PATH",
+      installHint: "Install: npm install -g @google/gemini-cli",
+    });
+    expect(availableMock).toHaveBeenCalledTimes(1);
+    expect(authMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("KimiProvider", () => {
@@ -145,6 +279,21 @@ describe("KimiProvider", () => {
         },
       },
     });
+  });
+
+  test("healthCheck returns normalized authenticated status via mocks", async () => {
+    const availableMock = mock(async () => true);
+    const authMock = mock(async () => true);
+    const mockedProvider = new MockKimiProvider(availableMock, authMock);
+
+    await expect(mockedProvider.healthCheck()).resolves.toEqual({
+      available: true,
+      authOk: true,
+      liveConnection: true,
+      statusMessage: "kimi CLI available and authenticated",
+    });
+    expect(availableMock).toHaveBeenCalledTimes(1);
+    expect(authMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -182,6 +331,22 @@ describe("OpenCodeProvider", () => {
       },
     });
   });
+
+  test("healthCheck returns normalized missing-auth status via mocks", async () => {
+    const availableMock = mock(async () => true);
+    const authMock = mock(async () => false);
+    const mockedProvider = new MockOpenCodeProvider(availableMock, authMock);
+
+    await expect(mockedProvider.healthCheck()).resolves.toEqual({
+      available: true,
+      authOk: false,
+      liveConnection: false,
+      statusMessage: "opencode CLI found but not authenticated",
+      installHint: "Check ~/.local/share/opencode/auth.json",
+    });
+    expect(availableMock).toHaveBeenCalledTimes(1);
+    expect(authMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("ProviderRegistry", () => {
@@ -212,7 +377,9 @@ describe("ProviderRegistry", () => {
   });
 
   test("getProvider throws for unknown provider", () => {
-    expect(() => registry.getProvider("unknown" as "claude")).toThrow("Unknown provider: unknown");
+    expect(() => registry.getProvider("unknown" as "claude")).toThrow(
+      "Unknown provider: unknown",
+    );
   });
 
   test("all providers health-check without throwing", async () => {

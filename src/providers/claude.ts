@@ -32,10 +32,13 @@ export class ClaudeProvider extends BaseCliProvider {
     }
 
     try {
-      await execFileAsync("claude", ["auth", "status"], {
-        timeout: AUTH_CHECK_TIMEOUT_MS,
-      });
-      return this.makeHealthStatus(true, true, true, "claude CLI available and authenticated");
+      await this.checkAuth();
+      return this.makeHealthStatus(
+        true,
+        true,
+        true,
+        "claude CLI available and authenticated",
+      );
     } catch {
       return this.makeHealthStatus(
         true,
@@ -47,7 +50,10 @@ export class ClaudeProvider extends BaseCliProvider {
     }
   }
 
-  getMcpConfig(serverCommand: string, serverArgs: string[]): Record<string, unknown> {
+  getMcpConfig(
+    serverCommand: string,
+    serverArgs: string[],
+  ): Record<string, unknown> {
     return {
       mcpServers: {
         "omg-control": {
@@ -65,5 +71,11 @@ export class ClaudeProvider extends BaseCliProvider {
     } catch {
       return false;
     }
+  }
+
+  protected async checkAuth(): Promise<void> {
+    await execFileAsync("claude", ["auth", "status"], {
+      timeout: AUTH_CHECK_TIMEOUT_MS,
+    });
   }
 }

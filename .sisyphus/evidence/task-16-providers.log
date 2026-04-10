@@ -1,0 +1,20 @@
+bun test v1.3.12 (700fc117)
+----------------------------------|---------|---------|-------------------
+File                              | % Funcs | % Lines | Uncovered Line #s
+----------------------------------|---------|---------|-------------------
+All files                         |   72.49 |   91.28 |
+ src/index.ts                     |  100.00 |  100.00 | 
+ src/providers/claude.ts          |   71.43 |   88.71 | 72-78
+ src/providers/codex.ts           |   71.43 |   88.71 | 72-78
+ src/providers/gemini.ts          |   71.43 |   88.71 | 72-78
+ src/providers/index.ts           |   87.50 |  100.00 | 
+ src/providers/kimi.ts            |   71.43 |   83.82 | 73-83
+ src/providers/opencode.ts        |   87.50 |  100.00 | 
+ src/runtime/canonical-surface.ts |   25.00 |   71.59 | 81,86-98,103-106,110-116
+ src/runtime/cli-provider.ts      |   66.67 |  100.00 | 
+----------------------------------|---------|---------|-------------------
+
+ 31 pass
+ 0 fail
+ 88 expect() calls
+Ran 31 tests across 1 file. [198.00ms]

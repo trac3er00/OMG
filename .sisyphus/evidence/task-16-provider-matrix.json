@@ -1,0 +1,121 @@
+{
+  "task": 16,
+  "generatedAt": "2026-04-10",
+  "summary": {
+    "providerCount": 5,
+    "validatedWith": "bun test src/providers/",
+    "testsPassing": true,
+    "assessment": "All five adapters remain stub-level host wrappers: they normalize health status and emit host-specific MCP config, but they do not perform live prompt execution or richer capability negotiation. Claude/Codex/Gemini probe auth via CLI commands with timeout guards; Kimi/OpenCode rely on local config/auth file checks."
+  },
+  "normalized_output_interface": {
+    "type": "CliHealthStatus",
+    "fields": ["available", "authOk", "liveConnection", "statusMessage", "installHint"],
+    "consistency": "consistent across all five providers",
+    "notes": [
+      "Each provider healthCheck() returns the same normalized status object shape via BaseCliProvider.makeHealthStatus().",
+      "MCP config shape intentionally varies by host because each CLI expects a different config schema."
+    ]
+  },
+  "providers": {
+    "claude": {
+      "file": "src/providers/claude.ts",
+      "file_size": 2044,
+      "exports": ["ClaudeProvider"],
+      "methods": ["healthCheck", "getMcpConfig", "isAvailable", "checkAuth"],
+      "capabilities": {
+        "cliCommand": "claude",
+        "configFormat": "mcp-json",
+        "configPath": ".mcp.json",
+        "supportsHooks": true,
+        "supportsPresets": true,
+        "transportType": "stdio",
+        "authStrategy": "Runs `claude auth status` with 5000ms timeout",
+        "mcpConfigShape": "mcpServers"
+      },
+      "status": "validated stub",
+      "assessment": "Claude-first canonical provider. Good normalized health output and MCP config wiring, but still only a shallow CLI/auth wrapper."
+    },
+    "codex": {
+      "file": "src/providers/codex.ts",
+      "file_size": 2030,
+      "exports": ["CodexProvider"],
+      "methods": ["healthCheck", "getMcpConfig", "isAvailable", "checkAuth"],
+      "capabilities": {
+        "cliCommand": "codex",
+        "configFormat": "config-toml",
+        "configPath": "config.toml",
+        "supportsHooks": true,
+        "supportsPresets": true,
+        "transportType": "stdio",
+        "authStrategy": "Runs `codex auth status` with 5000ms timeout",
+        "mcpConfigShape": "mcp_servers"
+      },
+      "status": "validated stub",
+      "assessment": "Canonical provider with TOML-oriented MCP config. Same stub depth as Claude: health/auth detection only."
+    },
+    "gemini": {
+      "file": "src/providers/gemini.ts",
+      "file_size": 2046,
+      "exports": ["GeminiProvider"],
+      "methods": ["healthCheck", "getMcpConfig", "isAvailable", "checkAuth"],
+      "capabilities": {
+        "cliCommand": "gemini",
+        "configFormat": "settings-json",
+        "configPath": ".gemini/settings.json",
+        "supportsHooks": true,
+        "supportsPresets": true,
+        "transportType": "stdio",
+        "authStrategy": "Runs `gemini auth status` with 5000ms timeout",
+        "mcpConfigShape": "mcpServers"
+      },
+      "status": "validated stub",
+      "assessment": "Canonical provider with timeout-guarded auth check. No real execution/session management beyond status normalization."
+    },
+    "kimi": {
+      "file": "src/providers/kimi.ts",
+      "file_size": 2270,
+      "exports": ["KimiProvider"],
+      "methods": ["healthCheck", "getMcpConfig", "isAvailable", "checkAuth"],
+      "capabilities": {
+        "cliCommand": "kimi",
+        "configFormat": "kimi-json",
+        "configPath": ".kimi/mcp.json",
+        "supportsHooks": true,
+        "supportsPresets": true,
+        "transportType": "stdio",
+        "authStrategy": "Checks ~/.kimi/config.toml for a token entry",
+        "mcpConfigShape": "mcpServers"
+      },
+      "status": "validated stub",
+      "assessment": "Canonical host target, but auth validation is file-based rather than live CLI verification, so confidence is weaker than Claude/Codex/Gemini."
+    },
+    "opencode": {
+      "file": "src/providers/opencode.ts",
+      "file_size": 2552,
+      "exports": ["OpenCodeProvider"],
+      "methods": ["healthCheck", "getMcpConfig", "isAvailable", "checkAuth"],
+      "capabilities": {
+        "cliCommand": "opencode",
+        "configFormat": "mcp-json",
+        "configPath": ".mcp.json",
+        "supportsHooks": false,
+        "supportsPresets": false,
+        "transportType": "stdio",
+        "authStrategy": "Checks ~/.local/share/opencode/auth.json for any stored auth payload",
+        "mcpConfigShape": "mcp"
+      },
+      "status": "validated compatibility stub",
+      "assessment": "Compatibility-only provider. Normalized status is consistent, but feature support is intentionally reduced versus canonical hosts."
+    }
+  },
+  "tests": {
+    "file": "src/providers/providers.test.ts",
+    "mockBasedCoverage": {
+      "claude": "mocked availability/auth failure path",
+      "codex": "mocked availability/auth success path",
+      "gemini": "mocked missing-install path",
+      "kimi": "mocked availability/auth success path",
+      "opencode": "mocked missing-auth path"
+    }
+  }
+}
