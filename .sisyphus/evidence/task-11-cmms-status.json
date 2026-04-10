@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-04-10T00:00:00Z",
+  "typescript": {
+    "hasTiering": false,
+    "notes": "src/state/memory-store.ts is a monolithic 293-line SQLite-backed store with encryption, PII redaction, FTS, and a 10k namespace limit, but no Auto/Micro/Ship CMMS routing."
+  },
+  "python": {
+    "hasTiering": true,
+    "tierMethods": [
+      "_auto_cache",
+      "_delete_micro_value",
+      "_get_micro_value",
+      "_get_tier",
+      "_has_micro_key",
+      "_load_ship",
+      "_micro_access_counts",
+      "_set_micro_value",
+      "_ship_index",
+      "_ship_path",
+      "_tier_config",
+      "_write_ship"
+    ],
+    "notes": "runtime/memory_store.py exposes Auto/Micro/Ship-related members and tier config; runtime/memory_encrypt.py remains absent from the Python side."
+  }
+}

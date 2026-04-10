@@ -1,0 +1,18 @@
+bun test v1.3.12 (700fc117)
+-----------------------------|---------|---------|-------------------
+File                         | % Funcs | % Lines | Uncovered Line #s
+-----------------------------|---------|---------|-------------------
+All files                    |   80.06 |   86.05 |
+ src/index.ts                |  100.00 |  100.00 | 
+ src/security/crypto.ts      |   44.44 |   85.71 | 70,74-77,82,86
+ src/state/atomic-io.ts      |   20.00 |   25.00 | 16-19,23-39,43-50,54-73,77,81-111,115-119,123,129,141
+ src/state/database.ts       |  100.00 |  100.00 | 
+ src/state/file-lock.ts      |  100.00 |   95.24 | 
+ src/state/memory-store.ts   |   96.00 |   96.36 | 277-282
+ src/state/state-resolver.ts |  100.00 |  100.00 | 
+-----------------------------|---------|---------|-------------------
+
+ 36 pass
+ 0 fail
+ 61 expect() calls
+Ran 36 tests across 5 files. [1166.00ms]

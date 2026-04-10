@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-04-10T00:00:00Z",
+  "summary": {
+    "typescriptStateTests": {
+      "command": "export PATH=\"$HOME/.bun/bin:$PATH\" && bun test src/state/",
+      "passed": true,
+      "passes": 36,
+      "failures": 0
+    },
+    "typescriptCoverageChecks": {
+      "storeRetrieveRoundTrip": true,
+      "encryptionRoundTrip": true,
+      "piiRedaction": true,
+      "capacityLimit": true
+    },
+    "pythonImportCheck": {
+      "passed": true,
+      "command": "python3 -c \"import sys; sys.path.insert(0, '.'); from runtime.memory_store import MemoryStore\""
+    }
+  },
+  "drift": [
+    {
+      "area": "cmms-tiering",
+      "typescript": "No Auto/Micro/Ship tier routing in src/state/memory-store.ts.",
+      "python": "runtime/memory_store.py implements AUTO/MICRO/SHIP handling via _auto_cache, micro helpers, and ship persistence.",
+      "impact": "Cross-runtime CMMS claims are currently asymmetric; TypeScript remains a single-store implementation."
+    },
+    {
+      "area": "backend-shape",
+      "typescript": "SQLite-only backing store through OmgDatabase and memories/memories_fts tables.",
+      "python": "Supports SQLite and JSON backends, plus ship-side JSONL persistence.",
+      "impact": "Runtime behavior and persistence options differ across hosts."
+    },
+    {
+      "area": "encryption-stack",
+      "typescript": "Uses src/security/crypto.ts payload encryption/decryption with derived key caching.",
+      "python": "Encrypts through Fernet inside runtime/memory_store.py, but roadmap-referenced runtime/memory_encrypt.py is missing.",
+      "impact": "Both runtimes encrypt at rest, but the Python module layout diverges from the roadmap and from TypeScript's dedicated crypto module pattern."
+    },
+    {
+      "area": "data-model",
+      "typescript": "MemoryEntry tracks key, namespace, content, tags, runId, sourceCli, createdAt, updatedAt.",
+      "python": "Memory items also track profile_id, retention_days, expires_at, quarantined state, artifacts, and promotion flows.",
+      "impact": "Python memory semantics are broader than the current TypeScript state store contract."
+    }
+  ]
+}
