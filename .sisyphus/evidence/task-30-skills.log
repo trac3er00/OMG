@@ -1,0 +1,759 @@
+$ bun run src/skills/validator.ts
+{
+  "schema": "SkillValidationReport",
+  "timestamp": "2026-04-10T12:31:17.511Z",
+  "total": 46,
+  "validated": 3,
+  "stub": 22,
+  "missing": 21,
+  "details": [
+    {
+      "id": "@claude/artifacts",
+      "name": "Artifacts",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/claude/artifacts"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@claude/extended-reasoning",
+      "name": "Extended Reasoning",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/claude/extended-reasoning"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@claude/mcp-orchestrate",
+      "name": "MCP Orchestrate",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/claude/mcp-orchestrate"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@codex/multi-file",
+      "name": "Multi-File",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/codex/multi-file"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@codex/patch-optimize",
+      "name": "Patch Optimize",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/codex/patch-optimize"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@codex/sandbox-execute",
+      "name": "Sandbox Execute",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/codex/sandbox-execute"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@forge",
+      "name": "Forge",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/universal/forge"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@gemini/long-context",
+      "name": "Long Context",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/gemini/long-context"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@gemini/multimodal",
+      "name": "Multimodal",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/gemini/multimodal"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@gemini/reasoning",
+      "name": "Reasoning",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/gemini/reasoning"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@governance",
+      "name": "Governance",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/universal/governance"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@kimi/code-generation",
+      "name": "Code Generation",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/kimi/code-generation"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@kimi/long-context",
+      "name": "Long Context",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/kimi/long-context"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@kimi/moonshot",
+      "name": "Moonshot",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/kimi/moonshot"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@kimi/web-search",
+      "name": "Web Search",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/kimi/web-search"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@memory",
+      "name": "Memory",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/universal/memory"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@opencode/agent-council",
+      "name": "Agent Council",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/opencode/agent-council"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@opencode/multi-session",
+      "name": "Multi-Session",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/opencode/multi-session"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@opencode/tmux-orchestrate",
+      "name": "Tmux Orchestrate",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/opencode/tmux-orchestrate"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@orchestrate",
+      "name": "Orchestrate",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/universal/orchestrate"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "@proof",
+      "name": "Proof",
+      "source": "registry",
+      "status": "missing",
+      "descriptor": {
+        "found": false,
+        "path": "skills/universal/proof"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/algorithms",
+      "name": "omg-algorithms",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/algorithms"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/api-twin",
+      "name": "omg-api-twin",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/api-twin"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/ast-pack",
+      "name": "omg-ast-pack",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/ast-pack"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/claim-judge",
+      "name": "omg-claim-judge",
+      "source": "omg",
+      "status": "validated",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/claim-judge"
+      },
+      "implementation": {
+        "found": true,
+        "path": "src/verification/claim-judge.ts"
+      },
+      "tests": {
+        "found": true,
+        "path": "src/verification/claim-judge.test.ts",
+        "passed": true
+      }
+    },
+    {
+      "id": "omg/control-plane",
+      "name": "omg-control-plane",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/control-plane"
+      },
+      "implementation": {
+        "found": true,
+        "path": "src/mcp/server.ts"
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/data-lineage",
+      "name": "omg-data-lineage",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/data-lineage"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/delta-classifier",
+      "name": "omg-delta-classifier",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/delta-classifier"
+      },
+      "implementation": {
+        "found": true,
+        "path": "src/runtime/contract-compiler/validation.ts"
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/eval-gate",
+      "name": "omg-eval-gate",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/eval-gate"
+      },
+      "implementation": {
+        "found": true,
+        "path": "src/eval/runner.ts"
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/hash-edit",
+      "name": "omg-hash-edit",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/hash-edit"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/health",
+      "name": "omg-health",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/health"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/hook-governor",
+      "name": "omg-hook-governor",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/hook-governor"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/incident-replay",
+      "name": "omg-incident-replay",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/incident-replay"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/lsp-pack",
+      "name": "omg-lsp-pack",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/lsp-pack"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/mcp-fabric",
+      "name": "omg-mcp-fabric",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/mcp-fabric"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/plan-council",
+      "name": "omg-plan-council",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/plan-council"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/preflight",
+      "name": "omg-preflight",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/preflight"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/proof-gate",
+      "name": "omg-proof-gate",
+      "source": "omg",
+      "status": "validated",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/proof-gate"
+      },
+      "implementation": {
+        "found": true,
+        "path": "src/verification/proof-gate.ts"
+      },
+      "tests": {
+        "found": true,
+        "path": "src/verification/proof-gate.test.ts",
+        "passed": true
+      }
+    },
+    {
+      "id": "omg/remote-supervisor",
+      "name": "omg-remote-supervisor",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/remote-supervisor"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/robotics",
+      "name": "omg-robotics",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/robotics"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/secure-worktree-pipeline",
+      "name": "omg-secure-worktree-pipeline",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/secure-worktree-pipeline"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/security-check",
+      "name": "omg-security-check",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/security-check"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/terminal-lane",
+      "name": "omg-terminal-lane",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/terminal-lane"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/test-intent-lock",
+      "name": "omg-test-intent-lock",
+      "source": "omg",
+      "status": "validated",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/test-intent-lock"
+      },
+      "implementation": {
+        "found": true,
+        "path": "src/verification/test-intent-lock.ts"
+      },
+      "tests": {
+        "found": true,
+        "path": "src/verification/test-intent-lock.test.ts",
+        "passed": true
+      }
+    },
+    {
+      "id": "omg/tracebank",
+      "name": "omg-tracebank",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/tracebank"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    },
+    {
+      "id": "omg/vision",
+      "name": "omg-vision",
+      "source": "omg",
+      "status": "stub",
+      "descriptor": {
+        "found": true,
+        "path": ".agents/skills/omg/vision"
+      },
+      "implementation": {
+        "found": false
+      },
+      "tests": {
+        "found": false
+      }
+    }
+  ]
+}
