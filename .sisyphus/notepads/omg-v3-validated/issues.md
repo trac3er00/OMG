@@ -22,11 +22,14 @@
 - Task 10: TypeScript LSP diagnostics could not run because typescript-language-server is not installed in this environment.
 - 2026-04-10 Task 8: `src/mcp/server.ts` was only registering `omg_ping` plus `newCapabilityTools`, so canonical health/policy/verification MCP tools were absent from `tools/list` until the built-in registry was restored.
 - 2026-04-10 Task 8: MCP server handlers needed explicit error-result wrapping so malformed tool payloads return structured MCP errors instead of tearing down the request path.
+
+- 2026-04-10 Task 7: orchestration validation added direct coverage for exec-kernel passthrough delegation, session event retention, skeptical routing checks, execution-controller registration, and checkpoint-backed pause/continue state round-trips.
+- 2026-04-10 Task 7: TypeScript LSP diagnostics are still unavailable in this environment because typescript-language-server is not installed, so bun test evidence was used to confirm changed orchestration tests compile and pass.
+- 2026-04-10 Task 9: `ToolFabric.evaluateRequest()` previously swallowed ledger write failures and `getLedgerEntries()` tolerated malformed JSONL; validation now requires write/read errors to surface so persisted governance decisions are auditable.
+- 2026-04-10 Task 9: enforcement validation confirmed `MutationGate` is a hard block for dangerous mutations, while `ToolFabric` remains soft-block overall because the default lane still passes through unless a restrictive lane is explicitly configured.
+- 2026-04-10 Task 13: Python hook validation exposed missing import-friendly helper entry points in `hooks/firewall.py` and `hooks/secret-guard.py`; added callable screening helpers plus lifecycle coverage proving the TypeScript hook manager preserves `pre-tool -> tool -> post-tool` ordering.
+- 2026-04-10 Task 14: validation strengthened target-module coverage with explicit context freshness scaling assertions, deterministic calibration accuracy/FPR/FNR checks, and a five-perspective debate convergence test that confirms non-blocking consensus emerges with dissent recorded.
+- 2026-04-10 Task 14: `bun test src/context/ src/reliability/ src/debate/` passed with 228 pass / 0 fail and evidence logged to `.sisyphus/evidence/task-14-modules.log`.
+- 2026-04-10 Task 14: TypeScript `lsp_diagnostics` on changed test files could not run because `typescript-language-server` is not installed in this environment; Bun test + build were used as verification evidence instead.
 - 2026-04-10 Task 12: verification validation confirmed `bun test src/verification/` passes at 86 pass / 0 fail after adding stale-artifact blocking coverage to `proof-gate`, plus an explicit proof-gate rejection case for claims without evidence.
 - 2026-04-10 Task 12: TypeScript LSP diagnostics remain unavailable in this environment because `typescript-language-server` is not installed, so clean verification was established with Bun test evidence instead.
-- 2026-04-10 Task 16: all five TypeScript provider adapters are still stub-level wrappers; they normalize `CliHealthStatus` and host-specific MCP config but do not implement real prompt/session execution.
-- 2026-04-10 Task 16: Claude/Codex/Gemini auth checks are timeout-guarded CLI probes, while Kimi/OpenCode only inspect local auth/config files, so provider confidence is intentionally uneven.
-- 2026-04-10 Task 16: OpenCode remains compatibility-only (`supportsHooks=false`, `supportsPresets=false`) even though its normalized provider status now tests cleanly.
-- 2026-04-10 Task 15: `npx omg` initially failed with `sh: 1: omg: Permission denied` because `src/cli/index.ts` lacked the executable bit even though it is the published package bin entry.
-- 2026-04-10 Task 15: the categorized command list in `src/cli/index.ts` advertises many commands that are not registered with yargs, so the public CLI surface currently mixes working, stub, and broken entries.
-- 2026-04-10 Task 15: `instant` is registered but still behaves like a stub because its handler only echoes the prompt instead of running scaffold/workflow logic.

@@ -1,0 +1,10 @@
+Environment diagnostics (4/8 found)
+  [32m✔[0m bun [33m1.3.12[0m
+  [32m✔[0m node [33mv24.14.1[0m
+  [32m✔[0m python [33mPython 3.11.2[0m
+  [32m✔[0m git [33mgit version 2.39.5[0m
+  [31m✖[0m claude (missing)
+  [31m✖[0m codex (missing)
+  [31m✖[0m gemini (missing)
+  [31m✖[0m kimi (missing)
+[31m4 required tool(s) are missing from PATH.[0m

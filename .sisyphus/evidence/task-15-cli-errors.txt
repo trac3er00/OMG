@@ -1,0 +1,40 @@
+omg <command>
+
+Commands:
+  omg commands                     Print categorized OMG command index
+  omg env doctor                   Run environment diagnostics
+  omg init                         Interactive first-time setup wizard (doctor →
+                                   plan → confirm → apply)
+  omg install                      Plan or apply OMG host setup
+  omg ship                         Run ship workflow
+  omg instant <prompt>             Build anything with one command - scaffold +
+                                   code + preview
+  omg autorun <goal...>            Run governed pipeline (plan → review →
+                                   execute → verify) for a goal
+  omg proof                        Inspect latest proof artifacts
+  omg blocked                      Show latest blocked explanation
+  omg hooks                        Inspect registered hook scripts
+  omg skills                       Inspect installed OMG skills
+  omg memory                       Inspect structured memory categories
+  omg pause                        Pause current session and write checkpoint
+  omg continue                     Restore session from the most recent
+                                   checkpoint
+  omg lsp                          Show LSP server status
+  omg validate                     Run validation checks
+  omg audit                        Audit log management
+  omg evidence                     Evidence retention and querying
+  omg contract                     Contract compilation and validation
+  omg migrate                      Migrate OMG project config between versions
+  omg handoff                      Produce structured session handoff document
+  omg next                         Analyze project health and surface next
+                                   improvements
+  omg red-team [scope]             Run adversarial security review
+  omg domains [subcommand] [pack]  Domain pack discovery and scaffolding
+  omg autoresearch <topic>         Perform deep research on a topic and generate
+                                   a structured report
+
+Options:
+      --help     Show help                                             [boolean]
+  -v, --version  2.3.0                                                 [boolean]
+
+Unknown argument: nonexistent-command
