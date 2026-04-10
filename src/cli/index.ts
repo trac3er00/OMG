@@ -12,7 +12,7 @@ import { pauseCommand } from "./commands/pause.js";
 import { skillsListCommand } from "./commands/skills.js";
 import { governanceStatusCommand } from "./commands/governance.js";
 
-const CLI_VERSION = "2.3.0";
+const CLI_VERSION = "3.0.0";
 
 type CommandItem = {
   readonly name: string;

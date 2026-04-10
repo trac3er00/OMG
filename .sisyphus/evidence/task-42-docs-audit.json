@@ -1,0 +1,32 @@
+[
+  {
+    "file": "README.md",
+    "status": "stale",
+    "changes": "Updated with IMSS/DSS/USS memory tiers, Vision/OCR beta info, 6 providers explicit mention, and governance enforcement levels."
+  },
+  {
+    "file": "docs/architecture.md",
+    "status": "missing",
+    "changes": "Created new architecture overview covering core principles, components, and module structure."
+  },
+  {
+    "file": "docs/providers.md",
+    "status": "missing",
+    "changes": "Created new providers guide listing all 6 supported hosts and their characteristics."
+  },
+  {
+    "file": "docs/governance.md",
+    "status": "missing",
+    "changes": "Created new governance documentation covering enforcement levels, gates, and user configuration."
+  },
+  {
+    "file": "docs/GETTING-STARTED.md",
+    "status": "accurate",
+    "changes": "Verified and remains accurate for initial setup."
+  },
+  {
+    "file": "docs/command-surface.md",
+    "status": "stale",
+    "changes": "Verified against implementation. Noted version mismatch in header (v2.3.0 vs v3.0.0 implementation)."
+  }
+]

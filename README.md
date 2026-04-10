@@ -54,11 +54,27 @@ ProofGate requires machine-generated evidence (test results, build logs, etc.) f
 Monitor your agent's activity, ProofScore (0-100), and system health in real-time.
 (에이전트 활동, 증거 점수(0-100), 시스템 상태를 실시간으로 모니터링하세요.)
 
-### 🧠 CMMS Memory Tiers
+### 🧠 CMMS Memory Tiers (IMSS/DSS/USS)
 
 **Auto/Micro/Ship tier-aware memory routing.**
 CMMS automatically routes state and context to the most efficient memory tier based on task complexity and persistence requirements.
-(작업 복잡도와 영속성 요구 사항에 따라 상태와 컨텍스트를 가장 효율적인 메모리 계층으로 자동 라우팅합니다.)
+
+- **IMSS** (Instant Mode Session State): Ephemeral, high-performance in-memory state.
+- **DSS** (Deep Session State): Project-local persistent state for long-running tasks.
+- **USS** (User-wide Shared State): Cross-project state for consistent user preferences and patterns.
+  (작업 복잡도와 영속성 요구 사항에 따라 상태와 컨텍스트를 가장 효율적인 메모리 계층으로 자동 라우팅합니다. IMSS, DSS, USS를 통해 최적화된 상태 관리를 제공합니다.)
+
+### 👁️ Vision & OCR (Beta)
+
+**Semantic image analysis and visual verification.**
+OMG now includes a Vision module for OCR, visual diffing, and semantic analysis of UI components. Perfect for verifying frontend changes or analyzing diagrams.
+(OCR, 시각적 차이점 비교, UI 컴포넌트 시맨틱 분석을 지원합니다. 프론트엔드 변경 사항 검증이나 다이어그램 분석에 최적입니다.)
+
+### ⚖️ Governance Levels
+
+**Advisory and Enforced enforcement modes.**
+Every gate in OMG can be configured to either **Warn (Advisory)** or **Block (Enforced)**. Users maintain full control via `governance.yaml` to balance velocity and safety.
+(모든 게이트는 경고(Advisory) 또는 차단(Enforced) 모드로 설정 가능합니다. 사용자는 governance.yaml을 통해 속도와 안전의 균형을 직접 제어할 수 있습니다.)
 
 ### ⏸️ /pause and /continue
 
@@ -197,6 +213,7 @@ graph TD
 OMG keeps the host you already use, then adds governed install, proof, and release surfaces on top.
 
 - Canonical host parity targets are Claude, Codex, Gemini, and Kimi.
+- Ollama is supported as a local-first provider for private execution.
 - OpenCode remains a supported compatibility host for teams that need it.
 - Install and verification stay explicit: doctor first, preview second, apply last.
 
@@ -291,7 +308,7 @@ claude mcp add omg npx @trac3r/oh-my-god
 After installation, OMG's governance, orchestration, and skill system are available:
 
 - **Universal skills**: `@governance`, `@orchestrate`, `@memory`, `@proof`, `@forge`
-- **Provider skills**: Claude (`@claude/*`), Codex (`@codex/*`), OpenCode (`@opencode/*`), Gemini (`@gemini/*`)
+- **Provider skills**: Claude (`@claude/*`), Codex (`@codex/*`), OpenCode (`@opencode/*`), Gemini (`@gemini/*`), Kimi (`@kimi/*`), Ollama (`@ollama/*`)
 - **Registry**: `registry/skills.json` lists all available skills
 
 ## Native Adoption
