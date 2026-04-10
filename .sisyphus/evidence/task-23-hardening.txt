@@ -1,0 +1,32 @@
+Task 23: Governance Hardening — Soft-Block → Hard-Block
+=========================================================
+
+Changes:
+- Created src/governance/enforcement.ts:
+  - GovernanceEnforcement type: "advisory" | "enforced"
+  - DEFAULT_ENFORCEMENT = "enforced"
+  - GovernanceBlockError class (thrown on deny in enforced mode)
+  - ForceOverrideRecord interface (audit trail type)
+
+- Updated src/security/mutation-gate.ts:
+  - Added MutationGateOptions: { enforcement?, force?, onForceOverride? }
+  - checkMutationAllowed: new optional 8th parameter `opts`
+  - Deny in enforced mode (default) → throws GovernanceBlockError
+  - Deny in advisory mode → returns { allowed: false } (soft-block, unchanged)
+  - Force override → bypasses gate, returns allowed=true, calls onForceOverride callback
+
+- Updated src/governance/tool-fabric.ts:
+  - Added ToolFabricExecuteOptions: { enforcement?, force?, onForceOverride? }
+  - executeTool: new optional 5th parameter `opts`
+  - Deny in enforced mode (default) → throws GovernanceBlockError
+  - Deny in advisory mode → returns deny result without throwing
+  - Force override → returns warn result, calls onForceOverride callback
+
+- Updated src/mcp/tools/policy.ts:
+  - MutationGateDeps.checkMutationAllowed: updated signature with opts
+  - Handler catches GovernanceBlockError → returns { allowed: false, reason }
+
+Test Results: 113 pass, 0 fail across 7 files
+- src/governance/ (58 tests) — all pass
+- src/security/mutation-gate.test.ts (36 tests) — all pass
+- src/mcp/tools/policy.test.ts (19 tests) — all pass
