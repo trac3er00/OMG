@@ -19,6 +19,25 @@ const SECRET_FILE_PATTERNS: readonly RegExp[] = [
   /(^|\/)secrets\.ya?ml$/i,
 ];
 
+const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
+  /(API_KEY\s*=\s*)(sk-[A-Za-z0-9]+)/gi,
+];
+
+function replaceWithRedaction(): string {
+  return "[REDACTED]";
+}
+
+export function redactSecrets(content: string): string {
+  return SECRET_VALUE_PATTERNS.reduce(
+    (redacted, pattern) =>
+      redacted.replace(
+        pattern,
+        (_match, prefix: string) => `${prefix}${replaceWithRedaction()}`,
+      ),
+    content,
+  );
+}
+
 export interface SecretGuardConfig {
   readonly projectDir: string;
   readonly allowlist?: readonly string[];
@@ -32,10 +51,15 @@ export class SecretGuard {
   constructor(config: SecretGuardConfig) {
     this.resolver = new StateResolver(config.projectDir);
     this.allowlist = new Set(config.allowlist ?? []);
-    this.auditPath = this.resolver.resolve(join("ledger", "secret-access.jsonl"));
+    this.auditPath = this.resolver.resolve(
+      join("ledger", "secret-access.jsonl"),
+    );
   }
 
-  async evaluateFileAccess(tool: string, filePath: string): Promise<SecretGuardResult> {
+  async evaluateFileAccess(
+    tool: string,
+    filePath: string,
+  ): Promise<SecretGuardResult> {
     const normalized = filePath.replace(/\\/g, "/");
 
     // Allowlist bypass
@@ -85,5 +109,9 @@ export class SecretGuard {
       allowlisted: false,
       auditLogged: false,
     };
+  }
+
+  redactContent(content: string): string {
+    return redactSecrets(content);
   }
 }

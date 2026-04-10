@@ -1,7 +1,16 @@
 import type { MutationCheck } from "../interfaces/security.js";
-import type { MutationOperation, PolicyDecision } from "../interfaces/policy.js";
+import type {
+  MutationOperation,
+  PolicyDecision,
+} from "../interfaces/policy.js";
 
-export const MUTATION_CAPABLE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "Bash", "TodoWrite"]);
+export const MUTATION_CAPABLE_TOOLS = new Set([
+  "Write",
+  "Edit",
+  "MultiEdit",
+  "Bash",
+  "TodoWrite",
+]);
 
 const CRITICAL_FILE_PATTERNS = [
   /^\.env($|\.|\/)/,
@@ -62,7 +71,7 @@ function operationForTool(tool: string): MutationOperation {
 }
 
 function makeDecision(
-  action: "allow" | "deny",
+  action: "allow" | "warn" | "deny",
   reason: string,
   riskLevel: "low" | "medium" | "high" | "critical",
   runId: string,
@@ -105,7 +114,7 @@ export async function checkMutationAllowed(
       reason: `Mutation allowed via exemption: ${exemption}`,
       operation,
       exemption,
-      decision: makeDecision("allow", "Exemption granted", "medium", runId),
+      decision: makeDecision("warn", "Exemption granted", "medium", runId),
       riskScore: 30,
     };
   }
@@ -113,9 +122,15 @@ export async function checkMutationAllowed(
   if (tool === "Bash" && command && hasBashMutationPattern(command)) {
     return {
       allowed: false,
-      reason: "Blocked: destructive or dangerous bash pattern detected in command",
+      reason:
+        "Blocked: destructive or dangerous bash pattern detected in command",
       operation,
-      decision: makeDecision("deny", "Destructive bash pattern", "critical", runId),
+      decision: makeDecision(
+        "deny",
+        "Destructive bash pattern",
+        "critical",
+        runId,
+      ),
       riskScore: 100,
     };
   }
@@ -125,7 +140,12 @@ export async function checkMutationAllowed(
       allowed: false,
       reason: `Blocked: mutation to critical file '${filePath}' is not allowed`,
       operation,
-      decision: makeDecision("deny", "Critical file protection", "critical", runId),
+      decision: makeDecision(
+        "deny",
+        "Critical file protection",
+        "critical",
+        runId,
+      ),
       riskScore: 95,
     };
   }

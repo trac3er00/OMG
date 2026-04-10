@@ -13,6 +13,12 @@ import {
 import { generateKeyPairSync } from "node:crypto";
 
 describe("AES-256-GCM", () => {
+  test("encrypt sensitive payload then decrypts to original", async () => {
+    const key = await deriveKey("passphrase", "salt12345678901234567890");
+    const payload = encrypt("sensitive", key);
+    expect(decrypt(payload, key)).toBe("sensitive");
+  });
+
   test("encrypt/decrypt roundtrip", async () => {
     const key = await deriveKey("passphrase", "salt12345678901234567890");
     const plaintext = "Hello, OMG v3!";
@@ -64,17 +70,22 @@ describe("PBKDF2 key derivation", () => {
   test("same inputs produce same key (deterministic)", async () => {
     const k1 = await deriveKey("test", "salt");
     const k2 = await deriveKey("test", "salt");
-    expect(Buffer.from(k1).toString("hex")).toBe(Buffer.from(k2).toString("hex"));
+    expect(Buffer.from(k1).toString("hex")).toBe(
+      Buffer.from(k2).toString("hex"),
+    );
   });
 
   test("different passphrases produce different keys", async () => {
     const k1 = await deriveKey("pass1", "salt");
     const k2 = await deriveKey("pass2", "salt");
-    expect(Buffer.from(k1).toString("hex")).not.toBe(Buffer.from(k2).toString("hex"));
+    expect(Buffer.from(k1).toString("hex")).not.toBe(
+      Buffer.from(k2).toString("hex"),
+    );
   });
 
   test("Python PBKDF2 parity: known hex output", async () => {
-    const expected = "aef7d31b8440f1227cf763f710086f7acfd656450e828b8a190f79b71d840b2c";
+    const expected =
+      "aef7d31b8440f1227cf763f710086f7acfd656450e828b8a190f79b71d840b2c";
     const key = await deriveKey("testpassphrase", "testsalt12345678", 600_000);
     expect(Buffer.from(key).toString("hex")).toBe(expected);
   });
@@ -127,7 +138,9 @@ describe("HMAC-SHA256", () => {
 
 describe("SHA-256 hash", () => {
   test("known hash", () => {
-    expect(hash("hello")).toBe("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824");
+    expect(hash("hello")).toBe(
+      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+    );
   });
 
   test("different inputs differ", () => {

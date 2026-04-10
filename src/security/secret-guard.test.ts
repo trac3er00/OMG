@@ -1,12 +1,15 @@
 import { describe, test, expect } from "bun:test";
-import { SecretGuard } from "./secret-guard.js";
+import { SecretGuard, redactSecrets } from "./secret-guard.js";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { rmSync } from "node:fs";
 
 describe("SecretGuard", () => {
   function mkDir(): string {
-    return join(tmpdir(), `omg-sg-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    return join(
+      tmpdir(),
+      `omg-sg-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
   }
 
   test(".env access blocked", async () => {
@@ -141,6 +144,22 @@ describe("SecretGuard", () => {
       const result = await guard.evaluateFileAccess("Write", "config.ts");
       expect(result.tool).toBe("Write");
       expect(result.filePath).toBe("config.ts");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("API key values are redacted", () => {
+    expect(redactSecrets("API_KEY=sk-abc123")).toBe("API_KEY=[REDACTED]");
+  });
+
+  test("instance redacts API key values", () => {
+    const dir = mkDir();
+    try {
+      const guard = new SecretGuard({ projectDir: dir });
+      expect(guard.redactContent("API_KEY=sk-abc123")).toBe(
+        "API_KEY=[REDACTED]",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
