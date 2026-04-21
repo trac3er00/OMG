@@ -100,6 +100,28 @@
   - `~/.bun/bin/bun test src/providers/ollama-cloud.test.ts`
   - `~/.bun/bin/bunx tsc --noEmit` (only pre-existing `src/context/compiler.ts` error)
 
+## [2026-04-21] Task 17 — 57 Hook Full Coverage Suite
+
+### Implementation learnings
+- Reusing `tests/production/test_hook_inventory.py` helpers (`discover_hooks`, `run_hook`, `load_hook_matrix`) keeps new hook-suite behavior aligned with T13 inventory env defaults (`OMG_HOOK_INVENTORY_TEST=1`, strict ambiguity disabled in test mode).
+- Firewall output schema is host-adapter dependent: production assertions should read `hookSpecificOutput.permissionDecision` first, then fall back to legacy `decision` key.
+- `runtime.hook_governor.validate_order("PreToolUse", get_canonical_order("PreToolUse"))` is a stable pipeline integrity check that verifies required security hook precedence without mutating hooks.
+
+### Verification learnings
+- Focused suite command: `python3 -m pytest tests/production/test_hook_full_coverage.py -v`.
+- In this repo, test execution can emit noisy `pytest-cov`/`.coverage` sqlite warnings; functional pass condition still captured by per-test PASS lines and final `6 passed` summary.
+
+## [2026-04-21] Task 14 — Multi-AI Escalation Test Suite
+
+### Test design learnings
+- `multi-force.ts` currently expresses `ollama-cloud` in both `PROVIDER_STRENGTHS` and `CATEGORY_FALLBACKS`, while canonical provider count is better asserted against `runtime/providers/provider_registry.py`.
+- `runtime/equalizer.py` carries authoritative tier signals (`_COST_TIERS`) and canonical provider list (`_PROVIDERS`), so production tests should validate those strings directly for routing/cost compliance smoke checks.
+- Real API checks should stay key-gated (`skipif`) and avoid network calls in default execution, so `-m "not real_api"` runs deterministic file-contract validations only.
+
+### Verification learnings
+- Targeted run `pytest tests/production/test_multi_ai_escalation.py -m "not real_api" -v` is sufficient to validate local routing/cost coverage without external credentials.
+- `lsp_diagnostics` for Python files can be kept clean without local pytest stubs by loading pytest via `importlib` plus typed protocol casting.
+
 ## [2026-04-21] Task 15 — Sub-agent orchestration test suite
 
 ### Test suite implementation notes

@@ -1,0 +1,22 @@
+[task-14] Multi-AI escalation routing test evidence
+Date: 2026-04-21
+Command: pytest tests/production/test_multi_ai_escalation.py -m "not real_api" -v
+
+Observed result from pytest stream:
+- 8 collected
+- 6 PASSED
+- 2 SKIPPED (real API key-gated tests)
+
+Key test outcomes:
+- TestRoutingAccuracy::test_provider_strengths_define_ollama_cloud PASSED
+- TestRoutingAccuracy::test_cost_tiers_define_ollama_cloud PASSED
+- TestRoutingAccuracy::test_all_providers_in_registry PASSED
+- TestRoutingAccuracy::test_routing_fallback_chain_defined PASSED
+- TestCostTierCompliance::test_equalizer_cost_tier_shape PASSED
+- TestCostTierCompliance::test_provider_count PASSED
+- TestRealAPIEscalation::test_claude_api_key_present SKIPPED (No ANTHROPIC_API_KEY)
+- TestRealAPIEscalation::test_ollama_cloud_api_key_present SKIPPED (No OLLAMA_API_KEY)
+
+Note:
+- Pytest output was truncated by tooling due excessive coverage warnings from a pre-existing .coverage state issue.
+- Functional test statuses above were visible before truncation and indicate suite PASS.
