@@ -1,3 +1,6 @@
+import { randomBytes } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { OmgDatabase } from "./database.js";
 import { StateResolver } from "./state-resolver.js";
 import {
@@ -9,10 +12,11 @@ import {
 
 const DEFAULT_CAPACITY_LIMIT = 10_000;
 const DEFAULT_NAMESPACE = "default";
-const DEFAULT_PASSPHRASE = "omg-memory-store-v3-default";
 const DEFAULT_SALT = "omg-memory-store-v3-salt";
-const STORE_KEY_DERIVE_ITERATIONS = 100_000;
+const STORE_KEY_DERIVE_ITERATIONS = 600_000;
 const DEFAULT_DB_FILENAME = "memory.sqlite3";
+const MEMORY_SECRET_FILENAME = "memory-store.key";
+const MEMORY_SECRET_BYTES = 32;
 
 const PII_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, "[REDACTED:EMAIL]"],
@@ -76,6 +80,22 @@ export interface MemoryStoreConfig {
   readonly dbFileName?: string;
 }
 
+function loadOrCreateStorePassphrase(stateDir: string): string {
+  const keyPath = join(stateDir, MEMORY_SECRET_FILENAME);
+  if (existsSync(keyPath)) {
+    return readFileSync(keyPath, "utf8").trim();
+  }
+
+  if (!existsSync(stateDir)) {
+    mkdirSync(stateDir, { recursive: true });
+  }
+
+  const secret = randomBytes(MEMORY_SECRET_BYTES).toString("hex");
+  writeFileSync(keyPath, secret, { mode: 0o600 });
+  chmodSync(keyPath, 0o600);
+  return secret;
+}
+
 export class MemoryStore {
   private readonly db: OmgDatabase;
   private readonly namespace: string;
@@ -86,13 +106,16 @@ export class MemoryStore {
   constructor(config: MemoryStoreConfig) {
     this.namespace =
       (config.namespace ?? DEFAULT_NAMESPACE).trim() || DEFAULT_NAMESPACE;
-    this.passphrase = config.passphrase ?? DEFAULT_PASSPHRASE;
     this.capacityLimit = Math.max(
       1,
       config.capacityLimit ?? DEFAULT_CAPACITY_LIMIT,
     );
 
     const resolver = new StateResolver(config.projectDir);
+    const configuredPassphrase =
+      config.passphrase ?? process.env.OMG_MEMORY_PASSPHRASE;
+    this.passphrase =
+      configuredPassphrase?.trim() || loadOrCreateStorePassphrase(resolver.stateDir);
     const dbPath = resolver.resolve(config.dbFileName ?? DEFAULT_DB_FILENAME);
     this.db = new OmgDatabase({ path: dbPath, walMode: true });
 

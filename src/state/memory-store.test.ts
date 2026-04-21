@@ -168,6 +168,61 @@ describe("Encryption", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("reopens project store with persisted generated secret", async () => {
+    const dir = join(tmpdir(), `omg-memory-reopen-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    const firstStore = new MemoryStore({ projectDir: dir, namespace: "persist" });
+    try {
+      await firstStore.write("persisted-key", { content: "persisted secret" });
+    } finally {
+      firstStore.close();
+    }
+
+    const reopenedStore = new MemoryStore({ projectDir: dir, namespace: "persist" });
+    try {
+      const entry = await reopenedStore.read("persisted-key");
+      expect(entry?.content).toBe("persisted secret");
+    } finally {
+      reopenedStore.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("prefers explicit passphrase over environment override", async () => {
+    const dir = join(tmpdir(), `omg-memory-env-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    const explicitPassphrase = "explicit-passphrase";
+    const originalEnv = process.env.OMG_MEMORY_PASSPHRASE;
+    process.env.OMG_MEMORY_PASSPHRASE = "env-passphrase";
+
+    const writer = new MemoryStore({
+      projectDir: dir,
+      namespace: "env-override",
+      passphrase: explicitPassphrase,
+    });
+    try {
+      await writer.write("env-key", { content: "env protected" });
+    } finally {
+      writer.close();
+    }
+
+    const explicitReader = new MemoryStore({
+      projectDir: dir,
+      namespace: "env-override",
+      passphrase: explicitPassphrase,
+    });
+    try {
+      const entry = await explicitReader.read("env-key");
+      expect(entry?.content).toBe("env protected");
+    } finally {
+      explicitReader.close();
+      if (originalEnv === undefined) {
+        delete process.env.OMG_MEMORY_PASSPHRASE;
+      } else {
+        process.env.OMG_MEMORY_PASSPHRASE = originalEnv;
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("FTS5 Search", () => {
