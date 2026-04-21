@@ -9,11 +9,12 @@ from runtime.canonical_surface import is_canonical_parity_host
 from runtime.cli_provider import get_provider
 
 
-_PROVIDERS = ("claude", "codex", "gemini", "kimi")
+_PROVIDERS = ("claude", "codex", "gemini", "kimi", "ollama-cloud")
 
 _COST_TIERS: dict[str, str] = {
     "kimi": "low",
     "gemini": "low",
+    "ollama-cloud": "low",
     "codex": "medium",
     "claude": "high",
 }
@@ -70,15 +71,17 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 _DOMAIN_PROVIDER_PREFS: dict[str, tuple[str, ...]] = {
-    "ui_frontend": ("gemini", "claude", "codex", "kimi"),
-    "code_refactor": ("codex", "claude", "gemini", "kimi"),
-    "complex_architecture": ("claude", "codex", "gemini", "kimi"),
-    "fast_simple": ("kimi", "codex", "gemini", "claude"),
-    "general": ("codex", "claude", "gemini", "kimi"),
+    "ui_frontend": ("gemini", "claude", "codex", "kimi", "ollama-cloud"),
+    "code_refactor": ("codex", "claude", "ollama-cloud", "gemini", "kimi"),
+    "complex_architecture": ("claude", "codex", "ollama-cloud", "gemini", "kimi"),
+    "fast_simple": ("kimi", "ollama-cloud", "codex", "gemini", "claude"),
+    "general": ("codex", "claude", "ollama-cloud", "gemini", "kimi"),
 }
 
 
-def _extract_provider_telemetry(provider: str, telemetry: dict[str, Any] | None) -> dict[str, Any]:
+def _extract_provider_telemetry(
+    provider: str, telemetry: dict[str, Any] | None
+) -> dict[str, Any]:
     if not telemetry:
         return {}
     providers = telemetry.get("providers")
@@ -97,9 +100,15 @@ def _extract_critic_outcomes(
     for container in (telemetry, context_packet):
         if not isinstance(container, dict):
             continue
-        outcomes = container.get("prior_critic_outcomes") or container.get("critic_outcomes")
+        outcomes = container.get("prior_critic_outcomes") or container.get(
+            "critic_outcomes"
+        )
         if isinstance(outcomes, dict):
-            by_provider = outcomes.get("providers") if isinstance(outcomes.get("providers"), dict) else outcomes
+            by_provider = (
+                outcomes.get("providers")
+                if isinstance(outcomes.get("providers"), dict)
+                else outcomes
+            )
             if isinstance(by_provider, dict):
                 provider_outcomes = by_provider.get(provider)
                 if isinstance(provider_outcomes, dict):
@@ -247,7 +256,9 @@ def select_provider(
 
     scored: list[tuple[str, float, list[str], bool]] = []
     for provider in _PROVIDERS:
-        score, reasons, available = _score_provider(provider, domain_fit, context_packet, telemetry)
+        score, reasons, available = _score_provider(
+            provider, domain_fit, context_packet, telemetry
+        )
         scored.append((provider, score, reasons, available))
 
     scored.sort(key=lambda row: row[1], reverse=True)
