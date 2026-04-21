@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
-import { clearRevocations, generateToken, hasRequiredRole, refreshToken, revokeToken, validateToken } from "./jwt-auth.js";
+import {
+  clearRevocations,
+  generateToken,
+  hasRequiredRole,
+  refreshToken,
+  revokeToken,
+  validateToken,
+} from "./jwt-auth.js";
 
 describe("JWT auth (Ed25519)", () => {
   afterEach(() => {
@@ -23,7 +30,10 @@ describe("JWT auth (Ed25519)", () => {
     const tokenParts = token.split(".");
     const header = tokenParts[0] ?? "";
     const signature = tokenParts[2] ?? "";
-    const tamperedPayload = Buffer.from(JSON.stringify({ sub: "hijacked", role: "admin" }), "utf8").toString("base64url");
+    const tamperedPayload = Buffer.from(
+      JSON.stringify({ sub: "hijacked", role: "admin" }),
+      "utf8",
+    ).toString("base64url");
     const tamperedToken = `${header}.${tamperedPayload}.${signature}`;
 
     const validation = validateToken(tamperedToken, publicKey);
@@ -50,9 +60,16 @@ describe("JWT auth (Ed25519)", () => {
   test("rejects revocation of tampered token payload", () => {
     const { privateKey, publicKey } = generateKeyPairSync("ed25519");
     const token = generateToken({ sub: "agent-4", role: "agent" }, privateKey);
-    const [header, payload, signature] = token.split(".");
+    const tokenParts = token.split(".");
+    const header = tokenParts[0] ?? "";
+    const signature = tokenParts[2] ?? "";
     const tamperedPayload = Buffer.from(
-      JSON.stringify({ sub: "agent-4", role: "agent", jti: "fake-jti", exp: 9999999999 }),
+      JSON.stringify({
+        sub: "agent-4",
+        role: "agent",
+        jti: "fake-jti",
+        exp: 9999999999,
+      }),
       "utf8",
     ).toString("base64url");
     const tamperedToken = `${header}.${tamperedPayload}.${signature}`;
