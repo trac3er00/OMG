@@ -166,3 +166,14 @@
 ### Verification learnings
 - Focused command `pytest tests/production/test_security_scenarios.py -v` passed with `9 passed`.
 - Firewall invalid JSON input exits safely with non-crashing code path, and audit-trail contract check can be kept deterministic by asserting HMAC primitives in `src/security/audit-trail.ts`.
+
+## [2026-04-21] Task 29 — Ollama Cloud E2E
+
+### Implementation learnings
+- `tests/production/test_ollama_cloud_e2e.py` covers provider file presence, TS/Python registration, cloud URL/auth references, and key-gated real API probes (`/tags`, `/chat`).
+- For this workspace, `basedpyright` stays clean by importing `pytest` via `importlib` + typed protocols instead of direct `import pytest`.
+- Required docs path for production contract checks is `docs/providers/ollama-cloud-api.md`; this file needed to exist for deterministic pass.
+
+### Verification learnings
+- Focused command: `pytest tests/production/test_ollama_cloud_e2e.py -v`.
+- With no `OLLAMA_API_KEY`, suite behavior is graceful: real API tests are skipped and remaining checks pass (`9 passed, 2 skipped`).
