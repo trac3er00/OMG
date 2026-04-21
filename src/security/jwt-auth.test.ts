@@ -39,12 +39,26 @@ describe("JWT auth (Ed25519)", () => {
   test("revoked token cannot be used", () => {
     const { privateKey, publicKey } = generateKeyPairSync("ed25519");
     const token = generateToken({ sub: "agent-2", role: "agent" }, privateKey);
-    const revoked = revokeToken(token);
+    const revoked = revokeToken(token, publicKey);
     expect(revoked).toBe(true);
 
     const validation = validateToken(token, publicKey);
     expect(validation.valid).toBe(false);
     expect(validation.error).toBe("Token revoked");
+  });
+
+  test("rejects revocation of tampered token payload", () => {
+    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+    const token = generateToken({ sub: "agent-4", role: "agent" }, privateKey);
+    const [header, payload, signature] = token.split(".");
+    const tamperedPayload = Buffer.from(
+      JSON.stringify({ sub: "agent-4", role: "agent", jti: "fake-jti", exp: 9999999999 }),
+      "utf8",
+    ).toString("base64url");
+    const tamperedToken = `${header}.${tamperedPayload}.${signature}`;
+
+    expect(revokeToken(tamperedToken, publicKey)).toBe(false);
+    expect(validateToken(token, publicKey).valid).toBe(true);
   });
 
   test("refresh rotates token and revokes old one", () => {
