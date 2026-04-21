@@ -11,6 +11,8 @@ const ROLE_RANK: Readonly<Record<AuthRole, number>> = {
 
 const DEFAULT_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 24 * 60 * 60;
+const DEFAULT_REVOCATION_TTL_SECONDS = REFRESH_TTL_SECONDS;
+const MAX_REVOKED_TOKEN_IDS = 10_000;
 
 interface JwtHeader {
   readonly alg: "EdDSA";
@@ -44,7 +46,31 @@ export interface RefreshTokenResult {
   readonly error?: string;
 }
 
-const revokedTokenIds = new Set<string>();
+const revokedTokenIds = new Map<string, number>();
+
+function nowEpochSeconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+function purgeExpiredRevocations(referenceEpochSeconds = nowEpochSeconds()): void {
+  for (const [tokenId, expiresAt] of revokedTokenIds) {
+    if (expiresAt <= referenceEpochSeconds) {
+      revokedTokenIds.delete(tokenId);
+    }
+  }
+}
+
+function recordRevocation(tokenId: string, expiresAt: number): void {
+  purgeExpiredRevocations();
+  revokedTokenIds.set(tokenId, expiresAt);
+  while (revokedTokenIds.size > MAX_REVOKED_TOKEN_IDS) {
+    const oldestTokenId = revokedTokenIds.keys().next().value;
+    if (typeof oldestTokenId !== "string") {
+      break;
+    }
+    revokedTokenIds.delete(oldestTokenId);
+  }
+}
 
 function toBase64Url(input: Buffer): string {
   return input.toString("base64url");
@@ -67,7 +93,7 @@ function isRole(value: unknown): value is AuthRole {
 }
 
 function normalizePayload(payload: JwtPayload, options: GenerateTokenOptions): JwtPayload {
-  const nowSeconds = Math.floor(Date.now() / 1000);
+  const nowSeconds = nowEpochSeconds();
   const ttlSeconds = options.ttlSeconds ?? DEFAULT_TTL_SECONDS;
   const issuedAt = typeof payload.iat === "number" ? payload.iat : nowSeconds;
   const expiresAt = typeof payload.exp === "number" ? payload.exp : issuedAt + ttlSeconds;
@@ -130,13 +156,17 @@ export function validateToken(token: string, publicKey: KeyObject | string | Buf
       return { valid: false, error: "Invalid signature" };
     }
 
-    const nowSeconds = Math.floor(Date.now() / 1000);
+    const nowSeconds = nowEpochSeconds();
     if (typeof parsedPayload.exp === "number" && nowSeconds >= parsedPayload.exp) {
       return { valid: false, error: "Token expired" };
     }
 
-    if (typeof parsedPayload.jti === "string" && revokedTokenIds.has(parsedPayload.jti)) {
-      return { valid: false, error: "Token revoked" };
+    purgeExpiredRevocations(nowSeconds);
+    if (typeof parsedPayload.jti === "string") {
+      const revokedUntil = revokedTokenIds.get(parsedPayload.jti);
+      if (typeof revokedUntil === "number" && revokedUntil > nowSeconds) {
+        return { valid: false, error: "Token revoked" };
+      }
     }
 
     return { valid: true, payload: parsedPayload };
@@ -151,26 +181,32 @@ export function hasRequiredRole(payload: JwtPayload, requiredRole: AuthRole): bo
   return current >= required;
 }
 
-export function revokeToken(token: string): boolean {
-  const pieces = token.split(".");
-  if (pieces.length !== 3) {
+export function revokeToken(
+  token: string,
+  publicKey: KeyObject | string | Buffer,
+): boolean {
+  const validation = validateToken(token, publicKey);
+  if (!validation.valid || !validation.payload) {
     return false;
   }
 
-  try {
-    const payload = JSON.parse(fromBase64Url(pieces[1] ?? "").toString("utf8")) as JwtPayload;
-    if (typeof payload.jti !== "string" || payload.jti.length === 0) {
-      return false;
-    }
-    revokedTokenIds.add(payload.jti);
-    return true;
-  } catch {
+  const { payload } = validation;
+  if (typeof payload.jti !== "string" || payload.jti.length === 0) {
     return false;
   }
+  const expiresAt =
+    typeof payload.exp === "number"
+      ? payload.exp
+      : nowEpochSeconds() + DEFAULT_REVOCATION_TTL_SECONDS;
+  recordRevocation(payload.jti, expiresAt);
+  return true;
 }
 
-export function revokeTokenId(tokenId: string): void {
-  revokedTokenIds.add(tokenId);
+export function revokeTokenId(
+  tokenId: string,
+  expiresAt = nowEpochSeconds() + DEFAULT_REVOCATION_TTL_SECONDS,
+): void {
+  recordRevocation(tokenId, expiresAt);
 }
 
 export function refreshToken(
@@ -187,7 +223,7 @@ export function refreshToken(
     return { ok: false, error: "Refresh token cannot be refreshed" };
   }
 
-  const revoked = revokeToken(token);
+  const revoked = revokeToken(token, publicKey);
   if (!revoked) {
     return { ok: false, error: "Failed to revoke current token" };
   }

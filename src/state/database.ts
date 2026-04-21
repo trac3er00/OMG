@@ -2,6 +2,24 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
+const SQLITE_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const SQLITE_TOKENIZER_RE = /^[A-Za-z0-9_ ]+$/;
+
+function quoteIdentifier(value: string): string {
+  if (!SQLITE_IDENTIFIER_RE.test(value)) {
+    throw new Error(`Invalid SQLite identifier: ${value}`);
+  }
+  return `"${value}"`;
+}
+
+function sanitizeTokenizer(value: string): string {
+  const normalized = value.trim();
+  if (!normalized || !SQLITE_TOKENIZER_RE.test(normalized)) {
+    throw new Error(`Invalid FTS5 tokenizer: ${value}`);
+  }
+  return normalized;
+}
+
 export interface DatabaseConfig {
   readonly path: string;
   readonly walMode?: boolean;
@@ -91,19 +109,23 @@ export class OmgDatabase {
   }
 
   createFts5Table(tableName: string, columns: readonly string[], tokenizer = "porter ascii"): void {
-    const cols = columns.join(", ");
+    const safeTableName = quoteIdentifier(tableName);
+    const safeColumns = columns.map((column) => quoteIdentifier(column));
+    const safeTokenizer = sanitizeTokenizer(tokenizer);
     this.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS ${tableName}
-      USING fts5(${cols}, tokenize = '${tokenizer}')
+      CREATE VIRTUAL TABLE IF NOT EXISTS ${safeTableName}
+      USING fts5(${safeColumns.join(", ")}, tokenize = '${safeTokenizer}')
     `);
   }
 
   ftsSearch(tableName: string, keyColumn: string, query: string, limit = 20): FtsSearchResult[] {
+    const safeTableName = quoteIdentifier(tableName);
+    const safeKeyColumn = quoteIdentifier(keyColumn);
     return this.all<FtsSearchResult>(
       `
-      SELECT ${keyColumn} as key, bm25(${tableName}) as rank
-      FROM ${tableName}
-      WHERE ${tableName} MATCH ?
+      SELECT ${safeKeyColumn} as key, bm25(${safeTableName}) as rank
+      FROM ${safeTableName}
+      WHERE ${safeTableName} MATCH ?
       ORDER BY rank ASC
       LIMIT ?
       `,

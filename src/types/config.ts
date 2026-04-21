@@ -39,6 +39,7 @@ export const HostTypeSchema = z.enum([
   "gemini",
   "kimi",
   "ollama",
+  "ollama-cloud",
   "opencode",
 ]);
 export type HostType = z.infer<typeof HostTypeSchema>;

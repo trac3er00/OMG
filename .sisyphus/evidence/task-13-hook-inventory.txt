@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+[gw11] [  6%] PASSED tests/production/test_hook_inventory.py::TestHookMatrix::test_matrix_events_are_valid /home/claw/.local/lib/python3.11/site-packages/coverage/control.py:958: CoverageWarning: No data was collected. (no-data-collected); see https://coverage.readthedocs.io/en/7.13.5/messages.html#warning-no-data-collected
+[gw15] [ 12%] PASSED tests/production/test_hook_inventory.py::TestHookIntegrity::test_hook_count_matches_expectation /home/claw/.local/lib/python3.11/site-packages/coverage/control.py:958: CoverageWarning: No data was collected. (no-data-collected); see https://coverage.readthedocs.io/en/7.13.5/messages.html#warning-no-data-collected
+[gw0] [ 18%] PASSED tests/production/test_hook_inventory.py::TestHookDiscovery::test_hooks_discovered 
+[gw10] [ 25%] PASSED tests/production/test_hook_inventory.py::TestHookMatrix::test_matrix_covers_all_public_hooks 
+[gw9] [ 31%] PASSED tests/production/test_hook_inventory.py::TestHookGovernorBundle::test_bundle_lifecycle_events_are_known 
+[gw6] [ 37%] PASSED tests/production/test_hook_inventory.py::TestHookGovernorBundle::test_bundle_file_exists 
+[gw8] [ 43%] PASSED tests/production/test_hook_inventory.py::TestHookMatrix::test_matrix_file_exists 
+[gw12] [ 50%] PASSED tests/production/test_hook_inventory.py::TestHookMatrix::test_matrix_not_empty 
+[gw14] [ 56%] PASSED tests/production/test_hook_inventory.py::TestHookIntegrity::test_universal_hooks_manifest_valid 
+[gw5] [ 62%] PASSED tests/production/test_hook_inventory.py::TestHookEvents::test_events_detected_per_hook /home/claw/.local/lib/python3.11/site-packages/coverage/control.py:958: CoverageWarning: No data was collected. (no-data-collected); see https://coverage.readthedocs.io/en/7.13.5/messages.html#warning-no-data-collected
+[gw2] [ 68%] PASSED tests/production/test_hook_inventory.py::TestHookDiscovery::test_public_hooks_have_docstrings 
+[gw3] [ 75%] PASSED tests/production/test_hook_inventory.py::TestHookDiscovery::test_no_duplicate_hook_names 
+[gw7] [ 81%] PASSED tests/production/test_hook_inventory.py::TestHookGovernorBundle::test_bundle_references_real_hook_files 
+[gw13] [ 87%] PASSED tests/production/test_hook_inventory.py::TestHookIntegrity::test_common_module_importable /home/claw/.local/lib/python3.11/site-packages/coverage/control.py:958: CoverageWarning: No data was collected. (no-data-collected); see https://coverage.readthedocs.io/en/7.13.5/messages.html#warning-no-data-collected
+[gw1] [ 93%] PASSED tests/production/test_hook_inventory.py::TestHookDiscovery::test_all_hooks_are_valid_python /home/claw/.local/lib/python3.11/site-packages/coverage/control.py:958: CoverageWarning: No data was collected. (no-data-collected); see https://coverage.readthedocs.io/en/7.13.5/messages.html#warning-no-data-collected
+[gw4] [100%] PASSED tests/production/test_hook_inventory.py::TestHookEvents::test_each_hook_responds_to_pre_tool_use /home/claw/.local/lib/python3.11/site-packages/coverage/control.py:958: CoverageWarning: No data was collected. (no-data-collected); see https://coverage.readthedocs.io/en/7.13.5/messages.html#warning-no-data-collected
+============================= 16 passed in 16.20s ==============================
+--- Hook count ---
+57
+--- Files created ---
+tests/production/test_hook_inventory.py
+tests/production/hook_matrix.json
+simulation/src/suites/hook-inventory.ts

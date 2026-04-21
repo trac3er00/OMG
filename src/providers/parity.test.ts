@@ -21,6 +21,7 @@ const PROVIDER_MODELS: Record<HostType, string> = {
   gemini: "gemini-2.5-pro",
   kimi: "kimi-k2",
   ollama: "llama3:latest",
+  "ollama-cloud": "llama3:latest",
   opencode: "opencode-compatible",
 };
 
@@ -33,6 +34,7 @@ const PROVIDER_TOKENS: Record<
   gemini: { inputTokens: 17, outputTokens: 10 },
   kimi: { inputTokens: 18, outputTokens: 10 },
   ollama: { inputTokens: 20, outputTokens: 11 },
+  "ollama-cloud": { inputTokens: 20, outputTokens: 11 },
   opencode: { inputTokens: 18, outputTokens: 9 },
 };
 
@@ -74,13 +76,14 @@ function mockStream(provider: HostType): ProviderStreamEvent[] {
 }
 
 describe("provider parity synthetic contract tests", () => {
-  test("synthetic responses satisfy normalized format across all 6 providers", () => {
+  test("synthetic responses satisfy normalized format across all 7 providers", () => {
     const providers: HostType[] = [
       "claude",
       "codex",
       "gemini",
       "kimi",
       "ollama",
+      "ollama-cloud",
       "opencode",
     ];
     const responses = providers.map((provider) =>
@@ -101,7 +104,7 @@ describe("provider parity synthetic contract tests", () => {
 
     const report = checkParity(responses);
     expect(report.isFormatConsistent).toBe(true);
-    expect(report.providersSeen).toHaveLength(6);
+    expect(report.providersSeen).toHaveLength(7);
     expect(report.missingProviders).toHaveLength(0);
     expect(report.variance.map((entry) => entry.field)).toEqual([
       "model",
@@ -117,6 +120,7 @@ describe("provider parity synthetic contract tests", () => {
       mockResponse("gemini", PARITY_PROMPT),
       mockResponse("kimi", `${PARITY_PROMPT} (alternate wording)`),
       mockResponse("ollama", PARITY_PROMPT),
+      mockResponse("ollama-cloud", PARITY_PROMPT),
       mockResponse("opencode", PARITY_PROMPT),
     ];
 
@@ -153,6 +157,7 @@ describe("provider parity synthetic contract tests", () => {
       "gemini",
       "kimi",
       "ollama",
+      "ollama-cloud",
       "opencode",
     ];
     const events = providers.flatMap((provider) => mockStream(provider));

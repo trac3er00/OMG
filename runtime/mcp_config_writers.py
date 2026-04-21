@@ -68,6 +68,7 @@ def _atomic_write_text_safe(
     if path.exists() or path.is_symlink():
         st = os.lstat(path)
         import stat as stat_mod
+
         if stat_mod.S_ISLNK(st.st_mode):
             raise OSError(f"Refusing to write through symlink target: {path}")
 
@@ -75,6 +76,7 @@ def _atomic_write_text_safe(
     if tmp_path.exists() or tmp_path.is_symlink():
         st = os.lstat(tmp_path)
         import stat as stat_mod
+
         if stat_mod.S_ISLNK(st.st_mode):
             raise OSError(f"Refusing to write through symlink tmp path: {tmp_path}")
         tmp_path.unlink()
@@ -92,7 +94,11 @@ def _atomic_write_text_safe(
         try:
             tmp_path.unlink(missing_ok=True)
         except OSError as exc:
-            _logger.debug("Failed to remove temporary config file after write failure: %s", exc, exc_info=True)
+            _logger.debug(
+                "Failed to remove temporary config file after write failure: %s",
+                exc,
+                exc_info=True,
+            )
         raise
     else:
         os.close(fd)
@@ -131,7 +137,11 @@ def transactional() -> Generator[ConfigTransaction, None, None]:
         try:
             shutil.rmtree(tx_lock_dir, ignore_errors=True)
         except OSError as exc:
-            _logger.debug("Failed to remove temporary transaction lock directory: %s", exc, exc_info=True)
+            _logger.debug(
+                "Failed to remove temporary transaction lock directory: %s",
+                exc,
+                exc_info=True,
+            )
 
 
 def _get_current_content(path: Path) -> str:
@@ -158,7 +168,9 @@ def _write_with_transaction(path: Path, content: str, *, mode: int = 0o600) -> N
     content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
     _last_receipt = {
         "planned_writes": [{"path": resolved, "content_hash": content_hash}],
-        "executed_writes": [{"path": resolved, "content_hash": content_hash, "executed": True}],
+        "executed_writes": [
+            {"path": resolved, "content_hash": content_hash, "executed": True}
+        ],
         "backup_path": "",
         "verification": {resolved: "ok"},
         "executed": True,
@@ -194,7 +206,9 @@ def _write_json(path: Path, data: dict[str, object]) -> None:
     _write_with_transaction(path, json.dumps(data, indent=2) + "\n")
 
 
-def _write_json_mcp_server(path: Path, server_name: str, payload: dict[str, object]) -> None:
+def _write_json_mcp_server(
+    path: Path, server_name: str, payload: dict[str, object]
+) -> None:
     existing = _get_current_content(path)
     config = _load_json_content(existing)
     mcp_servers = config.get("mcpServers")
@@ -221,10 +235,16 @@ def _validated_server_input(server_url: str, server_name: str) -> tuple[str, str
     return validate_server_url(server_url), validate_server_name(server_name)
 
 
-def _validated_stdio_input(command: str, args: list[str], server_name: str) -> tuple[str, list[str], str]:
+def _validated_stdio_input(
+    command: str, args: list[str], server_name: str
+) -> tuple[str, list[str], str]:
     normalized_name = validate_server_name(server_name)
     normalized_command = str(command).strip()
-    if not normalized_command or "\n" in normalized_command or "\r" in normalized_command:
+    if (
+        not normalized_command
+        or "\n" in normalized_command
+        or "\r" in normalized_command
+    ):
         raise ValueError("Invalid command: newline characters are not allowed")
     normalized_args = [str(arg) for arg in args]
     for arg in normalized_args:
@@ -233,10 +253,14 @@ def _validated_stdio_input(command: str, args: list[str], server_name: str) -> t
     return normalized_command, normalized_args, normalized_name
 
 
-def write_claude_mcp_config(project_dir: str, server_url: str, server_name: str = "memory-server") -> None:
+def write_claude_mcp_config(
+    project_dir: str, server_url: str, server_name: str = "memory-server"
+) -> None:
     server_url, server_name = _validated_server_input(server_url, server_name)
     config_path = Path(project_dir) / ".mcp.json"
-    _write_json_mcp_server(config_path, server_name, {"type": "http", "url": server_url})
+    _write_json_mcp_server(
+        config_path, server_name, {"type": "http", "url": server_url}
+    )
 
 
 def write_claude_mcp_stdio_config(
@@ -251,7 +275,9 @@ def write_claude_mcp_stdio_config(
     _write_json_mcp_server(config_path, server_name, {"command": command, "args": args})
 
 
-def _compute_codex_toml_http(target_path: Path, server_url: str, server_name: str) -> str:
+def _compute_codex_toml_http(
+    target_path: Path, server_url: str, server_name: str
+) -> str:
     _require_tomlkit()
     existing = _get_current_content(target_path)
     try:
@@ -270,7 +296,9 @@ def _compute_codex_toml_http(target_path: Path, server_url: str, server_name: st
     return tomlkit.dumps(doc)
 
 
-def _compute_codex_toml_stdio(target_path: Path, command: str, args: list[str], server_name: str) -> str:
+def _compute_codex_toml_stdio(
+    target_path: Path, command: str, args: list[str], server_name: str
+) -> str:
     _require_tomlkit()
     existing = _get_current_content(target_path)
     try:
@@ -296,7 +324,11 @@ def write_codex_mcp_config(
     config_path: str | Path | None = None,
 ) -> None:
     server_url, server_name = _validated_server_input(server_url, server_name)
-    target_path = Path(config_path) if config_path is not None else Path.home() / ".codex" / "config.toml"
+    target_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path.home() / ".codex" / "config.toml"
+    )
     target_path.parent.mkdir(parents=True, exist_ok=True)
     content = _compute_codex_toml_http(target_path, server_url, server_name)
     _write_with_transaction(target_path, content)
@@ -310,7 +342,11 @@ def write_codex_mcp_stdio_config(
     config_path: str | Path | None = None,
 ) -> None:
     command, args, server_name = _validated_stdio_input(command, args, server_name)
-    target_path = Path(config_path) if config_path is not None else Path.home() / ".codex" / "config.toml"
+    target_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path.home() / ".codex" / "config.toml"
+    )
     target_path.parent.mkdir(parents=True, exist_ok=True)
     content = _compute_codex_toml_stdio(target_path, command, args, server_name)
     _write_with_transaction(target_path, content)
@@ -323,7 +359,11 @@ def write_gemini_mcp_config(
     config_path: str | Path | None = None,
 ) -> None:
     server_url, server_name = _validated_server_input(server_url, server_name)
-    target_path = Path(config_path) if config_path is not None else Path.home() / ".gemini" / "settings.json"
+    target_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path.home() / ".gemini" / "settings.json"
+    )
     _write_json_mcp_server(target_path, server_name, {"httpUrl": server_url})
 
 
@@ -335,7 +375,11 @@ def write_gemini_mcp_stdio_config(
     config_path: str | Path | None = None,
 ) -> None:
     command, args, server_name = _validated_stdio_input(command, args, server_name)
-    target_path = Path(config_path) if config_path is not None else Path.home() / ".gemini" / "settings.json"
+    target_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path.home() / ".gemini" / "settings.json"
+    )
     _write_json_mcp_server(target_path, server_name, {"command": command, "args": args})
 
 
@@ -346,8 +390,14 @@ def write_kimi_mcp_config(
     config_path: str | Path | None = None,
 ) -> None:
     server_url, server_name = _validated_server_input(server_url, server_name)
-    target_path = Path(config_path) if config_path is not None else Path.home() / ".kimi" / "mcp.json"
-    _write_json_mcp_server(target_path, server_name, {"type": "http", "url": server_url})
+    target_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path.home() / ".kimi" / "mcp.json"
+    )
+    _write_json_mcp_server(
+        target_path, server_name, {"type": "http", "url": server_url}
+    )
 
 
 def write_kimi_mcp_stdio_config(
@@ -358,5 +408,42 @@ def write_kimi_mcp_stdio_config(
     config_path: str | Path | None = None,
 ) -> None:
     command, args, server_name = _validated_stdio_input(command, args, server_name)
-    target_path = Path(config_path) if config_path is not None else Path.home() / ".kimi" / "mcp.json"
+    target_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path.home() / ".kimi" / "mcp.json"
+    )
+    _write_json_mcp_server(target_path, server_name, {"command": command, "args": args})
+
+
+def write_ollama_cloud_mcp_config(
+    server_url: str,
+    server_name: str = "memory-server",
+    *,
+    config_path: str | Path | None = None,
+) -> None:
+    server_url, server_name = _validated_server_input(server_url, server_name)
+    target_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path.home() / ".ollama-cloud" / "mcp.json"
+    )
+    _write_json_mcp_server(
+        target_path, server_name, {"type": "http", "url": server_url}
+    )
+
+
+def write_ollama_cloud_mcp_stdio_config(
+    *,
+    command: str,
+    args: list[str],
+    server_name: str = "omg-control",
+    config_path: str | Path | None = None,
+) -> None:
+    command, args, server_name = _validated_stdio_input(command, args, server_name)
+    target_path = (
+        Path(config_path)
+        if config_path is not None
+        else Path.home() / ".ollama-cloud" / "mcp.json"
+    )
     _write_json_mcp_server(target_path, server_name, {"command": command, "args": args})

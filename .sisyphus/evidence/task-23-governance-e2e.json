@@ -1,0 +1,30 @@
+{
+  "task_id": "task-23",
+  "title": "Governance ledger integrity E2E tests",
+  "status": "pass",
+  "test_file": "tests/production/test_governance_e2e.py",
+  "test_count": 45,
+  "test_classes": [
+    "TestAuditTrail (9 tests)",
+    "TestGovernanceLedger (10 tests)",
+    "TestTracebank (9 tests)",
+    "TestClaimJudge (11 tests)",
+    "TestGovernancePipeline (6 tests)"
+  ],
+  "modules_verified": [
+    "src/security/audit-trail.ts (HMAC audit trail with sha256, timingSafeEqual, key rotation, SIEM export)",
+    "src/governance/ledger.ts (SHA256 chain ledger with verifyIntegrity, tamper detection, rotation)",
+    "runtime/tracebank.py (plan-to-patch trace recording with JSONL, executor/environment metadata)",
+    "runtime/claim_judge.py (claim evaluation with pass/fail/block verdicts, causal chain, security scans)"
+  ],
+  "pipeline_integration_tests": [
+    "All governance modules present",
+    "Audit trail and ledger share SHA256 crypto",
+    "Tracebank trace_ids consumable by claim judge",
+    "Claim judge references .omg/evidence/ artifacts",
+    "Ledger entries carry evidence_refs",
+    "Governance crypto imports from node:crypto"
+  ],
+  "pytest_result": "45 passed in 13.40s",
+  "timestamp": "2026-04-21T00:00:00Z"
+}

@@ -5,7 +5,7 @@ Tracks confirmed, pending, and stub providers.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 ProviderStatus = Literal["confirmed", "pending", "stub"]
 
@@ -25,7 +25,7 @@ class ProviderEntry:
 
         return shutil.which(self.cli_command) is not None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "cli_command": self.cli_command,
@@ -42,13 +42,20 @@ CONFIRMED_PROVIDERS = [
     ProviderEntry("codex", "codex", "confirmed", mcp_config_supported=True),
     ProviderEntry("gemini", "gemini", "confirmed", mcp_config_supported=True),
     ProviderEntry("kimi", "kimi", "confirmed", mcp_config_supported=True),
+    ProviderEntry("ollama-cloud", "ollama", "confirmed", mcp_config_supported=True),
 ]
 
 # Providers to investigate — create stubs with "pending" status
 PENDING_PROVIDERS = [
-    ProviderEntry("qwen-cli", "qwen", "pending", notes="Alibaba Qwen CLI — verify availability"),
-    ProviderEntry("kilocode", "kilocode", "pending", notes="Kilocode — verify CLI existence"),
-    ProviderEntry("conductor", "conductor", "pending", notes="Conductor AI — verify CLI"),
+    ProviderEntry(
+        "qwen-cli", "qwen", "pending", notes="Alibaba Qwen CLI — verify availability"
+    ),
+    ProviderEntry(
+        "kilocode", "kilocode", "pending", notes="Kilocode — verify CLI existence"
+    ),
+    ProviderEntry(
+        "conductor", "conductor", "pending", notes="Conductor AI — verify CLI"
+    ),
 ]
 
 ALL_PROVIDERS = CONFIRMED_PROVIDERS + PENDING_PROVIDERS
@@ -66,7 +73,7 @@ def get_pending() -> list[ProviderEntry]:
     return [p for p in ALL_PROVIDERS if p.status == "pending"]
 
 
-def generate_parity_report(providers: list[ProviderEntry]) -> dict:
+def generate_parity_report(providers: list[ProviderEntry]) -> dict[str, Any]:
     """Generate parity report for all providers."""
     return {
         "total": len(providers),

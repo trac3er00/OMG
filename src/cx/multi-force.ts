@@ -42,6 +42,7 @@ export const PROVIDER_STRENGTHS: Readonly<
   claude: ["code", "analysis"],
   gemini: ["research", "vision"],
   ollama: ["quick", "private"],
+  "ollama-cloud": ["analysis", "quick", "code"],
   codex: ["code-review"],
 };
 
@@ -49,6 +50,7 @@ const DEFAULT_PROVIDER_ORDER: readonly MultiForceProvider[] = [
   "claude",
   "gemini",
   "ollama",
+  "ollama-cloud",
   "codex",
   "kimi",
   "opencode",
@@ -57,13 +59,69 @@ const DEFAULT_PROVIDER_ORDER: readonly MultiForceProvider[] = [
 const CATEGORY_FALLBACKS: Readonly<
   Record<ProviderStrength, readonly MultiForceProvider[]>
 > = {
-  code: ["claude", "codex", "gemini", "kimi", "opencode", "ollama"],
-  analysis: ["claude", "gemini", "codex", "kimi", "opencode", "ollama"],
-  research: ["gemini", "claude", "codex", "kimi", "opencode", "ollama"],
-  vision: ["gemini", "claude", "codex", "kimi", "opencode", "ollama"],
-  quick: ["ollama", "claude", "gemini", "codex", "kimi", "opencode"],
-  private: ["ollama", "claude", "gemini", "codex", "kimi", "opencode"],
-  "code-review": ["codex", "claude", "gemini", "kimi", "opencode", "ollama"],
+  code: [
+    "claude",
+    "codex",
+    "gemini",
+    "kimi",
+    "opencode",
+    "ollama-cloud",
+    "ollama",
+  ],
+  analysis: [
+    "claude",
+    "gemini",
+    "codex",
+    "kimi",
+    "opencode",
+    "ollama-cloud",
+    "ollama",
+  ],
+  research: [
+    "gemini",
+    "claude",
+    "codex",
+    "kimi",
+    "opencode",
+    "ollama",
+    "ollama-cloud",
+  ],
+  vision: [
+    "gemini",
+    "claude",
+    "codex",
+    "kimi",
+    "opencode",
+    "ollama",
+    "ollama-cloud",
+  ],
+  quick: [
+    "ollama",
+    "ollama-cloud",
+    "claude",
+    "gemini",
+    "codex",
+    "kimi",
+    "opencode",
+  ],
+  private: [
+    "ollama",
+    "claude",
+    "gemini",
+    "codex",
+    "kimi",
+    "opencode",
+    "ollama-cloud",
+  ],
+  "code-review": [
+    "codex",
+    "claude",
+    "gemini",
+    "kimi",
+    "opencode",
+    "ollama",
+    "ollama-cloud",
+  ],
 };
 
 const SIGNAL_PATTERNS: Readonly<Record<ProviderStrength, readonly RegExp[]>> = {

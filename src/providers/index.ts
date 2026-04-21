@@ -4,6 +4,7 @@ import { ClaudeProvider } from "./claude.js";
 import { CodexProvider } from "./codex.js";
 import { GeminiProvider } from "./gemini.js";
 import { KimiProvider } from "./kimi.js";
+import { OllamaCloudProvider } from "./ollama-cloud.js";
 import { OllamaProvider } from "./ollama.js";
 import { OpenCodeProvider } from "./opencode.js";
 
@@ -14,6 +15,7 @@ const PROVIDER_ENTRIES: ReadonlyArray<readonly [HostType, () => ICliProvider]> =
     ["gemini", () => new GeminiProvider()],
     ["kimi", () => new KimiProvider()],
     ["ollama", () => new OllamaProvider()],
+    ["ollama-cloud", () => new OllamaCloudProvider()],
     ["opencode", () => new OpenCodeProvider()],
   ];
 
@@ -47,6 +49,7 @@ export { ClaudeProvider } from "./claude.js";
 export { CodexProvider } from "./codex.js";
 export { GeminiProvider } from "./gemini.js";
 export { KimiProvider } from "./kimi.js";
+export { OllamaCloudProvider } from "./ollama-cloud.js";
 export { OllamaProvider } from "./ollama.js";
 export { OpenCodeProvider } from "./opencode.js";
 export {

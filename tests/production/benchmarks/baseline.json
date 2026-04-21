@@ -1,0 +1,5 @@
+{
+  "hook_chain_20_hooks_max_seconds": 30,
+  "single_hook_max_seconds": 2.0,
+  "description": "Performance baselines for production tests"
+}

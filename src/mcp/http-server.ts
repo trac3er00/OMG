@@ -87,7 +87,7 @@ export class HttpControlPlaneServer {
 
   private async route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (req.url === "/health" && req.method === "GET") {
-      this.respond(res, 200, { ok: true, service: "omg-control-plane" });
+      this.respond(res, 200, { ok: true });
       return;
     }
 
@@ -104,7 +104,13 @@ export class HttpControlPlaneServer {
       return;
     }
 
-    const body = await this.readJsonBody(req);
+    let body: unknown;
+    try {
+      body = await this.readJsonBody(req);
+    } catch {
+      this.respond(res, 400, { error: "Malformed JSON body" });
+      return;
+    }
 
     if (!this.options.handler) {
       this.respond(res, 200, {
@@ -154,8 +160,13 @@ export class HttpControlPlaneServer {
   private respond(res: ServerResponse, statusCode: number, payload: unknown): void {
     const body = JSON.stringify(payload);
     res.writeHead(statusCode, {
+      "cache-control": "no-store",
+      "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
       "content-type": "application/json; charset=utf-8",
       "content-length": Buffer.byteLength(body).toString(),
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
     });
     res.end(body);
   }

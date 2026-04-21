@@ -1,0 +1,34 @@
+Task 11: Multi-force routing + Equalizer integration — Evidence
+================================================================
+
+Date: 2026-04-21
+Files modified:
+  - src/cx/multi-force.ts
+  - runtime/equalizer.py
+
+grep -c "ollama-cloud" results:
+  src/cx/multi-force.ts: 9
+  runtime/equalizer.py: 7
+
+Changes in multi-force.ts:
+  - PROVIDER_STRENGTHS: added "ollama-cloud": ["analysis", "quick", "code"]
+  - DEFAULT_PROVIDER_ORDER: added "ollama-cloud" after "ollama"
+  - CATEGORY_FALLBACKS: added "ollama-cloud" to all 7 category fallback lists
+    - code/analysis: before ollama (strength match)
+    - quick: second position after ollama (strength match)
+    - private: last position (cloud ≠ private)
+    - research/vision/code-review: after ollama at end
+
+Changes in equalizer.py:
+  - _PROVIDERS: added "ollama-cloud" to tuple
+  - _COST_TIERS: added "ollama-cloud": "low"
+  - _DOMAIN_PROVIDER_PREFS: added "ollama-cloud" to all 5 domain pref lists
+    - code_refactor: 3rd (after codex, claude)
+    - fast_simple: 2nd (after kimi)
+    - complex_architecture: 3rd (after claude, codex)
+    - ui_frontend: last
+    - general: 3rd (after codex, claude)
+
+LSP diagnostics: clean (0 errors)
+Test: bun not available in env — test file uses bun:test imports
+HostType: "ollama-cloud" already present in src/types/config.ts HostTypeSchema

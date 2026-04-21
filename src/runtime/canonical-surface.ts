@@ -73,6 +73,16 @@ export const HOST_SURFACES: Record<HostType, HostSurface> = {
     transportType: "http-sse",
     description: "Ollama (local model server)",
   },
+  "ollama-cloud": {
+    hostType: "ollama-cloud",
+    cliCommand: "ollama",
+    configFormat: "mcp-json",
+    configPath: "~/.ollama-cloud/mcp.json",
+    supportsHooks: false,
+    supportsPresets: false,
+    transportType: "http-sse",
+    description: "Ollama Cloud (hosted model server)",
+  },
   opencode: {
     hostType: "opencode",
     cliCommand: "opencode",
@@ -91,6 +101,7 @@ export const CANONICAL_HOSTS: HostType[] = [
   "gemini",
   "kimi",
   "ollama",
+  "ollama-cloud",
   "opencode",
 ];
 export const FULLY_SUPPORTED_HOSTS: HostType[] = [

@@ -52,6 +52,25 @@ describe("OmgDatabase", () => {
     db.close();
   });
 
+  test("rejects unsafe FTS identifiers", () => {
+    const db = OmgDatabase.memory();
+    expect(() => db.createFts5Table('docs; DROP TABLE _migrations; --', ["key", "content"])).toThrow(
+      /Invalid SQLite identifier/,
+    );
+    expect(() => db.ftsSearch("docs", 'key FROM docs; --', "query")).toThrow(
+      /Invalid SQLite identifier/,
+    );
+    db.close();
+  });
+
+  test("rejects unsafe FTS tokenizers", () => {
+    const db = OmgDatabase.memory();
+    expect(() => db.createFts5Table("docs", ["key", "content"], "porter'; DROP TABLE docs; --")).toThrow(
+      /Invalid FTS5 tokenizer/,
+    );
+    db.close();
+  });
+
   test("transaction rolls back on thrown error", () => {
     const db = OmgDatabase.memory();
     db.exec("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)");

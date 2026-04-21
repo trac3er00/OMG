@@ -103,6 +103,7 @@ const DEFAULT_ADAPTERS: Readonly<Record<HostType, VisionProviderAdapter>> = {
   gemini: { supportsVision: false },
   kimi: { supportsVision: false },
   ollama: { supportsVision: false },
+  "ollama-cloud": { supportsVision: false },
   opencode: { supportsVision: false },
 };
 

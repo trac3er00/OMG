@@ -7,7 +7,13 @@ import { z } from "zod";
 // Types
 // ---------------------------------------------------------------------------
 
-export const McpHostSchema = z.enum(["claude", "codex", "gemini", "kimi"]);
+export const McpHostSchema = z.enum([
+  "claude",
+  "codex",
+  "gemini",
+  "kimi",
+  "ollama-cloud",
+]);
 export type McpHost = z.infer<typeof McpHostSchema>;
 
 export interface McpStdioEntry {
@@ -42,7 +48,18 @@ export interface KimiConfig {
   };
 }
 
-export type McpConfigResult = ClaudeConfig | CodexConfig | GeminiConfig | KimiConfig;
+export interface OllamaCloudConfig {
+  readonly mcpServers: {
+    readonly [name: string]: McpStdioEntry;
+  };
+}
+
+export type McpConfigResult =
+  | ClaudeConfig
+  | CodexConfig
+  | GeminiConfig
+  | KimiConfig
+  | OllamaCloudConfig;
 
 // ---------------------------------------------------------------------------
 // Config generators (pure — no file I/O)
@@ -92,6 +109,17 @@ function generateKimiConfig(serverPath: string): KimiConfig {
   };
 }
 
+function generateOllamaCloudConfig(serverPath: string): OllamaCloudConfig {
+  return {
+    mcpServers: {
+      "omg-control": {
+        command: "bunx",
+        args: [serverPath],
+      },
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -114,6 +142,8 @@ export function generateMcpConfig(
       return generateGeminiConfig(serverPath);
     case "kimi":
       return generateKimiConfig(serverPath);
+    case "ollama-cloud":
+      return generateOllamaCloudConfig(serverPath);
   }
 }
 
@@ -130,13 +160,18 @@ export function resolveConfigPath(host: McpHost, projectDir?: string): string {
       return join(homedir(), ".gemini", "settings.json");
     case "kimi":
       return join(homedir(), ".kimi", "mcp.json");
+    case "ollama-cloud":
+      return join(homedir(), ".ollama-cloud", "mcp.json");
   }
 }
 
 /**
  * Serialize the config object to the format expected by the host.
  */
-export function serializeConfig(host: McpHost, config: McpConfigResult): string {
+export function serializeConfig(
+  host: McpHost,
+  config: McpConfigResult,
+): string {
   if (host === "codex") {
     return serializeToToml(config as CodexConfig);
   }
@@ -152,7 +187,9 @@ function serializeToToml(config: CodexConfig): string {
   for (const [name, entry] of Object.entries(config.mcp_servers)) {
     lines.push(`[mcp_servers.${name}]`);
     lines.push(`command = "${escapeTomlString(entry.command)}"`);
-    const argsStr = entry.args.map((a) => `"${escapeTomlString(a as string)}"`).join(", ");
+    const argsStr = entry.args
+      .map((a) => `"${escapeTomlString(a as string)}"`)
+      .join(", ");
     lines.push(`args = [${argsStr}]`);
     lines.push("");
   }
@@ -175,7 +212,11 @@ function loadJsonConfig(filePath: string): Record<string, unknown> {
     const raw = readFileSync(filePath, "utf8").trim();
     if (!raw) return {};
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
       return parsed as Record<string, unknown>;
     }
     return {};
@@ -197,9 +238,11 @@ function mergeJsonMcpServer(
   payload: McpStdioEntry,
 ): void {
   const existing = loadJsonConfig(filePath);
-  const servers = (typeof existing["mcpServers"] === "object" && existing["mcpServers"] !== null)
-    ? { ...(existing["mcpServers"] as Record<string, unknown>) }
-    : {};
+  const servers =
+    typeof existing["mcpServers"] === "object" &&
+    existing["mcpServers"] !== null
+      ? { ...(existing["mcpServers"] as Record<string, unknown>) }
+      : {};
   servers[serverName] = payload;
   const merged = { ...existing, mcpServers: servers };
   ensureDir(filePath);
@@ -220,7 +263,8 @@ export function writeMcpConfig(
   options?: { readonly projectDir?: string; readonly configPath?: string },
 ): string {
   const config = generateMcpConfig(host, serverPath);
-  const targetPath = options?.configPath ?? resolveConfigPath(host, options?.projectDir);
+  const targetPath =
+    options?.configPath ?? resolveConfigPath(host, options?.projectDir);
   const entry: McpStdioEntry = { command: "bunx", args: [serverPath] };
 
   switch (host) {
@@ -239,6 +283,10 @@ export function writeMcpConfig(
       break;
 
     case "kimi":
+      mergeJsonMcpServer(targetPath, "omg-control", entry);
+      break;
+
+    case "ollama-cloud":
       mergeJsonMcpServer(targetPath, "omg-control", entry);
       break;
   }
