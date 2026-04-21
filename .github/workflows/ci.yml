@@ -48,3 +48,41 @@ jobs:
         run: bun run eval || true
         continue-on-error: true
         timeout-minutes: 5
+
+  production-test:
+    name: Production Tests
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python dependencies
+        run: pip install pytest pytest-cov pyyaml
+      - name: Run production tests
+        run: pytest tests/production/ -v --tb=short -q
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-test-results
+          path: tests/production/
+
+  production-test-real-api:
+    name: Production Tests (Real API)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python dependencies
+        run: pip install pytest pytest-cov pyyaml
+      - name: Run real API tests
+        run: pytest tests/production/ -m "real_api" -v --tb=short
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
