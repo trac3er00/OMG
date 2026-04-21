@@ -155,3 +155,14 @@
 ### Verification learnings
 - Focused command `pytest tests/production/test_ai_fallback_e2e.py -v` passed with `8 passed`.
 - Local runs may emit `coverage` no-data-collected warnings under xdist workers; the authoritative pass condition is the final pytest summary line.
+
+## [2026-04-21] Task 21 — Security scenario production suite
+
+### Implementation learnings
+- `hooks/firewall.py` accepts both legacy payload (`event/tool/input`) and normalized payload (`tool_name/tool_input`), so production tests should send both forms for compatibility.
+- Decision assertions should read `hookSpecificOutput.permissionDecision` first (hook contract), then fallback to top-level `decision` for broad hook compatibility.
+- Path traversal is best validated behaviorally via `ensure_path_within_dir()` raising on `ROOT/../...` candidates, not by string-presence checks.
+
+### Verification learnings
+- Focused command `pytest tests/production/test_security_scenarios.py -v` passed with `9 passed`.
+- Firewall invalid JSON input exits safely with non-crashing code path, and audit-trail contract check can be kept deterministic by asserting HMAC primitives in `src/security/audit-trail.ts`.
