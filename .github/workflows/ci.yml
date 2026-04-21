@@ -31,14 +31,14 @@ jobs:
         run: pip install -e ".[test]"
 
       - name: TypeScript Tests (all directories)
-        run: PATH=/home/claw/.bun/bin:$PATH bun test
+        run: bun test
         timeout-minutes: 10
 
       - name: Typecheck
-        run: PATH=/home/claw/.bun/bin:$PATH bunx tsc --noEmit
+        run: bunx tsc --noEmit
 
       - name: Lint
-        run: PATH=/home/claw/.bun/bin:$PATH bun run lint
+        run: bun run lint
 
       - name: Python Tests (all test files)
         run: pytest tests/ -n auto --timeout=60 --tb=short
