@@ -33,6 +33,7 @@
   ],
   "scripts": {
     "test": "bun test",
+    "test:coverage": "bun test --coverage",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
