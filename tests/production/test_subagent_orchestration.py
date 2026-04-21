@@ -1,4 +1,3 @@
-import subprocess
 import sys
 from pathlib import Path
 
@@ -47,13 +46,22 @@ class TestModelRouting:
         router_file = ROOT / "src" / "orchestration" / "router.js"
         assert router_file.exists(), "src/orchestration/router.js not found"
 
+    def test_router_includes_selection_and_parallel_logic(self):
+        router_file = ROOT / "src" / "orchestration" / "router.js"
+        content = router_file.read_text(encoding="utf-8")
+        assert "class TeamRouter" in content
+        assert "ModelTier" in content
+        assert "executeWorkersParallel" in content
+        assert "Promise.all" in content
+
 
 class TestParallelDispatch:
     def test_background_task_pattern_documented(self):
-        result = subprocess.run(
-            ["grep", "-r", "run_in_background", "src/", "--include=*.ts", "-l"],
-            capture_output=True,
-            text=True,
-            cwd=str(ROOT),
+        selective_dispatch_test = (
+            ROOT / "tests" / "runtime" / "test_selective_dispatch.py"
         )
-        assert result.returncode == 0 or len(result.stdout) >= 0
+        assert selective_dispatch_test.exists(), (
+            "tests/runtime/test_selective_dispatch.py not found"
+        )
+        content = selective_dispatch_test.read_text(encoding="utf-8")
+        assert "run_in_background" in content
