@@ -133,3 +133,14 @@
 - Created evidence artifact: `.sisyphus/evidence/task-15-agent-selection.txt`.
 - Focused execution command: `pytest tests/production/test_subagent_orchestration.py -v`.
 - Result: `7 passed`.
+
+## [2026-04-21] Task 24 — Multi-AI fallback chain E2E
+
+### Test implementation learnings
+- `tests/production/test_ai_fallback_e2e.py` can stay deterministic by validating source-level contracts only (`multi-force.ts`, `equalizer.py`, `provider_registry.py`) without invoking provider CLIs or network calls.
+- `CATEGORY_FALLBACKS` + `ollama-cloud` presence checks provide a lightweight fallback-chain smoke signal aligned with existing routing intent.
+- Provider registration parity remains robust with direct string coverage over `claude`, `codex`, `gemini`, `kimi`, and `ollama-cloud` in `runtime/providers/provider_registry.py`.
+
+### Verification learnings
+- Focused command `pytest tests/production/test_ai_fallback_e2e.py -v` passed with `8 passed`.
+- Local runs may emit `coverage` no-data-collected warnings under xdist workers; the authoritative pass condition is the final pytest summary line.
