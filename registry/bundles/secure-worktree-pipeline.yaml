@@ -1,6 +1,6 @@
 id: secure-worktree-pipeline
 kind: runtime
-version: 2.3.0
+version: 3.0.0
 title: OMG Secure Worktree Pipeline
 description: Secure worker execution with merge-writer authorization gates, lock-aware cleanup, and deterministic cancellation on write denial.
 hosts:

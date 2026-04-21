@@ -207,17 +207,17 @@ def test_quick_reference_uses_omg_launcher(tmp_path):
     generate_docs(output_root)
     content = (output_root / "QUICK-REFERENCE.md").read_text()
     assert "npx omg install --plan" in content
-    assert "npx omg doctor" in content
+    assert "npx omg env doctor" in content
     assert "npx omg ship" in content
-    assert "npx omg release audit --artifact" in content
+    assert "npx omg proof" in content
 
 
 def test_quick_reference_uses_real_explain_run_syntax(tmp_path):
     output_root = tmp_path / "docs"
     generate_docs(output_root)
     content = (output_root / "QUICK-REFERENCE.md").read_text()
-    assert "npx omg explain run --run-id <id>" in content
-    assert "npx omg explain run <id>" not in content
+    assert "npx omg blocked --last" in content
+    assert "npx omg explain run" not in content
 
 
 def test_install_verification_index_uses_omg_commands(tmp_path):
@@ -226,7 +226,7 @@ def test_install_verification_index_uses_omg_commands(tmp_path):
     content = (output_root / "INSTALL-VERIFICATION-INDEX.md").read_text()
     assert "python3 scripts/omg.py doctor" not in content
     assert "python3 scripts/omg.py validate" not in content
-    assert "npx omg doctor" in content
+    assert "npx omg env doctor" in content
     assert "npx omg validate" in content
 
 
@@ -236,9 +236,9 @@ def test_install_verification_json_uses_omg_commands(tmp_path):
     data = json.loads((output_root / "install-verification.json").read_text())
     for cmd in data["verification_commands"]:
         assert "python3 scripts/omg.py" not in cmd["command"]
-    assert any(cmd["command"] == "npx omg doctor" for cmd in data["verification_commands"])
+    assert any(cmd["command"] == "npx omg env doctor" for cmd in data["verification_commands"])
     assert any(cmd["command"] == "npx omg validate" for cmd in data["verification_commands"])
-    assert any(cmd["command"] == "npx omg release audit --artifact" for cmd in data["verification_commands"])
+    assert any(cmd["command"] == "npx omg install --apply" for cmd in data["verification_commands"])
 
 
 def test_quick_reference_emits_release_surface_marker_block(tmp_path):

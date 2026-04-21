@@ -2,9 +2,10 @@ import type { HostType } from "../types/config.js";
 import type { ContextPacket } from "./engine.js";
 
 function toCodexFragment(packet: ContextPacket): string {
-  const pointers = packet.provenance_pointers.length > 0
-    ? packet.provenance_pointers.map((pointer) => `- ${pointer}`).join("\n")
-    : "- (none)";
+  const pointers =
+    packet.provenance_pointers.length > 0
+      ? packet.provenance_pointers.map((pointer) => `- ${pointer}`).join("\n")
+      : "- (none)";
 
   return [
     "# OMG Context Packet",
@@ -36,7 +37,10 @@ function toGenericJson(hostType: HostType, packet: ContextPacket): string {
   return JSON.stringify({ host: hostType, packet }, null, 2);
 }
 
-export function compileContextForHost(packet: ContextPacket, hostType: HostType): string {
+export function compileContextForHost(
+  packet: ContextPacket,
+  hostType: HostType,
+): string {
   switch (hostType) {
     case "codex":
       return toCodexFragment(packet);
@@ -44,6 +48,7 @@ export function compileContextForHost(packet: ContextPacket, hostType: HostType)
       return toClaudeText(packet);
     case "gemini":
     case "kimi":
+    case "ollama":
     case "opencode":
       return toGenericJson(hostType, packet);
   }

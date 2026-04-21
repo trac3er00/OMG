@@ -1,8 +1,8 @@
 name: omg-ast-pack
-description: "Governed AST search and replace lane with canonical approvals and proofs."
+description: "Two-phase AST lane requiring search-first flow, dry-run evidence, and explicit promotion before mutation-capable rewrites."
 allow_implicit_invocation: false
 metadata:
-  channel: enterprise
+  channel: public
   bundle_id: ast-pack
   title: "OMG AST Pack Lane"
 mcp_servers:

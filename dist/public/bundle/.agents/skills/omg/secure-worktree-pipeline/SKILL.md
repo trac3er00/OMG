@@ -1,6 +1,6 @@
 ---
 name: omg-secure-worktree-pipeline
-description: "Ephemeral worktree execution and supervisor-safe worker dispatch for production jobs."
+description: "Secure worker execution with merge-writer authorization gates, lock-aware cleanup, and deterministic cancellation on write denial."
 ---
 
 # OMG Secure Worktree Pipeline

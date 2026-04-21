@@ -5,7 +5,7 @@ description: "Vision-specific OCR, comparison, lineage, drift, and replay attach
 
 # OMG Vision Pack
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/lineage/*.json`

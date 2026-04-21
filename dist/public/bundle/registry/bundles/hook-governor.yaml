@@ -1,8 +1,8 @@
 id: hook-governor
 kind: governance
-version: 2.3.0
+version: 3.0.0
 title: OMG Hook Governor
-description: Canonical hook ordering, policy reinjection, and protected-path governance.
+description: Hook ordering lane with injection-state checks and fail-closed precedence resolution across security, policy, and budget hooks.
 hosts:
   - claude
   - codex

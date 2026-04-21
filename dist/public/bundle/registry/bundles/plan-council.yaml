@@ -1,6 +1,6 @@
 id: plan-council
 kind: planning
-version: 2.3.0
+version: 3.0.0
 title: OMG Plan Council
 description: Canonical council-style planning bundle for explicit, evidence-backed deep plans.
 hosts:
@@ -39,12 +39,22 @@ lsp_contract:
   languages:
     - markdown
     - json
+optional_steps:
+  - name: society-of-thought-debate
+    module: src/debate/integration.ts
+    trigger: complexity_threshold
+    config:
+      complexity_threshold: 3
+      max_per_plan: 3
+    produces: debate_transcript
+    enabled: false
 evidence_outputs:
   artifacts:
     - .omg/plans/deep-plan.md
     - .omg/plans/deep-plan.json
     - .omg/plans/dissent.json
     - .omg/evidence/plan-council.json
+    - .omg/evidence/debate-transcript.json
 execution_contract:
   modes:
     - embedded

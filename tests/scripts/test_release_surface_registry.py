@@ -218,12 +218,13 @@ class TestPromotedPublicCommands:
     _EXPECTED_COMMANDS: list[str] = [
         "omg ship",
         "omg proof",
+        "omg proof open --html",
         "omg blocked --last",
-        "omg explain run --run-id <id>",
-        "omg budget simulate --enforce",
         "omg install --plan",
         "omg install --apply",
         "omg env doctor",
+        "omg validate",
+        "omg contract validate",
     ]
 
     def test_promoted_commands_is_list(self) -> None:

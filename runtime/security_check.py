@@ -61,6 +61,28 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
     ),
 )
 
+_KNOWN_EXAMPLE_KEYS: frozenset[str] = frozenset({
+    "AKIA0123456789ABCDE1",
+    "AKIAIOSFODNN7EXAMPLE",
+    "AKIAEXAMPLE123456789",
+    "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+})
+
+_TEST_FIXTURE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?i)(?:sample|example|mock|fixture|dummy|fake|test)"),
+    re.compile(r"(?i)const\s+(?:SAMPLE|EXAMPLE|MOCK|TEST)\b"),
+    re.compile(r"(?i)(?:for\s+testing|test\s+data|example\s+key)"),
+)
+
+_DOC_CONTEXT_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"<(?:td|th|code|pre|span)[^>]*>.*0\.0\.0\.0/0"),
+    re.compile(r"(?i)(?:description|documentation|explanation|example usage)"),
+    re.compile(r"^\s*(?://|#|/\*|\*|<!--).*0\.0\.0\.0/0"),
+    re.compile(r"placeholder\s*=\s*['\"].*0\.0\.0\.0/0"),
+    re.compile(r"(?i)(?:template|preset|example|default)\s*[:=]?\s*\{"),
+    re.compile(r"allowedIPs\s*:\s*['\"]0\.0\.0\.0/0"),
+)
+
 _CONFIG_PATTERNS: tuple[tuple[str, re.Pattern[str], str, str], ...] = (
     ("CFG001", re.compile(r"0\.0\.0\.0/0"), "high", "Wildcard ingress rule detected."),
     ("CFG002", re.compile(r"(?i)verify\s*=\s*false"), "high", "TLS verification appears disabled."),
@@ -385,13 +407,20 @@ def _safe_int(value: Any, *, default: int) -> int:
 def _scan_secret_patterns(scope_path: Path) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     for candidate in _iter_text_candidates(scope_path):
+        if _is_test_fixture_file(candidate):
+            continue
         try:
             source = candidate.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             continue
         for line_no, line in enumerate(source.splitlines(), start=1):
             for rule_id, pattern, severity, message in _SECRET_PATTERNS:
-                if not pattern.search(line):
+                match = pattern.search(line)
+                if not match:
+                    continue
+                if _is_known_example_key(match.group()):
+                    continue
+                if _is_test_fixture_context(line, source, line_no):
                     continue
                 findings.append(
                     _finding(
@@ -409,6 +438,33 @@ def _scan_secret_patterns(scope_path: Path) -> list[dict[str, Any]]:
     return findings
 
 
+def _is_test_fixture_file(path: Path) -> bool:
+    """Check if file path indicates a test fixture or example file."""
+    path_lower = path.as_posix().lower()
+    name_lower = path.name.lower()
+    fixture_indicators = ("test", "spec", "mock", "fixture", "example", "sample", "__test__")
+    return any(ind in path_lower or ind in name_lower for ind in fixture_indicators)
+
+
+def _is_known_example_key(matched_text: str) -> bool:
+    """Check if matched text is a well-known example/fake key."""
+    return matched_text in _KNOWN_EXAMPLE_KEYS
+
+
+def _is_test_fixture_context(line: str, source: str, line_no: int) -> bool:
+    """Check if line context suggests test fixture or documentation."""
+    for pattern in _TEST_FIXTURE_PATTERNS:
+        if pattern.search(line):
+            return True
+    context_start = max(0, line_no - 5)
+    context_lines = source.splitlines()[context_start:line_no]
+    context = "\n".join(context_lines)
+    for pattern in _TEST_FIXTURE_PATTERNS:
+        if pattern.search(context):
+            return True
+    return False
+
+
 def _scan_config_and_iac(scope_path: Path) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     for candidate in _iter_text_candidates(scope_path):
@@ -424,6 +480,8 @@ def _scan_config_and_iac(scope_path: Path) -> list[dict[str, Any]]:
             for rule_id, pattern, severity, message in _CONFIG_PATTERNS:
                 if not pattern.search(line):
                     continue
+                if _is_documentation_context(line, rule_id):
+                    continue
                 findings.append(
                     _finding(
                         rule_id=rule_id,
@@ -438,6 +496,15 @@ def _scan_config_and_iac(scope_path: Path) -> list[dict[str, Any]]:
                     )
                 )
     return findings
+
+
+def _is_documentation_context(line: str, rule_id: str) -> bool:
+    """Check if pattern appears in documentation/HTML context (not actual config)."""
+    if rule_id == "CFG001":
+        for pattern in _DOC_CONTEXT_PATTERNS:
+            if pattern.search(line):
+                return True
+    return False
 
 
 def _iter_text_candidates(scope_path: Path) -> list[Path]:

@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { compileContract, emitForHost, validateContract, validateSchema, type ContractSchema } from "./index.js";
+import {
+  compileContract,
+  emitForHost,
+  validateContract,
+  validateSchema,
+  type ContractSchema,
+} from "./index.js";
 
 const VALID_SCHEMA: ContractSchema = {
-  version: "2.3.0",
+  version: "3.0.0",
   capabilities: [
     "compilation_targets",
     "hooks",
@@ -43,7 +49,11 @@ describe("contract compiler schema + validation", () => {
     };
     const result = validateContract(invalid);
     expect(result.valid).toBe(false);
-    expect(result.blockers.some((blocker) => blocker.includes("compilation_targets"))).toBe(true);
+    expect(
+      result.blockers.some((blocker) =>
+        blocker.includes("compilation_targets"),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -77,6 +87,9 @@ describe("compileContract", () => {
     expect(result.valid).toBe(true);
     expect(result.blockers).toHaveLength(0);
     expect(result.artifacts).toHaveLength(2);
-    expect(result.artifacts.map((artifact) => artifact.host)).toEqual(["claude", "codex"]);
+    expect(result.artifacts.map((artifact) => artifact.host)).toEqual([
+      "claude",
+      "codex",
+    ]);
   });
 });

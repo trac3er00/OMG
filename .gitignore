@@ -93,3 +93,18 @@ build/temp*/
 
 # Generated CI artifacts — never commit
 artifacts/release/
+
+# Simulation results (generated files)
+simulation/results/*.md
+
+# TypeScript build output (compiled JS / declaration / sourcemaps)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+
+# Simulation artifacts
+simulation/
+
+# GitHub Action (generated)
+# action.yml

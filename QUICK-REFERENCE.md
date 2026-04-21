@@ -1,55 +1,29 @@
 <!-- GENERATED: DO NOT EDIT MANUALLY -->
-
 # OMG CLI Adapter Quick Reference
-
-## 🚀 Instant Mode (New!)
-
-Build anything with one command:
-
-```bash
-npx omg instant "랜딩페이지 만들어줘"   # Landing page
-npx omg instant "make a REST API"        # API backend
-npx omg instant "쇼핑몰 만들어줘"        # E-commerce
-npx omg instant "make a chatbot"         # Bot
-```
-
-Supports: SaaS, Landing, E-commerce, API, Bot, Admin, CLI
-
-## Memory Commands
-
-- `npx omg memory tier-status` — Display CMMS Auto/Micro/Ship tier status
-- `npx omg memory tier-status --json` — Machine-readable tier output
-- `npx omg memory tier-status --tier=<auto|micro|ship>` — Filter specific tier
-
-## Session Commands
-
-- `npx omg pause` — Save session checkpoint for later resumption
-- `npx omg continue` — Restore session from most recent checkpoint
 
 ## 🎯 Core Integration Points
 
 ### Canonical Hosts
 
 <!-- OMG:GENERATED:quick-reference-hosts -->
-
 ### Host Targets
 
-| host     | role          | config                             |
-| :------- | :------------ | :--------------------------------- |
-| claude   | canonical     | `.mcp.json`                        |
-| codex    | canonical     | `~/.codex/config.toml`             |
-| gemini   | canonical     | `~/.gemini/settings.json`          |
-| kimi     | canonical     | `~/.kimi/mcp.json`                 |
+| host | role | config |
+| :--- | :--- | :--- |
+| claude | canonical | `.mcp.json` |
+| codex | canonical | `~/.codex/config.toml` |
+| gemini | canonical | `~/.gemini/settings.json` |
+| kimi | canonical | `~/.kimi/mcp.json` |
 | opencode | compatibility | `~/.config/opencode/opencode.json` |
 
 <!-- /OMG:GENERATED:quick-reference-hosts -->
 
-| Host   | Config File               |
-| :----- | :------------------------ |
-| claude | `.mcp.json`               |
-| codex  | `~/.codex/config.toml`    |
+| Host | Config File |
+| :--- | :--- |
+| claude | `.mcp.json` |
+| codex | `~/.codex/config.toml` |
 | gemini | `~/.gemini/settings.json` |
-| kimi   | `~/.kimi/mcp.json`        |
+| kimi | `~/.kimi/mcp.json` |
 
 ### Release Channels
 
@@ -58,27 +32,25 @@ Supports: SaaS, Landing, E-commerce, API, Bot, Admin, CLI
 
 ### Preset Quick Reference
 
-| Preset     | Key Features                                                                 |
-| :--------- | :--------------------------------------------------------------------------- |
-| safe       | None                                                                         |
-| balanced   | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
-| interop    | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
-| labs       | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
-| buffet     | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
+| Preset | Key Features |
+| :--- | :--- |
+| safe | None |
+| balanced | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
+| interop | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
+| labs | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
+| buffet | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
 | production | SETUP, SETUP_WIZARD, MEMORY_AUTOSTART, SESSION_ANALYTICS, CONTEXT_MANAGER... |
 
 ### Quick Commands
 
-| Task               | Command                             |
-| :----------------- | :---------------------------------- |
-| Install (preview)  | `npx omg install --plan`            |
-| Install (apply)    | `npx omg install --apply`           |
-| Diagnostics        | `npx omg doctor`                    |
-| Environment check  | `npx omg env doctor`                |
-| Ship               | `npx omg ship`                      |
-| Release audit      | `npx omg release audit --artifact`  |
-| Proof dashboard    | `npx omg proof open --html`         |
-| Explain run        | `npx omg explain run --run-id <id>` |
-| Blocked inspection | `npx omg blocked --last`            |
-| Validate           | `npx omg validate`                  |
-| Contract validate  | `npx omg contract validate`         |
+| Task | Command |
+| :--- | :--- |
+| Install (preview) | `npx omg install --plan` |
+| Install (apply) | `npx omg install --apply` |
+| Environment check | `npx omg env doctor` |
+| Ship | `npx omg ship` |
+| Proof summary | `npx omg proof` |
+| Proof dashboard | `npx omg proof open --html` |
+| Blocked inspection | `npx omg blocked --last` |
+| Validate | `npx omg validate` |
+| Contract validate | `npx omg contract validate` |

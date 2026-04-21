@@ -1,7 +1,6 @@
 # Install OMG for Claude Code
 
 <!-- OMG:GENERATED:install-fast-path -->
-
 ## Fast Path
 
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
@@ -13,9 +12,6 @@ npx omg install --apply   # apply configuration
 ```
 
 The preview step is advisory only and makes no mutations until you run apply.
-
-Build anything with one command: `npx omg instant "랜딩페이지 만들어줘"`
-
 <!-- /OMG:GENERATED:install-fast-path -->
 
 ## Official Claude Plugin Flow

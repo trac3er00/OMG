@@ -1,5 +1,3 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
   configureVision,
@@ -16,12 +14,6 @@ import {
 } from "./parity.js";
 
 const PARITY_PROMPT = "Normalize this provider response.";
-const EVIDENCE_PATH = join(
-  process.cwd(),
-  ".sisyphus",
-  "evidence",
-  "task-39-parity.json",
-);
 
 const PROVIDER_MODELS: Record<HostType, string> = {
   claude: "claude-sonnet-4",
@@ -81,8 +73,8 @@ function mockStream(provider: HostType): ProviderStreamEvent[] {
   ];
 }
 
-describe("provider parity", () => {
-  test("same prompt yields normalized response format across all 6 providers", async () => {
+describe("provider parity synthetic contract tests", () => {
+  test("synthetic responses satisfy normalized format across all 6 providers", () => {
     const providers: HostType[] = [
       "claude",
       "codex",
@@ -116,41 +108,9 @@ describe("provider parity", () => {
       "usage.inputTokens",
       "usage.outputTokens",
     ]);
-
-    await mkdir(join(process.cwd(), ".sisyphus", "evidence"), {
-      recursive: true,
-    });
-    await writeFile(
-      EVIDENCE_PATH,
-      JSON.stringify(
-        {
-          task: 39,
-          generatedAt: new Date().toISOString(),
-          prompt: PARITY_PROMPT,
-          providerCount: responses.length,
-          normalizedShape: ["content", "model", "usage", "provider"],
-          usageShape: ["inputTokens", "outputTokens"],
-          parityReport: report,
-          notes: [
-            "All six providers satisfy the normalized response shape.",
-            "Expected variance is limited to provider-specific model identifiers and token accounting.",
-            "Task 16 provider matrix predates Ollama parity coverage and reports five CLI wrappers.",
-          ],
-        },
-        null,
-        2,
-      ),
-    );
-
-    const persisted = JSON.parse(await readFile(EVIDENCE_PATH, "utf8")) as {
-      parityReport: { isFormatConsistent: boolean };
-      providerCount: number;
-    };
-    expect(persisted.providerCount).toBe(6);
-    expect(persisted.parityReport.isFormatConsistent).toBe(true);
   });
 
-  test("checkParity reports content drift as acceptable variance instead of format failure", () => {
+  test("synthetic parity check reports content drift as acceptable variance instead of format failure", () => {
     const responses: ProviderResponse[] = [
       mockResponse("claude", PARITY_PROMPT),
       mockResponse("codex", PARITY_PROMPT),
@@ -186,7 +146,7 @@ describe("provider parity", () => {
     }
   });
 
-  test("stream events use a consistent normalized format", () => {
+  test("synthetic stream events use a consistent normalized format", () => {
     const providers: HostType[] = [
       "claude",
       "codex",

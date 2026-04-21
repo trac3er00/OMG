@@ -251,6 +251,18 @@ class ControlPlaneService:
             external_inputs=external_inputs,
             waivers=waivers,
         )
+        summary = result.get("summary", {})
+        finding_count = summary.get("finding_count", 0)
+        unresolved_count = summary.get("unresolved_high_risk_count", 0)
+        if finding_count > 0:
+            findings = result.get("findings", [])
+            severity_counts = summary.get("by_severity", {})
+            critical = severity_counts.get("critical", 0)
+            high = severity_counts.get("high", 0)
+            finding_types = [f.get("message", "Unknown issue") for f in findings[:3]]
+            result["reason"] = f"{finding_count} finding(s) detected ({critical} critical, {high} high): {'; '.join(finding_types)}"
+            if unresolved_count > 0:
+                result["reason"] += f" — {unresolved_count} unresolved high-risk issue(s)"
         return 200, result
 
     def guide_assert(self, payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:

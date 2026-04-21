@@ -1,8 +1,9 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { extname } from "node:path";
 import { HostTypeSchema, type HostType } from "../types/config.js";
 
 const DEFAULT_PROVIDER: HostType = "claude";
+export const DEFAULT_MAX_VISION_ASSET_BYTES = 10 * 1024 * 1024;
 
 type VisionOperation =
   | "analyzeImage"
@@ -80,6 +81,22 @@ export class VisionNotSupportedError extends Error {
   }
 }
 
+export class VisionAssetTooLargeError extends Error {
+  readonly path: string;
+  readonly sizeBytes: number;
+  readonly maxBytes: number;
+
+  constructor(path: string, sizeBytes: number, maxBytes: number) {
+    super(
+      `Vision asset at "${path}" is too large (${sizeBytes} bytes). Maximum allowed size is ${maxBytes} bytes.`,
+    );
+    this.name = "VisionAssetTooLargeError";
+    this.path = path;
+    this.sizeBytes = sizeBytes;
+    this.maxBytes = maxBytes;
+  }
+}
+
 const DEFAULT_ADAPTERS: Readonly<Record<HostType, VisionProviderAdapter>> = {
   claude: { supportsVision: false },
   codex: { supportsVision: false },
@@ -98,10 +115,10 @@ export function configureVision(config: VisionConfiguration): void {
   }
 
   if (config.adapters) {
-    configuredAdapters = {
+    configuredAdapters = cloneAdapterMap({
       ...configuredAdapters,
       ...config.adapters,
-    };
+    });
   }
 }
 
@@ -111,16 +128,22 @@ export function resetVisionConfiguration(): void {
 }
 
 export async function analyzeImage(path: string): Promise<VisionResult> {
-  const provider = resolveProvider();
-  const adapter = getSupportedAdapter(provider, "analyzeImage");
+  const config = getCurrentConfiguration();
+  const provider = resolveProvider(config.provider);
+  const adapter = getSupportedAdapter(
+    provider,
+    "analyzeImage",
+    config.adapters,
+  );
   const image = await loadVisionAsset(path);
   const result = await adapter.analyzeImage(image);
   return normalizeVisionResult(result, provider, path);
 }
 
 export async function extractText(path: string): Promise<string> {
-  const provider = resolveProvider();
-  const adapter = getSupportedAdapter(provider, "extractText");
+  const config = getCurrentConfiguration();
+  const provider = resolveProvider(config.provider);
+  const adapter = getSupportedAdapter(provider, "extractText", config.adapters);
   const image = await loadVisionAsset(path);
   return adapter.extractText(image);
 }
@@ -129,8 +152,13 @@ export async function compareImages(
   path1: string,
   path2: string,
 ): Promise<ComparisonResult> {
-  const provider = resolveProvider();
-  const adapter = getSupportedAdapter(provider, "compareImages");
+  const config = getCurrentConfiguration();
+  const provider = resolveProvider(config.provider);
+  const adapter = getSupportedAdapter(
+    provider,
+    "compareImages",
+    config.adapters,
+  );
   const [leftImage, rightImage] = await Promise.all([
     loadVisionAsset(path1),
     loadVisionAsset(path2),
@@ -140,15 +168,30 @@ export async function compareImages(
 }
 
 export async function describeDiagram(path: string): Promise<string> {
-  const provider = resolveProvider();
-  const adapter = getSupportedAdapter(provider, "describeDiagram");
+  const config = getCurrentConfiguration();
+  const provider = resolveProvider(config.provider);
+  const adapter = getSupportedAdapter(
+    provider,
+    "describeDiagram",
+    config.adapters,
+  );
   const image = await loadVisionAsset(path);
   return adapter.describeDiagram(image);
 }
 
-function resolveProvider(): HostType {
-  if (configuredProvider) {
-    return configuredProvider;
+function getCurrentConfiguration(): {
+  readonly provider: HostType | undefined;
+  readonly adapters: VisionAdapterMap;
+} {
+  return {
+    provider: configuredProvider,
+    adapters: configuredAdapters,
+  };
+}
+
+function resolveProvider(providerFromConfig: HostType | undefined): HostType {
+  if (providerFromConfig) {
+    return providerFromConfig;
   }
 
   const candidate = process.env.OMG_PROVIDER;
@@ -159,28 +202,33 @@ function resolveProvider(): HostType {
 function getSupportedAdapter(
   provider: HostType,
   operation: "analyzeImage",
+  adapters: VisionAdapterMap,
 ): Required<Pick<VisionProviderAdapter, "analyzeImage">>;
 function getSupportedAdapter(
   provider: HostType,
   operation: "extractText",
+  adapters: VisionAdapterMap,
 ): Required<Pick<VisionProviderAdapter, "extractText">>;
 function getSupportedAdapter(
   provider: HostType,
   operation: "compareImages",
+  adapters: VisionAdapterMap,
 ): Required<Pick<VisionProviderAdapter, "compareImages">>;
 function getSupportedAdapter(
   provider: HostType,
   operation: "describeDiagram",
+  adapters: VisionAdapterMap,
 ): Required<Pick<VisionProviderAdapter, "describeDiagram">>;
 function getSupportedAdapter(
   provider: HostType,
   operation: VisionOperation,
+  adapters: VisionAdapterMap,
 ):
   | Required<Pick<VisionProviderAdapter, "analyzeImage">>
   | Required<Pick<VisionProviderAdapter, "extractText">>
   | Required<Pick<VisionProviderAdapter, "compareImages">>
   | Required<Pick<VisionProviderAdapter, "describeDiagram">> {
-  const adapter = configuredAdapters[provider] ?? DEFAULT_ADAPTERS[provider];
+  const adapter = adapters[provider] ?? DEFAULT_ADAPTERS[provider];
   const operationHandler = adapter[operation];
 
   if (!adapter.supportsVision || typeof operationHandler !== "function") {
@@ -195,12 +243,32 @@ function getSupportedAdapter(
 }
 
 async function loadVisionAsset(path: string): Promise<VisionAsset> {
+  const fileStats = await stat(path);
+  if (fileStats.size > DEFAULT_MAX_VISION_ASSET_BYTES) {
+    throw new VisionAssetTooLargeError(
+      path,
+      fileStats.size,
+      DEFAULT_MAX_VISION_ASSET_BYTES,
+    );
+  }
+
   const contents = await readFile(path);
   return {
     path,
     mimeType: inferMimeType(path),
     contentBase64: contents.toString("base64"),
   };
+}
+
+function cloneAdapterMap(adapters: VisionAdapterMap): VisionAdapterMap {
+  const cloned: VisionAdapterMap = {};
+  for (const provider of Object.keys(adapters) as HostType[]) {
+    const adapter = adapters[provider];
+    if (adapter) {
+      cloned[provider] = { ...adapter };
+    }
+  }
+  return cloned;
 }
 
 function inferMimeType(path: string): string {

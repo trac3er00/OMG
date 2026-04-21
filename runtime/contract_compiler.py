@@ -17,7 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Any, Iterable
+from typing import Any, Iterable, cast
 from urllib.parse import urlparse
 import zipfile
 
@@ -260,6 +260,20 @@ _REQUIRED_CONTEXT_METADATA = (
     "profile_version",
     "intent_gate_version",
 )
+
+_WAVE6_FINAL_REQUIRED_EVIDENCE: tuple[tuple[str, str], ...] = (
+    ("task-39", "artifacts/public/evidence/task-39-parity.json"),
+    ("task-40", "artifacts/public/evidence/task-40-cli-command-surface.json"),
+    ("task-43", "artifacts/public/evidence/task-43-release-gate.json"),
+    ("final-wave", "artifacts/public/evidence/final-wave-readiness.json"),
+)
+
+_WAVE6_FINAL_LEGACY_EVIDENCE_PATHS: dict[str, tuple[str, ...]] = {
+    "task-39": (".sisyphus/evidence/task-39-parity.json",),
+    "task-40": (".sisyphus/evidence/task-40-cli-command-surface.json",),
+    "task-43": (".sisyphus/evidence/task-43-release-gate.json",),
+    "final-wave": (".sisyphus/evidence/final-wave-readiness.json",),
+}
 
 _DEFAULT_EXECUTION_PRIMITIVE_MAX_AGE_SECONDS = 3600.0
 
@@ -1804,7 +1818,7 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
     blockers: list[str] = []
     drift_details: dict[str, str] = {}
 
-    from runtime.release_surfaces import AUTHORED_SURFACES
+    from runtime.release_surfaces import AUTHORED_SURFACES, surface_applies_to_root
 
     sync_script = Path(__file__).resolve().parents[1] / "scripts" / "sync-release-identity.py"
     if not sync_script.exists():
@@ -1836,6 +1850,8 @@ def _check_version_identity_drift(root: Path) -> dict[str, Any]:
         }
 
     for surface in AUTHORED_SURFACES:
+        if not surface_applies_to_root(surface, root):
+            continue
         raw_drifts = check_surface(root, surface, canonical_version)
         if not isinstance(raw_drifts, list):
             blockers.append(
@@ -2355,9 +2371,48 @@ def build_release_readiness(
             cached_result["cache_hit"] = True
             return cached_result
 
-    stalled_workers = get_worker_watchdog(str(root)).get_stalled_workers()
-    if stalled_workers:
-        stalled_run_ids = [str(item.get("run_id", "")).strip() for item in stalled_workers if str(item.get("run_id", "")).strip()]
+    watchdog = get_worker_watchdog(str(root))
+    stalled_workers = watchdog.get_stalled_workers()
+    active_run_id = str(get_active_coordinator_run_id(root) or "").strip()
+    orchestration_active = bool(is_release_orchestration_active(root))
+    actionable_stalled_workers: list[dict[str, Any]] = []
+    for item in stalled_workers:
+        run_id = str(item.get("run_id", "")).strip()
+        ownership = item.get("ownership") if isinstance(item.get("ownership"), dict) else {}
+        ownership_payload = cast(dict[str, Any], ownership)
+        ownership_active_run_id = str(ownership_payload.get("active_run_id", "")).strip()
+        merge_writer_raw = ownership_payload.get("merge_writer")
+        merge_writer_payload = cast(dict[str, Any], merge_writer_raw) if isinstance(merge_writer_raw, dict) else {}
+        merge_active_run_id = str(merge_writer_payload.get("active_run_id", "")).strip()
+        merge_owner_run_id = str(merge_writer_payload.get("owner_run_id", "")).strip()
+        merge_authorized = bool(merge_writer_payload.get("authorized"))
+
+        if active_run_id:
+            if (
+                run_id == active_run_id
+                or ownership_active_run_id == active_run_id
+                or merge_active_run_id == active_run_id
+                or merge_owner_run_id == active_run_id
+            ):
+                actionable_stalled_workers.append(item)
+                continue
+
+        if orchestration_active and not active_run_id:
+            actionable_stalled_workers.append(item)
+            continue
+
+        if merge_authorized and (
+            run_id == merge_owner_run_id
+            or run_id == merge_active_run_id
+        ):
+            actionable_stalled_workers.append(item)
+
+    if actionable_stalled_workers:
+        stalled_run_ids = [
+            str(item.get("run_id", "")).strip()
+            for item in actionable_stalled_workers
+            if str(item.get("run_id", "")).strip()
+        ]
         blocker_suffix = ", ".join(stalled_run_ids) if stalled_run_ids else "unknown"
         return {
             "schema": "OmgReleaseReadinessResult",
@@ -2367,7 +2422,9 @@ def build_release_readiness(
             "checks": {
                 "worker_watchdog": {
                     "status": "error",
-                    "stalled": stalled_workers,
+                    "active_run_id": active_run_id,
+                    "orchestration_active": orchestration_active,
+                    "stalled": actionable_stalled_workers,
                 }
             },
             "cache_hit": False,
@@ -2532,6 +2589,10 @@ def build_release_readiness(
     blockers.extend(policy_sig_check.get("blockers", []))
 
     if channel == "dual":
+        wave6_final_evidence = _check_wave6_final_evidence(root)
+        checks["wave6_final_evidence"] = wave6_final_evidence
+        blockers.extend(wave6_final_evidence.get("blockers", []))
+
         bundle_promotion_parity = _check_bundle_promotion_parity(root, output)
         checks["bundle_promotion_parity"] = bundle_promotion_parity
         blockers.extend(bundle_promotion_parity.get("blockers", []))
@@ -2598,10 +2659,16 @@ def build_release_readiness(
 def _check_recent_evidence(output_root: Path) -> dict[str, Any]:
     latest = _latest_evidence_pack(output_root)
     if latest is None:
-        return {"status": "missing", "blockers": []}
+        return {
+            "status": "error",
+            "blockers": ["missing_release_evidence_pack: missing .omg/evidence/*.json EvidencePack"],
+        }
 
     evidence_path, payload = latest
     blockers: list[str] = []
+    invalid_evidence = str(payload.get("invalid", "")).strip()
+    if invalid_evidence:
+        blockers.append(f"invalid_release_evidence_pack: {invalid_evidence}")
     if not payload.get("security_scans"):
         blockers.append("cosmetic evidence: security_scans is empty")
     if not payload.get("provenance"):
@@ -2641,6 +2708,7 @@ def _latest_evidence_pack(output_root: Path) -> tuple[Path, dict[str, Any]] | No
 
     evidence_files = sorted(path for path in evidence_dir.glob("*.json") if path.is_file())
     evidence_payloads: list[tuple[Path, dict[str, Any]]] = []
+    invalid_payloads: list[tuple[Path, str]] = []
     for path in evidence_files:
         try:
             payload = _load_json(path)
@@ -2652,12 +2720,67 @@ def _latest_evidence_pack(output_root: Path) -> tuple[Path, dict[str, Any]] | No
         try:
             payload = _normalize_evidence_pack(payload)
         except ValueError as exc:
-            return path, {"schema": "EvidencePack", "invalid": f"invalid evidence pack: {exc}"}
+            invalid_payloads.append((path, f"invalid evidence pack: {exc}"))
+            continue
         evidence_payloads.append((path, payload))
 
+    if evidence_payloads:
+        return evidence_payloads[-1]
+    if invalid_payloads:
+        invalid_path, invalid_reason = invalid_payloads[-1]
+        return invalid_path, {"schema": "EvidencePack", "invalid": invalid_reason}
     if not evidence_payloads:
         return None
-    return evidence_payloads[-1]
+    return None
+
+
+def _check_wave6_final_evidence(root: Path) -> dict[str, Any]:
+    blockers: list[str] = []
+    missing: list[str] = []
+    unverified: list[str] = []
+    present: list[str] = []
+
+    for evidence_id, rel_path in _WAVE6_FINAL_REQUIRED_EVIDENCE:
+        candidate_paths = (rel_path, *_WAVE6_FINAL_LEGACY_EVIDENCE_PATHS.get(evidence_id, ()))
+        resolved_rel_path = ""
+        evidence_path: Path | None = None
+        for candidate in candidate_paths:
+            candidate_path = root / candidate
+            if candidate_path.exists():
+                evidence_path = candidate_path
+                resolved_rel_path = candidate
+                break
+
+        if evidence_path is None:
+            missing.append(rel_path)
+            blockers.append(
+                f"wave6_final_evidence_missing: {evidence_id} ({' | '.join(candidate_paths)})"
+            )
+            continue
+
+        payload = _load_json_or_none(evidence_path)
+        if not isinstance(payload, dict):
+            blockers.append(
+                f"wave6_final_evidence_invalid: {evidence_id} ({resolved_rel_path or rel_path})"
+            )
+            continue
+
+        present.append(resolved_rel_path or rel_path)
+        status = str(payload.get("status", "")).strip().lower()
+        if status not in {"ok", "pass", "verified"}:
+            unverified.append(f"{evidence_id}:{status or 'unknown'}")
+            blockers.append(
+                f"wave6_final_evidence_unverified: {evidence_id} status={status or 'unknown'} ({resolved_rel_path or rel_path})"
+            )
+
+    return {
+        "status": "ok" if not blockers else "error",
+        "required": [path for _, path in _WAVE6_FINAL_REQUIRED_EVIDENCE],
+        "present": present,
+        "missing": missing,
+        "unverified": unverified,
+        "blockers": blockers,
+    }
 
 
 def _required_fields_for_module(module: str) -> list[str]:
@@ -3382,7 +3505,10 @@ def _sanitize_run_id(value: str) -> str:
 def _check_claim_judge_compliance(output_root: Path) -> dict[str, Any]:
     latest = _latest_evidence_pack(output_root)
     if latest is None:
-        return {"status": "missing", "blockers": []}
+        return {
+            "status": "error",
+            "blockers": ["claim_judge_compliance_gate: missing release evidence pack"],
+        }
 
     _, evidence_payload = latest
     run_id = str(evidence_payload.get("run_id", "")).strip()
@@ -3455,7 +3581,10 @@ def _check_test_intent_claims(payload: dict[str, Any]) -> list[str]:
 def _check_eval_gate(output_root: Path) -> dict[str, Any]:
     latest_path = output_root / ".omg" / "evals" / "latest.json"
     if not latest_path.exists():
-        return {"status": "missing", "blockers": []}
+        return {
+            "status": "error",
+            "blockers": ["missing_eval_gate_output: .omg/evals/latest.json"],
+        }
     payload = _load_json(latest_path)
     blockers: list[str] = []
     if payload.get("status") != "ok" or bool(payload.get("summary", {}).get("regressed")):

@@ -1,0 +1,9 @@
+{
+  "schema": "WaveFinalEvidence",
+  "task_id": "task-40",
+  "title": "CLI command-surface parity evidence",
+  "status": "blocked",
+  "validated": false,
+  "reason": "Generated docs/command surfaces were narrowed to TS CLI-supported commands, but final machine verification evidence is still pending.",
+  "required_for": ["dual-channel-release-readiness", "wave-6-final"]
+}

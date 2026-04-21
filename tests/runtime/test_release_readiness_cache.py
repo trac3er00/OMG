@@ -90,9 +90,24 @@ def test_build_release_readiness_returns_early_on_stalled_worker(tmp_path: Path,
     class _StalledWatchdog:
         @staticmethod
         def get_stalled_workers() -> list[dict[str, object]]:
-            return [{"run_id": "run-stalled-1", "status": "alive"}]
+            return [
+                {
+                    "run_id": "run-stalled-1",
+                    "status": "alive",
+                    "ownership": {
+                        "active_run_id": "run-stalled-1",
+                        "merge_writer": {
+                            "active_run_id": "run-stalled-1",
+                            "owner_run_id": "run-stalled-1",
+                            "authorized": True,
+                        },
+                    },
+                }
+            ]
 
     monkeypatch.setattr(contract_compiler, "get_worker_watchdog", lambda *_args, **_kwargs: _StalledWatchdog())
+    monkeypatch.setattr(contract_compiler, "get_active_coordinator_run_id", lambda _root: "run-stalled-1")
+    monkeypatch.setattr(contract_compiler, "is_release_orchestration_active", lambda _root: True)
 
     def _unexpected_validate(_root):
         raise AssertionError("readiness should return before full checks on stalled workers")
@@ -105,3 +120,42 @@ def test_build_release_readiness_returns_early_on_stalled_worker(tmp_path: Path,
     assert result["cache_hit"] is False
     assert any("worker_watchdog_stalled:" in blocker for blocker in result["blockers"])
     assert result["checks"]["worker_watchdog"]["status"] == "error"
+
+
+def test_build_release_readiness_ignores_stale_unowned_workers(tmp_path: Path, monkeypatch) -> None:
+    class _StalledWatchdog:
+        @staticmethod
+        def get_stalled_workers() -> list[dict[str, object]]:
+            return [
+                {
+                    "run_id": "historic-run-1",
+                    "status": "alive",
+                    "ownership": {
+                        "active_run_id": "",
+                        "merge_writer": {
+                            "active_run_id": "",
+                            "owner_run_id": "",
+                            "authorized": False,
+                            "reason": "merge_writer_lock_missing",
+                        },
+                    },
+                }
+            ]
+
+    monkeypatch.setattr(contract_compiler, "get_worker_watchdog", lambda *_args, **_kwargs: _StalledWatchdog())
+    monkeypatch.setattr(contract_compiler, "get_active_coordinator_run_id", lambda _root: "")
+    monkeypatch.setattr(contract_compiler, "is_release_orchestration_active", lambda _root: False)
+
+    calls = {"validate": 0}
+
+    def _validate(_root):
+        calls["validate"] += 1
+        return {"status": "ok", "errors": []}
+
+    monkeypatch.setattr(contract_compiler, "validate_contract_registry", _validate)
+    _stub_release_checks(monkeypatch)
+
+    result = contract_compiler.build_release_readiness(root_dir=tmp_path, output_root=tmp_path, channel="public")
+
+    assert calls["validate"] == 1
+    assert all("worker_watchdog_stalled:" not in blocker for blocker in result.get("blockers", []))

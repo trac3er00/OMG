@@ -207,9 +207,8 @@ AUTHORED_SURFACES: list[AuthoredSurface] = [
         "setup script version variable",
     ),
 
-    # 4. hud/omg-hud.mjs — JS fallback literal (line 90)
     AuthoredSurface(
-        "hud/omg-hud.mjs", "js_literal", r'return "(\d+\.\d+\.\d+)"',
+        "hud/omg-hud.mjs", "js_literal", r'version:\s*"(\d+\.\d+\.\d+)"',
         "HUD fallback version literal",
     ),
 

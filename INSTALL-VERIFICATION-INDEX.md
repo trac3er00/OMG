@@ -3,7 +3,7 @@
 
 **Purpose:** Track all CLI adapter integration points, installation flows, and critical assumptions for end-to-end verification.
 
-**Version:** OMG 2.3.0
+**Version:** OMG 3.0.0
 
 ---
 
@@ -39,12 +39,13 @@
 
 | Name | Command |
 | :--- | :--- |
-| doctor | `npx omg doctor` |
 | env doctor | `npx omg env doctor` |
 | validate | `npx omg validate` |
 | contract validate | `npx omg contract validate` |
 | install plan | `npx omg install --plan` |
-| release audit | `npx omg release audit --artifact` |
+| install apply | `npx omg install --apply` |
+| proof open | `npx omg proof open --html` |
+| blocked | `npx omg blocked --last` |
 
 ## 📂 Cache Paths
 

@@ -1,12 +1,8 @@
 {
   "generated_by": "omg docs generate",
-  "version": "2.3.0",
-  "generated_at": "2026-03-19T00:15:10.710385+00:00",
+  "version": "3.0.0",
+  "generated_at": "2026-04-11T14:01:47.208554+00:00",
   "verification_commands": [
-    {
-      "name": "doctor",
-      "command": "npx omg doctor"
-    },
     {
       "name": "env doctor",
       "command": "npx omg env doctor"
@@ -24,8 +20,16 @@
       "command": "npx omg install --plan"
     },
     {
-      "name": "release audit",
-      "command": "npx omg release audit --artifact"
+      "name": "install apply",
+      "command": "npx omg install --apply"
+    },
+    {
+      "name": "proof open",
+      "command": "npx omg proof open --html"
+    },
+    {
+      "name": "blocked",
+      "command": "npx omg blocked --last"
     }
   ],
   "cache_paths": [

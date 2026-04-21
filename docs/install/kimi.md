@@ -3,12 +3,12 @@
 <!-- OMG:GENERATED:install-fast-path -->
 ## Fast Path
 
-> **Prerequisites**: macOS or Linux, Bun >=1.1.0 (no Python required)
+> **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
-bunx omg env doctor
-bunx omg install --plan    # preview only, no mutations
-bunx omg install --apply   # apply configuration
+npx omg env doctor
+npx omg install --plan    # preview only, no mutations
+npx omg install --apply   # apply configuration
 ```
 
 The preview step is advisory only and makes no mutations until you run apply.

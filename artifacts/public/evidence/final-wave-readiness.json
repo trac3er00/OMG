@@ -1,0 +1,10 @@
+{
+  "schema": "WaveFinalEvidence",
+  "task_id": "final-wave",
+  "title": "Final wave readiness aggregation",
+  "status": "blocked",
+  "validated": false,
+  "reason": "Final-wave evidence remains incomplete; release gate must remain fail-closed until all required task evidence is verified.",
+  "depends_on": ["task-39", "task-40", "task-43"],
+  "required_for": ["dual-channel-release-readiness", "wave-6-final"]
+}

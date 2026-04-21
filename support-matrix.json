@@ -1,7 +1,7 @@
 {
   "generated_by": "omg docs generate",
-  "version": "2.3.0",
-  "generated_at": "2026-03-18T22:13:41.620252+00:00",
+  "version": "3.0.0",
+  "generated_at": "2026-04-11T14:01:47.208554+00:00",
   "canonical_hosts": [
     "claude",
     "codex",
@@ -26,6 +26,7 @@
   "subscription_tiers": [
     "free",
     "pro",
+    "max",
     "team",
     "enterprise_tier"
   ],
