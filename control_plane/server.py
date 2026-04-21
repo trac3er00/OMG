@@ -1,4 +1,5 @@
 """Lightweight HTTP server for OMG control-plane APIs."""
+
 from __future__ import annotations
 
 import argparse
@@ -21,7 +22,9 @@ _SECURITY_HEADERS = {
 }
 
 
-def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
+def _json_response(
+    handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]
+) -> None:
     """Send a JSON response to the client.
 
     Args:
@@ -37,7 +40,6 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[s
         handler.send_header(header, value)
     handler.end_headers()
     handler.wfile.write(body)
-
 
 
 def _read_json(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
@@ -100,7 +102,6 @@ _GET_ROUTE_TABLE = {
 }
 
 
-
 def _decorate_payload(payload: dict[str, Any], *, deprecated: bool) -> dict[str, Any]:
     """Add metadata to the response payload.
 
@@ -117,7 +118,6 @@ def _decorate_payload(payload: dict[str, Any], *, deprecated: bool) -> dict[str,
         decorated["deprecated"] = True
         decorated["deprecated_alias"] = "v1"
     return decorated
-
 
 
 def make_handler(service: ControlPlaneService, *, auth_token: str | None = None):
@@ -137,11 +137,15 @@ def make_handler(service: ControlPlaneService, *, auth_token: str | None = None)
                 return True
             header = self.headers.get("Authorization", "")
             if not header.startswith("Bearer "):
-                _json_response(self, 401, {"status": "error", "message": "Missing bearer token"})
+                _json_response(
+                    self, 401, {"status": "error", "message": "Missing bearer token"}
+                )
                 return False
             token = header.removeprefix("Bearer ").strip()
             if not token or not compare_digest(token, auth_token):
-                _json_response(self, 401, {"status": "error", "message": "Invalid bearer token"})
+                _json_response(
+                    self, 401, {"status": "error", "message": "Invalid bearer token"}
+                )
                 return False
             return True
 
@@ -153,7 +157,9 @@ def make_handler(service: ControlPlaneService, *, auth_token: str | None = None)
                     return
                 method_name, deprecated = route
                 status, payload = getattr(service, method_name)()
-                _json_response(self, status, _decorate_payload(payload, deprecated=deprecated))
+                _json_response(
+                    self, status, _decorate_payload(payload, deprecated=deprecated)
+                )
                 return
             _json_response(self, 404, {"status": "error", "message": "Not found"})
 
@@ -170,7 +176,9 @@ def make_handler(service: ControlPlaneService, *, auth_token: str | None = None)
                     return
                 method_name, deprecated = route
                 status, out = getattr(service, method_name)(payload)
-                _json_response(self, status, _decorate_payload(out, deprecated=deprecated))
+                _json_response(
+                    self, status, _decorate_payload(out, deprecated=deprecated)
+                )
                 return
 
             _json_response(self, 404, {"status": "error", "message": "Not found"})
@@ -180,7 +188,6 @@ def make_handler(service: ControlPlaneService, *, auth_token: str | None = None)
             return
 
     return Handler
-
 
 
 def run_server(
@@ -203,7 +210,9 @@ def run_server(
     _validate_binding(
         host,
         auth_token,
-        allow_non_loopback=host in _LOOPBACK_HOSTS if allow_non_loopback is None else allow_non_loopback,
+        allow_non_loopback=host in _LOOPBACK_HOSTS
+        if allow_non_loopback is None
+        else allow_non_loopback,
     )
     service = ControlPlaneService(project_dir=project_dir)
     handler = make_handler(service, auth_token=auth_token)
@@ -221,7 +230,9 @@ class ControlPlaneBindingError(ValueError):
     """Raised when an HTTP control-plane binding violates safety requirements."""
 
 
-def _validate_binding(host: str, auth_token: str | None, *, allow_non_loopback: bool) -> None:
+def _validate_binding(
+    host: str, auth_token: str | None, *, allow_non_loopback: bool
+) -> None:
     if host in _LOOPBACK_HOSTS:
         return
     if not allow_non_loopback:
@@ -229,12 +240,11 @@ def _validate_binding(host: str, auth_token: str | None, *, allow_non_loopback: 
             f"Binding to '{host}' exposes the control plane to the network. "
             "Pass --unsafe/--dev in the CLI before using a non-loopback address.",
         )
-    if auth_token is None:
+    if not auth_token:
         raise ControlPlaneBindingError(
             f"Binding to '{host}' requires an HTTP bearer token. "
             "Pass --auth-token or set OMG_CONTROL_TOKEN before using a non-loopback address.",
         )
-
 
 
 def _main() -> int:
@@ -248,11 +258,13 @@ def _main() -> int:
     parser.add_argument("--port", type=int, default=8787)
     parser.add_argument("--project-dir", default=None)
     parser.add_argument(
-        "--unsafe", action="store_true",
+        "--unsafe",
+        action="store_true",
         help="Allow binding to non-loopback addresses when an auth token is configured",
     )
     parser.add_argument(
-        "--dev", action="store_true",
+        "--dev",
+        action="store_true",
         help="Development mode — implies --unsafe for non-loopback binding",
     )
     parser.add_argument(
@@ -261,10 +273,14 @@ def _main() -> int:
         help="Bearer token required for HTTP API requests. Can also be set via OMG_CONTROL_TOKEN.",
     )
     args = parser.parse_args()
-    auth_token = (args.auth_token or os.environ.get("OMG_CONTROL_TOKEN") or "").strip() or None
+    auth_token = (
+        args.auth_token or os.environ.get("OMG_CONTROL_TOKEN") or ""
+    ).strip() or None
 
     try:
-        _validate_binding(args.host, auth_token, allow_non_loopback=bool(args.unsafe or args.dev))
+        _validate_binding(
+            args.host, auth_token, allow_non_loopback=bool(args.unsafe or args.dev)
+        )
     except ControlPlaneBindingError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

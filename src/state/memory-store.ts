@@ -1,5 +1,11 @@
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { OmgDatabase } from "./database.js";
 import { StateResolver } from "./state-resolver.js";
@@ -91,9 +97,25 @@ function loadOrCreateStorePassphrase(stateDir: string): string {
   }
 
   const secret = randomBytes(MEMORY_SECRET_BYTES).toString("hex");
-  writeFileSync(keyPath, secret, { mode: 0o600 });
-  chmodSync(keyPath, 0o600);
-  return secret;
+  try {
+    // Use exclusive-create flag to prevent TOCTOU race condition.
+    // If another process created the file between our existsSync check and now,
+    // the 'wx' flag will cause writeFileSync to throw EEXIST.
+    writeFileSync(keyPath, secret, { mode: 0o600, flag: "wx" });
+    chmodSync(keyPath, 0o600);
+    return secret;
+  } catch (err: unknown) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      err.code === "EEXIST"
+    ) {
+      // Another process won the race - read their secret instead
+      return readFileSync(keyPath, "utf8").trim();
+    }
+    throw err;
+  }
 }
 
 export class MemoryStore {
@@ -115,7 +137,8 @@ export class MemoryStore {
     const configuredPassphrase =
       config.passphrase ?? process.env.OMG_MEMORY_PASSPHRASE;
     this.passphrase =
-      configuredPassphrase?.trim() || loadOrCreateStorePassphrase(resolver.stateDir);
+      configuredPassphrase?.trim() ||
+      loadOrCreateStorePassphrase(resolver.stateDir);
     const dbPath = resolver.resolve(config.dbFileName ?? DEFAULT_DB_FILENAME);
     this.db = new OmgDatabase({ path: dbPath, walMode: true });
 

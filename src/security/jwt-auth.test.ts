@@ -75,7 +75,8 @@ describe("JWT auth (Ed25519)", () => {
     const tamperedToken = `${header}.${tamperedPayload}.${signature}`;
 
     expect(revokeToken(tamperedToken, publicKey)).toBe(false);
-    expect(validateToken(token, publicKey).valid).toBe(true);
+    // Validate the tampered token (not original) to verify cache isn't poisoned by forged jti
+    expect(validateToken(tamperedToken, publicKey).valid).toBe(false);
   });
 
   test("refresh rotates token and revokes old one", () => {
