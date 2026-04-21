@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -48,6 +49,23 @@ jobs:
         run: bun run eval || true
         continue-on-error: true
         timeout-minutes: 5
+
+  simulation-test:
+    name: Simulation Tests
+    runs-on: ubuntu-latest
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build simulation Docker image
+        run: docker build -f simulation/docker/Dockerfile -t omg-sim-base .
+      - name: Run simulation tests
+        run: cd simulation && bun install && bun run src/suites/full-agent-matrix.ts quick
+      - name: Upload simulation artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulation-results
+          path: simulation/results/
 
   production-test:
     name: Production Tests
