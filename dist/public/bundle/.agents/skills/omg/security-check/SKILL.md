@@ -1,6 +1,6 @@
 ---
 name: omg-security-check
-description: "Canonical security audit bundle with provenance, trust scoring, and deterministic evidence."
+description: "Security audit lane with waiver normalization, unresolved-high-risk fail conditions, and required remediation evidence refresh."
 ---
 
 # OMG Security Check

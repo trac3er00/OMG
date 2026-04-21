@@ -1,0 +1,16 @@
+name: "OMG"
+description: "Run OMG commands from GitHub Actions"
+branding:
+  icon: "shield"
+  color: "purple"
+inputs:
+  command:
+    description: "OMG CLI command arguments (without leading 'omg')"
+    required: false
+    default: "validate"
+runs:
+  using: "composite"
+  steps:
+    - name: Run OMG
+      shell: bash
+      run: npx @trac3r/oh-my-god ${{ inputs.command }}

@@ -1,6 +1,6 @@
 id: ast-pack
 kind: governance
-version: 2.3.0
+version: 3.0.0
 title: OMG AST Pack Lane
 description: Two-phase AST lane requiring search-first flow, dry-run evidence, and explicit promotion before mutation-capable rewrites.
 hosts:

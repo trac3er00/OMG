@@ -1,6 +1,6 @@
 ---
 name: omg-hash-edit
-description: "Governed hash-bound edit lane with signed approvals and evidence routing."
+description: "Hash-bound edit lane that verifies target digests, refreshes approvals on mismatch, and blocks mutation until evidence is valid."
 ---
 
 # OMG Hash Edit Lane

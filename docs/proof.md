@@ -11,10 +11,10 @@
 ```bash
 npx omg proof open --html
 npx omg blocked --last
-npx omg explain run --run-id <id>
+npx omg proof
 ```
 
-Use the HTML view first, then inspect blockers or explain a specific run.
+Use the HTML view first, then inspect blockers and the terminal proof summary.
 <!-- /OMG:GENERATED:proof-quickstart -->
 
 OMG generates machine-backed evidence for every claim. Here is what the outputs mean.

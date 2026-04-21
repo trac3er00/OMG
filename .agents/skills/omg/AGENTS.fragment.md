@@ -1,16 +1,16 @@
-# OMG Codex Governance (channel: enterprise)
+# OMG Codex Governance (channel: public)
 
 ## Build & Test
 
 ```bash
 python3 -m pytest tests -q
 python3 scripts/omg.py contract validate
-python3 scripts/omg.py contract compile --host codex --channel enterprise
+python3 scripts/omg.py contract compile --host codex --channel public
 ```
 
 ## Protected Paths
 
-Tier-gated review is required before mutating:
+The following paths require tier-gated review before mutation:
 
 - `.omg/**`
 - `.agents/**`
@@ -19,18 +19,18 @@ Tier-gated review is required before mutating:
 
 ## Release Audit
 
-Release readiness requires these outcomes:
+Release readiness requires claim and compliance outcomes:
 
 - `claim_judge`
 - `compliance_governor`
 - `execution_primitives`
-  Attestation requirements:
+Attestation requirements:
 - `registry.verify_artifact.sign_artifact_statement`
 - `registry.verify_artifact.verify_artifact_statement`
 
 ## Evidence Contract
 
-Production actions must emit evidence with:
+Every production action must emit evidence containing these fields:
 
 - `attestation_statement`
 - `attestation_verifier`
@@ -48,7 +48,7 @@ Production actions must emit evidence with:
 
 ## Protected Planning Surface
 
-Protected planning skills require explicit invocation:
+Council planning skills are protected and explicit-invocation only:
 
 - `omg/plan-council`
 
@@ -56,23 +56,20 @@ Protected planning skills require explicit invocation:
 
 - Prefer cached results over live network requests.
 - Do NOT initiate live web searches unless explicitly instructed.
-- Use `context7` or local documentation before external lookups; default to `cached_web_search: prefer_cached`.
+- Use `context7` or local documentation before external lookups.
+- Set `cached_web_search: prefer_cached` as the default.
 
 ## Approval Constraints
 
 - Destructive file operations require explicit user approval.
-- `git push --force` and branch deletions require approval.
+- `git push --force` and branch deletions require explicit approval.
 - Production deployments require explicit approval.
 - Mutations to protected paths require tier-gated approval.
-
-## Instant Mode
-
-- `/OMG:instant` — quick-start instant mode via `npx omg instant` for zero-config host bootstrap.
 
 ## Rules & Automations
 
 - Rules: `protected_paths, explicit_invocation`
 - Automations: `contract-compile, release-readiness`
-- Respect the repo's `AGENTS.md` / `AGENTS.override.md` chain before OMG guidance.
-- Keep OMG guidance separate from Codex built-in slash commands.
-- Protected production planning skills stay explicit-invocation only.
+- Defer to the repo's `AGENTS.md` / `AGENTS.override.md` instruction hierarchy before OMG-specific guidance.
+- Do not mirror or override Codex built-in slash commands; OMG guidance applies through MCP, skills, and generated rules.
+- Require explicit invocation for protected production planning skills.

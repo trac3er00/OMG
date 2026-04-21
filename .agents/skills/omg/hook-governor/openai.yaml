@@ -1,8 +1,8 @@
 name: omg-hook-governor
-description: "Canonical hook ordering, policy reinjection, and protected-path governance."
+description: "Hook ordering lane with injection-state checks and fail-closed precedence resolution across security, policy, and budget hooks."
 allow_implicit_invocation: true
 metadata:
-  channel: enterprise
+  channel: public
   bundle_id: hook-governor
   title: "OMG Hook Governor"
 mcp_servers:

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { ModelTier } from "../orchestration/router.js";
-import { OllamaProvider } from "./ollama.js";
+import { OllamaChatTimeoutError, OllamaProvider } from "./ollama.js";
 
 const MOCK_MODELS_RESPONSE = {
   models: [
@@ -219,6 +219,70 @@ describe("OllamaProvider.chat", () => {
       }),
     ).rejects.toThrow("Ollama /api/chat returned 500");
   });
+
+  test("chat timeout throws deterministic timeout error", async () => {
+    globalThis.fetch = mock(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!(signal instanceof AbortSignal)) {
+            reject(new Error("missing abort signal"));
+            return;
+          }
+
+          if (signal.aborted) {
+            reject(new DOMException("aborted", "AbortError"));
+            return;
+          }
+
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    ) as unknown as typeof fetch;
+
+    const provider = new OllamaProvider("http://localhost:11434", {
+      chatTimeoutMs: 10,
+    });
+
+    await expect(
+      provider.chat({
+        model: "llama3:latest",
+        messages: [{ role: "user", content: "Hello" }],
+      }),
+    ).rejects.toThrow(OllamaChatTimeoutError);
+    await expect(
+      provider.chat({
+        model: "llama3:latest",
+        messages: [{ role: "user", content: "Hello" }],
+      }),
+    ).rejects.toThrow("Ollama chat request timed out after 10ms");
+  });
+
+  test("chat falls back to request.model when response model is blank", async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ...MOCK_CHAT_RESPONSE,
+            model: "  ",
+          }),
+          { status: 200 },
+        ),
+      ),
+    ) as unknown as typeof fetch;
+
+    const provider = new OllamaProvider();
+    const response = await provider.chat({
+      model: "qwen2.5:72b-instruct",
+      messages: [{ role: "user", content: "Hello" }],
+    });
+
+    expect(response.model).toBe("qwen2.5:72b-instruct");
+    expect(response.tier).toBe(ModelTier.Sonnet);
+  });
 });
 
 describe("OllamaProvider.listModels", () => {
@@ -261,6 +325,10 @@ describe("OllamaProvider.inferTier", () => {
     expect(OllamaProvider.inferTier("mixtral:latest")).toBe(ModelTier.Sonnet);
     expect(OllamaProvider.inferTier("codellama:latest")).toBe(ModelTier.Sonnet);
     expect(OllamaProvider.inferTier("llama2:65b")).toBe(ModelTier.Sonnet);
+    expect(OllamaProvider.inferTier("qwen2.5:72b-instruct")).toBe(
+      ModelTier.Sonnet,
+    );
+    expect(OllamaProvider.inferTier("mistral:8x7b")).toBe(ModelTier.Sonnet);
   });
 
   test("never maps to Opus", () => {

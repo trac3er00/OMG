@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DEFAULT_MAX_VISION_ASSET_BYTES,
+  type VisionAsset,
+  VisionAssetTooLargeError,
   VisionNotSupportedError,
   analyzeImage,
   compareImages,
@@ -20,7 +26,7 @@ describe("vision module", () => {
   });
 
   test("analyzeImage returns a structured provider-backed description", async () => {
-    const analyzeImageMock = mock(async () => ({
+    const analyzeImageMock = mock(async (_asset: VisionAsset) => ({
       description: "mock provider description",
     }));
 
@@ -103,9 +109,64 @@ describe("vision module", () => {
   test("providers without a vision API fail with a clear error", async () => {
     configureVision({ provider: "gemini" });
 
-    await expect(extractText(fixturePath)).rejects.toThrow(VisionNotSupportedError);
+    await expect(extractText(fixturePath)).rejects.toThrow(
+      VisionNotSupportedError,
+    );
     await expect(extractText(fixturePath)).rejects.toThrow(
       'Provider "gemini" does not expose a vision API for extractText.',
     );
+  });
+
+  test("oversized asset is rejected before base64 load or adapter call", async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), "omg-vision-"));
+    const oversizedPath = join(tempDir, "oversized.txt");
+    const extractTextMock = mock(async () => "unreachable");
+
+    try {
+      await writeFile(
+        oversizedPath,
+        Buffer.alloc(DEFAULT_MAX_VISION_ASSET_BYTES + 1, 0x61),
+      );
+
+      configureVision({
+        provider: "claude",
+        adapters: {
+          claude: {
+            supportsVision: true,
+            extractText: extractTextMock,
+          },
+        },
+      });
+
+      await expect(extractText(oversizedPath)).rejects.toThrow(
+        VisionAssetTooLargeError,
+      );
+      expect(extractTextMock).not.toHaveBeenCalled();
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test("configureVision snapshots adapter objects to avoid external mutation bleed", async () => {
+    const stableExtractTextMock = mock(async () => "stable");
+    const mutatedExtractTextMock = mock(async () => "mutated");
+
+    const adapters = {
+      claude: {
+        supportsVision: true,
+        extractText: stableExtractTextMock,
+      },
+    };
+
+    configureVision({ provider: "claude", adapters });
+
+    adapters.claude = {
+      supportsVision: true,
+      extractText: mutatedExtractTextMock,
+    };
+
+    await expect(extractText(fixturePath)).resolves.toBe("stable");
+    expect(stableExtractTextMock).toHaveBeenCalledTimes(1);
+    expect(mutatedExtractTextMock).not.toHaveBeenCalled();
   });
 });

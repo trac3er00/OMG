@@ -1,0 +1,9 @@
+{
+  "schema": "WaveFinalEvidence",
+  "task_id": "task-39",
+  "title": "Provider parity evidence",
+  "status": "blocked",
+  "validated": false,
+  "reason": "Repository currently lacks machine-generated parity run output for release-final evidence linkage.",
+  "required_for": ["dual-channel-release-readiness", "wave-6-final"]
+}

@@ -136,6 +136,18 @@ def _patch_fast_release_checks(monkeypatch) -> None:
             "blockers": [],
         },
     )
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_wave6_final_evidence",
+        lambda _root: {
+            "status": "ok",
+            "required": [],
+            "present": [],
+            "missing": [],
+            "unverified": [],
+            "blockers": [],
+        },
+    )
 
 
 def _patch_proof_chain_ok(monkeypatch) -> None:
@@ -1251,6 +1263,111 @@ def test_release_readiness_blocks_missing_evidence_attribution(tmp_path: Path, m
     assert any("missing_attribution" in blocker for blocker in readiness["blockers"])
 
 
+def test_recent_evidence_missing_fails_closed(tmp_path: Path) -> None:
+    result = contract_compiler_module._check_recent_evidence(tmp_path)
+
+    assert result["status"] == "error"
+    assert any("missing_release_evidence_pack" in blocker for blocker in result["blockers"])
+
+
+def test_latest_evidence_pack_prefers_latest_valid_when_older_invalid_exists(tmp_path: Path) -> None:
+    evidence_root = tmp_path / ".omg" / "evidence"
+    evidence_root.mkdir(parents=True, exist_ok=True)
+
+    (evidence_root / "a-invalid.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "schema_version": 2,
+                "run_id": "run-invalid",
+                "artifacts": [{"path": ".omg/evidence/a-invalid.json", "sha256": ""}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (evidence_root / "z-valid.json").write_text(
+        json.dumps(
+            {
+                "schema": "EvidencePack",
+                "schema_version": 2,
+                "run_id": "run-valid",
+                "timestamp": "2026-01-01T00:00:00Z",
+                "executor": {"user": "tester", "pid": 1},
+                "environment": {"hostname": "localhost", "platform": "linux"},
+                "security_scans": [{"tool": "security-check", "path": ".omg/evidence/security-check.json"}],
+                "provenance": [{"source": "test"}],
+                "trace_ids": ["trace-1"],
+                "lineage": {"trace_id": "trace-1"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    latest = contract_compiler_module._latest_evidence_pack(tmp_path)
+
+    assert latest is not None
+    path, payload = latest
+    assert path.name == "z-valid.json"
+    assert payload.get("run_id") == "run-valid"
+
+
+def test_wave6_final_evidence_gate_blocks_missing_artifacts(tmp_path: Path) -> None:
+    result = contract_compiler_module._check_wave6_final_evidence(tmp_path)
+
+    assert result["status"] == "error"
+    assert any("task-39" in blocker for blocker in result["blockers"])
+    assert any("final-wave" in blocker for blocker in result["blockers"])
+
+
+def test_wave6_final_evidence_gate_accepts_verified_artifacts(tmp_path: Path) -> None:
+    evidence_dir = tmp_path / "artifacts" / "public" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    payload = {
+        "schema": "WaveFinalEvidence",
+        "status": "verified",
+        "generated_at": "2026-01-01T00:00:00Z",
+        "notes": "fixture",
+    }
+    for file_name in (
+        "task-39-parity.json",
+        "task-40-cli-command-surface.json",
+        "task-43-release-gate.json",
+        "final-wave-readiness.json",
+    ):
+        (evidence_dir / file_name).write_text(json.dumps(payload), encoding="utf-8")
+
+    result = contract_compiler_module._check_wave6_final_evidence(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+
+
+def test_wave6_final_evidence_gate_accepts_verified_legacy_artifacts(tmp_path: Path) -> None:
+    evidence_dir = tmp_path / ".sisyphus" / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
+    payload = {
+        "schema": "WaveFinalEvidence",
+        "status": "verified",
+        "generated_at": "2026-01-01T00:00:00Z",
+        "notes": "legacy fixture",
+    }
+    for file_name in (
+        "task-39-parity.json",
+        "task-40-cli-command-surface.json",
+        "task-43-release-gate.json",
+        "final-wave-readiness.json",
+    ):
+        (evidence_dir / file_name).write_text(json.dumps(payload), encoding="utf-8")
+
+    result = contract_compiler_module._check_wave6_final_evidence(tmp_path)
+
+    assert result["status"] == "ok"
+    assert result["blockers"] == []
+    assert all(path.startswith(".sisyphus/evidence/") for path in result["present"])
+
+
 def test_release_readiness_blocks_unwaived_high_risk_security(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
     _patch_fast_release_checks(monkeypatch)
@@ -2327,6 +2444,56 @@ def test_release_readiness_dual_bundle_promotion_parity_happy_path(
     assert readiness["status"] == "ok", readiness["blockers"]
     assert readiness["checks"]["bundle_promotion_parity"]["status"] == "ok"
     assert "bundle_promotion_parity" not in readiness["blockers"]
+
+
+def test_release_readiness_dual_blocks_when_wave6_final_evidence_unverified(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OMG_RELEASE_READY_PROVIDERS", "claude,codex")
+    _patch_fast_release_checks(monkeypatch)
+    _patch_proof_chain_ok(monkeypatch)
+    _patch_claim_judge_ok(monkeypatch)
+    monkeypatch.setattr(
+        contract_compiler_module,
+        "_check_wave6_final_evidence",
+        lambda _root: {
+            "status": "error",
+            "required": ["artifacts/public/evidence/task-39-parity.json"],
+            "present": [],
+            "missing": ["artifacts/public/evidence/task-39-parity.json"],
+            "unverified": [],
+            "blockers": [
+                "wave6_final_evidence_missing: task-39 (artifacts/public/evidence/task-39-parity.json)"
+            ],
+        },
+    )
+
+    public_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=list(CANONICAL_HOSTS),
+        channel="public",
+    )
+    enterprise_result = compile_contract_outputs(
+        root_dir=ROOT,
+        output_root=tmp_path,
+        hosts=list(CANONICAL_HOSTS),
+        channel="enterprise",
+    )
+    assert public_result["status"] == "ok"
+    assert enterprise_result["status"] == "ok"
+
+    _write_evidence(tmp_path, include_lineage=True, include_attribution=True)
+    _write_execution_primitives(tmp_path)
+    _write_claim_judge_evidence(tmp_path)
+    _write_doctor_success(tmp_path)
+    _write_eval_ok(tmp_path)
+
+    readiness = build_release_readiness(root_dir=ROOT, output_root=tmp_path, channel="dual")
+
+    assert readiness["status"] == "error"
+    assert readiness["checks"]["wave6_final_evidence"]["status"] == "error"
+    assert any("wave6_final_evidence_missing" in blocker for blocker in readiness["blockers"])
 
 
 def test_release_readiness_dual_bundle_promotion_parity_blocks_missing_dist_bundle(

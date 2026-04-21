@@ -1,5 +1,13 @@
 # Changelog
 
+<!-- OMG:GENERATED:changelog-v3.0.0 -->
+### Governed Release Surface (v3.0.0)
+
+- Canonical release surface compilation
+- Dual-channel artifact output (public + enterprise)
+- Idempotent generated-section markers in docs
+<!-- /OMG:GENERATED:changelog-v3.0.0 -->
+
 ## [3.0.0] - 2026-04-10
 
 ### Release Summary

@@ -12,6 +12,7 @@ from typing import Any
 from runtime.asset_loader import resolve_asset
 from runtime.adoption import CANONICAL_VERSION
 from runtime.compliance_governor import classify_bash_command_mode
+from runtime.evidence_narrator import BLOCK_REASON_CATALOG
 from runtime.profile_io import ensure_governed_preferences, load_profile
 from runtime.tool_plan_gate import resolve_current_run_id, tool_plan_gate_check
 
@@ -200,6 +201,21 @@ def _lookup_nested_value(payload: dict[str, Any], dotted_field: str) -> Any:
     return current
 
 
+def _enrich_blocked_response(result: dict[str, Any]) -> dict[str, Any]:
+    if result.get("status") != "blocked":
+        return result
+    reason = str(result.get("reason", ""))
+    narrative = BLOCK_REASON_CATALOG.get(reason)
+    if narrative:
+        return {
+            **result,
+            "summary": narrative.get("summary", reason),
+            "explanation": narrative.get("explanation", ""),
+            "next_actions": narrative.get("next_actions", []),
+        }
+    return result
+
+
 @mcp.tool(
     description="Evaluate whether a proposed tool call is allowed under OMG policy and mutation gates. Use before running Write/Edit/Bash operations to catch blocked actions with structured reasons and remediation guidance."
 )
@@ -231,7 +247,7 @@ def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
                 _service().project_dir, run_id, tool, tool_input=input
             )
             if tool_plan_result.get("status") == "blocked":
-                return tool_plan_result
+                return _enrich_blocked_response(tool_plan_result)
 
         lock_id: str | None = None
         if isinstance(metadata, dict):
@@ -259,10 +275,10 @@ def omg_policy_evaluate(tool: str, input: dict[str, Any]) -> dict[str, Any]:
             }
         )
         if gate_status == 200 and gate_payload.get("status") == "blocked":
-            return gate_payload
+            return _enrich_blocked_response(gate_payload)
 
     _status, payload = _service().policy_evaluate({"tool": tool, "input": input})
-    return payload
+    return _enrich_blocked_response(payload)
 
 
 @mcp.tool(

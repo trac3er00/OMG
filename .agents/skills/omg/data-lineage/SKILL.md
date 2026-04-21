@@ -5,7 +5,7 @@ description: "Provenance and privacy tracking for traces, fixtures, examples, an
 
 # OMG Data Lineage
 
-- Channel: `enterprise`
+- Channel: `public`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/lineage/*.json`

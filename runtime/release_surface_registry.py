@@ -10,12 +10,14 @@ Consumers:
 """
 from typing import Any
 
+from runtime.adoption import CANONICAL_VERSION
+
 PublicSurface = dict[str, Any]
 
 
 GENERATED_SECTION_MARKERS: dict[str, str] = {
     "install_fast_path": "<!-- OMG:GENERATED:install-fast-path -->",
-    "changelog_current": "<!-- OMG:GENERATED:changelog-v2.3.0 -->",
+    "changelog_current": f"<!-- OMG:GENERATED:changelog-v{CANONICAL_VERSION} -->",
     "command_surface_doc": "<!-- OMG:GENERATED:command-surface -->",
     "install_intro": "<!-- OMG:GENERATED:install-intro -->",
     "why_omg": "<!-- OMG:GENERATED:why-omg -->",
@@ -37,14 +39,14 @@ PUBLIC_SURFACES: list[PublicSurface] = [
     {
         "id": "release_notes_artifact",
         "category": "docs",
-        "path": "artifacts/release/release-notes-v2.3.0.md",
-        "description": "release notes artifact for v2.3.0",
+        "path": f"artifacts/release/release-notes-v{CANONICAL_VERSION}.md",
+        "description": f"release notes artifact for v{CANONICAL_VERSION}",
     },
     {
         "id": "changelog_current_block",
         "category": "docs",
         "path": "CHANGELOG.md",
-        "marker": "<!-- OMG:GENERATED:changelog-v2.3.0 -->",
+        "marker": f"<!-- OMG:GENERATED:changelog-v{CANONICAL_VERSION} -->",
         "description": "current release block in changelog",
     },
     *[
@@ -233,13 +235,13 @@ _REQUIRED_CATEGORIES: frozenset[str] = frozenset({
 PROMOTED_PUBLIC_COMMANDS: list[str] = [
     "omg ship",
     "omg proof",
+    "omg proof open --html",
     "omg blocked --last",
-    "omg explain run --run-id <id>",
-    "omg budget simulate --enforce",
     "omg install --plan",
     "omg install --apply",
-    "omg doctor",
     "omg env doctor",
+    "omg validate",
+    "omg contract validate",
 ]
 
 

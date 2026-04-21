@@ -55,5 +55,5 @@ export function getTierCapabilities(tier: SubscriptionTier): TierCapabilities {
   return TIER_CAPABILITIES[tier];
 }
 
-export const CANONICAL_VERSION = "2.3.0";
+export const CANONICAL_VERSION = "3.0.0";
 export const CANONICAL_RELEASE_CHANNEL: ReleaseChannel = "stable";

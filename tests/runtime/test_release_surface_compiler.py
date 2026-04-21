@@ -478,15 +478,13 @@ class TestProofContent:
         content = _proof_content()
         assert "npx omg blocked --last" in content
 
-    def test_proof_shows_explain_run(self) -> None:
+    def test_proof_omits_explain_run_surface(self) -> None:
         content = _proof_content()
-        assert "npx omg explain run" in content
-        assert "npx omg explain run --run-id <id>" in content
-        assert "npx omg explain run <id>" not in content
+        assert "npx omg explain run" not in content
 
-    def test_proof_shows_budget_simulate(self) -> None:
+    def test_proof_shows_validate(self) -> None:
         content = _proof_content()
-        assert "npx omg budget simulate --enforce" in content
+        assert "npx omg validate" in content
 
     def test_proof_human_commands_before_artifact_paths(self) -> None:
         content = _proof_content()

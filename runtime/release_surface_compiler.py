@@ -340,10 +340,10 @@ def _proof_quickstart_content() -> str:
         "```bash\n"
         "npx omg proof open --html\n"
         "npx omg blocked --last\n"
-        "npx omg explain run --run-id <id>\n"
+        "npx omg proof\n"
         "```\n"
         "\n"
-        "Use the HTML view first, then inspect blockers or explain a specific run."
+        "Use the HTML view first, then inspect blockers and the terminal proof summary."
     )
 
 
@@ -383,8 +383,8 @@ def _proof_content() -> str:
         "```bash\n"
         "npx omg proof open --html\n"
         "npx omg blocked --last\n"
-        "npx omg explain run --run-id <id>\n"
-        "npx omg budget simulate --enforce\n"
+        "npx omg proof\n"
+        "npx omg validate\n"
         "```\n"
         "\n"
         "Machine-generated evidence artifacts: `.omg/evidence/`"
@@ -470,7 +470,7 @@ def _find_main_subparser_var(root: ast.AST) -> str | None:
 
 
 def _write_command_surface_doc(path: Path, root: Path) -> None:
-    commands = _extract_commands(root)
+    promoted = get_promoted_public_commands()
     lines = [
         "<!-- GENERATED: DO NOT EDIT MANUALLY -->",
         f"# OMG Command Surface",
@@ -478,13 +478,13 @@ def _write_command_surface_doc(path: Path, root: Path) -> None:
         f"Generated for OMG v{CANONICAL_VERSION}.",
         "",
     ]
-    if commands:
+    if promoted:
         lines.append("## Commands")
         lines.append("")
         lines.append("| Command | Description |")
         lines.append("| :--- | :--- |")
-        for name, help_text in commands:
-            lines.append(f"| `{_render_public_command(f'omg {name}')}` | {help_text or chr(8212)} |")
+        for command in promoted:
+            lines.append(f"| `{_render_public_command(command)}` | promoted public command |")
 
     _ = path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
