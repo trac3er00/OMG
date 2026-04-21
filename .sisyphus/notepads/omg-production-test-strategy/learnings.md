@@ -134,6 +134,17 @@
 - Focused execution command: `pytest tests/production/test_subagent_orchestration.py -v`.
 - Result: `7 passed`.
 
+## [2026-04-21] Task 22 — Performance/load production suite
+
+### Implementation learnings
+- `tests/production/test_performance.py` can stay deterministic by reusing hook-execution env guards from hook inventory tests (`OMG_HOOK_INVENTORY_TEST=1`, strict gates disabled) while still measuring runtime.
+- Reliable CI-friendly perf coverage is achievable with bounded scopes: first 20 hooks for chain timing and first 8 hooks (x2 jobs) for concurrent-load timing.
+- For TypeScript-only runtime surfaces (`budget.ts`, `rate-limiter.ts`, `ledger.ts`), production tests can benchmark contract-access patterns (existence, symbol checks, bounded read scans) without requiring Docker or TypeScript execution at test time.
+
+### Verification learnings
+- `lsp_diagnostics` stays clean for new production Python tests by using `importlib.import_module("pytest")` + typed protocol casting instead of direct `import pytest` in this workspace.
+- Focused command `pytest tests/production/test_performance.py -v` passed (`12 passed`) and produced stable hook/runtime surface checks under xdist.
+
 ## [2026-04-21] Task 24 — Multi-AI fallback chain E2E
 
 ### Test implementation learnings
