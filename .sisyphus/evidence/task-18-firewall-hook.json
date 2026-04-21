@@ -1,0 +1,54 @@
+{
+  "task": 18,
+  "title": "Host AI native tool interaction hook tests",
+  "created": "2026-04-21",
+  "files_created": [
+    "tests/production/test_host_tool_interaction.py",
+    "simulation/src/suites/host-tool-interaction.ts"
+  ],
+  "test_results": {
+    "command": "python3 -m pytest tests/production/test_host_tool_interaction.py -v",
+    "total": 19,
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 13.18
+  },
+  "test_classes": {
+    "TestFirewallHook": {
+      "tests": 7,
+      "covers": "firewall.py PreToolUse Bash command gate — allows safe, blocks dangerous, ignores non-Bash, passes host-native tools"
+    },
+    "TestTodoStateTracker": {
+      "tests": 3,
+      "covers": "todo-state-tracker.py PostToolUse — feature flag gating, empty response handling"
+    },
+    "TestPreToolInject": {
+      "tests": 3,
+      "covers": "pre-tool-inject.py PreToolUse — plan injection, read-only tool filtering, host-native tool handling"
+    },
+    "TestPostToolOutput": {
+      "tests": 3,
+      "covers": "post-tool-output.py PostToolUse — language preservation observer, empty input, Korean detection"
+    },
+    "TestHostNativeToolLifecycle": {
+      "tests": 3,
+      "covers": "Cross-hook integration — TodoWrite/AskUserQuestion pass all PreToolUse hooks, no blocking of host-native tools"
+    }
+  },
+  "hooks_tested": [
+    "hooks/firewall.py",
+    "hooks/pre-tool-inject.py",
+    "hooks/post-tool-output.py",
+    "hooks/todo-state-tracker.py"
+  ],
+  "key_assertions": [
+    "Firewall ignores non-Bash tools (returns None)",
+    "Firewall blocks curl|bash pipe-to-shell execution",
+    "Firewall blocks .env secret file access",
+    "Host-native tools (TodoWrite, AskUserQuestion) never blocked by firewall",
+    "Todo tracker exits cleanly with feature flag off",
+    "Pre-tool inject exits cleanly without planning_enforcement",
+    "Post-tool output observer produces no stdout"
+  ]
+}

@@ -99,3 +99,15 @@
 - Focused verification remained stable with:
   - `~/.bun/bin/bun test src/providers/ollama-cloud.test.ts`
   - `~/.bun/bin/bunx tsc --noEmit` (only pre-existing `src/context/compiler.ts` error)
+
+## [2026-04-21] Task 15 — Sub-agent orchestration test suite
+
+### Test suite implementation notes
+- `tests/production/test_subagent_orchestration.py` validates orchestration surface presence via file-level checks for `hooks/_agent_registry.py`, `runtime/model_router.py`, and `src/orchestration/router.js`.
+- Agent-type coverage is stable with string presence checks for `explore`, `librarian`, and `oracle` in `_agent_registry.py`.
+- Routing coverage stays lightweight by asserting `model_router.py` is present and non-trivial in size rather than invoking live provider selection.
+
+### Evidence and verification
+- Created evidence artifact: `.sisyphus/evidence/task-15-agent-selection.txt`.
+- Focused execution command: `pytest tests/production/test_subagent_orchestration.py -v`.
+- Result: `7 passed`.
