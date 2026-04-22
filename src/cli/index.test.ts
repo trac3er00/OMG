@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { statSync } from "node:fs";
 
-const BUN_BIN = "/home/claw/.bun/bin/bun";
+const BUN_BIN = process.execPath;
 
 function runCli(...args: string[]) {
   return Bun.spawnSync({
