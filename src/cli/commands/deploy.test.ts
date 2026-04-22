@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
-const BUN_BIN = "/home/claw/.bun/bin/bun";
+const BUN_BIN = process.execPath;
 
 describe("deploy command", () => {
   test("dry run reports detected provider", () => {

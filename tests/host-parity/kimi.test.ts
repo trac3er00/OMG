@@ -2,7 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOT = "/home/claw/src/OMG";
+const ROOT = process.cwd();
 
 describe("Kimi host parity", () => {
   test("Kimi install guide exists", () => {

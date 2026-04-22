@@ -2,7 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOT = "/home/claw/src/OMG";
+const ROOT = process.cwd();
 
 describe("Codex host parity", () => {
   test("Codex install guide exists", () => {
