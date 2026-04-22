@@ -1,6 +1,34 @@
 # Changelog
 
+## [2.5.0] - 2026-04-22
+
+### Release Summary
+
+OMG v2.5.0 — "AI Work OS" sub-release (minor bump from v2.4.1). Adds instant front-door workflow, smart routing, goal packs, proof-by-default, universal memory, observability HUD, failure-aware steering, one-click deploy/operate, and persona-aware UX.
+
+### Highlights
+
+- **Instant Mode (Single Front Door)**: New `omg instant` CLI command + runtime, with YOLO-proof policy (rollback always enabled, evidence auto-collected, destructive ops blocked)
+- **Smart Router + Elastic Multi-Agent**: Auto-selection of agent/model/mode with reasoning output; ElasticPool dynamic promotion with event log; real-time complexity detection; intent escalation adding planner/security-auditor/reviewer agents
+- **Goal Packs (6 new)**: `saas`, `landing`, `discord-bot`, `cli-tool`, `api-server`, `internal-tool` — scaffolded with real runnable code (no stubs). Loader at `runtime/goal_packs.py`
+- **Proof-by-Default**: Auto-verification and evidence collection on completion without user prompts (`runtime/verification_controller.auto_verify`)
+- **Universal Memory**: 4 categories (user preferences, project rules, team policies, failure patterns) with TypeScript + Python persistence (`src/memory/`, `runtime/memory_store.py`)
+- **Observability CLI HUD**: Progress, current task, model reasoning display; coexists with existing `hud/omg-hud.mjs` and `hud/omg-hud-enhanced.mjs`
+- **Failure-Aware Steering**: Loop, cost-spike, and stuck detection with auto-reroute (`runtime/failure_detector.py`, `runtime/steering.py`); new `/reroute` command plus `/next` and `/red-team` integration
+- **One-Click Deploy + Operate**: Deploy target detection (Vercel/Netlify/Fly/Railway), monitoring setup, update flow (`src/deploy/integrations.ts`, `runtime/operate.py`)
+- **Persona-Aware UX**: beginner/engineer/exec persona detection and view formatting; role-based getting-started docs
+
+### Tests
+
+- 144 new Python tests passing across `tests/test_{instant_mode,goal_packs,memory,proof_automation,hud,steering,deploy,persona}.py` and `tests/runtime/test_operate.py`
+- Runtime test suite: 64 passing in `tests/runtime/test_{router,elastic_agent,team_router,verification_controller,operate}.py`
+
+### Verification
+
+All four final reviewers (plan compliance, code quality, QA execution, scope fidelity) returned APPROVE.
+
 <!-- OMG:GENERATED:changelog-v3.0.0 -->
+
 ### Governed Release Surface (v3.0.0)
 
 - Canonical release surface compilation

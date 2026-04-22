@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
 
+from runtime.elastic_agent import ElasticPool
 from runtime.runtime_profile import load_runtime_profile
 from runtime.subagent_dispatcher import resolve_dispatch_workers
-
-ElasticPool = importlib.import_module("runtime.elastic_agent").ElasticPool
 
 
 def test_elastic_pool_trivial_complexity_uses_single_agent() -> None:
@@ -65,10 +63,41 @@ def test_elastic_pool_max_for_budget_matches_budget_bands() -> None:
     assert ElasticPool(max_workers=6, budget_remaining_pct=80).max_for_budget() == 6
 
 
+def test_elastic_pool_current_workers_starts_at_one() -> None:
+    pool = ElasticPool(max_workers=8)
+
+    assert pool.get_current_workers() == 1
+
+
+def test_elastic_pool_promote_increments_and_logs_event() -> None:
+    pool = ElasticPool(max_workers=4)
+
+    new_count = pool.promote("complexity", increment=2)
+
+    assert new_count == 3
+    assert pool.get_current_workers() == 3
+    assert len(pool.promotion_log) == 1
+    assert pool.promotion_log[0]["reason"] == "complexity"
+    assert pool.promotion_log[0]["from_count"] == 1
+    assert pool.promotion_log[0]["to_count"] == 3
+    assert pool.promotion_log[0]["timestamp"]
+
+
+def test_elastic_pool_promote_respects_max_workers_cap() -> None:
+    pool = ElasticPool(max_workers=2)
+
+    new_count = pool.promote("complexity", increment=5)
+
+    assert new_count == 2
+    assert pool.get_current_workers() == 2
+    assert pool.promotion_log[0]["from_count"] == 1
+    assert pool.promotion_log[0]["to_count"] == 2
+
+
 def test_load_runtime_profile_supports_elastic_mode(tmp_path: Path) -> None:
     runtime_dir = tmp_path / ".omg"
-    runtime_dir.mkdir(parents=True, exist_ok=True)
-    (runtime_dir / "runtime.yaml").write_text("profile: elastic\n", encoding="utf-8")
+    _ = runtime_dir.mkdir(parents=True, exist_ok=True)
+    _ = (runtime_dir / "runtime.yaml").write_text("profile: elastic\n", encoding="utf-8")
 
     profile = load_runtime_profile(str(tmp_path))
 
@@ -81,8 +110,8 @@ def test_resolve_dispatch_workers_uses_elastic_pool_for_complex_tasks(
     tmp_path: Path,
 ) -> None:
     runtime_dir = tmp_path / ".omg"
-    runtime_dir.mkdir(parents=True, exist_ok=True)
-    (runtime_dir / "runtime.yaml").write_text("profile: elastic\n", encoding="utf-8")
+    _ = runtime_dir.mkdir(parents=True, exist_ok=True)
+    _ = (runtime_dir / "runtime.yaml").write_text("profile: elastic\n", encoding="utf-8")
 
     workers = resolve_dispatch_workers(
         str(tmp_path),
@@ -96,8 +125,8 @@ def test_resolve_dispatch_workers_scales_down_when_loop_detected(
     tmp_path: Path,
 ) -> None:
     runtime_dir = tmp_path / ".omg"
-    runtime_dir.mkdir(parents=True, exist_ok=True)
-    (runtime_dir / "runtime.yaml").write_text("profile: elastic\n", encoding="utf-8")
+    _ = runtime_dir.mkdir(parents=True, exist_ok=True)
+    _ = (runtime_dir / "runtime.yaml").write_text("profile: elastic\n", encoding="utf-8")
 
     workers = resolve_dispatch_workers(
         str(tmp_path),

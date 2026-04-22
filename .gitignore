@@ -108,3 +108,4 @@ simulation/
 
 # GitHub Action (generated)
 # action.yml
+.venv-verification/

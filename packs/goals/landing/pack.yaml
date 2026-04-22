@@ -1,0 +1,9 @@
+name: landing
+description: Static landing page with responsive design
+language: html
+framework: static
+files:
+  - index.html
+  - styles.css
+run_command: npx serve .
+verify_command: test -f index.html

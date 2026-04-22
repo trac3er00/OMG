@@ -1466,3 +1466,45 @@ def route_with_role(task_text: str, role: str | None = None) -> dict[str, Any]:
         "role": resolved_role,
         "reason": f"role-based routing: {resolved_role} → {role_config.get('model', 'unknown')}",
     }
+
+
+def log_escalation(
+    intent: str,
+    complexity: str,
+    risk_level: str,
+    agents_added: list[str],
+) -> None:
+    log_path = Path(_OMG_ROOT) / ".omg" / "state" / "escalation_log.jsonl"
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "intent": intent,
+        "complexity": complexity,
+        "risk_level": risk_level,
+        "agents_added": agents_added,
+    }
+
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as handle:
+            _ = handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
+    except OSError:
+        _logger.warning("Failed to write escalation log entry", exc_info=True)
+
+
+def escalate_intent(intent: str, complexity: str, risk_level: str) -> list[str]:
+    normalized_intent = intent.lower()
+    normalized_complexity = complexity.lower()
+    normalized_risk = risk_level.lower()
+    agents_added: list[str] = []
+
+    if normalized_complexity in {"complex", "critical"}:
+        agents_added.append("planner")
+
+    if normalized_risk == "high" or re.search(r"\b(auth|security|payment)\b", normalized_intent):
+        agents_added.append("security-auditor")
+
+    if normalized_complexity in {"medium", "complex", "critical"}:
+        agents_added.append("reviewer")
+
+    log_escalation(intent, complexity, risk_level, agents_added)
+    return agents_added

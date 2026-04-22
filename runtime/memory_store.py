@@ -59,6 +59,8 @@ _ENCRYPTED_PREFIX = "enc:v1:"
 _JSON_ENVELOPE_FORMAT = "omg.memory.json.v1"
 _CMMS_SOURCE = "cmms"
 _CMMS_TAG = "cmms"
+_UNIVERSAL_MEMORY_RELATIVE_PATH = Path(".omg") / "memory" / "memory.json"
+_UNIVERSAL_MEMORY_MISSING = object()
 _PII_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"),
@@ -71,6 +73,70 @@ _PII_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[REDACTED:SSN]"),
 )
 _Item = dict[str, Any]  # pyright: ignore[reportExplicitAny]
+
+
+def _resolve_universal_memory_path(store_path: str | None) -> Path:
+    if store_path is None:
+        return Path.cwd() / _UNIVERSAL_MEMORY_RELATIVE_PATH
+
+    candidate = Path(store_path).expanduser()
+    if candidate.name == "memory.json":
+        return candidate
+
+    if candidate.suffix.lower() == ".json":
+        return candidate.parent / _UNIVERSAL_MEMORY_RELATIVE_PATH
+
+    return Path.cwd() / _UNIVERSAL_MEMORY_RELATIVE_PATH
+
+
+def _read_universal_memory_file(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _write_universal_memory_file(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _normalize_memory_key(key: str) -> list[str]:
+    return [segment.strip() for segment in key.split(".") if segment.strip()]
+
+
+def _set_nested_value(payload: dict[str, Any], key: str, value: Any) -> None:
+    segments = _normalize_memory_key(key)
+    if not segments:
+        raise ValueError("Memory key must not be empty.")
+
+    current: dict[str, Any] = payload
+    for segment in segments[:-1]:
+        existing = current.get(segment)
+        if not isinstance(existing, dict):
+            existing = {}
+            current[segment] = existing
+        current = existing
+    current[segments[-1]] = value
+
+
+def _get_nested_value(payload: dict[str, Any], key: str) -> Any:
+    segments = _normalize_memory_key(key)
+    if not segments:
+        return _UNIVERSAL_MEMORY_MISSING
+
+    current: Any = payload
+    for segment in segments:
+        if not isinstance(current, dict) or segment not in current:
+            return _UNIVERSAL_MEMORY_MISSING
+        current = current[segment]
+    return current
 
 
 class MemoryStore:
@@ -105,6 +171,7 @@ class MemoryStore:
         self._tier_config = TierConfig()
         self._ship_path: Path | None = None
         self._ship_index: dict[str, dict[str, Any]] = {}
+        self._universal_memory_path = _resolve_universal_memory_path(store_path)
 
         ensure_encryption_warnings()
         self.store_path = store_path
@@ -130,6 +197,7 @@ class MemoryStore:
         self._backend = (
             "json" if Path(normalized_path).suffix.lower() == ".json" else "sqlite"
         )
+        self._universal_memory_path = _resolve_universal_memory_path(normalized_path)
         self._items = []
         self._fts_enabled = False
         self._auto_cache = {}
@@ -248,7 +316,25 @@ class MemoryStore:
         conn.commit()
         return item
 
-    def get(self, item_id: str) -> _Item | None:
+    def _load_universal_memory(self) -> dict[str, Any]:
+        return _read_universal_memory_file(self._universal_memory_path)
+
+    def _save_universal_memory(self, payload: dict[str, Any]) -> None:
+        _write_universal_memory_file(self._universal_memory_path, payload)
+
+    def _set_universal_value(self, key: str, value: Any) -> Any:
+        payload = self._load_universal_memory()
+        _set_nested_value(payload, key, value)
+        self._save_universal_memory(payload)
+        return value
+
+    def _get_universal_value(self, key: str) -> Any:
+        return _get_nested_value(self._load_universal_memory(), key)
+
+    def list(self) -> dict[str, Any]:
+        return self._load_universal_memory()
+
+    def get(self, item_id: str) -> Any:
         """Fetch a memory item by identifier.
 
         Args:
@@ -257,6 +343,10 @@ class MemoryStore:
         Returns:
             Matching memory item, or ``None`` when missing.
         """
+        universal_value = self._get_universal_value(item_id)
+        if universal_value is not _UNIVERSAL_MEMORY_MISSING:
+            return universal_value
+
         auto_entry = self._auto_cache.get(item_id)
         if auto_entry is not None:
             auto_entry["access_count"] = int(auto_entry.get("access_count", 0)) + 1
@@ -293,10 +383,11 @@ class MemoryStore:
     def set(
         self,
         key: str,
-        value: dict[str, Any],
+        value: Any,
         *,
         tier: MemoryTier = MemoryTier.MICRO,
-    ) -> dict[str, Any]:
+    ) -> Any:
+        self._set_universal_value(key, value)
         normalized_tier = MemoryTier(tier)
         self._auto_cache.pop(key, None)
         self._micro_access_counts.pop(key, None)
@@ -334,7 +425,7 @@ class MemoryStore:
                 continue
             self._ship_index[key] = payload
 
-    def _write_ship(self, key: str, value: dict[str, Any]) -> None:
+    def _write_ship(self, key: str, value: Any) -> None:
         if self._ship_path is None:
             return
         self._ship_path.parent.mkdir(parents=True, exist_ok=True)
@@ -359,22 +450,21 @@ class MemoryStore:
     def _cmms_storage_key(self, key: str) -> str:
         return f"cmms::{key}"
 
-    def _cmms_payload(self, key: str, value: dict[str, Any], tier: MemoryTier) -> str:
+    def _cmms_payload(self, key: str, value: Any, tier: MemoryTier) -> str:
         return json.dumps(
             {"key": key, "value": value, "tier": tier.value},
             ensure_ascii=True,
             sort_keys=True,
         )
 
-    def _decode_cmms_payload(self, raw_content: str) -> dict[str, Any] | None:
+    def _decode_cmms_payload(self, raw_content: str) -> Any:
         try:
             payload = json.loads(raw_content)
         except (TypeError, ValueError, json.JSONDecodeError):
             return None
         if not isinstance(payload, dict):
             return None
-        value = payload.get("value")
-        return value if isinstance(value, dict) else None
+        return payload.get("value")
 
     def _has_micro_key(self, key: str) -> bool:
         storage_key = self._cmms_storage_key(key)
@@ -390,7 +480,7 @@ class MemoryStore:
         )
         return row is not None
 
-    def _set_micro_value(self, key: str, value: dict[str, Any]) -> None:
+    def _set_micro_value(self, key: str, value: Any) -> None:
         storage_key = self._cmms_storage_key(key)
         now = _utc_now_iso()
         payload = self._cmms_payload(key, value, MemoryTier.MICRO)
@@ -472,7 +562,7 @@ class MemoryStore:
             )
         conn.commit()
 
-    def _get_micro_value(self, key: str) -> dict[str, Any] | None:
+    def _get_micro_value(self, key: str) -> Any:
         storage_key = self._cmms_storage_key(key)
         payload_text = ""
         if self._backend == "json":

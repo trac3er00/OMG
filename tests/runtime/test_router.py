@@ -1,8 +1,10 @@
+# pyright: reportMissingImports=false, reportUnknownVariableType=false, reportUnknownParameterType=false, reportUnknownMemberType=false
+
 from __future__ import annotations
 
 from pytest import MonkeyPatch
 
-from runtime.router_selector import select_target
+from runtime.router_selector import auto_select, select_target
 
 
 def _tiers() -> dict[str, dict[str, str]]:
@@ -83,3 +85,39 @@ def test_budget_constraint_forces_cheaper_model(monkeypatch: MonkeyPatch):
     assert selected["model_tier"] == "balanced"
     assert selected["model"] == "claude-balanced"
     assert selected["budget_remaining_ratio"] == 0.1
+
+
+def test_auto_select_returns_visual_fast_path_for_landing_page():
+    selected = auto_select("landing page")
+
+    assert selected["agent"] == "visual-engineering"
+    assert selected["mode"] == "fast"
+    assert selected["model"] == "claude-haiku-4-5"
+    assert selected["auto_selected"] is True
+    assert "complexity=" in str(selected["reasoning"])
+
+
+def test_auto_select_respects_manual_overrides():
+    selected = auto_select(
+        "landing page",
+        overrides={
+            "agent": "librarian",
+            "model": "custom-model",
+            "mode": "quality",
+        },
+    )
+
+    assert selected["agent"] == "librarian"
+    assert selected["model"] == "custom-model"
+    assert selected["mode"] == "quality"
+    assert selected["auto_selected"] is True
+    assert "manual override applied" in str(selected["reasoning"])
+
+
+def test_auto_select_api_backend_routes_to_deep_agent():
+    selected = auto_select("api backend")
+
+    assert selected["agent"] == "deep"
+    assert selected["auto_selected"] is True
+    assert "gpt" in str(selected["model"]).lower() or selected["model"]
+    assert "backend" in str(selected["reasoning"]).lower() or "api" in str(selected["reasoning"]).lower()

@@ -4,6 +4,7 @@ import os
 import re
 from typing import Callable, cast
 
+from runtime.complexity_classifier import classify
 from runtime.complexity_scorer import score_complexity
 from runtime.subscription_tiers import detect_tier
 
@@ -46,6 +47,95 @@ _COMPLEXITY_TO_TIER: dict[str, str] = {
 }
 
 _TIER_ORDER = ("light", "balanced", "heavy")
+
+_AUTO_COMPLEXITY_TO_MODEL_TIER: dict[str, str] = {
+    "trivial": "light",
+    "simple": "light",
+    "medium": "balanced",
+    "complex": "heavy",
+    "critical": "heavy",
+}
+
+_AUTO_COMPLEXITY_TO_MODE: dict[str, str] = {
+    "trivial": "fast",
+    "simple": "fast",
+    "medium": "balanced",
+    "complex": "quality",
+    "critical": "quality",
+}
+
+_AUTO_AGENT_MODEL_FAMILY: dict[str, str] = {
+    "visual-engineering": "claude",
+    "deep": "gpt-5.4",
+    "librarian": "claude",
+}
+
+_AUTO_AGENT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "visual-engineering": (
+        "ui",
+        "ux",
+        "layout",
+        "css",
+        "visual",
+        "frontend",
+        "responsive",
+        "landing page",
+        "landing",
+        "component",
+        "design",
+        "theme",
+        "style",
+    ),
+    "deep": (
+        "backend",
+        "api",
+        "server",
+        "database",
+        "auth",
+        "security",
+        "algorithm",
+        "endpoint",
+        "service",
+        "migration",
+        "debug",
+        "fix",
+        "refactor",
+    ),
+    "librarian": (
+        "research",
+        "investigate",
+        "compare",
+        "explain",
+        "documentation",
+        "docs",
+        "find",
+        "lookup",
+        "analyze",
+        "why",
+    ),
+}
+
+_AUTO_CROSS_CUTTING_SIGNALS = (
+    "full-stack",
+    "full stack",
+    "cross-service",
+    "cross service",
+    "end-to-end",
+    "e2e",
+    "multi-step",
+    "migration",
+    "architecture",
+    "orchestration",
+    "rollout",
+)
+
+_AUTO_HIGH_RISK_SIGNALS: dict[str, tuple[str, ...]] = {
+    "security": ("security", "xss", "csrf", "injection", "secret", "token"),
+    "auth": ("auth", "login", "oauth", "jwt", "permission"),
+    "performance": ("performance", "optimize", "latency", "throughput"),
+    "breaking": ("breaking", "migration", "deprecate", "rename api"),
+    "data_loss": ("delete", "drop", "remove data", "data loss"),
+}
 
 
 def rank_targets_by_cost(targets: list[str]) -> list[str]:
@@ -145,6 +235,138 @@ def _resolve_model_tiers(
             "heavy": str(candidate_map.get("heavy", defaults.get("heavy", ""))),
         }
     return merged
+
+
+def _keyword_hits(text: str, keywords: tuple[str, ...]) -> list[str]:
+    return [keyword for keyword in keywords if keyword in text]
+
+
+def _infer_task_type(goal: str) -> str:
+    if any(keyword in goal for keyword in ("refactor", "restructure", "cleanup")):
+        return "refactor"
+    if any(keyword in goal for keyword in ("optimize", "performance", "latency")):
+        return "perf"
+    if any(keyword in goal for keyword in ("breaking", "migration", "deprecate")):
+        return "breaking"
+    if any(keyword in goal for keyword in ("fix", "bug", "debug", "repair")):
+        return "fix"
+    if any(keyword in goal for keyword in ("test", "spec", "coverage")):
+        return "test"
+    if any(keyword in goal for keyword in ("docs", "documentation", "readme")):
+        return "docs"
+    return "feat"
+
+
+def _infer_test_requirements(goal: str) -> str:
+    if any(keyword in goal for keyword in ("end-to-end", "e2e", "user journey")):
+        return "e2e"
+    if any(keyword in goal for keyword in ("integration", "contract", "cross-service")):
+        return "integration"
+    return "unit"
+
+
+def _build_auto_complexity_task(goal: str) -> dict[str, object]:
+    lowered = goal.lower()
+    tokens = [token for token in re.split(r"[^a-z0-9]+", lowered) if token]
+    token_count = len(tokens)
+
+    files = 1
+    lines_changed = 5
+    if token_count >= 8:
+        files = 2
+        lines_changed = 20
+    if token_count >= 18:
+        files = 4
+        lines_changed = 60
+    if token_count >= 35:
+        files = 8
+        lines_changed = 180
+
+    cross_cutting = any(signal in lowered for signal in _AUTO_CROSS_CUTTING_SIGNALS)
+    modules = 1
+    if any(keyword in lowered for keyword in ("api", "backend", "frontend", "database", "service")):
+        modules = 2
+    if cross_cutting:
+        files = max(files, 8)
+        lines_changed = max(lines_changed, 180)
+        modules = 4
+
+    risk_indicators = [
+        risk
+        for risk, keywords in _AUTO_HIGH_RISK_SIGNALS.items()
+        if any(keyword in lowered for keyword in keywords)
+    ]
+
+    if risk_indicators:
+        lines_changed = max(lines_changed, 80)
+        files = max(files, 3)
+
+    return {
+        "files": files,
+        "lines_changed": lines_changed,
+        "cross_cutting": cross_cutting,
+        "modules": modules,
+        "risk_indicators": risk_indicators,
+        "type": _infer_task_type(lowered),
+        "test_requirements": _infer_test_requirements(lowered),
+    }
+
+
+def _select_auto_agent(goal: str) -> tuple[str, str]:
+    lowered = goal.lower()
+    scored_hits = {
+        agent: _keyword_hits(lowered, keywords)
+        for agent, keywords in _AUTO_AGENT_KEYWORDS.items()
+    }
+    best_agent = max(scored_hits, key=lambda agent: len(scored_hits[agent]))
+    matched_keywords = scored_hits[best_agent]
+    if matched_keywords:
+        sample = ", ".join(matched_keywords[:3])
+        return best_agent, f"matched {best_agent} keywords: {sample}"
+
+    inferred_target = infer_target(goal)
+    if inferred_target == "gemini":
+        return "visual-engineering", "fallback to visual routing via infer_target()"
+    if inferred_target == "codex":
+        return "deep", "fallback to backend/deep routing via infer_target()"
+    return "deep", "fallback to deep routing for general implementation work"
+
+
+def auto_select(goal: str, overrides: dict[str, str] | None = None) -> dict[str, object]:
+    complexity = classify(_build_auto_complexity_task(goal))
+    complexity_tier = complexity.tier
+    agent, agent_reason = _select_auto_agent(goal)
+    model_tier = _AUTO_COMPLEXITY_TO_MODEL_TIER.get(complexity_tier, "balanced")
+    mode = _AUTO_COMPLEXITY_TO_MODE.get(complexity_tier, "balanced")
+    model_family = _AUTO_AGENT_MODEL_FAMILY.get(agent, "claude")
+    tiers = _resolve_model_tiers(None)
+    family_tiers = tiers.get(model_family, _DEFAULT_MODEL_TIERS["claude"])
+    model = family_tiers.get(model_tier) or family_tiers.get("balanced", "")
+
+    selection: dict[str, object] = {
+        "agent": agent,
+        "model": model,
+        "mode": mode,
+        "reasoning": (
+            f"{agent_reason}; complexity={complexity_tier} "
+            f"({complexity.reasoning}); selected family={model_family}, tier={model_tier}, mode={mode}"
+        ),
+        "auto_selected": True,
+    }
+
+    if overrides:
+        applied: list[str] = []
+        for key in ("agent", "model", "mode"):
+            override_value = overrides.get(key)
+            if override_value:
+                selection[key] = override_value
+                applied.append(f"{key}={override_value}")
+        if applied:
+            selection["reasoning"] = (
+                f"{selection['reasoning']}; manual override applied ({', '.join(applied)})"
+            )
+
+    return selection
 
 
 def infer_target(problem: str) -> str:

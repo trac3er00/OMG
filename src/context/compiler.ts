@@ -51,5 +51,7 @@ export function compileContextForHost(
     case "ollama":
     case "opencode":
       return toGenericJson(hostType, packet);
+    default:
+      return toGenericJson(hostType, packet);
   }
 }

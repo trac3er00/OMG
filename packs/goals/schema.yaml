@@ -1,0 +1,3 @@
+# Goal Pack Schema
+required_fields: [name, description, language, framework, files, run_command, verify_command]
+optional_fields: [env_vars, dependencies, readme_template]
