@@ -18,6 +18,7 @@ _SPEC.loader.exec_module(team_router)
 TeamDispatchRequest = team_router.TeamDispatchRequest
 dispatch_team = team_router.dispatch_team
 package_prompt = team_router.package_prompt
+escalate_intent = team_router.escalate_intent
 
 
 def test_dispatch_team_emits_staged_flow_metadata():
@@ -696,3 +697,53 @@ def test_package_prompt_injects_bounded_profile_digest_without_raw_yaml(tmp_path
     assert "preferences:" not in digest
     assert "ver=profile-v8" in digest
     assert "Profile:\n" + digest in prompt
+
+
+# ============================================================================
+# Tests for escalate_intent() intent escalation logic
+# ============================================================================
+
+
+def test_escalate_complex_adds_planner():
+    """Complex complexity should add planner to agent list."""
+    result = escalate_intent("add auth", "complex", "high")
+
+    assert "planner" in result
+    assert isinstance(result, list)
+
+
+def test_escalate_auth_adds_security():
+    """Auth-related intent should add security-auditor to agent list."""
+    result = escalate_intent("add auth", "medium", "low")
+
+    assert "security-auditor" in result
+    assert isinstance(result, list)
+
+
+def test_escalate_high_risk_adds_security():
+    """High risk level should add security-auditor to agent list."""
+    result = escalate_intent("update database", "simple", "high")
+
+    assert "security-auditor" in result
+
+
+def test_escalate_medium_complexity_adds_reviewer():
+    """Medium complexity should add reviewer to agent list."""
+    result = escalate_intent("refactor code", "medium", "low")
+
+    assert "reviewer" in result
+
+
+def test_escalate_trivial_returns_empty_list():
+    """Trivial complexity with low risk and no security keywords returns empty list."""
+    result = escalate_intent("fix typo", "trivial", "low")
+
+    assert result == []
+
+
+def test_escalate_critical_adds_planner_and_reviewer():
+    """Critical complexity should add both planner and reviewer."""
+    result = escalate_intent("deploy to production", "critical", "low")
+
+    assert "planner" in result
+    assert "reviewer" in result

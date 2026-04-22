@@ -6,6 +6,7 @@
 
 **Build anything with one command. Governed by default.**
 **(딸깍 한 번으로 무엇이든 만드세요. 거버넌스는 기본입니다.)**
+**OMG is the AI Work OS for governed multi-agent delivery.**
 
 🚀 **[Getting Started Guide](docs/GETTING-STARTED.md)** — Get up and running in 1 minute.
 
@@ -209,6 +210,7 @@ graph TD
 ## Why OMG
 
 <!-- OMG:GENERATED:why-omg -->
+
 OMG keeps the host you already use, then adds governed install, proof, and release surfaces on top.
 
 - Canonical host parity targets are Claude, Codex, Gemini, and Kimi.
@@ -216,6 +218,7 @@ OMG keeps the host you already use, then adds governed install, proof, and relea
 - Install and verification stay explicit: doctor first, preview second, apply last.
 
 > Legacy Claude compatibility commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain documented as footnotes only.
+
 <!-- /OMG:GENERATED:why-omg -->
 
 - Claude front door: run `npx omg env doctor`, then `npx omg install --plan`, then `npx omg install --apply`.
@@ -241,6 +244,7 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 ## Quickstart
 
 <!-- OMG:GENERATED:install-intro -->
+
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
@@ -254,6 +258,7 @@ npx omg ship
 Local package-manager installs only link `omg` into `node_modules/.bin/`; they do not mutate configuration.
 
 The package postinstall runs `npx omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
+
 <!-- /OMG:GENERATED:install-intro -->
 
 On non-Claude hosts, verify native MCP registration after `npx omg install --apply`:

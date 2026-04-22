@@ -97,4 +97,30 @@ describe("auto-escalation", () => {
     const summary = tracker.summary();
     expect(summary.averageCostMultiplier).toBe(1.0);
   });
+
+  test("complex multi-service architecture task returns structured decision", () => {
+    const request: AutoEscalationRequest = {
+      taskDescription:
+        "Design a complex multi-service architecture with distributed authentication, authorization, and rate limiting",
+    };
+
+    const decision = decideEscalation(request);
+
+    expect(decision).toHaveProperty("model");
+    expect(decision).toHaveProperty("escalated");
+    expect(decision).toHaveProperty("reason");
+    expect(typeof decision.model).toBe("string");
+    expect(typeof decision.escalated).toBe("boolean");
+    expect(typeof decision.reason).toBe("string");
+    expect(typeof decision.estimatedCostMultiplier).toBe("number");
+    expect(typeof decision.overridden).toBe("boolean");
+  });
+
+  test("empty cost tracker summary returns default multiplier", () => {
+    const tracker = createCostTracker();
+    const summary = tracker.summary();
+
+    expect(summary.totalEscalations).toBe(0);
+    expect(summary.averageCostMultiplier).toBe(1.0);
+  });
 });

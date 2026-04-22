@@ -1,0 +1,10 @@
+name: internal-tool
+description: React TypeScript admin dashboard with data table
+language: typescript
+framework: react
+files:
+  - package.json
+  - src/App.tsx
+  - src/index.tsx
+run_command: npm start
+verify_command: npm run build

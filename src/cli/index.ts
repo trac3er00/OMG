@@ -6,6 +6,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { formatCliError, printCliError } from "./error-formatter.js";
 import { hooksListCommand } from "./commands/hooks.js";
+import { instantCommand } from "./commands/instant.js";
 import { continueCommand } from "./commands/continue.js";
 import { memoryCommand } from "./commands/memory.js";
 import { pauseCommand } from "./commands/pause.js";
@@ -69,11 +70,16 @@ const COMMAND_GROUPS: readonly CommandGroup[] = [
         name: "deps",
         description: "Dependency CVE, license, and update scans",
       },
+      {
+        name: "update",
+        description: "Run tests and update an existing deployment",
+      },
     ],
   },
   {
     title: "Verify",
     items: [
+      { name: "deploy", description: "Detect target and deploy the project" },
       { name: "ship", description: "Idea-to-evidence-to-PR flow" },
       { name: "validate", description: "Canonical validation checks" },
       { name: "security-check", description: "Canonical security pipeline" },
@@ -238,6 +244,36 @@ async function runCli(): Promise<void> {
       },
     })
     .command({
+      command: "deploy",
+      describe: "Deploy the current project to the detected provider",
+      builder: (command) =>
+        command
+          .option("target", {
+            type: "string",
+            choices: ["vercel", "netlify", "fly", "railway"] as const,
+            describe: "Override detected deploy target",
+          })
+          .option("dry-run", {
+            type: "boolean",
+            describe:
+              "Show detected target and deploy command without executing",
+            default: false,
+          })
+          .option("json", {
+            type: "boolean",
+            describe: "Output deploy result as JSON",
+            default: false,
+          })
+          .option("project-dir", {
+            type: "string",
+            describe: "Project directory override",
+          }),
+      handler: async (argv) => {
+        const { deployCommand } = await import("./commands/deploy.js");
+        await deployCommand.handler?.(argv as never);
+      },
+    })
+    .command({
       command: "ship",
       describe: "Run ship workflow",
       builder: (command) =>
@@ -251,19 +287,31 @@ async function runCli(): Promise<void> {
         await shipCommand.handler?.(argv as never);
       },
     })
-    .command(
-      "instant <prompt>",
-      "Build anything with one command - scaffold + code + preview",
-      (yargs) => {
-        yargs.positional("prompt", {
-          describe: "What to build",
-          type: "string",
-        });
+    .command({
+      command: "update",
+      describe: "Run test-aware deployment update flow",
+      builder: (command) =>
+        command
+          .option("dry-run", {
+            type: "boolean",
+            describe: "Show update plan without executing deploy",
+            default: false,
+          })
+          .option("json", {
+            type: "boolean",
+            describe: "Output update result as JSON",
+            default: false,
+          })
+          .option("project-dir", {
+            type: "string",
+            describe: "Project directory override",
+          }),
+      handler: async (argv) => {
+        const { updateCommand } = await import("./commands/update.js");
+        await updateCommand.handler?.(argv as never);
       },
-      async (argv) => {
-        console.log("Running instant mode:", argv.prompt);
-      },
-    )
+    })
+    .command(instantCommand)
     .command({
       command: "autorun <goal...>",
       describe:
@@ -638,6 +686,37 @@ async function runCli(): Promise<void> {
       handler: async (argv) => {
         const { redTeamCommand } = await import("./commands/red-team.js");
         await redTeamCommand.handler?.(argv as never);
+      },
+    })
+    .command({
+      command: "reroute",
+      describe: "Detect failure signals and return a steering action",
+      builder: (command) =>
+        command
+          .option("failure-type", {
+            type: "string",
+            choices: ["loop", "cost_spike", "stuck"] as const,
+            description: "Force a specific failure type",
+          })
+          .option("recent-actions", {
+            type: "string",
+            description: "Comma-separated recent actions for loop detection",
+          })
+          .option("current-cost", {
+            type: "number",
+            description: "Current observed cost",
+          })
+          .option("expected-cost", {
+            type: "number",
+            description: "Expected baseline cost",
+          })
+          .option("progress-history", {
+            type: "string",
+            description: "Comma-separated progress history for stuck detection",
+          }),
+      handler: async (argv) => {
+        const { rerouteCommand } = await import("./commands/reroute.js");
+        await rerouteCommand.handler?.(argv as never);
       },
     })
     .command({

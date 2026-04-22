@@ -121,6 +121,87 @@ def classify(
     )
 
 
+def detect_realtime_complexity(signals: dict[str, object]) -> ComplexityResult:
+    """Detect complexity tier from real-time signals.
+
+    Args:
+        signals: Dictionary with keys:
+            - file_count (int): Number of files involved
+            - dependency_depth (int): Depth of dependency chain
+            - multi_language (bool): Whether multiple languages are involved
+            - security_sensitive (bool): Whether security-sensitive code is involved
+            - line_count (int): Total lines of code
+
+    Returns:
+        ComplexityResult with tier, confidence, reasoning, and scores.
+    """
+    file_count = _coerce_int(signals.get("file_count", 0), default=0)
+    dependency_depth = _coerce_int(signals.get("dependency_depth", 0), default=0)
+    multi_language = _coerce_bool(signals.get("multi_language", False))
+    security_sensitive = _coerce_bool(signals.get("security_sensitive", False))
+    line_count = _coerce_int(signals.get("line_count", 0), default=0)
+
+    scores: dict[str, float] = {
+        "file_count": min(1.0, file_count / 100.0),
+        "dependency_depth": min(1.0, dependency_depth / 5.0),
+        "multi_language": 1.0 if multi_language else 0.0,
+        "security_sensitive": 1.0 if security_sensitive else 0.0,
+        "line_count": min(1.0, line_count / 1000.0),
+    }
+
+    reasons: list[str] = []
+
+    # Rule: security_sensitive=True → complex+
+    if security_sensitive:
+        tier = "complex"
+        confidence = 0.90
+        reasons.append("security_sensitive=True → complex+")
+
+    # Rule: file_count > 100 OR dependency_depth > 5 → complex/critical
+    elif file_count > 100 or dependency_depth > 5:
+        if file_count > 200 or dependency_depth > 8:
+            tier = "critical"
+            confidence = 0.95
+        else:
+            tier = "complex"
+            confidence = 0.85
+        if file_count > 100:
+            reasons.append(f"file_count={file_count} > 100")
+        if dependency_depth > 5:
+            reasons.append(f"dependency_depth={dependency_depth} > 5")
+
+    # Rule: multi_language=True → medium+
+    elif multi_language:
+        tier = "medium"
+        confidence = 0.80
+        reasons.append("multi_language=True → medium+")
+
+    # Rule: file_count < 5 AND not multi_language → trivial/simple
+    elif file_count < 5 and not multi_language:
+        if file_count <= 1 and line_count < 50:
+            tier = "trivial"
+            confidence = 0.90
+        else:
+            tier = "simple"
+            confidence = 0.85
+        reasons.append(f"file_count={file_count} < 5, no multi_language")
+
+    # Default: medium
+    else:
+        tier = "medium"
+        confidence = 0.75
+        reasons.append("default classification")
+
+    reasoning = "; ".join(reasons) if reasons else "signal-based classification"
+
+    return ComplexityResult(
+        tier=tier,
+        confidence=round(confidence, 2),
+        reasoning=reasoning,
+        scores=scores,
+    )
+
+
 def _coerce_int(value: object, *, default: int) -> int:
     if isinstance(value, bool):
         return int(value)

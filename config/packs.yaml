@@ -83,3 +83,35 @@ packs:
       - runtime.cli_pack
     dependencies: []
     trigger: "from runtime.cli_"
+
+goal_packs:
+  saas:
+    description: "Express/Fastify server with health endpoint. MVP: no auth, no DB, no billing."
+    language: "typescript"
+    framework: "express"
+    path: "packs/goals/saas"
+  landing:
+    description: "Static HTML/CSS site with hero section and CTA. MVP: single page, no backend."
+    language: "html"
+    framework: "vanilla"
+    path: "packs/goals/landing"
+  discord-bot:
+    description: "Node.js Discord bot with one slash command. MVP: no persistent storage."
+    language: "javascript"
+    framework: "discord.js"
+    path: "packs/goals/discord-bot"
+  cli-tool:
+    description: "Commander.js CLI with --help. MVP: basic commands only."
+    language: "javascript"
+    framework: "commander"
+    path: "packs/goals/cli-tool"
+  api-server:
+    description: "TypeScript REST API with OpenAPI spec. MVP: no auth, no DB."
+    language: "typescript"
+    framework: "express"
+    path: "packs/goals/api-server"
+  internal-tool:
+    description: "React admin dashboard with data table. MVP: no auth, no API integration."
+    language: "typescript"
+    framework: "react"
+    path: "packs/goals/internal-tool"

@@ -1,0 +1,54 @@
+{
+  "version": "1.0.0",
+  "description": "Unified injection defense patterns for TypeScript and Python",
+  "layer1": [
+    { "pattern": "ignore\\s+(all\\s+)?previous(?:\\s+instructions?)?", "flags": "i", "label": "ignore-prev-instructions", "confidence": 0.95 },
+    { "pattern": "<\\|im_start\\|>", "flags": "i", "label": "im-start-token", "confidence": 0.99 },
+    { "pattern": "<\\|im_end\\|>", "flags": "i", "label": "im-end-token", "confidence": 0.99 },
+    { "pattern": "\\[INST\\]|\\[\\/INST\\]", "flags": "i", "label": "inst-token", "confidence": 0.99 },
+    { "pattern": "(?:^|\\s)SYSTEM\\s*:", "flags": "i", "label": "system-role-token", "confidence": 0.9 },
+    { "pattern": "(?:^|\\s)ASSISTANT\\s*:", "flags": "i", "label": "assistant-role-token", "confidence": 0.9 },
+    { "pattern": "\\bbase64\\s+(?:-d|--decode)\\b", "flags": "i", "label": "base64-decoder-token", "confidence": 0.82 },
+    { "pattern": "(?:>|>>|tee\\b).{0,120}(?:\\/)?\\omg\\/state\\/", "flags": "i", "label": "state-path-overwrite-attempt", "confidence": 0.93 },
+    { "pattern": "\\bcache|state\\s*(?:poison|override|overwrite|tamper)\\b", "flags": "i", "label": "cache-poisoning-language", "confidence": 0.9 },
+    { "pattern": "\\boverride\\s*(?:instructions|system|rules?)\\b", "flags": "i", "label": "override-system", "confidence": 0.95 },
+    { "pattern": "disregard\\s+(?:your|previous|all)\\s+(?:instructions|rules)", "flags": "i", "label": "disregard-instructions", "confidence": 0.93 },
+    { "pattern": "\\b(?:you are|you're)\\s+(?:now|actually|really)\\s+(?:a|an)\\s+", "flags": "i", "label": "role-reassignment", "confidence": 0.9 },
+    { "pattern": "(?:jailbreak|DAN|AIM|UCAR)\\s*(?:mode|prompt|persona)?", "flags": "i", "label": "jailbreak-mode", "confidence": 0.92 },
+    { "pattern": "(?:bypass|disable)\\s+(?:safety|guardrails|filters?)", "flags": "i", "label": "safety-bypass-language", "confidence": 0.9 },
+    { "pattern": "\\b(?:run|execute|commit|push|apply_patch|edit)\\b.{0,40}\\b(?:command|now|immediately|without\\s+question)\\b", "flags": "i", "label": "tooling-command-language", "confidence": 0.72 },
+    { "pattern": "(?:comment|hidden|invisible).{0,80}\\b(?:ignore|override|jailbreak|bypass)\\b", "flags": "i", "label": "comment-hidden-instruction", "confidence": 0.86 },
+    { "pattern": "pretend\\s+(?:you\\s+)?(?:have\\s+no|don't\\s+have|don't\\s+care\\s+about)\\s+(?:restrictions?|rules?|guidelines?)", "flags": "i", "label": "pretend-no-rules", "confidence": 0.88 },
+    { "pattern": "as\\s+(?:an?\\s+)?(?:evil|unconstrained|jailbroken|liberated)\\s+(?:AI|assistant|model)", "flags": "i", "label": "evil-unconstrained-persona", "confidence": 0.89 }
+  ],
+  "layer2": [
+    { "pattern": "<system>[\\s\\S]{0,800}<\\/system>", "flags": "i", "label": "xml-system-tag" },
+    { "pattern": "<\\s*\\/?(?:system|assistant|user)\\s*>", "flags": "i", "label": "xml-role-tag" },
+    { "pattern": "<<SYS>>[\\s\\S]{0,800}<<\\/SYS>>", "flags": "i", "label": "llama-sys-tag" },
+    { "pattern": "\\[SYSTEM\\][\\s\\S]{0,800}\\[\\/SYSTEM\\]", "flags": "i", "label": "bracket-system-tag" },
+    { "pattern": "###\\s*(?:System|Human|Assistant)\\s*:", "flags": "i", "label": "markdown-role-header" },
+    { "pattern": "###\\s+SYSTEM\\s+PROMPT", "flags": "i", "label": "markdown-system-prompt" },
+    { "pattern": "={3,}\\s*SYSTEM\\s*={3,}", "flags": "i", "label": "equals-system-delimiter" }
+  ],
+  "layer4": [
+    { "pattern": "\\bDAN\\b.{0,50}can\\s+do\\s+anything", "flags": "i", "label": "dan-unbounded-capability", "confidence": 0.88 },
+    { "pattern": "\\bDAN\\b.{0,100}mode", "flags": "i", "label": "dan-mode", "confidence": 0.86 },
+    { "pattern": "you\\s+are\\s+(?:now\\s+)?(?:playing|acting\\s+as)\\s+an?\\s+(?:AI|assistant).{0,50}(?:no|without)\\s+(?:restrictions?|filters?|rules?)", "flags": "i", "label": "act-as-unrestricted", "confidence": 0.9 },
+    { "pattern": "pretend\\s+(?:you\\s+)?(?:have\\s+no|don't\\s+have)\\s+(?:restrictions?|rules?|guidelines?)", "flags": "i", "label": "pretend-no-rules", "confidence": 0.88 },
+    { "pattern": "as\\s+(?:an?\\s+)?(?:evil|unconstrained|jailbroken|liberated)\\s+(?:AI|assistant|model)", "flags": "i", "label": "evil-unconstrained-persona", "confidence": 0.89 },
+    { "pattern": "(?:new\\s+prime\\s+directive|system\\s+override)\\s*:", "flags": "i", "label": "directive-rewrite", "confidence": 0.9 }
+  ],
+  "python_instruction_patterns": [
+    { "pattern": "ignore\\s+previous\\s+instructions", "flags": "i", "label": "ignore-prev-instructions" },
+    { "pattern": "\\b(system|assistant|developer)\\s*:", "flags": "i", "label": "role-prefix" },
+    { "pattern": "\\b(run|execute|commit|push|apply_patch|edit)\\b", "flags": "i", "label": "action-verb" },
+    { "pattern": "<\\s*\\/?(?:system|assistant|user)\\s*>", "flags": "i", "label": "xml-role-tag" },
+    { "pattern": "\\[INST\\]|\\[\\/INST\\]", "flags": "i", "label": "inst-token" },
+    { "pattern": "###\\s*(?:System|Human|Assistant)\\s*:", "flags": "i", "label": "markdown-role-header" },
+    { "pattern": "OVERRIDE\\s*(?:INSTRUCTIONS|SYSTEM)", "flags": "i", "label": "override-system" },
+    { "pattern": "disregard\\s+(?:your|previous|all)\\s+(?:instructions|rules)", "flags": "i", "label": "disregard-instructions" },
+    { "pattern": "(?:you are|you're)\\s+(?:now|actually|really)\\s+(?:a|an)\\s+", "flags": "i", "label": "role-reassignment" },
+    { "pattern": "(?:jailbreak|DAN|AIM|UCAR)\\s*(?:mode|prompt|persona)?", "flags": "i", "label": "jailbreak-mode" },
+    { "pattern": "(?:bypass|disable)\\s+(?:safety|guardrails|filters?)", "flags": "i", "label": "safety-bypass-language" }
+  ]
+}
