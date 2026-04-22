@@ -1,6 +1,6 @@
 ---
 name: omg-preflight
-description: "Repo-aware route selection based on diff, manifests, and classified risk."
+description: "Deterministic preflight router that resolves ambiguous high-risk classifications to the strictest route with recorded evidence plan."
 ---
 
 # OMG Preflight

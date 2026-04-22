@@ -2,7 +2,7 @@ name: omg-preflight
 description: "Deterministic preflight router that resolves ambiguous high-risk classifications to the strictest route with recorded evidence plan."
 allow_implicit_invocation: true
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: preflight
   title: "OMG Preflight"
 mcp_servers:

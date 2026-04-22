@@ -2,7 +2,7 @@ name: omg-secure-worktree-pipeline
 description: "Secure worker execution with merge-writer authorization gates, lock-aware cleanup, and deterministic cancellation on write denial."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: secure-worktree-pipeline
   title: "OMG Secure Worktree Pipeline"
 mcp_servers:

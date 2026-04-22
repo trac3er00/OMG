@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "OMG - Oh-My-God for Claude Code and supported agent hosts",
-    "version": "3.0.0",
+    "version": "2.5.0",
     "homepage": "https://github.com/trac3r00/OMG",
     "repository": "https://github.com/trac3r00/OMG"
   },
@@ -14,7 +14,7 @@
     {
       "name": "omg",
       "description": "OMG plugin layer for Claude Code and supported agent hosts with native setup, orchestration, and interop.",
-      "version": "3.0.0",
+      "version": "2.5.0",
       "source": "./",
       "author": {
         "name": "trac3r00"
@@ -32,5 +32,5 @@
       ]
     }
   ],
-  "version": "3.0.0"
+  "version": "2.5.0"
 }

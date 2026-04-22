@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/robotics.yaml",
       "digest": {
-        "sha256": "d1ac7668e1d1c93633cfbdb7c7b34191d218ee79c13c0068920d296296953cd1"
+        "sha256": "cabccf7cc65758ee69bd7ff8342c72e9988f22bab0991609471948d63e75c271"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-04-11T14:39:59.530107+00:00"
+      "timestamp": "2026-04-22T16:47:37.588824+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-04-11T14:39:59.530107+00:00",
+  "issued_at": "2026-04-22T16:47:37.588824+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "5455983ed5d8760f",
-    "value": "untrusted comment: signature from omg local signing key\nix9XURxhq5RHNR5Nh/xW+Y19OtMzfLDpohjqwWvPxnxWlE7znSIzS0bZk4D0+doprc494LTqWDoSx8d8w+skAA==\ntrusted comment: type=omg-slsa-v1 keyid=5455983ed5d8760f issued_at=2026-04-11T14:39:59.530230+00:00 artifact=bundle/registry/bundles/robotics.yaml sha256=d1ac7668e1d1c93633cfbdb7c7b34191d218ee79c13c0068920d296296953cd1\nsJ8MiY8Sjf6hdKofVRnnOj5Z9CgG1avNajo+1NWs7oEX06zLbYB2HlotVYG9MSyeCHwu93AddC1LDYtF346TBw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=5455983ed5d8760f issued_at=2026-04-11T14:39:59.530230+00:00 artifact=bundle/registry/bundles/robotics.yaml sha256=d1ac7668e1d1c93633cfbdb7c7b34191d218ee79c13c0068920d296296953cd1"
+    "keyid": "b8a7bd7da7a11bf6",
+    "value": "untrusted comment: signature from omg local signing key\noCP5Rjhpa8CQyejImltmhewiqQD1knG2ax0aN1wFWcbvky77oVM+KPw42MSri3iG47qEBPphyjlGF57IxyZhCw==\ntrusted comment: type=omg-slsa-v1 keyid=b8a7bd7da7a11bf6 issued_at=2026-04-22T16:47:37.588943+00:00 artifact=bundle/registry/bundles/robotics.yaml sha256=cabccf7cc65758ee69bd7ff8342c72e9988f22bab0991609471948d63e75c271\n/soa6bs9pgPYmYV9hda5eNLZTHLx6zqjWU2iD9C8VxKzNOuHatnO+aZ7ZQ+goUTPENRVm5+8AwxisZMdWIg5Bg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=b8a7bd7da7a11bf6 issued_at=2026-04-22T16:47:37.588943+00:00 artifact=bundle/registry/bundles/robotics.yaml sha256=cabccf7cc65758ee69bd7ff8342c72e9988f22bab0991609471948d63e75c271"
   }
 }

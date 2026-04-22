@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/proof-gate/openai.yaml",
       "digest": {
-        "sha256": "b38d5daf13301e7428565cd95a2af42d4ff3368d3394814fe11b50ee673e9ee6"
+        "sha256": "99fa2d3d306c0fc30deb7dc76427659ace663f46f590b84c036ee10cf3b8c6d2"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:42.045771+00:00"
+      "timestamp": "2026-04-22T16:47:44.202354+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:42.045771+00:00",
+  "issued_at": "2026-04-22T16:47:44.202354+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "f538483fca754428",
-    "value": "untrusted comment: signature from omg local signing key\nJPkHZ0nXQfWQQrGRftWDCRvF97o4fXiLP0JvCcXuwmugIxFNpqoL1Yf6Z3e1AQ0Jea1ZgfiW4I3dw85pmoY6Aw==\ntrusted comment: type=omg-slsa-v1 keyid=f538483fca754428 issued_at=2026-03-18T21:01:42.045893+00:00 artifact=bundle/.agents/skills/omg/proof-gate/openai.yaml sha256=b38d5daf13301e7428565cd95a2af42d4ff3368d3394814fe11b50ee673e9ee6\nVwqK6hbWKpbBKK2JHF3e7wdGWinKfKc6sWE0chynMlI7PJTVx/SLKllw2FYs+C9aFW4BOG2fsU0J0/hvOA24AQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=f538483fca754428 issued_at=2026-03-18T21:01:42.045893+00:00 artifact=bundle/.agents/skills/omg/proof-gate/openai.yaml sha256=b38d5daf13301e7428565cd95a2af42d4ff3368d3394814fe11b50ee673e9ee6"
+    "keyid": "48dd9fe80a70cc70",
+    "value": "untrusted comment: signature from omg local signing key\nb5t+4/F36EtMgfEHcZOJ31DjrO0/ABi/Grf3tEM0bB5Y7F2Rl8gXZHaBH1CEkeuE7o+DoqIbKc2ooopkLhZuCQ==\ntrusted comment: type=omg-slsa-v1 keyid=48dd9fe80a70cc70 issued_at=2026-04-22T16:47:44.202472+00:00 artifact=bundle/.agents/skills/omg/proof-gate/openai.yaml sha256=99fa2d3d306c0fc30deb7dc76427659ace663f46f590b84c036ee10cf3b8c6d2\nAyvL4NC8S1PWNYIgCy/4bacf+FnoHfVcfr+JqgP/O9x9mC3Wa+DGPf8SfQmjLHa0FFqVYW21GDX4oCYjqxzlCw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=48dd9fe80a70cc70 issued_at=2026-04-22T16:47:44.202472+00:00 artifact=bundle/.agents/skills/omg/proof-gate/openai.yaml sha256=99fa2d3d306c0fc30deb7dc76427659ace663f46f590b84c036ee10cf3b8c6d2"
   }
 }

@@ -1,6 +1,6 @@
 ---
 name: omg-claim-judge
-description: "Evidence-backed claim validator for structured release and completion claims."
+description: "Claim adjudication lane that evaluates individual claims first, then aggregates release verdicts with strict unsupported reason codes."
 ---
 
 # OMG Claim Judge

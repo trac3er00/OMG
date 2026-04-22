@@ -2,7 +2,7 @@ name: omg-security-check
 description: "Security audit lane with waiver normalization, unresolved-high-risk fail conditions, and required remediation evidence refresh."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: security-check
   title: "OMG Security Check"
 mcp_servers:

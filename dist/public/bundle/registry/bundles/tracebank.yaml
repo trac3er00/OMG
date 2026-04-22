@@ -1,6 +1,6 @@
 id: tracebank
 kind: evidence
-version: 3.0.0
+version: 2.5.0
 title: OMG Tracebank
 description: Structured plan-to-patch-to-verify trace capture for OMG routes.
 hosts:

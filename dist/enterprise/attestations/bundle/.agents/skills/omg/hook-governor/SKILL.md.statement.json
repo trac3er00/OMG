@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/hook-governor/SKILL.md",
       "digest": {
-        "sha256": "7c745315ed02595fe0f6c927118dae49ddcb7a412ddff0c06cb0973f1d7b77ca"
+        "sha256": "9f58c84fc67a13355a2d162b9c95cdd3c47e23e49978a9991a319f08cc99cf9e"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:42.038407+00:00"
+      "timestamp": "2026-04-22T16:47:44.191410+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:42.038407+00:00",
+  "issued_at": "2026-04-22T16:47:44.191410+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "aabdec3c50def162",
-    "value": "untrusted comment: signature from omg local signing key\nvDSwFWeZYw8/TtQsLKqg8fLLH5wPkTMuSRT6ADCL0A2cSURTourk7q34ouo2BXQD0dWlBfec2HE4OyAprX6KAw==\ntrusted comment: type=omg-slsa-v1 keyid=aabdec3c50def162 issued_at=2026-03-18T21:01:42.038511+00:00 artifact=bundle/.agents/skills/omg/hook-governor/SKILL.md sha256=7c745315ed02595fe0f6c927118dae49ddcb7a412ddff0c06cb0973f1d7b77ca\n3n7VYGY3RUw5jFPAwO+NB6sg3PimhGqgXb0Jx0gU6v4dTFNWl40FK3UlpNhUp0ODu07UDTe4CBIk0bFcP4ycCA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=aabdec3c50def162 issued_at=2026-03-18T21:01:42.038511+00:00 artifact=bundle/.agents/skills/omg/hook-governor/SKILL.md sha256=7c745315ed02595fe0f6c927118dae49ddcb7a412ddff0c06cb0973f1d7b77ca"
+    "keyid": "9a0a7b5e2430dc1d",
+    "value": "untrusted comment: signature from omg local signing key\nabfJodDJox4XxVBmP/OWfIctG3z/m5ftdRQnFhBZA6fwO3EkPzWMbb3g7BkQ1OBG4m9oILFFWjU+d2GoFfbeBg==\ntrusted comment: type=omg-slsa-v1 keyid=9a0a7b5e2430dc1d issued_at=2026-04-22T16:47:44.191529+00:00 artifact=bundle/.agents/skills/omg/hook-governor/SKILL.md sha256=9f58c84fc67a13355a2d162b9c95cdd3c47e23e49978a9991a319f08cc99cf9e\n8k76K2nB5L0+yv0K5RAB7+FKupvGbU2OVXy16RbfgnD6hu08aHgapWWr/qKihdQ0mCb4oBeONyOUykr7N83ZAg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=9a0a7b5e2430dc1d issued_at=2026-04-22T16:47:44.191529+00:00 artifact=bundle/.agents/skills/omg/hook-governor/SKILL.md sha256=9f58c84fc67a13355a2d162b9c95cdd3c47e23e49978a9991a319f08cc99cf9e"
   }
 }

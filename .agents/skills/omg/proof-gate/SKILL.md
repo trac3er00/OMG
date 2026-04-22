@@ -5,7 +5,7 @@ description: "Release proof gate enforcing hard blockers for missing artifacts, 
 
 # OMG Proof Gate
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/proof-gate-*.json`

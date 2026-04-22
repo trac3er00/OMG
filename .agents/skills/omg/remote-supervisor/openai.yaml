@@ -2,7 +2,7 @@ name: omg-remote-supervisor
 description: "Local supervisor orchestration with token issuance, per-request verification, replay/staleness rejection, and session evidence capture."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: remote-supervisor
   title: "OMG Remote Supervisor"
 mcp_servers:

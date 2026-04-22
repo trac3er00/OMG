@@ -1,6 +1,6 @@
 ---
 name: omg-proof-gate
-description: "Structured release proof gate that binds claims to required evidence artifacts and trace links."
+description: "Release proof gate enforcing hard blockers for missing artifacts, lock evidence gaps, and trace-link mismatches."
 ---
 
 # OMG Proof Gate

@@ -1,6 +1,6 @@
 id: hash-edit
 kind: governance
-version: 3.0.0
+version: 2.5.0
 title: OMG Hash Edit Lane
 description: Hash-bound edit lane that verifies target digests, refreshes approvals on mismatch, and blocks mutation until evidence is valid.
 hosts:

@@ -2,7 +2,7 @@ name: omg-tracebank
 description: "Structured plan-to-patch-to-verify trace capture for OMG routes."
 allow_implicit_invocation: true
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: tracebank
   title: "OMG Tracebank"
 mcp_servers:

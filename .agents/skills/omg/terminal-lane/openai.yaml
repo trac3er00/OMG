@@ -2,7 +2,7 @@ name: omg-terminal-lane
 description: "Fail-closed Bash governance lane with mandatory tool approval, compliance attestation checks, and explicit deny-path behavior."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: terminal-lane
   title: "OMG Terminal Lane"
 mcp_servers:

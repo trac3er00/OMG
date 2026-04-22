@@ -2,7 +2,7 @@ name: omg-ast-pack
 description: "Two-phase AST lane requiring search-first flow, dry-run evidence, and explicit promotion before mutation-capable rewrites."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: ast-pack
   title: "OMG AST Pack Lane"
 mcp_servers:

@@ -5,7 +5,7 @@ description: "Security audit lane with waiver normalization, unresolved-high-ris
 
 # OMG Security Check
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/security-check-*.json`
