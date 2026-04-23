@@ -5,10 +5,12 @@
   "type": "module",
   "main": "src/index.ts",
   "bin": {
-    "omg": "src/cli/index.ts",
+    "omg": "bin/omg",
     "omg-control": "src/mcp/server.ts"
   },
   "files": [
+    "bin/",
+    "scripts/",
     "src/",
     "dist/",
     "runtime/",
@@ -65,6 +67,7 @@
   },
   "homepage": "https://github.com/trac3r00/OMG#readme",
   "engines": {
+    "node": ">=18.0.0",
     "bun": ">=1.1.0"
   },
   "devDependencies": {

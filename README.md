@@ -210,7 +210,6 @@ graph TD
 ## Why OMG
 
 <!-- OMG:GENERATED:why-omg -->
-
 OMG keeps the host you already use, then adds governed install, proof, and release surfaces on top.
 
 - Canonical host parity targets are Claude, Codex, Gemini, and Kimi.
@@ -218,7 +217,6 @@ OMG keeps the host you already use, then adds governed install, proof, and relea
 - Install and verification stay explicit: doctor first, preview second, apply last.
 
 > Legacy Claude compatibility commands such as `/OMG:setup` and `/OMG:crazy <goal>` remain documented as footnotes only.
-
 <!-- /OMG:GENERATED:why-omg -->
 
 - Claude front door: run `npx omg env doctor`, then `npx omg install --plan`, then `npx omg install --apply`.
@@ -244,7 +242,6 @@ OMG now ships a production control-plane contract and generated host artifacts. 
 ## Quickstart
 
 <!-- OMG:GENERATED:install-intro -->
-
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
 
 ```bash
@@ -258,7 +255,6 @@ npx omg ship
 Local package-manager installs only link `omg` into `node_modules/.bin/`; they do not mutate configuration.
 
 The package postinstall runs `npx omg install --plan` as a preview, so it makes no mutations until you explicitly run `npx omg install --apply`.
-
 <!-- /OMG:GENERATED:install-intro -->
 
 On non-Claude hosts, verify native MCP registration after `npx omg install --apply`:
