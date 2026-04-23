@@ -3,7 +3,7 @@ import type { CommandModule } from "yargs";
 import {
   SUPPORTED_DEPLOY_TARGETS,
   detectDeployTarget,
-  deploy,
+  deployWithOptions,
   type DeployTarget,
 } from "../../deploy/integrations.js";
 
@@ -40,9 +40,12 @@ export const deployCommand: CommandModule<object, DeployArgs> = {
   },
   handler: async (argv): Promise<void> => {
     const projectDir = resolve(argv.projectDir ?? process.cwd());
-    const target = (argv.target ??
-      detectDeployTarget(projectDir)) as DeployTarget;
-    const result = await deploy(target, projectDir, Boolean(argv.dryRun));
+    const target = argv.target ?? (await detectDeployTarget(projectDir));
+    const result = await deployWithOptions(
+      target,
+      projectDir,
+      Boolean(argv.dryRun),
+    );
     const payload = {
       target,
       projectDir,

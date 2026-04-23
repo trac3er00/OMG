@@ -7,14 +7,16 @@ export const SUPPORTED_DEPLOY_TARGETS = [
   "netlify",
   "fly",
   "railway",
+  "unknown",
 ] as const;
 
 export type DeployTarget = (typeof SUPPORTED_DEPLOY_TARGETS)[number];
 
-type DeployResult = {
+export type DeployResult = {
   readonly url?: string;
   readonly success: boolean;
-  readonly message: string;
+  readonly message?: string;
+  readonly error?: string;
 };
 
 type DeployManifest = {
@@ -59,6 +61,11 @@ const DEPLOY_COMMANDS: Record<DeployTarget, DeployCommandConfig> = {
   railway: {
     cli: "railway",
     args: ["up", "--detach"],
+    supportsRollback: false,
+  },
+  unknown: {
+    cli: "",
+    args: [],
     supportsRollback: false,
   },
 };
@@ -125,22 +132,141 @@ function extractUrl(text: string): string | undefined {
   return match ? match[0].replace(/[),.;]+$/, "") : undefined;
 }
 
-function normalizeTarget(target: string, projectDir: string): DeployTarget {
-  return isDeployTarget(target)
-    ? target
-    : (detectDeployTarget(projectDir) as DeployTarget);
-}
-
-export function detectDeployTarget(projectDir: string): string {
+function detectDeployTargetSync(projectDir: string): DeployTarget {
   for (const marker of TARGET_MARKERS) {
     if (existsSync(join(projectDir, marker.file))) {
       return marker.target;
     }
   }
-  return "railway";
+  return "unknown";
+}
+
+function normalizeTarget(target: string, projectDir: string): DeployTarget {
+  return isDeployTarget(target) ? target : detectDeployTargetSync(projectDir);
+}
+
+/** Detect deploy target from project files */
+export async function detectDeployTarget(
+  projectDir: string = ".",
+): Promise<DeployTarget> {
+  return detectDeployTargetSync(projectDir);
+}
+
+/** Check if deploy CLI is authenticated */
+export async function isDeployAuthenticated(
+  target: DeployTarget,
+): Promise<boolean> {
+  if (target === "unknown") {
+    return false;
+  }
+
+  const config = DEPLOY_COMMANDS[target];
+  if (!config.cli || !commandExists(config.cli)) {
+    return false;
+  }
+
+  let authCmd: string[];
+  switch (target) {
+    case "vercel":
+      authCmd = ["whoami"];
+      break;
+    case "netlify":
+      authCmd = ["status"];
+      break;
+    default:
+      // For fly/railway, assume authenticated if CLI exists
+      return true;
+  }
+
+  const result = spawnSync(config.cli, authCmd, {
+    encoding: "utf8",
+    stdio: ["ignore", "ignore", "ignore"],
+    timeout: 10_000,
+  });
+
+  return result.status === 0;
+}
+
+/** Extract deployed URL from deploy output */
+export function getDeployedUrl(
+  output: string,
+  target: DeployTarget,
+): string | undefined {
+  if (target === "unknown") {
+    return undefined;
+  }
+
+  // Use the existing extractUrl logic for all targets
+  return extractUrl(output);
 }
 
 export async function deploy(
+  projectDir: string,
+  target?: DeployTarget,
+): Promise<DeployResult> {
+  const resolvedTarget = target ?? (await detectDeployTarget(projectDir));
+
+  if (resolvedTarget === "unknown") {
+    return {
+      success: false,
+      error: "No deploy target detected (no vercel.json or netlify.toml)",
+    };
+  }
+
+  const authed = await isDeployAuthenticated(resolvedTarget);
+  if (!authed) {
+    return {
+      success: false,
+      error: `Not authenticated with ${resolvedTarget}. Run: ${resolvedTarget} login`,
+    };
+  }
+
+  const config = DEPLOY_COMMANDS[resolvedTarget];
+
+  const result = spawnSync(config.cli, [...config.args], {
+    cwd: projectDir,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 300_000,
+  });
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim();
+
+  if (result.status !== 0) {
+    return {
+      success: false,
+      error: output || `Deployment failed for ${resolvedTarget}`,
+    };
+  }
+
+  const url = getDeployedUrl(output, resolvedTarget);
+  const existing = readManifest(projectDir);
+  const gitCommit = readGitCommit(projectDir);
+  const manifest: DeployManifest = {
+    target: resolvedTarget,
+    deployedAt: new Date().toISOString(),
+    ...(url ? { url } : {}),
+    ...(gitCommit ? { gitCommit } : {}),
+    ...(existing
+      ? {
+          previous: {
+            target: existing.target,
+            deployedAt: existing.deployedAt,
+            ...(existing.url ? { url: existing.url } : {}),
+            ...(existing.gitCommit ? { gitCommit: existing.gitCommit } : {}),
+          },
+        }
+      : {}),
+  };
+
+  writeManifest(projectDir, manifest);
+
+  return {
+    success: true,
+    ...(url ? { url } : {}),
+  };
+}
+
+export async function deployWithOptions(
   target: string,
   projectDir: string,
   dryRun: boolean,
@@ -163,6 +289,25 @@ export async function deploy(
     return {
       success: false,
       message: `${config.cli} CLI is not installed. Cannot deploy ${normalizedTarget}.`,
+      error: `CLI not found: ${config.cli}`,
+    };
+  }
+
+  const isAuthenticated = await isDeployAuthenticated(normalizedTarget);
+  if (!isAuthenticated) {
+    const authInstructions: Record<string, string> = {
+      vercel: "Run 'vercel login' to authenticate.",
+      netlify: "Run 'netlify login' to authenticate.",
+      fly: "Run 'fly auth login' to authenticate.",
+      railway: "Run 'railway login' to authenticate.",
+    };
+    const instruction =
+      authInstructions[normalizedTarget] ??
+      "Please authenticate with the deploy provider.";
+    return {
+      success: false,
+      message: `Not authenticated with ${normalizedTarget}. ${instruction}`,
+      error: `Not authenticated: ${normalizedTarget}`,
     };
   }
 
