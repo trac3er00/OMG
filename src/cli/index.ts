@@ -13,7 +13,7 @@ import { pauseCommand } from "./commands/pause.js";
 import { skillsListCommand } from "./commands/skills.js";
 import { governanceStatusCommand } from "./commands/governance.js";
 
-const CLI_VERSION = "2.5.0";
+const CLI_VERSION = "2.6.0";
 
 type CommandItem = {
   readonly name: string;
@@ -713,6 +713,19 @@ async function runCli(): Promise<void> {
           .option("progress-history", {
             type: "string",
             description: "Comma-separated progress history for stuck detection",
+          })
+          .option("goal", {
+            type: "string",
+            description: "Goal text to include in reroute suggestions",
+          })
+          .option("proof-score", {
+            type: "number",
+            description: "ProofScore to evaluate for reroute suggestions",
+          })
+          .option("auto-reroute", {
+            type: "boolean",
+            default: false,
+            description: "Automatically retry rerouting up to 3 times",
           }),
       handler: async (argv) => {
         const { rerouteCommand } = await import("./commands/reroute.js");
@@ -778,7 +791,79 @@ async function runCli(): Promise<void> {
         await autoresearchCommand.handler?.(argv as never);
       },
     })
-    .demandCommand(1, "Specify a command")
+    .command({
+      command: "$0 <goal>",
+      describe: "Treat first positional arg as goal if not a known subcommand",
+      builder: (command) =>
+        command
+          .positional("goal", {
+            type: "string",
+            demandOption: false,
+            describe: "Goal string when no subcommand is used",
+          })
+          .option("dry-run", {
+            type: "boolean",
+            default: false,
+            describe: "Output goal stub as JSON and exit",
+          }),
+      handler: async (argv) => {
+        const goal = argv.goal as string | undefined;
+        if (!goal) {
+          throw new Error("Goal is required when no subcommand is specified");
+        }
+
+        const { classify } = await import("../classifier/index.js");
+        const classification = classify(goal);
+
+        if (
+          classification.risk === "high" ||
+          classification.risk === "critical"
+        ) {
+          console.error(
+            `⚠️  Risk warning: ${classification.risk} risk detected for goal: "${goal}"`,
+          );
+        }
+
+        if (argv.dryRun) {
+          console.log(
+            JSON.stringify({
+              goal,
+              classified: true,
+              intent: classification.intent,
+              risk: classification.risk,
+              complexity: classification.complexity,
+              confidence: classification.confidence,
+            }),
+          );
+          process.exit(0);
+          return;
+        }
+
+        if (classification.signals.length === 0 && !goal.includes(" ")) {
+          throw new Error(
+            `Unknown command or goal: ${goal}. Run 'omg --help' for available commands.`,
+          );
+        }
+
+        if (
+          classification.intent === "build" &&
+          classification.complexity === "simple"
+        ) {
+          await instantCommand.handler?.({
+            ...argv,
+            prompt: goal,
+          } as never);
+          return;
+        }
+
+        console.log(
+          `Goal classified as: ${classification.intent} / ${classification.risk} risk / ${classification.complexity}`,
+        );
+        console.log(
+          `Suggested: omg instant "${goal}" for build tasks, or omg deep-plan for complex tasks`,
+        );
+      },
+    })
     .parseAsync();
 }
 
