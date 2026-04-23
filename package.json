@@ -6,7 +6,8 @@
   "main": "src/index.ts",
   "bin": {
     "omg": "bin/omg",
-    "omg-control": "src/mcp/server.ts"
+    "omg-control": "src/mcp/server.ts",
+    "omg-tui": "src/tui/index.ts"
   },
   "files": [
     "bin/",
