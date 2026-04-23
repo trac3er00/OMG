@@ -124,6 +124,7 @@ export class MemoryStore {
   private readonly passphrase: string;
   private readonly capacityLimit: number;
   private encryptionKey: Buffer | null = null;
+  private encryptionKeyPromise: Promise<Buffer> | null = null;
 
   constructor(config: MemoryStoreConfig) {
     this.namespace =
@@ -172,14 +173,25 @@ export class MemoryStore {
   }
 
   private async getKey(): Promise<Buffer> {
-    if (this.encryptionKey === null) {
-      this.encryptionKey = await deriveKey(
+    if (this.encryptionKey !== null) {
+      return this.encryptionKey;
+    }
+    if (this.encryptionKeyPromise === null) {
+      this.encryptionKeyPromise = deriveKey(
         this.passphrase,
         DEFAULT_SALT,
         STORE_KEY_DERIVE_ITERATIONS,
-      );
+      )
+        .then((key) => {
+          this.encryptionKey = key;
+          return key;
+        })
+        .catch((error) => {
+          this.encryptionKeyPromise = null;
+          throw error;
+        });
     }
-    return this.encryptionKey;
+    return this.encryptionKeyPromise;
   }
 
   private redactPii(content: string): string {
