@@ -7,6 +7,7 @@
  */
 
 import {
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -1597,7 +1598,7 @@ async function main() {
     if (cfg.elements.omcLabel !== false) {
       els.push(
         bold(
-          `[OMG#${OMG_VERSION.isFallback ? `⚠v${OMG_VERSION.version}` : `v${OMG_VERSION.version}`}]`,
+          `[OMG#${OMG_VERSION.version}]${OMG_VERSION.isFallback ? "⚠" : ""}`,
         ),
       );
     }
