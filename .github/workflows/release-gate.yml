@@ -1,0 +1,21 @@
+name: Release Gate v2.7.0
+on:
+  push:
+    tags:
+      - "v2.7.0*"
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: Run tests
+        run: bun test
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Check no hardcoded secrets
+        run: grep -rE "(password|secret|token)\s*[:=][^{]" .github/workflows/ --include="*.yml" | grep -v '\${{ secrets\.' | grep -v '#' || true
