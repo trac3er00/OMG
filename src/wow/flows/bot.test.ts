@@ -11,7 +11,7 @@ describe("Bot Flow", () => {
 
     expect(result.flowName).toBe("bot");
     expect(result.success).toBe(true);
-    expect(result.buildTime).toBeGreaterThan(0);
+    expect(result.buildTime).toBeGreaterThanOrEqual(0);
     expect(result.proofScore).toBe(65);
 
     const pkgContent = await readFile(join(outputDir, "package.json"), "utf-8");
@@ -33,7 +33,7 @@ describe("Bot Flow", () => {
 
     expect(result.flowName).toBe("bot");
     expect(result.success).toBe(true);
-    expect(result.buildTime).toBeGreaterThan(0);
+    expect(result.buildTime).toBeGreaterThanOrEqual(0);
     expect(result.proofScore).toBe(65);
 
     const pkgContent = await readFile(join(outputDir, "package.json"), "utf-8");

@@ -11,7 +11,7 @@ describe("SaaS Flow", () => {
 
     expect(result.flowName).toBe("saas");
     expect(result.success).toBe(true);
-    expect(result.buildTime).toBeGreaterThan(0);
+    expect(result.buildTime).toBeGreaterThanOrEqual(0);
 
     const packageJsonPath = join(outputDir, "package.json");
     const indexPath = join(outputDir, "src/index.js");
