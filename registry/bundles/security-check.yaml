@@ -1,6 +1,6 @@
 id: security-check
 kind: security
-version: 2.5.0
+version: 2.6.0
 title: OMG Security Check
 description: Security audit lane with waiver normalization, unresolved-high-risk fail conditions, and required remediation evidence refresh.
 hosts:

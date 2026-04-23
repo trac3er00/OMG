@@ -8,7 +8,7 @@
 - Idempotent generated-section markers in docs
 <!-- /OMG:GENERATED:changelog-v2.5.0 -->
 
-## [2.5.0] - 2026-04-22
+## [2.6.0] - 2026-04-22
 
 ### Release Summary
 

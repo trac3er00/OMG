@@ -1,6 +1,6 @@
 {
   "name": "omg-advanced",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Advanced OMG commands - deep planning, learning, code review, and specialized workflows",
   "type": "omg-plugin",
   "commands": {
