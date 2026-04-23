@@ -5,7 +5,7 @@
     {
       "name": "bundle/.kimi/mcp.json",
       "digest": {
-        "sha256": "85a69c092f82585f6be13b695b8f2f5404ba79d203e87ab65019b73e58aa981f"
+        "sha256": "14c23409446f7c3365381dc408863325592f34de15a7e513050d7e526f61a8e5"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-04-22T16:47:44.220109+00:00"
+      "timestamp": "2026-04-23T08:21:26.600404+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-04-22T16:47:44.220109+00:00",
+  "issued_at": "2026-04-23T08:21:26.600404+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "7b2f6256df6ed965",
-    "value": "untrusted comment: signature from omg local signing key\ntMrQgleqveX8Jrj89b5IISioKg7WQV2x5CTzLSK/HCUERjUPLc0n9aDqXXPm+a3mvR+WFaKJfbL4NJq2c1V/Ag==\ntrusted comment: type=omg-slsa-v1 keyid=7b2f6256df6ed965 issued_at=2026-04-22T16:47:44.220227+00:00 artifact=bundle/.kimi/mcp.json sha256=85a69c092f82585f6be13b695b8f2f5404ba79d203e87ab65019b73e58aa981f\nl5hC8c8xWx3/+VgV6cxnS1loYsJYMIw6K+0LSrGXuH2Gqeq0cR5BVwSEoJcCwHvCpzhRqVZq9K2UNAx48Y+tCg==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=7b2f6256df6ed965 issued_at=2026-04-22T16:47:44.220227+00:00 artifact=bundle/.kimi/mcp.json sha256=85a69c092f82585f6be13b695b8f2f5404ba79d203e87ab65019b73e58aa981f"
+    "keyid": "f58b22df4d90806b",
+    "value": "untrusted comment: signature from omg local signing key\ndflwvlCiH3ueOIO1U55JarvZrWKIVdU/KrbyXtLpCvPqdQPsSqDQnle5yaisnVYcLuj2bCRePp7e+rTTT/XvBw==\ntrusted comment: type=omg-slsa-v1 keyid=f58b22df4d90806b issued_at=2026-04-23T08:21:26.600521+00:00 artifact=bundle/.kimi/mcp.json sha256=14c23409446f7c3365381dc408863325592f34de15a7e513050d7e526f61a8e5\nW1Wta/mv/oF+F9pTCXq9GfsP1dw7rtY/1Hs6ZfRMNuLN2VyEDY17E5dYiIMDER2I+wSIjxcoAEiLPlnWUH5RDw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=f58b22df4d90806b issued_at=2026-04-23T08:21:26.600521+00:00 artifact=bundle/.kimi/mcp.json sha256=14c23409446f7c3365381dc408863325592f34de15a7e513050d7e526f61a8e5"
   }
 }

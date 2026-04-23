@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/claim-judge.yaml",
       "digest": {
-        "sha256": "d8a5d70641034b25805ae5e25c356bc6657d905b46778e9dc78141fd150b9d27"
+        "sha256": "a1cf9c6ceaf06eeedf9aa94f48621009093b74b399c1129e826a93e1b8f404d3"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-04-22T16:47:37.575930+00:00"
+      "timestamp": "2026-04-23T08:21:25.906004+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-04-22T16:47:37.575930+00:00",
+  "issued_at": "2026-04-23T08:21:25.906004+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "701758e4e688abf8",
-    "value": "untrusted comment: signature from omg local signing key\n2cwdoFVMji6uzlQtpBO1RmAA6b1DcvrEBgcjGIcvwKMu3ziBPDkUrMKfh8hf4d6QSfoYQU/RHqbZQfWgoWVHDQ==\ntrusted comment: type=omg-slsa-v1 keyid=701758e4e688abf8 issued_at=2026-04-22T16:47:37.576076+00:00 artifact=bundle/registry/bundles/claim-judge.yaml sha256=d8a5d70641034b25805ae5e25c356bc6657d905b46778e9dc78141fd150b9d27\n6/uoeJ2vSoM3dBkeiv+ncRGGKrmBzvu4G4O2Lj4DwXunbfWekvbm3FnqqLm6kI0Dbt7PMNsU2lkGVOBw7RIBCw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=701758e4e688abf8 issued_at=2026-04-22T16:47:37.576076+00:00 artifact=bundle/registry/bundles/claim-judge.yaml sha256=d8a5d70641034b25805ae5e25c356bc6657d905b46778e9dc78141fd150b9d27"
+    "keyid": "beac7c25515811b2",
+    "value": "untrusted comment: signature from omg local signing key\nDHtb9s4Yl4IVwBnNdUZUvD2VJoWonf+vmbr6tBARPWZy1mztY+zjgnQIv07kI0pu7umPWt6PdfNVtq2C4CC7Aw==\ntrusted comment: type=omg-slsa-v1 keyid=beac7c25515811b2 issued_at=2026-04-23T08:21:25.906129+00:00 artifact=bundle/registry/bundles/claim-judge.yaml sha256=a1cf9c6ceaf06eeedf9aa94f48621009093b74b399c1129e826a93e1b8f404d3\n9j+7lyn9nGqXV9arTdi+axEwmIPNK5RiSA3dnfj49RY+9n97/uJfpg7muSYuc/njlvrZ73Zu71Bc/yvSZaeACA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=beac7c25515811b2 issued_at=2026-04-23T08:21:25.906129+00:00 artifact=bundle/registry/bundles/claim-judge.yaml sha256=a1cf9c6ceaf06eeedf9aa94f48621009093b74b399c1129e826a93e1b8f404d3"
   }
 }
