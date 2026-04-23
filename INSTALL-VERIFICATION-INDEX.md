@@ -3,7 +3,7 @@
 
 **Purpose:** Track all CLI adapter integration points, installation flows, and critical assumptions for end-to-end verification.
 
-**Version:** OMG 2.5.0
+**Version:** OMG 2.6.0
 
 ---
 

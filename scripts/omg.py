@@ -3011,9 +3011,123 @@ def _add_docs_subcommands(parent: argparse.ArgumentParser, *, dest: str) -> None
     generate.set_defaults(func=cmd_docs_generate)
 
 
+# Top-level subcommands registered by build_parser().
+# Pre-screened by main() before argparse to detect bare-goal input
+# (e.g. `npx omg "make a landing page"`) and route to _handle_bare_goal().
+KNOWN_SUBCOMMANDS: frozenset[str] = frozenset({
+    "ship", "fix", "issue", "undo", "secure", "security", "waive-tests",
+    "api-twin", "preflight", "resolve-policy", "policy-pack", "proof",
+    "blocked", "explain", "budget", "domain-pack", "vision", "tracebank",
+    "eval-gate", "delta-classifier", "incident-replay", "data-lineage",
+    "remote-supervisor", "maintainer", "trust", "runtime", "lab", "forge",
+    "skill", "teams", "team", "ccg", "crazy", "compat", "omc", "ecosystem",
+    "contract", "context", "provider-parity-eval", "release", "doctor",
+    "validate", "diagnose-plugins", "profile-review", "docs", "memory",
+    "install", "env", "init", "status",
+    "instant",
+    "-h", "--help", "--version",
+})
+
+
+def _handle_bare_goal(argv: list[str]) -> int:
+    # Route `omg "<goal>"` (bare-goal front door) to runtime.instant_mode.
+    # Parses a minimal flag set: --dry-run, --target-dir, --json.
+    from runtime.instant_mode import run_instant
+    from runtime.intent_classifier import classify_intent
+
+    goal_parts: list[str] = []
+    dry_run = False
+    target_dir = "."
+    output_json = False
+
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--dry-run":
+            dry_run = True
+        elif arg == "--target-dir" and i + 1 < len(argv):
+            target_dir = argv[i + 1]
+            i += 1
+        elif arg == "--json":
+            output_json = True
+        elif not arg.startswith("-"):
+            goal_parts.append(arg)
+        i += 1
+
+    if not goal_parts:
+        print(json.dumps({"error": "No goal provided"}), file=sys.stderr)
+        return 1
+
+    goal = " ".join(goal_parts)
+
+    if dry_run:
+        classification = classify_intent(goal)
+        payload: dict[str, Any] = {
+            "mode": "dry-run",
+            "goal": goal,
+            "classified": True,
+            "classification": dict(classification),
+        }
+        print(json.dumps(payload, indent=2, default=str))
+        return 0
+
+    result = run_instant(goal, target_dir)
+    if output_json:
+        print(json.dumps(dict(result), indent=2, default=str))
+        return 0 if result.get("success") else 1
+
+    if result.get("success"):
+        file_count = result.get("file_count", 0)
+        target = result.get("target_dir", target_dir)
+        pack_type = result.get("type", "")
+        print(f"[omg] Generated {pack_type} project: {file_count} files in {target}")
+        warning = result.get("warning")
+        if warning:
+            print(f"[omg] Warning: {warning}", file=sys.stderr)
+        evidence_path = result.get("evidence_bundle_path")
+        if evidence_path:
+            print(f"[omg] Evidence: {evidence_path}")
+        return 0
+
+    clarification = result.get("clarification_prompt")
+    if result.get("clarification_needed") and clarification:
+        print(f"[omg] {clarification}", file=sys.stderr)
+        return 2
+
+    print(json.dumps(dict(result), indent=2, default=str), file=sys.stderr)
+    return 1
+
+
+def cmd_instant(args: argparse.Namespace) -> int:
+    # Soft-deprecated compat alias: forwards to _handle_bare_goal().
+    print(
+        "[omg:warn] `omg instant` is deprecated. Use `omg \"<goal>\"` instead.",
+        file=sys.stderr,
+    )
+    forwarded: list[str] = [args.goal]
+    if getattr(args, "dry_run", False):
+        forwarded.append("--dry-run")
+    target_dir = getattr(args, "target_dir", ".")
+    if target_dir != ".":
+        forwarded.extend(["--target-dir", target_dir])
+    if getattr(args, "json", False):
+        forwarded.append("--json")
+    return _handle_bare_goal(forwarded)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="omg", description=f"OMG {CANONICAL_VERSION} CLI")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    instant_parser = sub.add_parser(
+        "instant",
+        help="[DEPRECATED] Goal-driven scaffolding. Use `omg \"<goal>\"` instead.",
+    )
+    instant_parser.add_argument("goal", help="Goal prompt, e.g. \"make a landing page\"")
+    instant_parser.add_argument("--dry-run", action="store_true", dest="dry_run")
+    instant_parser.add_argument("--target-dir", default=".", dest="target_dir")
+    instant_parser.add_argument("--json", action="store_true", dest="json")
+    instant_parser.set_defaults(func=cmd_instant)
 
     ship = sub.add_parser("ship", help="Idea -> Evidence -> PR flow")
     ship.add_argument("--idea", default=".omg/idea.yml")
@@ -3418,8 +3532,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    effective_argv = list(argv) if argv is not None else sys.argv[1:]
+    if effective_argv and effective_argv[0] not in KNOWN_SUBCOMMANDS:
+        return _handle_bare_goal(effective_argv)
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(effective_argv)
     return int(args.func(args))
 
 

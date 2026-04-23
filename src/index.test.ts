@@ -3,5 +3,5 @@ import { NAME, VERSION } from "./index";
 
 test("version stub", () => {
   expect(NAME).toBe("OMG");
-  expect(VERSION).toBe("2.5.0");
+  expect(VERSION).toBe("2.6.0");
 });

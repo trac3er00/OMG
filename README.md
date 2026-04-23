@@ -1,4 +1,4 @@
-# OMG (Oh My God)
+# OMG — AI Work OS
 
 [![Compat Gate](https://github.com/trac3r00/OMG/actions/workflows/omg-compat-gate.yml/badge.svg)](https://github.com/trac3r00/OMG/actions/workflows/omg-compat-gate.yml)
 [![npm version](https://img.shields.io/npm/v/%40trac3r%2Foh-my-god)](https://www.npmjs.com/package/@trac3r/oh-my-god)
@@ -12,27 +12,36 @@
 
 ---
 
-## ⚡ Instant Mode: One Command, One Product
+## ⚡ Quick Start
 
 OMG transforms your prompt into a production-ready codebase in seconds. No more manual setup, boilerplate, or configuration hell.
 
 ```bash
 # Generate a landing page instantly
-npx omg instant "랜딩페이지 만들어줘"
+npx omg "make a landing page"
 
 # Generate a SaaS boilerplate
-npx omg instant "SaaS 서비스 뼈대 잡아줘"
+npx omg "build a SaaS app"
 ```
 
-### 📦 What you can build (7 Domain Packs)
+---
 
-- **SaaS**: Full-stack subscription apps
-- **Landing**: High-conversion marketing pages
-- **E-commerce**: Storefronts with cart and checkout
-- **API**: Robust backend services (REST/GraphQL)
-- **Bot**: Discord, Slack, and Telegram bots
-- **Admin**: Internal dashboards and CMS
-- **CLI**: Powerful command-line tools
+## 🤔 Why OMG?
+
+- **Governed by Default**: Hard gates for file system changes, preventing risky mutations.
+- **Evidence-Backed**: Machine-generated proof for every claim an agent makes.
+- **Multi-Agent Orchestration**: Seamlessly coordinate multiple agents for complex tasks.
+- **Real-time HUD**: Monitor agent activity, ProofScore, and system health instantly.
+
+---
+
+## 🌟 5 Wow Flows
+
+1. **Landing Page**: `npx omg "make a landing page"` — Generates a high-conversion marketing page, deploys it, and returns the URL.
+2. **SaaS Boilerplate**: `npx omg "build a SaaS app"` — Scaffolds a full-stack subscription app with auth and payments.
+3. **Bot Creation**: `npx omg "create a discord bot"` — Sets up a Discord, Slack, or Telegram bot ready for logic.
+4. **Admin Dashboard**: `npx omg "build an admin panel"` — Creates an internal dashboard or CMS connected to your database.
+5. **Refactor**: `npx omg "refactor the auth module"` — Safely rewrites code with AST-aware dry-runs and proof gates.
 
 ---
 
@@ -105,7 +114,7 @@ OMG ensures your workspace remains consistent across sessions by scoring context
 
 ## ⚔️ Comparison: Why OMG?
 
-| Feature                        | Native Claude Code | oh-my-claudecode |   gstack    | everything-claude-code |           **OMG v3.0.0**           |
+| Feature                        | Native Claude Code | oh-my-claudecode |   gstack    | everything-claude-code |           **OMG v2.6.0**           |
 | :----------------------------- | :----------------: | :--------------: | :---------: | :--------------------: | :--------------------------------: |
 | **Instant Product Generation** |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |       ✅ **7 Domain Packs**        |
 | **Real-time HUD**              |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         | ✅ **Agent Activity + ProofScore** |
@@ -124,7 +133,7 @@ OMG ensures your workspace remains consistent across sessions by scoring context
 | **Budget Envelopes**           |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         | ✅ **CPU/Mem/Token/Net Tracking**  |
 | **Tool Fabric Governance**     |      ❌ None       |     ❌ None      |   ❌ None   |        ❌ None         |  ✅ **Lane-Based Signed Fabric**   |
 
-**OMG v3.0.0 고유 강점:**
+**OMG v2.6.0 고유 강점:**
 
 - **Instant Product Generation**: 7가지 도메인 팩을 통해 즉시 제품 생성.
 - **Real-time HUD**: 에이전트 활동 및 ProofScore 실시간 모니터링.

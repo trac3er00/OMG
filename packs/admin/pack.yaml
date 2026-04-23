@@ -1,0 +1,35 @@
+name: admin
+description: Admin panel and internal dashboard
+type: domain
+category: fullstack
+rules:
+  - name: data-table
+    description: Data tables must support sorting, filtering, and pagination
+  - name: auth-rbac
+    description: Role-based access control for all admin routes and actions
+  - name: crud-operations
+    description: All entities must have create, read, update, delete operations with confirmation dialogs
+  - name: search-filter
+    description: Admin lists must support full-text search and multi-field filtering
+  - name: export-import
+    description: Data must be exportable to CSV/Excel and importable from standard formats
+prompts:
+  - admin-architect
+  - data-visualization
+  - role-permission
+scaffold:
+  - admin-panel
+  - app/dashboard/page.tsx
+  - app/users/page.tsx
+  - components/DataTable.tsx
+  - components/Charts.tsx
+  - components/FilterBar.tsx
+  - lib/permissions.ts
+  - package.json
+evidence:
+  required:
+    - crud-test
+    - rbac-test
+    - data-display-test
+  artifacts:
+    - .omg/evidence/admin/*.json

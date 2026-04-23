@@ -1,0 +1,139 @@
+# Unified Pack Schema v1.0
+# Covers both goal packs (packs/goals/) and domain packs (packs/domains/)
+# Goal packs: simple scaffold + run/verify commands
+# Domain packs: complex with rules, prompts, evidence, instant_mode
+
+version: "1.0"
+
+# Schema fields for all packs
+fields:
+  required:
+    - name
+    - description
+
+  # Common optional fields across both pack types
+  common_optional:
+    - category
+    - tags
+
+  # Goal pack specific fields
+  goal_only:
+    - language
+    - framework
+    - files
+    - run_command
+    - verify_command
+    - env_vars
+    - dependencies
+    - readme_template
+
+  # Domain pack specific fields
+  domain_only:
+    - extends
+    - rules
+    - prompts
+    - scaffold
+    - evidence
+    - instant_mode
+
+# Field definitions
+definitions:
+  name:
+    type: string
+    description: Unique pack identifier (kebab-case)
+
+  description:
+    type: string
+    description: Human-readable pack description
+
+  category:
+    type: string
+    description: Pack category (e.g., frontend, backend, fullstack, web)
+
+  tags:
+    type: array<string>
+    description: Searchable tags for pack discovery
+
+  # Goal pack fields
+  language:
+    type: string
+    description: Programming language (e.g., typescript, javascript, python)
+
+  framework:
+    type: string
+    description: Framework/library (e.g., express, react, nextjs)
+
+  files:
+    type: array<string>
+    description: List of files to generate
+
+  run_command:
+    type: string
+    description: Command to run the project
+
+  verify_command:
+    type: string
+    description: Command to verify project works
+
+  env_vars:
+    type: array<string>
+    description: Required environment variables
+
+  dependencies:
+    type: array<string>
+    description: Required npm dependencies
+
+  readme_template:
+    type: string
+    description: README template content
+
+  # Domain pack fields
+  extends:
+    type: string
+    description: Parent pack this pack extends
+
+  rules:
+    type: array<Rule>
+    description: Governance rules for this pack
+    rule_schema:
+      name: string
+      description: string
+
+  prompts:
+    type: array<string>
+    description: Prompt templates for pack execution
+
+  scaffold:
+    type: array<string>
+    description: File paths to scaffold
+
+  evidence:
+    type: object
+    description: Evidence requirements for pack validation
+    schema:
+      required:
+        type: array<string>
+        description: Required evidence types
+      artifacts:
+        type: array<string>
+        description: Artifact paths for evidence
+
+  instant_mode:
+    type: object
+    description: Instant mode configuration
+    schema:
+      default_stack: string
+      recommended_services: array<object>
+      quickstart_template: string
+      estimated_scaffold_time: string
+
+# Overlap resolution strategy
+overlap_resolution:
+  description: landing and saas exist in both goals/ and domains/
+  strategy:
+    - type: merged
+    - note: Domain pack takes precedence for shared names
+    - fields: Union of both schemas, domain fields override goal fields
+  shared_packs:
+    - landing
+    - saas

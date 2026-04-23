@@ -9,12 +9,19 @@ import {
   type FailureType,
 } from "./failure-steering.js";
 
+const PROOF_SCORE_REROUTE_THRESHOLD = 40;
+const DEFAULT_AUTO_REROUTE_RETRIES = 3;
+
 export interface RerouteOptions {
   readonly failureType?: FailureType | undefined;
   readonly recentActions?: string | undefined;
   readonly currentCost?: number | undefined;
   readonly expectedCost?: number | undefined;
   readonly progressHistory?: string | undefined;
+  readonly goal?: string | undefined;
+  readonly proofScore?: number | undefined;
+  readonly autoReroute?: boolean | undefined;
+  readonly execute?: (() => Promise<number>) | undefined;
 }
 
 interface RerouteArgs {
@@ -23,6 +30,51 @@ interface RerouteArgs {
   "current-cost": number | undefined;
   "expected-cost": number | undefined;
   "progress-history": string | undefined;
+  goal: string | undefined;
+  "proof-score": number | undefined;
+  "auto-reroute": boolean | undefined;
+}
+
+/** Check if reroute is needed based on ProofScore */
+export function shouldReroute(score: number): boolean {
+  return score < PROOF_SCORE_REROUTE_THRESHOLD;
+}
+
+/** Suggest reroute to user (non-blocking) */
+export function suggestReroute(goal: string, score: number): void {
+  console.error(
+    `⚠️  ProofScore ${score}/100 is below threshold (${PROOF_SCORE_REROUTE_THRESHOLD}). Consider rerouting.`,
+  );
+  console.error(`   Try: omg "${goal}" with a different approach`);
+}
+
+/** Auto-reroute: retry up to maxRetries times */
+export async function autoReroute(
+  goal: string,
+  execute: () => Promise<number>,
+  maxRetries: number = DEFAULT_AUTO_REROUTE_RETRIES,
+): Promise<{ attempts: number; finalScore: number; success: boolean }> {
+  void goal;
+
+  let attempts = 0;
+  let score = 0;
+
+  while (attempts < maxRetries) {
+    attempts += 1;
+    score = await execute();
+
+    if (!shouldReroute(score)) {
+      return { attempts, finalScore: score, success: true };
+    }
+
+    if (attempts < maxRetries) {
+      console.error(
+        `Attempt ${attempts}/${maxRetries} failed (score: ${score}). Retrying...`,
+      );
+    }
+  }
+
+  return { attempts, finalScore: score, success: false };
 }
 
 function parseList(value: string | undefined): string[] {
@@ -70,25 +122,63 @@ function resolveFailureType(
   return null;
 }
 
-export function runReroute(options: RerouteOptions = {}): void {
+export async function runReroute(options: RerouteOptions = {}): Promise<void> {
+  const {
+    autoReroute: autoRerouteEnabled = false,
+    execute,
+    goal,
+    proofScore,
+  } = options;
   const projectDir = process.cwd();
-  const failureType = resolveFailureType(projectDir, options);
 
-  if (!failureType) {
-    console.log(
-      "No steering failure detected. Provide --failure-type or detection inputs.",
-    );
-    return;
-  }
+  const run = async (): Promise<void> => {
+    let proofScoreHandled = false;
 
-  const decision = handleFailure(projectDir, failureType, {
-    command: "reroute",
-    recent_actions: parseList(options.recentActions),
-    current_cost: options.currentCost,
-    expected_cost: options.expectedCost,
-    progress_history: parseProgressHistory(options.progressHistory),
-  });
-  printSteeringDecision("reroute", decision);
+    if (autoRerouteEnabled && goal && execute) {
+      const result = await autoReroute(
+        goal,
+        execute,
+        DEFAULT_AUTO_REROUTE_RETRIES,
+      );
+      proofScoreHandled = true;
+
+      if (!result.success) {
+        suggestReroute(goal, result.finalScore);
+      }
+    } else if (
+      typeof proofScore === "number" &&
+      goal &&
+      shouldReroute(proofScore)
+    ) {
+      suggestReroute(goal, proofScore);
+      proofScoreHandled = true;
+    }
+
+    const failureType = resolveFailureType(projectDir, options);
+
+    if (!failureType) {
+      if (!proofScoreHandled) {
+        console.log(
+          "No steering failure detected. Provide --failure-type or detection inputs.",
+        );
+      }
+      return;
+    }
+
+    const decision = handleFailure(projectDir, failureType, {
+      command: "reroute",
+      recent_actions: parseList(options.recentActions),
+      current_cost: options.currentCost,
+      expected_cost: options.expectedCost,
+      progress_history: parseProgressHistory(options.progressHistory),
+      goal,
+      proof_score: proofScore,
+      auto_reroute: autoRerouteEnabled,
+    });
+    printSteeringDecision("reroute", decision);
+  };
+
+  await run();
 }
 
 export const rerouteCommand: CommandModule<object, RerouteArgs> = {
@@ -116,14 +206,30 @@ export const rerouteCommand: CommandModule<object, RerouteArgs> = {
       .option("progress-history", {
         type: "string",
         description: "Comma-separated progress history for stuck detection",
+      })
+      .option("goal", {
+        type: "string",
+        description: "Goal text to include in reroute suggestions",
+      })
+      .option("proof-score", {
+        type: "number",
+        description: "ProofScore to evaluate for reroute suggestions",
+      })
+      .option("auto-reroute", {
+        type: "boolean",
+        default: false,
+        description: "Automatically retry rerouting up to 3 times",
       }),
-  handler: (argv): void => {
-    runReroute({
+  handler: async (argv): Promise<void> => {
+    await runReroute({
       failureType: argv["failure-type"],
       recentActions: argv["recent-actions"],
       currentCost: argv["current-cost"],
       expectedCost: argv["expected-cost"],
       progressHistory: argv["progress-history"],
+      goal: argv.goal,
+      proofScore: argv["proof-score"],
+      autoReroute: argv["auto-reroute"],
     });
   },
 };

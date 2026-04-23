@@ -3,6 +3,35 @@ import process from "node:process";
 import * as readline from "node:readline";
 import type { CommandModule } from "yargs";
 
+// Module-level flag to show warning only once per session
+let _deprecationShown = false;
+
+function showDeprecationWarning(goal: string): void {
+  if (_deprecationShown) return;
+  _deprecationShown = true;
+  console.error(`⚠️  DEPRECATED: 'omg instant "${goal}"' is deprecated.`);
+  console.error(`   Use: omg "${goal}" instead`);
+  // Log to deprecation log
+  const logEntry = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    command: "instant",
+    goal,
+    suggestion: `omg "${goal}"`,
+  });
+  import("node:fs")
+    .then((fs) => {
+      import("node:path").then((path) => {
+        const dir = ".omg/state";
+        fs.mkdirSync(dir, { recursive: true });
+        fs.appendFileSync(
+          path.join(dir, "deprecation-log.jsonl"),
+          logEntry + "\n",
+        );
+      });
+    })
+    .catch(() => {}); // Ignore errors
+}
+
 const MAX_CLARIFICATION_ROUNDS = 3;
 
 function askQuestion(prompt: string): Promise<string> {
@@ -276,6 +305,7 @@ export const instantCommand: CommandModule<object, InstantArgs> = {
       }),
   handler: async (argv): Promise<void> => {
     let prompt = normalizePrompt(argv.prompt);
+    showDeprecationWarning(prompt);
     if (!prompt) {
       throw new Error("prompt is required");
     }

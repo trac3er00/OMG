@@ -1,0 +1,11 @@
+name: api-server
+description: Express TypeScript API server with health and items endpoints
+type: goal
+language: typescript
+framework: express
+files:
+  - package.json
+  - src/server.ts
+  - src/routes/index.ts
+run_command: npm start
+verify_command: curl localhost:3000/api/items
