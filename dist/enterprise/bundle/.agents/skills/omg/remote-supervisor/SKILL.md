@@ -1,6 +1,6 @@
 ---
 name: omg-remote-supervisor
-description: "Local-only authenticated supervisor sessions for worker orchestration."
+description: "Local supervisor orchestration with token issuance, per-request verification, replay/staleness rejection, and session evidence capture."
 ---
 
 # OMG Remote Supervisor

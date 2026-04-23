@@ -5,7 +5,7 @@ description: "Fail-closed Bash governance lane with mandatory tool approval, com
 
 # OMG Terminal Lane
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/terminal-lane-{run_id}.json`

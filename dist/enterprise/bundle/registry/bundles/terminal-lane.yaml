@@ -1,8 +1,8 @@
 id: terminal-lane
 kind: governance
-version: 2.3.0
+version: 2.5.0
 title: OMG Terminal Lane
-description: Highest-risk governed terminal execution lane with strict approval and attestation.
+description: Fail-closed Bash governance lane with mandatory tool approval, compliance attestation checks, and explicit deny-path behavior.
 hosts:
   - claude
   - codex

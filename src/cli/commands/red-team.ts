@@ -2,6 +2,13 @@ import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import type { CommandModule } from "yargs";
 
+import {
+  handleFailure,
+  inferFailureType,
+  maybeAutoReroute,
+  printSteeringDecision,
+} from "./failure-steering.js";
+
 export interface RedTeamOptions {
   readonly scope?: string;
   readonly severityFloor?: string;
@@ -99,6 +106,15 @@ export function runRedTeam(options: RedTeamOptions = {}): void {
   const { scope = ".", severityFloor = "medium", output } = options;
   const projectDir = process.cwd();
 
+  const rerouteDecision = maybeAutoReroute(projectDir, "red-team", {
+    scope,
+    severityFloor,
+  });
+  if (rerouteDecision) {
+    printSteeringDecision("red-team", rerouteDecision);
+    return;
+  }
+
   const report = runScanner(projectDir, scope, severityFloor);
 
   if (output) {
@@ -122,6 +138,15 @@ export function runRedTeam(options: RedTeamOptions = {}): void {
 
   if (report.error) {
     console.log(`\n⚠ Scanner error: ${report.error}`);
+    printSteeringDecision(
+      "red-team",
+      handleFailure(projectDir, inferFailureType(report.error), {
+        command: "red-team",
+        scope,
+        severityFloor,
+        error: report.error,
+      }),
+    );
     return;
   }
 

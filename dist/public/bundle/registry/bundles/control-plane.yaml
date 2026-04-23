@@ -1,6 +1,6 @@
 id: control-plane
 kind: skill
-version: 3.0.0
+version: 2.5.0
 title: OMG Control Plane
 description: Canonical production control plane bundle for Claude, Codex, Gemini, and Kimi.
 hosts:

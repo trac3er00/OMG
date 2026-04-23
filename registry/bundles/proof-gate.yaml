@@ -1,6 +1,6 @@
 id: proof-gate
 kind: proof
-version: 3.0.0
+version: 2.5.0
 title: OMG Proof Gate
 description: Release proof gate enforcing hard blockers for missing artifacts, lock evidence gaps, and trace-link mismatches.
 hosts:

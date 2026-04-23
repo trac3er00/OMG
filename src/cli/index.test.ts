@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { statSync } from "node:fs";
 
-const BUN_BIN = "/home/claw/.bun/bin/bun";
+const BUN_BIN = process.execPath;
 
 function runCli(...args: string[]) {
   return Bun.spawnSync({
@@ -17,7 +17,7 @@ function decode(buffer: Uint8Array): string {
 }
 
 describe("CLI entrypoint", () => {
-  test("--version outputs 3.0.0", () => {
+  test("--version outputs 2.5.0", () => {
     const result = runCli("--version");
 
     const stdout = decode(result.stdout);
@@ -25,7 +25,7 @@ describe("CLI entrypoint", () => {
 
     expect(result.exitCode).toBe(0);
     expect(stderr).toBe("");
-    expect(stdout).toBe("3.0.0");
+    expect(stdout).toBe("2.5.0");
   });
 
   test("entrypoint is executable for npx bin resolution", () => {

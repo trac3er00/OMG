@@ -1,6 +1,6 @@
 ---
 name: omg-hook-governor
-description: "Canonical hook ordering, policy reinjection, and protected-path governance."
+description: "Hook ordering lane with injection-state checks and fail-closed precedence resolution across security, policy, and budget hooks."
 ---
 
 # OMG Hook Governor

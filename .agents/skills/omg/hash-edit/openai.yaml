@@ -2,7 +2,7 @@ name: omg-hash-edit
 description: "Hash-bound edit lane that verifies target digests, refreshes approvals on mismatch, and blocks mutation until evidence is valid."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: hash-edit
   title: "OMG Hash Edit Lane"
 mcp_servers:

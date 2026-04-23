@@ -253,6 +253,7 @@ def generate_docs(output_root: Path) -> dict[str, Any]:
         "| Ship | `npx omg ship` |",
         "| Proof summary | `npx omg proof` |",
         "| Proof dashboard | `npx omg proof open --html` |",
+        "| Explain run | `npx omg explain run --run-id <id>` |",
         "| Blocked inspection | `npx omg blocked --last` |",
         "| Validate | `npx omg validate` |",
         "| Contract validate | `npx omg contract validate` |",

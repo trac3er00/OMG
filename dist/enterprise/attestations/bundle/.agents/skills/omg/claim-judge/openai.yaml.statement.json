@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/claim-judge/openai.yaml",
       "digest": {
-        "sha256": "39285cf57979ddfa917972719d2dfa32c2333f4f7a712a970a5b78c759e04295"
+        "sha256": "9544a3c1ee5c3e86f9f24835af34fe02efaf82b59edc17576d02ca2aa0130f00"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:42.029475+00:00"
+      "timestamp": "2026-04-22T16:47:44.178552+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:42.029475+00:00",
+  "issued_at": "2026-04-22T16:47:44.178552+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "56062da3634ab6d0",
-    "value": "untrusted comment: signature from omg local signing key\nVoO8J80oISBQFcZvckGcONEVG6KNX4z9oy8OoGbm3jPaz1LJQj3r333Kipuc4mbVcEetzT380EFu9pBfjto7AA==\ntrusted comment: type=omg-slsa-v1 keyid=56062da3634ab6d0 issued_at=2026-03-18T21:01:42.029639+00:00 artifact=bundle/.agents/skills/omg/claim-judge/openai.yaml sha256=39285cf57979ddfa917972719d2dfa32c2333f4f7a712a970a5b78c759e04295\n+4aEZMBLsNpJ1YiFRzEfjFu+uJo0sa/x3Fhx0LosYRZUuZaWOEHrhdAiO0CNeaZ4jlHR8r3XE1vNFZYsYe66Aw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=56062da3634ab6d0 issued_at=2026-03-18T21:01:42.029639+00:00 artifact=bundle/.agents/skills/omg/claim-judge/openai.yaml sha256=39285cf57979ddfa917972719d2dfa32c2333f4f7a712a970a5b78c759e04295"
+    "keyid": "76af097ce76de62a",
+    "value": "untrusted comment: signature from omg local signing key\n9eR6ihAYZXkhkLUgzZHWc7Lx80q+kvIRZrgDmMbBAaiIVEOMaJVBiRp9KvytPuzORszN7d5hPAD6L47bGcDjDA==\ntrusted comment: type=omg-slsa-v1 keyid=76af097ce76de62a issued_at=2026-04-22T16:47:44.178667+00:00 artifact=bundle/.agents/skills/omg/claim-judge/openai.yaml sha256=9544a3c1ee5c3e86f9f24835af34fe02efaf82b59edc17576d02ca2aa0130f00\n7O7oyY5Om8FqfbmzRbQB8ELla3H/N5g0xLTp85J91aGRcom09FV2/fwNAy1qc7mkwhqkfDMhH+CqCvH2WCyeDQ==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=76af097ce76de62a issued_at=2026-04-22T16:47:44.178667+00:00 artifact=bundle/.agents/skills/omg/claim-judge/openai.yaml sha256=9544a3c1ee5c3e86f9f24835af34fe02efaf82b59edc17576d02ca2aa0130f00"
   }
 }

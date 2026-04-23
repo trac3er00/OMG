@@ -188,7 +188,7 @@ def test_gate_omg_setup_sh():
 
 def test_gate_hud_mjs_fallback():
     text = _read_text("hud/omg-hud.mjs")
-    assert f'return "{CANONICAL_VERSION}"' in text, \
+    assert f'version: "{CANONICAL_VERSION}"' in text, \
         _version_label("hud/omg-hud.mjs static fallback")
 
 

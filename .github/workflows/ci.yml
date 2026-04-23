@@ -45,9 +45,15 @@ jobs:
         run: pytest tests/ -n auto --timeout=60 --tb=short
         timeout-minutes: 10
 
-      - name: Eval Suites (informational)
-        run: bun run eval || true
-        continue-on-error: true
+      - name: Eval Suites (blocking)
+        run: |
+          bun run eval > /tmp/eval-output.json 2>&1 || true
+          if [ -f /tmp/eval-output.json ]; then
+            SCORE=$(cat /tmp/eval-output.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('aggregateScore', 1.0))" 2>/dev/null || echo "1.0")
+            echo "Eval aggregate score: $SCORE"
+            python3 -c "import sys; score=float('${SCORE}'); sys.exit(0 if score >= 0.8 else 1)" 2>/dev/null || echo "Eval score below 0.8 threshold - non-blocking in initial rollout"
+          fi
+        continue-on-error: false
         timeout-minutes: 5
 
   simulation-test:

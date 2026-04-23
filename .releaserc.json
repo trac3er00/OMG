@@ -1,14 +1,44 @@
 {
-  "branches": [
-    "main"
-  ],
+  "branches": ["main"],
   "plugins": [
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          { "type": "feat", "release": "minor" },
+          { "type": "fix", "release": "patch" },
+          { "type": "perf", "release": "patch" },
+          { "type": "docs", "release": "patch" },
+          { "type": "refactor", "release": "patch" },
+          { "type": "test", "release": "patch" },
+          { "type": "chore", "scope": "release", "release": "patch" }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            { "type": "feat", "section": "✨ Features" },
+            { "type": "fix", "section": "🐛 Bug Fixes" },
+            { "type": "perf", "section": "⚡ Performance" },
+            { "type": "docs", "section": "📚 Documentation" },
+            { "type": "refactor", "section": "♻️ Refactoring" },
+            { "type": "test", "section": "🧪 Tests" },
+            { "type": "security", "section": "🔒 Security" },
+            { "type": "chore", "section": "🔧 Chores" }
+          ]
+        }
+      }
+    ],
     [
       "@semantic-release/changelog",
       {
-        "changelogFile": "CHANGELOG.md"
+        "changelogFile": "CHANGELOG.md",
+        "changelogTitle": "# OMG Changelog\n\nAll notable changes to OMG are documented here."
       }
     ],
     [
@@ -24,10 +54,7 @@
         "publishCmd": ""
       }
     ],
-    [
-      "@semantic-release/github",
-      {}
-    ],
+    ["@semantic-release/github", {}],
     [
       "@semantic-release/git",
       {

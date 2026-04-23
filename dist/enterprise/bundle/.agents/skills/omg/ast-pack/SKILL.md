@@ -1,6 +1,6 @@
 ---
 name: omg-ast-pack
-description: "Governed AST search and replace lane with canonical approvals and proofs."
+description: "Two-phase AST lane requiring search-first flow, dry-run evidence, and explicit promotion before mutation-capable rewrites."
 ---
 
 # OMG AST Pack Lane

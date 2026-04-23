@@ -1,11 +1,12 @@
 id: hook-governor
 kind: governance
-version: 2.3.0
+version: 2.5.0
 title: OMG Hook Governor
-description: Canonical hook ordering, policy reinjection, and protected-path governance.
+description: Hook ordering lane with injection-state checks and fail-closed precedence resolution across security, policy, and budget hooks.
 hosts:
   - claude
   - codex
+  - kimi
 assets:
   references:
     - settings.json
@@ -52,6 +53,9 @@ compiled_hooks:
       timeout: 10
     - matcher: ""
       command: '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/pre-tool-inject.py"'
+    - matcher: ""
+      command: '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/kimi-adapter.py"'
+      timeout: 10
   PostToolUse:
     - matcher: Bash
       command: '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/circuit-breaker.py"'
@@ -64,6 +68,9 @@ compiled_hooks:
       timeout: 10
     - matcher: ""
       command: '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/budget_governor.py"'
+      timeout: 10
+    - matcher: ""
+      command: '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/kimi-adapter.py"'
       timeout: 10
   PostToolUseFailure:
     - command: '"$HOME/.claude/omg-runtime/.venv/bin/python" "$HOME/.claude/hooks/post-tool-failure.py"'

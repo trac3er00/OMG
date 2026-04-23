@@ -5,7 +5,7 @@ description: "Local supervisor orchestration with token issuance, per-request ve
 
 # OMG Remote Supervisor
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/supervisor/sessions/*.json`

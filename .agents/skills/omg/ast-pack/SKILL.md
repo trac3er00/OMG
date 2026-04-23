@@ -5,7 +5,7 @@ description: "Two-phase AST lane requiring search-first flow, dry-run evidence, 
 
 # OMG AST Pack Lane
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/ast-pack-{run_id}.json`

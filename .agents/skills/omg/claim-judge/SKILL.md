@@ -5,7 +5,7 @@ description: "Claim adjudication lane that evaluates individual claims first, th
 
 # OMG Claim Judge
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/evidence/claim-judge-*.json`

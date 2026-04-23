@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "OMG 3.0.0 - project-level config with hook registrations, presets, and feature flags.",
+  "_comment": "OMG 2.5.0 - project-level config with hook registrations, presets, and feature flags.",
   "permissions": {
     "allow": [
       "Agent",
@@ -204,6 +204,16 @@
           }
         ],
         "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/kimi-adapter.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": ""
       }
     ],
     "PostToolUse": [
@@ -242,6 +252,16 @@
           {
             "type": "command",
             "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/budget_governor.py\"",
+            "timeout": 10
+          }
+        ],
+        "matcher": ""
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$HOME/.claude/omg-runtime/.venv/bin/python\" \"$HOME/.claude/hooks/kimi-adapter.py\"",
             "timeout": 10
           }
         ],
@@ -294,7 +314,7 @@
     ]
   },
   "_omg": {
-    "_version": "3.0.0",
+    "_version": "2.5.0",
     "preset": "safe",
     "omgMode": "focused",
     "default_mode": "ulw+ralph",
@@ -354,8 +374,8 @@
       "NOTEBOOKLM": false
     },
     "generated": {
-      "contract_version": "3.0.0",
-      "channel": "public",
+      "contract_version": "2.5.0",
+      "channel": "enterprise",
       "required_bundles": [
         "control-plane",
         "plan-council",

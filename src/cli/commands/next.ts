@@ -2,6 +2,13 @@ import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import type { CommandModule } from "yargs";
 
+import {
+  handleFailure,
+  inferFailureType,
+  maybeAutoReroute,
+  printSteeringDecision,
+} from "./failure-steering.js";
+
 export interface NextOptions {
   readonly focus?: string | undefined;
   readonly quick?: boolean | undefined;
@@ -78,6 +85,12 @@ export function runNext(options: NextOptions = {}): void {
   const { focus, quick = false, output } = options;
   const projectDir = process.cwd();
 
+  const rerouteDecision = maybeAutoReroute(projectDir, "next", { focus, quick });
+  if (rerouteDecision) {
+    printSteeringDecision("next", rerouteDecision);
+    return;
+  }
+
   void quick;
 
   const report = runAnalyzer(projectDir, focus);
@@ -89,6 +102,15 @@ export function runNext(options: NextOptions = {}): void {
 
   if (report.error) {
     console.log(`\n\u26A0 Analyzer error: ${report.error}`);
+    printSteeringDecision(
+      "next",
+      handleFailure(projectDir, inferFailureType(report.error), {
+        command: "next",
+        focus,
+        quick,
+        error: report.error,
+      }),
+    );
     return;
   }
 

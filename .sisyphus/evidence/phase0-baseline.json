@@ -1,0 +1,32 @@
+{
+  "ts_tests": {
+    "total": 1320,
+    "pass": 1320,
+    "fail": 0,
+    "skip": 0
+  },
+  "py_tests": {
+    "total": 5525,
+    "pass": 5326,
+    "fail": 104,
+    "skip": 2,
+    "error": 93
+  },
+  "contract_valid": true,
+  "versions": {
+    "package": "2.3.0",
+    "python": "2.3.0",
+    "ts_export": "2.3.0"
+  },
+  "pre_existing_issues": [
+    "src/security/injection-defense.ts: 7 LSP errors (unexpected control characters in regular expressions at lines 79-80)",
+    "Python e2e tests: 93 errors in tests/e2e/test_setup_script.py (e2e_setup-script-e2e environment)",
+    "Python failing tests: 104 failures spread across commands, hooks, integration, perf, plugins tests"
+  ],
+  "recorded_at": "2026-04-07T06:29:17.000Z",
+  "test_runner_ts": "bun test",
+  "test_runner_py": "pytest tests/",
+  "contract_command": "npx omg contract validate",
+  "test_intent_lock_id": "9d3f079d-926a-4d4a-bd55-2209e1fcf427",
+  "test_intent_lock_path": ".omg/state/test-intent-lock/9d3f079d-926a-4d4a-bd55-2209e1fcf427.json"
+}

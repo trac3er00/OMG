@@ -54,11 +54,17 @@ def propose_skill(
 
 
 def evaluate_proposal(
-    proposal_id: str, test_results: dict[str, object]
+    proposal_id: str,
+    test_results: dict[str, object],
+    project_dir: str | None = None,
 ) -> dict[str, object]:
     normalized_id = str(proposal_id).strip()
-    proposal_path = _proposal_path(normalized_id)
-    proposal_payload = _read_json(proposal_path)
+    if project_dir is not None:
+        proposal_path = _foundry_proposal_path(project_dir, normalized_id)
+        proposal_payload = _read_json(proposal_path)
+    else:
+        proposal_path = _proposal_path(normalized_id)
+        proposal_payload = _read_json(proposal_path)
     if proposal_payload is None:
         proof_gate_result = {
             "schema": "ProofGateResult",
@@ -77,6 +83,30 @@ def evaluate_proposal(
     proof_gate_result = cast(
         dict[str, object], proof_gate.evaluate_proof_gate(gate_input)
     )
+    if project_dir is not None:
+        evidence_check = _check_evidence_runs(project_dir, proposal_payload)
+        existing_blockers = proof_gate_result.get("blockers")
+        blockers_list: list[str] = (
+            list(cast(list[object], existing_blockers))  # type: ignore[arg-type]
+            if isinstance(existing_blockers, list)
+            else []
+        )
+        if evidence_check["has_failure"]:
+            if "evidence_run_failed" not in blockers_list:
+                blockers_list.append("evidence_run_failed")
+            proof_gate_result["verdict"] = "fail"
+        proof_gate_result["blockers"] = blockers_list
+        existing_summary = proof_gate_result.get("evidence_summary")
+        summary_dict: dict[str, object] = (
+            dict(cast(Mapping[str, object], existing_summary))
+            if isinstance(existing_summary, dict)
+            else {}
+        )
+        summary_dict["evidence_runs_verified"] = (
+            not evidence_check["has_failure"] and not evidence_check["has_unknown"]
+        )
+        summary_dict["evidence_runs_count"] = evidence_check["total_runs"]
+        proof_gate_result["evidence_summary"] = summary_dict
     promotable = str(proof_gate_result.get("verdict", "fail")) == "pass"
     status = "evaluated" if promotable else "failed"
 
@@ -438,3 +468,224 @@ class SkillLifecycleManager:
                     json.dump(data, f, indent=2, ensure_ascii=True)
             except Exception:
                 pass
+
+
+import hashlib
+
+
+def _foundry_registry_dir(project_dir: str) -> Path:
+    return Path(project_dir) / ".omg" / "state" / "skill_registry"
+
+
+def _foundry_workflow_log(project_dir: str) -> Path:
+    return _foundry_registry_dir(project_dir) / "workflow-log.jsonl"
+
+
+def _foundry_proposals_dir(project_dir: str) -> Path:
+    return _foundry_registry_dir(project_dir) / "proposals"
+
+
+def _foundry_proposal_path(project_dir: str, proposal_id: str) -> Path:
+    return _foundry_proposals_dir(project_dir) / f"{proposal_id}.json"
+
+
+def _foundry_verdicts_path(project_dir: str) -> Path:
+    return _foundry_registry_dir(project_dir) / "run-verdicts.json"
+
+
+def _hash_args(args: Mapping[str, object]) -> str:
+    try:
+        normalized = json.dumps(args, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        normalized = repr(args)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+
+
+def record_workflow_step(
+    project_dir: str,
+    tool_name: str,
+    args: Mapping[str, object],
+    success: bool,
+    run_id: str,
+) -> None:
+    tool = str(tool_name).strip()
+    run = str(run_id).strip()
+    if not tool or not run:
+        return
+    log_path = _foundry_workflow_log(project_dir)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    entry: dict[str, object] = {
+        "tool": tool,
+        "args_hash": _hash_args(args),
+        "success": bool(success),
+        "run_id": run,
+        "ts": _timestamp(),
+    }
+    with log_path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry) + "\n")
+
+
+def detect_reusable_patterns(
+    project_dir: str,
+    min_occurrences: int = 3,
+) -> list[dict[str, object]]:
+    log_path = _foundry_workflow_log(project_dir)
+    if not log_path.exists():
+        return []
+
+    runs: dict[str, list[dict[str, object]]] = {}
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            entry = json.loads(stripped)
+        except json.JSONDecodeError:
+            continue
+        run_id = str(entry.get("run_id") or "").strip()
+        if not run_id:
+            continue
+        runs.setdefault(run_id, []).append(entry)
+
+    successful_sequences: dict[tuple[str, ...], list[str]] = {}
+    for run_id, entries in runs.items():
+        if not entries or not all(bool(e.get("success")) for e in entries):
+            continue
+        tools = tuple(str(e.get("tool") or "") for e in entries)
+        if not all(tools):
+            continue
+        successful_sequences.setdefault(tools, []).append(run_id)
+
+    total_steps = sum(len(entries) for entries in runs.values())
+    patterns: list[dict[str, object]] = []
+    for tools, run_ids in successful_sequences.items():
+        if len(run_ids) < min_occurrences:
+            continue
+        confidence = len(run_ids) / total_steps if total_steps else 0.0
+        patterns.append(
+            {
+                "sequence": list(tools),
+                "occurrences": len(run_ids),
+                "run_ids": list(run_ids),
+                "confidence": round(confidence, 4),
+            }
+        )
+    patterns.sort(key=lambda p: cast(int, p["occurrences"]), reverse=True)
+    return patterns
+
+
+_ORIGINAL_AUTO_PROPOSE = auto_propose_skill
+
+
+def auto_propose_skill(*args: object, **kwargs: object) -> object:  # type: ignore[no-redef]
+    if args and isinstance(args[0], str) and len(args) >= 2 and isinstance(args[1], dict):
+        project_dir = cast(str, args[0])
+        pattern = cast(dict[str, object], args[1])
+        return _foundry_auto_propose(project_dir, pattern)
+    return _ORIGINAL_AUTO_PROPOSE(*args, **kwargs)  # type: ignore[arg-type]
+
+
+def _foundry_auto_propose(
+    project_dir: str,
+    pattern: Mapping[str, object],
+) -> dict[str, object] | None:
+    sequence_raw = pattern.get("sequence")
+    if not isinstance(sequence_raw, list) or not sequence_raw:
+        return None
+    sequence = [str(s) for s in sequence_raw if str(s)]
+    if not sequence:
+        return None
+    occurrences_raw = pattern.get("occurrences", 0)
+    occurrences = int(occurrences_raw) if isinstance(occurrences_raw, (int, float)) else 0
+    if occurrences < 3:
+        return None
+    run_ids_raw = pattern.get("run_ids", [])
+    run_ids = [str(r) for r in run_ids_raw if isinstance(run_ids_raw, list)] if isinstance(run_ids_raw, list) else []
+
+    proposals_dir = _foundry_proposals_dir(project_dir)
+    proposals_dir.mkdir(parents=True, exist_ok=True)
+    name = "workflow/" + "-".join(sequence[:3])
+    for existing in proposals_dir.glob("*.json"):
+        existing_payload = _read_json(existing)
+        if existing_payload and existing_payload.get("name") == name:
+            return None
+
+    proposal_id = f"wf-{uuid.uuid4().hex[:10]}"
+    confidence_raw = pattern.get("confidence", 0.0)
+    confidence_val = (
+        float(confidence_raw) if isinstance(confidence_raw, (int, float)) else 0.0
+    )
+    proposal_payload: dict[str, object] = {
+        "schema": "SkillProposal",
+        "schema_version": 1,
+        "proposal_id": proposal_id,
+        "name": name,
+        "status": "proposed",
+        "source": "auto_detected",
+        "sequence": sequence,
+        "occurrences": occurrences,
+        "run_ids": run_ids,
+        "evidence_runs": run_ids,
+        "confidence": confidence_val,
+        "created_at": _timestamp(),
+    }
+    _atomic_write_json(_foundry_proposal_path(project_dir, proposal_id), proposal_payload)
+    return proposal_payload
+
+
+def record_run_verdict(project_dir: str, run_id: str, verdict: str) -> None:
+    rid = str(run_id).strip()
+    v = str(verdict).strip().lower()
+    if not rid or v not in {"pass", "fail"}:
+        return
+    path = _foundry_verdicts_path(project_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    existing = _read_json(path) or {}
+    existing[rid] = v
+    _atomic_write_json(path, existing)
+
+
+def get_proposal_evidence_summary(
+    proposal_id: str, project_dir: str
+) -> dict[str, object]:
+    proposal = _read_json(_foundry_proposal_path(project_dir, proposal_id))
+    if not proposal:
+        return {
+            "total_runs": 0,
+            "passing_runs": 0,
+            "failing_runs": 0,
+            "verdict": "review",
+        }
+    evidence_runs_raw = proposal.get("evidence_runs") or proposal.get("run_ids") or []
+    evidence_runs = [str(r) for r in evidence_runs_raw] if isinstance(evidence_runs_raw, list) else []
+    verdicts = _read_json(_foundry_verdicts_path(project_dir)) or {}
+    passing = sum(1 for r in evidence_runs if verdicts.get(r) == "pass")
+    failing = sum(1 for r in evidence_runs if verdicts.get(r) == "fail")
+    total = len(evidence_runs)
+    if failing > 0:
+        verdict = "reject"
+    elif passing == total and total > 0:
+        verdict = "promote"
+    else:
+        verdict = "review"
+    return {
+        "total_runs": total,
+        "passing_runs": passing,
+        "failing_runs": failing,
+        "verdict": verdict,
+    }
+
+
+def _check_evidence_runs(
+    project_dir: str, proposal_payload: Mapping[str, object]
+) -> dict[str, object]:
+    evidence_runs_raw = proposal_payload.get("evidence_runs") or proposal_payload.get("run_ids") or []
+    evidence_runs = [str(r) for r in evidence_runs_raw] if isinstance(evidence_runs_raw, list) else []
+    verdicts = _read_json(_foundry_verdicts_path(project_dir)) or {}
+    has_failure = any(verdicts.get(r) == "fail" for r in evidence_runs)
+    has_unknown = any(r not in verdicts for r in evidence_runs)
+    return {
+        "total_runs": len(evidence_runs),
+        "has_failure": has_failure,
+        "has_unknown": has_unknown,
+    }

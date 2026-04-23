@@ -5,7 +5,7 @@
     {
       "name": "bundle/.agents/skills/omg/terminal-lane/SKILL.md",
       "digest": {
-        "sha256": "4157911b66c029078951bec0d2e927035bd0cdf17efc2023883e3cd54a36499b"
+        "sha256": "ceb946e730e908227bb5d9b7e308ca408e4c9fb658e7d4a7f3ab0c21b5bbdb6d"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:42.050667+00:00"
+      "timestamp": "2026-04-22T16:47:44.209827+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:42.050667+00:00",
+  "issued_at": "2026-04-22T16:47:44.209827+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "d41bf53493a7d609",
-    "value": "untrusted comment: signature from omg local signing key\nMk/hodgzh9CmenKYZgrAwoqBu1oRq4LBSb7dZzaQ8fOPAmpygmGrHc9kRQpDLW/qkCOpMKcTEwk5TjdJEV1zCA==\ntrusted comment: type=omg-slsa-v1 keyid=d41bf53493a7d609 issued_at=2026-03-18T21:01:42.050772+00:00 artifact=bundle/.agents/skills/omg/terminal-lane/SKILL.md sha256=4157911b66c029078951bec0d2e927035bd0cdf17efc2023883e3cd54a36499b\nvO4KHACdrzSmY+xvt6ryBMwhN+PEouph/K383G5UuMvJuCuuzlBOig/S6FIV8SiYlfI+bFYd3UmJSSJtO6GCAw==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=d41bf53493a7d609 issued_at=2026-03-18T21:01:42.050772+00:00 artifact=bundle/.agents/skills/omg/terminal-lane/SKILL.md sha256=4157911b66c029078951bec0d2e927035bd0cdf17efc2023883e3cd54a36499b"
+    "keyid": "4faf656787c97439",
+    "value": "untrusted comment: signature from omg local signing key\nlsEqI1stiAM5aCxg20cIGdxUpv0QzCGTh6ueygLE0g+oUC7RTH1XsgkpTtlaWjwgH7pR+bTrPvPC8KbdzOgqBg==\ntrusted comment: type=omg-slsa-v1 keyid=4faf656787c97439 issued_at=2026-04-22T16:47:44.209945+00:00 artifact=bundle/.agents/skills/omg/terminal-lane/SKILL.md sha256=ceb946e730e908227bb5d9b7e308ca408e4c9fb658e7d4a7f3ab0c21b5bbdb6d\nMZs21qzYEpRPjVec7XcmsDPqGwL8PVTBjgq1ATz6lBR86tQ20KZsJvyuN5/f49MMDgdA5EwKwRIeMM8XYflKBA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=4faf656787c97439 issued_at=2026-04-22T16:47:44.209945+00:00 artifact=bundle/.agents/skills/omg/terminal-lane/SKILL.md sha256=ceb946e730e908227bb5d9b7e308ca408e4c9fb658e7d4a7f3ab0c21b5bbdb6d"
   }
 }

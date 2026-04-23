@@ -5,7 +5,7 @@ description: "Deterministic preflight router that resolves ambiguous high-risk c
 
 # OMG Preflight
 
-- Channel: `public`
+- Channel: `enterprise`
 - Execution modes: `embedded, local_supervisor`
 - MCP servers: `omg-control`
 - Evidence outputs: `.omg/tracebank/events.jsonl`

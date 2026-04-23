@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oh-my-god"
-version = "3.0.0"
+version = "2.5.0"
 description = "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts"
 readme = "README.md"
 requires-python = ">=3.10"

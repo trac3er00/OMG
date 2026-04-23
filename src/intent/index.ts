@@ -34,6 +34,7 @@ export interface IntentAnalysis {
   readonly ambiguities: readonly string[];
   readonly suggestedApproach: string;
   readonly clarifyingQuestions: readonly string[];
+  readonly confidenceScore: number;
 }
 
 export interface IntentOptions {
@@ -452,6 +453,33 @@ function buildSuggestedApproach(
   return [ambiguityLead, profileLead, ussSuggestion].filter(Boolean).join(" ");
 }
 
+function countPatternGroupMatches(prompt: string): number {
+  let count = 0;
+  if (hasAnyPattern(prompt, TRIVIAL_PATTERNS)) count++;
+  if (hasAnyPattern(prompt, SIMPLE_PATTERNS)) count++;
+  if (hasAnyPattern(prompt, MODERATE_PATTERNS)) count++;
+  if (hasAnyPattern(prompt, COMPLEX_PATTERNS)) count++;
+  if (hasAnyPattern(prompt, ARCHITECTURAL_PATTERNS)) count++;
+  if (hasAnyPattern(prompt, RESEARCH_PATTERNS)) count++;
+  return count;
+}
+
+function calculateConfidenceScore(
+  prompt: string,
+  ambiguities: readonly string[],
+): number {
+  const matchCount = countPatternGroupMatches(prompt);
+  let score = 1.0;
+  if (matchCount > 1) {
+    score = 1.0 / matchCount;
+  }
+  if (ambiguities.length > 0) {
+    score = score * 0.8;
+  }
+  score = Math.max(0.1, Math.min(1.0, score));
+  return Math.round(score * 100) / 100;
+}
+
 export function understandIntent(
   rawPrompt: string,
   options: IntentOptions = {},
@@ -461,6 +489,7 @@ export function understandIntent(
   const domain = detectDomain(prompt);
   const ambiguities = detectAmbiguities(prompt, domain);
   const intent = detectIntent(prompt, wordCount, ambiguities);
+  const confidenceScore = calculateConfidenceScore(prompt, ambiguities);
 
   return {
     intent,
@@ -480,5 +509,6 @@ export function understandIntent(
       options.uss,
     ),
     clarifyingQuestions: buildClarifyingQuestions(ambiguities, domain, prompt),
+    confidenceScore,
   };
 }

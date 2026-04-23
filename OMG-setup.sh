@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="$CLAUDE_DIR/.omg-backup-$BACKUP_TS"
-VERSION="3.0.0"
+VERSION="2.5.0"
 
 PLUGIN_NAME="omg"
 PLUGIN_MARKETPLACE="omg"

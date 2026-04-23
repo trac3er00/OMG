@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/control-plane.yaml",
       "digest": {
-        "sha256": "a3d2e732457df4b7b8670558ec944a83c27b93adc55b91374b308ae1f8f7c2b4"
+        "sha256": "e88e4749ccbd0404741ee07f2dc51a0ad45cfd26168b1516c27197985e7080f5"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-03-18T21:01:42.066786+00:00"
+      "timestamp": "2026-04-22T16:47:44.235444+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-03-18T21:01:42.066786+00:00",
+  "issued_at": "2026-04-22T16:47:44.235444+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "3f9541adf0a454c7",
-    "value": "untrusted comment: signature from omg local signing key\nUN3diXVt0lrLD8gfH2ieIHoq8qyE1Sas9s/rNJBY4xRy4vyOzFiVodHoz7r6CJIlZaKC9BKm5Mck7e3n6RcUBA==\ntrusted comment: type=omg-slsa-v1 keyid=3f9541adf0a454c7 issued_at=2026-03-18T21:01:42.066958+00:00 artifact=bundle/registry/bundles/control-plane.yaml sha256=a3d2e732457df4b7b8670558ec944a83c27b93adc55b91374b308ae1f8f7c2b4\nwbfOGOilWkzdjqVTuO05A9Xot63JoEzwM8Mfb/jsquoRDUF60u3WdqwIoyJMMA+Hkz0vZWjI/2P2H3XgQap8BA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=3f9541adf0a454c7 issued_at=2026-03-18T21:01:42.066958+00:00 artifact=bundle/registry/bundles/control-plane.yaml sha256=a3d2e732457df4b7b8670558ec944a83c27b93adc55b91374b308ae1f8f7c2b4"
+    "keyid": "c5ed5458e07f8541",
+    "value": "untrusted comment: signature from omg local signing key\nNG8FljHxhts22hkTMs3ODFVWBqtIV277+74Qx9RPLD4OLOvmc+7/6SYBi9d1e2C03Src35qrmxXysOa1LlB1BA==\ntrusted comment: type=omg-slsa-v1 keyid=c5ed5458e07f8541 issued_at=2026-04-22T16:47:44.235568+00:00 artifact=bundle/registry/bundles/control-plane.yaml sha256=e88e4749ccbd0404741ee07f2dc51a0ad45cfd26168b1516c27197985e7080f5\nGeBYXXHnkCjGq+JNcuTcXPIKfGr1b6OpVLfXXhFQzk829XeWkqS+KtTLiYjVvIVRVI3hFqxLZBOitay/zNMgDg==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=c5ed5458e07f8541 issued_at=2026-04-22T16:47:44.235568+00:00 artifact=bundle/registry/bundles/control-plane.yaml sha256=e88e4749ccbd0404741ee07f2dc51a0ad45cfd26168b1516c27197985e7080f5"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "omg-core",
-  "version": "3.0.0",
+  "version": "2.5.0",
   "description": "Core OMG commands - native setup, routing, orchestration, and verification surfaces",
   "type": "omg-plugin",
   "commands": {

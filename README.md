@@ -6,6 +6,7 @@
 
 **Build anything with one command. Governed by default.**
 **(딸깍 한 번으로 무엇이든 만드세요. 거버넌스는 기본입니다.)**
+**OMG is the AI Work OS for governed multi-agent delivery.**
 
 🚀 **[Getting Started Guide](docs/GETTING-STARTED.md)** — Get up and running in 1 minute.
 

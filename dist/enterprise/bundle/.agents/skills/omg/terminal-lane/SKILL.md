@@ -1,6 +1,6 @@
 ---
 name: omg-terminal-lane
-description: "Highest-risk governed terminal execution lane with strict approval and attestation."
+description: "Fail-closed Bash governance lane with mandatory tool approval, compliance attestation checks, and explicit deny-path behavior."
 ---
 
 # OMG Terminal Lane

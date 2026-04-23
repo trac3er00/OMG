@@ -2,7 +2,7 @@ name: omg-proof-gate
 description: "Release proof gate enforcing hard blockers for missing artifacts, lock evidence gaps, and trace-link mismatches."
 allow_implicit_invocation: false
 metadata:
-  channel: public
+  channel: enterprise
   bundle_id: proof-gate
   title: "OMG Proof Gate"
 mcp_servers:

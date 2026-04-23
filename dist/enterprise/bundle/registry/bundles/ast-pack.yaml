@@ -1,8 +1,8 @@
 id: ast-pack
 kind: governance
-version: 2.3.0
+version: 2.5.0
 title: OMG AST Pack Lane
-description: Governed AST search and replace lane with canonical approvals and proofs.
+description: Two-phase AST lane requiring search-first flow, dry-run evidence, and explicit promotion before mutation-capable rewrites.
 hosts:
   - claude
   - codex

@@ -76,7 +76,10 @@ desktop.ini
 .oal/
 .omg/
 .omc/
-.sisyphus/
+.sisyphus/*
+!.sisyphus/evidence/
+.sisyphus/evidence/*
+!.sisyphus/evidence/phase0-baseline.json
 
 # Credential store
 credentials.enc
@@ -108,3 +111,4 @@ simulation/
 
 # GitHub Action (generated)
 # action.yml
+.venv-verification/

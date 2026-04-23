@@ -1,0 +1,11 @@
+name: saas
+description: Express TypeScript SaaS starter with health endpoint
+language: typescript
+framework: express
+files:
+  - package.json
+  - src/index.ts
+  - src/routes/health.ts
+  - .env.example
+run_command: npm start
+verify_command: curl localhost:3000/health

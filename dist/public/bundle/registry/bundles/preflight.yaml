@@ -1,6 +1,6 @@
 id: preflight
 kind: routing
-version: 3.0.0
+version: 2.5.0
 title: OMG Preflight
 description: Deterministic preflight router that resolves ambiguous high-risk classifications to the strictest route with recorded evidence plan.
 hosts:

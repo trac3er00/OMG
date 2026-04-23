@@ -7,6 +7,7 @@
  */
 
 import {
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -162,7 +163,7 @@ function readOmgVersion() {
     // fall through to static fallback
   }
 
-  return saveCache({ version: "3.0.0", isFallback: true });
+  return saveCache({ version: "2.5.0", isFallback: true });
 }
 
 const OMG_VERSION = readOmgVersion();
@@ -1597,7 +1598,7 @@ async function main() {
     if (cfg.elements.omcLabel !== false) {
       els.push(
         bold(
-          `[OMG#${OMG_VERSION.isFallback ? `⚠v${OMG_VERSION.version}` : `v${OMG_VERSION.version}`}]`,
+          `[OMG#${OMG_VERSION.version}]${OMG_VERSION.isFallback ? "⚠" : ""}`,
         ),
       );
     }

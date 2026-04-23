@@ -9,9 +9,9 @@
     }
   },
   "_omg": {
-    "_version": "3.0.0",
+    "_version": "2.5.0",
     "generated": {
-      "contract_version": "3.0.0",
+      "contract_version": "2.5.0",
       "channel": "public",
       "required_bundles": [
         "control-plane",
