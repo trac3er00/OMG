@@ -1,6 +1,7 @@
 # Changelog
 
 <!-- OMG:GENERATED:changelog-v2.6.0 -->
+
 ### Governed Release Surface (v2.6.0)
 
 - Canonical release surface compilation
@@ -12,28 +13,34 @@
 
 ### Release Summary
 
-OMG v2.5.0 — "AI Work OS" sub-release (minor bump from v2.4.1). Adds instant front-door workflow, smart routing, goal packs, proof-by-default, universal memory, observability HUD, failure-aware steering, one-click deploy/operate, and persona-aware UX.
+OMG v2.6.0 — "AI Work OS" release (minor bump from v2.5.0). Positions OMG as the AI Work OS for governed multi-agent delivery, with a single CLI front door (`npx omg "<goal>"`), a rule-based TaskClassifier, an extended 5-dimension ProofScore, 5 canonical Wow Flows, and a unified pack structure.
 
 ### Highlights
 
-- **Instant Mode (Single Front Door)**: New `omg instant` CLI command + runtime, with YOLO-proof policy (rollback always enabled, evidence auto-collected, destructive ops blocked)
-- **Smart Router + Elastic Multi-Agent**: Auto-selection of agent/model/mode with reasoning output; ElasticPool dynamic promotion with event log; real-time complexity detection; intent escalation adding planner/security-auditor/reviewer agents
-- **Goal Packs (6 new)**: `saas`, `landing`, `discord-bot`, `cli-tool`, `api-server`, `internal-tool` — scaffolded with real runnable code (no stubs). Loader at `runtime/goal_packs.py`
-- **Proof-by-Default**: Auto-verification and evidence collection on completion without user prompts (`runtime/verification_controller.auto_verify`)
-- **Universal Memory**: 4 categories (user preferences, project rules, team policies, failure patterns) with TypeScript + Python persistence (`src/memory/`, `runtime/memory_store.py`)
-- **Observability CLI HUD**: Progress, current task, model reasoning display; coexists with existing `hud/omg-hud.mjs` and `hud/omg-hud-enhanced.mjs`
-- **Failure-Aware Steering**: Loop, cost-spike, and stuck detection with auto-reroute (`runtime/failure_detector.py`, `runtime/steering.py`); new `/reroute` command plus `/next` and `/red-team` integration
-- **One-Click Deploy + Operate**: Deploy target detection (Vercel/Netlify/Fly/Railway), monitoring setup, update flow (`src/deploy/integrations.ts`, `runtime/operate.py`)
-- **Persona-Aware UX**: beginner/engineer/exec persona detection and view formatting; role-based getting-started docs
+- **CLI Front Door**: Bare-goal handler (`npx omg "make a landing page"`) routes through classification → appropriate handler. The Python launcher (`scripts/omg.py`) pre-screens argv for non-subcommand input and dispatches to `runtime/instant_mode.run_instant`. `omg instant "<goal>"` kept as a soft-deprecated compatibility alias that emits a warning and forwards to the same path.
+- **TaskClassifier** (`src/classifier/`): Rule-based goal classification across 7 intents (build/modify/refactor/investigate/deploy/secure/handoff) × 4 risk levels (low/medium/high/critical) × 4 complexity levels (simple/moderate/hard/expert) with confidence scoring. No LLM dependency.
+- **Extended ProofScore** (`src/proof/`): 5-dimension scoring (tests, lint, typecheck, coverage, uiDiff) with weighted aggregation and 4 bands (weak/developing/strong/complete). Weights sum to 100.
+- **5 Wow Flow modules** (`src/wow/flows/`): Landing page, SaaS starter, Discord/Telegram bot, admin dashboard, and non-mutating repo refactor. Shipped as TypeScript library modules with full E2E test coverage; CLI wiring to these native implementations is planned for v2.7.0. Today's `npx omg` continues to use the Python `instant_mode` path for actual scaffolding.
+- **Unified pack structure** (`packs/`): Flat `packs/{landing,saas,api-server,cli-tool,discord-bot,internal-tool,admin,api,ecommerce,saas-lite}/` with a single `packs/schema.yaml` contract and a `scripts/validate-packs.ts` validator. Original `packs/goals/` and `packs/domains/` preserved for backward compatibility with the existing Python runtime.
+- **Deployment Integration** (`src/deploy/integrations.ts`): `detectDeployTarget`, `deploy`, `getDeployedUrl`, and `isDeployAuthenticated` helpers for Vercel and Netlify with auth pre-checks and URL extraction from CLI output.
+- **Reroute-on-Failure** (`src/cli/commands/reroute.ts`): `shouldReroute`, `suggestReroute`, `autoReroute` (3-retry limit) for ProofScore-below-threshold recovery.
+- **Migration guide**: `docs/migration/v2.5-to-v2.6.md` documents the CLI transition; `docs/pack-migration.md` documents the pack structure unification.
+- **Phase 2 + Phase 3 roadmaps**: `docs/roadmap/phase-2-smart-os.md` and `docs/roadmap/phase-3-org-os.md` outline ML classifier, model router, council protocol, memory compactor, role-aware UX, team memory, audit/SIEM, runtime fleet.
 
 ### Tests
 
-- 144 new Python tests passing across `tests/test_{instant_mode,goal_packs,memory,proof_automation,hud,steering,deploy,persona}.py` and `tests/runtime/test_operate.py`
-- Runtime test suite: 64 passing in `tests/runtime/test_{router,elastic_agent,team_router,verification_controller,operate}.py`
+- **TypeScript**: 126 targeted tests pass across `src/classifier/`, `src/proof/`, `src/wow/` (+ flows), `src/cli/index.test.ts`, `src/cli/commands/reroute.test.ts`, `src/deploy/integrations.test.ts`, and `tests/e2e/wow-flows.test.ts`. Full CI suite: 1968+ tests green.
+- **Python**: pytest delta versus main is 0 net-new failures; the cascade additionally fixes 28 pre-existing version-drift failures (`test_version_gate`, `test_version_v2`, `test_trust_release_identity`, etc.).
+
+### Backward Compatibility
+
+- `omg instant "<goal>"` still works; emits a deprecation warning to stderr but continues to function.
+- `packs/goals/` and `packs/domains/` directories are preserved; `runtime/goal_packs.py` and `runtime/domain_packs.py` continue to load from their original locations.
+- No existing MCP tool, subcommand, or API surface removed.
 
 ### Verification
 
-All four final reviewers (plan compliance, code quality, QA execution, scope fidelity) returned APPROVE.
+All four final reviewers (plan compliance, code quality, QA execution, scope fidelity) and an independent Oracle pre-release review returned APPROVE after the CLI front-door wiring was ported into `scripts/omg.py`.
 
 <!-- OMG:GENERATED:changelog-v3.0.0 -->
 
