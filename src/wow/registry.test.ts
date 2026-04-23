@@ -7,7 +7,7 @@ describe("WowFlow Registry", () => {
   });
 
   test("each flow has required fields", () => {
-    for (const [name, flow] of Object.entries(flows)) {
+    for (const flow of Object.values(flows)) {
       expect(typeof flow.name).toBe("string");
       expect(typeof flow.description).toBe("string");
       expect(typeof flow.expectedArtifact).toBe("string");
@@ -30,11 +30,18 @@ describe("WowFlow Registry", () => {
 
   test("deployable flows: landing, saas, admin (3)", () => {
     const deployable = Object.values(flows).filter((f) => f.deployable);
-    expect(deployable.map((f) => f.name).sort()).toEqual(["admin", "landing", "saas"]);
+    expect(deployable.map((f) => f.name).sort()).toEqual([
+      "admin",
+      "landing",
+      "saas",
+    ]);
   });
 
   test("non-deployable: bot, refactor (2)", () => {
     const nonDeployable = Object.values(flows).filter((f) => !f.deployable);
-    expect(nonDeployable.map((f) => f.name).sort()).toEqual(["bot", "refactor"]);
+    expect(nonDeployable.map((f) => f.name).sort()).toEqual([
+      "bot",
+      "refactor",
+    ]);
   });
 });
