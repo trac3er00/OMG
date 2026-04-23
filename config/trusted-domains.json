@@ -1,0 +1,15 @@
+{
+  "verified": [
+    "docs.",
+    "github.com",
+    "npmjs.com",
+    "pypi.org",
+    "developer.mozilla.org",
+    "developer.apple.com",
+    "developers.google.com",
+    "learn.microsoft.com",
+    "nodejs.org",
+    "bun.sh"
+  ],
+  "comment": "Domains that receive VERIFIED trust tier (0.8 score)"
+}
