@@ -1,0 +1,31 @@
+name: landing
+description: Landing page and portfolio website
+type: unified
+category: frontend
+rules:
+  - "responsive-design: All layouts must be mobile-first responsive"
+  - "seo-meta: Pages must include og:title, og:description, canonical URL"
+  - "performance-budget: First Contentful Paint < 2s, Lighthouse score >= 90"
+  - "accessibility-basics: WCAG 2.1 AA: alt text, ARIA labels, keyboard navigation"
+  - "image-optimization: Images must use WebP/AVIF format with lazy loading"
+prompts:
+  - "landing-architect: Design landing page structure with hero, features, pricing, footer sections"
+  - "hero-section: Create compelling hero with CTA, value prop, and social proof"
+  - "call-to-action: Optimize CTA placement, copy, and conversion flow"
+scaffold:
+  - "template: nextjs-static"
+  - pages/index.tsx
+  - components/Hero.tsx
+  - components/Features.tsx
+  - components/Pricing.tsx
+  - components/Footer.tsx
+  - styles/globals.css
+  - next.config.js
+  - package.json
+evidence:
+  required:
+    - lighthouse-score
+    - responsive-test
+    - seo-audit
+  artifacts:
+    - .omg/evidence/landing/*.json

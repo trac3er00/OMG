@@ -1,0 +1,11 @@
+name: cli-tool
+description: Commander-based CLI tool with help and version
+type: goal
+language: javascript
+framework: commander
+files:
+  - package.json
+  - bin/cli.js
+  - README.md
+run_command: node bin/cli.js
+verify_command: node bin/cli.js --help

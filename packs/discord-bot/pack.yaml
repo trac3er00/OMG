@@ -1,0 +1,11 @@
+name: discord-bot
+description: Discord.js bot with slash command example
+type: goal
+language: javascript
+framework: discord.js
+files:
+  - package.json
+  - index.js
+  - .env.example
+run_command: node index.js
+verify_command: node --check index.js
