@@ -99,6 +99,11 @@ AUTHORED_SURFACES: list[AuthoredSurface] = [
         "npm package version",
     ),
     AuthoredSurface(
+        "package.json", "regex_line",
+        r"\"postinstall\": \"echo 'OMG v(\d+\.\d+\.\d+) installed",
+        "package.json postinstall echo banner",
+    ),
+    AuthoredSurface(
         "settings.json", "json_key_path", ["_omg", "_version"],
         "OMG settings version",
     ),

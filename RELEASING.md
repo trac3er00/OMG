@@ -32,6 +32,20 @@ git push origin main
 
 `release.yml` is now the single authoritative publish path and runs semantic-release on merges to `main`. It uses full git history (`fetch-depth: 0`) and performs release-readiness checks before publishing.
 
+### Release authentication
+
+The workflow supports two authentication modes for GitHub release operations:
+
+1. **Preferred**: GitHub App credentials stored as repository/org variables/secrets:
+   - `OMG_APP_ID`
+   - `OMG_APP_INSTALLATION_ID`
+   - `OMG_APP_PRIVATE_KEY`
+2. **Fallback**: default Actions `github.token` / `GITHUB_TOKEN`
+
+`NPM_TOKEN` is always required for the npm publish step.
+
+The workflow also accepts legacy `GITHUB_APP_*` variable names for backward compatibility, but `OMG_*` is the documented standard.
+
 ### 2a. Ensure policy packs are signed
 
 All policy packs must be signed before releasing. The CI release-readiness gate enforces this via `OMG_REQUIRE_TRUSTED_POLICY_PACKS=1`.
@@ -66,9 +80,9 @@ If any pack is unsigned or tampered, the release-readiness gate will fail.
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| `tag_name was used by an immutable release` | Bump the version number. The old tag is permanently locked. |
-| `validate-release-identity.py` fails | Run the fix sequence shown in the error output. |
-| `dist/dist/` double-nesting | You passed `--output-root dist`. Re-run without that flag. |
-| `.gemini` or `.kimi` version mismatch | These are not tracked by `sync-release-identity.py` — update manually. |
+| Problem                                     | Solution                                                               |
+| ------------------------------------------- | ---------------------------------------------------------------------- |
+| `tag_name was used by an immutable release` | Bump the version number. The old tag is permanently locked.            |
+| `validate-release-identity.py` fails        | Run the fix sequence shown in the error output.                        |
+| `dist/dist/` double-nesting                 | You passed `--output-root dist`. Re-run without that flag.             |
+| `.gemini` or `.kimi` version mismatch       | These are not tracked by `sync-release-identity.py` — update manually. |

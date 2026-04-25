@@ -1,0 +1,39 @@
+name: Release Gate v2.7.0
+on:
+  push:
+    tags:
+      - "v2.7.0*"
+permissions:
+  contents: read
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install
+      - name: Run tests
+        run: bun test
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Check no hardcoded secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          matches=$(
+            grep -rEn "(password|secret|token)[[:space:]]*[:=][^{]" .github/workflows/ --include="*.yml" \
+              | grep -vE '\$\{\{[[:space:]]*secrets\.' \
+              | grep -vE '^[^:]+:[[:space:]]*#' \
+              || true
+          )
+          if [ -n "$matches" ]; then
+            echo "::error ::Hardcoded credentials detected in .github/workflows/:"
+            echo "$matches"
+            exit 1
+          fi
+          echo "No hardcoded credentials detected."

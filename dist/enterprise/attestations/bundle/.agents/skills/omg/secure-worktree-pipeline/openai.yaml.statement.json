@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-04-23T08:21:26.587959+00:00"
+      "timestamp": "2026-04-25T08:15:48.183092+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-04-23T08:21:26.587959+00:00",
+  "issued_at": "2026-04-25T08:15:48.183092+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "f073b39e51a6f466",
-    "value": "untrusted comment: signature from omg local signing key\n3WzdUCjCZBW2A2QaSBwWkLtUg42rPCY/SHSzZExuhUP9eg+VXuHWzDgIZ2k6nErm07Cwc7+vAQNbNg02dhInCQ==\ntrusted comment: type=omg-slsa-v1 keyid=f073b39e51a6f466 issued_at=2026-04-23T08:21:26.588077+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=d6cbee0eba4340a8adbf7bbfc1fce23a1005a4f4b17ff9d3f774b46fd8579153\n5NxW2/Tl0KhB/vv4sewFjJHBKjbQLw7aIltGR9nM8HCMTKTI4HKrws0X0tB9A2JM9sdwh0g4PJbi0mADygV3AA==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=f073b39e51a6f466 issued_at=2026-04-23T08:21:26.588077+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=d6cbee0eba4340a8adbf7bbfc1fce23a1005a4f4b17ff9d3f774b46fd8579153"
+    "keyid": "7edc8d8f313fb08c",
+    "value": "untrusted comment: signature from omg local signing key\n++WbKC4XXxBtkKZ2kkRcEluLSgxFxVbSEBMVk03yMUr9DT7GHiz5L9eL6dgY9Dc2DaN+0YqepbTmPsJ7XItKDw==\ntrusted comment: type=omg-slsa-v1 keyid=7edc8d8f313fb08c issued_at=2026-04-25T08:15:48.183211+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=d6cbee0eba4340a8adbf7bbfc1fce23a1005a4f4b17ff9d3f774b46fd8579153\ncPsXzcmWVG7vGCxzaqQqEylvE8XIsP1H2DyldddKPWWSfyBerZbGzS8n8U38PmsDg7pcdaJrBfxiZtx7k8+KCw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=7edc8d8f313fb08c issued_at=2026-04-25T08:15:48.183211+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=d6cbee0eba4340a8adbf7bbfc1fce23a1005a4f4b17ff9d3f774b46fd8579153"
   }
 }

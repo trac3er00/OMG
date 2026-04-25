@@ -1,6 +1,6 @@
 {
   "name": "omg",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "OMG plugin layer for Claude Code with native setup, orchestration, and interop.",
   "author": {
     "name": "trac3r00"

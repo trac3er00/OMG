@@ -5,7 +5,7 @@
     {
       "name": "bundle/registry/bundles/eval-gate.yaml",
       "digest": {
-        "sha256": "14770602a6b1f1566bd57c634a68bd586df5784f66d4d0aed3458635873c9972"
+        "sha256": "60a398698caf3119d5d3bdf37bc69a3e9d84a249fb7e31b9e5b68e76c06112a7"
       }
     }
   ],
@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-04-23T08:21:25.909598+00:00"
+      "timestamp": "2026-04-25T08:15:44.164830+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-04-23T08:21:25.909598+00:00",
+  "issued_at": "2026-04-25T08:15:44.164830+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "84d56fb10c146388",
-    "value": "untrusted comment: signature from omg local signing key\nk52nY554o8xoofH3apNc/oP64u+BXib0tFDJejBPMPlpq3K/CEJccnTx+4oHx7aNO6JpDYz5UX6wAdfpemTBDQ==\ntrusted comment: type=omg-slsa-v1 keyid=84d56fb10c146388 issued_at=2026-04-23T08:21:25.909735+00:00 artifact=bundle/registry/bundles/eval-gate.yaml sha256=14770602a6b1f1566bd57c634a68bd586df5784f66d4d0aed3458635873c9972\nEnrD88fMJJzM7KCjeEEcyUWT+bdEpc4rMPh0saz3cU4YAp+3ACOnNj0ZG1kaB/f0hYdhzNKuVT8A+WpKrNGKCQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=84d56fb10c146388 issued_at=2026-04-23T08:21:25.909735+00:00 artifact=bundle/registry/bundles/eval-gate.yaml sha256=14770602a6b1f1566bd57c634a68bd586df5784f66d4d0aed3458635873c9972"
+    "keyid": "71d47a59c02a33ea",
+    "value": "untrusted comment: signature from omg local signing key\npEj6qW4g6+n4uBxugw8p3pCLy3R/nG0ktUy74apvU4YuutbVqHudkGZ4Z34TxtzxaCFy279n4ma1tTs7kHVsDg==\ntrusted comment: type=omg-slsa-v1 keyid=71d47a59c02a33ea issued_at=2026-04-25T08:15:44.164961+00:00 artifact=bundle/registry/bundles/eval-gate.yaml sha256=60a398698caf3119d5d3bdf37bc69a3e9d84a249fb7e31b9e5b68e76c06112a7\nafMoAgYNKWf2wZiBIin9JiRiZ9nTTJ7xX3OLYPzNbcMXenZOzmh6Bf0ZAHattnN4jSd/MC7q3MNBm6R0ugvgDw==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=71d47a59c02a33ea issued_at=2026-04-25T08:15:44.164961+00:00 artifact=bundle/registry/bundles/eval-gate.yaml sha256=60a398698caf3119d5d3bdf37bc69a3e9d84a249fb7e31b9e5b68e76c06112a7"
   }
 }

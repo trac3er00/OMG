@@ -2,6 +2,12 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 import * as readline from "node:readline";
 import type { CommandModule } from "yargs";
+import { runLandingFlow } from "../../wow/flows/landing.js";
+import { runSaasFlow } from "../../wow/flows/saas.js";
+import { runBotFlow } from "../../wow/flows/bot.js";
+import { runAdminFlow } from "../../wow/flows/admin.js";
+import { runRefactorFlow } from "../../wow/flows/refactor.js";
+import type { WowResult } from "../../wow/output.js";
 
 // Module-level flag to show warning only once per session
 let _deprecationShown = false;
@@ -75,6 +81,7 @@ interface InstantPayload extends Record<string, unknown> {
   readonly skipped_files?: readonly unknown[];
   readonly dry_run?: boolean;
   readonly rollback?: boolean;
+  readonly error?: string;
 }
 
 interface PythonResult {
@@ -219,6 +226,125 @@ function parsePayload(
   }
 }
 
+type FlowType = "landing" | "saas" | "bot" | "admin" | "refactor";
+
+interface FlowPattern {
+  readonly flow: FlowType;
+  readonly patterns: readonly RegExp[];
+}
+
+const FLOW_PATTERNS: readonly FlowPattern[] = [
+  {
+    flow: "landing",
+    patterns: [/\blanding\s*page\b/i, /\blanding\b/i],
+  },
+  {
+    flow: "saas",
+    patterns: [/\bsaas\b/i, /\bSaaS\b/],
+  },
+  {
+    flow: "bot",
+    patterns: [/\bbot\b/i, /\bdiscord\s*bot\b/i, /\btelegram\s*bot\b/i],
+  },
+  {
+    flow: "admin",
+    patterns: [/\badmin\b/i, /\badmin\s*panel\b/i, /\badmin\s*dashboard\b/i],
+  },
+  {
+    flow: "refactor",
+    patterns: [/\brefactor\b/i],
+  },
+];
+
+function detectFlowType(prompt: string): FlowType | null {
+  const normalizedPrompt = prompt.toLowerCase();
+  for (const { flow, patterns } of FLOW_PATTERNS) {
+    for (const pattern of patterns) {
+      if (pattern.test(normalizedPrompt)) {
+        return flow;
+      }
+    }
+  }
+  return null;
+}
+
+function mapWowResultToPayload(
+  result: WowResult,
+  targetDir: string,
+): InstantPayload {
+  const payload: Record<string, unknown> = {
+    success: result.success,
+    type: result.flowName,
+    target_dir: targetDir,
+    file_count: 0,
+  };
+  if (result.proofScore !== undefined) payload.proofScore = result.proofScore;
+  if (result.url !== undefined) payload.url = result.url;
+  if (result.buildTime !== undefined) payload.buildTime = result.buildTime;
+  if (result.error !== undefined) payload.error = result.error;
+  return payload as InstantPayload;
+}
+
+async function runWowFlow(
+  flowType: FlowType,
+  prompt: string,
+  targetDir: string,
+): Promise<WowResult> {
+  switch (flowType) {
+    case "landing":
+      return runLandingFlow(prompt, targetDir);
+    case "saas":
+      return runSaasFlow(prompt, targetDir);
+    case "bot":
+      return runBotFlow(prompt, targetDir);
+    case "admin":
+      return runAdminFlow(prompt, targetDir);
+    case "refactor":
+      return runRefactorFlow(prompt, targetDir);
+  }
+}
+
+/**
+ * Attempts to run a TypeScript wow flow based on prompt keyword matching.
+ * Returns InstantPayload if a matching flow was found and executed.
+ * Returns null if no flow matched (caller should fall back to Python).
+ *
+ * When `dryRun` is true, the flow is NOT executed — a preview payload is
+ * returned describing the matched flow and target directory so callers can
+ * surface a non-mutating preview (no files written, no deploy invoked).
+ */
+export async function tryWowFlow(
+  prompt: string,
+  targetDir: string,
+  options: { dryRun?: boolean } = {},
+): Promise<InstantPayload | null> {
+  const flowType = detectFlowType(prompt);
+  if (flowType === null) {
+    return null;
+  }
+
+  if (options.dryRun) {
+    return buildWowDryRunPayload(flowType, targetDir);
+  }
+
+  const result = await runWowFlow(flowType, prompt, targetDir);
+  return mapWowResultToPayload(result, targetDir);
+}
+
+function buildWowDryRunPayload(
+  flowType: FlowType,
+  targetDir: string,
+): InstantPayload {
+  return {
+    success: true,
+    type: flowType,
+    target_dir: targetDir,
+    file_count: 0,
+    dry_run: true,
+    warning: `[dry-run] Wow flow '${flowType}' matched. No files written and no deploy invoked. Re-run without --dry-run to scaffold into ${targetDir}.`,
+  };
+}
+
 export function runInstant(
   prompt: string,
   options: InstantOptions,
@@ -265,12 +391,37 @@ function printHuman(payload: InstantPayload): void {
     if (clarificationPrompt.length > 0) {
       throw new Error(clarificationPrompt);
     }
+    const upstreamError = String(payload.error ?? "").trim();
+    if (upstreamError.length > 0) {
+      throw new Error(`instant mode failed: ${upstreamError}`);
+    }
     throw new Error("instant mode failed");
+  }
+
+  if (payload.dry_run) {
+    const targetDir = String(payload.target_dir ?? "").trim() || "(unknown)";
+    const flowType = String(payload.type ?? "(unknown)");
+    console.log(`✓ [dry-run] Would scaffold '${flowType}' flow into ${targetDir}`);
+    const warning = String(payload.warning ?? "").trim();
+    if (warning.length > 0) {
+      console.log(warning);
+    }
+    return;
   }
 
   const targetDir = requireProjectPath(payload);
   const fileCount = Number(payload.file_count ?? 0);
   console.log(`✓ Created ${fileCount} files in ${targetDir}`);
+
+  const proofScore = payload.proofScore as number | undefined;
+  if (proofScore !== undefined) {
+    console.log(`📊 ProofScore: ${proofScore}/100`);
+  }
+
+  const url = payload.url as string | undefined;
+  if (url) {
+    console.log(`🌐 URL: ${url}`);
+  }
 
   const warning = String(payload.warning ?? "").trim();
   if (warning.length > 0) {
@@ -302,6 +453,7 @@ export const instantCommand: CommandModule<object, InstantArgs> = {
         type: "string",
         default: process.cwd(),
         describe: "Target directory for the generated project",
+        alias: "output-dir",
       }),
   handler: async (argv): Promise<void> => {
     let prompt = normalizePrompt(argv.prompt);
@@ -315,16 +467,29 @@ export const instantCommand: CommandModule<object, InstantArgs> = {
       targetDir: String(argv.targetDir ?? process.cwd()),
     };
 
+    const wowPayload = await tryWowFlow(prompt, options.targetDir, {
+      dryRun: options.dryRun,
+    });
+    if (wowPayload !== null) {
+      if (argv.json) {
+        if (!wowPayload.dry_run) {
+          requireProjectPath(wowPayload);
+        }
+        console.log(JSON.stringify(wowPayload, null, 2));
+        return;
+      }
+      printHuman(wowPayload);
+      return;
+    }
+
     let payload = runInstant(prompt, options);
     let clarificationRound = 0;
 
-    // Clarification loop: ask user for clarification if needed
     while (
       payload.clarification_needed &&
       payload.clarification_prompt &&
       clarificationRound < MAX_CLARIFICATION_ROUNDS
     ) {
-      // In JSON mode, don't ask questions - return error
       if (argv.json) {
         console.log(
           JSON.stringify(
@@ -351,12 +516,10 @@ export const instantCommand: CommandModule<object, InstantArgs> = {
         throw new Error("No clarification provided - aborting");
       }
 
-      // Append clarification to prompt for retry
       prompt = `${prompt}\n\nClarification: ${answer}`;
       payload = runInstant(prompt, options);
     }
 
-    // Max rounds exceeded - fail with helpful error
     if (payload.clarification_needed && payload.clarification_prompt) {
       if (argv.json) {
         console.log(

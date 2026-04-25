@@ -7,7 +7,7 @@
     "gemini",
     "kimi"
   ],
-  "contract_version": "2.6.0",
+  "contract_version": "2.7.0",
   "artifacts": [
     {
       "path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
@@ -223,7 +223,7 @@
     },
     {
       "path": "bundle/.claude-plugin/marketplace.json",
-      "sha256": "ff6330c052cfaa72fef35495abc4d8966d635d5d4d41ca75e6a46888246e5e93"
+      "sha256": "46afe442b38c1980a183ec20c925ad6b22aba83d0b799c09cb1729451d41f487"
     },
     {
       "path": "bundle/.claude-plugin/mcp.json",
@@ -231,15 +231,15 @@
     },
     {
       "path": "bundle/.claude-plugin/plugin.json",
-      "sha256": "29626828311c11e0d2b41647576b75c7a6f5d4740dc47807d5ffa259f9604c0b"
+      "sha256": "3cdf35f90e806a25667ec67a84b5ae79d40686fa32731ab19252008db68670d5"
     },
     {
       "path": "bundle/.gemini/settings.json",
-      "sha256": "14c23409446f7c3365381dc408863325592f34de15a7e513050d7e526f61a8e5"
+      "sha256": "d2d6cba88a3077bac0b2202e6600be495abe853e4d512c1215f1c695775c229e"
     },
     {
       "path": "bundle/.kimi/mcp.json",
-      "sha256": "14c23409446f7c3365381dc408863325592f34de15a7e513050d7e526f61a8e5"
+      "sha256": "d2d6cba88a3077bac0b2202e6600be495abe853e4d512c1215f1c695775c229e"
     },
     {
       "path": "bundle/.mcp.json",
@@ -247,7 +247,7 @@
     },
     {
       "path": "bundle/OMG_COMPAT_CONTRACT.md",
-      "sha256": "7b74eddf1d739b14f1aa393ca8955fb061ccb4e80c417eaff7e955536d80243a"
+      "sha256": "e4f8fc72992dce158a6fee28f0aa7ef7b10ae417e60c9ef46d565cd2cbc47b55"
     },
     {
       "path": "bundle/plugins/advanced/commands/OMG-code-review.md",
@@ -291,115 +291,115 @@
     },
     {
       "path": "bundle/plugins/advanced/plugin.json",
-      "sha256": "79aac3c0560a5f3f0e8d083b174f0c30ad6b334a5d0bdcb93298e0d266ed6c9d"
+      "sha256": "589a358cf4408e079ddaafe13d3016ef6b56d12b14584309d7319338101618fe"
     },
     {
       "path": "bundle/registry/bundles/algorithms.yaml",
-      "sha256": "62b812cb2bb67101af290a414ad7cb2d91bb7082a6ea373feb68769252410f56"
+      "sha256": "6177b4dd88ebc45479f876bc23728e920259042e6c00706ff4f464dbde6f44a1"
     },
     {
       "path": "bundle/registry/bundles/api-twin.yaml",
-      "sha256": "31928f93236204b802ad6ca6767aa20ed7e692858b92d751b8cca7e4ad2d5ad9"
+      "sha256": "8be95316a9ffec37bf5f3f79e66e38a491ee790bb23d35b789e525146cb5e541"
     },
     {
       "path": "bundle/registry/bundles/ast-pack.yaml",
-      "sha256": "d771ae79216b80d33e08f2fc71680ff6c667d57b72aff6755546e2456035f492"
+      "sha256": "d3d095863008a77573b51b25271d77e009cc979194249cd247a3adfddf9a11e4"
     },
     {
       "path": "bundle/registry/bundles/claim-judge.yaml",
-      "sha256": "a1cf9c6ceaf06eeedf9aa94f48621009093b74b399c1129e826a93e1b8f404d3"
+      "sha256": "5d44b46c8dd55a37c2d01ae50e8e2c3931adb2ce4f0ad5d5aa441fa4b4f03a96"
     },
     {
       "path": "bundle/registry/bundles/control-plane.yaml",
-      "sha256": "bd201e3c0ca4c0148745aaea67d72b1c52a141e446638b7f68b590327319e614"
+      "sha256": "c95b122e93f4c30c6a2a6fefcac05d49f2ce1af5c0050585067f027bfc5dbcd3"
     },
     {
       "path": "bundle/registry/bundles/data-lineage.yaml",
-      "sha256": "0fd7d17f97505246f67b0ee9002b49ce916ad0e0c961b539b7174e1c188f52e6"
+      "sha256": "a2d0c8a7c9514f09726fdcced3e925245d3e0b6557c161515bd0081242727827"
     },
     {
       "path": "bundle/registry/bundles/delta-classifier.yaml",
-      "sha256": "4ede1e14be55b2817b01e8689910d621de7fbc211779355ced058f7886828e11"
+      "sha256": "896f9e24b40247d7baaa6acf8609bf9f882799b4dd1c437669e632d85a54ad94"
     },
     {
       "path": "bundle/registry/bundles/eval-gate.yaml",
-      "sha256": "14770602a6b1f1566bd57c634a68bd586df5784f66d4d0aed3458635873c9972"
+      "sha256": "60a398698caf3119d5d3bdf37bc69a3e9d84a249fb7e31b9e5b68e76c06112a7"
     },
     {
       "path": "bundle/registry/bundles/hash-edit.yaml",
-      "sha256": "e262014e8b0b2e1180d217fbb8ce2e7ae5efb798c08b4360a2c1e84ed0bfcde6"
+      "sha256": "6a5f074faa61e9dd4398a0bc270eee8cedf1020494616a63ae5ac90173b37e90"
     },
     {
       "path": "bundle/registry/bundles/health.yaml",
-      "sha256": "78d6b49ae587bb24c68331577db228e544706d65bb478aa720478c7f1a25478f"
+      "sha256": "2b04f38c04a763efa62b84e01e8ae4386b9ccf21e8b7f3f180207ceaf076f709"
     },
     {
       "path": "bundle/registry/bundles/hook-governor.yaml",
-      "sha256": "c5039e241aae927ca478e6e44cdd089e510694f90aa69ce3cb5d8e7436927fcd"
+      "sha256": "6654eef77e612a31721ea5795c0afb46d77015140bc2db19680ff36fbdd2c0a1"
     },
     {
       "path": "bundle/registry/bundles/incident-replay.yaml",
-      "sha256": "1bd2ac1b14ade2a9b5e375798df734f307b5c5e1494defd255a5fc908ff21d20"
+      "sha256": "90444a00664bbe5aa85630bc00c8fabc8ded322f622d039b01bd7ad0e8a0e681"
     },
     {
       "path": "bundle/registry/bundles/lsp-pack.yaml",
-      "sha256": "1287d1adc09fa24f968556f7ab5b358f0645e33a764a21079df6a4c16f9c1a8f"
+      "sha256": "5e719362af5b04eb2daec4befd3850b5f3715d08ff7661691e3ec31c00abe59e"
     },
     {
       "path": "bundle/registry/bundles/mcp-fabric.yaml",
-      "sha256": "791d6dfcc7d0cb9dcc95a7255d86133116d7a1e661f0ebca86e1ca58bc2d355b"
+      "sha256": "8b7643ddf66b8eaf8d93b86faf2b29c94ad77289da7754dd1051ce5da72bd369"
     },
     {
       "path": "bundle/registry/bundles/plan-council.yaml",
-      "sha256": "be484b54b44716ae2b8c3b9685b3b2172af6fcd554048465e2356d7cf2e8fa3b"
+      "sha256": "13fcf551a6b0b62bfd7fad0946e7880e4a6607ae6ab58c2035e84aa1fef74e7e"
     },
     {
       "path": "bundle/registry/bundles/preflight.yaml",
-      "sha256": "41631f153c2fa4087c16ae6b89c4863ccce84262d23dbdd2d21f608a4ba9c53b"
+      "sha256": "d24350927c66325293ccaade136389f83f3d6409cb108b76aebc9493e03c084b"
     },
     {
       "path": "bundle/registry/bundles/proof-gate.yaml",
-      "sha256": "a5d78258095fd4d62403cec8c6e5720bf189362c4ae3248df5ed58c1fea509ab"
+      "sha256": "5d2fa7ce2d91f7dc9a209b06aa164d6d0d38478223a57d590ba2048272693266"
     },
     {
       "path": "bundle/registry/bundles/remote-supervisor.yaml",
-      "sha256": "0f5f9bd67e9077abf639b97cf418a2400954c049a8950a083dbd1cb9f3d2e82f"
+      "sha256": "bd9b81225670586c5a56ee32f2b1b76dae558b35275d61ef58bd3ec259987383"
     },
     {
       "path": "bundle/registry/bundles/robotics.yaml",
-      "sha256": "38461496a8f12f32985e82c081afff9b36b863865434a8691e6f2402181a5d9f"
+      "sha256": "03d637c573363898edcd794b6f017d63ed2279d1b2d29742dbe7ddb7d7a7f5fd"
     },
     {
       "path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
-      "sha256": "1210ca3a9f331e334e3b1a2b4262d307d9c33d61346e680bbf53bebec3558bb0"
+      "sha256": "0c450e69d91b5735fca45250a047ce84528591e5e1bf332b3d03e3b6aafb5610"
     },
     {
       "path": "bundle/registry/bundles/security-check.yaml",
-      "sha256": "ab779e8e768c24bdbc05c0788ba0df26dcb86d581537817e16c90c2dbdf45c5d"
+      "sha256": "05ec1261ca950204acb0c7cd62ac9707f5f721a2ad6cece6df733f88f4f2cafd"
     },
     {
       "path": "bundle/registry/bundles/terminal-lane.yaml",
-      "sha256": "80083388dfbf1c39f4acbb2b2fa767128005b664af44a170bae5d3e0b5ab3828"
+      "sha256": "8bcf77d0ad0815246989dec9791621b6f1bc2f36849a339e4ecf938e0d147828"
     },
     {
       "path": "bundle/registry/bundles/test-intent-lock.yaml",
-      "sha256": "30e5178d93a72a65fd9219399695bce5af4170743dfc1ebf6522ce9704b140bc"
+      "sha256": "ee11879e8c48a14e0228f1bc3da5b462b6b031ba897236f9ef1e7a5a826a1af6"
     },
     {
       "path": "bundle/registry/bundles/tracebank.yaml",
-      "sha256": "984f0c3d2c46a559acce8a2028507375f65b9a6065dc3fbd167a290d18e9b1a6"
+      "sha256": "7c259657ce9f874328315eaac122a88cc8655b2fba85de3f64954166a0ff69b2"
     },
     {
       "path": "bundle/registry/bundles/vision.yaml",
-      "sha256": "02063da1bdb4ed99c7f0b4931cf5eac3b9cc5555e44140dfac821128fd4f20db"
+      "sha256": "833775bc63ce0cdb336e99368b4933fe2f3ec8c61ddfc39b844291c4d26866a2"
     },
     {
       "path": "bundle/registry/omg-capability.schema.json",
-      "sha256": "c822df47bdc3c0707fdf373444d701f92823e034e1dca2981959ec8b0c05b827"
+      "sha256": "ed2d8d3dc7d03cb17eb55f357752db0a789d21cb06d0a6d06faf452e295c3139"
     },
     {
       "path": "bundle/settings.json",
-      "sha256": "030d39312995789c599e8faf4066cf18e05345e84c8d96e08a3d615dc457a2c7"
+      "sha256": "db0a96569b516b1e08c3a1a3a939c6bbb3ca8154b786583507e957b27a48dd32"
     }
   ],
   "attestations": [
@@ -407,686 +407,686 @@
       "artifact_path": "bundle/.agents/skills/omg/AGENTS.fragment.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/AGENTS.fragment.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/AGENTS.fragment.md.minisig",
-      "signer_key_id": "a6195fda26dd4120",
+      "signer_key_id": "503710467a922cef",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/algorithms/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/algorithms/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/algorithms/SKILL.md.minisig",
-      "signer_key_id": "a8cd22ecdac388af",
+      "signer_key_id": "ac6af7b3b067dfa6",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/algorithms/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/algorithms/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/algorithms/openai.yaml.minisig",
-      "signer_key_id": "a23e7ba58fe6364f",
+      "signer_key_id": "fd291c644e4ca182",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/api-twin/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/api-twin/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/api-twin/SKILL.md.minisig",
-      "signer_key_id": "81fe20f8f813d19f",
+      "signer_key_id": "71d621f27b51c42d",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/api-twin/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/api-twin/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/api-twin/openai.yaml.minisig",
-      "signer_key_id": "f3491bfc590b6992",
+      "signer_key_id": "621ac01a01708641",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/ast-pack/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/ast-pack/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/ast-pack/SKILL.md.minisig",
-      "signer_key_id": "b928bd711ddd45ca",
+      "signer_key_id": "ee599a66d264c5d0",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/ast-pack/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/ast-pack/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/ast-pack/openai.yaml.minisig",
-      "signer_key_id": "a84b2260bc51078c",
+      "signer_key_id": "5a861b1c5bb90088",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/claim-judge/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/claim-judge/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/claim-judge/SKILL.md.minisig",
-      "signer_key_id": "bf92b73ff8c71f6e",
+      "signer_key_id": "1669078e468abfc8",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/claim-judge/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/claim-judge/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/claim-judge/openai.yaml.minisig",
-      "signer_key_id": "9186aa3d61fa47eb",
+      "signer_key_id": "cedbc0ec9decb129",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/codex-mcp.toml",
       "statement_path": "attestations/bundle/.agents/skills/omg/codex-mcp.toml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/codex-mcp.toml.minisig",
-      "signer_key_id": "6c8fd49dc203429f",
+      "signer_key_id": "73e67460897e6c7f",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/codex-rules.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/codex-rules.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/codex-rules.md.minisig",
-      "signer_key_id": "f33a567bab2b262e",
+      "signer_key_id": "935a411d5f5abd2c",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/control-plane/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/control-plane/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/control-plane/SKILL.md.minisig",
-      "signer_key_id": "2aafb175455c10f5",
+      "signer_key_id": "11e7e1c4bf6eeefe",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/control-plane/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/control-plane/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/control-plane/openai.yaml.minisig",
-      "signer_key_id": "b8ed39634538fb46",
+      "signer_key_id": "a1f113fd244a401a",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/data-lineage/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/data-lineage/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/data-lineage/SKILL.md.minisig",
-      "signer_key_id": "e0874c262eb2af2d",
+      "signer_key_id": "31615f916c76011a",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/data-lineage/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/data-lineage/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/data-lineage/openai.yaml.minisig",
-      "signer_key_id": "65f99900033f5181",
+      "signer_key_id": "21bd401a1bf65637",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/delta-classifier/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/delta-classifier/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/delta-classifier/SKILL.md.minisig",
-      "signer_key_id": "e625d5e4b10502e7",
+      "signer_key_id": "c0d3dc4d84538d90",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/delta-classifier/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/delta-classifier/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/delta-classifier/openai.yaml.minisig",
-      "signer_key_id": "76572fee2589dcc2",
+      "signer_key_id": "9f856a089fb51334",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/eval-gate/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/eval-gate/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/eval-gate/SKILL.md.minisig",
-      "signer_key_id": "c319ac5c362eb5ad",
+      "signer_key_id": "33fbbccba963ed2f",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/eval-gate/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/eval-gate/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/eval-gate/openai.yaml.minisig",
-      "signer_key_id": "9d12111a3f4e1a22",
+      "signer_key_id": "f10fadf3cdd25d23",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/hash-edit/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/hash-edit/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/hash-edit/SKILL.md.minisig",
-      "signer_key_id": "16dc2cb4493a7fdc",
+      "signer_key_id": "e31cf3cbc8be5ddf",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/hash-edit/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/hash-edit/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/hash-edit/openai.yaml.minisig",
-      "signer_key_id": "a4841b55d12b6e5c",
+      "signer_key_id": "81f0704531aea4d8",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/health/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/health/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/health/SKILL.md.minisig",
-      "signer_key_id": "7d218914898128bf",
+      "signer_key_id": "559d5d043915f86b",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/health/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/health/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/health/openai.yaml.minisig",
-      "signer_key_id": "bc474bcb949972a1",
+      "signer_key_id": "3e8146e1ff1139e7",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/hook-governor/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/hook-governor/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/hook-governor/SKILL.md.minisig",
-      "signer_key_id": "af1aca9a91d84947",
+      "signer_key_id": "187eba3002f1e904",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/hook-governor/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/hook-governor/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/hook-governor/openai.yaml.minisig",
-      "signer_key_id": "9ff8acd8f8af56cc",
+      "signer_key_id": "99bd6808f3cfd057",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/incident-replay/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/incident-replay/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/incident-replay/SKILL.md.minisig",
-      "signer_key_id": "81a57f2e9545aa00",
+      "signer_key_id": "5620c0a3e2601e33",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/incident-replay/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/incident-replay/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/incident-replay/openai.yaml.minisig",
-      "signer_key_id": "28f12c77a65d2234",
+      "signer_key_id": "fbc0abd24f3059f5",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/lsp-pack/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/lsp-pack/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/lsp-pack/SKILL.md.minisig",
-      "signer_key_id": "ae01571d3fcc652c",
+      "signer_key_id": "b92a72de345dba95",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/lsp-pack/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/lsp-pack/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/lsp-pack/openai.yaml.minisig",
-      "signer_key_id": "ba34172e4b99a634",
+      "signer_key_id": "ef95d51170f66831",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/mcp-fabric/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/mcp-fabric/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/mcp-fabric/SKILL.md.minisig",
-      "signer_key_id": "63bea8874b82d41b",
+      "signer_key_id": "e538d864505214dd",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/mcp-fabric/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/mcp-fabric/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/mcp-fabric/openai.yaml.minisig",
-      "signer_key_id": "4e694a7e157724ae",
+      "signer_key_id": "c4a39bc0cc183643",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/plan-council/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/plan-council/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/plan-council/SKILL.md.minisig",
-      "signer_key_id": "890a41fae8b702cb",
+      "signer_key_id": "d309c9e3e5c22900",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/plan-council/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/plan-council/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/plan-council/openai.yaml.minisig",
-      "signer_key_id": "b200e46df7114b3d",
+      "signer_key_id": "28de26ba62c1213d",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/preflight/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/preflight/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/preflight/SKILL.md.minisig",
-      "signer_key_id": "808059d208d107fb",
+      "signer_key_id": "556417e83568a520",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/preflight/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/preflight/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/preflight/openai.yaml.minisig",
-      "signer_key_id": "0b4f09a6c5abea51",
+      "signer_key_id": "c6531489fa3c3096",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/proof-gate/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/proof-gate/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/proof-gate/SKILL.md.minisig",
-      "signer_key_id": "37cd5454db101fc6",
+      "signer_key_id": "71dd4c7737f1dcfc",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/proof-gate/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/proof-gate/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/proof-gate/openai.yaml.minisig",
-      "signer_key_id": "433d511ddfc16814",
+      "signer_key_id": "f0df25736db6368a",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/remote-supervisor/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/remote-supervisor/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/remote-supervisor/SKILL.md.minisig",
-      "signer_key_id": "310b2f1b57fc5ae6",
+      "signer_key_id": "675e5ea837148923",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/remote-supervisor/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/remote-supervisor/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/remote-supervisor/openai.yaml.minisig",
-      "signer_key_id": "6dab2d8e56f2caeb",
+      "signer_key_id": "121a1bbae5a85d22",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/robotics/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/robotics/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/robotics/SKILL.md.minisig",
-      "signer_key_id": "6ed7a7ec76bf3587",
+      "signer_key_id": "7849d0547d41e001",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/robotics/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/robotics/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/robotics/openai.yaml.minisig",
-      "signer_key_id": "12918d496cd02074",
+      "signer_key_id": "3bdaf5c666cc0710",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/secure-worktree-pipeline/SKILL.md.minisig",
-      "signer_key_id": "786dd4e749f1f9ff",
+      "signer_key_id": "f46304a2042e143e",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml.minisig",
-      "signer_key_id": "f073b39e51a6f466",
+      "signer_key_id": "7edc8d8f313fb08c",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/security-check/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/security-check/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/security-check/SKILL.md.minisig",
-      "signer_key_id": "d0f56d830c6fd620",
+      "signer_key_id": "ee9e749728324fdb",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/security-check/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/security-check/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/security-check/openai.yaml.minisig",
-      "signer_key_id": "cf34168d980dac7d",
+      "signer_key_id": "356f4106a460eda3",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/terminal-lane/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/terminal-lane/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/terminal-lane/SKILL.md.minisig",
-      "signer_key_id": "23b0e7e92b8a9fb8",
+      "signer_key_id": "a2b0a85aa5eb2cd6",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/terminal-lane/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/terminal-lane/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/terminal-lane/openai.yaml.minisig",
-      "signer_key_id": "79fe024b1bb824dc",
+      "signer_key_id": "90aaf68a6e6ca930",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/test-intent-lock/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/test-intent-lock/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/test-intent-lock/SKILL.md.minisig",
-      "signer_key_id": "11db710e5884792f",
+      "signer_key_id": "55628a17c8acccdf",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/test-intent-lock/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/test-intent-lock/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/test-intent-lock/openai.yaml.minisig",
-      "signer_key_id": "e61b382fba6ab827",
+      "signer_key_id": "ba227f122cd9ec96",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/tracebank/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/tracebank/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/tracebank/SKILL.md.minisig",
-      "signer_key_id": "15d5a84a54aebfd2",
+      "signer_key_id": "4504c2dcac738b1e",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/tracebank/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/tracebank/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/tracebank/openai.yaml.minisig",
-      "signer_key_id": "f0ebabef8fd8866d",
+      "signer_key_id": "5411a80959855c22",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/vision/SKILL.md",
       "statement_path": "attestations/bundle/.agents/skills/omg/vision/SKILL.md.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/vision/SKILL.md.minisig",
-      "signer_key_id": "474a6ad604de375c",
+      "signer_key_id": "a1628ddf7adf712c",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.agents/skills/omg/vision/openai.yaml",
       "statement_path": "attestations/bundle/.agents/skills/omg/vision/openai.yaml.statement.json",
       "signature_path": "attestations/bundle/.agents/skills/omg/vision/openai.yaml.minisig",
-      "signer_key_id": "9300988400c327e5",
+      "signer_key_id": "339400d0b8698d46",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.claude-plugin/marketplace.json",
       "statement_path": "attestations/bundle/.claude-plugin/marketplace.json.statement.json",
       "signature_path": "attestations/bundle/.claude-plugin/marketplace.json.minisig",
-      "signer_key_id": "ee65c5e48348f551",
+      "signer_key_id": "fe163f5c6c1345f4",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.claude-plugin/mcp.json",
       "statement_path": "attestations/bundle/.claude-plugin/mcp.json.statement.json",
       "signature_path": "attestations/bundle/.claude-plugin/mcp.json.minisig",
-      "signer_key_id": "d84a3d12f8aaf524",
+      "signer_key_id": "1d9bc6626b77d5c0",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.claude-plugin/plugin.json",
       "statement_path": "attestations/bundle/.claude-plugin/plugin.json.statement.json",
       "signature_path": "attestations/bundle/.claude-plugin/plugin.json.minisig",
-      "signer_key_id": "07ffa28764b93f51",
+      "signer_key_id": "2945e692fa44c12f",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.gemini/settings.json",
       "statement_path": "attestations/bundle/.gemini/settings.json.statement.json",
       "signature_path": "attestations/bundle/.gemini/settings.json.minisig",
-      "signer_key_id": "e86c00130a6a9c38",
+      "signer_key_id": "8339af34623ea233",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.kimi/mcp.json",
       "statement_path": "attestations/bundle/.kimi/mcp.json.statement.json",
       "signature_path": "attestations/bundle/.kimi/mcp.json.minisig",
-      "signer_key_id": "f58b22df4d90806b",
+      "signer_key_id": "74aef8c2e13f0172",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/.mcp.json",
       "statement_path": "attestations/bundle/.mcp.json.statement.json",
       "signature_path": "attestations/bundle/.mcp.json.minisig",
-      "signer_key_id": "dd8b32df25be3b70",
+      "signer_key_id": "e90d6a2c2243ffd4",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/OMG_COMPAT_CONTRACT.md",
       "statement_path": "attestations/bundle/OMG_COMPAT_CONTRACT.md.statement.json",
       "signature_path": "attestations/bundle/OMG_COMPAT_CONTRACT.md.minisig",
-      "signer_key_id": "38e4a69748dc9443",
+      "signer_key_id": "283d743c6091fec4",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-code-review.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-code-review.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-code-review.md.minisig",
-      "signer_key_id": "51318ef782a5d3c9",
+      "signer_key_id": "8df1faa91e542c76",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-deep-plan.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-deep-plan.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-deep-plan.md.minisig",
-      "signer_key_id": "4ee15757ca0e5781",
+      "signer_key_id": "d12670b601dae18d",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-handoff.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-handoff.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-handoff.md.minisig",
-      "signer_key_id": "5c33fe5ab5fd884b",
+      "signer_key_id": "f337e3f9a2c0619c",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-learn.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-learn.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-learn.md.minisig",
-      "signer_key_id": "bede5600cd995893",
+      "signer_key_id": "b422837309bd9948",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-maintainer.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-maintainer.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-maintainer.md.minisig",
-      "signer_key_id": "5d7ff3db365e09c7",
+      "signer_key_id": "b7f7e74298e99325",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-ralph-start.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-ralph-start.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-ralph-start.md.minisig",
-      "signer_key_id": "f8d06403bab4fada",
+      "signer_key_id": "150ebcf2dfa8eabf",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-ralph-stop.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-ralph-stop.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-ralph-stop.md.minisig",
-      "signer_key_id": "206c90c4e2cda01a",
+      "signer_key_id": "9bd4c77c56812580",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-security-review.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-security-review.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-security-review.md.minisig",
-      "signer_key_id": "980a33316ea005a7",
+      "signer_key_id": "ce56f3efead41780",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-sequential-thinking.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-sequential-thinking.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-sequential-thinking.md.minisig",
-      "signer_key_id": "105fa51917bc8711",
+      "signer_key_id": "2ca73be5dcaad82e",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/commands/OMG-ship.md",
       "statement_path": "attestations/bundle/plugins/advanced/commands/OMG-ship.md.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/commands/OMG-ship.md.minisig",
-      "signer_key_id": "696aa747ed25196a",
+      "signer_key_id": "e6865aabbf2353bb",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/plugins/advanced/plugin.json",
       "statement_path": "attestations/bundle/plugins/advanced/plugin.json.statement.json",
       "signature_path": "attestations/bundle/plugins/advanced/plugin.json.minisig",
-      "signer_key_id": "b21db7eedd550583",
+      "signer_key_id": "59652d3f551c21db",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/algorithms.yaml",
       "statement_path": "attestations/bundle/registry/bundles/algorithms.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/algorithms.yaml.minisig",
-      "signer_key_id": "6dd5135d488f1650",
+      "signer_key_id": "29b9406239cf3453",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/api-twin.yaml",
       "statement_path": "attestations/bundle/registry/bundles/api-twin.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/api-twin.yaml.minisig",
-      "signer_key_id": "6427810fbd8a9a10",
+      "signer_key_id": "9421f78b4b9404e1",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/ast-pack.yaml",
       "statement_path": "attestations/bundle/registry/bundles/ast-pack.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/ast-pack.yaml.minisig",
-      "signer_key_id": "d58eb8cef3c1dca7",
+      "signer_key_id": "0c3e761cf0d39bff",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/claim-judge.yaml",
       "statement_path": "attestations/bundle/registry/bundles/claim-judge.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/claim-judge.yaml.minisig",
-      "signer_key_id": "f7239fe1d1640d02",
+      "signer_key_id": "4d40b58e6c74e871",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/control-plane.yaml",
       "statement_path": "attestations/bundle/registry/bundles/control-plane.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/control-plane.yaml.minisig",
-      "signer_key_id": "a64ff7a6fade51f0",
+      "signer_key_id": "04e387db66af3f48",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/data-lineage.yaml",
       "statement_path": "attestations/bundle/registry/bundles/data-lineage.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/data-lineage.yaml.minisig",
-      "signer_key_id": "d795b80635c3b71b",
+      "signer_key_id": "0b1cb3277064dd05",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/delta-classifier.yaml",
       "statement_path": "attestations/bundle/registry/bundles/delta-classifier.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/delta-classifier.yaml.minisig",
-      "signer_key_id": "1eab169316e73b2d",
+      "signer_key_id": "bcd8effa31c22ade",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/eval-gate.yaml",
       "statement_path": "attestations/bundle/registry/bundles/eval-gate.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/eval-gate.yaml.minisig",
-      "signer_key_id": "88d112f0012d1ea3",
+      "signer_key_id": "d406db4891be4032",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/hash-edit.yaml",
       "statement_path": "attestations/bundle/registry/bundles/hash-edit.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/hash-edit.yaml.minisig",
-      "signer_key_id": "d8841a2b49088950",
+      "signer_key_id": "d2300daf5356347c",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/health.yaml",
       "statement_path": "attestations/bundle/registry/bundles/health.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/health.yaml.minisig",
-      "signer_key_id": "370acdce06ec25c7",
+      "signer_key_id": "57fa43ed50790c61",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/hook-governor.yaml",
       "statement_path": "attestations/bundle/registry/bundles/hook-governor.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/hook-governor.yaml.minisig",
-      "signer_key_id": "30088655a27b269e",
+      "signer_key_id": "429939084781869b",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/incident-replay.yaml",
       "statement_path": "attestations/bundle/registry/bundles/incident-replay.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/incident-replay.yaml.minisig",
-      "signer_key_id": "c19a578a96a14da5",
+      "signer_key_id": "e44721f73eeb930e",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/lsp-pack.yaml",
       "statement_path": "attestations/bundle/registry/bundles/lsp-pack.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/lsp-pack.yaml.minisig",
-      "signer_key_id": "db39ee3ae1bf0751",
+      "signer_key_id": "23e35afd3882a59c",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/mcp-fabric.yaml",
       "statement_path": "attestations/bundle/registry/bundles/mcp-fabric.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/mcp-fabric.yaml.minisig",
-      "signer_key_id": "b79938c612453f73",
+      "signer_key_id": "0b4f230922efd89b",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/plan-council.yaml",
       "statement_path": "attestations/bundle/registry/bundles/plan-council.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/plan-council.yaml.minisig",
-      "signer_key_id": "abf184ba4080f0b5",
+      "signer_key_id": "9b61dc3cf56eb13e",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/preflight.yaml",
       "statement_path": "attestations/bundle/registry/bundles/preflight.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/preflight.yaml.minisig",
-      "signer_key_id": "edfbe6e3ac708311",
+      "signer_key_id": "64d0c5b09f97ccab",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/proof-gate.yaml",
       "statement_path": "attestations/bundle/registry/bundles/proof-gate.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/proof-gate.yaml.minisig",
-      "signer_key_id": "c7e7d3347420c28e",
+      "signer_key_id": "94b5803f8012dd0f",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/remote-supervisor.yaml",
       "statement_path": "attestations/bundle/registry/bundles/remote-supervisor.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/remote-supervisor.yaml.minisig",
-      "signer_key_id": "c5fdecedafe5aa16",
+      "signer_key_id": "3fee975fcd5fd514",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/robotics.yaml",
       "statement_path": "attestations/bundle/registry/bundles/robotics.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/robotics.yaml.minisig",
-      "signer_key_id": "474bba90a66fece4",
+      "signer_key_id": "8003efb7ea1e8061",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/secure-worktree-pipeline.yaml",
       "statement_path": "attestations/bundle/registry/bundles/secure-worktree-pipeline.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/secure-worktree-pipeline.yaml.minisig",
-      "signer_key_id": "4ab7066793e73851",
+      "signer_key_id": "9db7b714ccedde95",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/security-check.yaml",
       "statement_path": "attestations/bundle/registry/bundles/security-check.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/security-check.yaml.minisig",
-      "signer_key_id": "10b59dcea7bc7735",
+      "signer_key_id": "650147a45e750922",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/terminal-lane.yaml",
       "statement_path": "attestations/bundle/registry/bundles/terminal-lane.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/terminal-lane.yaml.minisig",
-      "signer_key_id": "4b79e627c0028485",
+      "signer_key_id": "55deac27fed709a6",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/test-intent-lock.yaml",
       "statement_path": "attestations/bundle/registry/bundles/test-intent-lock.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/test-intent-lock.yaml.minisig",
-      "signer_key_id": "793e28c3a3425860",
+      "signer_key_id": "16911c8f74845649",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/tracebank.yaml",
       "statement_path": "attestations/bundle/registry/bundles/tracebank.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/tracebank.yaml.minisig",
-      "signer_key_id": "94ec574ea64bb9bf",
+      "signer_key_id": "44942cd704f2677a",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/bundles/vision.yaml",
       "statement_path": "attestations/bundle/registry/bundles/vision.yaml.statement.json",
       "signature_path": "attestations/bundle/registry/bundles/vision.yaml.minisig",
-      "signer_key_id": "ab6f29fb53297445",
+      "signer_key_id": "145c8f3494a583c0",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/registry/omg-capability.schema.json",
       "statement_path": "attestations/bundle/registry/omg-capability.schema.json.statement.json",
       "signature_path": "attestations/bundle/registry/omg-capability.schema.json.minisig",
-      "signer_key_id": "2859d24f1d2a4990",
+      "signer_key_id": "99ea1f98bf084532",
       "algorithm": "ed25519-minisign"
     },
     {
       "artifact_path": "bundle/settings.json",
       "statement_path": "attestations/bundle/settings.json.statement.json",
       "signature_path": "attestations/bundle/settings.json.minisig",
-      "signer_key_id": "33ece0a69a7c765f",
+      "signer_key_id": "d6ae0716402f6c7f",
       "algorithm": "ed25519-minisign"
     }
   ]

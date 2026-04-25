@@ -18,31 +18,37 @@ jobs:
       pull-requests: write
       id-token: write
     env:
-      GITHUB_APP_ID: ${{ vars.GITHUB_APP_ID }}
-      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-      GITHUB_INSTALLATION_ID: ${{ vars.GITHUB_INSTALLATION_ID }}
+      OMG_APP_ID: ${{ vars.OMG_APP_ID || vars.GITHUB_APP_ID }}
+      OMG_APP_PRIVATE_KEY: ${{ secrets.OMG_APP_PRIVATE_KEY || secrets.GITHUB_APP_PRIVATE_KEY }}
+      OMG_APP_INSTALLATION_ID: ${{ vars.OMG_APP_INSTALLATION_ID || vars.GITHUB_INSTALLATION_ID }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Validate required release credentials
         run: |
-          test -n "${GITHUB_APP_ID}" || (echo "Missing GITHUB_APP_ID" && exit 1)
-          test -n "${GITHUB_APP_PRIVATE_KEY}" || (echo "Missing GITHUB_APP_PRIVATE_KEY" && exit 1)
-          test -n "${GITHUB_INSTALLATION_ID}" || (echo "Missing GITHUB_INSTALLATION_ID" && exit 1)
           test -n "${NPM_TOKEN}" || (echo "Missing NPM_TOKEN" && exit 1)
+          if [ -n "${OMG_APP_ID}" ] || [ -n "${OMG_APP_PRIVATE_KEY}" ] || [ -n "${OMG_APP_INSTALLATION_ID}" ]; then
+            test -n "${OMG_APP_ID}" || (echo "Missing OMG_APP_ID (or legacy GITHUB_APP_ID)" && exit 1)
+            test -n "${OMG_APP_PRIVATE_KEY}" || (echo "Missing OMG_APP_PRIVATE_KEY (or legacy GITHUB_APP_PRIVATE_KEY)" && exit 1)
+            test -n "${OMG_APP_INSTALLATION_ID}" || (echo "Missing OMG_APP_INSTALLATION_ID (or legacy GITHUB_INSTALLATION_ID)" && exit 1)
+            echo "Using GitHub App auth for release"
+          else
+            echo "Using default Actions GITHUB_TOKEN fallback for release"
+          fi
 
       - name: Create GitHub App token
+        if: env.OMG_APP_ID != '' && env.OMG_APP_PRIVATE_KEY != '' && env.OMG_APP_INSTALLATION_ID != ''
         id: app-token
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ env.GITHUB_APP_ID }}
-          private-key: ${{ env.GITHUB_APP_PRIVATE_KEY }}
-          installation-id: ${{ env.GITHUB_INSTALLATION_ID }}
+          app-id: ${{ env.OMG_APP_ID }}
+          private-key: ${{ env.OMG_APP_PRIVATE_KEY }}
+          installation-id: ${{ env.OMG_APP_INSTALLATION_ID }}
 
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -75,7 +81,7 @@ jobs:
 
       - name: Run semantic-release
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
           NODE_AUTH_TOKEN: ${{ env.NPM_TOKEN }}
         run: npx semantic-release

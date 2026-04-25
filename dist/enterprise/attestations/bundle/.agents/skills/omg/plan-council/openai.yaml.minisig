@@ -1,4 +1,4 @@
 untrusted comment: signature from omg local signing key
-K4ckB78Xc32wjuiQWRf5uWf1ap29F+ObDXZI2gEPIo7dL4n74vEmcBIZQg5nyXAb/7s2hOFQn9uaFXitcM+lAg==
-trusted comment: type=omg-slsa-v1 keyid=b200e46df7114b3d issued_at=2026-04-23T08:21:26.579870+00:00 artifact=bundle/.agents/skills/omg/plan-council/openai.yaml sha256=3afa688f970eb964620431b9638f7d290700f878add7ae999442df9c4dbb4f67
-lMuax/gARiTDxC7ZvsADg4kpAISzbSAXG4740/CXVhjatvnUx22XlUwnPMcvwp6lm28KgChbr4agXeydQmBoDQ==
+xlFfZwDFzUJ3sdORUqjCyZJ8kBIQLXfyn/4T/1dleHEnWdgaCSq8B21tJAp4IonrUdNyj3wyt1KF044mJXaODg==
+trusted comment: type=omg-slsa-v1 keyid=28de26ba62c1213d issued_at=2026-04-25T08:15:48.174715+00:00 artifact=bundle/.agents/skills/omg/plan-council/openai.yaml sha256=3afa688f970eb964620431b9638f7d290700f878add7ae999442df9c4dbb4f67
+Ihhq36UxsatUWslHuO2cR3pQAFgDthGpI7K8lk8ZdUBqdIKddBLyqQeoz5DV5lEVmBk3jdkg/rl81rjaff/hBA==

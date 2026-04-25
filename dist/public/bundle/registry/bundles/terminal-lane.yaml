@@ -1,6 +1,6 @@
 id: terminal-lane
 kind: governance
-version: 2.6.0
+version: 2.7.0
 title: OMG Terminal Lane
 description: Fail-closed Bash governance lane with mandatory tool approval, compliance attestation checks, and explicit deny-path behavior.
 hosts:

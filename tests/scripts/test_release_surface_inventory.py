@@ -90,8 +90,9 @@ class TestInventoryCompleteness:
         # + 1 frontmatter + 3 CLI-ADAPTER-MAP + 1 shell + 1 js + 1 banner + 1 json
         # + 1 JSON (validate.md) + 1 banner (settings.json)
         # + 1 regex (INSTALL-VERIFICATION-INDEX.md)
-        # = 52
-        assert len(AUTHORED_SURFACES) == 52
+        # + 1 regex (package.json postinstall echo banner) — added in v2.7.0
+        # = 53
+        assert len(AUTHORED_SURFACES) == 53
 
     def test_all_json_surfaces_from_sync_script_covered(self) -> None:
         """Every JSON surface from sync-release-identity.py must appear."""

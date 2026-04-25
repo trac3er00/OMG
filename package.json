@@ -1,12 +1,13 @@
 {
   "name": "@trac3r/oh-my-god",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "OMG (Oh My God) — Multi-agent orchestration, evidence-backed verification, and durable session state for Claude Code, Codex, and supported agent hosts",
   "type": "module",
   "main": "src/index.ts",
   "bin": {
     "omg": "bin/omg",
-    "omg-control": "src/mcp/server.ts"
+    "omg-control": "src/mcp/server.ts",
+    "omg-tui": "src/tui/index.ts"
   },
   "files": [
     "bin/",
@@ -44,7 +45,7 @@
     "eval": "bun run src/eval/runner.ts",
     "benchmark": "bun run src/benchmarks/runner.ts",
     "validate-skills": "bun run src/skills/validator.ts",
-    "postinstall": "echo 'OMG v2.6.0 installed. Run: bunx omg install --plan'"
+    "postinstall": "echo 'OMG v2.7.0 installed. Run: bunx omg install --plan'"
   },
   "keywords": [
     "claude",

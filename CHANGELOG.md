@@ -1,5 +1,13 @@
 # Changelog
 
+<!-- OMG:GENERATED:changelog-v2.7.0 -->
+### Governed Release Surface (v2.7.0)
+
+- Canonical release surface compilation
+- Dual-channel artifact output (public + enterprise)
+- Idempotent generated-section markers in docs
+<!-- /OMG:GENERATED:changelog-v2.7.0 -->
+
 <!-- OMG:GENERATED:changelog-v2.6.0 -->
 
 ### Governed Release Surface (v2.6.0)
@@ -8,6 +16,49 @@
 - Dual-channel artifact output (public + enterprise)
 - Idempotent generated-section markers in docs
 <!-- /OMG:GENERATED:changelog-v2.6.0 -->
+
+## [2.7.0] - 2026-04-25
+
+### Release Summary
+
+OMG v2.7.0 — "AI Work OS, Productized" release (minor bump from v2.6.0). Completes the transition from governance plugin to AI Work OS product: wires the 5 Wow Flows directly into the CLI, hardens every external content surface against prompt-injection with a pre-return firewall and trust-tier scoring, introduces the **Advisor** as a unified judgment engine wrapping escalation, ships an alpha **TUI** with five core commands, and adds CI host-parity smoke coverage and a 131-rule intent fidelity checker.
+
+### Highlights
+
+- **Wow Flows wired into the CLI** (`src/cli/commands/instant.ts`): `npx omg "make a landing page"` now routes through `TaskClassifier` directly into the TypeScript flows (`runLandingFlow`, `runSaasFlow`, `runBotFlow`, `runAdminFlow`, `runRefactorFlow`) and surfaces the 5-dimension ProofScore in human-readable form. The Python `instant_mode` path remains untouched as fallback per the v2.7.0 plan.
+- **External Content Firewall** (`src/security/external-firewall.ts`): pre-return sanitization for `web_search`, `web_fetch`, MCP resources, and user-provided URLs. Markdown-injection (`[system](url)`, `![alt](url)`), JSON/YAML instruction smuggling, and Unicode-confusable role keywords are stripped before any agent sees the content. 50KB content cap, blocking-by-default with `--allow-external-raw` bypass, and a `.omg/security/blocked.jsonl` audit log.
+- **External Source Trust Scoring** (`src/security/trust-scoring.ts`): four-tier rule-based system (`LOCAL` 1.0 / `VERIFIED` 0.8 / `RESEARCH` 0.3 / `UNTRUSTED` 0.0) layered on top of the firewall. Trust tier modulates sanitization strictness; `VERIFIED` allowlist seeded in `config/trusted-domains.json`. Adapter pattern translates to the existing Python `TrustTier` enum at the boundary — Python enum unchanged this cycle.
+- **Advisor — Unified Judgment Engine** (`src/advisor/index.ts`): wraps the existing escalation surface and consolidates intent-gap detection, risk assessment, model-choice, proof-need, and next-action decisions into a single advisory call. Decisions are persisted to `.omg/decisions/` for replay and post-hoc review. Removal of the underlying escalation primitive is deferred to v2.8.0 per plan.
+- **Intent Fidelity Checker — 131 Rule** (`src/intent/fidelity-checker.ts`): prompt-layer enforcement of the 131 rule (1 interpretation → 3 rationale/gap checks → 1 precise question). Detects ambiguous instructions, generates focused clarifications, caps at 3 clarification rounds to prevent loops, and logs gaps to `.omg/intent/gaps.jsonl`. Integrated via `hooks/prompt-enhancer.py`. Agent-layer adherence remains scoped out for this release.
+- **Alpha TUI** (`src/tui/index.ts`): standalone terminal UI with exactly 5 commands — `instant`, `ship`, `proof`, `blocked`, `help`. New `omg-tui` bin entry. Each command is a thin wrapper over the existing CLI implementations — no command logic duplicated.
+- **Host Parity Smoke Tests** (`tests/host-parity/smoke.test.ts`): 15-test matrix (3 hosts × 5 scenarios) covering MCP registration, hook execution, skill loading, subagent spawn, and proof-gate evaluation across Claude, Codex, and Gemini. Mocked host environments — no live CLI required in CI. New workflow `.github/workflows/host-parity.yml` runs the matrix on PRs.
+- **CI Hardening**: release automation secrets audited and moved entirely to GitHub Secrets; deprecated actions updated; new `release-gate.yml` provides the v2.7.0 release-readiness gate. No simulation Dockerfile changes (none exists in repo per scope).
+- **Advisor Integration Tests** (`tests/advisor/integration.test.ts`): end-to-end coverage of the Advisor flow with the firewall, fidelity checker, trust scoring, and escalation wrap, including decision-log persistence verification.
+- **User Instruction Adherence Tests** (`tests/intent/adherence.test.ts`): 10+ synthetic-case tests exercising clear, ambiguous, dangerous, multi-step, and contradictory instructions through the 131 rule.
+
+### Must NOT in v2.7.0 (deferred to v2.8.0+)
+
+- Removal of escalation primitive — Advisor only wraps in this release.
+- Agent-level 131-rule enforcement — prompt layer only this cycle.
+- TUI feature creep — exactly 5 commands; no vision/image features.
+- New external input types beyond the enumerated set.
+- Python `TrustTier` enum schema changes.
+
+### Tests
+
+- **TypeScript**: New tests across `src/security/`, `src/intent/`, `src/cli/commands/`, `src/tui/`, `src/advisor/`, plus integration suites under `tests/host-parity/`, `tests/intent/`, and `tests/advisor/`. All targeted suites green.
+- **Python**: `python3 -m pytest tests -q` — full suite green; no net-new failures versus v2.6.0.
+- **Release Identity**: `python3 scripts/sync-release-identity.py --check` — all surfaces in sync at `2.7.0`.
+
+### Verification
+
+All Wave-FINAL reviewers (F1 plan compliance, F2 code quality, F3 manual QA, F4 scope fidelity) returned APPROVE on v2.7.0 work prior to release cut. Release readiness gate (`scripts/omg.py release readiness --channel dual`) returns `status=ok` against the 2.7.0 surface.
+
+### Backward Compatibility
+
+- Python `instant_mode` path retained as fallback; `omg instant "<goal>"` deprecation warning unchanged.
+- All existing MCP tools, subcommands, and configuration surfaces preserved.
+- No breaking schema changes to `TrustTier`, governance, or proof primitives.
 
 ## [2.6.0] - 2026-04-22
 
@@ -88,7 +139,9 @@ and durable session state for Claude Code, Codex, Gemini, and Kimi.
 - Governance soft-block enforcement
 - Platform compatibility checks
 
-## [2.9.0] - 2026-04-10
+## [2.9.0-phase3-roadmap] - 2026-04-10
+
+> Note: This entry documents Phase 3 roadmap work originally targeted for a future v2.9.0 release. It is preserved here for historical context. The actual v2.9.0 release has not yet been cut.
 
 ### Added
 
@@ -97,7 +150,9 @@ and durable session state for Claude Code, Codex, Gemini, and Kimi.
 - Smart Task Handling with auto-classification and model escalation
 - `/autoresearch` daemon mode with security envelope and aligned v2.9.0 release surfaces
 
-## [2.7.0] - 2026-04-10
+## [2.7.0-phase2-roadmap] - 2026-04-10
+
+> Note: This entry documents Phase 2 roadmap work that was originally drafted before the v2.7.0 release scope was finalized. The canonical v2.7.0 release entry is at the top of this file (dated 2026-04-25). This entry is preserved for historical context only.
 
 ### Added
 
