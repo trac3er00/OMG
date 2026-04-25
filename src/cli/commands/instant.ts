@@ -81,6 +81,7 @@ interface InstantPayload extends Record<string, unknown> {
   readonly skipped_files?: readonly unknown[];
   readonly dry_run?: boolean;
   readonly rollback?: boolean;
+  readonly error?: string;
 }
 
 interface PythonResult {
@@ -271,16 +272,17 @@ function mapWowResultToPayload(
   result: WowResult,
   targetDir: string,
 ): InstantPayload {
-  return {
+  const payload: Record<string, unknown> = {
     success: result.success,
     type: result.flowName,
     target_dir: targetDir,
-    file_count: 0, // Wow flows don't track file count explicitly
-    proofScore: result.proofScore,
-    url: result.url,
-    buildTime: result.buildTime,
-    error: result.error,
+    file_count: 0,
   };
+  if (result.proofScore !== undefined) payload.proofScore = result.proofScore;
+  if (result.url !== undefined) payload.url = result.url;
+  if (result.buildTime !== undefined) payload.buildTime = result.buildTime;
+  if (result.error !== undefined) payload.error = result.error;
+  return payload as InstantPayload;
 }
 
 async function runWowFlow(
@@ -306,18 +308,41 @@ async function runWowFlow(
  * Attempts to run a TypeScript wow flow based on prompt keyword matching.
  * Returns InstantPayload if a matching flow was found and executed.
  * Returns null if no flow matched (caller should fall back to Python).
+ *
+ * When `dryRun` is true, the flow is NOT executed — a preview payload is
+ * returned describing the matched flow and target directory so callers can
+ * surface a non-mutating preview (no files written, no deploy invoked).
  */
 export async function tryWowFlow(
   prompt: string,
   targetDir: string,
+  options: { dryRun?: boolean } = {},
 ): Promise<InstantPayload | null> {
   const flowType = detectFlowType(prompt);
   if (flowType === null) {
     return null;
   }
 
+  if (options.dryRun) {
+    return buildWowDryRunPayload(flowType, targetDir);
+  }
+
   const result = await runWowFlow(flowType, prompt, targetDir);
   return mapWowResultToPayload(result, targetDir);
+}
+
+function buildWowDryRunPayload(
+  flowType: FlowType,
+  targetDir: string,
+): InstantPayload {
+  return {
+    success: true,
+    type: flowType,
+    target_dir: targetDir,
+    file_count: 0,
+    dry_run: true,
+    warning: `[dry-run] Wow flow '${flowType}' matched. No files written and no deploy invoked. Re-run without --dry-run to scaffold into ${targetDir}.`,
+  };
 }
 
 export function runInstant(
@@ -366,7 +391,22 @@ function printHuman(payload: InstantPayload): void {
     if (clarificationPrompt.length > 0) {
       throw new Error(clarificationPrompt);
     }
+    const upstreamError = String(payload.error ?? "").trim();
+    if (upstreamError.length > 0) {
+      throw new Error(`instant mode failed: ${upstreamError}`);
+    }
     throw new Error("instant mode failed");
+  }
+
+  if (payload.dry_run) {
+    const targetDir = String(payload.target_dir ?? "").trim() || "(unknown)";
+    const flowType = String(payload.type ?? "(unknown)");
+    console.log(`✓ [dry-run] Would scaffold '${flowType}' flow into ${targetDir}`);
+    const warning = String(payload.warning ?? "").trim();
+    if (warning.length > 0) {
+      console.log(warning);
+    }
+    return;
   }
 
   const targetDir = requireProjectPath(payload);
@@ -427,10 +467,14 @@ export const instantCommand: CommandModule<object, InstantArgs> = {
       targetDir: String(argv.targetDir ?? process.cwd()),
     };
 
-    const wowPayload = await tryWowFlow(prompt, options.targetDir);
+    const wowPayload = await tryWowFlow(prompt, options.targetDir, {
+      dryRun: options.dryRun,
+    });
     if (wowPayload !== null) {
       if (argv.json) {
-        requireProjectPath(wowPayload);
+        if (!wowPayload.dry_run) {
+          requireProjectPath(wowPayload);
+        }
         console.log(JSON.stringify(wowPayload, null, 2));
         return;
       }

@@ -135,7 +135,13 @@ function logDecision(
 
   try {
     appendJsonLine(getDecisionPath(output.decision), entry);
-  } catch {}
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    process.stderr.write(
+      `[advisor:decision-log-error] failed to append decision for ` +
+        `${output.decision}: ${reason}\n`,
+    );
+  }
 
   emitVerboseDecision(entry);
 }

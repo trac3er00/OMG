@@ -139,7 +139,9 @@ and durable session state for Claude Code, Codex, Gemini, and Kimi.
 - Governance soft-block enforcement
 - Platform compatibility checks
 
-## [2.9.0] - 2026-04-10
+## [2.9.0-phase3-roadmap] - 2026-04-10
+
+> Note: This entry documents Phase 3 roadmap work originally targeted for a future v2.9.0 release. It is preserved here for historical context. The actual v2.9.0 release has not yet been cut.
 
 ### Added
 
@@ -148,7 +150,9 @@ and durable session state for Claude Code, Codex, Gemini, and Kimi.
 - Smart Task Handling with auto-classification and model escalation
 - `/autoresearch` daemon mode with security envelope and aligned v2.9.0 release surfaces
 
-## [2.7.0] - 2026-04-10
+## [2.7.0-phase2-roadmap] - 2026-04-10
+
+> Note: This entry documents Phase 2 roadmap work that was originally drafted before the v2.7.0 release scope was finalized. The canonical v2.7.0 release entry is at the top of this file (dated 2026-04-25). This entry is preserved for historical context only.
 
 ### Added
 

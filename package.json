@@ -45,7 +45,7 @@
     "eval": "bun run src/eval/runner.ts",
     "benchmark": "bun run src/benchmarks/runner.ts",
     "validate-skills": "bun run src/skills/validator.ts",
-    "postinstall": "echo 'OMG v2.6.0 installed. Run: bunx omg install --plan'"
+    "postinstall": "echo 'OMG v2.7.0 installed. Run: bunx omg install --plan'"
   },
   "keywords": [
     "claude",

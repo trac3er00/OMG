@@ -143,4 +143,36 @@ describe("tryWowFlow", () => {
     expect(results[2]?.type).toBe("admin");
     expect(results[3]?.type).toBe("refactor");
   });
+
+  test("dry-run skips flow execution and returns preview payload", async () => {
+    const result = await tryWowFlow("make a landing page", targetDir, {
+      dryRun: true,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.type).toBe("landing");
+    expect(result?.success).toBe(true);
+    expect(result?.dry_run).toBe(true);
+    expect(result?.target_dir).toBe(targetDir);
+    expect(result?.file_count).toBe(0);
+    expect(result?.url).toBeUndefined();
+    expect(result?.proofScore).toBeUndefined();
+    expect(String(result?.warning ?? "")).toContain("[dry-run]");
+  });
+
+  test("dry-run preview is non-mutating across all 5 flow types", async () => {
+    const flows: ReadonlyArray<{ prompt: string; expectedType: string }> = [
+      { prompt: "landing page", expectedType: "landing" },
+      { prompt: "build a saas", expectedType: "saas" },
+      { prompt: "discord bot", expectedType: "bot" },
+      { prompt: "admin panel", expectedType: "admin" },
+      { prompt: "refactor auth", expectedType: "refactor" },
+    ];
+    for (const { prompt, expectedType } of flows) {
+      const result = await tryWowFlow(prompt, targetDir, { dryRun: true });
+      expect(result?.dry_run).toBe(true);
+      expect(result?.type).toBe(expectedType);
+      expect(result?.url).toBeUndefined();
+    }
+  });
 });
