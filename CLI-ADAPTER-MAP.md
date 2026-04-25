@@ -164,7 +164,7 @@ OpenCode remains a compatibility-only adapter surface and is intentionally exclu
   - `~/.claude/settings.json` → `enabledPlugins[plugin_ref] = true`
   - `~/.claude/plugins/installed_plugins.json` → Plugin metadata with installed path, version, timestamp
 - **Plugin Ref Format:** `omg@omg` (name@marketplace_id)
-- **Version:** `2.6.0` (from package.json)
+- **Version:** `2.7.0` (from package.json)
 
 #### C. Plugin Unregistration (Lines 631-669)
 - **Function:** `unregister_plugin_from_registry(plugin_ref)`
@@ -208,7 +208,7 @@ OpenCode remains a compatibility-only adapter surface and is intentionally exclu
 ```json
 {
   "name": "@trac3r/oh-my-god",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "scripts": {
     "postinstall": "python3 scripts/omg.py install --plan",
     "update": "./OMG-setup.sh update",
@@ -241,7 +241,7 @@ CANONICAL_REPO_URL = "https://github.com/trac3r00/OMG"
 CANONICAL_PACKAGE_NAME = "@trac3r/oh-my-god"
 CANONICAL_PLUGIN_ID = "omg"
 CANONICAL_MARKETPLACE_ID = "omg"
-CANONICAL_VERSION = "2.6.0"
+CANONICAL_VERSION = "2.7.0"
 ```
 
 ---

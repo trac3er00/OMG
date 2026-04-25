@@ -17,7 +17,7 @@
         "algorithm": "ed25519-minisign",
         "mode": "local-offline"
       },
-      "timestamp": "2026-04-23T08:21:25.877844+00:00"
+      "timestamp": "2026-04-25T08:15:44.134097+00:00"
     }
   },
   "signer": {
@@ -25,11 +25,11 @@
     "algorithm": "ed25519-minisign",
     "mode": "local-offline"
   },
-  "issued_at": "2026-04-23T08:21:25.877844+00:00",
+  "issued_at": "2026-04-25T08:15:44.134097+00:00",
   "signature": {
     "alg": "ed25519-minisign",
-    "keyid": "34d9e0eae03328a0",
-    "value": "untrusted comment: signature from omg local signing key\n/cYMhlB4pn6sZXaY3eAsA+Y2Ii/hnyxHMrRii4d4m5qILwS2tjAI7ZuiOr1SqTeHv5fJjiE1uqPzLXXMZLzqBw==\ntrusted comment: type=omg-slsa-v1 keyid=34d9e0eae03328a0 issued_at=2026-04-23T08:21:25.877968+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=1a2512155f104b2391accfe4883e359d8b40f5c06d298bebea9ad277990ba850\n+p1yl2AOczhFe6pWzrJvygco71tFDDrOfiy6Gc4lx03K1gUrRypybzvdd9yAvVZQf7VLQPJl6Ix8dpPUNsXdBQ==",
-    "trusted_comment": "type=omg-slsa-v1 keyid=34d9e0eae03328a0 issued_at=2026-04-23T08:21:25.877968+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=1a2512155f104b2391accfe4883e359d8b40f5c06d298bebea9ad277990ba850"
+    "keyid": "4b3e5c11b8086789",
+    "value": "untrusted comment: signature from omg local signing key\nHmuSq7pe3N1sMFp8uEE59dkVmX9sAi6oc2S+fKyIRNc6PyxcdtVw6mSVO0VYYg62bixIEnsKIh7p5FvCrHD9Dw==\ntrusted comment: type=omg-slsa-v1 keyid=4b3e5c11b8086789 issued_at=2026-04-25T08:15:44.134213+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=1a2512155f104b2391accfe4883e359d8b40f5c06d298bebea9ad277990ba850\nQ8jCFmIYvsUqYOQ0D8Dha8935wBysG13RXic1tet7JyYI2b6ot/zzjyyGXh90kBHhJSOdIsyKJ4OaS6McBkgAA==",
+    "trusted_comment": "type=omg-slsa-v1 keyid=4b3e5c11b8086789 issued_at=2026-04-25T08:15:44.134213+00:00 artifact=bundle/.agents/skills/omg/secure-worktree-pipeline/openai.yaml sha256=1a2512155f104b2391accfe4883e359d8b40f5c06d298bebea9ad277990ba850"
   }
 }

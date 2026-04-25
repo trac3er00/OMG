@@ -161,7 +161,6 @@ Confirm your setup with this checklist:
 | `GITHUB_TOKEN_RESPONSE_INVALID`  | Unexpected response from GitHub.      | Check if GitHub API versions have changed or if there is a proxy interference.                    |
 
 <!-- OMG:GENERATED:install-fast-path -->
-
 ## Fast Path
 
 > **Prerequisites**: macOS or Linux, Node >=18, Python >=3.10
@@ -173,5 +172,4 @@ npx omg install --apply   # apply configuration
 ```
 
 The preview step is advisory only and makes no mutations until you run apply.
-
 <!-- /OMG:GENERATED:install-fast-path -->

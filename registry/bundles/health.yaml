@@ -1,6 +1,6 @@
 id: health
 kind: domain-pack
-version: 2.6.0
+version: 2.7.0
 title: OMG Health Pack
 description: Health-sensitive approvals, provenance, and replay attachments.
 hosts:
